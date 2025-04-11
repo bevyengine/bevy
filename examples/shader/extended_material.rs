@@ -41,7 +41,7 @@ fn setup(
                 // change the above to `OpaqueRendererMethod::Deferred` or add the `DefaultOpaqueRendererMethod` resource.
                 ..Default::default()
             },
-            extension: MyExtension { quantize_steps: 3 },
+            extension: MyExtension::new(1),
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
@@ -69,12 +69,24 @@ fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
     }
 }
 
-#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default)]
 struct MyExtension {
     // We need to ensure that the bindings of the base material and the extension do not conflict,
     // so we start from binding slot 100, leaving slots 0-99 for the base material.
+    //
+    // WebGL2 structs must be 16 byte aligned. We only use the `x` field
     #[uniform(100)]
-    quantize_steps: u32,
+    quantize_steps: UVec4,
+}
+impl MyExtension {
+    fn new(quantize_steps: u32) -> Self {
+        Self {
+            quantize_steps: UVec4 {
+                x: quantize_steps,
+                ..default()
+            },
+        }
+    }
 }
 
 impl MaterialExtension for MyExtension {
