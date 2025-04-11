@@ -10,6 +10,7 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
+    error::{panic, ErrorHandler},
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
@@ -85,6 +86,7 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
+    default_error_handler: ErrorHandler,
 }
 
 impl Debug for App {
@@ -143,6 +145,7 @@ impl App {
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
+            default_error_handler: panic,
         }
     }
 
@@ -1115,7 +1118,10 @@ impl App {
     }
 
     /// Inserts a [`SubApp`] with the given label.
-    pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
+    pub fn insert_sub_app(&mut self, label: impl AppLabel, mut sub_app: SubApp) {
+        sub_app
+            .world_mut()
+            .set_default_error_handler(self.default_error_handler);
         self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
 
@@ -1332,6 +1338,34 @@ impl App {
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.world_mut().add_observer(observer);
+        self
+    }
+
+    /// Gets the error handler to set for new supapps.
+    ///
+    /// Note that the error handler of existing subapps may differ.
+    pub fn get_error_handler(&self) -> ErrorHandler {
+        self.default_error_handler
+    }
+
+    /// Override the error handler for the all subapps (including the main one).
+    ///
+    /// This handler will be called when an error is produced and not otherwise handled.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_app::*;
+    /// # use bevy_ecs::error::warn;
+    /// App::new()
+    ///     .set_error_handler(warn)
+    ///     .add_plugins(DefaultPlugins)
+    ///     .run()
+    /// ```
+    pub fn set_error_handler(&mut self, handler: ErrorHandler) -> &mut Self {
+        self.default_error_handler = handler;
+        for sub_app in self.sub_apps.iter_mut() {
+            sub_app.world_mut().set_default_error_handler(handler);
+        }
         self
     }
 }

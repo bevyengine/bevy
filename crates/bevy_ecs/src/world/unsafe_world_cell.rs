@@ -7,6 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    error::ErrorHandler,
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -704,6 +705,13 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe {
             (*self.ptr).last_trigger_id = (*self.ptr).last_trigger_id.wrapping_add(1);
         }
+    }
+
+    /// Get the world's default error handler.
+    #[inline]
+    pub fn default_error_handler(&self) -> ErrorHandler {
+        // SAFETY: Writing to this field requires an exclusive reference.
+        unsafe { (*self.ptr).default_error_handler }
     }
 }
 
