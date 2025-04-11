@@ -43,6 +43,7 @@ pub mod identifier;
 pub mod intern;
 pub mod label;
 pub mod name;
+pub mod never;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
