@@ -21,6 +21,8 @@ use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
 use pass::ScheduleBuildPassObj;
+use petgraph::algo::TarjanScc;
+use smallvec::SmallVec;
 use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -367,7 +369,7 @@ impl Schedule {
             );
         };
 
-        self.graph.ambiguous_with.add_edge(a_id, b_id);
+        self.graph.ambiguous_with.add_edge(a_id, b_id, ());
 
         self
     }
@@ -922,7 +924,7 @@ impl ScheduleGraph {
                             for current_node in current_nodes {
                                 self.dependency
                                     .graph
-                                    .add_edge(*previous_node, *current_node);
+                                    .add_edge(*previous_node, *current_node, ());
 
                                 for pass in self.passes.values_mut() {
                                     pass.add_dependency(
@@ -1103,7 +1105,7 @@ impl ScheduleGraph {
         self.dependency.graph.add_node(id);
 
         for set in sets.into_iter().map(|set| self.system_set_ids[&set]) {
-            self.hierarchy.graph.add_edge(set, id);
+            self.hierarchy.graph.add_edge(set, id, ());
 
             // ensure set also appears in dependency graph
             self.dependency.graph.add_node(set);
@@ -1117,7 +1119,7 @@ impl ScheduleGraph {
                 DependencyKind::Before => (id, set),
                 DependencyKind::After => (set, id),
             };
-            self.dependency.graph.add_edge(lhs, rhs);
+            self.dependency.graph.add_edge(lhs, rhs, ());
             for pass in self.passes.values_mut() {
                 pass.add_dependency(lhs, rhs, &options);
             }
@@ -1133,7 +1135,7 @@ impl ScheduleGraph {
                     .into_iter()
                     .map(|set| self.system_set_ids[&set])
                 {
-                    self.ambiguous_with.add_edge(id, set);
+                    self.ambiguous_with.add_edge(id, set, ());
                 }
             }
             Ambiguity::IgnoreAll => {
@@ -1313,7 +1315,7 @@ impl ScheduleGraph {
 
             dependency_flattened.remove_node(set);
             for (a, b) in temp.drain(..) {
-                dependency_flattened.add_edge(a, b);
+                dependency_flattened.add_edge(a, b, ());
             }
         }
 
@@ -1322,25 +1324,25 @@ impl ScheduleGraph {
 
     fn get_ambiguous_with_flattened(&self, set_systems: &HashMap<NodeId, Vec<NodeId>>) -> UnGraph {
         let mut ambiguous_with_flattened = UnGraph::default();
-        for (lhs, rhs) in self.ambiguous_with.all_edges() {
+        for (lhs, rhs, _) in self.ambiguous_with.all_edges() {
             match (lhs, rhs) {
                 (NodeId::System(_), NodeId::System(_)) => {
-                    ambiguous_with_flattened.add_edge(lhs, rhs);
+                    ambiguous_with_flattened.add_edge(lhs, rhs, ());
                 }
                 (NodeId::Set(_), NodeId::System(_)) => {
                     for &lhs_ in set_systems.get(&lhs).unwrap_or(&Vec::new()) {
-                        ambiguous_with_flattened.add_edge(lhs_, rhs);
+                        ambiguous_with_flattened.add_edge(lhs_, rhs, ());
                     }
                 }
                 (NodeId::System(_), NodeId::Set(_)) => {
                     for &rhs_ in set_systems.get(&rhs).unwrap_or(&Vec::new()) {
-                        ambiguous_with_flattened.add_edge(lhs, rhs_);
+                        ambiguous_with_flattened.add_edge(lhs, rhs_, ());
                     }
                 }
                 (NodeId::Set(_), NodeId::Set(_)) => {
                     for &lhs_ in set_systems.get(&lhs).unwrap_or(&Vec::new()) {
                         for &rhs_ in set_systems.get(&rhs).unwrap_or(&vec![]) {
-                            ambiguous_with_flattened.add_edge(lhs_, rhs_);
+                            ambiguous_with_flattened.add_edge(lhs_, rhs_, ());
                         }
                     }
                 }
@@ -1631,7 +1633,7 @@ impl ScheduleGraph {
                 .graph
                 .edges_directed(*id, Outgoing)
                 // never get the sets of the members or this will infinite recurse when the report_sets setting is on.
-                .map(|(_, member_id)| self.get_node_name_inner(&member_id, false))
+                .map(|(_, member_id, _)| self.get_node_name_inner(&member_id, false))
                 .reduce(|a, b| format!("{a}, {b}"))
                 .unwrap_or_default()
         )
@@ -1704,17 +1706,15 @@ impl ScheduleGraph {
     ) -> Result<Vec<NodeId>, ScheduleBuildError> {
         // Tarjan's SCC algorithm returns elements in *reverse* topological order.
         let mut top_sorted_nodes = Vec::with_capacity(graph.node_count());
-        let mut sccs_with_cycles = Vec::new();
+        let mut sccs_with_cycles: Vec<SmallVec<[NodeId; 4]>> = Vec::new();
 
-        for scc in graph.iter_sccs() {
-            // A strongly-connected component is a group of nodes who can all reach each other
-            // through one or more paths. If an SCC contains more than one node, there must be
-            // at least one cycle within them.
-            top_sorted_nodes.extend_from_slice(&scc);
+        let mut tarjan = TarjanScc::<NodeId>::new();
+        tarjan.run(&graph, |scc| {
+            top_sorted_nodes.extend_from_slice(scc);
             if scc.len() > 1 {
-                sccs_with_cycles.push(scc);
+                sccs_with_cycles.push(SmallVec::from_slice(scc));
             }
-        }
+        });
 
         if sccs_with_cycles.is_empty() {
             // reverse to get topological order
@@ -1923,7 +1923,7 @@ impl ScheduleGraph {
     }
 
     fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {
-        for (set_id, _) in self.hierarchy.graph.edges_directed(id, Incoming) {
+        for (set_id, _, _) in self.hierarchy.graph.edges_directed(id, Incoming) {
             if f(set_id) {
                 self.traverse_sets_containing_node(set_id, f);
             }

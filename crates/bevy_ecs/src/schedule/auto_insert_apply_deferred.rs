@@ -86,7 +86,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .hierarchy()
                     .graph()
                     .edges_directed(node, Direction::Incoming)
-                    .any(|(parent, _)| set_has_conditions(graph, parent))
+                    .any(|(parent, _, _)| set_has_conditions(graph, parent))
         }
 
         fn system_has_conditions(graph: &ScheduleGraph, node: NodeId) -> bool {
@@ -96,7 +96,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .hierarchy()
                     .graph()
                     .edges_directed(node, Direction::Incoming)
-                    .any(|(parent, _)| set_has_conditions(graph, parent))
+                    .any(|(parent, _, _)| set_has_conditions(graph, parent))
         }
 
         let mut system_has_conditions_cache = HashMap::<usize, bool>::default();
@@ -201,8 +201,8 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .copied()
                     .unwrap_or_else(|| self.get_sync_point(graph, target_distance));
 
-                sync_point_graph.add_edge(*node, sync_point);
-                sync_point_graph.add_edge(sync_point, target);
+                sync_point_graph.add_edge(*node, sync_point, ());
+                sync_point_graph.add_edge(sync_point, target, ());
 
                 // The edge without the sync point is now redundant.
                 sync_point_graph.remove_edge(*node, target);

@@ -31,7 +31,7 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 ] }
 
 # other
-petgraph = { version = "0.7", features = ["serde-1"] }
+petgraph = { version = "0.8", features = ["serde-1"] }
 ron = "0.8"
 serde = "1"
 blake3 = { version = "1.0" }
