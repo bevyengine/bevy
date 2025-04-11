@@ -572,7 +572,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         return Err(syn::Error::new_spanned(
                 &attrs.clone_behavior,
                 "A Relationship Target already has it's own clone behavior, please remove `clone_behavior = ...`",
-            ).into());
+            ));
     }
 
     Ok(attrs)
