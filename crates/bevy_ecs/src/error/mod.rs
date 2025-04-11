@@ -8,7 +8,7 @@
 //! [`panic`] error handler function is used, resulting in a panic with the error message attached.
 //!
 //! You can change the default behavior by registering a custom error handler:
-//! Use [`set_global_default_error_handler`](crate::error::set_global_default_error_handler)
+//! Use [`set_global_default_error_handler`]
 //! to set a custom error handler function for your entire app.
 //! In practice, this is generally feature-flagged: panicking or loudly logging errors in development,
 //! and quietly logging or ignoring them in production to avoid crashing the app.

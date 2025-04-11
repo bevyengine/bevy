@@ -76,14 +76,20 @@ impl ErrorContext {
 }
 
 mod global_error_handler {
-    use super::{BevyError, ErrorContext};
+    use super::{panic, BevyError, ErrorContext};
     use bevy_platform_support::sync::atomic::{
-        AtomicPtr,
+        AtomicBool, AtomicPtr,
         Ordering::{AcqRel, Acquire, Relaxed},
     };
 
+    // The default global error handler, cast to a data pointer as Rust doesn't
+    // currently have a way to express atomic function pointers.
+    // Should we add support for a platform on which function pointers and data pointers
+    // have different sizes, the transmutation back will fail to compile. In that case,
+    // we can replace the atomic pointer with a regular pointer protected by a `RwLock`
+    // on only those platforms.
     // SAFETY: Only accessible from within this module.
-    static HANDLER_ADDRESS: AtomicPtr<()> = AtomicPtr::new(core::ptr::null_mut());
+    static HANDLER: AtomicPtr<()> = AtomicPtr::new(panic as *mut ());
 
     /// Set the global error handler.
     ///
@@ -116,35 +122,33 @@ mod global_error_handler {
     /// [before]: https://doc.rust-lang.org/nightly/core/sync/atomic/index.html#memory-model-for-atomic-accesses
     /// [`default_error_handler`]: super::default_error_handler
     pub fn set_global_default_error_handler(handler: fn(BevyError, ErrorContext)) {
-        if HANDLER_ADDRESS
-            .compare_exchange(core::ptr::null_mut(), handler as *mut (), AcqRel, Acquire)
+        // Prevent the handler from being set multiple times.
+        // We use a seperate atomic instead of trying `compare_exchange` on `HANDLER_ADDRESS`
+        // because Rust doesn't guarantee that function addresses are unique.
+        static INITIALIZED: AtomicBool = AtomicBool::new(false);
+        if INITIALIZED
+            .compare_exchange(false, true, AcqRel, Acquire)
             .is_err()
         {
             panic!("Global error handler set multiple times");
         }
+        HANDLER.store(handler as *mut (), Relaxed);
     }
 
+    /// The default error handler. This defaults to [`panic`],
+    /// but you can override this behavior via [`set_global_default_error_handler`].
     #[inline]
-    pub(super) fn get() -> Option<fn(BevyError, ErrorContext)> {
+    pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
         // The error handler must have been already set from the perspective of this thread,
         // otherwise we will panic. It will never be updated after this point.
         // We therefore only need a relaxed load.
-        let ptr = HANDLER_ADDRESS.load(Relaxed);
-        // SAFETY: We only ever store null or a valid handler function.
-        // `null` is guaranteed to be represent `None`:
-        // https://rust-lang.github.io/unsafe-code-guidelines/layout/function-pointers.html#representation
+        let ptr = HANDLER.load(Relaxed);
+        // SAFETY: We only ever store valid handler functions.
         unsafe { core::mem::transmute(ptr) }
     }
 }
 
-pub use global_error_handler::set_global_default_error_handler;
-
-/// The default error handler. This defaults to [`panic()`],
-/// but you can override this behavior via [`set_global_error_handler`].
-#[inline]
-pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
-    global_error_handler::get().unwrap_or(panic)
-}
+pub use global_error_handler::{default_error_handler, set_global_default_error_handler};
 
 macro_rules! inner {
     ($call:path, $e:ident, $c:ident) => {
