@@ -75,7 +75,7 @@ impl ResourceManager {
         Self {
             visibility_buffer_raster_clusters: render_device.create_buffer(&BufferDescriptor {
                 label: Some("meshlet_visibility_buffer_raster_clusters"),
-                size: cluster_buffer_slots as u64 * size_of::<u32>() as u64,
+                size: cull_queue_size,
                 usage: BufferUsages::STORAGE,
                 mapped_at_creation: false,
             }),

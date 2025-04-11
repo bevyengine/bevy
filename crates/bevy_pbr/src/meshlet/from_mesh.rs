@@ -105,7 +105,7 @@ impl MeshletMesh {
         let mut all_groups = Vec::new();
         let mut simplification_queue: Vec<_> = (0..meshlets.len() as u32).collect();
         let mut stuck = Vec::new();
-        while simplification_queue.len() > 1 {
+        while !simplification_queue.is_empty() {
             // For each meshlet build a list of connected meshlets (meshlets that share a vertex)
             let connected_meshlets_per_meshlet = find_connected_meshlets(
                 &simplification_queue,
@@ -159,7 +159,7 @@ impl MeshletMesh {
                     continue;
                 };
 
-                // Force the group error to be atleast as large as all of it's constituen meshlet's
+                // Force the group error to be atleast as large as all of it's constituent meshlet's
                 // individual errors.
                 for &id in group.meshlets.iter() {
                     group_error = group_error.max(temp_cull_data[id as usize].error);
@@ -703,7 +703,7 @@ fn merge_spheres(spheres: impl Clone + Iterator<Item = BoundingSphere>) -> Bound
     let mut weight = 0.0;
     for sphere in spheres.clone() {
         bounding_sphere.center += sphere.center * sphere.radius();
-        weight += bounding_sphere.radius();
+        weight += sphere.radius();
     }
     bounding_sphere.center /= weight;
 
@@ -737,7 +737,7 @@ impl Default for TempMeshletGroup {
         Self {
             aabb: aabb_default(), // Default AABB to merge into
             lod_bounds: BoundingSphere::new(Vec3A::ZERO, 0.0),
-            parent_error: 0.0,
+            parent_error: f32::MAX,
             meshlets: SmallVec::new(),
         }
     }

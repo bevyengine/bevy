@@ -40,10 +40,12 @@ fn cull_bvh(
     node = select(node, constants.rightmost_slot - node, constants.read_from_front == 0u);
     let instanced_offset = meshlet_bvh_cull_queue[node];
     let instance_id = instanced_offset.instance_id;
-    var aabb_error_offset = meshlet_bvh_nodes[node].aabbs[subnode];
+    let bvh_node = &meshlet_bvh_nodes[instanced_offset.offset];
+
+    var aabb_error_offset = (*bvh_node).aabbs[subnode];
     let aabb = get_aabb(&aabb_error_offset);
     let parent_error = get_aabb_error(&aabb_error_offset);
-    let lod_sphere = meshlet_bvh_nodes[node].lod_bounds[subnode];
+    let lod_sphere = (*bvh_node).lod_bounds[subnode];
 
     let parent_is_imperceptible = lod_error_is_imperceptible(lod_sphere, parent_error, instance_id);
     // Error and frustum cull, in both passes
@@ -52,7 +54,7 @@ fn cull_bvh(
     let child_offset = get_aabb_child_offset(&aabb_error_offset);    
     let index = subnode >> 2u;
     let bit_offset = subnode & 3u;
-    let packed_child_count = meshlet_bvh_nodes[node].child_counts[index];
+    let packed_child_count = (*bvh_node).child_counts[index];
     let child_count = extractBits(packed_child_count, bit_offset * 8u, 8u);
     var value = InstancedOffset(instance_id, child_offset);
 

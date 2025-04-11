@@ -33,7 +33,7 @@ fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) v
 
     let triangle_id = vertex_index / 3u;
     if triangle_id >= get_meshlet_triangle_count(&meshlet) { return dummy_vertex(); }
-    let index_id = (triangle_id * 3u) + (vertex_index % 3u);
+    let index_id = vertex_index;
     let vertex_id = get_meshlet_vertex_id(meshlet.start_index_id + index_id);
 
     let instance_uniform = meshlet_instance_uniforms[instanced_offset.instance_id];

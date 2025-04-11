@@ -48,10 +48,9 @@ fn aabb_in_frustum(aabb: MeshletAabb, instance_id: u32) -> bool {
         clip_from_local[2],
     );
 
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 5; i++) {
         let plane = normalize_plane(planes[i]);
-        let flip = sign(plane.xyz);
-        let flipped = aabb.half_extent * flip;
+        let flipped = aabb.half_extent * sign(plane.xyz);
         if dot(aabb.center + flipped, plane.xyz) <= -plane.w {
             return false;
         }
