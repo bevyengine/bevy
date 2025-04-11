@@ -2846,6 +2846,7 @@ mod tests {
     #[test]
     fn clone_entities() {
         use crate::entity::{ComponentCloneCtx, SourceComponent};
+
         #[derive(Component)]
         #[component(clone_behavior = Ignore)]
         struct IgnoreClone;

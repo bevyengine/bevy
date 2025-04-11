@@ -429,7 +429,7 @@ use thiserror::Error;
 /// ```
 ///
 /// #[derive(Component)]
-/// #[component(clone_behavior = Ignore)]
+/// #[Component(clone_behavior = Ignore)]
 /// struct MyComponent;
 ///
 /// ```
