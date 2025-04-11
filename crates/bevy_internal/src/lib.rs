@@ -42,7 +42,6 @@ pub use bevy_image as image;
 pub use bevy_input as input;
 #[cfg(feature = "bevy_input_focus")]
 pub use bevy_input_focus as input_focus;
-#[cfg(feature = "bevy_log")]
 pub use bevy_log as log;
 pub use bevy_math as math;
 #[cfg(feature = "bevy_pbr")]

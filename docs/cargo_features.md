@@ -24,7 +24,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_input_focus|Enable input focus subsystem|
-|bevy_log|Enable integration with `tracing` and `log`|
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
@@ -48,6 +47,7 @@ The default feature set enables most of the expected features of a game engine, 
 |std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
+|tracing|Tracing support|
 |vorbis|OGG/VORBIS audio format support|
 |webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|
@@ -114,7 +114,7 @@ The default feature set enables most of the expected features of a game engine, 
 |symphonia-wav|WAV audio format support (through symphonia)|
 |tga|TGA image format support|
 |tiff|TIFF image format support|
-|trace|Tracing support|
+|trace|Enables traces within Bevy using tracing|
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|

@@ -80,6 +80,9 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-r
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.3", default-features = false, features = [
   "web",
 ] }
+bevy_log = { path = "../bevy_log", version = "0.16.0-dev", default-features = false, features = [
+  "web",
+] }
 
 [lints]
 workspace = true
