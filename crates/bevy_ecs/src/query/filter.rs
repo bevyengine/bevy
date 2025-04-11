@@ -109,6 +109,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// # Safety
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`].
+    /// `table` and `state` must be matched
     unsafe fn archetype_filter_fetch(
         _fetch: &mut Self::Fetch<'_>,
         _state: &Self::State,
@@ -826,10 +827,13 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 
         fetch.ticks.extract(
             |_| {
-                let change_tick = table.get_column_change_tick(*state).debug_checked_unwrap();
+                // SAFETY: The invariants are upheld by the caller.
+                let change_tick =
+                    unsafe { table.get_column_change_tick(*state).debug_checked_unwrap() };
                 change_tick.is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
+                // SAFETY: The invariants are upheld by the caller.
                 let change_tick =
                     unsafe { sparse_set.debug_checked_unwrap().get_column_change_tick() };
 
@@ -1078,10 +1082,13 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 
         fetch.ticks.extract(
             |_| {
-                let change_tick = table.get_column_change_tick(*state).debug_checked_unwrap();
+                // SAFETY: The invariants are upheld by the caller.
+                let change_tick =
+                    unsafe { table.get_column_change_tick(*state).debug_checked_unwrap() };
                 change_tick.is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
+                // SAFETY: The invariants are upheld by the caller.
                 let change_tick =
                     unsafe { sparse_set.debug_checked_unwrap().get_column_change_tick() };
 
