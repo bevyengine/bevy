@@ -1,7 +1,5 @@
-use crate::{
-    DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances, SetMesh2dBindGroup,
-    SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
-};
+use core::ops::Range;
+
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
     load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp,
@@ -51,7 +49,13 @@ use bevy_render::{
     },
     Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
-use core::{hash::Hash, ops::Range};
+use bevy_render_2d::mesh_pipeline::{
+    commands::{DrawMesh2d, SetMesh2dBindGroup, SetMesh2dViewBindGroup},
+    key::Mesh2dPipelineKey,
+    pipeline::Mesh2dPipeline,
+    render::{RenderMesh2dInstances, ViewKeyCache, ViewSpecializationTicks},
+};
+
 use tracing::error;
 
 pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> =

@@ -29,6 +29,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_render|Provides rendering functionality|
+|bevy_render_2d|Provides functionality for rendering in 2d|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
 |bevy_sprite_picking_backend|Provides an implementation for picking sprites|

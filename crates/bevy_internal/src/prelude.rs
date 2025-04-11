@@ -44,6 +44,10 @@ pub use crate::pbr::prelude::*;
 pub use crate::render::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_render_2d")]
+pub use crate::render_2d::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_scene")]
 pub use crate::scene::prelude::*;
 

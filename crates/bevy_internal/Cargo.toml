@@ -180,7 +180,7 @@ bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
-bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite", "bevy_image"]
+bevy_sprite = ["dep:bevy_sprite", "bevy_image"]
 bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr", "bevy_image"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
@@ -210,6 +210,8 @@ bevy_render = [
   "bevy_color/wgpu-types",
   "bevy_color/encase",
 ]
+
+bevy_render_2d = ["dep:bevy_render_2d", "bevy_gizmos?/bevy_render_2d"]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
@@ -424,6 +426,7 @@ bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.16.0-dev" }
 bevy_picking = { path = "../bevy_picking", optional = true, version = "0.16.0-dev" }
 bevy_remote = { path = "../bevy_remote", optional = true, version = "0.16.0-dev" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.16.0-dev" }
+bevy_render_2d = { path = "../bevy_render_2d", optional = true, version = "0.16.0-dev" }
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.16.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.16.0-dev" }
 bevy_state = { path = "../bevy_state", optional = true, version = "0.16.0-dev", default-features = false, features = [
