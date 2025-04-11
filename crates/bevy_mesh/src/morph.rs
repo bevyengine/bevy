@@ -97,48 +97,61 @@ impl MorphTargetImage {
     }
 }
 
-/// Controls the [morph targets] of one or more meshes.
+/// A component that controls the [morph targets] of one or more `Mesh3d`
+/// components.
 ///
-/// Any entity can contain a `MorphWeights` component. An entity with a `Mesh3d`
-/// component can then reference it by using a [`MeshMorphWeights`] component.
+/// To find the weights of its morph targets, a `Mesh3d` component looks for a
+/// [`MeshMorphWeights`] component in the same entity. This points to another
+/// entity, which is expected to contain a `MorphWeights` component.
 ///
-/// Here, a single `MorphTargets` component is used to drive multiple meshes:
+/// The intermediate `MeshMorphWeights` component allows multiple `Mesh3d`
+/// components to share one `MorphWeights` component.
+///
+/// The example shows a single mesh entity with a separate weights entity:
 ///
 /// ```
+/// # use bevy_asset::prelude::*;
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_mesh::Mesh;
 /// # use bevy_mesh::morph::*;
-/// fn setup(mut commands: Commands, mesh_entities: &[Entity]) {
+/// # #[derive(Component)]
+/// # struct Mesh3d(Handle<Mesh>);
+/// fn setup(mut commands: Commands, mesh_handle: Handle<Mesh>) {
 ///     // Create the `MorphWeights` component.
 ///     let weights_component = MorphWeights::new(
 ///         vec![0.0, 0.5, 1.0],
 ///         None,
 ///     ).unwrap();
 ///
-///     // Spawn an entity to contain the weights. Or we could have added them to
-///     // an existing entity.
+///     // Spawn an entity to contain the weights.
 ///     let weights_entity = commands.spawn(weights_component).id();
 ///
-///     for &mesh_entity in mesh_entities {
-///         // The `MeshMorphWeights` component references the entity with `MorphWeights`.
-///         commands.entity(mesh_entity).insert(MeshMorphWeights(weights_entity));
-///     }
+///     // Spawn an entity with a mesh and a `MeshMorphWeights` component that
+///     // points to `weights_entity`.
+///     let mesh_entity = commands.spawn((
+///         Mesh3d(mesh_handle.clone()),
+///         MeshMorphWeights(weights_entity),
+///     ));
 /// }
 /// ```
 ///
-/// Any changes to the `MorphWeights` component are automatically copied to the
-/// mesh.
-///
-/// In the simplest case, a `MorphTargets` component and a mesh can be in one
-/// entity. The `MeshMorphTargets` component is still required.
+/// In the simplest case, all the components can be in one entity:
 ///
 /// ```
+/// # use bevy_asset::prelude::*;
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_mesh::Mesh;
 /// # use bevy_mesh::morph::*;
+/// # #[derive(Component)]
+/// # struct Mesh3d(Handle<Mesh>);
 /// # fn setup(mut commands: Commands, mesh_entity: Entity) {
 /// # let weights_component = MorphWeights::new(vec![0.0, 0.5, 1.0], None).unwrap();
-/// commands.entity(mesh_entity).insert((
-///     weights_component,
-///     MeshMorphWeights(mesh_entity),
+/// # let mesh_handle = Handle::<Mesh>::default();
+/// let weights_entity = commands.spawn(weights_component).id();
+///
+/// commands.entity(weights_entity).insert((
+///     Mesh3d(mesh_handle.clone()),
+///     MeshMorphWeights(weights_entity),
 /// ));
 /// # }
 /// ```
@@ -184,9 +197,10 @@ impl MorphWeights {
     }
 }
 
-/// Controls the [morph targets] of a specific `Mesh3d` by referencing an
-/// entity with a [`MorphWeights`] component. Multiple meshes can reference a
-/// single `MorphWeights` component.
+/// Controls the [morph targets] of a `Mesh3d` component by referencing an
+/// entity with a `MorphWeights` component.
+///
+/// See [`MorphWeights`] for examples.
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Debug, Clone, Component)]
