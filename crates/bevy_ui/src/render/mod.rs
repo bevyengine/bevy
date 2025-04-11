@@ -14,7 +14,7 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Assets, Handle};
-use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
@@ -50,10 +50,7 @@ use bevy_sprite::{BorderRect, SpriteAssetEvents};
 pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
-use bevy_platform_support::{
-    collections::{HashMap, HashSet},
-    hash::FixedHasher,
-};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -487,8 +484,6 @@ pub fn extract_uinode_borders(
     let image = AssetId::<Image>::default();
     let mut camera_mapper = camera_map.get_mapper();
 
-    let mut unique_colors: HashSet<_, FixedHasher> = Default::default();
-
     for (
         entity,
         node,
@@ -511,47 +506,39 @@ pub fn extract_uinode_borders(
 
         // Don't extract borders with zero width along all edges
         if computed_node.border() != BorderRect::ZERO {
-            if let Some(border_color) = maybe_border_color.filter(|bc| !bc.is_fully_transparent()) {
-                // helper to allow for `Eq` color comparisons so we can build a hashset
-                let convert =
-                    |c: Color| -> [u8; 16] { bytemuck::cast::<_, [u8; 16]>(c.to_linear()) };
+            if let Some(border_color) = maybe_border_color {
+                let border_colors = [
+                    border_color.left.to_linear(),
+                    border_color.top.to_linear(),
+                    border_color.right.to_linear(),
+                    border_color.bottom.to_linear(),
+                ];
 
-                // gather unique colors
-                unique_colors.clear();
-                unique_colors.extend(
-                    [
-                        border_color.left,
-                        border_color.top,
-                        border_color.right,
-                        border_color.bottom,
-                    ]
-                    .map(convert),
-                );
+                const BORDER_FLAGS: [u32; 4] = [
+                    shader_flags::BORDER_LEFT,
+                    shader_flags::BORDER_TOP,
+                    shader_flags::BORDER_RIGHT,
+                    shader_flags::BORDER_BOTTOM,
+                ];
+                let mut completed_flags = 0;
 
-                for &converted_color in unique_colors.iter() {
-                    let color = bytemuck::cast::<[u8; 16], LinearRgba>(converted_color);
-
-                    // skip transparent
-                    if color.alpha == 0.0 {
+                for (i, &color) in border_colors.iter().enumerate() {
+                    if color.is_fully_transparent() {
                         continue;
                     }
 
-                    // gather flags of borders that match this color
-                    let border_flags = [
-                        (border_color.left, shader_flags::BORDER_LEFT),
-                        (border_color.top, shader_flags::BORDER_TOP),
-                        (border_color.right, shader_flags::BORDER_RIGHT),
-                        (border_color.bottom, shader_flags::BORDER_BOTTOM),
-                    ]
-                    .map(|(border_color, flag)| {
-                        if convert(border_color) == converted_color {
-                            flag
-                        } else {
-                            0
+                    let mut border_flags = BORDER_FLAGS[i];
+
+                    if completed_flags & border_flags != 0 {
+                        continue;
+                    }
+
+                    for j in i + 1..4 {
+                        if color == border_colors[j] {
+                            border_flags |= BORDER_FLAGS[j];
                         }
-                    })
-                    .into_iter()
-                    .sum::<u32>();
+                    }
+                    completed_flags |= border_flags;
 
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
                         stack_index: computed_node.stack_index,
