@@ -246,10 +246,6 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             let mut modified = <HashSet<_>>::default();
 
             for event in events.read() {
-                #[expect(
-                    clippy::match_same_arms,
-                    reason = "LoadedWithDependencies is marked as a TODO, so it's likely this will no longer lint soon."
-                )]
                 match event {
                     AssetEvent::Added { id } => {
                         needs_extracting.insert(*id);
