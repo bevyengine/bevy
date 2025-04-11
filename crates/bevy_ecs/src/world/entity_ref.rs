@@ -2058,6 +2058,7 @@ impl<'w> EntityWorldMut<'w> {
                     component_id,
                     entity,
                     old_location,
+                    change_tick,
                 )
             })
         };
@@ -4547,6 +4548,7 @@ pub(crate) unsafe fn take_component<'a>(
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
+    change_tick: Tick,
 ) -> OwningPtr<'a> {
     // SAFETY: caller promises component_id to be valid
     let component_info = unsafe { components.get_info_unchecked(component_id) };
@@ -4564,7 +4566,7 @@ pub(crate) unsafe fn take_component<'a>(
             .sparse_sets
             .get_mut(component_id)
             .unwrap()
-            .remove_and_forget(entity)
+            .remove_and_forget(entity, change_tick)
             .unwrap(),
     }
 }

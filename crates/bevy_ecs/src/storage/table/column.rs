@@ -179,19 +179,19 @@ impl ThinColumn {
         &mut self,
         row: TableRow,
         data: OwningPtr<'_>,
-        change_tick: Tick,
+        tick: Tick,
         caller: MaybeLocation,
     ) {
         self.data.replace_unchecked(row.as_usize(), data);
         *self
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
-            .get_mut() = change_tick;
+            .get_mut() = tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
-        self.change_tick = change_tick;
+        self.change_tick = tick;
     }
 
     /// Removes the element from `other` at `src_row` and inserts it
@@ -372,6 +372,7 @@ pub struct Column {
     pub(super) added_ticks: Vec<UnsafeCell<Tick>>,
     pub(super) changed_ticks: Vec<UnsafeCell<Tick>>,
     changed_by: MaybeLocation<Vec<UnsafeCell<&'static Location<'static>>>>,
+    change_tick: Tick,
 }
 
 impl Column {
@@ -384,6 +385,7 @@ impl Column {
             added_ticks: Vec::with_capacity(capacity),
             changed_ticks: Vec::with_capacity(capacity),
             changed_by: MaybeLocation::new_with(|| Vec::with_capacity(capacity)),
+            change_tick: Tick::new(0),
         }
     }
 
@@ -403,7 +405,7 @@ impl Column {
         &mut self,
         row: TableRow,
         data: OwningPtr<'_>,
-        change_tick: Tick,
+        tick: Tick,
         caller: MaybeLocation,
     ) {
         debug_assert!(row.as_usize() < self.len());
@@ -411,11 +413,12 @@ impl Column {
         *self
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
-            .get_mut() = change_tick;
+            .get_mut() = tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
+        self.change_tick = tick;
     }
 
     /// Gets the current number of elements stored in the column.
@@ -465,6 +468,7 @@ impl Column {
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: TableRow,
+        tick: Tick,
     ) -> (OwningPtr<'_>, ComponentTicks, MaybeLocation) {
         let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
         let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
@@ -473,6 +477,7 @@ impl Column {
             .changed_by
             .as_mut()
             .map(|changed_by| changed_by.swap_remove(row.as_usize()).into_inner());
+        self.change_tick = tick;
         (data, ComponentTicks { added, changed }, caller)
     }
 
@@ -493,6 +498,7 @@ impl Column {
             .as_mut()
             .zip(caller)
             .map(|(changed_by, caller)| changed_by.push(UnsafeCell::new(caller)));
+        self.change_tick = ticks.changed;
     }
 
     /// Fetches the data pointer to the first element of the [`Column`].
@@ -669,11 +675,12 @@ impl Column {
     /// Clears the column, removing all values.
     ///
     /// Note that this function has no effect on the allocated capacity of the [`Column`]>
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, change_tick: Tick) {
         self.data.clear();
         self.added_ticks.clear();
         self.changed_ticks.clear();
         self.changed_by.as_mut().map(Vec::clear);
+        self.change_tick = change_tick;
     }
 
     #[inline]
@@ -684,6 +691,7 @@ impl Column {
         for component_ticks in &mut self.changed_ticks {
             component_ticks.get_mut().check_tick(change_tick);
         }
+        self.change_tick.check_tick(change_tick);
     }
 
     /// Fetches the calling location that last changed the value at `row`.
@@ -718,5 +726,11 @@ impl Column {
             debug_assert!(row.as_usize() < changed_by.len());
             changed_by.get_unchecked(row.as_usize())
         })
+    }
+
+    /// Get change tick of this [`Column`]. Should be used for immutable components only.
+    #[inline]
+    pub fn get_change_tick(&self) -> Tick {
+        self.change_tick
     }
 }

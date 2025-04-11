@@ -820,13 +820,22 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
         state: &Self::State,
         table: &Table,
     ) -> bool {
-        if !Self::IS_DENSE || <T::Mutability as ComponentMutability>::MUTABLE {
+        if <T::Mutability as ComponentMutability>::MUTABLE {
             return true;
         }
 
-        table
-            .get_column_change_tick(*state)
-            .is_some_and(|change_tick| change_tick.is_newer_than(fetch.last_run, fetch.this_run))
+        fetch.ticks.extract(
+            |_| {
+                let change_tick = table.get_column_change_tick(*state).debug_checked_unwrap();
+                change_tick.is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |sparse_set| {
+                let change_tick =
+                    unsafe { sparse_set.debug_checked_unwrap().get_column_change_tick() };
+
+                change_tick.is_newer_than(fetch.last_run, fetch.this_run)
+            },
+        )
     }
 }
 
@@ -1063,13 +1072,22 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
         state: &Self::State,
         table: &Table,
     ) -> bool {
-        if !Self::IS_DENSE || <T::Mutability as ComponentMutability>::MUTABLE {
+        if <T::Mutability as ComponentMutability>::MUTABLE {
             return true;
         }
 
-        table
-            .get_column_change_tick(*state)
-            .is_some_and(|change_tick| change_tick.is_newer_than(fetch.last_run, fetch.this_run))
+        fetch.ticks.extract(
+            |_| {
+                let change_tick = table.get_column_change_tick(*state).debug_checked_unwrap();
+                change_tick.is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |sparse_set| {
+                let change_tick =
+                    unsafe { sparse_set.debug_checked_unwrap().get_column_change_tick() };
+
+                change_tick.is_newer_than(fetch.last_run, fetch.this_run)
+            },
+        )
     }
 }
 
@@ -1143,12 +1161,16 @@ mod tests {
     #[component(immutable)]
     struct B;
 
+    #[derive(Component, Clone, Copy)]
+    #[component(storage = "SparseSet", immutable)]
+    struct C;
+
     fn filter<F: QueryFilter>(world: &mut World, location: EntityLocation) -> bool {
         let state = F::init_state(world);
         let this_run = world.change_tick();
         let last_run = world.last_change_tick;
         let table = world.storages().tables.get(location.table_id).unwrap();
-
+        let archetype = world.archetypes().get(location.archetype_id).unwrap();
         // SAFETY: world is valid
         let mut fetch = unsafe {
             F::init_fetch(
@@ -1158,8 +1180,13 @@ mod tests {
                 this_run,
             )
         };
-        // SAFETY: table is valid
-        unsafe { F::set_table(&mut fetch, &state, table) };
+        if F::IS_DENSE {
+            // SAFETY: table is valid
+            unsafe { F::set_table(&mut fetch, &state, table) };
+        } else {
+            // SAFETY: archetype and table is valid
+            unsafe { F::set_archetype(&mut fetch, &state, archetype, table) };
+        }
         // SAFETY: set_table is called
         unsafe { F::archetype_filter_fetch(&mut fetch, &state, table) }
     }
@@ -1226,5 +1253,16 @@ mod tests {
         assert!(filter::<(Added<A>, With<B>)>(&mut world, location));
         world.clear_trackers();
         assert!(!filter::<(Added<A>, With<B>)>(&mut world, location));
+    }
+
+    #[test]
+    fn archetype_filter_fetch_sparseset() {
+        let mut world = World::new();
+        let location = world.spawn(C).location();
+        assert!(filter::<Added<C>>(&mut world, location));
+        assert!(filter::<Changed<C>>(&mut world, location));
+        world.clear_trackers();
+        assert!(!filter::<Added<C>>(&mut world, location));
+        assert!(!filter::<Changed<C>>(&mut world, location));
     }
 }

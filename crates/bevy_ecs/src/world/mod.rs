@@ -3164,7 +3164,7 @@ impl World {
     pub fn clear_entities(&mut self) {
         let change_tick = self.change_tick();
         self.storages.tables.clear(change_tick);
-        self.storages.sparse_sets.clear_entities();
+        self.storages.sparse_sets.clear_entities(change_tick);
         self.archetypes.clear_entities();
         self.entities.clear();
     }

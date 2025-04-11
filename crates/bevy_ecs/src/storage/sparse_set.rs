@@ -139,8 +139,8 @@ impl ComponentSparseSet {
     }
 
     /// Removes all of the values stored within.
-    pub(crate) fn clear(&mut self) {
-        self.dense.clear();
+    pub(crate) fn clear(&mut self, tick: Tick) {
+        self.dense.clear(tick);
         self.entities.clear();
         self.sparse.clear();
     }
@@ -303,14 +303,21 @@ impl ComponentSparseSet {
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).
     #[must_use = "The returned pointer must be used to drop the removed component."]
-    pub(crate) fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
+    pub(crate) fn remove_and_forget(
+        &mut self,
+        entity: Entity,
+        tick: Tick,
+    ) -> Option<OwningPtr<'_>> {
         self.sparse.remove(entity.index()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
             self.entities.swap_remove(dense_index.as_usize());
             let is_last = dense_index.as_usize() == self.dense.len() - 1;
             // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
-            let (value, _, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
+            let (value, _, _) = unsafe {
+                self.dense
+                    .swap_remove_and_forget_unchecked(dense_index, tick)
+            };
             if !is_last {
                 let swapped_entity = self.entities[dense_index.as_usize()];
                 #[cfg(not(debug_assertions))]
@@ -352,6 +359,11 @@ impl ComponentSparseSet {
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         self.dense.check_change_ticks(change_tick);
+    }
+
+    /// Returns the change tick of the column. This should be used for immutable components only.
+    pub fn get_column_change_tick(&self) -> Tick {
+        self.dense.get_change_tick()
     }
 }
 
@@ -634,9 +646,9 @@ impl SparseSets {
     }
 
     /// Clear entities stored in each [`ComponentSparseSet`]
-    pub(crate) fn clear_entities(&mut self) {
+    pub(crate) fn clear_entities(&mut self, tick: Tick) {
         for set in self.sets.values_mut() {
-            set.clear();
+            set.clear(tick);
         }
     }
 
