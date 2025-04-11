@@ -2862,6 +2862,6 @@ mod tests {
         #[component(clone_behavior = clone::<Self>())]
         struct CloneFunction;
 
-        fn custom_clone(source: &SourceComponent, ctx: &mut ComponentCloneCtx) {}
+        fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
     }
 }
