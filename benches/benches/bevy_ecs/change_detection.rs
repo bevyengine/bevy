@@ -1,7 +1,7 @@
 use core::hint::black_box;
 
 use bevy_ecs::{
-    component::{Component, Mutable},
+    component::{Component, ComponentMutability, Mutable},
     entity::Entity,
     prelude::{Added, Changed, EntityWorldMut, QueryState},
     query::QueryFilter,
@@ -32,9 +32,19 @@ macro_rules! modify {
 #[derive(Component, Default)]
 #[component(storage = "Table")]
 struct Table(f32);
+
+#[derive(Component, Default)]
+#[component(storage = "Table", immutable)]
+struct TableImmutable(f32);
+
 #[derive(Component, Default)]
 #[component(storage = "SparseSet")]
 struct Sparse(f32);
+
+#[derive(Component, Default)]
+#[component(storage = "SparseSet", immutable)]
+struct SparseImmutable(f32);
+
 #[derive(Component, Default)]
 #[component(storage = "Table")]
 struct Data<const X: u16>(f32);
@@ -93,6 +103,7 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
                 || {
                     let mut world = setup::<T>(entity_count);
                     let query = generic_filter_query::<Added<T>>(&mut world);
+
                     (world, query)
                 },
                 |(world, query)| {
@@ -223,7 +234,7 @@ fn few_changed_detection(criterion: &mut Criterion) {
     }
 }
 
-fn none_changed_detection_generic<T: Component<Mutability = Mutable> + Default>(
+fn none_changed_detection_generic<T: Component + Default>(
     group: &mut BenchGroup,
     entity_count: u32,
 ) {
@@ -261,11 +272,14 @@ fn none_changed_detection(criterion: &mut Criterion) {
             vec![
                 Box::new(none_changed_detection_generic::<Table>),
                 Box::new(none_changed_detection_generic::<Sparse>),
+                Box::new(none_changed_detection_generic::<TableImmutable>),
+                Box::new(none_changed_detection_generic::<SparseImmutable>),
             ],
             entity_count,
         );
     }
 }
+
 fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
     if i & (1 << B) != 0 {
         entity.insert(Data::<B>(1.0));
