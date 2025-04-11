@@ -1,6 +1,6 @@
 [package]
 name = "bevy_log"
-version = "0.16.0-rc.3"
+version = "0.16.0-rc.4"
 edition = "2024"
 description = "Provides logging for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -29,11 +29,11 @@ web = ["bevy_app/web", "dep:tracing-wasm"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-rc.3", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.3", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.16.0-rc.4", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.4", default-features = false, features = [
   "alloc",
 ] }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.3", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.4", default-features = false }
 
 # other
 log = { version = "0.4", default-features = false }

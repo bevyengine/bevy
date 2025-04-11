@@ -1,6 +1,6 @@
 [package]
 name = "bevy_image"
-version = "0.16.0-rc.3"
+version = "0.16.0-rc.4"
 edition = "2024"
 description = "Provides image types for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -44,16 +44,16 @@ zstd = ["ruzstd"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-rc.3" }
-bevy_asset = { path = "../bevy_asset", version = "0.16.0-rc.3" }
-bevy_color = { path = "../bevy_color", version = "0.16.0-rc.3", features = [
+bevy_app = { path = "../bevy_app", version = "0.16.0-rc.4" }
+bevy_asset = { path = "../bevy_asset", version = "0.16.0-rc.4" }
+bevy_color = { path = "../bevy_color", version = "0.16.0-rc.4", features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_math = { path = "../bevy_math", version = "0.16.0-rc.3" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.3" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.3" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.3", default-features = false, features = [
+bevy_math = { path = "../bevy_math", version = "0.16.0-rc.4" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.4" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.4" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.4", default-features = false, features = [
   "std",
 ] }
 
@@ -80,7 +80,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
 
 [dev-dependencies]
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.3" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.4" }
 
 [lints]
 workspace = true

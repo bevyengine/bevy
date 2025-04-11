@@ -1,6 +1,6 @@
 [package]
 name = "bevy_tasks"
-version = "0.16.0-rc.3"
+version = "0.16.0-rc.4"
 edition = "2024"
 description = "A task executor for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -42,7 +42,7 @@ web = [
 ]
 
 [dependencies]
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.3", default-features = false, features = [
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.4", default-features = false, features = [
   "alloc",
 ] }
 
