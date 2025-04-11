@@ -427,9 +427,10 @@ use thiserror::Error;
 /// Your options are the functions and variants of [`ComponentCloneBehavior`]
 /// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
 /// ```
+/// # use bevy_ecs::prelude::*;
 ///
 /// #[derive(Component)]
-/// #[Component(clone_behavior = Ignore)]
+/// #[component(clone_behavior = Ignore)]
 /// struct MyComponent;
 ///
 /// ```
