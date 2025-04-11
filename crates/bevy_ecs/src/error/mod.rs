@@ -35,7 +35,7 @@
 //! context surrounding the error – such as the system's [`name`] – in your error messages.
 //!
 //! ```rust, ignore
-//! use bevy_ecs::error::{set_global_error_handler, BevyError, ErrorContext};
+//! use bevy_ecs::error::{set_global_default_error_handler, BevyError, ErrorContext};
 //! use log::trace;
 //!
 //! fn my_error_handler(error: BevyError, ctx: ErrorContext) {
@@ -47,7 +47,7 @@
 //! }
 //!
 //! fn main() {
-//!     set_global_error_handler(my_error_handler);
+//!     set_global_default_error_handler(my_error_handler);
 //!     
 //!     // Initialize your Bevy App here
 //! }

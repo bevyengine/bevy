@@ -86,7 +86,7 @@ mod global_error_handler {
     /// currently have a way to express atomic function pointers.
     /// Should we add support for a platform on which function pointers and data pointers
     /// have different sizes, the transmutation back will fail to compile. In that case,
-    /// we can replace the atomic pointer with a regular pointer protected by a `RwLock`
+    /// we can replace the atomic pointer with a regular pointer protected by a `OnceLock`
     /// on only those platforms.
     /// SAFETY: Only accessible from within this module.
     static HANDLER: AtomicPtr<()> = AtomicPtr::new(panic as *mut ());
