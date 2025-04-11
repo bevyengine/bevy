@@ -1149,6 +1149,7 @@ mod tests {
         let last_run = world.last_change_tick;
         let table = world.storages().tables.get(location.table_id).unwrap();
 
+        // SAFETY: world is valid
         let mut fetch = unsafe {
             F::init_fetch(
                 world.as_unsafe_world_cell_readonly(),

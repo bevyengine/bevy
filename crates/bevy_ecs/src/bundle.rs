@@ -1419,7 +1419,7 @@ impl<'w> BundleSpawner<'w> {
         // SAFETY: There are no outstanding world references
         let (archetype, table) = unsafe { (self.archetype.as_mut(), self.table.as_mut()) };
         archetype.reserve(additional);
-        table.reserve(additional, self.change_tick);
+        table.reserve(additional);
     }
 
     /// # Safety
@@ -1443,7 +1443,7 @@ impl<'w> BundleSpawner<'w> {
                 let world = self.world.world_mut();
                 (&mut world.storages.sparse_sets, &mut world.entities)
             };
-            let table_row = table.allocate(entity, self.world.change_tick());
+            let table_row = table.allocate(entity);
             let location = archetype.allocate(entity, table_row);
             let after_effect = bundle_info.write_components(
                 table,

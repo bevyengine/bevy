@@ -121,7 +121,6 @@ impl ThinColumn {
         &mut self,
         current_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
-        tick: Tick,
     ) {
         self.data.realloc(current_capacity, new_capacity);
         self.added_ticks.realloc(current_capacity, new_capacity);
@@ -129,7 +128,6 @@ impl ThinColumn {
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.realloc(current_capacity, new_capacity));
-        self.change_tick = tick;
     }
 
     /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`ThinColumn`]

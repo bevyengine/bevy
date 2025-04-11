@@ -281,7 +281,7 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()), change_tick);
+        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(
@@ -321,7 +321,7 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()), change_tick);
+        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(
@@ -361,7 +361,7 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         let is_last = row.as_usize() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()), change_tick);
+        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             new_table
                 .get_column_mut(*component_id)
@@ -530,7 +530,7 @@ impl Table {
     }
 
     /// Reserves `additional` elements worth of capacity within the table.
-    pub(crate) fn reserve(&mut self, additional: usize, change_tick: Tick) {
+    pub(crate) fn reserve(&mut self, additional: usize) {
         if self.capacity() - self.entity_count() < additional {
             let column_cap = self.capacity();
             self.entities.reserve(additional);
@@ -548,7 +548,6 @@ impl Table {
                     self.realloc_columns(
                         NonZeroUsize::new_unchecked(column_cap),
                         NonZeroUsize::new_unchecked(new_capacity),
-                        change_tick,
                     );
                 };
             }
@@ -577,7 +576,6 @@ impl Table {
         &mut self,
         current_column_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
-        change_tick: Tick,
     ) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
         // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
@@ -589,7 +587,7 @@ impl Table {
         // - `current_capacity` is indeed the capacity - safety requirement
         // - current capacity > 0
         for col in self.columns.values_mut() {
-            col.realloc(current_column_capacity, new_capacity, change_tick);
+            col.realloc(current_column_capacity, new_capacity);
         }
         core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
     }
@@ -598,8 +596,8 @@ impl Table {
     ///
     /// # Safety
     /// the allocated row must be written to immediately with valid values in each column
-    pub(crate) unsafe fn allocate(&mut self, entity: Entity, change_tick: Tick) -> TableRow {
-        self.reserve(1, change_tick);
+    pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
+        self.reserve(1);
         let len = self.entity_count();
         self.entities.push(entity);
         for col in self.columns.values_mut() {
@@ -894,7 +892,7 @@ mod tests {
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards
             unsafe {
-                let row = table.allocate(*entity, Tick::new(0));
+                let row = table.allocate(*entity);
                 let value: W<TableRow> = W(row);
                 OwningPtr::make(value, |value_ptr| {
                     table.get_column_mut(component_id).unwrap().initialize(

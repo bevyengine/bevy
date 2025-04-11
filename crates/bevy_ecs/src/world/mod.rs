@@ -1197,10 +1197,9 @@ impl World {
         entity: Entity,
         caller: MaybeLocation,
     ) -> EntityWorldMut {
-        let change_tick = self.change_tick();
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
-        let table_row = self.storages.tables[archetype.table_id()].allocate(entity, change_tick);
+        let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
@@ -2908,7 +2907,6 @@ impl World {
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [`Component`].
     pub(crate) fn flush_entities(&mut self) {
-        let change_tick = self.change_tick();
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
         // PERF: consider pre-allocating space for flushed entities
@@ -2917,7 +2915,7 @@ impl World {
             self.entities.flush(|entity, location| {
                 // SAFETY: no components are allocated by archetype.allocate() because the archetype
                 // is empty
-                *location = empty_archetype.allocate(entity, table.allocate(entity, change_tick));
+                *location = empty_archetype.allocate(entity, table.allocate(entity));
             });
         }
     }
