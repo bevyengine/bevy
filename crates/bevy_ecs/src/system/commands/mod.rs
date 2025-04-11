@@ -10,7 +10,7 @@ pub use entity_command::EntityCommand;
 #[cfg(feature = "std")]
 pub use parallel_scope::*;
 
-use alloc::boxed::Box;
+use alloc::{borrow::Cow, boxed::Box};
 use core::marker::PhantomData;
 use log::error;
 
@@ -1915,7 +1915,16 @@ impl<'a> EntityCommands<'a> {
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.queue(entity_command::observe(observer))
+        self.queue(entity_command::observe_command(observer))
+    }
+
+    /// Creates a named [`Observer`] listening for events of type `E` targeting this entity.
+    pub fn observe_named<E: Event, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, B, M>,
+        name: impl Into<Cow<'static, str>> + Send + 'static,
+    ) -> &mut Self {
+        self.queue(entity_command::observe_named_command(observer, name))
     }
 
     /// Clones parts of an entity (components, observers, etc.) onto another entity,

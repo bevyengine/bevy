@@ -16,7 +16,7 @@ use crate::{
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
-use alloc::vec::Vec;
+use alloc::{borrow::Cow, vec::Vec};
 use bevy_platform_support::collections::HashMap;
 use bevy_ptr::Ptr;
 use core::{
@@ -567,6 +567,36 @@ impl World {
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
         self.spawn(Observer::new(system))
+    }
+
+    /// Spawns a "global" named [`Observer`] which will watch for the given event.
+    /// Returns its [`Entity`] as a [`EntityWorldMut`].
+    ///
+    /// **Calling [`observe`](EntityWorldMut::observe) on the returned
+    /// [`EntityWorldMut`] will observe the observer itself, which you very
+    /// likely do not want.**
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// # let mut world = World::new();
+    /// world.add_named_observer(|_: Trigger<OnAdd, A>| {
+    ///     // ...
+    /// }, "OnAddA");
+    /// world.add_named_observer(|_: Trigger<OnRemove, A>| {
+    ///     // ...
+    /// }, "OnRemoveA");
+    /// ```
+    pub fn add_named_observer<E: Event, B: Bundle, M>(
+        &mut self,
+        system: impl IntoObserverSystem<E, B, M>,
+        name: impl Into<Cow<'static, str>>,
+    ) -> EntityWorldMut {
+        self.spawn((Observer::new(system), Name::new(name)))
     }
 
     /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
