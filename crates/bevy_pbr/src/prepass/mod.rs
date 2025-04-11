@@ -3,11 +3,11 @@ mod prepass_bindings;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
-    queue_material_meshes, setup_morph_and_skinning_defs, skin, DrawMesh,
-    EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts,
-    MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
-    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
-    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    queue_material_meshes, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs, skin,
+    DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey,
+    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
+    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
+    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -219,7 +219,8 @@ where
                         .in_set(RenderSet::PrepareMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
                         .after(prepare_assets::<RenderMesh>)
-                        .after(collect_meshes_for_gpu_building),
+                        .after(collect_meshes_for_gpu_building)
+                        .after(set_mesh_motion_vector_flags),
                     queue_prepass_material_meshes::<M>
                         .in_set(RenderSet::QueueMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
@@ -268,20 +269,22 @@ type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
     views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>,
-    meshes: Query<(Entity, &GlobalTransform, Option<&PreviousGlobalTransform>), PreviousMeshFilter>,
+    new_meshes: Query<
+        (Entity, &GlobalTransform),
+        (PreviousMeshFilter, Without<PreviousGlobalTransform>),
+    >,
+    mut meshes: Query<(&GlobalTransform, &mut PreviousGlobalTransform), PreviousMeshFilter>,
 ) {
     let should_run = views.iter().any(|camera| camera.is_active);
 
     if should_run {
-        for (entity, transform, old_previous_transform) in &meshes {
+        for (entity, transform) in &new_meshes {
             let new_previous_transform = PreviousGlobalTransform(transform.affine());
-            // Make sure not to trigger change detection on
-            // `PreviousGlobalTransform` if the previous transform hasn't
-            // changed.
-            if old_previous_transform != Some(&new_previous_transform) {
-                commands.entity(entity).try_insert(new_previous_transform);
-            }
+            commands.entity(entity).try_insert(new_previous_transform);
         }
+        meshes.par_iter_mut().for_each(|(transform, mut previous)| {
+            previous.set_if_neq(PreviousGlobalTransform(transform.affine()));
+        });
     }
 }
 
@@ -869,7 +872,7 @@ pub fn specialize_prepass_material_meshes<M>(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
@@ -935,7 +938,11 @@ pub fn specialize_prepass_material_meshes<M>(
             .or_default();
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+            let Some(material_instance) = render_material_instances.instances.get(visible_entity)
+            else {
+                continue;
+            };
+            let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
                 continue;
             };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
@@ -953,7 +960,7 @@ pub fn specialize_prepass_material_meshes<M>(
             else {
                 continue;
             };
-            let Some(material) = render_materials.get(*material_asset_id) else {
+            let Some(material) = render_materials.get(material_asset_id) else {
                 continue;
             };
             let Some(material_bind_group) =
@@ -1058,7 +1065,7 @@ pub fn specialize_prepass_material_meshes<M>(
 pub fn queue_prepass_material_meshes<M: Material>(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
@@ -1118,14 +1125,18 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 continue;
             }
 
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+            let Some(material_instance) = render_material_instances.instances.get(visible_entity)
+            else {
+                continue;
+            };
+            let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
-            let Some(material) = render_materials.get(*material_asset_id) else {
+            let Some(material) = render_materials.get(material_asset_id) else {
                 continue;
             };
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);

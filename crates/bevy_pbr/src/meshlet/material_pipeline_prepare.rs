@@ -37,7 +37,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     material_pipeline: Res<MaterialPipeline<M>>,
     mesh_pipeline: Res<MeshPipeline>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
     material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     asset_server: Res<AssetServer>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
@@ -148,8 +148,13 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-        for material_id in render_material_instances.values().collect::<HashSet<_>>() {
-            let Some(material) = render_materials.get(*material_id) else {
+        for material_id in render_material_instances
+            .instances
+            .values()
+            .flat_map(|instance| instance.asset_id.try_typed::<M>().ok())
+            .collect::<HashSet<_>>()
+        {
+            let Some(material) = render_materials.get(material_id) else {
                 continue;
             };
             let Some(material_bind_group) =
@@ -256,7 +261,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     asset_server: Res<AssetServer>,
@@ -293,8 +298,13 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-        for material_id in render_material_instances.values().collect::<HashSet<_>>() {
-            let Some(material) = render_materials.get(*material_id) else {
+        for material_id in render_material_instances
+            .instances
+            .values()
+            .flat_map(|instance| instance.asset_id.try_typed::<M>().ok())
+            .collect::<HashSet<_>>()
+        {
+            let Some(material) = render_materials.get(material_id) else {
                 continue;
             };
             let Some(material_bind_group) =

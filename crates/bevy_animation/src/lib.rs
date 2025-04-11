@@ -685,7 +685,6 @@ impl ActiveAnimation {
 #[reflect(Component, Default, Clone)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
-    blend_weights: HashMap<AnimationNodeIndex, f32>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -693,13 +692,11 @@ impl Clone for AnimationPlayer {
     fn clone(&self) -> Self {
         Self {
             active_animations: self.active_animations.clone(),
-            blend_weights: self.blend_weights.clone(),
         }
     }
 
     fn clone_from(&mut self, source: &Self) {
         self.active_animations.clone_from(&source.active_animations);
-        self.blend_weights.clone_from(&source.blend_weights);
     }
 }
 
@@ -1531,6 +1528,8 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_reflect::{DynamicMap, Map};
+
     use super::*;
 
     #[derive(Event, Reflect, Clone)]
@@ -1661,5 +1660,14 @@ mod tests {
         active_animation.last_seek_time = Some(clip.duration);
         active_animation.update(clip.duration, clip.duration); // 0.3 : 0.0
         assert_triggered_events_with(&active_animation, &clip, [0.3, 0.2]);
+    }
+
+    #[test]
+    fn test_animation_node_index_as_key_of_dynamic_map() {
+        let mut map = DynamicMap::default();
+        map.insert_boxed(
+            Box::new(AnimationNodeIndex::new(0)),
+            Box::new(ActiveAnimation::default()),
+        );
     }
 }

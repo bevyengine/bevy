@@ -17,18 +17,21 @@ use crate::{
         FromWorld, World,
     },
 };
-use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
+use alloc::{
+    borrow::{Cow, ToOwned},
+    boxed::Box,
+    vec::Vec,
+};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::synccell::SyncCell;
 use core::{
     any::Any,
-    fmt::Debug,
+    fmt::{Debug, Display},
     marker::PhantomData,
     ops::{Deref, DerefMut},
     panic::Location,
 };
-use derive_more::derive::Display;
 use disqualified::ShortName;
 use thiserror::Error;
 
@@ -127,6 +130,29 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 ///
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
+///
+/// ## Custom Validation Messages
+///
+/// When using the derive macro, any [`SystemParamValidationError`]s will be propagated from the sub-parameters.
+/// If you want to override the error message, add a `#[system_param(validation_message = "New message")]` attribute to the parameter.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// # use bevy_ecs::system::SystemParam;
+/// #
+/// #[derive(SystemParam)]
+/// struct MyParam<'w> {
+///     #[system_param(validation_message = "Custom Message")]
+///     foo: Res<'w, SomeResource>,
+/// }
+///
+/// let mut world = World::new();
+/// let err = world.run_system_cached(|param: MyParam| {}).unwrap_err();
+/// let expected = "Parameter `MyParam::foo` failed validation: Custom Message";
+/// assert!(err.to_string().ends_with(expected));
+/// ```
 ///
 /// ## Builders
 ///
@@ -441,7 +467,12 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         };
         match query.single_inner() {
             Ok(_) => Ok(()),
-            Err(_) => Err(SystemParamValidationError::skipped()),
+            Err(QuerySingleError::NoEntities(_)) => Err(
+                SystemParamValidationError::skipped::<Self>("No matching entities"),
+            ),
+            Err(QuerySingleError::MultipleEntities(_)) => Err(
+                SystemParamValidationError::skipped::<Self>("Multiple matching entities"),
+            ),
         }
     }
 }
@@ -508,9 +539,9 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         };
         match query.single_inner() {
             Ok(_) | Err(QuerySingleError::NoEntities(_)) => Ok(()),
-            Err(QuerySingleError::MultipleEntities(_)) => {
-                Err(SystemParamValidationError::skipped())
-            }
+            Err(QuerySingleError::MultipleEntities(_)) => Err(
+                SystemParamValidationError::skipped::<Self>("Multiple matching entities"),
+            ),
         }
     }
 }
@@ -577,7 +608,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
             )
         };
         if query.is_empty() {
-            Err(SystemParamValidationError::skipped())
+            Err(SystemParamValidationError::skipped::<Self>(
+                "No matching entities",
+            ))
         } else {
             Ok(())
         }
@@ -862,7 +895,9 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         {
             Ok(())
         } else {
-            Err(SystemParamValidationError::invalid())
+            Err(SystemParamValidationError::invalid::<Self>(
+                "Resource does not exist",
+            ))
         }
     }
 
@@ -975,7 +1010,9 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         {
             Ok(())
         } else {
-            Err(SystemParamValidationError::invalid())
+            Err(SystemParamValidationError::invalid::<Self>(
+                "Resource does not exist",
+            ))
         }
     }
 
@@ -1573,7 +1610,9 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         {
             Ok(())
         } else {
-            Err(SystemParamValidationError::invalid())
+            Err(SystemParamValidationError::invalid::<Self>(
+                "Non-send resource does not exist",
+            ))
         }
     }
 
@@ -1683,7 +1722,9 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         {
             Ok(())
         } else {
-            Err(SystemParamValidationError::invalid())
+            Err(SystemParamValidationError::invalid::<Self>(
+                "Non-send resource does not exist",
+            ))
         }
     }
 
@@ -2650,7 +2691,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 ///
 /// Returned as an error from [`SystemParam::validate_param`],
 /// and handled using the unified error handling mechanisms defined in [`bevy_ecs::error`].
-#[derive(Debug, PartialEq, Eq, Clone, Display, Error)]
+#[derive(Debug, PartialEq, Eq, Clone, Error)]
 pub struct SystemParamValidationError {
     /// Whether the system should be skipped.
     ///
@@ -2664,17 +2705,59 @@ pub struct SystemParamValidationError {
     /// If `true`, the system should be skipped.
     /// This is suitable for system params that are intended to only operate in certain application states, such as [`Single`].
     pub skipped: bool,
+
+    /// A message describing the validation error.
+    pub message: Cow<'static, str>,
+
+    /// A string identifying the invalid parameter.
+    /// This is usually the type name of the parameter.
+    pub param: Cow<'static, str>,
+
+    /// A string identifying the field within a parameter using `#[derive(SystemParam)]`.
+    /// This will be an empty string for other parameters.
+    ///
+    /// This will be printed after `param` in the `Display` impl, and should include a `::` prefix if non-empty.
+    pub field: Cow<'static, str>,
 }
 
 impl SystemParamValidationError {
     /// Constructs a `SystemParamValidationError` that skips the system.
-    pub const fn skipped() -> Self {
-        Self { skipped: true }
+    /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
+    pub fn skipped<T>(message: impl Into<Cow<'static, str>>) -> Self {
+        Self::new::<T>(true, message, Cow::Borrowed(""))
     }
 
     /// Constructs a `SystemParamValidationError` for an invalid parameter that should be treated as an error.
-    pub const fn invalid() -> Self {
-        Self { skipped: false }
+    /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
+    pub fn invalid<T>(message: impl Into<Cow<'static, str>>) -> Self {
+        Self::new::<T>(false, message, Cow::Borrowed(""))
+    }
+
+    /// Constructs a `SystemParamValidationError` for an invalid parameter.
+    /// The parameter name is initialized to the type name of `T`, so a `SystemParam` should usually pass `Self`.
+    pub fn new<T>(
+        skipped: bool,
+        message: impl Into<Cow<'static, str>>,
+        field: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self {
+            skipped,
+            message: message.into(),
+            param: Cow::Borrowed(core::any::type_name::<T>()),
+            field: field.into(),
+        }
+    }
+}
+
+impl Display for SystemParamValidationError {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(
+            fmt,
+            "Parameter `{}{}` failed validation: {}",
+            ShortName(&self.param),
+            self.field,
+            self.message
+        )
     }
 }
 
@@ -2910,5 +2993,35 @@ mod tests {
         let _query: Query<()> = p.downcast_mut().unwrap();
         let _query: Query<()> = p.downcast_mut_inner().unwrap();
         let _query: Query<()> = p.downcast().unwrap();
+    }
+
+    #[test]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_resource_error::res_system`: Parameter `Res<MissingResource>` failed validation: Resource does not exist"]
+    fn missing_resource_error() {
+        #[derive(Resource)]
+        pub struct MissingResource;
+
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(res_system);
+        let mut world = World::new();
+        schedule.run(&mut world);
+
+        fn res_system(_: Res<MissingResource>) {}
+    }
+
+    #[test]
+    #[should_panic = "Encountered an error in system `bevy_ecs::system::system_param::tests::missing_event_error::event_system`: Parameter `EventReader<MissingEvent>::events` failed validation: Event not initialized"]
+    fn missing_event_error() {
+        use crate::prelude::{Event, EventReader};
+
+        #[derive(Event)]
+        pub struct MissingEvent;
+
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(event_system);
+        let mut world = World::new();
+        schedule.run(&mut world);
+
+        fn event_system(_: EventReader<MissingEvent>) {}
     }
 }

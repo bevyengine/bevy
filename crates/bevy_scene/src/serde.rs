@@ -515,7 +515,7 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{hash_map::EntityHashMap, Entity},
+        entity::{Entity, EntityHashMap},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::AppTypeRegistry,

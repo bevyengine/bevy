@@ -92,7 +92,7 @@ where
 
         // Send event to parent, if it has one.
         if let Some(child_of) = child_of {
-            return Some(child_of.parent);
+            return Some(child_of.parent());
         };
 
         // Otherwise, send it to the window entity (unless this is a window entity).
@@ -152,7 +152,7 @@ pub struct Cancel {
     pub hit: HitData,
 }
 
-/// Fires when a the pointer crosses into the bounds of the `target` entity.
+/// Fires when a pointer crosses into the bounds of the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Over {
@@ -160,7 +160,7 @@ pub struct Over {
     pub hit: HitData,
 }
 
-/// Fires when a the pointer crosses out of the bounds of the `target` entity.
+/// Fires when a pointer crosses out of the bounds of the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Out {

@@ -11,7 +11,7 @@ use crate::{
     archetype::ArchetypeFlags,
     change_detection::MaybeLocation,
     component::ComponentId,
-    entity::hash_map::EntityHashMap,
+    entity::EntityHashMap,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
@@ -1654,7 +1654,7 @@ mod tests {
         fn on_add(trigger: Trigger<OnAdd, A>, mut commands: Commands) {
             commands
                 .entity(trigger.target())
-                .with_related::<crate::hierarchy::ChildOf>(|rsc| {
+                .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
                     rsc.spawn_empty();
                 });
         }

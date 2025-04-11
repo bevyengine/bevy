@@ -10,7 +10,9 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
+tracing = ["bevy_log/tracing"]
 trace = [
+  "tracing",
   "bevy_app/trace",
   "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
@@ -21,10 +23,18 @@ trace = [
   "bevy_render?/trace",
   "bevy_winit?/trace",
 ]
-trace_chrome = ["bevy_log/tracing-chrome"]
-trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
-trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
-detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
+trace_chrome = ["tracing", "bevy_log/tracing-chrome"]
+trace_tracy = [
+  "tracing",
+  "bevy_render?/tracing-tracy",
+  "bevy_log/tracing-tracy",
+]
+trace_tracy_memory = ["tracing", "bevy_log/trace_tracy_memory"]
+detailed_trace = [
+  "tracing",
+  "bevy_ecs/detailed_trace",
+  "bevy_render?/detailed_trace",
+]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
@@ -91,11 +101,11 @@ serialize = [
   "bevy_color?/serialize",
   "bevy_ecs/serialize",
   "bevy_image?/serialize",
-  "bevy_input?/serialize",
-  "bevy_math?/serialize",
+  "bevy_input/serialize",
+  "bevy_math/serialize",
   "bevy_scene?/serialize",
   "bevy_time/serialize",
-  "bevy_transform?/serialize",
+  "bevy_transform/serialize",
   "bevy_ui?/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
@@ -293,6 +303,7 @@ std = [
   "bevy_ecs/std",
   "bevy_input/std",
   "bevy_input_focus?/std",
+  "bevy_log/std",
   "bevy_math/std",
   "bevy_platform_support/std",
   "bevy_reflect/std",
@@ -311,7 +322,7 @@ critical-section = [
   "bevy_app/critical-section",
   "bevy_diagnostic/critical-section",
   "bevy_ecs/critical-section",
-  "bevy_input?/critical-section",
+  "bevy_input/critical-section",
   "bevy_input_focus?/critical-section",
   "bevy_platform_support/critical-section",
   "bevy_reflect/critical-section",
@@ -337,13 +348,14 @@ async_executor = [
   "std",
   "bevy_tasks/async_executor",
   "bevy_ecs/async_executor",
-  "bevy_transform?/async_executor",
+  "bevy_transform/async_executor",
 ]
 
 # Enables use of browser APIs.
 # Note this is currently only applicable on `wasm32` architectures.
 web = [
   "bevy_app/web",
+  "bevy_log/web",
   "bevy_platform_support/web",
   "bevy_reflect/web",
   "bevy_tasks/web",
@@ -361,10 +373,11 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = fa
 ] }
 bevy_input = { path = "../bevy_input", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-], optional = true }
+] }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-], optional = true }
+  "nostd-libm",
+] }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
@@ -378,14 +391,13 @@ bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = 
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev", default-features = false, features = [
   "bevy-support",
   "bevy_reflect",
-], optional = true }
+] }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 
-# bevy (std required)
-bevy_log = { path = "../bevy_log", version = "0.16.0-dev", optional = true }
+bevy_log = { path = "../bevy_log", version = "0.16.0-dev", default-features = false }
 
 # bevy (optional)
 bevy_a11y = { path = "../bevy_a11y", optional = true, version = "0.16.0-dev", features = [
