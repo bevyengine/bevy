@@ -258,9 +258,20 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                         needs_extracting.insert(*id);
                         modified.insert(*id);
                     }
-                    AssetEvent::Removed { .. } => {
-                        // We don't care that the asset was removed from Assets<T> in the main world.
-                        // An asset is only removed from RenderAssets<T> when its last handle is dropped (AssetEvent::Unused).
+                    AssetEvent::Removed { id, .. } => {
+                        // Normally, we consider an asset removed from the render world only
+                        // when it's final handle is dropped triggering an `AssetEvent::Unused`
+                        // event. However, removal without unused can happen when the asset
+                        // is explicitly removed from the asset server and re-added by the user.
+                        // We mark the assset as modified in this case to ensure that
+                        // any necessary render world bookkeeping still runs.
+
+                        // TODO: consider removing this check and just emitting Unused after
+                        // Removed to ensure that the asset is always "really" removed from the
+                        // render world when the last strong handle is dropped.
+                        if !removed.contains(id) {
+                            modified.insert(*id);
+                        }
                     }
                     AssetEvent::Unused { id } => {
                         needs_extracting.remove(id);
