@@ -21,7 +21,7 @@ use indexmap::map::{self, IndexMap, IntoValues, ValuesMut};
 
 use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 
-use bevy_platform_support::prelude::Box;
+use bevy_platform::prelude::Box;
 
 /// A [`IndexMap`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
