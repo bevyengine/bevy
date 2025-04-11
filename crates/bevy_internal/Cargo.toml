@@ -113,7 +113,7 @@ serialize = [
   "bevy_ui?/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
-  "bevy_platform_support/serialize",
+  "bevy_platform/serialize",
 ]
 multi_threaded = [
   "std",
@@ -306,7 +306,7 @@ std = [
   "bevy_input_focus?/std",
   "bevy_log/std",
   "bevy_math/std",
-  "bevy_platform_support/std",
+  "bevy_platform/std",
   "bevy_reflect/std",
   "bevy_state?/std",
   "bevy_time/std",
@@ -325,7 +325,7 @@ critical-section = [
   "bevy_ecs/critical-section",
   "bevy_input/critical-section",
   "bevy_input_focus?/critical-section",
-  "bevy_platform_support/critical-section",
+  "bevy_platform/critical-section",
   "bevy_reflect/critical-section",
   "bevy_state?/critical-section",
   "bevy_time/critical-section",
@@ -357,7 +357,7 @@ async_executor = [
 web = [
   "bevy_app/web",
   "bevy_log/web",
-  "bevy_platform_support/web",
+  "bevy_platform/web",
   "bevy_reflect/web",
   "bevy_tasks/web",
 ]
@@ -379,7 +379,7 @@ bevy_math = { path = "../bevy_math", version = "0.16.0-rc.4", default-features =
   "bevy_reflect",
   "nostd-libm",
 ] }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.4", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-rc.4", default-features = false, features = [
   "alloc",
 ] }
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-rc.4", default-features = false }

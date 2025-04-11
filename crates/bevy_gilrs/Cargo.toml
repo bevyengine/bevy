@@ -15,7 +15,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.4" }
 bevy_input = { path = "../bevy_input", version = "0.16.0-rc.4" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.4" }
 bevy_time = { path = "../bevy_time", version = "0.16.0-rc.4" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.4", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-rc.4", default-features = false, features = [
   "std",
 ] }
 

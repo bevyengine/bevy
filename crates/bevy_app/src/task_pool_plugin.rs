@@ -1,7 +1,7 @@
 use crate::{App, Plugin};
 
 use alloc::string::ToString;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use core::{fmt::Debug, marker::PhantomData};
 use log::trace;

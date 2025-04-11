@@ -23,7 +23,7 @@ multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
 serialize = [
   "dep:serde",
   "bevy_utils/serde",
-  "bevy_platform_support/serialize",
+  "bevy_platform/serialize",
   "indexmap/serde",
 ]
 
@@ -84,14 +84,14 @@ std = [
   "nonmax/std",
   "arrayvec?/std",
   "log/std",
-  "bevy_platform_support/std",
+  "bevy_platform/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
   "bevy_tasks/critical-section",
-  "bevy_platform_support/critical-section",
+  "bevy_platform/critical-section",
   "bevy_reflect?/critical-section",
 ]
 
@@ -105,7 +105,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.4", default-features
   "alloc",
 ] }
 bevy_ecs_macros = { path = "macros", version = "0.16.0-rc.4" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.4", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-rc.4", default-features = false, features = [
   "alloc",
 ] }
 

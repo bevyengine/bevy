@@ -46,7 +46,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-rc.4", optional = true 
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-rc.4" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.4" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-rc.4" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-rc.4", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-rc.4", default-features = false, features = [
   "std",
 ] }
 
