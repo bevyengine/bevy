@@ -1,6 +1,6 @@
 //! A workaround for the `!` type in stable Rust.
 //!
-//! This approach is taken from the `never-say-never` crate,
+//! This approach is taken from the `never_say_never` crate,
 //! reimplemented here to avoid adding a new dependency.
 //!
 //! This module exists due to a change in [never type fallback inference] in the Rust 2024 edition.
