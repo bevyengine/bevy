@@ -4,10 +4,10 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
     queue_material_meshes, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs, skin,
-    DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey,
-    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
-    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
-    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline,
+    MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
+    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -869,9 +869,8 @@ pub fn check_prepass_views_need_specialization(
 }
 
 pub fn specialize_prepass_material_meshes<M>(
-    render_meshes: Res<RenderAssets<RenderMesh>>,
+    params: SpecializeMeshParams<M, RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
@@ -897,20 +896,14 @@ pub fn specialize_prepass_material_meshes<M>(
     ),
     (
         mut specialized_material_pipeline_cache,
-        ticks,
         prepass_pipeline,
         mut pipelines,
-        pipeline_cache,
         view_specialization_ticks,
-        entity_specialization_ticks,
     ): (
         ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
-        SystemChangeTick,
         Res<PrepassPipeline<M>>,
         ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-        Res<PipelineCache>,
         Res<ViewPrepassSpecializationTicks>,
-        Res<EntitySpecializationTicks<M>>,
     ),
 ) where
     M: Material,
@@ -945,18 +938,23 @@ pub fn specialize_prepass_material_meshes<M>(
             let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = params
+                .entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
             let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                view_tick.is_newer_than(tick, ticks.this_run())
-                    || entity_tick.is_newer_than(tick, ticks.this_run())
+                view_tick.is_newer_than(tick, params.ticks.this_run())
+                    || entity_tick.is_newer_than(tick, params.ticks.this_run())
             });
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            let Some(mesh_instance) = params
+                .render_mesh_instances
+                .render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
@@ -969,7 +967,7 @@ pub fn specialize_prepass_material_meshes<M>(
                 warn!("Couldn't get bind group for material");
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = params.render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
 
@@ -1038,7 +1036,7 @@ pub fn specialize_prepass_material_meshes<M>(
             }
 
             let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
+                &params.pipeline_cache,
                 &prepass_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
@@ -1057,7 +1055,7 @@ pub fn specialize_prepass_material_meshes<M>(
             };
 
             view_specialized_material_pipeline_cache
-                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
+                .insert(*visible_entity, (params.ticks.this_run(), pipeline_id));
         }
     }
 }

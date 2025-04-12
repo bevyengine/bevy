@@ -865,22 +865,6 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
     }
 }
 
-#[derive(Resource, Deref, DerefMut, Clone, Debug)]
-pub struct EntitySpecializationTicks<M> {
-    #[deref]
-    pub entities: MainEntityHashMap<Tick>,
-    _marker: PhantomData<M>,
-}
-
-impl<M> Default for EntitySpecializationTicks<M> {
-    fn default() -> Self {
-        Self {
-            entities: MainEntityHashMap::default(),
-            _marker: Default::default(),
-        }
-    }
-}
-
 /// Stores the [`SpecializedMaterialViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedMaterialPipelineCache<M> {
@@ -946,9 +930,8 @@ pub fn check_entities_needing_specialization<M>(
 }
 
 pub fn specialize_material_meshes<M: Material>(
-    render_meshes: Res<RenderAssets<RenderMesh>>,
+    params: SpecializeMeshParams<M, RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
@@ -967,13 +950,10 @@ pub fn specialize_material_meshes<M: Material>(
     ),
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline: Res<MaterialPipeline<M>>,
-    pipeline_cache: Res<PipelineCache>,
-    ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1011,22 +991,27 @@ pub fn specialize_material_meshes<M: Material>(
             let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = params
+                .entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
             let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                view_tick.is_newer_than(tick, ticks.this_run())
-                    || entity_tick.is_newer_than(tick, ticks.this_run())
+                view_tick.is_newer_than(tick, params.ticks.this_run())
+                    || entity_tick.is_newer_than(tick, params.ticks.this_run())
             });
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            let Some(mesh_instance) = params
+                .render_mesh_instances
+                .render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = params.render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
             let Some(material) = render_materials.get(material_asset_id) else {
@@ -1081,7 +1066,8 @@ pub fn specialize_material_meshes<M: Material>(
                     .get_extra_data(material.binding.slot)
                     .clone(),
             };
-            let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, key, &mesh.layout);
+            let pipeline_id =
+                pipelines.specialize(&params.pipeline_cache, &pipeline, key, &mesh.layout);
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
                 Err(err) => {
@@ -1091,7 +1077,7 @@ pub fn specialize_material_meshes<M: Material>(
             };
 
             view_specialized_material_pipeline_cache
-                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
+                .insert(*visible_entity, (params.ticks.this_run(), pipeline_id));
         }
     }
 
