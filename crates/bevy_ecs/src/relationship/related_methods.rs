@@ -413,7 +413,7 @@ impl<'a> EntityCommands<'a> {
         let newly_related_entities: Box<[Entity]> = newly_related_entities.into();
 
         self.queue(move |mut entity: EntityWorldMut| {
-            entity.replace_children_with_difference(
+            entity.replace_related_with_difference::<R>(
                 &entities_to_unrelate,
                 &entities_to_relate,
                 &newly_related_entities,
