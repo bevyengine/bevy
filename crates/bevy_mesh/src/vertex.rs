@@ -244,10 +244,26 @@ impl VertexAttributeValues {
         self.len() == 0
     }
 
+    /// Returns the values as float pairs if possible.
+    pub fn as_float2(&self) -> Option<&[[f32; 2]]> {
+        match self {
+            VertexAttributeValues::Float32x2(values) => Some(values),
+            _ => None,
+        }
+    }
+
     /// Returns the values as float triples if possible.
     pub fn as_float3(&self) -> Option<&[[f32; 3]]> {
         match self {
             VertexAttributeValues::Float32x3(values) => Some(values),
+            _ => None,
+        }
+    }
+
+    /// Returns the values as float quads if possible.
+    pub fn as_float4(&self) -> Option<&[[f32; 4]]> {
+        match self {
+            VertexAttributeValues::Float32x4(values) => Some(values),
             _ => None,
         }
     }
