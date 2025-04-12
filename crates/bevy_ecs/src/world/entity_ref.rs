@@ -414,15 +414,15 @@ impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
     }
 }
 
-impl PartialEq for EntityRef<'_> {
+impl<S: AccessScope> PartialEq for EntityRef<'_, S> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl Eq for EntityRef<'_> {}
+impl<S: AccessScope> Eq for EntityRef<'_, S> {}
 
-impl PartialOrd for EntityRef<'_> {
+impl<S: AccessScope> PartialOrd for EntityRef<'_, S> {
     /// [`EntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -430,26 +430,26 @@ impl PartialOrd for EntityRef<'_> {
     }
 }
 
-impl Ord for EntityRef<'_> {
+impl<S: AccessScope> Ord for EntityRef<'_, S> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl Hash for EntityRef<'_> {
+impl<S: AccessScope> Hash for EntityRef<'_, S> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl ContainsEntity for EntityRef<'_> {
+impl<S: AccessScope> ContainsEntity for EntityRef<'_, S> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl EntityEquivalent for EntityRef<'_> {}
+unsafe impl<S: AccessScope> EntityEquivalent for EntityRef<'_, S> {}
 
 /// Provides mutable access to a single entity and all of its components.
 ///
@@ -1103,15 +1103,15 @@ impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
     }
 }
 
-impl PartialEq for EntityMut<'_> {
+impl<S: AccessScope> PartialEq for EntityMut<'_, S> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl Eq for EntityMut<'_> {}
+impl<S: AccessScope> Eq for EntityMut<'_, S> {}
 
-impl PartialOrd for EntityMut<'_> {
+impl<S: AccessScope> PartialOrd for EntityMut<'_, S> {
     /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -1119,26 +1119,26 @@ impl PartialOrd for EntityMut<'_> {
     }
 }
 
-impl Ord for EntityMut<'_> {
+impl<S: AccessScope> Ord for EntityMut<'_, S> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl Hash for EntityMut<'_> {
+impl<S: AccessScope> Hash for EntityMut<'_, S> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl ContainsEntity for EntityMut<'_> {
+impl<S: AccessScope> ContainsEntity for EntityMut<'_, S> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl EntityEquivalent for EntityMut<'_> {}
+unsafe impl<S: AccessScope> EntityEquivalent for EntityMut<'_, S> {}
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
@@ -3528,43 +3528,6 @@ impl<'a, B: Bundle> From<&'a EntityRefExcept<'_, B>> for FilteredEntityRef<'a> {
     }
 }
 
-impl PartialEq for FilteredEntityRef<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.entity() == other.entity()
-    }
-}
-
-impl Eq for FilteredEntityRef<'_> {}
-
-impl PartialOrd for FilteredEntityRef<'_> {
-    /// [`FilteredEntityRef`]'s comparison trait implementations match the underlying [`Entity`],
-    /// and cannot discern between different worlds.
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for FilteredEntityRef<'_> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.entity().cmp(&other.entity())
-    }
-}
-
-impl Hash for FilteredEntityRef<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.entity().hash(state);
-    }
-}
-
-impl ContainsEntity for FilteredEntityRef<'_> {
-    fn entity(&self) -> Entity {
-        self.id()
-    }
-}
-
-// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl EntityEquivalent for FilteredEntityRef<'_> {}
-
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 ///
 /// To define the access when used as a [`QueryData`](crate::query::QueryData),
@@ -3677,43 +3640,6 @@ impl<'a, B: Bundle> From<&'a EntityMutExcept<'_, B>> for FilteredEntityMut<'a> {
     }
 }
 
-impl PartialEq for FilteredEntityMut<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.entity() == other.entity()
-    }
-}
-
-impl Eq for FilteredEntityMut<'_> {}
-
-impl PartialOrd for FilteredEntityMut<'_> {
-    /// [`FilteredEntityMut`]'s comparison trait implementations match the underlying [`Entity`],
-    /// and cannot discern between different worlds.
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for FilteredEntityMut<'_> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.entity().cmp(&other.entity())
-    }
-}
-
-impl Hash for FilteredEntityMut<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.entity().hash(state);
-    }
-}
-
-impl ContainsEntity for FilteredEntityMut<'_> {
-    fn entity(&self) -> Entity {
-        self.id()
-    }
-}
-
-// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl EntityEquivalent for FilteredEntityMut<'_> {}
-
 /// Error type returned by [`TryFrom`] conversions from filtered entity types
 /// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
 /// ([`EntityRef`]/[`EntityMut`]).
@@ -3744,43 +3670,6 @@ where
     }
 }
 
-impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
-    fn eq(&self, other: &Self) -> bool {
-        self.entity() == other.entity()
-    }
-}
-
-impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
-
-impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
-    /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
-    /// and cannot discern between different worlds.
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<B: Bundle> Ord for EntityRefExcept<'_, B> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.entity().cmp(&other.entity())
-    }
-}
-
-impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.entity().hash(state);
-    }
-}
-
-impl<B: Bundle> ContainsEntity for EntityRefExcept<'_, B> {
-    fn entity(&self) -> Entity {
-        self.id()
-    }
-}
-
-// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, B> {}
-
 /// Provides mutable access to all components of an entity, with the exception
 /// of an explicit set.
 ///
@@ -3790,43 +3679,6 @@ unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, B> {}
 /// need access to all components, prefer a standard query with a
 /// [`crate::query::Without`] filter.
 pub type EntityMutExcept<'w, B> = EntityMut<'w, Except<B>>;
-
-impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
-    fn eq(&self, other: &Self) -> bool {
-        self.entity() == other.entity()
-    }
-}
-
-impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
-
-impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
-    /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
-    /// and cannot discern between different worlds.
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<B: Bundle> Ord for EntityMutExcept<'_, B> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.entity().cmp(&other.entity())
-    }
-}
-
-impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.entity().hash(state);
-    }
-}
-
-impl<B: Bundle> ContainsEntity for EntityMutExcept<'_, B> {
-    fn entity(&self) -> Entity {
-        self.id()
-    }
-}
-
-// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> EntityEquivalent for EntityMutExcept<'_, B> {}
 
 /// Inserts a dynamic [`Bundle`] into the entity.
 ///
