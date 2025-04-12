@@ -100,7 +100,7 @@ pub fn despawn_entities_on_exit_state<S: States>(
 ///
 /// ```
 /// use bevy_state::prelude::*;
-/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::{prelude::*, system::ScheduleSystem};
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 /// enum GameState {
@@ -124,7 +124,7 @@ pub fn despawn_entities_on_exit_state<S: States>(
 /// # impl AppMock {
 /// #     fn init_state<S>(&mut self) {}
 /// #     fn enable_state_scoped_entities<S>(&mut self) {}
-/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoSystemConfigs<M>) {}
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
 /// # }
 /// # struct Update;
 /// # let mut app = AppMock;
