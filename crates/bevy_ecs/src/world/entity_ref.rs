@@ -143,7 +143,9 @@ impl<'w, S: AccessScope> EntityRef<'w, S> {
     ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        self.cell.contains_id(component_id)
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        unsafe { self.cell.contains_id(&self.scope, component_id) }
     }
 
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
@@ -155,7 +157,9 @@ impl<'w, S: AccessScope> EntityRef<'w, S> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        self.cell.contains_type_id(type_id)
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        unsafe { self.cell.contains_type_id(&self.scope, type_id) }
     }
 
     /// Gets access to the component of type `T` for the current entity.
@@ -595,7 +599,9 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        self.cell.contains_id(component_id)
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        unsafe { self.cell.contains_id(&self.scope, component_id) }
     }
 
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
@@ -607,7 +613,9 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        self.cell.contains_type_id(type_id)
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        unsafe { self.cell.contains_type_id(&self.scope, type_id) }
     }
 
     /// Gets access to the component of type `T` for the current entity.
@@ -1328,8 +1336,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        self.as_unsafe_entity_cell_readonly()
-            .contains_id(component_id)
+        self.as_readonly().contains_id(component_id)
     }
 
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
@@ -1345,8 +1352,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        self.as_unsafe_entity_cell_readonly()
-            .contains_type_id(type_id)
+        self.as_readonly().contains_type_id(type_id)
     }
 
     /// Gets access to the component of type `T` for the current entity.

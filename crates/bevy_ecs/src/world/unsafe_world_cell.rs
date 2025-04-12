@@ -756,9 +756,14 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// If you do not know the concrete type of a component, consider using
     /// [`Self::contains_id`] or [`Self::contains_type_id`].
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     #[inline]
-    pub fn contains<T: Component>(self) -> bool {
-        self.contains_type_id(TypeId::of::<T>())
+    pub unsafe fn contains<T: Component>(self, scope: impl AccessScope) -> bool {
+        self.contains_type_id(scope, TypeId::of::<T>())
     }
 
     /// Returns `true` if the current entity has a component identified by `component_id`.
@@ -769,8 +774,17 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
     ///   [`Self::contains_type_id`].
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     #[inline]
-    pub fn contains_id(self, component_id: ComponentId) -> bool {
+    pub unsafe fn contains_id(self, scope: impl AccessScope, component_id: ComponentId) -> bool {
+        if !scope.can_read(self.world.components(), component_id) {
+            return false;
+        }
+
         self.archetype().contains(component_id)
     }
 
@@ -781,12 +795,17 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     #[inline]
-    pub fn contains_type_id(self, type_id: TypeId) -> bool {
+    pub unsafe fn contains_type_id(self, scope: impl AccessScope, type_id: TypeId) -> bool {
         let Some(id) = self.world.components().get_id(type_id) else {
             return false;
         };
-        self.contains_id(id)
+        self.contains_id(scope, id)
     }
 
     /// # Safety
