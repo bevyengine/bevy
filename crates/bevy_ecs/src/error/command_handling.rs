@@ -59,6 +59,13 @@ where
             self.apply(world);
         }
     }
+
+    #[inline]
+    fn handle_error(self) -> impl Command {
+        move |world: &mut World| {
+            self.apply(world);
+        }
+    }
 }
 
 impl<C> HandleError for C

@@ -1350,7 +1350,8 @@ impl App {
         self.default_error_handler
     }
 
-    /// Override the error handler for the all subapps (including the main one).
+    /// Set the [default error handler] for the all subapps (including the main one and future ones)
+    /// that do not have one.
     ///
     /// May only be called once and should be set by the application, not by libraries.
     ///
@@ -1363,12 +1364,14 @@ impl App {
     /// ```
     /// # use bevy_app::*;
     /// # use bevy_ecs::error::warn;
-    /// # fn MyPlugins() {}
+    /// # fn MyPlugins(_: &mut App) {}
     /// App::new()
     ///     .set_error_handler(warn)
     ///     .add_plugins(MyPlugins)
     ///     .run();
     /// ```
+    ///
+    /// [default error handler]: bevy_ecs::error::DefaultErrorHandler
     pub fn set_error_handler(&mut self, handler: ErrorHandler) -> &mut Self {
         assert!(
             self.default_error_handler.is_none(),
