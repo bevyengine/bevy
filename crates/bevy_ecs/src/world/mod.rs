@@ -1,5 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
+mod access_scope;
 pub(crate) mod command_queue;
 mod component_constants;
 mod deferred_world;
@@ -18,6 +19,7 @@ pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
+pub use access_scope::*;
 pub use bevy_ecs_macros::FromWorld;
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
