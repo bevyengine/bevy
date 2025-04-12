@@ -1,5 +1,7 @@
 use core::marker::PhantomData;
 
+use derive_more::derive::{Deref, DerefMut};
+
 use crate::{
     bundle::Bundle,
     component::{ComponentId, Components},
@@ -89,7 +91,7 @@ unsafe impl AccessScope for Full {
 
 /// An [`AccessScope`] that allows reading and writing only the components allowed by
 /// the held [`Access<ComponentId>`].
-#[derive(Clone)]
+#[derive(Clone, Deref, DerefMut)]
 pub struct Partial(pub Access<ComponentId>);
 
 // SAFETY: `as_ref` refers to the same set of components as `Self`

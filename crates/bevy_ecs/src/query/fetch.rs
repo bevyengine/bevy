@@ -628,7 +628,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: mutable access to every component has been registered.
-        unsafe { EntityMut::new(cell) }
+        unsafe { EntityMut::new(cell, Full) }
     }
 }
 
@@ -816,7 +816,7 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: mutable access to every component has been registered.
-        unsafe { FilteredEntityMut::new(cell, access.clone()) }
+        unsafe { FilteredEntityMut::new(cell, Partial(access.clone())) }
     }
 }
 
@@ -1013,7 +1013,7 @@ where
         _: TableRow,
     ) -> Self::Item<'w> {
         let cell = world.get_entity(entity).unwrap();
-        EntityMutExcept::new(cell)
+        EntityMutExcept::new(cell, Except::<B>::default())
     }
 }
 
