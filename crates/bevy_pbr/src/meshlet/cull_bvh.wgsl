@@ -36,7 +36,7 @@ fn cull_bvh(
     var node = dispatch_id >> 3u;
     let subnode = dispatch_id & 7u;
     if node >= meshlet_bvh_cull_count_read { return; }
-    
+
     node = select(node, constants.rightmost_slot - node, constants.read_from_front == 0u);
     let instanced_offset = meshlet_bvh_cull_queue[node];
     let instance_id = instanced_offset.instance_id;
@@ -51,7 +51,7 @@ fn cull_bvh(
     // Error and frustum cull, in both passes
     if parent_is_imperceptible || !aabb_in_frustum(aabb, instance_id) { return; }
 
-    let child_offset = get_aabb_child_offset(&aabb_error_offset);    
+    let child_offset = get_aabb_child_offset(&aabb_error_offset);
     let index = subnode >> 2u;
     let bit_offset = subnode & 3u;
     let packed_child_count = (*bvh_node).child_counts[index];
@@ -62,13 +62,13 @@ fn cull_bvh(
     // If this node was occluded, push it's children to the second pass to check against this frame's HZB
     if should_occlusion_cull_aabb(aabb, instance_id) {
 #ifdef MESHLET_FIRST_CULLING_PASS
-        if child_count == 255u {   
+        if child_count == 255u {
             let id = atomicAdd(&meshlet_second_pass_bvh_count, 1u);
             meshlet_second_pass_bvh_queue[id] = value;
             if ((id & 15u) == 0u) {
                 atomicAdd(&meshlet_second_pass_bvh_dispatch.x, 1u);
             }
-        } else {  
+        } else {
             let base = atomicAdd(&meshlet_meshlet_cull_count_late, child_count);
             let start = constants.rightmost_slot - base;
             for (var i = start; i < start - child_count; i--) {
@@ -83,14 +83,14 @@ fn cull_bvh(
     }
 
     // If we pass, push the children to the next BVH cull
-    if child_count == 255u { 
+    if child_count == 255u {
         let id = atomicAdd(&meshlet_bvh_cull_count_write, 1u);
         let index = select(constants.rightmost_slot - id, id, constants.read_from_front == 0u);
         meshlet_bvh_cull_queue[index] = value;
         if ((id & 15u) == 0u) {
             atomicAdd(&meshlet_bvh_cull_dispatch.x, 1u);
         }
-    } else {   
+    } else {
         let base = atomicAdd(&meshlet_meshlet_cull_count_early, child_count);
         for (var i = base; i < base + child_count; i++) {
             meshlet_meshlet_cull_queue[i] = value;

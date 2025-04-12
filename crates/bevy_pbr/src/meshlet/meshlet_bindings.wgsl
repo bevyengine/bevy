@@ -9,6 +9,7 @@ struct BvhNode {
     aabbs: array<MeshletAabbErrorOffset, 8>,
     lod_bounds: array<vec4<f32>, 8>,
     child_counts: array<u32, 2>,
+    _padding: vec2<u32>,
 }
 
 struct Meshlet {

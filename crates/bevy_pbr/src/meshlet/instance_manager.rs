@@ -171,6 +171,7 @@ impl InstanceManager {
 
         self.instances.clear();
         self.instance_uniforms.get_mut().clear();
+        self.instance_aabbs.get_mut().clear();
         self.instance_material_ids.get_mut().clear();
         self.instance_bvh_root_nodes.get_mut().clear();
         self.view_instance_visibility

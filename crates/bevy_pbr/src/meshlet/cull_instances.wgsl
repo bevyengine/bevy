@@ -48,7 +48,7 @@ fn cull_instances(
     // Calculate the instance ID for this thread
     let dispatch_id = local_invocation_index + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
     if dispatch_id >= instance_count() { return; }
-    
+
     let instance_id = map_instance_id(dispatch_id);
     let aabb = meshlet_instance_aabbs[instance_id];
 

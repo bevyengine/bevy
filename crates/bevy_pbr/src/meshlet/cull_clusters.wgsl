@@ -29,7 +29,7 @@ fn cull_clusters(
     // Calculate the queue ID for this thread
     let dispatch_id = local_invocation_index + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
     if dispatch_id >= meshlet_meshlet_cull_count_read { return; }
-    
+
 #ifdef MESHLET_FIRST_CULLING_PASS
     let meshlet_id = dispatch_id;
 #else
@@ -52,7 +52,7 @@ fn cull_clusters(
     // If we pass, try occlusion culling
     // If this node was occluded, push it's children to the second pass to check against this frame's HZB
     if should_occlusion_cull_aabb(aabb, instance_id) {
-#ifdef MESHLET_FIRST_CULLING_PASS            
+#ifdef MESHLET_FIRST_CULLING_PASS
         let id = atomicAdd(&meshlet_meshlet_cull_count_write, 1u);
         let value = InstancedOffset(instance_id, instanced_offset.offset);
         meshlet_meshlet_cull_queue[constants.rightmost_slot - id] = value;
