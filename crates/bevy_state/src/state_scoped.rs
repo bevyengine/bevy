@@ -98,8 +98,6 @@ pub fn clear_despawn_on_exit_state_entities<S: States>(
 /// To enable this feature remember to configure your application
 /// with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities) on your state(s) of choice.
 ///
-/// If `bevy_hierarchy` feature is enabled, which it is by default, the despawn will be recursive.
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::prelude::*;
@@ -160,9 +158,6 @@ pub fn clear_despawn_on_enter_state_entities<S: States>(
     };
     for (entity, binding) in &query {
         if binding.0 == *entered {
-            #[cfg(feature = "bevy_hierarchy")]
-            commands.entity(entity).despawn_recursive();
-            #[cfg(not(feature = "bevy_hierarchy"))]
             commands.entity(entity).despawn();
         }
     }
