@@ -89,8 +89,8 @@ fn add_state_scoped_event_impl<E: Event, S: FreelyMutableState>(
 pub trait StateScopedEventsAppExt {
     /// Adds an [`Event`] that is automatically cleaned up when leaving the specified `state`.
     ///
-    /// Note that event cleanup is ordered ambiguously relative to [`DespawnOnStateEnter`](crate::prelude::DespawnOnStateEnter)
-    /// or [`DespawnOnStateExit`](crate::prelude::DespawnOnStateExit) entity
+    /// Note that event cleanup is ordered ambiguously relative to [`DespawnOnEnterState`](crate::prelude::DespawnOnEnterState)
+    /// or [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity
     /// cleanup and the [`OnExit`] schedule for the target state. All of these (state scoped
     /// entities and events cleanup, and `OnExit`) occur within schedule [`StateTransition`](crate::prelude::StateTransition)
     /// and system set `StateTransitionSteps::ExitSchedules`.

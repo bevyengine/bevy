@@ -34,7 +34,7 @@ struct TickTock(Timer);
 fn on_a_enter(mut commands: Commands) {
     info!("on_a_enter");
     commands.spawn((
-        DespawnOnStateExit(GameState::A),
+        DespawnOnExitState(GameState::A),
         Text::new("Game is in state 'A'"),
         TextFont {
             font_size: 33.0,
@@ -53,7 +53,7 @@ fn on_a_enter(mut commands: Commands) {
 fn on_a_exit(mut commands: Commands) {
     info!("on_a_exit");
     commands.spawn((
-        DespawnOnStateEnter(GameState::A),
+        DespawnOnEnterState(GameState::A),
         Text::new("Game state 'A' will be back in 1 second"),
         TextFont {
             font_size: 33.0,
@@ -72,7 +72,7 @@ fn on_a_exit(mut commands: Commands) {
 fn on_b_enter(mut commands: Commands) {
     info!("on_b_enter");
     commands.spawn((
-        DespawnOnStateExit(GameState::B),
+        DespawnOnExitState(GameState::B),
         Text::new("Game is in state 'B'"),
         TextFont {
             font_size: 33.0,
@@ -91,7 +91,7 @@ fn on_b_enter(mut commands: Commands) {
 fn on_b_exit(mut commands: Commands) {
     info!("on_b_exit");
     commands.spawn((
-        DespawnOnStateEnter(GameState::B),
+        DespawnOnEnterState(GameState::B),
         Text::new("Game state 'B' will be back in 1 second"),
         TextFont {
             font_size: 33.0,

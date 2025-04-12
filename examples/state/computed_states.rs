@@ -409,7 +409,7 @@ mod ui {
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
-            DespawnOnStateExit(InGame),
+            DespawnOnExitState(InGame),
             Sprite::from_image(asset_server.load("branding/icon.png")),
         ));
     }
@@ -449,7 +449,7 @@ mod ui {
     pub fn setup_paused_screen(mut commands: Commands) {
         info!("Printing Pause");
         commands.spawn((
-            DespawnOnStateExit(IsPaused::Paused),
+            DespawnOnExitState(IsPaused::Paused),
             Node {
                 // center button
                 width: Val::Percent(100.),
@@ -487,7 +487,7 @@ mod ui {
 
     pub fn setup_turbo_text(mut commands: Commands) {
         commands.spawn((
-            DespawnOnStateExit(TurboMode),
+            DespawnOnExitState(TurboMode),
             Node {
                 // center button
                 width: Val::Percent(100.),
@@ -523,7 +523,7 @@ mod ui {
 
     pub fn movement_instructions(mut commands: Commands) {
         commands.spawn((
-            DespawnOnStateExit(Tutorial::MovementInstructions),
+            DespawnOnExitState(Tutorial::MovementInstructions),
             Node {
                 // center button
                 width: Val::Percent(100.),
@@ -574,7 +574,7 @@ mod ui {
 
     pub fn pause_instructions(mut commands: Commands) {
         commands.spawn((
-            DespawnOnStateExit(Tutorial::PauseInstructions),
+            DespawnOnExitState(Tutorial::PauseInstructions),
             Node {
                 // center button
                 width: Val::Percent(100.),

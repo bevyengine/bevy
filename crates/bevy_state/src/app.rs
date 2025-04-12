@@ -8,7 +8,7 @@ use crate::{
         setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
         StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
     },
-    state_scoped::{clear_despawn_on_state_enter_entities, clear_despawn_on_state_exit_entities},
+    state_scoped::{clear_despawn_on_enter_state_entities, clear_despawn_on_exit_state_entities},
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -226,11 +226,11 @@ impl AppExtStates for SubApp {
         // because [`OnExit`] only runs for one specific variant of the state.
         self.add_systems(
             StateTransition,
-            clear_despawn_on_state_exit_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
+            clear_despawn_on_exit_state_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
         )
         .add_systems(
             StateTransition,
-            clear_despawn_on_state_enter_entities::<S>.in_set(StateTransitionSteps::EnterSchedules),
+            clear_despawn_on_enter_state_entities::<S>.in_set(StateTransitionSteps::EnterSchedules),
         )
     }
 

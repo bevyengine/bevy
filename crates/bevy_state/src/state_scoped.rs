@@ -36,7 +36,7 @@ use crate::state::{StateTransitionEvent, States};
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         DespawnOnStateExit(GameState::InGame),
+///         DespawnOnExitState(GameState::InGame),
 ///         Player
 ///     ));
 /// }
@@ -55,9 +55,9 @@ use crate::state::{StateTransitionEvent, States};
 /// ```
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
-pub struct DespawnOnStateExit<S: States>(pub S);
+pub struct DespawnOnExitState<S: States>(pub S);
 
-impl<S> Default for DespawnOnStateExit<S>
+impl<S> Default for DespawnOnExitState<S>
 where
     S: States + Default,
 {
@@ -66,12 +66,12 @@ where
     }
 }
 
-/// Removes entities marked with [`DespawnOnStateExit<S>`]
+/// Removes entities marked with [`DespawnOnExitState<S>`]
 /// when their state no longer matches the world state.
-pub fn clear_despawn_on_state_exit_entities<S: States>(
+pub fn clear_despawn_on_exit_state_entities<S: States>(
     mut commands: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnStateExit<S>)>,
+    query: Query<(Entity, &DespawnOnExitState<S>)>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -117,7 +117,7 @@ pub fn clear_despawn_on_state_exit_entities<S: States>(
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         DespawnOnStateEnter(GameState::MainMenu),
+///         DespawnOnEnterState(GameState::MainMenu),
 ///         Player
 ///     ));
 /// }
@@ -137,16 +137,14 @@ pub fn clear_despawn_on_state_exit_entities<S: States>(
 /// ```
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
-pub struct DespawnOnStateEnter<S: States>(pub S);
+pub struct DespawnOnEnterState<S: States>(pub S);
 
-/// Removes entities marked with [`DespawnOnStateEnter<S>`]
-/// when their state matches the world state.
-///
-/// If `bevy_hierarchy` feature is enabled, which it is by default, the despawn will be recursive.
-pub fn clear_despawn_on_state_enter_entities<S: States>(
+/// Removes entities marked with [`DespawnOnEnterState<S>`] when their state
+/// matches the world state.
+pub fn clear_despawn_on_enter_state_entities<S: States>(
     mut commands: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnStateEnter<S>)>,
+    query: Query<(Entity, &DespawnOnEnterState<S>)>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened

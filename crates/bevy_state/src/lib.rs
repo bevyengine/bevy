@@ -91,6 +91,6 @@ pub mod prelude {
             OnExit, OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States,
             SubStates, TransitionSchedules,
         },
-        state_scoped::{DespawnOnStateEnter, DespawnOnStateExit},
+        state_scoped::{DespawnOnEnterState, DespawnOnExitState},
     };
 }
