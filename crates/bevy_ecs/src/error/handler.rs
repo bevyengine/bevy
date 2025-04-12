@@ -77,7 +77,7 @@ impl ErrorContext {
 
 mod global_error_handler {
     use super::{panic, BevyError, ErrorContext};
-    use bevy_platform_support::sync::atomic::{
+    use bevy_platform::sync::atomic::{
         AtomicBool, AtomicPtr,
         Ordering::{AcqRel, Acquire, Relaxed},
     };
