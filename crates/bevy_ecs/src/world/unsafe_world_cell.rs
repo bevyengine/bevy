@@ -691,6 +691,18 @@ impl Debug for UnsafeWorldCell<'_> {
 }
 
 /// A interior-mutable reference to a particular [`Entity`] and all of its components
+///
+/// # [`AccessScope`]s
+///
+/// Functions that access components on the entity also take an [`AccessScope`].
+/// The provided access scope must be **at most** compatible with what the
+/// [`UnsafeEntityCell`] can safely access. For example, if the entity cell can
+/// only safely access a single specific component, the [`Only`] access scope
+/// must be used. If all components are accessible, the [`Full`] access scope
+/// can be used. See the access scope trait for other options.
+///
+/// [`Only`]: crate::world::Only
+/// [`Full`]: crate::world::Full
 #[derive(Copy, Clone)]
 pub struct UnsafeEntityCell<'w> {
     world: UnsafeWorldCell<'w>,
@@ -779,9 +791,8 @@ impl<'w> UnsafeEntityCell<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get<T: Component>(self, scope: impl AccessScope) -> Option<&'w T> {
@@ -810,9 +821,8 @@ impl<'w> UnsafeEntityCell<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_ref<T: Component>(self, scope: impl AccessScope) -> Option<Ref<'w, T>> {
@@ -850,9 +860,8 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks<T: Component>(
@@ -888,9 +897,8 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks_by_id(
@@ -920,9 +928,8 @@ impl<'w> UnsafeEntityCell<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same write permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(
@@ -937,9 +944,8 @@ impl<'w> UnsafeEntityCell<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same write permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other references to the component exist at the same time
     /// - the component `T` is mutable
     #[inline]
@@ -959,9 +965,8 @@ impl<'w> UnsafeEntityCell<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same write permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other references to the component exist at the same time
     /// - The component `T` is mutable
     #[inline]
@@ -1005,9 +1010,8 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no mutable references to the queried data exist at the same time
     pub(crate) unsafe fn get_components<Q: ReadOnlyQueryData>(
         &self,
@@ -1067,9 +1071,8 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_by_id(
@@ -1102,9 +1105,8 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same write permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut_by_id(
@@ -1161,9 +1163,8 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same write permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - no other references to the component exist at the same time
     /// - the component `T` is mutable
     #[inline]

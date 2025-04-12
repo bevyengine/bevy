@@ -81,9 +81,8 @@ pub struct EntityRef<'w, S: AccessScope = Full> {
 
 impl<'w, S: AccessScope> EntityRef<'w, S> {
     /// # Safety
-    /// - `cell` must have permission to read every component of the entity.
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - No mutable accesses to any of the entity's components allowed by the
     ///   `scope` may exist at the same time as the returned [`EntityRef`].
     #[inline]
@@ -163,17 +162,21 @@ impl<'w, S: AccessScope> EntityRef<'w, S> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        // SAFETY: We have read-only access to all components of this entity.
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - `&self` ensures no mutable accesses are active.
         unsafe { self.cell.get::<T>(&self.scope) }
     }
 
-    /// Gets access to the component of type `T` for the current entity,
+    /// Gets access to the c omponent of type `T` for the current entity,
     /// including change detection information as a [`Ref`].
     ///
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
-        // SAFETY: We have read-only access to all components of this entity.
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - `&self` ensures no mutable accesses are active.
         unsafe { self.cell.get_ref::<T>(&self.scope) }
     }
 
@@ -181,7 +184,9 @@ impl<'w, S: AccessScope> EntityRef<'w, S> {
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY: We have read-only access to all components of this entity.
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - `&self` ensures no mutable accesses are active.
         unsafe { self.cell.get_change_ticks::<T>(&self.scope) }
     }
 
@@ -193,7 +198,9 @@ impl<'w, S: AccessScope> EntityRef<'w, S> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        // SAFETY: We have read-only access to all components of this entity.
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - `&self` ensures no mutable accesses are active.
         unsafe { self.cell.get_change_ticks_by_id(&self.scope, component_id) }
     }
 
@@ -306,7 +313,9 @@ impl<'w, S: AccessScope> EntityRef<'w, S> {
         &self,
         component_ids: F,
     ) -> Result<F::Ref<'w>, EntityComponentError> {
-        // SAFETY: We have read-only access to all components of this entity.
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - `&self` ensures no mutable accesses are active.
         unsafe { component_ids.fetch_ref(self.cell, &self.scope) }
     }
 
@@ -323,7 +332,9 @@ impl<'w, S: AccessScope> EntityRef<'w, S> {
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
-        // SAFETY: We have read-only access to all components of this entity.
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - `&self` ensures no mutable accesses are active.
         unsafe { self.cell.get_components::<Q>(&self.scope) }
     }
 
@@ -496,9 +507,9 @@ pub struct EntityMut<'w, S: AccessScope = Full> {
 
 impl<'w, S: AccessScope> EntityMut<'w, S> {
     /// # Safety
-    /// - `cell` must have permission to mutate every component of the entity.
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// It is the callers responsibility to ensure that
+    /// - The provided [`AccessScope`] has at most the same read and write
+    ///   permissions as the [`UnsafeEntityCell`].
     /// - No accesses to any of the entity's components allowed by the `scope`
     ///   may exist at the same time as the returned [`EntityMut`].
     pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>, scope: S) -> Self {
@@ -508,7 +519,9 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
     pub fn reborrow(&mut self) -> EntityMut<'_, S::AsRef<'_>> {
-        // SAFETY: We have exclusive access to the entire entity and its components.
+        // SAFETY:
+        // - The access permissions of `scope` are unchanged.
+        // - `&mut self` ensures no other accesses are active.
         unsafe { EntityMut::new(self.cell, self.scope.as_ref()) }
     }
 
@@ -516,7 +529,7 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     /// components, with the world `'w` lifetime.
     pub fn into_readonly(self) -> EntityRef<'w, S> {
         // SAFETY:
-        // - EntityMut provides read access to the same components as EntityRef
+        // - The access permissions of `scope` are unchanged.
         // - Consuming `self` ensures no mutable accesses are active.
         unsafe { EntityRef::new(self.cell, self.scope) }
     }
@@ -524,7 +537,7 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     /// Gets read-only access to all of the entity's components.
     pub fn as_readonly(&self) -> EntityRef<'_, S::AsRef<'_>> {
         // SAFETY:
-        // - EntityMut provides read access to the same components as EntityRef
+        // - The access permissions of `scope` are unchanged.
         // - `&self` ensures no mutable accesses are active.
         unsafe { EntityRef::new(self.cell, self.scope.as_ref()) }
     }
@@ -651,7 +664,9 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY: &mut self implies exclusive access for duration of returned value
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - `&mut self` implies exclusive access for duration of returned value
         unsafe { self.cell.get_mut(&self.scope) }
     }
 
@@ -664,7 +679,8 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY:
-        // - &mut self implies exclusive access for duration of returned value
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - `&mut self` implies exclusive access for duration of returned value
         // - Caller ensures `T` is a mutable component
         unsafe { self.cell.get_mut_assume_mutable(&self.scope) }
     }
@@ -674,7 +690,9 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
-        // SAFETY: consuming `self` implies exclusive access
+        // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - Consuming `self` implies exclusive access
         unsafe { self.cell.get_mut(&self.scope) }
     }
 
@@ -687,6 +705,7 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
     #[inline]
     pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
         // - Consuming `self` implies exclusive access
         // - Caller ensures `T` is a mutable component
         unsafe { self.cell.get_mut_assume_mutable(&self.scope) }
@@ -884,8 +903,8 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
         // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
         // - `&mut self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
         unsafe { component_ids.fetch_mut(self.cell, &self.scope) }
     }
 
@@ -917,8 +936,8 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
         // SAFETY:
+        // - `scope` was constructed with at most the same access permissions as `cell`.
         // - `&mut self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
         unsafe { component_ids.fetch_mut_assume_mutable(self.cell, &self.scope) }
     }
 
@@ -945,8 +964,9 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
         // SAFETY:
-        // - The caller must ensure simultaneous access is limited
-        // - to components that are mutually independent.
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - The caller must ensure simultaneous access is limited to components
+        //   that are mutually independent.
         unsafe { component_ids.fetch_mut(self.cell, &self.scope) }
     }
 
@@ -975,8 +995,9 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
         // SAFETY:
-        // - The caller must ensure simultaneous access is limited
-        // - to components that are mutually independent.
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - The caller must ensure simultaneous access is limited  to components
+        //   that are mutually independent.
         unsafe { component_ids.fetch_mut_assume_mutable(self.cell, &self.scope) }
     }
 
@@ -1008,8 +1029,8 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
         // SAFETY:
-        // - consuming `self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - Consuming `self` ensures that no references exist to this entity's components.
         unsafe { component_ids.fetch_mut(self.cell, &self.scope) }
     }
 
@@ -1042,8 +1063,8 @@ impl<'w, S: AccessScope> EntityMut<'w, S> {
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
         // SAFETY:
-        // - consuming `self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
+        // - `scope` was constructed with at most the same access permissions as `cell`.
+        // - Consuming `self` ensures that no references exist to this entity's components.
         unsafe { component_ids.fetch_mut_assume_mutable(self.cell, &self.scope) }
     }
 
@@ -3813,9 +3834,8 @@ pub unsafe trait DynamicComponentFetch {
     /// # Safety
     ///
     /// It is the caller's responsibility to ensure that:
-    /// - The given [`UnsafeEntityCell`] has read-only access to the fetched components.
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same read permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - No other mutable references to the fetched components exist at the same time.
     ///
     /// # Errors
@@ -3833,9 +3853,8 @@ pub unsafe trait DynamicComponentFetch {
     /// # Safety
     ///
     /// It is the caller's responsibility to ensure that:
-    /// - The given [`UnsafeEntityCell`] has mutable access to the fetched components.
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same write permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - No other references to the fetched components exist at the same time.
     ///
     /// # Errors
@@ -3855,9 +3874,8 @@ pub unsafe trait DynamicComponentFetch {
     /// # Safety
     ///
     /// It is the caller's responsibility to ensure that:
-    /// - The given [`UnsafeEntityCell`] has mutable access to the fetched components.
-    /// - the provided [`AccessScope`] matches the access permissions of the
-    ///   [`UnsafeEntityCell`]
+    /// - The provided [`AccessScope`] has at most the same write permissions as
+    ///   the [`UnsafeEntityCell`].
     /// - No other references to the fetched components exist at the same time.
     /// - The requested components are all mutable.
     ///
