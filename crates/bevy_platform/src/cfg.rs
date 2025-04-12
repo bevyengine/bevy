@@ -52,8 +52,8 @@ pub use crate::switch;
 /// relevant feature.
 ///
 /// For example, consider a crate `foo` that depends on another crate `bar`.
-/// `bar` has a feature "faster_algorithms".
-/// If `bar` defines a "faster_algorithms" alias:
+/// `bar` has a feature "`faster_algorithms`".
+/// If `bar` defines a "`faster_algorithms`" alias:
 ///
 /// ```ignore
 /// define_alias! {
@@ -62,8 +62,8 @@ pub use crate::switch;
 /// ```
 ///
 /// Now, `foo` can gate its usage of those faster algorithms on the alias, avoiding the need to
-/// expose its own "faster_algorithms" feature.
-/// This also avoids the unfortunate situation where one crate activates "faster_algorithms" on
+/// expose its own "`faster_algorithms`" feature.
+/// This also avoids the unfortunate situation where one crate activates "`faster_algorithms`" on
 /// `bar` without activating that same feature on `foo`.
 ///
 /// Once an alias is defined, there are 4 ways you can use it:
