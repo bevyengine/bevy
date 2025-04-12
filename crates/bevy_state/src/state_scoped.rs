@@ -66,9 +66,9 @@ where
     }
 }
 
-/// Removes entities marked with [`DespawnOnExitState<S>`]
-/// when their state no longer matches the world state.
-pub fn clear_despawn_on_exit_state_entities<S: States>(
+/// Despawns entities marked with [`DespawnOnExitState<S>`] when their state no
+/// longer matches the world state.
+pub fn despawn_entities_on_exit_state<S: States>(
     mut commands: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
     query: Query<(Entity, &DespawnOnExitState<S>)>,
@@ -137,9 +137,9 @@ pub fn clear_despawn_on_exit_state_entities<S: States>(
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct DespawnOnEnterState<S: States>(pub S);
 
-/// Removes entities marked with [`DespawnOnEnterState<S>`] when their state
+/// Despawns entities marked with [`DespawnOnEnterState<S>`] when their state
 /// matches the world state.
-pub fn clear_despawn_on_enter_state_entities<S: States>(
+pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
     query: Query<(Entity, &DespawnOnEnterState<S>)>,

@@ -8,7 +8,7 @@ use crate::{
         setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
         StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
     },
-    state_scoped::{clear_despawn_on_enter_state_entities, clear_despawn_on_exit_state_entities},
+    state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -222,15 +222,20 @@ impl AppExtStates for SubApp {
             let name = core::any::type_name::<S>();
             warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
         }
-        // We work with [`StateTransition`] in set [`StateTransitionSteps::ExitSchedules`] as opposed to [`OnExit`],
-        // because [`OnExit`] only runs for one specific variant of the state.
+
+        // Note: We work with `StateTransition` in set
+        // `StateTransitionSteps::ExitSchedules` rather than `OnExit`, because
+        // `OnExit` only runs for one specific variant of the state.
         self.add_systems(
             StateTransition,
-            clear_despawn_on_exit_state_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
+            despawn_entities_on_exit_state::<S>.in_set(StateTransitionSteps::ExitSchedules),
         )
+        // Note: We work with `StateTransition` in set
+        // `StateTransitionSteps::EnterSchedules` rather than `OnEnter`, because
+        // `OnEnter` only runs for one specific variant of the state.
         .add_systems(
             StateTransition,
-            clear_despawn_on_enter_state_entities::<S>.in_set(StateTransitionSteps::EnterSchedules),
+            despawn_entities_on_enter_state::<S>.in_set(StateTransitionSteps::EnterSchedules),
         )
     }
 
