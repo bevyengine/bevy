@@ -986,7 +986,7 @@ impl World {
                         location,
                     );
                     // SAFETY: `&self` gives read access to the entire world.
-                    unsafe { EntityRef::new(cell) }
+                    unsafe { EntityRef::new(cell, Full) }
                 })
         })
     }
