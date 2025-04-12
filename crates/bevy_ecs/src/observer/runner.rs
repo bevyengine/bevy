@@ -458,7 +458,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             ..Default::default()
         };
 
-        let default_error_handler = world.default_error_handler;
+        let default_error_handler = world.default_error_handler();
 
         // Initialize System
         let system: *mut dyn ObserverSystem<E, B> =
