@@ -1,7 +1,8 @@
 use core::fmt::Display;
 
-use crate::{component::Tick, error::BevyError};
+use crate::{component::Tick, error::BevyError, prelude::Resource};
 use alloc::borrow::Cow;
+use derive_more::derive::{Deref, DerefMut};
 
 /// Context for a [`BevyError`] to aid in debugging.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -88,6 +89,22 @@ macro_rules! inner {
 
 /// Defines how Bevy reacts to errors.
 pub type ErrorHandler = fn(BevyError, ErrorContext);
+
+/// Error handler to call when an error is not handled otherwise.
+/// Defaults to [`panic()`].
+///
+/// When updated while a [`Schedule`] is running, it doesn't take effect for
+/// that schedule until it's completed.
+///
+/// [`Schedule`]: crate::schedule::Schedule
+#[derive(Resource, Deref, DerefMut, Copy, Clone)]
+pub struct DefaultErrorHandler(pub ErrorHandler);
+
+impl Default for DefaultErrorHandler {
+    fn default() -> Self {
+        Self(panic)
+    }
+}
 
 /// Error handler that panics with the system error.
 #[track_caller]

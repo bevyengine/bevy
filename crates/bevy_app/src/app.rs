@@ -10,7 +10,7 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
-    error::{panic, ErrorHandler},
+    error::{DefaultErrorHandler, ErrorHandler},
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
@@ -86,7 +86,7 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
-    default_error_handler: ErrorHandler,
+    default_error_handler: Option<ErrorHandler>,
 }
 
 impl Debug for App {
@@ -145,7 +145,7 @@ impl App {
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
-            default_error_handler: panic,
+            default_error_handler: None,
         }
     }
 
@@ -1119,9 +1119,11 @@ impl App {
 
     /// Inserts a [`SubApp`] with the given label.
     pub fn insert_sub_app(&mut self, label: impl AppLabel, mut sub_app: SubApp) {
-        sub_app
-            .world_mut()
-            .set_default_error_handler(self.default_error_handler);
+        if let Some(handler) = self.default_error_handler {
+            sub_app
+                .world_mut()
+                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+        }
         self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
 
@@ -1344,27 +1346,39 @@ impl App {
     /// Gets the error handler to set for new supapps.
     ///
     /// Note that the error handler of existing subapps may differ.
-    pub fn get_error_handler(&self) -> ErrorHandler {
+    pub fn get_error_handler(&self) -> Option<ErrorHandler> {
         self.default_error_handler
     }
 
     /// Override the error handler for the all subapps (including the main one).
     ///
-    /// This handler will be called when an error is produced and not otherwise handled.
+    /// May only be called once and should be set by the application, not by libraries.
+    ///
+    /// The handler will be called when an error is produced and not otherwise handled.
+    ///
+    /// # Panics
+    /// Panics if called multiple times.
     ///
     /// # Example
     /// ```
     /// # use bevy_app::*;
     /// # use bevy_ecs::error::warn;
+    /// # fn MyPlugins() {}
     /// App::new()
     ///     .set_error_handler(warn)
-    ///     .add_plugins(DefaultPlugins)
-    ///     .run()
+    ///     .add_plugins(MyPlugins)
+    ///     .run();
     /// ```
     pub fn set_error_handler(&mut self, handler: ErrorHandler) -> &mut Self {
-        self.default_error_handler = handler;
+        assert!(
+            self.default_error_handler.is_none(),
+            "`set_error_handler` called multiple times on same `App`"
+        );
+        self.default_error_handler = Some(handler);
         for sub_app in self.sub_apps.iter_mut() {
-            sub_app.world_mut().set_default_error_handler(handler);
+            sub_app
+                .world_mut()
+                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
         }
         self
     }

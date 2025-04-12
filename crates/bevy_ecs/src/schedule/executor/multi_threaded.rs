@@ -484,6 +484,7 @@ impl ExecutorState {
                         system,
                         conditions,
                         context.environment.world_cell,
+                        context.error_handler,
                     )
                 } {
                     self.skip_system_and_signal_dependents(system_index);
@@ -584,6 +585,7 @@ impl ExecutorState {
         system: &mut ScheduleSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
+        error_handler: ErrorHandler,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
 
@@ -598,7 +600,11 @@ impl ExecutorState {
             //   required by the conditions.
             // - `update_archetype_component_access` has been called for each run condition.
             let set_conditions_met = unsafe {
-                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world)
+                evaluate_and_fold_conditions(
+                    &mut conditions.set_conditions[set_idx],
+                    world,
+                    error_handler,
+                )
             };
 
             if !set_conditions_met {
@@ -616,7 +622,11 @@ impl ExecutorState {
         //   required by the conditions.
         // - `update_archetype_component_access` has been called for each run condition.
         let system_conditions_met = unsafe {
-            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world)
+            evaluate_and_fold_conditions(
+                &mut conditions.system_conditions[system_index],
+                world,
+                error_handler,
+            )
         };
 
         if !system_conditions_met {
@@ -634,7 +644,7 @@ impl ExecutorState {
                 Ok(()) => true,
                 Err(e) => {
                     if !e.skipped {
-                        world.default_error_handler()(
+                        error_handler(
                             e.into(),
                             ErrorContext::System {
                                 name: system.name(),
@@ -821,6 +831,7 @@ fn apply_deferred(
 unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
+    error_handler: ErrorHandler,
 ) -> bool {
     #[expect(
         clippy::unnecessary_fold,
@@ -837,7 +848,7 @@ unsafe fn evaluate_and_fold_conditions(
                 Ok(()) => (),
                 Err(e) => {
                     if !e.skipped {
-                        world.default_error_handler()(
+                        error_handler(
                             e.into(),
                             ErrorContext::System {
                                 name: condition.name(),

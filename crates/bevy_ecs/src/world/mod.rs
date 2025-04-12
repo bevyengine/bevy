@@ -14,7 +14,7 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::error::{panic, ErrorHandler};
+use crate::error::{DefaultErrorHandler, ErrorHandler};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -101,7 +101,6 @@ pub struct World {
     pub(crate) last_check_tick: Tick,
     pub(crate) last_trigger_id: u32,
     pub(crate) command_queue: RawCommandQueue,
-    pub(crate) default_error_handler: ErrorHandler,
 }
 
 impl Default for World {
@@ -123,7 +122,6 @@ impl Default for World {
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
             component_ids: ComponentIds::default(),
-            default_error_handler: panic,
         };
         world.bootstrap();
         world
@@ -3050,21 +3048,14 @@ impl World {
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    /// Get the world's default error handler.
+    /// Convenience method for accessing the world's default error handler,
+    /// which can be overwritten with [`DefaultErrorHandler`].
     #[inline]
     pub fn default_error_handler(&self) -> ErrorHandler {
-        self.default_error_handler
-    }
-
-    /// Override the world's default error handler.
-    ///
-    /// When an error is produced – such as because of a fallible system parameter
-    /// or a command that returned `Err` – and the error is not otherwise handled,
-    /// the world's default error handler will be called.
-    ///
-    /// This handler defaults to [`panic()`].
-    pub fn set_default_error_handler(&mut self, handler: ErrorHandler) {
-        self.default_error_handler = handler;
+        self.get_resource::<DefaultErrorHandler>()
+            .copied()
+            .unwrap_or_default()
+            .0
     }
 }
 

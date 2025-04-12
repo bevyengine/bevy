@@ -9,7 +9,7 @@ use crate::{
 
 use super::{BevyError, ErrorContext, ErrorHandler};
 
-/// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
+/// Takes a [`Command`] that potentially returns a Result and uses a given error handler function to convert it into
 /// a [`Command`] that internally handles an error if it occurs and returns `()`.
 pub trait HandleError<Out = ()>: Send + 'static {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
@@ -17,15 +17,7 @@ pub trait HandleError<Out = ()>: Send + 'static {
     fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command;
     /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error(self) -> impl Command
-    where
-        Self: Sized,
-    {
-        move |world: &mut World| {
-            self.handle_error_with(world.default_error_handler)
-                .apply(world);
-        }
-    }
+    fn handle_error(self) -> impl Command;
 }
 
 impl<C, T, E> HandleError<Result<T, E>> for C
@@ -37,6 +29,18 @@ where
         move |world: &mut World| match self.apply(world) {
             Ok(_) => {}
             Err(err) => (error_handler)(
+                err.into(),
+                ErrorContext::Command {
+                    name: type_name::<C>().into(),
+                },
+            ),
+        }
+    }
+
+    fn handle_error(self) -> impl Command {
+        move |world: &mut World| match self.apply(world) {
+            Ok(_) => {}
+            Err(err) => world.default_error_handler()(
                 err.into(),
                 ErrorContext::Command {
                     name: type_name::<C>().into(),
@@ -66,10 +70,7 @@ where
         self
     }
     #[inline]
-    fn handle_error(self) -> impl Command
-    where
-        Self: Sized,
-    {
+    fn handle_error(self) -> impl Command {
         self
     }
 }

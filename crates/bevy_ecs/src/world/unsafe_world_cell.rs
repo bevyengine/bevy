@@ -7,7 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
-    error::ErrorHandler,
+    error::{DefaultErrorHandler, ErrorHandler},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -707,11 +707,16 @@ impl<'w> UnsafeWorldCell<'w> {
         }
     }
 
-    /// Get the world's default error handler.
+    /// Convenience method for accessing the world's default error handler,
+    ///
+    /// # Safety
+    /// Must have read access to [`DefaultErrorHandler`].
     #[inline]
-    pub fn default_error_handler(&self) -> ErrorHandler {
-        // SAFETY: Writing to this field requires an exclusive reference.
-        unsafe { (*self.ptr).default_error_handler }
+    pub unsafe fn default_error_handler(&self) -> ErrorHandler {
+        self.get_resource::<DefaultErrorHandler>()
+            .copied()
+            .unwrap_or_default()
+            .0
     }
 }
 

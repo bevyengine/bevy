@@ -232,7 +232,7 @@ impl Observer {
             system: Box::new(|| {}),
             descriptor: Default::default(),
             hook_on_add: |mut world, hook_context| {
-                let default_error_handler = world.default_error_handler;
+                let default_error_handler = world.default_error_handler();
                 world.commands().queue(move |world: &mut World| {
                     let entity = hook_context.entity;
                     if let Some(mut observe) = world.get_mut::<Observer>(entity) {
@@ -421,7 +421,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         B::component_ids(&mut world.components_registrator(), &mut |id| {
             components.push(id);
         });
-        let default_error_handler = world.default_error_handler;
+        let default_error_handler = world.default_error_handler();
         if let Some(mut observe) = world.get_mut::<Observer>(entity) {
             observe.descriptor.events.push(event_id);
             observe.descriptor.components.extend(components);
