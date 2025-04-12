@@ -172,7 +172,7 @@ impl<'w, S: AccessScope> EntityRef<'w, S> {
         unsafe { self.cell.get::<T>(&self.scope) }
     }
 
-    /// Gets access to the c omponent of type `T` for the current entity,
+    /// Gets access to the component of type `T` for the current entity,
     /// including change detection information as a [`Ref`].
     ///
     /// Returns `None` if the entity does not have a component of type `T`.
