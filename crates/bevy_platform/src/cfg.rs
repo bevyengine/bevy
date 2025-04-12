@@ -18,7 +18,7 @@
 /// # Examples
 ///
 /// ```rust
-/// # use bevy_platform_support::cfg;
+/// # use bevy_platform::cfg;
 /// # fn log(_: &str) {}
 /// # fn foo(_: &str) {}
 /// #
@@ -70,7 +70,7 @@ pub use crate::switch;
 ///
 /// 1. Evaluate with no contents to return a `bool` indicating if the alias is active.
 ///    ```rust
-///    # use bevy_platform_support::cfg;
+///    # use bevy_platform::cfg;
 ///    if cfg::std!() {
 ///        // Have `std`!
 ///    } else {
@@ -79,15 +79,16 @@ pub use crate::switch;
 ///    ```
 /// 2. Pass a single code block which will only be compiled if the alias is active.
 ///    ```rust
-///    # use bevy_platform_support::cfg;
+///    # use bevy_platform::cfg;
 ///    cfg::std! {
 ///        // Have `std`!
+///    # ()
 ///    }
 ///    ```
 /// 3. Pass a single `if { ... } else { ... }` expression to conditionally compile either the first
 ///    or the second code block.
 ///    ```rust
-///    # use bevy_platform_support::cfg;
+///    # use bevy_platform::cfg;
 ///    cfg::std! {
 ///        if {
 ///            // Have `std`!
@@ -98,7 +99,7 @@ pub use crate::switch;
 ///    ```
 /// 4. Use in a [`switch`] arm for more complex conditional compilation.
 ///    ```rust
-///    # use bevy_platform_support::cfg;
+///    # use bevy_platform::cfg;
 ///    cfg::switch! {
 ///        cfg::std => {
 ///            // Have `std`!
