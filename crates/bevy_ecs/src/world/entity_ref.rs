@@ -4191,13 +4191,16 @@ mod tests {
     use core::panic::AssertUnwindSafe;
     use std::sync::OnceLock;
 
-    use crate::component::HookContext;
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
-        component::ComponentId,
+        component::{ComponentId, HookContext},
         prelude::*,
+        query::Access,
         system::{assert_is_system, RunSystemOnce as _},
-        world::{error::EntityComponentError, DeferredWorld, FilteredEntityMut, FilteredEntityRef},
+        world::{
+            error::EntityComponentError, DeferredWorld, Except, FilteredEntityMut,
+            FilteredEntityRef, Full, Only, Partial,
+        },
     };
 
     use super::{EntityMutExcept, EntityRefExcept};
@@ -4271,6 +4274,56 @@ mod tests {
         let mut entity = world.spawn_empty();
         assert!(entity.get_by_id(invalid_component_id).is_err());
         assert!(entity.get_mut_by_id(invalid_component_id).is_err());
+    }
+
+    #[test]
+    fn entity_ref_contains() {
+        let mut world = World::new();
+        let entity = world.spawn(TestComponent(42)).id();
+
+        let wcell = world.as_unsafe_world_cell();
+        let ecell = wcell.get_entity(entity).unwrap();
+
+        // SAFETY: We have access to the entire world, no other entity references exist.
+        let fullref = unsafe { EntityRef::new(ecell, Full) };
+        assert!(fullref.contains::<TestComponent>());
+
+        // SAFETY: We have access to the entire world, no other entity references exist.
+        let partialref = unsafe { EntityRef::new(ecell, Partial(Access::default())) };
+        assert!(!partialref.contains::<TestComponent>());
+
+        // SAFETY: We have access to the entire world, no other entity references exist.
+        let exceptref = unsafe { EntityRef::new(ecell, Except::<TestComponent>::default()) };
+        assert!(!exceptref.contains::<TestComponent>());
+
+        // SAFETY: We have access to the entire world, no other entity references exist.
+        let onlyref = unsafe { EntityRef::new(ecell, Only::<TestComponent>::default()) };
+        assert!(onlyref.contains::<TestComponent>());
+    }
+
+    #[test]
+    fn entity_mut_contains() {
+        let mut world = World::new();
+        let entity = world.spawn(TestComponent(42)).id();
+
+        let wcell = world.as_unsafe_world_cell();
+        let ecell = wcell.get_entity(entity).unwrap();
+
+        // SAFETY: We have access to the entire world, no other entity references exist.
+        let fullmut = unsafe { EntityMut::new(ecell, Full) };
+        assert!(fullmut.contains::<TestComponent>());
+
+        // SAFETY: We have access to the entire world, no other entity references exist.
+        let partialmut = unsafe { EntityMut::new(ecell, Partial(Access::default())) };
+        assert!(!partialmut.contains::<TestComponent>());
+
+        // SAFETY: We have access to the entire world, no other entity references exist.
+        let exceptmut = unsafe { EntityMut::new(ecell, Except::<TestComponent>::default()) };
+        assert!(!exceptmut.contains::<TestComponent>());
+
+        // SAFETY: We have access to the entire world, no other entity references exist.
+        let onlymut = unsafe { EntityMut::new(ecell, Only::<TestComponent>::default()) };
+        assert!(onlymut.contains::<TestComponent>());
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/7387
