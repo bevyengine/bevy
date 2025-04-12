@@ -325,59 +325,6 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     }
 }
 
-impl RelationshipSourceCollection for Entity {
-    type SourceIter<'a> = core::iter::Once<Entity>;
-
-    fn new() -> Self {
-        Entity::PLACEHOLDER
-    }
-
-    fn reserve(&mut self, _: usize) {}
-
-    fn with_capacity(_capacity: usize) -> Self {
-        Self::new()
-    }
-
-    fn add(&mut self, entity: Entity) -> bool {
-        *self = entity;
-
-        true
-    }
-
-    fn remove(&mut self, entity: Entity) -> bool {
-        if *self == entity {
-            *self = Entity::PLACEHOLDER;
-
-            return true;
-        }
-
-        false
-    }
-
-    fn iter(&self) -> Self::SourceIter<'_> {
-        core::iter::once(*self)
-    }
-
-    fn len(&self) -> usize {
-        if *self == Entity::PLACEHOLDER {
-            return 0;
-        }
-        1
-    }
-
-    fn clear(&mut self) {
-        *self = Entity::PLACEHOLDER;
-    }
-
-    fn shrink_to_fit(&mut self) {}
-
-    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        if let Some(entity) = entities.into_iter().last() {
-            *self = entity;
-        }
-    }
-}
-
 impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N]> {
     fn insert(&mut self, index: usize, entity: Entity) {
         self.push(entity);
@@ -475,59 +422,5 @@ mod tests {
         let rel_target = world.get::<RelTarget>(b).unwrap();
         let collection = rel_target.collection();
         assert_eq!(collection, &SmallVec::from_buf([a]));
-    }
-
-    #[test]
-    fn entity_relationship_source_collection() {
-        #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
-        struct Rel(Entity);
-
-        #[derive(Component)]
-        #[relationship_target(relationship = Rel)]
-        struct RelTarget(Entity);
-
-        let mut world = World::new();
-        let a = world.spawn_empty().id();
-        let b = world.spawn_empty().id();
-
-        world.entity_mut(a).insert(Rel(b));
-
-        let rel_target = world.get::<RelTarget>(b).unwrap();
-        let collection = rel_target.collection();
-        assert_eq!(collection, &a);
-    }
-
-    #[test]
-    fn one_to_one_relationships() {
-        #[derive(Component)]
-        #[relationship(relationship_target = Below)]
-        struct Above(Entity);
-
-        #[derive(Component)]
-        #[relationship_target(relationship = Above)]
-        struct Below(Entity);
-
-        let mut world = World::new();
-        let a = world.spawn_empty().id();
-        let b = world.spawn_empty().id();
-
-        world.entity_mut(a).insert(Above(b));
-        assert_eq!(a, world.get::<Below>(b).unwrap().0);
-
-        // Verify removing target removes relationship
-        world.entity_mut(b).remove::<Below>();
-        assert!(world.get::<Above>(a).is_none());
-
-        // Verify removing relationship removes target
-        world.entity_mut(a).insert(Above(b));
-        world.entity_mut(a).remove::<Above>();
-        assert!(world.get::<Below>(b).is_none());
-
-        // Actually - a is above c now! Verify relationship was updated correctly
-        let c = world.spawn_empty().id();
-        world.entity_mut(a).insert(Above(c));
-        assert!(world.get::<Below>(b).is_none());
-        assert_eq!(a, world.get::<Below>(c).unwrap().0);
     }
 }
