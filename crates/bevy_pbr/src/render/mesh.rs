@@ -1,6 +1,6 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId};
+use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -1131,19 +1131,18 @@ impl RenderMeshInstanceGpuBuilder {
         // yet loaded. In that case, add the mesh to
         // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
-        let mesh_material_binding_id =
-            if mesh_material != AssetId::<StandardMaterial>::invalid().untyped() {
-                match render_material_bindings.get(&mesh_material) {
-                    Some(binding_id) => *binding_id,
-                    None => {
-                        meshes_to_reextract_next_frame.insert(entity);
-                        return None;
-                    }
+        let mesh_material_binding_id = if mesh_material != UntypedAssetId::Invalid {
+            match render_material_bindings.get(&mesh_material) {
+                Some(binding_id) => *binding_id,
+                None => {
+                    meshes_to_reextract_next_frame.insert(entity);
+                    return None;
                 }
-            } else {
-                // Use a dummy material binding ID.
-                MaterialBindingId::default()
-            };
+            }
+        } else {
+            // Use a dummy material binding ID.
+            MaterialBindingId::default()
+        };
         self.shared.material_bindings_index = mesh_material_binding_id;
 
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {

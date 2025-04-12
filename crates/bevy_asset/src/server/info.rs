@@ -693,7 +693,9 @@ impl AssetInfos {
 
         pending_tasks.remove(&id);
 
-        let type_id = entry.key().type_id();
+        let Some(type_id) = entry.key().type_id() else {
+            unreachable!("This should never be called with an Invalid id.");
+        };
 
         let info = entry.remove();
         let Some(path) = &info.path else {

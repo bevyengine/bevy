@@ -330,6 +330,7 @@ impl<A: Asset> Assets<A> {
             AssetId::Uuid { uuid } => {
                 self.insert_with_uuid(uuid, asset);
             }
+            AssetId::Invalid => (),
         }
     }
 
@@ -352,6 +353,7 @@ impl<A: Asset> Assets<A> {
         match id.into() {
             AssetId::Index { index, .. } => self.dense_storage.get(index).is_some(),
             AssetId::Uuid { uuid } => self.hash_map.contains_key(&uuid),
+            AssetId::Invalid => false,
         }
     }
 
@@ -406,6 +408,7 @@ impl<A: Asset> Assets<A> {
         let index = match id {
             AssetId::Index { index, .. } => index.into(),
             AssetId::Uuid { uuid } => uuid.into(),
+            AssetId::Invalid => crate::InternalAssetId::Invalid,
         };
         Some(Handle::Strong(
             self.handle_provider.get_handle(index, false, None, None),
@@ -419,6 +422,7 @@ impl<A: Asset> Assets<A> {
         match id.into() {
             AssetId::Index { index, .. } => self.dense_storage.get(index),
             AssetId::Uuid { uuid } => self.hash_map.get(&uuid),
+            AssetId::Invalid => None,
         }
     }
 
@@ -430,6 +434,7 @@ impl<A: Asset> Assets<A> {
         let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
             AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+            AssetId::Invalid => None,
         };
         if result.is_some() {
             self.queued_events.push(AssetEvent::Modified { id });
@@ -456,6 +461,7 @@ impl<A: Asset> Assets<A> {
         match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
+            AssetId::Invalid => None,
         }
     }
 
@@ -475,6 +481,7 @@ impl<A: Asset> Assets<A> {
         let existed = match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index).is_some(),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).is_some(),
+            AssetId::Invalid => false,
         };
 
         self.queued_events.push(AssetEvent::Unused { id });

@@ -8,6 +8,7 @@
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
 use bevy::{
+    asset::UntypedAssetId,
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
         component::Tick,
@@ -275,7 +276,7 @@ fn queue_custom_phase_item(
                     index_slab: None,
                 },
                 Opaque3dBinKey {
-                    asset_id: AssetId::<Mesh>::invalid().untyped(),
+                    asset_id: UntypedAssetId::Invalid,
                 },
                 entity,
                 InputUniformIndex::default(),

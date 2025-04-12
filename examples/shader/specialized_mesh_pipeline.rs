@@ -7,6 +7,7 @@
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
 use bevy::{
+    asset::UntypedAssetId,
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{component::Tick, system::StaticSystemParam},
     math::{vec3, vec4},
@@ -37,8 +38,10 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        view::NoIndirectDrawing,
-        view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
+        view::{
+            self, ExtractedView, NoIndirectDrawing, RenderVisibleEntities, ViewTarget,
+            VisibilityClass,
+        },
         Render, RenderApp, RenderSet,
     },
 };
@@ -418,11 +421,8 @@ fn queue_custom_mesh_pipeline(
                     index_slab: None,
                     lightmap_slab: None,
                 },
-                // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
-                // but you can use anything you like. Note that the asset ID need
-                // not be the ID of a [`Mesh`].
                 Opaque3dBinKey {
-                    asset_id: AssetId::<Mesh>::invalid().untyped(),
+                    asset_id: UntypedAssetId::Invalid,
                 },
                 (render_entity, visible_entity),
                 mesh_instance.current_uniform_index,

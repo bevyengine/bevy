@@ -1634,9 +1634,12 @@ pub fn handle_internal_asset_events(world: &mut World) {
                     );
                 }
                 InternalAssetEvent::LoadedWithDependencies { id } => {
+                    let Some(type_id) = id.type_id() else {
+                        unreachable!("This should never be called with a Invalid id.");
+                    };
                     let sender = infos
                         .dependency_loaded_event_sender
-                        .get(&id.type_id())
+                        .get(&type_id)
                         .expect("Asset event sender should exist");
                     sender(world, id);
                     if let Some(info) = infos.get_mut(id) {
@@ -1655,10 +1658,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
                         error: error.clone(),
                     });
 
+                    let Some(type_id) = id.type_id() else {
+                        unreachable!("This should never be called with an Invalid id.");
+                    };
                     // Send typed failure event
                     let sender = infos
                         .dependency_failed_event_sender
-                        .get(&id.type_id())
+                        .get(&type_id)
                         .expect("Asset failed event sender should exist");
                     sender(world, id, path, error);
                 }
