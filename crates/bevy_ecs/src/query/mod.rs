@@ -109,7 +109,7 @@ mod tests {
         component::{Component, ComponentId, Components, Tick},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
         query::{
-            ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
+            ArchetypeFilter, DataSet, FilteredAccess, Has, QueryCombinationIter, QueryData,
             ReadOnlyQueryData, WorldQuery,
         },
         schedule::{IntoScheduleConfigs, Schedule},
@@ -927,5 +927,25 @@ mod tests {
         assert!(!read_query
             .archetype_component_access()
             .is_compatible(write_res.archetype_component_access()));
+    }
+
+    #[test]
+    #[should_panic]
+    fn data_set_resource_access_conflicts() {
+        fn system(_q1: Query<DataSet<(ReadsRData, WritesRData)>>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    fn data_set_resource_access_without_conflicts() {
+        fn system(_q1: Query<DataSet<(ReadsRData, ReadsRData)>>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn data_set_other_resource_access() {
+        fn system(_r: ResMut<R>, _q1: Query<DataSet<(WritesRData,)>>) {}
+        assert_is_system(system);
     }
 }

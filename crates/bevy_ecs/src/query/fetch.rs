@@ -14,7 +14,7 @@ use crate::{
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
 use smallvec::SmallVec;
-use variadics_please::all_tuples;
+use variadics_please::{all_tuples, all_tuples_enumerated};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -1748,6 +1748,292 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
         <&mut T as QueryData>::fetch(fetch, entity, table_row)
     }
 }
+
+/// A collection of potentially conflicting [`QueryData`]s allowed by disjoint access.
+/// Allows queries to safely access and interact with up to 8 mutually exclusive [`QueryData`]s in a single iteration.
+/// This query only matches entity if it is possible to access all members of the set for this entity.
+///
+/// Each individual [`QueryData`] can be accessed by using the functions `d0()`, `d1()`, ..., `d7()`,
+/// according to the order they are defined in the `DataSet`. This ensures that there's
+/// only one mutable reference to the member of the set at a time.
+///
+/// # Examples
+///
+/// This can be useful when you have a lot of complex [`QueryData`]s that conflict with each other.
+///
+/// Imagine you have a system that calculates desired health and then changes it.
+/// You also have a helper [`QueryData`] that calculates this for you.
+/// The following system has conflicting access to the two [`QueryData`]s,
+/// which is not allowed due to rust's mutability rules.
+///
+/// ```should_panic
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Regen;
+/// #
+/// #[derive(QueryData)]
+/// struct HealthChangeCalculation {
+///     health: &'static Health,
+///     regen: &'static Regen,
+///     // ...
+/// }
+///
+/// // This will panic at runtime when the system gets initialized.
+/// fn bad_system(
+///     mut query: Query<(HealthChangeCalculation, &mut Health)>,
+/// ) {
+///     // ...
+/// }
+/// #
+/// # let mut bad_system_system = IntoSystem::into_system(bad_system);
+/// # let mut world = World::new();
+/// # bad_system_system.initialize(&mut world);
+/// # bad_system_system.run((), &mut world);
+/// ```
+///
+/// Conflicting [`QueryData`]s like these can be placed in a [`DataSet`],
+/// which leverages the borrow checker to ensure that only one of the contained members are accessed at a given time.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// # use bevy_ecs::query::DataSet;
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Regen;
+/// #
+/// #[derive(QueryData)]
+/// struct HealthChangeCalculation {
+///     health: &'static Health,
+///     regen: &'static Regen,
+///     // ...
+/// }
+///
+/// fn health_change_system(
+///     mut query: Query<DataSet<(
+///         HealthChangeCalculation,
+///         &mut Health,
+///     )>>,
+/// ) {
+///     for mut set in query.iter_mut() {
+///         // This will access the first `QueryData`.
+///         let health_change = set.d0();
+///         // Calculating health change...
+///
+///         // The second `QueryData`.
+///         // This would fail to compile if the previous parameter was still borrowed.
+///         let health = set.d1();
+///         // Updating health...
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(health_change_system);
+/// ```
+///
+/// [`DataSet`] can also be used in generic contexts that require a [`QueryData`].
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// # use bevy_ecs::query::DataSet;
+/// # use bevy_ecs::query::QueryItem;
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// trait Behavior {
+///     type Data: QueryData;
+///     fn update(&mut self, data: &mut QueryItem<'_, Self::Data>);
+/// }
+///
+/// struct Run;
+///
+/// impl Behavior for Run {
+///     type Data = &'static mut Transform;
+///
+///     fn update(&mut self, data: &mut QueryItem<'_, Self::Data>) {
+///         // Do something...
+///     }
+/// }
+///
+/// struct Jump;
+///
+/// impl Behavior for Jump {
+///     type Data = &'static mut Transform;
+///
+///     fn update(&mut self, data: &mut QueryItem<'_, Self::Data>) {
+///         // Do something different...
+///     }
+/// }
+///
+/// struct Selector;
+///
+/// impl Behavior for Selector {
+///     // `update` would not be possible to use, to select between `Run` and `Jump`.
+///     // since both `Run` and `Jump` data have mutually exclusive access.
+///     type Data = DataSet<'static, (
+///         <Run as Behavior>::Data,
+///         <Jump as Behavior>::Data,
+///         //...
+///     )>;
+///
+///     fn update(&mut self, data: &mut QueryItem<'_, Self::Data>) {
+///         // Select the behavior to use...
+///     }
+/// }
+/// ```
+pub struct DataSet<'a, T: QueryData> {
+    fetch: T::Fetch<'a>,
+    entity: Entity,
+    table_row: TableRow,
+}
+
+macro_rules! impl_data_set {
+    ($(($index: tt, $data: ident, $detupled: ident, $fn_name: ident)),*) => {
+        // SAFETY: All members are constrained to ReadOnlyQueryData, so World is only read
+        unsafe impl<'a, $($data,)*> ReadOnlyQueryData for DataSet<'a, ($($data,)*)>
+        where $($data: ReadOnlyQueryData,)*
+        { }
+
+        // SAFETY: defers to soundness of `#data: WorldQuery` impl
+        unsafe impl<'a, $($data: QueryData,)*> QueryData for DataSet<'a, ($($data,)*)> {
+            type ReadOnly = DataSet<'a, ($($data::ReadOnly,)*)>;
+        }
+
+        // SAFETY:
+        // for each member of the set accessed by `fetch`, [`update_component_access`]
+        // - adds corresponding access to `access`
+        // - panics if it's access conflicts with access that has already been added before calling `update_component_access`
+        //
+        // If `fetch` mutably accesses a member of the set, it is impossible to access any other members.
+        unsafe impl<'_a, $($data: QueryData,)*> WorldQuery for DataSet<'_a, ($($data,)*)>
+        {
+            type Item<'w> = DataSet<'w, ($($data,)*)>;
+            type Fetch<'w> = ($($data::Fetch<'w>,)*);
+            type State = ($($data::State,)*);
+
+            fn shrink<'wlong: 'wshort, 'wshort>(
+                item: Self::Item<'wlong>,
+            ) -> Self::Item<'wshort> {
+                DataSet {
+                    fetch: Self::shrink_fetch(item.fetch),
+                    entity: item.entity,
+                    table_row: item.table_row,
+                }
+            }
+
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(
+                fetch: Self::Fetch<'wlong>,
+            ) -> Self::Fetch<'wshort> {
+                <($($data,)*) as WorldQuery>::shrink_fetch(fetch)
+            }
+
+            unsafe fn init_fetch<'w>(
+                world: UnsafeWorldCell<'w>,
+                state: &Self::State,
+                last_run: Tick,
+                this_run: Tick,
+            ) -> Self::Fetch<'w> {
+                // SAFETY: The invariants are uphold by the caller.
+                unsafe { <($($data,)*) as WorldQuery>::init_fetch(world, state, last_run, this_run) }
+            }
+
+            const IS_DENSE: bool = <($($data,)*) as WorldQuery>::IS_DENSE;
+
+            unsafe fn set_archetype<'w>(
+                fetch: &mut Self::Fetch<'w>,
+                state: &Self::State,
+                archetype: &'w Archetype,
+                table: &'w Table,
+            ) {
+                // SAFETY: The invariants are uphold by the caller.
+                unsafe { <($($data,)*) as WorldQuery>::set_archetype(fetch, state, archetype, table); }
+            }
+
+            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+                // SAFETY: The invariants are uphold by the caller.
+                unsafe { <($($data,)*) as WorldQuery>::set_table(fetch, state, table); }
+            }
+
+            unsafe fn fetch<'w>(
+                fetch: &mut Self::Fetch<'w>,
+                entity: Entity,
+                table_row: TableRow,
+            ) -> Self::Item<'w> {
+                DataSet {
+                    fetch: fetch.clone(),
+                    entity,
+                    table_row,
+                }
+            }
+
+            fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+                let ($($detupled,)*) = state;
+
+                $(
+                    // Making sure each individual member of the set doesn't conflict with other query access.
+                    // Panics if one of the members conflicts with previous access.
+                    $data::update_component_access($detupled, &mut access.clone());
+                )*
+                $(
+                    // Updating empty [`FilteredAccess`] and then extending main access.
+                    // This is done to avoid conflicts with other members of the set.
+                    let mut current_access = FilteredAccess::default();
+                    $data::update_component_access($detupled, &mut current_access);
+                    assert!(current_access.access().is_resources_compatible(&access.access()),
+                        "{} in `DataSet` conflicts with a previous resource access in the same `DataSet`. Resources are fetched all at once, so their access can't conflict even if they are different members of `DataSet`.",
+                        core::any::type_name::<$data>()
+                    );
+                    access.extend(&current_access);
+                )*
+            }
+
+            fn init_state(world: &mut World) -> Self::State {
+                <($($data,)*) as WorldQuery>::init_state(world)
+            }
+
+            fn get_state(components: &Components) -> Option<Self::State> {
+                <($($data,)*) as WorldQuery>::get_state(components)
+            }
+
+            fn matches_component_set(
+                state: &Self::State,
+                set_contains_id: &impl Fn(ComponentId) -> bool,
+            ) -> bool {
+                <($($data,)*) as WorldQuery>::matches_component_set(state, set_contains_id)
+            }
+        }
+
+        impl<$($data: QueryData,)*> DataSet<'_, ($($data,)*)>
+        {
+            $(
+                /// Gets exclusive access to the data set member at index
+                #[doc = stringify!($index)]
+                /// .
+                /// No other members may be accessed while this one is active.
+                pub fn $fn_name<'a>(&'a mut self) -> QueryItem<'a, $data> {
+                    // SAFETY: since it's only possible to create instance of `DataSet` using
+                    // `<DataSet as WorldQuery>::fetch`, following safety rules were upheld by the caller.
+                    // - [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`] have been called for `DataSet`,
+                    //   so it was called for each `data` (as implementation of those functions for `DataSet` suggests).
+                    // - `entity` and `table_row` are in the range of the current table and archetype.
+                    $data::shrink(unsafe {
+                        $data::fetch(&mut self.fetch.$index, self.entity, self.table_row)
+                    })
+                }
+            )*
+        }
+    }
+}
+
+all_tuples_enumerated!(impl_data_set, 1, 8, P, detupled, d);
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
