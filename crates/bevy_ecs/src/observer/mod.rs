@@ -194,6 +194,26 @@ impl<T: TriggerTargets + ?Sized> TriggerTargets for &T {
     }
 }
 
+impl TriggerTargets for (ComponentId, Entity) {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+        core::iter::once(self.0)
+    }
+
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+        core::iter::once(self.1)
+    }
+}
+
+impl TriggerTargets for (Entity, ComponentId) {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+        core::iter::once(self.1)
+    }
+
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+        core::iter::once(self.0)
+    }
+}
+
 impl TriggerTargets for Entity {
     fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         [].into_iter()
