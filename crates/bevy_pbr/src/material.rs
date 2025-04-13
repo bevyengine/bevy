@@ -635,7 +635,7 @@ pub struct RenderMaterialInstance {
     last_change_tick: Tick,
 }
 
-/// A [`SystemSet`] that contains all [`extract_mesh_materials`] systems.
+/// A [`SystemSet`] that contains all `extract_mesh_materials` systems.
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ExtractMaterialsSet;
 
