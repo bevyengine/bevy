@@ -1,4 +1,4 @@
-use super::{prepare::PathtracerAccumulationTexture, PATHTRACER_SHADER_HANDLE};
+use super::{prepare::PathtracerAccumulationTexture, Pathtracer, PATHTRACER_SHADER_HANDLE};
 use crate::scene::RaytracingSceneBindings;
 use bevy_ecs::{
     query::QueryItem,
@@ -10,8 +10,8 @@ use bevy_render::{
     render_resource::{
         binding_types::{texture_storage_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, ShaderStages,
-        StorageTextureAccess, TextureFormat,
+        ComputePassDescriptor, ComputePipelineDescriptor, ImageSubresourceRange, PipelineCache,
+        ShaderStages, StorageTextureAccess, TextureFormat,
     },
     renderer::{RenderContext, RenderDevice},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -31,6 +31,7 @@ pub struct PathtracerNode {
 
 impl ViewNode for PathtracerNode {
     type ViewQuery = (
+        &'static Pathtracer,
         &'static PathtracerAccumulationTexture,
         &'static ExtractedCamera,
         &'static ViewTarget,
@@ -41,7 +42,7 @@ impl ViewNode for PathtracerNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (accumulation_texture, camera, view_target, view_uniform_offset): QueryItem<
+        (pathtracer, accumulation_texture, camera, view_target, view_uniform_offset): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -69,6 +70,14 @@ impl ViewNode for PathtracerNode {
         );
 
         let command_encoder = render_context.command_encoder();
+
+        if pathtracer.reset {
+            command_encoder.clear_texture(
+                &accumulation_texture.0.texture,
+                &ImageSubresourceRange::default(),
+            );
+        }
+
         let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("pathtracer"),
             timestamp_writes: None,

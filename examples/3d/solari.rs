@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         CameraController::default(),
-        Pathtracer,
+        Pathtracer::default(),
         CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         Transform::from_matrix(Mat4 {
             x_axis: Vec4::new(0.99480534, 0.0, -0.10179563, 0.0),

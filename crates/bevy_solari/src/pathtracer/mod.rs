@@ -65,4 +65,6 @@ impl Plugin for PathtracingPlugin {
 
 #[derive(Component, Reflect, Default, Clone)]
 #[reflect(Component, Default, Clone)]
-pub struct Pathtracer;
+pub struct Pathtracer {
+    pub reset: bool,
+}
