@@ -6,10 +6,14 @@ use core::{
     num::NonZero,
     ops::{Deref, RangeInclusive},
 };
+use smallvec::SmallVec;
 
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
-    oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
+    oit::{
+        resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings,
+        OrderIndependentTransparencySettingsOffset,
+    },
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -37,7 +41,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
-        ExtractedView, Msaa, RenderVisibilityRanges, ViewUniform, ViewUniforms,
+        ExtractedView, Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
@@ -60,7 +64,9 @@ use crate::{
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
     MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionFallbackImage,
     ScreenSpaceAmbientOcclusionResources, ScreenSpaceReflectionsBuffer,
-    ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
+    ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 
@@ -511,6 +517,7 @@ pub fn generate_view_layouts(
 #[derive(Component)]
 pub struct MeshViewBindGroup {
     pub value: BindGroup,
+    pub offsets: SmallVec<[u32; 8]>,
 }
 
 pub type MeshViewBindGroupFetcher =
@@ -519,28 +526,47 @@ pub type MeshViewBindGroupFetcher =
         Entity,
     ) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>>;
 
+pub type MeshViewBindGroupOffsetFetcher =
+    for<'b> fn(&'b World, Entity) -> Vec<Result<u32, MeshViewBindGroupFetchError>>;
+
 pub struct MeshViewBindGroupBindingsBlock {
     range: RangeInclusive<u32>,
     bindings: MeshViewBindGroupFetcher,
+    offset: MeshViewBindGroupOffsetFetcher,
 }
 
 impl MeshViewBindGroupBindingsBlock {
-    fn fetch_bindings<'b>(
+    fn fetch<'b>(
         &self,
         world: &'b World,
         view: Entity,
-    ) -> Vec<Result<(u32, WrappedBindingResource<'b>), MeshViewBindGroupFetchError>> {
+    ) -> Vec<Result<(u32, WrappedBindingResource<'b>, Option<u32>), MeshViewBindGroupFetchError>>
+    {
         let bindings = (self.bindings)(world, view);
         assert_eq!(
             bindings.len(),
             (self.range.end() - self.range.start() + 1) as usize,
             "Fetcher must return the same number of bindings as the block range."
         );
+        let offsets = (self.offset)(world, view);
+        assert_eq!(
+            offsets.len(),
+            (self.range.end() - self.range.start() + 1) as usize,
+            "Fetcher must return the same number of offsets as the block range."
+        );
 
         self.range
             .clone()
             .zip(bindings)
-            .map(|(binding, res)| res.map(|wrapped| (binding, wrapped)))
+            .zip(offsets)
+            .map(|((binding_id, binding), offset)| {
+                let offset = match offset {
+                    Ok(offset) => Some(offset),
+                    Err(MeshViewBindGroupFetchError::Skipped) => None,
+                    Err(err @ MeshViewBindGroupFetchError::Missing(_)) => return Err(err),
+                };
+                binding.map(|wrapped| (binding_id, wrapped, offset))
+            })
             .collect()
     }
 }
@@ -613,10 +639,12 @@ impl MeshViewBindGroupSources<BuildingMeshViewBindGroupSource> {
         &mut self,
         block: RangeInclusive<u32>,
         bindings: MeshViewBindGroupFetcher,
+        offset: MeshViewBindGroupOffsetFetcher,
     ) -> Result<(), BindingsAlreadyInUse> {
         let bindings_block = MeshViewBindGroupBindingsBlock {
             range: block,
             bindings,
+            offset,
         };
 
         let reused = bindings_block
@@ -664,7 +692,7 @@ pub fn prepare_mesh_view_bind_groups(
     render_device: Res<RenderDevice>,
 ) {
     const MIN_VIEW_FOR_PARALLEL: usize = 4;
-    let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
+
     if views.iter().len() <= MIN_VIEW_FOR_PARALLEL {
         for view in views {
             if let Some((view, view_bind_group)) = prepare_mesh_bind_groups_task(
@@ -679,6 +707,7 @@ pub fn prepare_mesh_view_bind_groups(
             }
         }
     } else {
+        let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
         commands.insert_batch(
             task_pool
                 .scope(|scope| {
@@ -722,10 +751,10 @@ fn prepare_mesh_bind_groups_task(
         .unwrap_or_else(MeshPipelineViewLayoutKey::empty);
     let layout = mesh_pipeline.get_view_layout(layout_key);
 
-    let required = sources
+    let bind_groups = sources
         .fetchers
         .iter()
-        .flat_map(|block| block.fetch_bindings(world, view))
+        .flat_map(|block| block.fetch(world, view))
         .filter(|res| !matches!(res, Err(MeshViewBindGroupFetchError::Skipped)))
         .collect::<Result<Vec<_>, _>>()
         .inspect_err(|err| {
@@ -742,13 +771,17 @@ fn prepare_mesh_bind_groups_task(
 
     // BTreeMap because it already sorts keys
     let mut entries = BTreeMap::new();
-    for (binding, resource) in &required {
+    let mut offsets = BTreeMap::new();
+    for (binding, resource, offset) in &bind_groups {
         let br = match resource {
             WrappedBindingResource::BindingResource(br) => br.clone(),
             WrappedBindingResource::OwnedTextureView(tv) => tv.into_binding(),
             WrappedBindingResource::OwnedTextureViewArray(v) => v.into_binding(),
         };
         entries.insert(*binding, br);
+        if let Some(offset) = offset {
+            offsets.insert(*binding, *offset);
+        }
     }
 
     let entries = entries.into_iter().fold(
@@ -763,8 +796,16 @@ fn prepare_mesh_bind_groups_task(
         view,
         MeshViewBindGroup {
             value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
+            offsets: offsets.into_values().collect(),
         },
     ))
+}
+
+pub fn mesh_view_bind_group_no_offset<'b, const LEN: usize>(
+    _world: &'b World,
+    _view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    [MeshViewBindGroupFetchError::Skipped; LEN].map(Err).into()
 }
 
 pub(super) fn lock_bind_group_sources(world: &mut World) {
@@ -826,6 +867,17 @@ pub(super) fn fetch_view_uniforms_bind_group<'b>(
         .ok_or(MeshViewBindGroupFetchError::Missing("ViewUniforms"))]
 }
 
+pub(super) fn fetch_view_uniforms_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewUniformOffset>()
+        .map(|view_uniforms| view_uniforms.offset)
+        .ok_or(MeshViewBindGroupFetchError::Missing("ViewUniformOffset"))]
+}
+
 pub(super) fn fetch_light_meta_bind_group<'b>(
     world: &'b World,
     _view: Entity,
@@ -835,6 +887,19 @@ pub(super) fn fetch_light_meta_bind_group<'b>(
         .and_then(|light_meta| light_meta.view_gpu_lights.binding())
         .map(WrappedBindingResource::from)
         .ok_or(MeshViewBindGroupFetchError::Missing("LightMeta"))]
+}
+
+pub(super) fn fetch_view_light_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewLightsUniformOffset>()
+        .map(|view_light_uniform_offset| view_light_uniform_offset.offset)
+        .ok_or(MeshViewBindGroupFetchError::Missing(
+            "ViewLightsUniformOffset",
+        ))]
 }
 
 pub(super) fn fetch_global_light_meta_bind_group<'b>(
@@ -872,6 +937,17 @@ pub(super) fn fetch_fog_meta_bind_group<'b>(
         .ok_or(MeshViewBindGroupFetchError::Missing("FogMeta"))]
 }
 
+pub(super) fn fetch_view_fog_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewFogUniformOffset>()
+        .map(|view_fog_uniform_offset| view_fog_uniform_offset.offset)
+        .ok_or(MeshViewBindGroupFetchError::Missing("ViewFogUniformOffset"))]
+}
+
 pub(super) fn fetch_light_probes_bind_group<'b>(
     world: &'b World,
     _view: Entity,
@@ -881,6 +957,19 @@ pub(super) fn fetch_light_probes_bind_group<'b>(
         .and_then(|light_probes| light_probes.binding())
         .map(WrappedBindingResource::from)
         .ok_or(MeshViewBindGroupFetchError::Missing("LightProbesBuffer"))]
+}
+
+pub(super) fn fetch_light_probes_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewLightProbesUniformOffset>()
+        .map(|light_probes| **light_probes)
+        .ok_or(MeshViewBindGroupFetchError::Missing(
+            "ViewLightProbesUniformOffset",
+        ))]
 }
 
 pub(super) fn fetch_visibility_ranges_bind_group<'b>(
@@ -911,6 +1000,19 @@ pub(super) fn fetch_screen_space_reflection_buffer_bind_group<'b>(
         .map(WrappedBindingResource::from)
         .ok_or(MeshViewBindGroupFetchError::Missing(
             "ScreenSpaceReflectionsBuffer",
+        ))]
+}
+
+pub(super) fn fetch_screen_space_reflection_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewScreenSpaceReflectionsUniformOffset>()
+        .map(|ssr_uniform_offset| **ssr_uniform_offset)
+        .ok_or(MeshViewBindGroupFetchError::Missing(
+            "ViewScreenSpaceReflectionsUniformOffset",
         ))]
 }
 
@@ -1101,6 +1203,25 @@ pub(super) fn fetch_environment_map_bind_group<'b>(
     }
 
     bindings
+}
+
+pub(super) fn fetch_environment_map_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![
+        // Order of non-`Skipped` should be the same as the order that it appears on the layout,
+        world
+            .entity(view)
+            .get::<ViewEnvironmentMapUniformOffset>()
+            .map(|environment_map_uniform_offset| **environment_map_uniform_offset)
+            .ok_or(MeshViewBindGroupFetchError::Missing(
+                "ViewEnvironmentMapUniformOffset",
+            )),
+        Err(MeshViewBindGroupFetchError::Skipped),
+        Err(MeshViewBindGroupFetchError::Skipped),
+        Err(MeshViewBindGroupFetchError::Skipped),
+    ]
 }
 
 pub(super) fn fetch_irradiance_volume_bind_group<'b>(
@@ -1406,5 +1527,30 @@ pub(super) fn fetch_order_independent_transparency_bind_group<'b>(
             Err(MeshViewBindGroupFetchError::Skipped),
             Err(MeshViewBindGroupFetchError::Skipped),
         ]
+    }
+}
+
+pub(super) fn fetch_order_independent_transparency_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    let has_oit = world
+        .entity(view)
+        .contains::<OrderIndependentTransparencySettings>();
+    if has_oit {
+        vec![
+            // Order of non-`Skipped` should be the same as the order that it appears on the layout,
+            world
+                .entity(view)
+                .get::<OrderIndependentTransparencySettingsOffset>()
+                .map(|oit_settings_offset| oit_settings_offset.offset)
+                .ok_or(MeshViewBindGroupFetchError::Missing(
+                    "OrderIndependentTransparencySettingsOffset",
+                )),
+            Err(MeshViewBindGroupFetchError::Skipped),
+            Err(MeshViewBindGroupFetchError::Skipped),
+        ]
+    } else {
+        mesh_view_bind_group_no_offset::<3>(world, view)
     }
 }
