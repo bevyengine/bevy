@@ -139,8 +139,8 @@ impl ComponentSparseSet {
     }
 
     /// Removes all of the values stored within.
-    pub(crate) fn clear(&mut self, tick: Tick) {
-        self.dense.clear(tick);
+    pub(crate) fn clear(&mut self) {
+        self.dense.clear();
         self.entities.clear();
         self.sparse.clear();
     }
@@ -303,21 +303,14 @@ impl ComponentSparseSet {
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).
     #[must_use = "The returned pointer must be used to drop the removed component."]
-    pub(crate) fn remove_and_forget(
-        &mut self,
-        entity: Entity,
-        tick: Tick,
-    ) -> Option<OwningPtr<'_>> {
+    pub(crate) fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
         self.sparse.remove(entity.index()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
             self.entities.swap_remove(dense_index.as_usize());
             let is_last = dense_index.as_usize() == self.dense.len() - 1;
             // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
-            let (value, _, _) = unsafe {
-                self.dense
-                    .swap_remove_and_forget_unchecked(dense_index, tick)
-            };
+            let (value, _, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
             if !is_last {
                 let swapped_entity = self.entities[dense_index.as_usize()];
                 #[cfg(not(debug_assertions))]
@@ -646,9 +639,9 @@ impl SparseSets {
     }
 
     /// Clear entities stored in each [`ComponentSparseSet`]
-    pub(crate) fn clear_entities(&mut self, tick: Tick) {
+    pub(crate) fn clear_entities(&mut self) {
         for set in self.sets.values_mut() {
-            set.clear(tick);
+            set.clear();
         }
     }
 

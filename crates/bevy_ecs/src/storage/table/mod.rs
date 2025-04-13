@@ -224,11 +224,7 @@ impl Table {
     ///
     /// # Safety
     /// `row` must be in-bounds (`row.as_usize()` < `self.len()`)
-    pub(crate) unsafe fn swap_remove_unchecked(
-        &mut self,
-        row: TableRow,
-        change_tick: Tick,
-    ) -> Option<Entity> {
+    pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
         if row.as_usize() != last_element_index {
@@ -241,18 +237,14 @@ impl Table {
                 // - `row` != `last_element_index`
                 // - the `len` is kept within `self.entities`, it will update accordingly.
                 unsafe {
-                    col.swap_remove_and_drop_unchecked_nonoverlapping(
-                        last_element_index,
-                        row,
-                        change_tick,
-                    );
+                    col.swap_remove_and_drop_unchecked_nonoverlapping(last_element_index, row);
                 };
             }
         } else {
             // If `row.as_usize()` == `last_element_index` than there's no point in removing the component
             // at `row`, but we still need to drop it.
             for col in self.columns.values_mut() {
-                col.drop_last_component(last_element_index, change_tick);
+                col.drop_last_component(last_element_index);
             }
         }
         let is_last = row.as_usize() == last_element_index;
@@ -293,7 +285,7 @@ impl Table {
                 );
             } else {
                 // It's the caller's responsibility to drop these cases.
-                column.swap_remove_and_forget_unchecked(last_element_index, row, change_tick);
+                column.swap_remove_and_forget_unchecked(last_element_index, row);
             }
         }
         TableMoveResult {
@@ -332,7 +324,7 @@ impl Table {
                     change_tick,
                 );
             } else {
-                column.swap_remove_and_drop_unchecked(last_element_index, row, change_tick);
+                column.swap_remove_and_drop_unchecked(last_element_index, row);
             }
         }
         TableMoveResult {
@@ -663,14 +655,14 @@ impl Table {
     }
 
     /// Clears all of the stored components in the [`Table`].
-    pub(crate) fn clear(&mut self, change_tick: Tick) {
+    pub(crate) fn clear(&mut self) {
         let len = self.entity_count();
         // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
         self.entities.clear();
         for column in self.columns.values_mut() {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
             // so `self.len()` should match the columns' len
-            unsafe { column.clear(len, change_tick) };
+            unsafe { column.clear(len) };
         }
     }
 
@@ -807,9 +799,9 @@ impl Tables {
     }
 
     /// Clears all data from all [`Table`]s stored within.
-    pub(crate) fn clear(&mut self, change_tick: Tick) {
+    pub(crate) fn clear(&mut self) {
         for table in &mut self.tables {
-            table.clear(change_tick);
+            table.clear();
         }
     }
 

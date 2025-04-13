@@ -49,7 +49,6 @@ impl ThinColumn {
         &mut self,
         last_element_index: usize,
         row: TableRow,
-        tick: Tick,
     ) {
         self.data
             .swap_remove_and_drop_unchecked_nonoverlapping(row.as_usize(), last_element_index);
@@ -60,7 +59,6 @@ impl ThinColumn {
         self.changed_by.as_mut().map(|changed_by| {
             changed_by.swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
         });
-        self.change_tick = tick;
     }
 
     /// Swap-remove and drop the removed element.
@@ -73,7 +71,6 @@ impl ThinColumn {
         &mut self,
         last_element_index: usize,
         row: TableRow,
-        tick: Tick,
     ) {
         self.data
             .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
@@ -84,7 +81,6 @@ impl ThinColumn {
         self.changed_by.as_mut().map(|changed_by| {
             changed_by.swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
         });
-        self.change_tick = tick;
     }
 
     /// Swap-remove and forget the removed element.
@@ -97,7 +93,6 @@ impl ThinColumn {
         &mut self,
         last_element_index: usize,
         row: TableRow,
-        tick: Tick,
     ) {
         let _ = self
             .data
@@ -109,7 +104,6 @@ impl ThinColumn {
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.swap_remove_unchecked(row.as_usize(), last_element_index));
-        self.change_tick = tick;
     }
 
     /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
@@ -270,14 +264,13 @@ impl ThinColumn {
     /// # Safety
     /// - `len` must match the actual length of the column
     /// -   The caller must not use the elements this column's data until [`initializing`](Self::initialize) it again (set `len` to 0).
-    pub(crate) unsafe fn clear(&mut self, len: usize, tick: Tick) {
+    pub(crate) unsafe fn clear(&mut self, len: usize) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
         self.data.clear(len);
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.clear_elements(len));
-        self.change_tick = tick;
     }
 
     /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
@@ -301,14 +294,13 @@ impl ThinColumn {
     /// # Safety
     /// - `last_element_index` is indeed the index of the last element
     /// - the data stored in `last_element_index` will never be used unless properly initialized again.
-    pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize, tick: Tick) {
+    pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize) {
         core::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
         core::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));
         self.changed_by.as_mut().map(|changed_by| {
             core::ptr::drop_in_place(changed_by.get_unchecked_raw(last_element_index));
         });
         self.data.drop_last_element(last_element_index);
-        self.change_tick = tick;
     }
 
     /// Get a slice to the data stored in this [`ThinColumn`].
@@ -468,7 +460,6 @@ impl Column {
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: TableRow,
-        tick: Tick,
     ) -> (OwningPtr<'_>, ComponentTicks, MaybeLocation) {
         let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
         let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
@@ -477,7 +468,6 @@ impl Column {
             .changed_by
             .as_mut()
             .map(|changed_by| changed_by.swap_remove(row.as_usize()).into_inner());
-        self.change_tick = tick;
         (data, ComponentTicks { added, changed }, caller)
     }
 
@@ -675,12 +665,11 @@ impl Column {
     /// Clears the column, removing all values.
     ///
     /// Note that this function has no effect on the allocated capacity of the [`Column`]>
-    pub fn clear(&mut self, change_tick: Tick) {
+    pub fn clear(&mut self) {
         self.data.clear();
         self.added_ticks.clear();
         self.changed_ticks.clear();
         self.changed_by.as_mut().map(Vec::clear);
-        self.change_tick = change_tick;
     }
 
     #[inline]

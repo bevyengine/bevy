@@ -2058,7 +2058,6 @@ impl<'w> EntityWorldMut<'w> {
                     component_id,
                     entity,
                     old_location,
-                    change_tick,
                 )
             })
         };
@@ -2567,8 +2566,6 @@ impl<'w> EntityWorldMut<'w> {
         // requires a flush before Entities::free may be called.
         world.flush_entities();
 
-        let change_tick = world.change_tick();
-
         let location = world
             .entities
             .free(self.entity)
@@ -2604,8 +2601,7 @@ impl<'w> EntityWorldMut<'w> {
             }
             // SAFETY: table rows stored in archetypes always exist
             moved_entity = unsafe {
-                world.storages.tables[archetype.table_id()]
-                    .swap_remove_unchecked(table_row, change_tick)
+                world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
             };
         };
 
@@ -4548,7 +4544,6 @@ pub(crate) unsafe fn take_component<'a>(
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-    change_tick: Tick,
 ) -> OwningPtr<'a> {
     // SAFETY: caller promises component_id to be valid
     let component_info = unsafe { components.get_info_unchecked(component_id) };
@@ -4566,7 +4561,7 @@ pub(crate) unsafe fn take_component<'a>(
             .sparse_sets
             .get_mut(component_id)
             .unwrap()
-            .remove_and_forget(entity, change_tick)
+            .remove_and_forget(entity)
             .unwrap(),
     }
 }
