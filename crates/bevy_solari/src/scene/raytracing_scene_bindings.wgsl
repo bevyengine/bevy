@@ -42,6 +42,20 @@ struct Material {
     _padding: u32,
 }
 
+struct LightSource {
+    kind: u32, // 1 bit for kind, 31 bits for extra data
+    id: u32,
+}
+
+const LIGHT_SOURCE_KIND_EMISSIVE_MESH = 0u;
+const LIGHT_SOURCE_KIND_DIRECTIONAL = 1u;
+
+struct DirectionalLight {
+    direction_to_light: vec3<f32>,
+    _padding: u32,
+    color: vec4<f32>,
+}
+
 @group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;
 @group(0) @binding(1) var<storage> index_buffers: binding_array<IndexBuffer>;
 @group(0) @binding(2) var textures: binding_array<texture_2d<f32>>;
@@ -51,5 +65,5 @@ struct Material {
 @group(0) @binding(6) var<storage> transforms: array<mat4x4<f32>>;
 @group(0) @binding(7) var<storage> geometry_ids: array<InstanceGeometryIds>;
 @group(0) @binding(8) var<storage> material_ids: array<u32>;
-// @group(0) @binding(9) var<storage> light_sources: array<LightSource>;
-// @group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;
+@group(0) @binding(9) var<storage> light_sources: array<LightSource>;
+@group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;

@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+
 //! Provides raytraced lighting.
 
 pub mod pathtracer;
