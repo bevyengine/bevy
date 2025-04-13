@@ -266,7 +266,15 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                         // Removed to ensure that the asset is always "really" removed from the
                         // render world when the last strong handle is dropped.
                         if !removed.contains(id) {
-                            modified.insert(*id);
+                            // Assets that are RENDER_WORLD only are expected to be removed from the main world
+                            // without impact in the render world. Only trigger a modification if the asset is
+                            // also used in the MAIN_WORLD.
+                            if let Some(asset) = assets.get(*id) {
+                                let asset_usage = A::asset_usage(asset);
+                                if asset_usage.contains(RenderAssetUsages::MAIN_WORLD) {
+                                    modified.insert(*id);
+                                }
+                            }
                         }
                     }
                     AssetEvent::Unused { id } => {
