@@ -339,6 +339,12 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
+        assert_eq!(
+            *self,
+            Entity::PLACEHOLDER,
+            "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
+            *self
+        );
         *self = entity;
 
         true
@@ -372,7 +378,13 @@ impl RelationshipSourceCollection for Entity {
     fn shrink_to_fit(&mut self) {}
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        if let Some(entity) = entities.into_iter().last() {
+        for entity in entities {
+            assert_eq!(
+                *self,
+                Entity::PLACEHOLDER,
+                "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
+                *self
+            );
             *self = entity;
         }
     }
@@ -529,5 +541,25 @@ mod tests {
         world.entity_mut(a).insert(Above(c));
         assert!(world.get::<Below>(b).is_none());
         assert_eq!(a, world.get::<Below>(c).unwrap().0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn one_to_one_relationship_shared_target() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Below)]
+        struct Above(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Above)]
+        struct Below(Entity);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Above(c));
+        world.entity_mut(b).insert(Above(c));
     }
 }
