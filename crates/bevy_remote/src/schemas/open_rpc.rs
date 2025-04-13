@@ -1,6 +1,6 @@
 //! Module with trimmed down `OpenRPC` document structs.
 //! It tries to follow this standard: <https://spec.open-rpc.org>
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 

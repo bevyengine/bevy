@@ -35,7 +35,7 @@ use bevy_app::{Animation, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEvents, Assets};
 use bevy_ecs::{prelude::*, world::EntityMutExcept};
 use bevy_math::FloatOrd;
-use bevy_platform_support::{collections::HashMap, hash::NoOpHash};
+use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
@@ -755,10 +755,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_platform_support::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                bevy_platform::collections::hash_map::Entry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_platform_support::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                bevy_platform::collections::hash_map::Entry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },
@@ -1530,6 +1530,8 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_reflect::{DynamicMap, Map};
+
     use super::*;
 
     #[derive(Event, Reflect, Clone)]
@@ -1660,5 +1662,14 @@ mod tests {
         active_animation.last_seek_time = Some(clip.duration);
         active_animation.update(clip.duration, clip.duration); // 0.3 : 0.0
         assert_triggered_events_with(&active_animation, &clip, [0.3, 0.2]);
+    }
+
+    #[test]
+    fn test_animation_node_index_as_key_of_dynamic_map() {
+        let mut map = DynamicMap::default();
+        map.insert_boxed(
+            Box::new(AnimationNodeIndex::new(0)),
+            Box::new(ActiveAnimation::default()),
+        );
     }
 }

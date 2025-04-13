@@ -42,7 +42,7 @@ std = [
   "bevy_reflect?/std",
   "serde?/std",
   "raw-window-handle/std",
-  "bevy_platform_support/std",
+  "bevy_platform/std",
 ]
 
 ## Uses the `libm` maths library instead of the one provided in `std` and `core`.
@@ -59,7 +59,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-featu
   "smol_str",
 ], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
 
 # other
 serde = { version = "1.0", features = [

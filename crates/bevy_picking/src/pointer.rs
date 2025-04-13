@@ -11,7 +11,7 @@
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_window::PrimaryWindow;

@@ -7,14 +7,23 @@ use crate::{
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
-use bevy_platform_support::prelude::{Box, Vec};
+use bevy_platform::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
 
 use super::OrderedRelationshipSourceCollection;
 
 impl<'w> EntityWorldMut<'w> {
+    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
+        let parent = self.id();
+        self.world_scope(|world| {
+            world.spawn((bundle, R::from(parent)));
+        });
+        self
+    }
+
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
-    pub fn with_related<R: Relationship>(
+    pub fn with_related_entities<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawner<R>),
     ) -> &mut Self {
@@ -322,8 +331,15 @@ impl<'w> EntityWorldMut<'w> {
 }
 
 impl<'a> EntityCommands<'a> {
+    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
+        let parent = self.id();
+        self.commands.spawn((bundle, R::from(parent)));
+        self
+    }
+
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
-    pub fn with_related<R: Relationship>(
+    pub fn with_related_entities<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawnerCommands<R>),
     ) -> &mut Self {
