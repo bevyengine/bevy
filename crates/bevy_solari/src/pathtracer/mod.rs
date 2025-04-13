@@ -1,6 +1,6 @@
-pub mod extract;
-pub mod node;
-pub mod prepare;
+mod extract;
+mod node;
+mod prepare;
 
 use crate::SolariPlugin;
 use bevy_app::{App, Plugin};
