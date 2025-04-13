@@ -26,7 +26,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Vec4;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
 use bevy_render::{
