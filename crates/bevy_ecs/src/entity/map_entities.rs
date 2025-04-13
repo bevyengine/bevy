@@ -1,4 +1,5 @@
 pub use bevy_ecs_macros::MapEntities;
+use indexmap::IndexSet;
 
 use crate::{
     entity::{hash_map::EntityHashMap, Entity},
@@ -10,6 +11,8 @@ use alloc::{collections::VecDeque, vec::Vec};
 use bevy_platform::collections::HashSet;
 use core::hash::BuildHasher;
 use smallvec::SmallVec;
+
+use super::EntityIndexSet;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -72,6 +75,25 @@ impl<S: BuildHasher + Default> MapEntities for HashSet<Entity, S> {
         *self = self.drain().map(|e| entity_mapper.get_mapped(e)).collect();
     }
 }
+
+impl<S: BuildHasher + Default> MapEntities for IndexSet<Entity, S> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = self
+            .drain(..)
+            .map(|e| entity_mapper.get_mapped(e))
+            .collect();
+    }
+}
+
+impl MapEntities for EntityIndexSet {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = self
+            .drain(..)
+            .map(|e| entity_mapper.get_mapped(e))
+            .collect();
+    }
+}
+
 impl MapEntities for Vec<Entity> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
         for entity in self.iter_mut() {
@@ -95,6 +117,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
         }
     }
 }
+
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
 /// Usually this is done by using an [`EntityHashMap<Entity>`] to map source entities
