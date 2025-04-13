@@ -75,8 +75,7 @@ fn main() {
             })
             .set(AssetPlugin {
                 file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
-                // Allow scenes to be loaded from anywhere on disk, as that's
-                // the entire point of this program.
+                // Allow scenes to be loaded from anywhere on disk
                 unapproved_path_mode: UnapprovedPathMode::Allow,
                 ..default()
             }),
