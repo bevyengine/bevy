@@ -25,7 +25,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Bloom {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///
@@ -193,6 +193,7 @@ impl Default for Bloom {
 /// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
+#[reflect(Clone, Default)]
 pub struct BloomPrefilter {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///
@@ -209,6 +210,7 @@ pub struct BloomPrefilter {
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
+#[reflect(Clone, Hash, PartialEq)]
 pub enum BloomCompositeMode {
     EnergyConserving,
     Additive,

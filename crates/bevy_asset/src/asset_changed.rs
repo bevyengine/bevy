@@ -13,7 +13,7 @@ use bevy_ecs::{
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
 use tracing::error;

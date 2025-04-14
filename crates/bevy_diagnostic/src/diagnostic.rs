@@ -7,7 +7,7 @@ use core::{
 use bevy_app::{App, SubApp};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{Deferred, Res, SystemBuffer, SystemParam};
-use bevy_platform_support::{collections::HashMap, hash::PassHash, time::Instant};
+use bevy_platform::{collections::HashMap, hash::PassHash, time::Instant};
 use const_fnv1a_hash::fnv1a_hash_str_64;
 
 use crate::DEFAULT_MAX_HISTORY_LENGTH;

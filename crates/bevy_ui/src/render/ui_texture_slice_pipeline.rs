@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -372,9 +372,8 @@ pub fn queue_ui_slices(
             draw_function,
             pipeline,
             entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
-            sort_key: (
-                FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE),
-                extracted_slicer.render_entity.index(),
+            sort_key: FloatOrd(
+                extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE,
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,

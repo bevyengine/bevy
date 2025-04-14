@@ -11,6 +11,11 @@ use crate::{
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
+
 pub use extrusion::BoundedExtrusion;
 
 /// Computes the geometric center of the given set of points.
@@ -36,8 +41,17 @@ pub trait Bounded3d {
 }
 
 /// A 3D axis-aligned bounding box
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(Serialize), derive(Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Aabb3d {
     /// The minimum point of the box
     pub min: Vec3A,
@@ -456,8 +470,17 @@ mod aabb3d_tests {
 use crate::primitives::Sphere;
 
 /// A bounding sphere
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(Serialize), derive(Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct BoundingSphere {
     /// The center of the bounding sphere
     pub center: Vec3A,

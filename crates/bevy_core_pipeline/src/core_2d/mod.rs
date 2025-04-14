@@ -19,6 +19,7 @@ pub mod graph {
         MainOpaquePass,
         MainTransparentPass,
         EndMainPass,
+        Wireframe,
         Bloom,
         PostProcessing,
         Tonemapping,
@@ -33,7 +34,7 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     render_phase::PhaseItemBatchSetKey,
@@ -349,6 +350,7 @@ pub struct Transparent2d {
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
+    pub extracted_index: usize,
     pub extra_index: PhaseItemExtraIndex,
     /// Whether the mesh in question is indexed (uses an index buffer in
     /// addition to its vertex buffer).

@@ -345,6 +345,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
         }
+        if self.mesh_pipeline.binding_arrays_are_usable {
+            shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+            shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
+        }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());

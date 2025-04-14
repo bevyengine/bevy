@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
@@ -151,14 +151,19 @@ impl<A: RenderAsset> RenderAssetDependency for A {
 #[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
     /// The assets extracted this frame.
+    ///
+    /// These are assets that were either added or modified this frame.
     pub extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
 
-    /// IDs of the assets removed this frame.
+    /// IDs of the assets that were removed this frame.
     ///
     /// These assets will not be present in [`ExtractedAssets::extracted`].
     pub removed: HashSet<AssetId<A::SourceAsset>>,
 
-    /// IDs of the assets added this frame.
+    /// IDs of the assets that were modified this frame.
+    pub modified: HashSet<AssetId<A::SourceAsset>>,
+
+    /// IDs of the assets that were added this frame.
     pub added: HashSet<AssetId<A::SourceAsset>>,
 }
 
@@ -167,6 +172,7 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
         Self {
             extracted: Default::default(),
             removed: Default::default(),
+            modified: Default::default(),
             added: Default::default(),
         }
     }
@@ -235,21 +241,37 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
             let (mut events, mut assets) = cached_state.state.get_mut(world);
 
-            let mut changed_assets = <HashSet<_>>::default();
+            let mut needs_extracting = <HashSet<_>>::default();
             let mut removed = <HashSet<_>>::default();
+            let mut modified = <HashSet<_>>::default();
 
             for event in events.read() {
-                #[expect(
-                    clippy::match_same_arms,
-                    reason = "LoadedWithDependencies is marked as a TODO, so it's likely this will no longer lint soon."
-                )]
                 match event {
-                    AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                        changed_assets.insert(*id);
+                    AssetEvent::Added { id } => {
+                        needs_extracting.insert(*id);
                     }
-                    AssetEvent::Removed { .. } => {}
+                    AssetEvent::Modified { id } => {
+                        needs_extracting.insert(*id);
+                        modified.insert(*id);
+                    }
+                    AssetEvent::Removed { id, .. } => {
+                        // Normally, we consider an asset removed from the render world only
+                        // when it's final handle is dropped triggering an `AssetEvent::Unused`
+                        // event. However, removal without unused can happen when the asset
+                        // is explicitly removed from the asset server and re-added by the user.
+                        // We mark the asset as modified in this case to ensure that
+                        // any necessary render world bookkeeping still runs.
+
+                        // TODO: consider removing this check and just emitting Unused after
+                        // Removed to ensure that the asset is always "really" removed from the
+                        // render world when the last strong handle is dropped.
+                        if !removed.contains(id) {
+                            modified.insert(*id);
+                        }
+                    }
                     AssetEvent::Unused { id } => {
-                        changed_assets.remove(id);
+                        needs_extracting.remove(id);
+                        modified.remove(id);
                         removed.insert(*id);
                     }
                     AssetEvent::LoadedWithDependencies { .. } => {
@@ -260,7 +282,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
 
             let mut extracted_assets = Vec::new();
             let mut added = <HashSet<_>>::default();
-            for id in changed_assets.drain() {
+            for id in needs_extracting.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
@@ -280,6 +302,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             commands.insert_resource(ExtractedAssets::<A> {
                 extracted: extracted_assets,
                 removed,
+                modified,
                 added,
             });
             cached_state.state.apply(world);

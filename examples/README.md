@@ -49,8 +49,10 @@ git checkout v0.4.0
   - [Dev tools](#dev-tools)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
+  - [Embedded](#embedded)
   - [Games](#games)
   - [Gizmos](#gizmos)
+  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -309,9 +311,9 @@ Example | Description
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
+[Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
-[Fallible Systems](../examples/ecs/fallible_systems.rs) | Systems that return results to handle errors
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
@@ -332,6 +334,12 @@ Example | Description
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
 [System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution.
 
+## Embedded
+
+Example | Description
+--- | ---
+[`no_std` Compatible Library](../examples/no_std/library/src/lib.rs) | Example library compatible with `std` and `no_std` targets
+
 ## Games
 
 Example | Description
@@ -351,6 +359,13 @@ Example | Description
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
+
+## Helpers
+
+Example | Description
+--- | ---
+[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
+[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ## Input
 
@@ -438,6 +453,7 @@ Example | Description
 [Custom Render Phase](../examples/shader/custom_render_phase.rs) | Shows how to make a complete render phase
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
 [Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
+[Extended Bindless Material](../examples/shader/extended_material_bindless.rs) | Demonstrates bindless `ExtendedMaterial`
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
@@ -795,14 +811,14 @@ may not be worth keeping due to compilation time increases.
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
 
-|profile                           | wasm-opt | no wasm-opt |
-|----------------------------------|----------|-------------|
-|Default                           | 8.5M     | 13.0M       |
-|opt-level = "z"                   | 6.1M     | 12.7M       |
-|"z" + lto = "thin"                | 5.9M     | 12M         |
-|"z" + lto = "fat"                 | 5.1M     | 9.4M        |
-|"z" + "thin" + codegen-units = 1  | 5.3M     | 11M         |
-|"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M        |
+profile                           | wasm-opt | no wasm-opt
+----------------------------------|----------|-------------
+Default                           | 8.5M     | 13.0M
+opt-level = "z"                   | 6.1M     | 12.7M
+"z" + lto = "thin"                | 5.9M     | 12M
+"z" + lto = "fat"                 | 5.1M     | 9.4M
+"z" + "thin" + codegen-units = 1  | 5.3M     | 11M
+"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M
 
 ### Loading Assets
 

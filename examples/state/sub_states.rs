@@ -156,40 +156,37 @@ mod ui {
 
     pub fn setup_menu(mut commands: Commands) {
         let button_entity = commands
-            .spawn(Node {
-                // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            })
-            .with_children(|parent| {
-                parent
-                    .spawn((
-                        Button,
-                        Node {
-                            width: Val::Px(150.),
-                            height: Val::Px(65.),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
+            .spawn((
+                Node {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                children![(
+                    Button,
+                    Node {
+                        width: Val::Px(150.),
+                        height: Val::Px(65.),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(NORMAL_BUTTON),
+                    children![(
+                        Text::new("Play"),
+                        TextFont {
+                            font_size: 33.0,
                             ..default()
                         },
-                        BackgroundColor(NORMAL_BUTTON),
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn((
-                            Text::new("Play"),
-                            TextFont {
-                                font_size: 33.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        ));
-                    });
-            })
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    )]
+                )],
+            ))
             .id();
         commands.insert_resource(MenuData { button_entity });
     }
@@ -199,44 +196,38 @@ mod ui {
     }
 
     pub fn setup_paused_screen(mut commands: Commands) {
-        commands
-            .spawn((
-                StateScoped(IsPaused::Paused),
+        commands.spawn((
+            StateScoped(IsPaused::Paused),
+            Node {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.),
+                ..default()
+            },
+            children![(
                 Node {
-                    // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: Val::Px(400.),
+                    height: Val::Px(400.),
+                    // horizontally center child text
                     justify_content: JustifyContent::Center,
+                    // vertically center child text
                     align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
                     ..default()
                 },
-            ))
-            .with_children(|parent| {
-                parent
-                    .spawn((
-                        Node {
-                            width: Val::Px(400.),
-                            height: Val::Px(400.),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        BackgroundColor(NORMAL_BUTTON),
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn((
-                            Text::new("Paused"),
-                            TextFont {
-                                font_size: 33.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        ));
-                    });
-            });
+                BackgroundColor(NORMAL_BUTTON),
+                children![(
+                    Text::new("Paused"),
+                    TextFont {
+                        font_size: 33.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                )]
+            )],
+        ));
     }
 }

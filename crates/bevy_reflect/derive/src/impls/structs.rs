@@ -120,10 +120,10 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 #bevy_reflect_path::FieldIter::new(self)
             }
 
-            fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
+            fn to_dynamic_struct(&self) -> #bevy_reflect_path::DynamicStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicStruct = #FQDefault::default();
                 dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
-                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::PartialReflect::clone_value(#fields_ref));)*
+                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::PartialReflect::to_dynamic(#fields_ref));)*
                 dynamic
             }
         }
@@ -132,11 +132,6 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
-            }
-
-            #[inline]
-            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
-                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#bevy_reflect_path::Struct::clone_dynamic(self))
             }
 
             #[inline]

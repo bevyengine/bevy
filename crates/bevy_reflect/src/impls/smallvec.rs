@@ -134,10 +134,6 @@ where
         ReflectOwned::List(self)
     }
 
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
-    }
-
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Ok(Box::new(
             self.iter()

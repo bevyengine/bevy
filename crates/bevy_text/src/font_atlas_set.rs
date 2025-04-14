@@ -2,7 +2,7 @@ use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{event::EventReader, resource::Resource, system::ResMut};
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
 use bevy_render::{
     render_asset::RenderAssetUsages,

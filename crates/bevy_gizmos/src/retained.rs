@@ -4,7 +4,7 @@ use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 
 #[cfg(feature = "bevy_render")]
@@ -73,7 +73,7 @@ impl DerefMut for GizmoAsset {
 ///
 /// [`Gizmos`]: crate::gizmos::Gizmos
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Clone, Default)]
 #[require(Transform)]
 pub struct Gizmo {
     /// The handle to the gizmo to draw.
@@ -143,6 +143,7 @@ pub(crate) fn extract_linegizmos(
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
+            #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             crate::config::GizmoMeshConfig {
                 line_perspective: gizmo.line_config.perspective,
                 line_style: gizmo.line_config.style,

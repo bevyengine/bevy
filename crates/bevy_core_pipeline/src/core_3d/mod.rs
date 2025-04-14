@@ -28,6 +28,7 @@ pub mod graph {
         MainTransmissivePass,
         MainTransparentPass,
         EndMainPass,
+        Wireframe,
         LateDownsampleDepth,
         Taa,
         MotionBlur,
@@ -86,7 +87,7 @@ use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,

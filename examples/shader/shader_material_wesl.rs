@@ -1,7 +1,6 @@
 //! A shader that uses the WESL shading language.
 
 use bevy::{
-    asset::{load_internal_asset, weak_handle},
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
@@ -16,8 +15,6 @@ use bevy::{
 
 /// This example uses shader source files from the assets subdirectory
 const FRAGMENT_SHADER_ASSET_PATH: &str = "shaders/custom_material.wesl";
-/// An example utility shader that is used by the custom material
-pub const UTIL_SHADER_HANDLE: Handle<Shader> = weak_handle!("748706a1-969e-43d4-be36-74559bd31d23");
 
 fn main() {
     App::new()
@@ -34,14 +31,21 @@ fn main() {
 /// A plugin that loads the custom material shader
 pub struct CustomMaterialPlugin;
 
+/// An example utility shader that is used by the custom material
+#[expect(
+    dead_code,
+    reason = "used to kept a strong handle, shader is referenced by the material"
+)]
+#[derive(Resource)]
+struct UtilityShader(Handle<Shader>);
+
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            UTIL_SHADER_HANDLE,
-            "../../assets/shaders/util.wesl",
-            Shader::from_wesl
-        );
+        let handle = app
+            .world_mut()
+            .resource_mut::<AssetServer>()
+            .load::<Shader>("shaders/util.wesl");
+        app.insert_resource(UtilityShader(handle));
     }
 }
 
@@ -55,7 +59,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(CustomMaterial {
-            time: 0.0,
+            time: Vec4::ZERO,
             party_mode: false,
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),
@@ -70,15 +74,19 @@ fn setup(
 
 fn update(
     time: Res<Time>,
-    mut query: Query<&MeshMaterial3d<CustomMaterial>>,
+    mut query: Query<(&MeshMaterial3d<CustomMaterial>, &mut Transform)>,
     mut materials: ResMut<Assets<CustomMaterial>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    for material in query.iter_mut() {
+    for (material, mut transform) in query.iter_mut() {
         let material = materials.get_mut(material).unwrap();
-        material.time = time.elapsed_secs();
+        material.time.x = time.elapsed_secs();
         if keys.just_pressed(KeyCode::Space) {
             material.party_mode = !material.party_mode;
+        }
+
+        if material.party_mode {
+            transform.rotate(Quat::from_rotation_y(0.005));
         }
     }
 }
@@ -87,8 +95,9 @@ fn update(
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 #[bind_group_data(CustomMaterialKey)]
 struct CustomMaterial {
+    // Needed for 16 bit alignment in WebGL2
     #[uniform(0)]
-    time: f32,
+    time: Vec4,
     party_mode: bool,
 }
 

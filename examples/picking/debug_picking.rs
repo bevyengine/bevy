@@ -10,7 +10,6 @@ fn main() {
             filter: "bevy_dev_tools=trace".into(), // Show picking logs trace level and up
             ..default()
         }))
-        // Unlike UiPickingPlugin, MeshPickingPlugin is not a default plugin
         .add_plugins((MeshPickingPlugin, DebugPickingPlugin))
         .add_systems(Startup, setup_scene)
         .insert_resource(DebugPickingMode::Normal)

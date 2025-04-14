@@ -3,14 +3,14 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
-    parenthesized,
+    braced, parenthesized,
     parse::Parse,
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
-    token::{Comma, Paren},
-    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprClosure, ExprPath, Field, Fields,
-    Ident, LitStr, Member, Path, Result, Token, Type, Visibility,
+    token::{Brace, Comma, Paren},
+    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, Field, Fields, Ident,
+    LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
 pub const EVENT: &str = "event";
@@ -92,12 +92,17 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(err) => err.into_compile_error().into(),
     };
 
-    let visit_entities = visit_entities(
+    let map_entities = map_entities(
         &ast.data,
-        &bevy_ecs_path,
+        Ident::new("this", Span::call_site()),
         relationship.is_some(),
         relationship_target.is_some(),
-    );
+    ).map(|map_entities_impl| quote! {
+        fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(this: &mut Self, mapper: &mut M) {
+            use #bevy_ecs_path::entity::MapEntities;
+            #map_entities_impl
+        }
+    });
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
@@ -202,17 +207,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 );
             });
             match &require.func {
-                Some(RequireFunc::Path(func)) => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            || { let x: #ident = #func().into(); x },
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
-                Some(RequireFunc::Closure(func)) => {
+                Some(func) => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
                             required_components,
@@ -295,7 +290,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 #clone_behavior
             }
 
-            #visit_entities
+            #map_entities
         }
 
         #relationship
@@ -306,19 +301,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 const ENTITIES: &str = "entities";
 
-fn visit_entities(
+pub(crate) fn map_entities(
     data: &Data,
-    bevy_ecs_path: &Path,
+    self_ident: Ident,
     is_relationship: bool,
     is_relationship_target: bool,
-) -> TokenStream2 {
+) -> Option<TokenStream2> {
     match data {
         Data::Struct(DataStruct { fields, .. }) => {
-            let mut visit = Vec::with_capacity(fields.len());
-            let mut visit_mut = Vec::with_capacity(fields.len());
+            let mut map = Vec::with_capacity(fields.len());
 
             let relationship = if is_relationship || is_relationship_target {
-                relationship_field(fields, "VisitEntities", fields.span()).ok()
+                relationship_field(fields, "MapEntities", fields.span()).ok()
             } else {
                 None
             };
@@ -335,27 +329,17 @@ fn visit_entities(
                         .clone()
                         .map_or(Member::from(index), Member::Named);
 
-                    visit.push(quote!(this.#field_member.visit_entities(&mut func);));
-                    visit_mut.push(quote!(this.#field_member.visit_entities_mut(&mut func);));
+                    map.push(quote!(#self_ident.#field_member.map_entities(mapper);));
                 });
-            if visit.is_empty() {
-                return quote!();
+            if map.is_empty() {
+                return None;
             };
-            quote!(
-                fn visit_entities(this: &Self, mut func: impl FnMut(#bevy_ecs_path::entity::Entity)) {
-                    use #bevy_ecs_path::entity::VisitEntities;
-                    #(#visit)*
-                }
-
-                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut #bevy_ecs_path::entity::Entity)) {
-                    use #bevy_ecs_path::entity::VisitEntitiesMut;
-                    #(#visit_mut)*
-                }
-            )
+            Some(quote!(
+                #(#map)*
+            ))
         }
         Data::Enum(DataEnum { variants, .. }) => {
-            let mut visit = Vec::with_capacity(variants.len());
-            let mut visit_mut = Vec::with_capacity(variants.len());
+            let mut map = Vec::with_capacity(variants.len());
 
             for variant in variants.iter() {
                 let field_members = variant
@@ -377,40 +361,25 @@ fn visit_entities(
                     .map(|member| format_ident!("__self_{}", member))
                     .collect::<Vec<_>>();
 
-                visit.push(
+                map.push(
                     quote!(Self::#ident {#(#field_members: #field_idents,)* ..} => {
-                        #(#field_idents.visit_entities(&mut func);)*
-                    }),
-                );
-                visit_mut.push(
-                    quote!(Self::#ident {#(#field_members: #field_idents,)* ..} => {
-                        #(#field_idents.visit_entities_mut(&mut func);)*
+                        #(#field_idents.map_entities(mapper);)*
                     }),
                 );
             }
 
-            if visit.is_empty() {
-                return quote!();
+            if map.is_empty() {
+                return None;
             };
-            quote!(
-                fn visit_entities(this: &Self, mut func: impl FnMut(#bevy_ecs_path::entity::Entity)) {
-                    use #bevy_ecs_path::entity::VisitEntities;
-                    match this {
-                        #(#visit,)*
-                        _ => {}
-                    }
-                }
 
-                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut #bevy_ecs_path::entity::Entity)) {
-                    use #bevy_ecs_path::entity::VisitEntitiesMut;
-                    match this {
-                        #(#visit_mut,)*
-                        _ => {}
-                    }
+            Some(quote!(
+                match #self_ident {
+                    #(#map,)*
+                    _ => {}
                 }
-            )
+            ))
         }
-        Data::Union(_) => quote!(),
+        Data::Union(_) => None,
     }
 }
 
@@ -499,12 +468,7 @@ enum StorageTy {
 
 struct Require {
     path: Path,
-    func: Option<RequireFunc>,
-}
-
-enum RequireFunc {
-    Path(Path),
-    Closure(ExprClosure),
+    func: Option<TokenStream2>,
 }
 
 struct Relationship {
@@ -601,19 +565,64 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 
 impl Parse for Require {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let path = input.parse::<Path>()?;
-        let func = if input.peek(Paren) {
+        let mut path = input.parse::<Path>()?;
+        let mut last_segment_is_lower = false;
+        let mut is_constructor_call = false;
+
+        // Use the case of the type name to check if it's an enum
+        // This doesn't match everything that can be an enum according to the rust spec
+        // but it matches what clippy is OK with
+        let is_enum = {
+            let mut first_chars = path
+                .segments
+                .iter()
+                .rev()
+                .filter_map(|s| s.ident.to_string().chars().next());
+            if let Some(last) = first_chars.next() {
+                if last.is_uppercase() {
+                    if let Some(last) = first_chars.next() {
+                        last.is_uppercase()
+                    } else {
+                        false
+                    }
+                } else {
+                    last_segment_is_lower = true;
+                    false
+                }
+            } else {
+                false
+            }
+        };
+
+        let func = if input.peek(Token![=]) {
+            // If there is an '=', then this is a "function style" require
+            input.parse::<Token![=]>()?;
+            let expr: Expr = input.parse()?;
+            Some(quote!(|| #expr ))
+        } else if input.peek(Brace) {
+            // This is a "value style" named-struct-like require
+            let content;
+            braced!(content in input);
+            let content = content.parse::<TokenStream2>()?;
+            Some(quote!(|| #path { #content }))
+        } else if input.peek(Paren) {
+            // This is a "value style" tuple-struct-like require
             let content;
             parenthesized!(content in input);
-            if let Ok(func) = content.parse::<ExprClosure>() {
-                Some(RequireFunc::Closure(func))
-            } else {
-                let func = content.parse::<Path>()?;
-                Some(RequireFunc::Path(func))
-            }
+            let content = content.parse::<TokenStream2>()?;
+            is_constructor_call = last_segment_is_lower;
+            Some(quote!(|| #path (#content)))
+        } else if is_enum {
+            // if this is an enum, then it is an inline enum component declaration
+            Some(quote!(|| #path))
         } else {
+            // if this isn't any of the above, then it is a component ident, which will use Default
             None
         };
+        if is_enum || is_constructor_call {
+            path.segments.pop();
+            path.segments.pop_punct();
+        }
         Ok(Require { path, func })
     }
 }
@@ -730,7 +739,7 @@ fn derive_relationship(
             #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
                 Self {
-                    #(#members: core::default::Default::default(),),*
+                    #(#members: core::default::Default::default(),)*
                     #relationship_member: entity
                 }
             }
@@ -793,7 +802,7 @@ fn derive_relationship_target(
             #[inline]
             fn from_collection_risky(collection: Self::Collection) -> Self {
                 Self {
-                    #(#members: core::default::Default::default(),),*
+                    #(#members: core::default::Default::default(),)*
                     #relationship_member: collection
                 }
             }

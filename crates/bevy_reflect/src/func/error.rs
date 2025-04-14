@@ -4,7 +4,7 @@ use crate::func::{
     Return,
 };
 use alloc::borrow::Cow;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use thiserror::Error;
 
 /// An error that occurs when calling a [`DynamicFunction`] or [`DynamicFunctionMut`].

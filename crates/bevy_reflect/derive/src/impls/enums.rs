@@ -175,7 +175,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 }
             }
 
-            fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicEnum {
+            fn to_dynamic_enum(&self) -> #bevy_reflect_path::DynamicEnum {
                 #bevy_reflect_path::DynamicEnum::from_ref::<Self>(self)
             }
         }
@@ -184,11 +184,6 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
-            }
-
-            #[inline]
-            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
-                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#bevy_reflect_path::Enum::clone_dynamic(self))
             }
 
             #[inline]

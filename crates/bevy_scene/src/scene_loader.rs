@@ -1,21 +1,27 @@
-#[cfg(feature = "serialize")]
-use crate::serde::SceneDeserializer;
-use crate::{ron, DynamicScene};
-use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use crate::ron;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     world::{FromWorld, World},
 };
 use bevy_reflect::TypeRegistryArc;
-#[cfg(feature = "serialize")]
-use serde::de::DeserializeSeed;
 use thiserror::Error;
+
+#[cfg(feature = "serialize")]
+use {
+    crate::{serde::SceneDeserializer, DynamicScene},
+    bevy_asset::{io::Reader, AssetLoader, LoadContext},
+    serde::de::DeserializeSeed,
+};
 
 /// Asset loader for a Bevy dynamic scene (`.scn` / `.scn.ron`).
 ///
 /// The loader handles assets serialized with [`DynamicScene::serialize`].
 #[derive(Debug)]
 pub struct SceneLoader {
+    #[cfg_attr(
+        not(feature = "serialize"),
+        expect(dead_code, reason = "only used with `serialize` feature")
+    )]
     type_registry: TypeRegistryArc,
 }
 

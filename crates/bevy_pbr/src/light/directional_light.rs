@@ -41,16 +41,9 @@ use super::*;
 /// To modify the cascade setup, such as the number of cascades or the maximum shadow distance,
 /// change the [`CascadeShadowConfig`] component of the entity with the [`DirectionalLight`].
 ///
-/// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
-///
-/// ```
-/// # use bevy_app::prelude::*;
-/// # use bevy_pbr::DirectionalLightShadowMap;
-/// App::new()
-///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
-/// ```
+/// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(
     Cascades,
     CascadesFrusta,

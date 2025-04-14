@@ -9,12 +9,11 @@ use crate::{
     reflect::impl_full_reflect,
     set_apply, set_partial_eq, set_try_apply,
     utility::{reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell},
-    ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect,
-    FromType, Generics, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
-    MaybeTyped, OpaqueInfo, PartialReflect, Reflect, ReflectCloneError, ReflectDeserialize,
-    ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    ReflectSerialize, Set, SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
-    TypeRegistry, Typed,
+    ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicTypePath, FromReflect, FromType,
+    Generics, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
+    OpaqueInfo, PartialReflect, Reflect, ReflectCloneError, ReflectDeserialize, ReflectFromPtr,
+    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set,
+    SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
 };
 use alloc::{
     borrow::{Cow, ToOwned},
@@ -215,7 +214,7 @@ impl_reflect_opaque!(::core::time::Duration(
     Deserialize,
     Default
 ));
-impl_reflect_opaque!(::bevy_platform_support::time::Instant(
+impl_reflect_opaque!(::bevy_platform::time::Instant(
     Clone, Debug, Hash, PartialEq
 ));
 impl_reflect_opaque!(::core::num::NonZeroI128(
@@ -316,7 +315,7 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
 ));
 impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>(Clone));
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>(Clone));
-impl_reflect_opaque!(::bevy_platform_support::sync::Arc<T: Send + Sync + ?Sized>(Clone));
+impl_reflect_opaque!(::bevy_platform::sync::Arc<T: Send + Sync + ?Sized>(Clone));
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
@@ -408,10 +407,6 @@ macro_rules! impl_reflect_for_atomic {
                 #[inline]
                 fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
                     Some(self)
-                }
-                #[inline]
-                fn clone_value(&self) -> Box<dyn PartialReflect> {
-                    Box::new(<$ty>::new(self.load($ordering)))
                 }
 
                 #[inline]
@@ -626,10 +621,6 @@ macro_rules! impl_reflect_for_veclike {
                 ReflectOwned::List(self)
             }
 
-            fn clone_value(&self) -> Box<dyn PartialReflect> {
-                Box::new(self.clone_dynamic())
-            }
-
             fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
                 Ok(Box::new(
                     self.iter()
@@ -779,7 +770,7 @@ macro_rules! impl_reflect_for_hashmap {
                     .collect()
             }
 
-            fn clone_dynamic(&self) -> DynamicMap {
+            fn to_dynamic_map(&self) -> DynamicMap {
                 let mut dynamic_map = DynamicMap::default();
                 dynamic_map.set_represented_type(self.get_represented_type_info());
                 for (k, v) in self {
@@ -789,7 +780,7 @@ macro_rules! impl_reflect_for_hashmap {
                             k.reflect_type_path()
                         )
                     });
-                    dynamic_map.insert_boxed(Box::new(key), v.clone_value());
+                    dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
                 }
                 dynamic_map
             }
@@ -878,10 +869,6 @@ macro_rules! impl_reflect_for_hashmap {
 
             fn reflect_owned(self: Box<Self>) -> ReflectOwned {
                 ReflectOwned::Map(self)
-            }
-
-            fn clone_value(&self) -> Box<dyn PartialReflect> {
-                Box::new(self.clone_dynamic())
             }
 
             fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
@@ -1003,10 +990,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
     >
 );
 
-impl_reflect_for_hashmap!(bevy_platform_support::collections::HashMap<K, V, S>);
-impl_type_path!(::bevy_platform_support::collections::HashMap<K, V, S>);
+impl_reflect_for_hashmap!(bevy_platform::collections::HashMap<K, V, S>);
+impl_type_path!(::bevy_platform::collections::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashMap<K, V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform::collections::HashMap<K, V, S>;
     <
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
         V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1041,15 +1028,6 @@ macro_rules! impl_reflect_for_hashset {
                 self.drain()
                     .map(|value| Box::new(value) as Box<dyn PartialReflect>)
                     .collect()
-            }
-
-            fn clone_dynamic(&self) -> DynamicSet {
-                let mut dynamic_set = DynamicSet::default();
-                dynamic_set.set_represented_type(self.get_represented_type_info());
-                for v in self {
-                    dynamic_set.insert_boxed(v.clone_value());
-                }
-                dynamic_set
             }
 
             fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
@@ -1146,10 +1124,6 @@ macro_rules! impl_reflect_for_hashset {
                 ReflectOwned::Set(self)
             }
 
-            fn clone_value(&self) -> Box<dyn PartialReflect> {
-                Box::new(self.clone_dynamic())
-            }
-
             fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
                 let mut set = Self::with_capacity_and_hasher(self.len(), S::default());
                 for value in self.iter() {
@@ -1232,8 +1206,16 @@ macro_rules! impl_reflect_for_hashset {
     };
 }
 
-impl_type_path!(::bevy_platform_support::hash::NoOpHash);
-impl_type_path!(::bevy_platform_support::hash::FixedHasher);
+impl_type_path!(::bevy_platform::hash::NoOpHash);
+impl_type_path!(::bevy_platform::hash::FixedHasher);
+impl_reflect_opaque!(::core::net::SocketAddr(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
 
 #[cfg(feature = "std")]
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
@@ -1247,10 +1229,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
     >
 );
 
-impl_reflect_for_hashset!(::bevy_platform_support::collections::HashSet<V,S>);
-impl_type_path!(::bevy_platform_support::collections::HashSet<V, S>);
+impl_reflect_for_hashset!(::bevy_platform::collections::HashSet<V,S>);
+impl_type_path!(::bevy_platform::collections::HashSet<V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashSet<V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform::collections::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
@@ -1321,7 +1303,7 @@ where
                     k.reflect_type_path()
                 )
             });
-            dynamic_map.insert_boxed(Box::new(key), v.clone_value());
+            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
         }
         dynamic_map
     }
@@ -1405,10 +1387,6 @@ where
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Map(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
@@ -1594,11 +1572,6 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Array(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     #[inline]
@@ -1795,10 +1768,6 @@ impl PartialReflect for Cow<'static, str> {
         ReflectOwned::Opaque(self)
     }
 
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone())
-    }
-
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Ok(Box::new(self.clone()))
     }
@@ -1987,10 +1956,6 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
         ReflectOwned::List(self)
     }
 
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(List::clone_dynamic(self))
-    }
-
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Ok(Box::new(self.clone()))
     }
@@ -2098,10 +2063,6 @@ impl PartialReflect for &'static str {
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Opaque(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(*self)
     }
 
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
@@ -2243,10 +2204,6 @@ impl PartialReflect for &'static Path {
         ReflectOwned::Opaque(self)
     }
 
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(*self)
-    }
-
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Ok(Box::new(*self))
     }
@@ -2384,10 +2341,6 @@ impl PartialReflect for Cow<'static, Path> {
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Opaque(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone())
     }
 
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
@@ -2548,10 +2501,6 @@ impl PartialReflect for &'static Location<'static> {
         ReflectOwned::Opaque(self)
     }
 
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(*self)
-    }
-
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Ok(Box::new(*self))
     }
@@ -2647,8 +2596,8 @@ mod tests {
         Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
-    use bevy_platform_support::collections::HashMap;
-    use bevy_platform_support::time::Instant;
+    use bevy_platform::collections::HashMap;
+    use bevy_platform::time::Instant;
     use core::{
         f32::consts::{PI, TAU},
         time::Duration,

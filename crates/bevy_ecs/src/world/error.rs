@@ -55,3 +55,17 @@ pub enum EntityMutableFetchError {
     #[error("The entity with ID {0} was requested mutably more than once")]
     AliasedMutability(Entity),
 }
+
+/// An error that occurs when getting a resource of a given type in a world.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceFetchError {
+    /// The resource has never been initialized or registered with the world.
+    #[error("The resource has never been initialized or registered with the world. Did you forget to add it using `app.insert_resource` / `app.init_resource`?")]
+    NotRegistered,
+    /// The resource with the given [`ComponentId`] does not currently exist in the world.
+    #[error("The resource with ID {0:?} does not currently exist in the world.")]
+    DoesNotExist(ComponentId),
+    /// Cannot get access to the resource with the given [`ComponentId`] in the world as it conflicts with an on going operation.
+    #[error("Cannot get access to the resource with ID {0:?} in the world as it conflicts with an on going operation.")]
+    NoResourceAccess(ComponentId),
+}

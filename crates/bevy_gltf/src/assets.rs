@@ -4,10 +4,10 @@
 use bevy_animation::AnimationClip;
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_mesh::{skinning::SkinnedMeshInverseBindposes, Mesh};
 use bevy_pbr::StandardMaterial;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
-use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, Mesh};
 use bevy_scene::Scene;
 
 use crate::GltfAssetLabel;
@@ -214,7 +214,7 @@ impl GltfPrimitive {
     }
 }
 
-/// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_render::mesh::skinning::SkinnedMeshInverseBindposes)
+/// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_mesh::skinning::SkinnedMeshInverseBindposes)
 /// and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin).
@@ -263,7 +263,7 @@ impl GltfSkin {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Clone, Default, Debug)]
 pub struct GltfExtras {
     /// Content of the extra data.
     pub value: String,
@@ -281,7 +281,7 @@ impl From<&serde_json::value::RawValue> for GltfExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Clone, Default, Debug)]
 pub struct GltfSceneExtras {
     /// Content of the extra data.
     pub value: String,
@@ -291,7 +291,7 @@ pub struct GltfSceneExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Clone, Default, Debug)]
 pub struct GltfMeshExtras {
     /// Content of the extra data.
     pub value: String,
@@ -301,7 +301,7 @@ pub struct GltfMeshExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Clone, Default, Debug)]
 pub struct GltfMaterialExtras {
     /// Content of the extra data.
     pub value: String,
@@ -311,5 +311,5 @@ pub struct GltfMaterialExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-material).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component)]
+#[reflect(Component, Clone)]
 pub struct GltfMaterialName(pub String);

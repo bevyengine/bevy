@@ -5,7 +5,7 @@ use bevy_reflect::prelude::*;
 use core::ops::Deref;
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     #[entities]

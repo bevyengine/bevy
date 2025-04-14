@@ -58,6 +58,6 @@ pub mod prelude {
             RunFixedMainLoopSystem, SpawnScene, Startup, Update,
         },
         sub_app::SubApp,
-        NonSendMarker, Plugin, PluginGroup, TaskPoolOptions, TaskPoolPlugin,
+        Plugin, PluginGroup, TaskPoolOptions, TaskPoolPlugin,
     };
 }

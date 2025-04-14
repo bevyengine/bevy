@@ -60,7 +60,7 @@ pub trait Alpha: Sized {
     /// Return a new version of this color with the given alpha value.
     fn with_alpha(&self, alpha: f32) -> Self;
 
-    /// Return a the alpha component of this color.
+    /// Return the alpha component of this color.
     fn alpha(&self) -> f32;
 
     /// Sets the alpha component of this color.

@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::executor::FallibleTask;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 

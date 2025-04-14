@@ -58,7 +58,7 @@ use {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Component, PartialEq)
+    reflect(Debug, Default, Component, PartialEq, Clone)
 )]
 pub struct TabIndex(pub i32);
 
@@ -67,7 +67,7 @@ pub struct TabIndex(pub i32);
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Component)
+    reflect(Debug, Default, Component, Clone)
 )]
 pub struct TabGroup {
     /// The order of the tab group relative to other tab groups.
@@ -375,22 +375,8 @@ mod tests {
         let world = app.world_mut();
 
         let tab_group_entity = world.spawn(TabGroup::new(0)).id();
-        let tab_entity_1 = world
-            .spawn((
-                TabIndex(0),
-                ChildOf {
-                    parent: tab_group_entity,
-                },
-            ))
-            .id();
-        let tab_entity_2 = world
-            .spawn((
-                TabIndex(1),
-                ChildOf {
-                    parent: tab_group_entity,
-                },
-            ))
-            .id();
+        let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_entity))).id();
+        let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);

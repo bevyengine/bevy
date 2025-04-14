@@ -16,6 +16,7 @@ The default feature set enables most of the expected features of a game engine, 
 |animation|Enable animation support, and glTF animation loading|
 |async_executor|Uses `async-executor` as a task execution backend.|
 |bevy_animation|Provides animation functionality|
+|bevy_anti_aliasing|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
 |bevy_color|Provides shared color types and operations|
@@ -24,7 +25,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_input_focus|Enable input focus subsystem|
-|bevy_log|Enable integration with `tracing` and `log`|
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
@@ -48,6 +48,7 @@ The default feature set enables most of the expected features of a game engine, 
 |std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
+|tracing|Tracing support|
 |vorbis|OGG/VORBIS audio format support|
 |webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|
@@ -69,6 +70,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
+|configurable_error_handler|Use the configurable global error handler as the default error handler.|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |dds|DDS compressed texture support|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
@@ -113,7 +115,7 @@ The default feature set enables most of the expected features of a game engine, 
 |symphonia-wav|WAV audio format support (through symphonia)|
 |tga|TGA image format support|
 |tiff|TIFF image format support|
-|trace|Tracing support|
+|trace|Enables traces within Bevy using tracing|
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|

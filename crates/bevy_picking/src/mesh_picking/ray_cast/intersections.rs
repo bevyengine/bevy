@@ -1,11 +1,12 @@
 use bevy_math::{bounding::Aabb3d, Dir3, Mat4, Ray3d, Vec3, Vec3A};
+use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
 use bevy_reflect::Reflect;
-use bevy_render::mesh::{Indices, Mesh, PrimitiveTopology};
 
 use super::Backfaces;
 
 /// Hit data for an intersection between a ray and a mesh.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct RayMeshHit {
     /// The point of intersection in world space.
     pub point: Vec3,
@@ -82,9 +83,10 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
 
         indices
             .chunks_exact(3)
+            .enumerate()
             .fold(
                 (f32::MAX, None),
-                |(closest_distance, closest_hit), triangle| {
+                |(closest_distance, closest_hit), (tri_idx, triangle)| {
                     let [Ok(a), Ok(b), Ok(c)] = [
                         triangle[0].try_into(),
                         triangle[1].try_into(),
@@ -103,7 +105,7 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
 
                     match ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
                         Some(hit) if hit.distance >= 0. && hit.distance < closest_distance => {
-                            (hit.distance, Some((a, hit)))
+                            (hit.distance, Some((tri_idx, hit)))
                         }
                         _ => (closest_distance, closest_hit),
                     }
@@ -187,7 +189,7 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
                 .transform_vector3(ray.direction * hit.distance)
                 .length(),
             triangle: Some(tri_vertices.map(|v| mesh_transform.transform_point3(v))),
-            triangle_index: Some(a),
+            triangle_index: Some(tri_idx),
         })
     })
 }

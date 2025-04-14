@@ -19,7 +19,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use bevy_platform_support::sync::Mutex;
+use bevy_platform::sync::Mutex;
 
 mod event;
 mod monitor;
@@ -177,11 +177,11 @@ impl Plugin for WindowPlugin {
 pub enum ExitCondition {
     /// Close application when the primary window is closed
     ///
-    /// The plugin will add [`exit_on_primary_closed`] to [`Update`].
+    /// The plugin will add [`exit_on_primary_closed`] to [`PostUpdate`].
     OnPrimaryClosed,
     /// Close application when all windows are closed
     ///
-    /// The plugin will add [`exit_on_all_closed`] to [`Update`].
+    /// The plugin will add [`exit_on_all_closed`] to [`PostUpdate`].
     OnAllClosed,
     /// Keep application running headless even after closing all windows
     ///

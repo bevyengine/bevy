@@ -11,7 +11,7 @@
 #import bevy_render::maths::project_onto
 
 @group(2) @binding(200)
-var<uniform> depth_fade_factor: f32;
+var<uniform> inv_depth_fade_factor: f32;
 
 struct ForwardDecalInformation {
     world_position: vec4<f32>,
@@ -46,7 +46,7 @@ fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
     let uv = in.uv + delta_uv;
 
     let world_position = vec4(in.world_position.xyz + V * diff_depth_abs, in.world_position.w);
-    let alpha = saturate(1.0 - normal_depth * depth_fade_factor);
+    let alpha = saturate(1.0 - (normal_depth * inv_depth_fade_factor));
 
     return ForwardDecalInformation(world_position, uv, alpha);
 }

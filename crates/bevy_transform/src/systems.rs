@@ -53,14 +53,14 @@ pub fn mark_dirty_trees(
 ) {
     for entity in changed_transforms.iter().chain(orphaned.read()) {
         let mut next = entity;
-        while let Ok((parent, mut tree)) = transforms.get_mut(next) {
+        while let Ok((child_of, mut tree)) = transforms.get_mut(next) {
             if tree.is_changed() && !tree.is_added() {
                 // If the component was changed, this part of the tree has already been processed.
                 // Ignore this if the change was caused by the component being added.
                 break;
             }
             tree.set_changed();
-            if let Some(parent) = parent.map(|p| p.parent) {
+            if let Some(parent) = child_of.map(ChildOf::parent) {
                 next = parent;
             } else {
                 break;
@@ -121,7 +121,7 @@ mod serial {
 
             for (child, child_of) in child_query.iter_many(children) {
                 assert_eq!(
-                    child_of.parent, entity,
+                    child_of.parent(), entity,
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
                 );
                 // SAFETY:
@@ -221,7 +221,7 @@ mod serial {
         let Some(children) = children else { return };
         for (child, child_of) in child_query.iter_many(children) {
             assert_eq!(
-            child_of.parent, entity,
+            child_of.parent(), entity,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
             // SAFETY: The caller guarantees that `transform_query` will not be fetched for any
@@ -268,29 +268,17 @@ mod parallel {
     /// [`mark_dirty_trees`](super::mark_dirty_trees).
     pub fn propagate_parent_transforms(
         mut queue: Local<WorkQueue>,
-        mut orphaned: RemovedComponents<ChildOf>,
-        mut orphans: Local<Vec<Entity>>,
         mut roots: Query<
             (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
             (Without<ChildOf>, Changed<TransformTreeChanged>),
         >,
         nodes: NodeQuery,
     ) {
-        // Orphans
-        orphans.clear();
-        orphans.extend(orphaned.read());
-        orphans.sort_unstable();
-
         // Process roots in parallel, seeding the work queue
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children)| {
-                if transform.is_changed()
-                    || parent_transform.is_added()
-                    || orphans.binary_search(&parent).is_ok()
-                {
-                    *parent_transform = GlobalTransform::from(*transform);
-                }
+                *parent_transform = GlobalTransform::from(*transform);
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
                 // over the root entity query. Queries iterate over disjoint entities, preventing
@@ -389,11 +377,8 @@ mod parallel {
                 // the hierarchy, guaranteeing unique access.
                 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                 unsafe {
-                    let (_, (_, p_global_transform, tree), (p_children, _)) =
+                    let (_, (_, p_global_transform, _), (p_children, _)) =
                         nodes.get_unchecked(parent).unwrap();
-                    if !tree.is_changed() {
-                        continue;
-                    }
                     propagate_descendants_unchecked(
                         parent,
                         p_global_transform,
@@ -467,13 +452,12 @@ mod parallel {
                         // Static scene optimization
                         return None;
                     }
-                    assert_eq!(child_of.parent, parent);
-                    if p_global_transform.is_changed()
-                        || transform.is_changed()
-                        || global_transform.is_added()
-                    {
-                        *global_transform = p_global_transform.mul_transform(*transform);
-                    }
+                    assert_eq!(child_of.parent(), parent);
+
+                    // Transform prop is expensive - this helps avoid updating entire subtrees if
+                    // the GlobalTransform is unchanged, at the cost of an added equality check.
+                    global_transform.set_if_neq(p_global_transform.mul_transform(*transform));
+
                     children.map(|children| {
                         // Only continue propagation if the entity has children.
                         last_child = Some((child, global_transform, children));
@@ -602,8 +586,8 @@ mod test {
         let root = commands.spawn(offset_transform(3.3)).id();
         let parent = commands.spawn(offset_transform(4.4)).id();
         let child = commands.spawn(offset_transform(5.5)).id();
-        commands.entity(parent).insert(ChildOf { parent: root });
-        commands.entity(child).insert(ChildOf { parent });
+        commands.entity(parent).insert(ChildOf(root));
+        commands.entity(child).insert(ChildOf(parent));
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 

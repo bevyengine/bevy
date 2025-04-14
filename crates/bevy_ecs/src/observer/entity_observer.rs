@@ -2,9 +2,8 @@ use crate::{
     component::{
         Component, ComponentCloneBehavior, ComponentHook, HookContext, Mutable, StorageType,
     },
-    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, SourceComponent},
+    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
     observer::ObserverState,
-    system::Commands,
     world::World,
 };
 use alloc::vec::Vec;
@@ -64,15 +63,11 @@ impl EntityClonerBuilder<'_> {
     }
 }
 
-fn component_clone_observed_by(
-    commands: &mut Commands,
-    _source: &SourceComponent,
-    ctx: &mut ComponentCloneCtx,
-) {
+fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
     let target = ctx.target();
     let source = ctx.source();
 
-    commands.queue(move |world: &mut World| {
+    ctx.queue_deferred(move |world: &mut World, _mapper: &mut dyn EntityMapper| {
         let observed_by = world
             .get::<ObservedBy>(source)
             .map(|observed_by| observed_by.0.clone())

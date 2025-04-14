@@ -1,5 +1,5 @@
 use alloc::borrow::Cow;
-use bevy_platform_support::{
+use bevy_platform::{
     collections::HashMap,
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };

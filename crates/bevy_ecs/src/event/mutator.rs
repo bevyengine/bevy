@@ -44,6 +44,7 @@ use bevy_ecs::{
 #[derive(SystemParam, Debug)]
 pub struct EventMutator<'w, 's, E: Event> {
     pub(super) reader: Local<'s, EventCursor<E>>,
+    #[system_param(validation_message = "Event not initialized")]
     events: ResMut<'w, Events<E>>,
 }
 
