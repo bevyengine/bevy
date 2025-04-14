@@ -293,6 +293,11 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(&[child])
     }
 
+    /// Removes the relationship between this entity and the given entities.
+    pub fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
+        self.remove_related::<ChildOf>(children)
+    }
+
     /// Replaces all the related children with a new set of children.
     pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         self.replace_related::<ChildOf>(children)
@@ -373,6 +378,11 @@ impl<'a> EntityCommands<'a> {
     /// Adds the given child to this entity
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
         self.add_related::<ChildOf>(&[child])
+    }
+
+    /// Removes the relationship between this entity and the given entities.
+    pub fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
+        self.remove_related::<ChildOf>(children)
     }
 
     /// Replaces the children on this entity with a new list of children.
@@ -643,6 +653,26 @@ mod tests {
                     Node::new(child2)
                 ]
             )
+        );
+    }
+
+    #[test]
+    fn remove_children() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+        let child4 = world.spawn_empty().id();
+
+        let mut root = world.spawn_empty();
+        root.add_children(&[child1, child2, child3, child4]);
+        root.remove_children(&[child2, child3]);
+        let root = root.id();
+
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(root, vec![Node::new(child1), Node::new(child4)])
         );
     }
 

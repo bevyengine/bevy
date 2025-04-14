@@ -105,6 +105,23 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes the relation `R` between this entity and the given entities.
+    pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        let id = self.id();
+        self.world_scope(|world| {
+            for related in related {
+                if world
+                    .get::<R>(*related)
+                    .is_some_and(|relationship| relationship.get() == id)
+                {
+                    world.entity_mut(*related).remove::<R>();
+                }
+            }
+        });
+
+        self
+    }
+
     /// Replaces all the related entities with a new set of entities.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         type Collection<R> =
@@ -381,6 +398,15 @@ impl<'a> EntityCommands<'a> {
     /// See [`add_related`](Self::add_related) if you want to relate more than one entity.
     pub fn add_one_related<R: Relationship>(&mut self, entity: Entity) -> &mut Self {
         self.add_related::<R>(&[entity])
+    }
+
+    /// Removes the relation `R` between this entity and the given entities.
+    pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        let related: Box<[Entity]> = related.into();
+
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_related::<R>(&related);
+        })
     }
 
     /// Replaces all the related entities with the given set of new related entities.
