@@ -1817,6 +1817,11 @@ pub fn specialize_shadows<M: Material>(
                 let Ok(material_asset_id) = material_instances.asset_id.try_typed::<M>() else {
                     continue;
                 };
+                let Some(mesh_instance) =
+                    render_mesh_instances.render_mesh_queue_data(visible_entity)
+                else {
+                    continue;
+                };
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
                 let last_specialized_tick = view_specialized_material_pipeline_cache
                     .get(&visible_entity)
@@ -1829,11 +1834,6 @@ pub fn specialize_shadows<M: Material>(
                     continue;
                 }
                 let Some(material) = render_materials.get(material_asset_id) else {
-                    continue;
-                };
-                let Some(mesh_instance) =
-                    render_mesh_instances.render_mesh_queue_data(visible_entity)
-                else {
                     continue;
                 };
                 if !mesh_instance

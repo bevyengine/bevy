@@ -722,6 +722,9 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
+            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -733,9 +736,6 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
-                continue;
-            };
             let Some(material_2d) = render_materials.get(*material_asset_id) else {
                 continue;
             };
