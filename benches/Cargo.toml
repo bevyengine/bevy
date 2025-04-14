@@ -30,7 +30,7 @@ bevy_platform = { path = "../crates/bevy_platform", default-features = false, fe
 
 # Other crates
 glam = "0.29"
-rand = "0.8"
+rand = "0.9"
 rand_chacha = "0.3"
 
 # Make `bevy_render` compile on Linux with x11 windowing. x11 vs. Wayland does not matter here
