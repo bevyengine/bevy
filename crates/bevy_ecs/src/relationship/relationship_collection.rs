@@ -4,15 +4,15 @@ use smallvec::SmallVec;
 
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
-pub trait RelationshipSourceCollection {
+pub trait RelationshipCollection {
     /// The type of iterator returned by the `iter` method.
     ///
     /// This is an associated type (rather than using a method that returns an opaque return-position impl trait)
     /// to ensure that all methods and traits (like [`DoubleEndedIterator`]) of the underlying collection's iterator
     /// are available to the user when implemented without unduly restricting the possible collections.
     ///
-    /// The [`SourceIter`](super::SourceIter) type alias can be helpful to reduce confusion when working with this associated type.
-    type SourceIter<'a>: Iterator<Item = Entity>
+    /// The [`RelationshipIter`](super::RelationshipIter) type alias can be helpful to reduce confusion when working with this associated type.
+    type Iter<'a>: Iterator<Item = Entity>
     where
         Self: 'a;
 
@@ -42,8 +42,11 @@ pub trait RelationshipSourceCollection {
     /// the entity.
     fn remove(&mut self, entity: Entity) -> bool;
 
+    /// Returns true if the collection contains the given `entity`.
+    fn contains(&self, entity: Entity) -> bool;
+
     /// Iterates all entities in the collection.
-    fn iter(&self) -> Self::SourceIter<'_>;
+    fn iter(&self) -> Self::Iter<'_>;
 
     /// Returns the current length of the collection.
     fn len(&self) -> usize;
@@ -74,8 +77,8 @@ pub trait RelationshipSourceCollection {
     }
 }
 
-/// This trait signals that a [`RelationshipSourceCollection`] is ordered.
-pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
+/// This trait signals that a [`RelationshipCollection`] is ordered.
+pub trait OrderedRelationshipCollection: RelationshipCollection {
     /// Inserts the entity at a specific index.
     /// If the index is too large, the entity will be added to the end of the collection.
     fn insert(&mut self, index: usize, entity: Entity);
@@ -126,8 +129,8 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     }
 }
 
-impl RelationshipSourceCollection for Vec<Entity> {
-    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
+impl RelationshipCollection for Vec<Entity> {
+    type Iter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
     fn new() -> Self {
         Vec::new()
@@ -156,7 +159,11 @@ impl RelationshipSourceCollection for Vec<Entity> {
         false
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn contains(&self, entity: Entity) -> bool {
+        <[Entity]>::iter(self).any(|e| *e == entity)
+    }
+
+    fn iter(&self) -> Self::Iter<'_> {
         <[Entity]>::iter(self).copied()
     }
 
@@ -177,7 +184,7 @@ impl RelationshipSourceCollection for Vec<Entity> {
     }
 }
 
-impl OrderedRelationshipSourceCollection for Vec<Entity> {
+impl OrderedRelationshipCollection for Vec<Entity> {
     fn insert(&mut self, index: usize, entity: Entity) {
         self.push(entity);
         let len = self.len();
@@ -228,8 +235,8 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
     }
 }
 
-impl RelationshipSourceCollection for EntityHashSet {
-    type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a>>;
+impl RelationshipCollection for EntityHashSet {
+    type Iter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a>>;
 
     fn new() -> Self {
         EntityHashSet::new()
@@ -253,7 +260,11 @@ impl RelationshipSourceCollection for EntityHashSet {
         self.0.remove(&entity)
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn contains(&self, entity: Entity) -> bool {
+        self.0.contains(&entity)
+    }
+
+    fn iter(&self) -> Self::Iter<'_> {
         self.iter().copied()
     }
 
@@ -274,8 +285,8 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 }
 
-impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
-    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
+impl<const N: usize> RelationshipCollection for SmallVec<[Entity; N]> {
+    type Iter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
     fn new() -> Self {
         SmallVec::new()
@@ -304,7 +315,11 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
         false
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn contains(&self, entity: Entity) -> bool {
+        <[Entity]>::iter(self).any(|e| *e == entity)
+    }
+
+    fn iter(&self) -> Self::Iter<'_> {
         <[Entity]>::iter(self).copied()
     }
 
@@ -325,8 +340,8 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     }
 }
 
-impl RelationshipSourceCollection for Entity {
-    type SourceIter<'a> = core::iter::Once<Entity>;
+impl RelationshipCollection for Entity {
+    type Iter<'a> = core::iter::Once<Entity>;
 
     fn new() -> Self {
         Entity::PLACEHOLDER
@@ -354,7 +369,11 @@ impl RelationshipSourceCollection for Entity {
         false
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn contains(&self, entity: Entity) -> bool {
+        *self == entity
+    }
+
+    fn iter(&self) -> Self::Iter<'_> {
         core::iter::once(*self)
     }
 
@@ -378,7 +397,7 @@ impl RelationshipSourceCollection for Entity {
     }
 }
 
-impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N]> {
+impl<const N: usize> OrderedRelationshipCollection for SmallVec<[Entity; N]> {
     fn insert(&mut self, index: usize, entity: Entity) {
         self.push(entity);
         let len = self.len();
@@ -431,6 +450,8 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+
     use super::*;
     use crate::prelude::{Component, World};
     use crate::relationship::RelationshipTarget;
@@ -529,5 +550,34 @@ mod tests {
         world.entity_mut(a).insert(Above(c));
         assert!(world.get::<Below>(b).is_none());
         assert_eq!(a, world.get::<Below>(c).unwrap().0);
+    }
+
+    #[test]
+    fn many_to_many_relationships() {
+        #[derive(Component, PartialEq, Debug)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes(pub Vec<Entity>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Likes(vec![b, c]));
+        assert_eq!(&*world.get::<LikedBy>(b).unwrap().0, &[a]);
+        assert_eq!(&*world.get::<LikedBy>(c).unwrap().0, &[a]);
+
+        // Verify removing target removes relationship
+        world.entity_mut(b).remove::<LikedBy>();
+        assert!(!world.get::<Likes>(a).unwrap().0.contains(b));
+        assert!(world.get::<Likes>(a).unwrap().0.contains(c));
+
+        // Verify removing all relationships removes the target component
+        world.entity_mut(c).remove::<LikedBy>();
+        assert_eq!(world.get::<Likes>(a), None);
     }
 }
