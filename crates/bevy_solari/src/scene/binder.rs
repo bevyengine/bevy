@@ -224,6 +224,8 @@ pub fn prepare_raytracing_scene_bindings(
             transforms.binding().unwrap(),
             geometry_ids.binding().unwrap(),
             material_ids.binding().unwrap(),
+            light_sources.binding().unwrap(),
+            directional_lights.binding().unwrap(),
         )),
     ));
 }
