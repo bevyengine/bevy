@@ -17,7 +17,7 @@
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```
 /// # use bevy_platform::cfg;
 /// # fn log(_: &str) {}
 /// # fn foo(_: &str) {}
@@ -57,7 +57,7 @@ pub use crate::switch;
 ///
 /// ```ignore
 /// define_alias! {
-///     feature = "faster_algorithms" => { faster_algorithms }
+///     #[cfg(feature = "faster_algorithms")] => { faster_algorithms }
 /// }
 /// ```
 ///
@@ -69,7 +69,7 @@ pub use crate::switch;
 /// Once an alias is defined, there are 4 ways you can use it:
 ///
 /// 1. Evaluate with no contents to return a `bool` indicating if the alias is active.
-///    ```rust
+///    ```
 ///    # use bevy_platform::cfg;
 ///    if cfg::std!() {
 ///        // Have `std`!
@@ -78,7 +78,7 @@ pub use crate::switch;
 ///    }
 ///    ```
 /// 2. Pass a single code block which will only be compiled if the alias is active.
-///    ```rust
+///    ```
 ///    # use bevy_platform::cfg;
 ///    cfg::std! {
 ///        // Have `std`!
@@ -87,7 +87,7 @@ pub use crate::switch;
 ///    ```
 /// 3. Pass a single `if { ... } else { ... }` expression to conditionally compile either the first
 ///    or the second code block.
-///    ```rust
+///    ```
 ///    # use bevy_platform::cfg;
 ///    cfg::std! {
 ///        if {
@@ -98,7 +98,7 @@ pub use crate::switch;
 ///    }
 ///    ```
 /// 4. Use in a [`switch`] arm for more complex conditional compilation.
-///    ```rust
+///    ```
 ///    # use bevy_platform::cfg;
 ///    cfg::switch! {
 ///        cfg::std => {
@@ -114,6 +114,14 @@ pub use crate::switch;
 ///    ```
 #[doc(inline)]
 pub use crate::define_alias;
+
+/// Macro which represents an enabled compilation condition.
+#[doc(inline)]
+pub use crate::enabled;
+
+/// Macro which represents a disabled compilation condition.
+#[doc(inline)]
+pub use crate::disabled;
 
 #[doc(hidden)]
 #[macro_export]
@@ -153,7 +161,7 @@ macro_rules! switch {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! noop {
+macro_rules! disabled {
     () => { false };
     (if { $($p:tt)* } else { $($n:tt)* }) => { $($n)* };
     ($($p:tt)*) => {};
@@ -161,7 +169,7 @@ macro_rules! noop {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! pass {
+macro_rules! enabled {
     () => { true };
     (if { $($p:tt)* } else { $($n:tt)* }) => { $($p)* };
     ($($p:tt)*) => { $($p)* };
@@ -170,56 +178,86 @@ macro_rules! pass {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! define_alias {
-    ($(
-        $meta:meta => {
+    (
+        #[cfg($meta:meta)] => $p:ident
+        $(, $( $rest:tt )+)?
+    ) => {
+        $crate::define_alias! {
+            #[cfg($meta)] => { $p }
+            $(
+                $($rest)+
+            )?
+        }
+    };
+    (
+        #[cfg($meta:meta)] => $p:ident,
+        $($( $rest:tt )+)?
+    ) => {
+        $crate::define_alias! {
+            #[cfg($meta)] => { $p }
+            $(
+                $($rest)+
+            )?
+        }
+    };
+    (
+        #[cfg($meta:meta)] => {
             $(#[$p_meta:meta])*
             $p:ident
         }
-    )*) => {$(
-        #[cfg($meta)]
-        $(#[$p_meta])*
-        #[doc(inline)]
-        #[doc = r#"This macro passes the provided code because `"#]
-        #[doc = stringify!($meta)]
-        #[doc = r#"` is currently active."#]
-        pub use $crate::pass as $p;
+        $($( $rest:tt )+)?
+    ) => {
+        $crate::switch! {
+            #[cfg($meta)] => {
+                $(#[$p_meta])*
+                #[doc(inline)]
+                ///
+                #[doc = concat!("This macro passes the provided code because `#[cfg(", stringify!($meta), ")]` is currently active.")]
+                pub use $crate::enabled as $p;
+            }
+            _ => {
+                $(#[$p_meta])*
+                #[doc(inline)]
+                ///
+                #[doc = concat!("This macro suppresses the provided code because `#[cfg(", stringify!($meta), ")]` is _not_ currently active.")]
+                pub use $crate::disabled as $p;
+            }
+        }
 
-        #[cfg(not($meta))]
-        $(#[$p_meta])*
-        #[doc(inline)]
-        #[doc = r#"This macro suppresses the provided code because `"#]
-        #[doc = stringify!($meta)]
-        #[doc = r#"` is _not_ currently active."#]
-        pub use $crate::noop as $p;
-    )*}
+        $(
+            $crate::define_alias! {
+                $($rest)+
+            }
+        )?
+    }
 }
 
 define_alias! {
-    feature = "alloc" => {
+    #[cfg(feature = "alloc")] => {
         /// Indicates the `alloc` crate is available and can be used.
         alloc
     }
-    feature = "std" => {
+    #[cfg(feature = "std")] => {
         /// Indicates the `std` crate is available and can be used.
         std
     }
-    panic = "unwind" => {
+    #[cfg(panic = "unwind")] => {
         /// Indicates that a [`panic`] will be unwound, and can be potentially caught.
         panic_unwind
     }
-    panic = "abort" => {
+    #[cfg(panic = "abort")] => {
         /// Indicates that a [`panic`] will lead to an abort, and cannot be caught.
         panic_abort
     }
-    all(target_arch = "wasm32", feature = "web") => {
+    #[cfg(all(target_arch = "wasm32", feature = "web"))] => {
         /// Indicates that this target has access to browser APIs.
         web
     }
-    all(feature = "alloc", target_has_atomic = "ptr") => {
+    #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))] => {
         /// Indicates that this target has access to a native implementation of `Arc`.
         arc
     }
-    feature = "critical-section" => {
+    #[cfg(feature = "critical-section")] => {
         /// Indicates `critical-section` is available.
         critical_section
     }
