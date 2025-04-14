@@ -12,7 +12,7 @@ use crate::{
     bundle::Bundle,
     component::{Component, HookContext},
     entity::Entity,
-    relationship::{RelatedSpawner, RelatedSpawnerCommands, Relationship},
+    relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
@@ -88,6 +88,8 @@ use log::warn;
 /// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
 /// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
 /// ```
+///
+/// [`Relationship`]: crate::relationship::Relationship
 #[derive(Component, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
@@ -141,6 +143,7 @@ impl FromWorld for ChildOf {
 /// using the [`IntoIterator`] trait.
 /// For more complex access patterns, see the [`RelationshipTarget`] trait.
 ///
+/// [`Relationship`]: crate::relationship::Relationship
 /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 #[derive(Component, Default, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = ChildOf, linked_spawn)]
@@ -387,13 +390,13 @@ impl<'a> EntityCommands<'a> {
     /// # Panics
     ///
     /// Panics when debug assertions are enabled if an invariant is is broken and the command is executed.
-    pub fn replace_children_with_difference<R: Relationship>(
+    pub fn replace_children_with_difference(
         &mut self,
         entities_to_unrelate: &[Entity],
         entities_to_relate: &[Entity],
         newly_related_entities: &[Entity],
     ) -> &mut Self {
-        self.replace_related_with_difference::<R>(
+        self.replace_related_with_difference::<ChildOf>(
             entities_to_unrelate,
             entities_to_relate,
             newly_related_entities,
