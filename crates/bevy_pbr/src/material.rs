@@ -316,13 +316,10 @@ where
                 .add_systems(
                     ExtractSchedule,
                     (
-                        (
-                            extract_mesh_materials::<M>,
-                            early_sweep_material_instances::<M>,
-                        )
-                            .chain()
-                            .before(late_sweep_material_instances)
-                            .before(ExtractMeshesSet),
+                        extract_mesh_materials::<M>.in_set(ExtractMaterialsSet),
+                        early_sweep_material_instances::<M>
+                            .after(ExtractMaterialsSet)
+                            .before(late_sweep_material_instances),
                         extract_entities_needs_specialization::<M>.after(extract_cameras),
                     ),
                 )
@@ -415,7 +412,8 @@ where
 ///
 /// See the comments in [`RenderMaterialInstances::mesh_material`] for more
 /// information.
-static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> = AssetId::<StandardMaterial>::invalid();
+pub(crate) static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> =
+    AssetId::<StandardMaterial>::invalid();
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
@@ -637,6 +635,10 @@ pub struct RenderMaterialInstance {
     last_change_tick: Tick,
 }
 
+/// A [`SystemSet`] that contains all `extract_mesh_materials` systems.
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct ExtractMaterialsSet;
+
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
@@ -782,7 +784,7 @@ fn early_sweep_material_instances<M>(
 /// This runs after all invocations of [`early_sweep_material_instances`] and is
 /// responsible for bumping [`RenderMaterialInstances::current_change_tick`] in
 /// preparation for a new frame.
-fn late_sweep_material_instances(
+pub(crate) fn late_sweep_material_instances(
     mut material_instances: ResMut<RenderMaterialInstances>,
     mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
 ) {
@@ -1011,6 +1013,10 @@ pub fn specialize_material_meshes<M: Material>(
             let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
                 continue;
             };
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -1022,10 +1028,6 @@ pub fn specialize_material_meshes<M: Material>(
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
-            else {
-                continue;
-            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
