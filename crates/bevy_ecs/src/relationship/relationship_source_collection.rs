@@ -326,7 +326,7 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
 }
 
 impl RelationshipSourceCollection for Entity {
-    type SourceIter<'a> = core::iter::Once<Entity>;
+    type SourceIter<'a> = core::option::IntoIter<Entity>;
 
     fn new() -> Self {
         Entity::PLACEHOLDER
@@ -361,7 +361,11 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
-        core::iter::once(*self)
+        if *self == Entity::PLACEHOLDER {
+            None.into_iter()
+        } else {
+            Some(*self).into_iter()
+        }
     }
 
     fn len(&self) -> usize {
@@ -561,5 +565,23 @@ mod tests {
 
         world.entity_mut(a).insert(Above(c));
         world.entity_mut(b).insert(Above(c));
+    }
+
+    #[test]
+    fn one_to_one_relationship_reinsert() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Below)]
+        struct Above(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Above)]
+        struct Below(Entity);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Above(b));
+        world.entity_mut(a).insert(Above(b));
     }
 }
