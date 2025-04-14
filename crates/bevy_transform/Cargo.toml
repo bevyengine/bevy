@@ -70,8 +70,6 @@ std = [
   "alloc",
   "bevy_app?/std",
   "bevy_log",
-  "bevy_log?/std",
-  "bevy_log?/tracing",
   "bevy_ecs?/std",
   "bevy_math/std",
   "bevy_reflect?/std",
