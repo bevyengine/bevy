@@ -1,6 +1,7 @@
 use crate::asset_changed::AssetChanges;
 use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
 use alloc::{sync::Arc, vec::Vec};
+use bevy_ecs::change_detection::Mut;
 use bevy_ecs::{
     prelude::EventWriter,
     resource::Resource,
@@ -8,7 +9,13 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{Reflect, TypePath};
-use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
+use core::{
+    any::TypeId,
+    iter::Enumerate,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    sync::atomic::AtomicU32,
+};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -426,7 +433,7 @@ impl<A: Asset> Assets<A> {
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
     pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
-        let id: AssetId<A> = id.into();
+        let id = id.into();
         let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
             AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
@@ -435,6 +442,35 @@ impl<A: Asset> Assets<A> {
             self.queued_events.push(AssetEvent::Modified { id });
         }
         result
+    }
+
+    #[inline]
+    pub fn get_mut_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id: AssetId<A> = id.into();
+        let result = match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+        };
+        result
+    }
+
+    #[inline]
+    pub fn map_asset_unchanged<'a>(
+        this: Mut<'a, Self>,
+        id: impl Into<AssetId<A>>,
+    ) -> Option<AssetMut<'a, A>> {
+        let id: AssetId<A> = id.into();
+        match id {
+            AssetId::Index { index, .. } => {
+                this.dense_storage.get(index)?;
+            }
+            AssetId::Uuid { uuid } => {
+                if !this.hash_map.contains_key(&uuid) {
+                    return None;
+                }
+            }
+        };
+        Some(AssetMut { id, assets: this })
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
@@ -593,6 +629,27 @@ impl<A: Asset> Assets<A> {
     /// [`asset_events`]: Self::asset_events
     pub(crate) fn asset_events_condition(assets: Res<Self>) -> bool {
         !assets.queued_events.is_empty()
+    }
+}
+
+pub struct AssetMut<'a, A: Asset> {
+    id: AssetId<A>,
+    assets: Mut<'a, Assets<A>>,
+}
+
+impl<A: Asset> Deref for AssetMut<'_, A> {
+    type Target = A;
+
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: It's impossible to get an `AssetMut` if the asset does not exist.
+        unsafe { self.assets.get(self.id).unwrap_unchecked() }
+    }
+}
+
+impl<A: Asset> DerefMut for AssetMut<'_, A> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        // SAFETY: It's impossible to get an `AssetMut` if the asset does not exist.
+        unsafe { self.assets.get_mut(self.id).unwrap_unchecked() }
     }
 }
 
