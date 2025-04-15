@@ -218,7 +218,6 @@ impl Schedules {
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
     match kind {
-        ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
         ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
         #[cfg(feature = "std")]
         ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
