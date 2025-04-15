@@ -912,7 +912,7 @@ mod tests {
         app.update();
         let world = app.world_mut();
 
-        let spawned_root = world.entity(spawned).get::<Children>().unwrap()[0];
+        let spawned_root = world.entity(spawned).get::<Children>().unwrap()[1];
         let children = world.entity(spawned_root).get::<Children>().unwrap();
         assert_eq!(children.len(), 3);
         assert!(world.entity(children[0]).get::<ComponentF>().is_some());
