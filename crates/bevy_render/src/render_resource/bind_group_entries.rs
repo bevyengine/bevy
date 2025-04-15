@@ -219,6 +219,7 @@ macro_rules! impl_to_indexed_binding_slice {
 
 all_tuples_with_size!(impl_to_indexed_binding_slice, 1, 32, T, n, s);
 
+#[derive(Default)]
 pub struct DynamicBindGroupEntries<'b> {
     entries: Vec<BindGroupEntry<'b>>,
 }
@@ -277,6 +278,13 @@ impl<'b> DynamicBindGroupEntries<'b> {
                 .map(|(binding, resource)| BindGroupEntry { binding, resource }),
         );
         self
+    }
+
+    pub fn push(&mut self, binding: u32, entry: impl Into<BindingResource<'b>>) {
+        self.entries.push(BindGroupEntry {
+            binding,
+            resource: entry.into(),
+        });
     }
 }
 
