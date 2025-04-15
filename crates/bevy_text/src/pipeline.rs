@@ -456,7 +456,7 @@ impl TextMeasureInfo {
     }
 }
 
-/// Add the font to the cosmic text's FontSystem's in-memory font database
+/// Add the font to the cosmic text's `FontSystem`'s in-memory font database
 pub fn load_font_to_fontdb(
     text_font: &TextFont,
     font_system: &mut cosmic_text::FontSystem,
