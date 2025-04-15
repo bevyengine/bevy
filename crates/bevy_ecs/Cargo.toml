@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.16.0-rc.5"
+version = "0.16.0"
 edition = "2024"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
@@ -96,16 +96,16 @@ critical-section = [
 ]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-rc.5" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.5", features = [
+bevy_ptr = { path = "../bevy_ptr", version = "0.16.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0", features = [
   "smallvec",
 ], default-features = false, optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-rc.5", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.5", default-features = false, features = [
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0", default-features = false, features = [
   "alloc",
 ] }
-bevy_ecs_macros = { path = "macros", version = "0.16.0-rc.5" }
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-rc.5", default-features = false, features = [
+bevy_ecs_macros = { path = "macros", version = "0.16.0" }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0", default-features = false, features = [
   "alloc",
 ] }
 

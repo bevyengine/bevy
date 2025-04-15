@@ -1,6 +1,6 @@
 [package]
 name = "bevy_a11y"
-version = "0.16.0-rc.5"
+version = "0.16.0"
 edition = "2024"
 description = "Provides accessibility support for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -40,10 +40,10 @@ critical-section = [
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-rc.5", default-features = false }
-bevy_derive = { path = "../bevy_derive", version = "0.16.0-rc.5" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.5", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.5", default-features = false, optional = true }
+bevy_app = { path = "../bevy_app", version = "0.16.0", default-features = false }
+bevy_derive = { path = "../bevy_derive", version = "0.16.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0", default-features = false, optional = true }
 
 # other
 accesskit = { version = "0.18", default-features = false }
