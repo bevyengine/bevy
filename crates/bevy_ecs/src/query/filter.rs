@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    component::{Component, ComponentId, ComponentMutability, Components, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -105,6 +105,18 @@ pub unsafe trait QueryFilter: WorldQuery {
         entity: Entity,
         table_row: TableRow,
     ) -> bool;
+
+    /// # Safety
+    ///
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`].
+    /// `table` and `state` must be matched
+    unsafe fn archetype_filter_fetch(
+        _fetch: &mut Self::Fetch<'_>,
+        _state: &Self::State,
+        _table: &Table,
+    ) -> bool {
+        true
+    }
 }
 
 /// Filter that selects entities with a component `T`.
@@ -501,12 +513,25 @@ macro_rules! impl_or_query_filter {
                 // SAFETY: The invariants are upheld by the caller.
                 false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, entity, table_row) }))*
             }
+
+            #[inline(always)]
+            unsafe fn archetype_filter_fetch(
+                fetch: &mut Self::Fetch<'_>,
+                state: &Self::State,
+                table: &Table
+            ) -> bool {
+                let ($($filter,)*) = fetch;
+                let ($($state,)*) = state;
+
+                // SAFETY: The invariants are upheld by the caller.
+                false $(|| ($filter.matches && unsafe { $filter::archetype_filter_fetch(&mut $filter.fetch, $state, table) }))*
+            }
         }
     };
 }
 
 macro_rules! impl_tuple_query_filter {
-    ($(#[$meta:meta])* $($name: ident),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such the lints below may not always apply."
@@ -534,7 +559,20 @@ macro_rules! impl_tuple_query_filter {
                 // SAFETY: The invariants are upheld by the caller.
                 true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
             }
+
+            #[inline(always)]
+            unsafe fn archetype_filter_fetch(
+                fetch: &mut Self::Fetch<'_>,
+                state: &Self::State,
+                table: &Table
+            ) -> bool {
+                let ($($name,)*) = fetch;
+                let ($($state,)*) = state;
+                // SAFETY: The invariants are upheld by the caller.
+                true $(&& unsafe { $name::archetype_filter_fetch($name, $state, table) })*
+            }
         }
+
 
     };
 }
@@ -544,7 +582,8 @@ all_tuples!(
     impl_tuple_query_filter,
     0,
     15,
-    F
+    F,
+    S
 );
 all_tuples!(
     #[doc(fake_variadic)]
@@ -772,6 +811,33 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+        )
+    }
+
+    #[inline(always)]
+    unsafe fn archetype_filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        state: &Self::State,
+        table: &Table,
+    ) -> bool {
+        if <T::Mutability as ComponentMutability>::MUTABLE {
+            return true;
+        }
+
+        fetch.ticks.extract(
+            |_| {
+                // SAFETY: The invariants are upheld by the caller.
+                let change_tick =
+                    unsafe { table.get_column_change_tick(*state).debug_checked_unwrap() };
+                change_tick.is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |sparse_set| {
+                // SAFETY: The invariants are upheld by the caller.
+                let change_tick =
+                    unsafe { sparse_set.debug_checked_unwrap().get_column_change_tick() };
+
+                change_tick.is_newer_than(fetch.last_run, fetch.this_run)
             },
         )
     }
@@ -1003,6 +1069,33 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
             },
         )
     }
+
+    #[inline(always)]
+    unsafe fn archetype_filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        state: &Self::State,
+        table: &Table,
+    ) -> bool {
+        if <T::Mutability as ComponentMutability>::MUTABLE {
+            return true;
+        }
+
+        fetch.ticks.extract(
+            |_| {
+                // SAFETY: The invariants are upheld by the caller.
+                let change_tick =
+                    unsafe { table.get_column_change_tick(*state).debug_checked_unwrap() };
+                change_tick.is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |sparse_set| {
+                // SAFETY: The invariants are upheld by the caller.
+                let change_tick =
+                    unsafe { sparse_set.debug_checked_unwrap().get_column_change_tick() };
+
+                change_tick.is_newer_than(fetch.last_run, fetch.this_run)
+            },
+        )
+    }
 }
 
 /// A marker trait to indicate that the filter works at an archetype level.
@@ -1056,3 +1149,127 @@ all_tuples!(
     15,
     F
 );
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs_macros::Component;
+
+    use crate::{
+        entity::EntityLocation,
+        query::{Added, Changed, Or, QueryFilter, With},
+        world::World,
+    };
+
+    #[derive(Component, Clone, Copy)]
+    #[component(immutable)]
+    struct A;
+
+    #[derive(Component, Clone, Copy)]
+    #[component(immutable)]
+    struct B;
+
+    #[derive(Component, Clone, Copy)]
+    #[component(storage = "SparseSet", immutable)]
+    struct C;
+
+    fn filter<F: QueryFilter>(world: &mut World, location: EntityLocation) -> bool {
+        let state = F::init_state(world);
+        let this_run = world.change_tick();
+        let last_run = world.last_change_tick;
+        let table = world.storages().tables.get(location.table_id).unwrap();
+        let archetype = world.archetypes().get(location.archetype_id).unwrap();
+        // SAFETY: world is valid
+        let mut fetch = unsafe {
+            F::init_fetch(
+                world.as_unsafe_world_cell_readonly(),
+                &state,
+                last_run,
+                this_run,
+            )
+        };
+        if F::IS_DENSE {
+            // SAFETY: table is valid
+            unsafe { F::set_table(&mut fetch, &state, table) };
+        } else {
+            // SAFETY: archetype and table is valid
+            unsafe { F::set_archetype(&mut fetch, &state, archetype, table) };
+        }
+        // SAFETY: set_table is called
+        unsafe { F::archetype_filter_fetch(&mut fetch, &state, table) }
+    }
+
+    #[test]
+    fn archetype_filter_fetch_changed() {
+        let mut world = World::new();
+        let location = world.spawn(A).location();
+
+        assert!(filter::<Changed<A>>(&mut world, location));
+        world.clear_trackers();
+        assert!(!filter::<Changed<A>>(&mut world, location));
+    }
+
+    #[test]
+    fn archetype_filter_fetch_added() {
+        let mut world = World::new();
+        let location = world.spawn(A).location();
+
+        assert!(filter::<Added<A>>(&mut world, location));
+        world.clear_trackers();
+        assert!(!filter::<Added<A>>(&mut world, location));
+    }
+
+    #[test]
+    fn archetype_filter_fetch_or() {
+        let mut world = World::new();
+        let location1 = world.spawn((A, B)).location();
+        let location2 = world.spawn(A).location();
+        let location3 = world.spawn(B).location();
+
+        assert!(filter::<Or<(Added<A>, Added<B>)>>(&mut world, location1));
+        assert!(filter::<Or<(Changed<A>, Changed<B>)>>(
+            &mut world, location1
+        ));
+        assert!(filter::<Or<(Added<A>, Added<B>)>>(&mut world, location2));
+        assert!(filter::<Or<(Changed<A>, Changed<B>)>>(
+            &mut world, location2
+        ));
+        assert!(filter::<Or<(Added<A>, Added<B>)>>(&mut world, location3));
+        assert!(filter::<Or<(Changed<A>, Changed<B>)>>(
+            &mut world, location3
+        ));
+        world.clear_trackers();
+        assert!(!filter::<Or<(Added<A>, Added<B>)>>(&mut world, location1));
+        assert!(!filter::<Or<(Changed<A>, Changed<B>)>>(
+            &mut world, location1
+        ));
+        assert!(!filter::<Or<(Added<A>, Added<B>)>>(&mut world, location2));
+        assert!(!filter::<Or<(Changed<A>, Changed<B>)>>(
+            &mut world, location2
+        ));
+        assert!(!filter::<Or<(Added<A>, Added<B>)>>(&mut world, location3));
+        assert!(!filter::<Or<(Changed<A>, Changed<B>)>>(
+            &mut world, location3
+        ));
+    }
+
+    #[test]
+    fn archetype_filter_fetch_tuple() {
+        let mut world = World::new();
+        let location = world.spawn((A, B)).location();
+
+        assert!(filter::<(Added<A>, With<B>)>(&mut world, location));
+        world.clear_trackers();
+        assert!(!filter::<(Added<A>, With<B>)>(&mut world, location));
+    }
+
+    #[test]
+    fn archetype_filter_fetch_sparseset() {
+        let mut world = World::new();
+        let location = world.spawn(C).location();
+        assert!(filter::<Added<C>>(&mut world, location));
+        assert!(filter::<Changed<C>>(&mut world, location));
+        world.clear_trackers();
+        assert!(!filter::<Added<C>>(&mut world, location));
+        assert!(!filter::<Changed<C>>(&mut world, location));
+    }
+}
