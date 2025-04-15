@@ -2,7 +2,7 @@ crates=(
     bevy_macro_utils
     bevy_derive
     bevy_ecs/macros
-    bevy_platform_support
+    bevy_platform
     bevy_ptr
     bevy_reflect/derive
     bevy_utils
