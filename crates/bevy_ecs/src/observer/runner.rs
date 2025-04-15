@@ -8,7 +8,7 @@ use crate::{
     prelude::*,
     query::DebugCheckedUnwrap,
     system::{IntoObserverSystem, ObserverSystem},
-    world::DeferredWorld,
+    world::{DeferredWorld, Only},
 };
 use bevy_ptr::PtrMut;
 
@@ -363,7 +363,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // SAFETY: Observer was triggered so must have an `ObserverState`
     let mut state = unsafe {
         observer_cell
-            .get_mut::<ObserverState>()
+            .get_mut::<ObserverState>(Only::<ObserverState>::default())
             .debug_checked_unwrap()
     };
 
@@ -377,7 +377,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // SAFETY: Observer was triggered so must have an `Observer` component.
     let error_handler = unsafe {
         observer_cell
-            .get::<Observer>()
+            .get::<Observer>(Only::<Observer>::default())
             .debug_checked_unwrap()
             .error_handler
             .debug_checked_unwrap()
@@ -393,7 +393,9 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.
     let system: *mut dyn ObserverSystem<E, B> = unsafe {
-        let mut observe = observer_cell.get_mut::<Observer>().debug_checked_unwrap();
+        let mut observe = observer_cell
+            .get_mut::<Observer>(Only::<Observer>::default())
+            .debug_checked_unwrap();
         let system = observe.system.downcast_mut::<S>().unwrap();
         &mut *system
     };

@@ -1,5 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
+mod access_scope;
 pub(crate) mod command_queue;
 mod component_constants;
 mod deferred_world;
@@ -18,6 +19,7 @@ pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
+pub use access_scope::*;
 pub use bevy_ecs_macros::FromWorld;
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
@@ -984,7 +986,7 @@ impl World {
                         location,
                     );
                     // SAFETY: `&self` gives read access to the entire world.
-                    unsafe { EntityRef::new(cell) }
+                    unsafe { EntityRef::new(cell, Full) }
                 })
         })
     }
@@ -1010,7 +1012,7 @@ impl World {
                     let cell = UnsafeEntityCell::new(world_cell, entity, location);
                     // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
                     // so none will conflict with one another.
-                    unsafe { EntityMut::new(cell) }
+                    unsafe { EntityMut::new(cell, Full) }
                 })
         })
     }
