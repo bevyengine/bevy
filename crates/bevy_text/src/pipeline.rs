@@ -53,11 +53,15 @@ impl Default for SwashCache {
 
 /// Information about a font collected as part of preparing for text layout.
 #[derive(Clone)]
-struct FontFaceInfo {
-    stretch: cosmic_text::fontdb::Stretch,
-    style: cosmic_text::fontdb::Style,
-    weight: cosmic_text::fontdb::Weight,
-    family_name: Arc<str>,
+pub struct FontFaceInfo {
+    /// Width class (https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass)
+    pub stretch: cosmic_text::fontdb::Stretch,
+    /// Allows italic or oblique faces to be selected
+    pub style: cosmic_text::fontdb::Style,
+    /// The degree of blackness or stroke thickness
+    pub weight: cosmic_text::fontdb::Weight,
+    /// Font family name
+    pub family_name: Arc<str>,
 }
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
@@ -66,7 +70,7 @@ struct FontFaceInfo {
 #[derive(Default, Resource)]
 pub struct TextPipeline {
     /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
-    map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
+    pub map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
@@ -452,7 +456,8 @@ impl TextMeasureInfo {
     }
 }
 
-fn load_font_to_fontdb(
+/// Add the font to the cosmic text's FontSystem's in-memory font database
+pub fn load_font_to_fontdb(
     text_font: &TextFont,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
