@@ -202,7 +202,7 @@ fn setup(mut commands: Commands) {
                     border: UiRect::all(Val::Px(4.)),
                     ..default()
                 },
-                BorderColor(LIGHT_SKY_BLUE.into()),
+                BorderColor::all(LIGHT_SKY_BLUE.into()),
                 BorderRadius::all(Val::Px(20.)),
                 BackgroundColor(DEEP_SKY_BLUE.into()),
                 BoxShadow(vec![
@@ -253,7 +253,7 @@ fn box_shadow_node_bundle(
             border: UiRect::all(Val::Px(4.)),
             ..default()
         },
-        BorderColor(LIGHT_SKY_BLUE.into()),
+        BorderColor::all(LIGHT_SKY_BLUE.into()),
         border_radius,
         BackgroundColor(DEEP_SKY_BLUE.into()),
         BoxShadow::new(
