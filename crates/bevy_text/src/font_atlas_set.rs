@@ -1,4 +1,4 @@
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
+use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::{event::EventReader, resource::Resource, system::ResMut};
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
