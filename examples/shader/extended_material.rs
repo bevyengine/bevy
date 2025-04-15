@@ -69,22 +69,22 @@ fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
     }
 }
 
-#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default)]
 struct MyExtension {
     // We need to ensure that the bindings of the base material and the extension do not conflict,
     // so we start from binding slot 100, leaving slots 0-99 for the base material.
-    //
-    // WebGL2 structs must be 16 byte aligned. We only use the `x` field
     #[uniform(100)]
-    quantize_steps: UVec4,
+    quantize_steps: u32,
+
+    // Web examples WebGL2 support: structs must be 16 byte aligned.
+    #[uniform(100)]
+    _webgl2_padding: Vec3,
 }
 impl MyExtension {
     fn new(quantize_steps: u32) -> Self {
         Self {
-            quantize_steps: UVec4 {
-                x: quantize_steps,
-                ..default()
-            },
+            quantize_steps,
+            ..default()
         }
     }
 }

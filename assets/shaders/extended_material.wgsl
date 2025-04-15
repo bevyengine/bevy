@@ -16,8 +16,9 @@
 #endif
 
 struct MyExtendedMaterial {
-    // WebGL2 structs must be 16 byte aligned. We only use the `x` field
-    quantize_steps: vec4<u32>,
+    quantize_steps: u32,
+    // Web examples WebGL2 support: structs must be 16 byte aligned.
+    _webgl2_padding: vec3<f32>
 }
 
 @group(2) @binding(100)
@@ -46,7 +47,7 @@ fn fragment(
     out.color = apply_pbr_lighting(pbr_input);
 
     // we can optionally modify the lit color before post-processing is applied
-    out.color = vec4<f32>(vec4<u32>(out.color * f32(my_extended_material.quantize_steps.x))) / f32(my_extended_material.quantize_steps.x);
+    out.color = vec4<f32>(vec4<u32>(out.color * f32(my_extended_material.quantize_steps))) / f32(my_extended_material.quantize_steps);
 
     // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
     // note this does not include fullscreen postprocessing effects like bloom.
