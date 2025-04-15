@@ -131,13 +131,12 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
 }
 
 /// System that moves the player, causing them to track a single enemy.
-/// The player will search for enemies if there are none.
-/// If there is one, player will track it.
-/// If there are too many enemies, the player will cease all action (the system will not run).
+/// If there is exactly one, player will track it.
+/// Otherwise, the player will search for enemies.
 fn track_targets(
     // `Single` ensures the system runs ONLY when exactly one matching entity exists.
     mut player: Single<(&mut Transform, &Player)>,
-    // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
+    // `Option<Single>` never prevents the system from running, but will be `None` if there is not exactly one matching entity.
     enemy: Option<Single<&Transform, (With<Enemy>, Without<Player>)>>,
     time: Res<Time>,
 ) {
