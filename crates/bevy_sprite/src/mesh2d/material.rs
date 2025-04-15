@@ -564,11 +564,9 @@ pub fn extract_entities_needs_specialization<M>(
 ) where
     M: Material2d,
 {
-    for entity in entities_needing_specialization.iter() {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
-    }
-    // Clean up any despawned entities
+    // Clean up any despawned entities, we do this first in case the removed material was re-added
+    // the same frame, thus will appear both in the removed components list and have been added to
+    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
     for entity in removed_mesh_material_components.read() {
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
@@ -576,6 +574,10 @@ pub fn extract_entities_needs_specialization<M>(
                 cache.remove(&MainEntity::from(entity));
             }
         }
+    }
+    for entity in entities_needing_specialization.iter() {
+        // Update the entity's specialization tick with this run's tick
+        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
     }
 }
 
