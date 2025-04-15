@@ -1,6 +1,6 @@
 [package]
 name = "bevy_scene"
-version = "0.16.0-rc.4"
+version = "0.16.0-rc.5"
 edition = "2024"
 description = "Provides scene functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -19,15 +19,15 @@ serialize = [
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-rc.4" }
-bevy_asset = { path = "../bevy_asset", version = "0.16.0-rc.4" }
-bevy_derive = { path = "../bevy_derive", version = "0.16.0-rc.4" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.4" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.4" }
-bevy_transform = { path = "../bevy_transform", version = "0.16.0-rc.4" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.4" }
-bevy_render = { path = "../bevy_render", version = "0.16.0-rc.4", optional = true }
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-rc.4", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.16.0-rc.5" }
+bevy_asset = { path = "../bevy_asset", version = "0.16.0-rc.5" }
+bevy_derive = { path = "../bevy_derive", version = "0.16.0-rc.5" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.5" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.5" }
+bevy_transform = { path = "../bevy_transform", version = "0.16.0-rc.5" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.5" }
+bevy_render = { path = "../bevy_render", version = "0.16.0-rc.5", optional = true }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-rc.5", default-features = false, features = [
   "std",
 ] }
 

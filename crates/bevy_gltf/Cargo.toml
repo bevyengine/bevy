@@ -1,6 +1,6 @@
 [package]
 name = "bevy_gltf"
-version = "0.16.0-rc.4"
+version = "0.16.0-rc.5"
 edition = "2024"
 description = "Bevy Engine GLTF loading"
 homepage = "https://bevyengine.org"
@@ -19,25 +19,25 @@ pbr_specular_textures = ["bevy_pbr/pbr_specular_textures"]
 
 [dependencies]
 # bevy
-bevy_animation = { path = "../bevy_animation", version = "0.16.0-rc.4", optional = true }
-bevy_app = { path = "../bevy_app", version = "0.16.0-rc.4" }
-bevy_asset = { path = "../bevy_asset", version = "0.16.0-rc.4" }
-bevy_color = { path = "../bevy_color", version = "0.16.0-rc.4" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.16.0-rc.4" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.4" }
-bevy_image = { path = "../bevy_image", version = "0.16.0-rc.4" }
-bevy_math = { path = "../bevy_math", version = "0.16.0-rc.4" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-rc.4" }
-bevy_pbr = { path = "../bevy_pbr", version = "0.16.0-rc.4" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.4" }
-bevy_render = { path = "../bevy_render", version = "0.16.0-rc.4" }
-bevy_scene = { path = "../bevy_scene", version = "0.16.0-rc.4", features = [
+bevy_animation = { path = "../bevy_animation", version = "0.16.0-rc.5", optional = true }
+bevy_app = { path = "../bevy_app", version = "0.16.0-rc.5" }
+bevy_asset = { path = "../bevy_asset", version = "0.16.0-rc.5" }
+bevy_color = { path = "../bevy_color", version = "0.16.0-rc.5" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.16.0-rc.5" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.5" }
+bevy_image = { path = "../bevy_image", version = "0.16.0-rc.5" }
+bevy_math = { path = "../bevy_math", version = "0.16.0-rc.5" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-rc.5" }
+bevy_pbr = { path = "../bevy_pbr", version = "0.16.0-rc.5" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-rc.5" }
+bevy_render = { path = "../bevy_render", version = "0.16.0-rc.5" }
+bevy_scene = { path = "../bevy_scene", version = "0.16.0-rc.5", features = [
   "bevy_render",
 ] }
-bevy_transform = { path = "../bevy_transform", version = "0.16.0-rc.4" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-rc.4" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.4" }
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-rc.4", default-features = false, features = [
+bevy_transform = { path = "../bevy_transform", version = "0.16.0-rc.5" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-rc.5" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.5" }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-rc.5", default-features = false, features = [
   "std",
   "serialize",
 ] }
@@ -67,7 +67,7 @@ smallvec = "1.11"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-bevy_log = { path = "../bevy_log", version = "0.16.0-rc.4" }
+bevy_log = { path = "../bevy_log", version = "0.16.0-rc.5" }
 
 [lints]
 workspace = true

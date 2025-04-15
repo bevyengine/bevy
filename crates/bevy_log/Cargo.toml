@@ -1,6 +1,6 @@
 [package]
 name = "bevy_log"
-version = "0.16.0-rc.4"
+version = "0.16.0-rc.5"
 edition = "2024"
 description = "Provides logging for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -14,9 +14,9 @@ trace_tracy_memory = ["dep:tracy-client"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-rc.4" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.4" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.4" }
+bevy_app = { path = "../bevy_app", version = "0.16.0-rc.5" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-rc.5" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-rc.5" }
 
 # other
 tracing-subscriber = { version = "0.3.1", features = [
@@ -39,7 +39,7 @@ android_log-sys = "0.3.0"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tracing-wasm = "0.2.1"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.16.0-rc.5", default-features = false, features = [
   "web",
 ] }
 
