@@ -644,7 +644,7 @@ impl Table {
     /// Returns `true` if this table has components inherited from another table.
     ///
     /// Use [`crate::inheritance::InheritedComponents`] to get get the list of inherited components.
-    #[inline]
+    #[inline(always)]
     pub fn has_inherited_components(&self) -> bool {
         self.has_inherited_components
     }

@@ -648,11 +648,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }) && F::matches_component_set(&self.filter_state, &|id| {
             archetype.contains_with_inherited(id)
         }) && self
-            .matches_component_set(&|id| archetype.contains_with_inherited(id))
-            && !archetype
-                .inherited_components
-                .keys()
-                .any(|id| self.component_access.access.has_component_write(*id));
+            .matches_component_set(&|id| archetype.contains_with_inherited(id));
 
         if is_matching {
             let archetype_index = archetype.id().index();

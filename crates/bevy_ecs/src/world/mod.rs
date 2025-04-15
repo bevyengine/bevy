@@ -2957,6 +2957,45 @@ impl World {
         self.components_registrator().apply_queued_registrations();
     }
 
+    pub(crate) fn flush_inherited_mut(&mut self) {
+        for ((component_id, table_id), mut data) in self
+            .inherited_components
+            .shared_table_components
+            .get_mut()
+            .drain()
+            .collect::<Vec<_>>()
+        {
+            unsafe {
+                for (table_row, component_ptr) in data.component_ptrs.get_mut() {
+                    let entity =
+                        self.storages().tables.get(table_id).unwrap().entities()[*table_row];
+                    self.entity_mut(entity)
+                        .insert_by_id(component_id, OwningPtr::new(*component_ptr));
+                }
+            }
+        }
+        for ((component_id, archetype_id), mut data) in self
+            .inherited_components
+            .shared_sparse_components
+            .get_mut()
+            .drain()
+            .collect::<Vec<_>>()
+        {
+            unsafe {
+                for (entity, component_ptr) in data.component_ptrs.get_mut() {
+                    let entity = self
+                        .storages
+                        .tables
+                        .get(self.archetypes().get(archetype_id).unwrap().table_id())
+                        .unwrap()
+                        .entities()[*entity];
+                    self.entity_mut(entity)
+                        .insert_by_id(component_id, OwningPtr::new(*component_ptr));
+                }
+            }
+        }
+    }
+
     /// Flushes queued entities and commands.
     ///
     /// Queued entities will be spawned, and then commands will be applied.
@@ -2964,6 +3003,7 @@ impl World {
     pub fn flush(&mut self) {
         self.flush_entities();
         self.flush_components();
+        self.flush_inherited_mut();
         self.flush_commands();
     }
 

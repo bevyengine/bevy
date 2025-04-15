@@ -8,19 +8,33 @@ use alloc::collections::vec_deque::VecDeque;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 use bevy_platform_support::collections::{HashMap, HashSet};
-use core::{alloc::Layout, ptr::NonNull};
+use bevy_platform_support::sync::Mutex;
+use bumpalo::Bump;
+use core::mem::offset_of;
+use core::{
+    alloc::Layout,
+    cell::UnsafeCell,
+    ops::{Deref, DerefMut},
+    panic::Location,
+    ptr::NonNull,
+};
+use std::boxed::Box;
 
 use bevy_ptr::OwningPtr;
 
+use crate::change_detection::TicksMut;
+use crate::query::DebugCheckedUnwrap;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeEntity, ArchetypeId, ArchetypeRecord, Archetypes},
+    change_detection::MaybeLocation,
     component::{
-        Component, ComponentCloneBehavior, ComponentDescriptor, ComponentId, HookContext,
-        StorageType,
+        Component, ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo,
+        HookContext, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityHashMap, EntityLocation},
+    prelude::{DetectChanges, DetectChangesMut},
     storage::{TableId, TableRow, Tables},
-    world::{DeferredWorld, World},
+    world::{DeferredWorld, Mut, World},
 };
 
 #[derive(Component)]
@@ -172,6 +186,114 @@ pub(crate) struct InheritedTableComponent {
     pub(crate) table_row: TableRow,
 }
 
+pub(crate) struct SharedMutComponentData {
+    pub(crate) component_info: ComponentInfo,
+    pub(crate) component_ptrs: UnsafeCell<HashMap<usize, NonNull<u8>>>,
+    pub(crate) bump: Bump,
+}
+
+unsafe impl Send for SharedMutComponentData {}
+unsafe impl Sync for SharedMutComponentData {}
+
+impl SharedMutComponentData {
+    #[cold]
+    #[inline(never)]
+    pub unsafe fn get_or_clone<'w, T>(&self, data: &'w mut T, storage_idx: usize) -> &'w mut T {
+        // let data = self.data_ptr.cast::<T>().as_ref();
+        self.component_ptrs
+            .get()
+            .as_mut()
+            .debug_checked_unwrap()
+            .entry(storage_idx)
+            .or_insert_with(|| {
+                let data_ptr = self.bump.alloc_layout(self.component_info.layout());
+                // TODO: use clone function from component_info
+                core::ptr::copy_nonoverlapping(data, data_ptr.as_ptr().cast(), 1);
+                data_ptr
+            })
+            .cast::<T>()
+            .as_mut()
+    }
+}
+
+pub struct MutInherited<'w, T> {
+    pub(crate) original_data: Mut<'w, T>,
+    pub(crate) is_inherited: bool,
+    pub(crate) shared_data: Option<&'w SharedMutComponentData>,
+    pub(crate) table_id_or_entity: usize,
+}
+
+impl<'w, T> MutInherited<'w, T> {
+    pub fn ptr(&mut self) -> &mut Mut<'w, T> {
+        &mut self.original_data
+    }
+}
+
+impl<'w, T> Deref for MutInherited<'w, T> {
+    type Target = T;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        self.original_data.deref()
+    }
+}
+
+impl<'w, T> DerefMut for MutInherited<'w, T> {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        if self.is_inherited {
+            unsafe {
+                self.shared_data
+                    .debug_checked_unwrap()
+                    .get_or_clone::<T>(self.original_data.value, self.table_id_or_entity)
+            }
+        } else {
+            self.original_data.deref_mut()
+        }
+    }
+}
+
+impl<'w, T> DetectChanges for MutInherited<'w, T> {
+    #[inline(always)]
+    fn is_added(&self) -> bool {
+        self.original_data.is_added()
+    }
+
+    #[inline(always)]
+    fn is_changed(&self) -> bool {
+        self.original_data.is_changed()
+    }
+
+    #[inline(always)]
+    fn last_changed(&self) -> Tick {
+        self.original_data.last_changed()
+    }
+
+    #[inline(always)]
+    fn changed_by(&self) -> MaybeLocation {
+        self.original_data.changed_by()
+    }
+}
+
+impl<'w, T> DetectChangesMut for MutInherited<'w, T> {
+    type Inner = <Mut<'w, T> as DetectChangesMut>::Inner;
+
+    #[inline(always)]
+    fn set_changed(&mut self) {
+        self.original_data.set_changed();
+    }
+
+    #[inline(always)]
+    fn set_last_changed(&mut self, last_changed: Tick) {
+        self.original_data.set_last_changed(last_changed);
+    }
+
+    #[inline(always)]
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self.original_data.bypass_change_detection()
+    }
+}
+
 #[derive(Default)]
 /// Contains information about inherited components and entities.
 ///
@@ -184,11 +306,11 @@ pub struct InheritedComponents {
     /// Mapping of component ids to entities representing the inherited archetypes and tables.
     /// Must be kept synchronized with `entities_to_ids`
     pub(crate) ids_to_entities: HashMap<ComponentId, Entity>,
-    // /// List of inherited components along with entities containing the inherited component for the archetypes
-    // pub(crate) archetype_inherited_components:
-    //     HashMap<ArchetypeId, HashMap<ComponentId, (Entity, ArchetypeComponentId)>>,
-    // /// List of inherited components along with entities containing the inherited component for the tables
-    // pub(crate) table_inherited_components: HashMap<TableId, HashMap<ComponentId, Entity>>,
+
+    pub(crate) shared_table_components:
+        UnsafeCell<HashMap<(ComponentId, TableId), SharedMutComponentData>>,
+    pub(crate) shared_sparse_components:
+        UnsafeCell<HashMap<(ComponentId, ArchetypeId), SharedMutComponentData>>,
 }
 
 impl InheritedComponents {
@@ -732,7 +854,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Mutable inherited components support is not yet implemented"]
+    // #[ignore = "Mutable inherited components support is not yet implemented"]
     fn inherited_mutable() {
         let mut world = World::new();
 
@@ -744,7 +866,11 @@ mod tests {
         let base = world.spawn(component).id();
         let inherited = world.spawn(InheritFrom(base)).id();
 
-        let mut comp = world.get_mut::<CompA>(inherited).unwrap();
+        // let mut comp = world.get_mut::<CompA>(inherited).unwrap();
+        let mut comp = world
+            .query::<&mut CompA>()
+            .get_mut(&mut world, inherited)
+            .unwrap();
         comp.0 = 4;
         world.flush();
 

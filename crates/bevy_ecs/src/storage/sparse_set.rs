@@ -392,6 +392,7 @@ macro_rules! impl_sparse_set {
             /// Returns a reference to the value for `index`.
             ///
             /// Returns `None` if `index` does not have a value in the sparse set.
+            #[inline]
             pub fn get(&self, index: I) -> Option<&V> {
                 self.sparse.get(index).map(|dense_index| {
                     // SAFETY: if the sparse index points to something in the dense vec, it exists
