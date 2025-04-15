@@ -2,11 +2,13 @@
 
 pub use thread::sleep;
 
-cfg_if::cfg_if! {
+crate::cfg::switch! {
     // TODO: use browser timeouts based on ScheduleRunnerPlugin::build
-    if #[cfg(feature = "std")] {
+    // crate::cfg::web => { ... }
+    crate::cfg::std => {
         use std::thread;
-    } else {
+    }
+    _ => {
         mod fallback {
             use core::{hint::spin_loop, time::Duration};
 

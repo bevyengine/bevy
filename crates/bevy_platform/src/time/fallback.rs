@@ -149,28 +149,31 @@ impl fmt::Debug for Instant {
 }
 
 fn unset_getter() -> Duration {
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "x86")] {
+    crate::cfg::switch! {
+        #[cfg(target_arch = "x86")] => {
             // SAFETY: standard technique for getting a nanosecond counter on x86
             let nanos = unsafe {
                 core::arch::x86::_rdtsc()
             };
-            Duration::from_nanos(nanos)
-        } else if #[cfg(target_arch = "x86_64")] {
+            return Duration::from_nanos(nanos);
+        }
+        #[cfg(target_arch = "x86_64")] => {
             // SAFETY: standard technique for getting a nanosecond counter on x86_64
             let nanos = unsafe {
                 core::arch::x86_64::_rdtsc()
             };
-            Duration::from_nanos(nanos)
-        } else if #[cfg(target_arch = "aarch64")] {
+            return Duration::from_nanos(nanos);
+        }
+        #[cfg(target_arch = "aarch64")] => {
             // SAFETY: standard technique for getting a nanosecond counter of aarch64
             let nanos = unsafe {
                 let mut ticks: u64;
                 core::arch::asm!("mrs {}, cntvct_el0", out(reg) ticks);
                 ticks
             };
-            Duration::from_nanos(nanos)
-        } else {
+            return Duration::from_nanos(nanos);
+        }
+        _ => {
             panic!("An elapsed time getter has not been provided to `Instant`. Please use `Instant::set_elapsed(...)` before calling `Instant::now()`")
         }
     }

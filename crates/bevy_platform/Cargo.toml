@@ -46,7 +46,6 @@ critical-section = ["dep:critical-section", "portable-atomic/critical-section"]
 web = ["dep:web-time", "dep:getrandom"]
 
 [dependencies]
-cfg-if = "1.0.0"
 critical-section = { version = "1.2.0", default-features = false, optional = true }
 spin = { version = "0.9.8", default-features = false, features = [
   "mutex",
