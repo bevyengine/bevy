@@ -186,6 +186,7 @@ pub(crate) struct InheritedTableComponent {
     pub(crate) table_row: TableRow,
 }
 
+#[derive(Debug)]
 pub(crate) struct SharedMutComponentData {
     pub(crate) component_info: ComponentInfo,
     pub(crate) component_ptrs: UnsafeCell<HashMap<usize, NonNull<u8>>>,
@@ -219,6 +220,7 @@ impl SharedMutComponentData {
     }
 }
 
+#[derive(Debug)]
 pub struct MutInherited<'w, T> {
     pub(crate) original_data: Mut<'w, T>,
     pub(crate) is_inherited: bool,
@@ -229,6 +231,58 @@ pub struct MutInherited<'w, T> {
 impl<'w, T> MutInherited<'w, T> {
     pub fn ptr(&mut self) -> &mut Mut<'w, T> {
         &mut self.original_data
+    }
+
+    pub fn into_inner(mut self) -> &'w mut T {
+        if self.is_inherited {
+            unsafe {
+                self.shared_data
+                    .debug_checked_unwrap()
+                    .get_or_clone::<T>(self.original_data.value, self.table_row)
+            }
+        } else {
+            self.original_data.set_changed();
+            self.original_data.value
+        }
+    }
+
+    pub fn map_unchanged<U>(self, f: impl FnOnce(&mut T) -> &mut U) -> MutInherited<'w, U> {
+        if self.is_inherited {
+            unsafe {
+                let new_value = f(self
+                    .shared_data
+                    .debug_checked_unwrap()
+                    .get_or_clone::<T>(self.original_data.value, self.table_row));
+                MutInherited {
+                    original_data: Mut {
+                        value: new_value,
+                        ticks: self.original_data.ticks,
+                        changed_by: self.original_data.changed_by,
+                    },
+                    is_inherited: self.is_inherited,
+                    shared_data: self.shared_data,
+                    table_row: self.table_row,
+                }
+            }
+        } else {
+            MutInherited {
+                original_data: Mut {
+                    value: f(self.original_data.value),
+                    ticks: self.original_data.ticks,
+                    changed_by: self.original_data.changed_by,
+                },
+                is_inherited: self.is_inherited,
+                shared_data: self.shared_data,
+                table_row: self.table_row,
+            }
+        }
+    }
+}
+
+impl<'w, T> AsRef<T> for MutInherited<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self.deref()
     }
 }
 
