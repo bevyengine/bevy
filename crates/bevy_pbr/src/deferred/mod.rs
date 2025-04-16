@@ -45,13 +45,13 @@ pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 #[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
 pub struct PbrDeferredLightingDepthId {
     depth_id: u32,
-
+    // WebGL2 structs must be 16 byte aligned.
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _webgl2_padding_0: f32,
+    _webgl2_padding_8b: u32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _webgl2_padding_1: f32,
+    _webgl2_padding_12b: u32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _webgl2_padding_2: f32,
+    _webgl2_padding_16b: u32,
 }
 
 impl PbrDeferredLightingDepthId {
@@ -60,11 +60,11 @@ impl PbrDeferredLightingDepthId {
             depth_id: value as u32,
 
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            _webgl2_padding_0: 0.0,
+            _webgl2_padding_8b: 0,
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            _webgl2_padding_1: 0.0,
+            _webgl2_padding_12b: 0,
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            _webgl2_padding_2: 0.0,
+            _webgl2_padding_16b: 0,
         }
     }
 
@@ -83,11 +83,11 @@ impl Default for PbrDeferredLightingDepthId {
             depth_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID as u32,
 
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            _webgl2_padding_0: 0.0,
+            _webgl2_padding_8b: 0,
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            _webgl2_padding_1: 0.0,
+            _webgl2_padding_12b: 0,
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-            _webgl2_padding_2: 0.0,
+            _webgl2_padding_16b: 0,
         }
     }
 }

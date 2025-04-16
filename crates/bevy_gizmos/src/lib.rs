@@ -471,8 +471,12 @@ fn extract_gizmo_data(
                 joints_resolution,
                 gap_scale,
                 line_scale,
-                #[cfg(feature = "webgl")]
-                _padding: Default::default(),
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding_8b: 0,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding_12b: 0,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding_16b: 0,
             },
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             GizmoMeshConfig {
@@ -502,8 +506,12 @@ struct LineGizmoUniform {
     gap_scale: f32,
     line_scale: f32,
     /// WebGL2 structs must be 16 byte aligned.
-    #[cfg(feature = "webgl")]
-    _padding: bevy_math::Vec3,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _webgl2_padding_8b: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _webgl2_padding_12b: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _webgl2_padding_16b: u32,
 }
 
 /// A collection of gizmos.
