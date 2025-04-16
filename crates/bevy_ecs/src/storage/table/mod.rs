@@ -8,7 +8,7 @@ use crate::{
     world::INHERIT_FROM,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
 use core::{
