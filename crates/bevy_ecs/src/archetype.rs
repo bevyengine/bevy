@@ -25,7 +25,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
+    world::DeferredWorld,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ecs_macros::Event;
@@ -839,9 +839,7 @@ impl ArchetypeIdState {
 
     #[inline]
     pub(crate) fn trigger_if_new(&self, world: &mut DeferredWorld) {
-        std::dbg!(self.is_new);
         if self.is_new {
-            std::println!("triggering archetype created {:?}", self.id);
             world.trigger(ArchetypeCreated(self.id));
         }
     }
@@ -983,7 +981,6 @@ impl Archetypes {
             .by_components
             .entry(archetype_identity)
             .or_insert_with_key(move |identity| {
-                // std::dbg!("creating new archetype");
                 *is_new_ref = true;
                 let ArchetypeComponents {
                     table_components,

@@ -20,7 +20,6 @@ use alloc::vec::Vec;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
-use std::boxed::Box;
 #[cfg(feature = "trace")]
 use tracing::Span;
 
@@ -87,6 +86,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(super) is_dense: bool,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
+    sync_by_observer: bool,
     #[cfg(feature = "trace")]
     par_iter_span: Span,
 }
@@ -98,10 +98,10 @@ impl<D: QueryData + 'static, F: QueryFilter + 'static> Component for QueryState<
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, ctx| {
             let entity = ctx.entity;
-            std::dbg!("QueryState::on_add");
             let observer = Observer::new(
                 move |trigger: Trigger<ArchetypeCreated>, mut world: DeferredWorld| -> Result {
-                    std::dbg!("QueryState::on_add::observer");
+                    std::println!("sync archetype for {}", core::any::type_name::<D>());
+
                     let archetype_id: ArchetypeId = trigger.event().0;
                     let archetype_ptr: *const Archetype = world
                         .archetypes()
@@ -114,6 +114,7 @@ impl<D: QueryData + 'static, F: QueryFilter + 'static> Component for QueryState<
                     let mut state = entity
                         .get_mut::<QueryState<D, F>>()
                         .expect("QueryState not found");
+                    state.sync_by_observer = true;
                     unsafe {
                         state.new_archetype_internal(&*archetype_ptr);
                     }
@@ -121,7 +122,6 @@ impl<D: QueryData + 'static, F: QueryFilter + 'static> Component for QueryState<
                     Ok(())
                 },
             );
-            // observer.watch_entity(ctx.entity);
             world.commands().spawn(observer);
         });
     }
@@ -314,6 +314,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
+            sync_by_observer: false,
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -349,6 +350,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
+            sync_by_observer: false,
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -364,7 +366,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This will create read-only queries, see [`Self::query_mut`] for mutable queries.
     pub fn query<'w, 's>(&'s mut self, world: &'w World) -> Query<'w, 's, D::ReadOnly, F> {
-        self.update_archetypes(world);
+        if !self.sync_by_observer {
+            self.update_archetypes(world);
+        }
         self.query_manual(world)
     }
 
@@ -453,7 +457,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> Query<'w, 's, D, F> {
-        self.update_archetypes_unsafe_world_cell(world);
+        if !self.sync_by_observer {
+            self.update_archetypes_unsafe_world_cell(world);
+        }
         // SAFETY:
         // - The caller ensured we have the correct access to the world.
         // - We called `update_archetypes_unsafe_world_cell`, which calls `validate_world`.
@@ -832,6 +838,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: self.component_access.clone(),
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
+            sync_by_observer: false,
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -975,6 +982,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: joined_component_access,
             matched_tables,
             matched_archetypes,
+            sync_by_observer: false,
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",

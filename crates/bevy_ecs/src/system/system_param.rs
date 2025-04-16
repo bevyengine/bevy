@@ -65,7 +65,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # #[derive(SystemParam)]
 /// # struct ParamsExample<'w, 's> {
 /// #    query:
-/// Query<'w, 's, Entity>,
+/// Query<'w, 'w, Entity>,
 /// #    res:
 /// Res<'w, SomeResource>,
 /// #    res_mut:
@@ -171,7 +171,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 ///     #[derive(SystemParam)]
 ///     #[system_param(builder)]
 ///     pub struct CustomParam<'w, 's> {
-///         query: Query<'w, 's, ()>,
+///         query: Query<'w, 'w, ()>,
 ///         local: Local<'s, usize>,
 ///     }
 ///
@@ -358,8 +358,6 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
             archetype,
             &mut system_meta.archetype_component_access,
         );
-        // std::dbg!(archetype.id());
-        // state.new_archetype(archetype, &mut system_meta.archetype_component_access);
     }
 
     #[inline]
@@ -383,40 +381,27 @@ pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>
     system_meta: &mut SystemMeta,
     state: Option<QueryState<D, F>>,
 ) -> Entity {
-    let mut query_state = world.query::<(Entity, &QueryState<D, F>)>();
-    if let Some((entity, query_state)) = query_state.iter(world).next() {
-        assert_component_access_compatibility(
-            &system_meta.name,
-            core::any::type_name::<D>(),
-            core::any::type_name::<F>(),
-            &system_meta.component_access_set,
-            &query_state.component_access,
-            world,
+    let state: QueryState<D, F> = state.unwrap_or_else(|| {
+        std::println!(
+            "Creating new query state {}",
+            std::any::type_name::<QueryState<D, F>>()
         );
+        QueryState::new_with_access(world, &mut system_meta.archetype_component_access)
+    });
 
-        system_meta
-            .component_access_set
-            .add(query_state.component_access.clone());
-        entity
-    } else {
-        let state: QueryState<D, F> = state.unwrap_or_else(|| {
-            QueryState::new_with_access(world, &mut system_meta.archetype_component_access)
-        });
+    assert_component_access_compatibility(
+        &system_meta.name,
+        core::any::type_name::<D>(),
+        core::any::type_name::<F>(),
+        &system_meta.component_access_set,
+        &state.component_access,
+        world,
+    );
 
-        assert_component_access_compatibility(
-            &system_meta.name,
-            core::any::type_name::<D>(),
-            core::any::type_name::<F>(),
-            &system_meta.component_access_set,
-            &state.component_access,
-            world,
-        );
-
-        system_meta
-            .component_access_set
-            .add(state.component_access.clone());
-        world.spawn(state).id()
-    }
+    system_meta
+        .component_access_set
+        .add(state.component_access.clone());
+    world.spawn(state).id()
 }
 
 fn assert_component_access_compatibility(
@@ -2971,11 +2956,11 @@ mod tests {
     #[test]
     fn system_param_where_clause() {
         #[derive(SystemParam)]
-        pub struct WhereParam<'w, 's, D>
+        pub struct WhereParam<'w, D>
         where
             D: 'static + QueryData,
         {
-            _q: Query<'w, 's, D, ()>,
+            _q: Query<'w, 'w, D, ()>,
         }
 
         fn my_system(_: WhereParam<()>) {}

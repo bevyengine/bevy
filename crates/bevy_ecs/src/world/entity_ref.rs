@@ -5365,7 +5365,10 @@ mod tests {
 
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>) {
+        fn system(
+            _: Query<&mut TestComponent>,
+            query: Query<EntityRefExcept<TestComponent>, With<TestComponent>>,
+        ) {
             for entity_ref in query.iter() {
                 assert!(matches!(
                     entity_ref.get::<TestComponent2>(),
@@ -5447,7 +5450,10 @@ mod tests {
 
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>) {
+        fn system(
+            _: Query<&mut TestComponent>,
+            mut query: Query<EntityMutExcept<TestComponent>, With<TestComponent>>,
+        ) {
             for mut entity_mut in query.iter_mut() {
                 assert!(entity_mut
                     .get_mut::<TestComponent2>()
