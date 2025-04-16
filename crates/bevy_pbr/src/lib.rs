@@ -71,10 +71,16 @@ pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, Volumetr
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[expect(
+        deprecated,
+        reason = "AmbientLight has been replaced by EnvironmentMapLight"
+    )]
+    #[doc(hidden)]
+    pub use crate::light::AmbientLight;
     #[doc(hidden)]
     pub use crate::{
         fog::{DistanceFog, FogFalloff},
-        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
+        light::{light_consts, DirectionalLight, PointLight, SpotLight},
         light_probe::{environment_map::EnvironmentMapLight, LightProbe},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
@@ -122,10 +128,16 @@ pub mod graph {
     }
 }
 
-use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
+use crate::{
+    deferred::DeferredPbrLightingPlugin, environment_map::DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
+    graph::NodePbr, prelude::EnvironmentMapLight,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetApp, Assets, Handle};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::core_3d::{
+    graph::{Core3d, Node3d},
+    Camera3d,
+};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
@@ -163,7 +175,6 @@ pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("9afeaeab-7c45-43ce-b322-4b97799eaeb9");
 pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> =
     weak_handle!("815b8618-f557-4a96-91a5-a2fb7e249fb0");
-pub const PBR_AMBIENT_HANDLE: Handle<Shader> = weak_handle!("4a90b95b-112a-4a10-9145-7590d6f14260");
 pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("6cf57d9f-222a-429a-bba4-55ba9586e1d4");
 pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
@@ -196,6 +207,8 @@ pub struct PbrPlugin {
     pub use_gpu_instance_buffer_builder: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
+    /// Controls if the default environment map light is added to every [`Camera3d`].
+    pub default_environment_map_light: bool,
 }
 
 impl Default for PbrPlugin {
@@ -205,6 +218,7 @@ impl Default for PbrPlugin {
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
             debug_flags: RenderDebugFlags::default(),
+            default_environment_map_light: true,
         }
     }
 }
@@ -280,12 +294,6 @@ impl Plugin for PbrPlugin {
         );
         load_internal_asset!(
             app,
-            PBR_AMBIENT_HANDLE,
-            "render/pbr_ambient.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
             PBR_FRAGMENT_HANDLE,
             "render/pbr_fragment.wgsl",
             Shader::from_wgsl
@@ -323,6 +331,10 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
 
+        #[expect(
+            deprecated,
+            reason = "AmbientLight has been replaced by EnvironmentMapLight"
+        )]
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
@@ -339,7 +351,6 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
             .register_type::<ShadowFilteringMethod>()
-            .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisibleClusterableObjects>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
@@ -399,6 +410,9 @@ impl Plugin for PbrPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    map_ambient_lights
+                        .in_set(SimulationLightSystems::MapAmbientLights)
+                        .after(CameraUpdateSystem),
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
                         .after(CameraUpdateSystem),
@@ -448,6 +462,15 @@ impl Plugin for PbrPlugin {
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
+
+        if self.default_environment_map_light {
+            app.world_mut()
+                .register_required_components::<Camera3d, EnvironmentMapLight>();
+        }
+        app.world_mut().resource_mut::<Assets<Image>>().insert(
+            &DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
+            EnvironmentMapLight::solid_color_image(Color::WHITE),
+        );
 
         // Initialize the default material handle.
         app.world_mut()
