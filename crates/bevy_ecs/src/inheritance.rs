@@ -7,22 +7,17 @@
 use alloc::collections::vec_deque::VecDeque;
 use alloc::string::ToString;
 use alloc::vec::Vec;
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::sync::Mutex;
+use bevy_platform::collections::{HashMap, HashSet};
 use bumpalo::Bump;
-use core::mem::offset_of;
 use core::{
     alloc::Layout,
     cell::UnsafeCell,
     ops::{Deref, DerefMut},
-    panic::Location,
     ptr::NonNull,
 };
-use std::boxed::Box;
 
-use bevy_ptr::{OwningPtr, PtrMut};
+use bevy_ptr::OwningPtr;
 
-use crate::change_detection::TicksMut;
 use crate::query::DebugCheckedUnwrap;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeEntity, ArchetypeId, ArchetypeRecord, Archetypes},
@@ -337,6 +332,10 @@ impl<'w, T> DetectChanges for MutInherited<'w, T> {
     fn changed_by(&self) -> MaybeLocation {
         self.original_data.changed_by()
     }
+
+    fn added(&self) -> Tick {
+        self.original_data.added()
+    }
 }
 
 impl<'w, T> DetectChangesMut for MutInherited<'w, T> {
@@ -355,6 +354,18 @@ impl<'w, T> DetectChangesMut for MutInherited<'w, T> {
     #[inline(always)]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         self.original_data.bypass_change_detection()
+    }
+
+    fn set_added(&mut self) {
+        if !self.is_inherited {
+            self.original_data.set_added();
+        }
+    }
+
+    fn set_last_added(&mut self, last_added: Tick) {
+        if !self.is_inherited {
+            self.original_data.set_last_added(last_added);
+        }
     }
 }
 
