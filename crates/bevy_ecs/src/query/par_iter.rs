@@ -5,7 +5,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{QueryData, QueryFilter, QueryItem, QueryState, ReadOnlyQueryData};
+use super::{QueryData, QueryItem, QueryStateDeref, ReadOnlyQueryData};
 
 use alloc::vec::Vec;
 
@@ -13,15 +13,15 @@ use alloc::vec::Vec;
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter> {
+pub struct QueryParIter<'w, S: QueryStateDeref> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: S,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>> QueryParIter<'w, S> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -132,7 +132,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         let max_items = || {
-            let id_iter = self.state.matched_storage_ids.iter();
+            let id_iter = self.state.storage_ids();
             if self.state.is_dense {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
@@ -160,17 +160,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent> {
+pub struct QueryParManyIter<'w, S: QueryStateDeref, E: EntityEquivalent> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: S,
     pub(crate) entity_list: Vec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
-    QueryParManyIter<'w, 's, D, F, E>
+impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
+    QueryParManyIter<'w, S, E>
 {
     /// Changes the batching strategy used when iterating.
     ///
@@ -314,18 +314,17 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
-pub struct QueryParManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
-{
+pub struct QueryParManyUniqueIter<'w, S: QueryStateDeref, E: EntityEquivalent + Sync> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: S,
     pub(crate) entity_list: UniqueEntityEquivalentVec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
-    QueryParManyUniqueIter<'w, 's, D, F, E>
+impl<'w, D: QueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent + Sync>
+    QueryParManyUniqueIter<'w, S, E>
 {
     /// Changes the batching strategy used when iterating.
     ///
