@@ -25,8 +25,10 @@ use crate::{
     entity::{Entity, EntityLocation},
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 use alloc::{boxed::Box, vec::Vec};
+use bevy_ecs_macros::Event;
 use bevy_platform_support::collections::HashMap;
 use core::{
     hash::Hash,
@@ -109,6 +111,9 @@ impl ArchetypeId {
         self.0 as usize
     }
 }
+
+#[derive(Event)]
+pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 
 /// Used in [`ArchetypeAfterBundleInsert`] to track whether components in the bundle are newly
 /// added or already existed in the entity's archetype.
@@ -812,6 +817,36 @@ pub struct ArchetypeRecord {
     pub(crate) column: Option<usize>,
 }
 
+/// Metadata about the [`ArchetypeId`] and whether it is newly create or not.
+#[derive(Clone, Copy)]
+pub(crate) struct ArchetypeIdState {
+    id: ArchetypeId,
+    is_new: bool,
+}
+
+impl ArchetypeIdState {
+    /// Creates a new [`ArchetypeIdState`] with the given ID and marks it as old.
+    #[inline]
+    pub(crate) fn old(id: ArchetypeId) -> Self {
+        Self { id, is_new: false }
+    }
+
+    /// Get the [`ArchetypeId`].
+    #[inline]
+    pub(crate) fn id(&self) -> ArchetypeId {
+        self.id
+    }
+
+    #[inline]
+    pub(crate) fn trigger_if_new(&self, world: &mut DeferredWorld) {
+        std::dbg!(self.is_new);
+        if self.is_new {
+            std::println!("triggering archetype created {:?}", self.id);
+            world.trigger(ArchetypeCreated(self.id));
+        }
+    }
+}
+
 impl Archetypes {
     pub(crate) fn new() -> Self {
         let mut archetypes = Archetypes {
@@ -933,7 +968,7 @@ impl Archetypes {
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
-    ) -> ArchetypeId {
+    ) -> ArchetypeIdState {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),
             table_components: table_components.into_boxed_slice(),
@@ -942,10 +977,14 @@ impl Archetypes {
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
         let component_index = &mut self.by_component;
-        *self
+        let mut is_new = false;
+        let is_new_ref = &mut is_new;
+        let archetype_id = *self
             .by_components
             .entry(archetype_identity)
             .or_insert_with_key(move |identity| {
+                // std::dbg!("creating new archetype");
+                *is_new_ref = true;
                 let ArchetypeComponents {
                     table_components,
                     sparse_set_components,
@@ -975,7 +1014,13 @@ impl Archetypes {
                         .zip(sparse_set_archetype_components),
                 ));
                 id
-            })
+            });
+
+        // std::println!("After get_id_or_insert archetype {is_new}");
+        ArchetypeIdState {
+            id: archetype_id,
+            is_new,
+        }
     }
 
     /// Returns the number of components that are stored in archetypes.

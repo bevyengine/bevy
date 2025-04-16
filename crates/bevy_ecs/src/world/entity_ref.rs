@@ -2005,7 +2005,7 @@ impl<'w> EntityWorldMut<'w> {
             )?
         };
 
-        if new_archetype_id == old_location.archetype_id {
+        if new_archetype_id.id() == old_location.archetype_id {
             return None;
         }
 
@@ -2020,6 +2020,8 @@ impl<'w> EntityWorldMut<'w> {
                 world.into_deferred(),
             )
         };
+
+        new_archetype_id.trigger_if_new(&mut deferred_world);
 
         // SAFETY: all bundle components exist in World
         unsafe {
@@ -2074,7 +2076,7 @@ impl<'w> EntityWorldMut<'w> {
                 entities,
                 archetypes,
                 storages,
-                new_archetype_id,
+                new_archetype_id.id(),
             );
         }
         self.world.flush();
@@ -2191,7 +2193,7 @@ impl<'w> EntityWorldMut<'w> {
             )
             .expect("intersections should always return a result");
 
-        if new_archetype_id == location.archetype_id {
+        if new_archetype_id.id() == location.archetype_id {
             return location;
         }
 
@@ -2205,6 +2207,8 @@ impl<'w> EntityWorldMut<'w> {
                 world.into_deferred(),
             )
         };
+
+        new_archetype_id.trigger_if_new(&mut deferred_world);
 
         // SAFETY: all bundle components exist in World
         unsafe {
@@ -2247,7 +2251,7 @@ impl<'w> EntityWorldMut<'w> {
             &mut world.entities,
             &mut world.archetypes,
             &mut world.storages,
-            new_archetype_id,
+            new_archetype_id.id(),
         );
 
         new_location

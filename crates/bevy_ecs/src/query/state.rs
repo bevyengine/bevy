@@ -1,13 +1,16 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    component::{ComponentId, Tick},
+    archetype::{
+        Archetype, ArchetypeComponentId, ArchetypeCreated, ArchetypeGeneration, ArchetypeId,
+    },
+    component::{ComponentHooks, ComponentId, Mutable, StorageType, Tick},
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
-    prelude::FromWorld,
+    error::Result,
+    prelude::{Component, FromWorld, Observer, Trigger},
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
     storage::{SparseSetIndex, TableId},
     system::Query,
-    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
@@ -17,6 +20,7 @@ use alloc::vec::Vec;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
+use std::boxed::Box;
 #[cfg(feature = "trace")]
 use tracing::Span;
 
@@ -85,6 +89,42 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
     par_iter_span: Span,
+}
+
+impl<D: QueryData + 'static, F: QueryFilter + 'static> Component for QueryState<D, F> {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    type Mutability = Mutable;
+
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks.on_add(|mut world, ctx| {
+            let entity = ctx.entity;
+            std::dbg!("QueryState::on_add");
+            let observer = Observer::new(
+                move |trigger: Trigger<ArchetypeCreated>, mut world: DeferredWorld| -> Result {
+                    std::dbg!("QueryState::on_add::observer");
+                    let archetype_id: ArchetypeId = trigger.event().0;
+                    let archetype_ptr: *const Archetype = world
+                        .archetypes()
+                        .get(archetype_id)
+                        .expect("Invalid ArchetypeId");
+                    let Ok(mut entity) = world.get_entity_mut(entity) else {
+                        // TODO query is not exists anymore, despawn this observer
+                        return Ok(());
+                    };
+                    let mut state = entity
+                        .get_mut::<QueryState<D, F>>()
+                        .expect("QueryState not found");
+                    unsafe {
+                        state.new_archetype_internal(&*archetype_ptr);
+                    }
+
+                    Ok(())
+                },
+            );
+            // observer.watch_entity(ctx.entity);
+            world.commands().spawn(observer);
+        });
+    }
 }
 
 impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
@@ -533,7 +573,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let archetypes = world.archetypes();
             let old_generation =
                 core::mem::replace(&mut self.archetype_generation, archetypes.generation());
-
             for archetype in &archetypes[old_generation..] {
                 // SAFETY: The validate_world call ensures that the world is the same the QueryState
                 // was initialized from.
@@ -679,10 +718,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
     pub unsafe fn update_archetype_component_access(
-        &mut self,
+        &self,
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
+        if !self.matched_archetypes.contains(archetype.id().index()) {
+            return;
+        }
         // As a fast path, we can iterate directly over the components involved
         // if the `access` is finite.
         if let Ok(iter) = self.component_access.access.try_iter_component_access() {
