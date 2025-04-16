@@ -324,16 +324,10 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::component::{StorageType, ComponentCloneBehavior, Mutable};
-/// #[derive(Clone)]
+/// #[derive(Clone, Component)]
+/// #[component(clone_behavior = clone::<Self>())]
 /// struct SomeComponent;
 ///
-/// impl Component for SomeComponent {
-///     const STORAGE_TYPE: StorageType = StorageType::Table;
-///     type Mutability = Mutable;
-///     fn clone_behavior() -> ComponentCloneBehavior {
-///         ComponentCloneBehavior::clone::<Self>()
-///     }
-/// }
 /// ```
 ///
 /// # Clone Behaviors
