@@ -14,11 +14,13 @@ mod attrs;
 mod bevy_manifest;
 pub mod fq_std;
 mod label;
+mod member;
 mod shape;
 mod symbol;
 
 pub use attrs::*;
 pub use bevy_manifest::*;
 pub use label::*;
+pub use member::*;
 pub use shape::*;
 pub use symbol::*;
