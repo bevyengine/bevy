@@ -26,7 +26,9 @@ struct PostProcessSettings {
     intensity: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _webgl2_padding: vec3<f32>
+	_webgl2_padding_8b: u32,
+	_webgl2_padding_12b: u32,
+	_webgl2_padding_16b: u32,
 #endif
 }
 @group(0) @binding(2) var<uniform> settings: PostProcessSettings;

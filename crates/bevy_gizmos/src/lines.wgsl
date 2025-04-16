@@ -13,7 +13,9 @@ struct LineGizmoUniform {
     line_scale: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _padding: vec3<f32>,
+    _webgl2_padding_8b: u32,
+    _webgl2_padding_12b: u32,
+    _webgl2_padding_16b: u32,
 #endif
 }
 
