@@ -14,6 +14,7 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
+use crate::inheritance::{Inherited, InheritedComponents, MutInherited};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -51,6 +52,7 @@ use crate::{
     },
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
+    inheritance::InheritFrom,
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
@@ -100,6 +102,7 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) observers: Observers,
+    pub(crate) inherited_components: InheritedComponents,
     pub(crate) removed_components: RemovedComponentEvents,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
@@ -127,6 +130,7 @@ impl Default for World {
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
             component_ids: ComponentIds::default(),
+            inherited_components: Default::default(),
         };
         world.bootstrap();
         world
@@ -166,6 +170,12 @@ impl World {
 
         let on_despawn = OnDespawn::register_component_id(self);
         assert_eq!(ON_DESPAWN, on_despawn);
+
+        let inherit_from = self.register_component::<InheritFrom>();
+        assert_eq!(INHERIT_FROM, inherit_from);
+
+        let inherit_from = self.register_component::<Inherited>();
+        assert_eq!(INHERITED, inherit_from);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
@@ -1283,7 +1293,7 @@ impl World {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<T>> {
+    ) -> Option<MutInherited<T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
     }
 
@@ -2947,6 +2957,71 @@ impl World {
         self.components_registrator().apply_queued_registrations();
     }
 
+    pub(crate) fn flush_inherited_mut(&mut self) {
+        for (component_id, entities, mut data) in self
+            .inherited_components
+            .shared_table_components
+            .get_mut()
+            .drain()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|((component_id, table_id), mut data)| {
+                (
+                    component_id,
+                    data.component_ptrs
+                        .get_mut()
+                        .keys()
+                        .map(|table_row| self.storages().tables[table_id].entities()[*table_row])
+                        .collect::<Vec<_>>(),
+                    data,
+                )
+            })
+            .collect::<Vec<_>>()
+        {
+            unsafe {
+                for (component_ptr, entity) in data.component_ptrs.get_mut().values().zip(entities)
+                {
+                    self.entity_mut(entity)
+                        .insert_by_id(component_id, OwningPtr::new(*component_ptr));
+                }
+            }
+        }
+        for (component_id, entities, mut data) in self
+            .inherited_components
+            .shared_sparse_components
+            .get_mut()
+            .drain()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|((component_id, archetype_id), mut data)| {
+                (
+                    component_id,
+                    data.component_ptrs
+                        .get_mut()
+                        .keys()
+                        .map(|table_row| {
+                            self.storages
+                                .tables
+                                .get(self.archetypes().get(archetype_id).unwrap().table_id())
+                                .unwrap()
+                                .entities()[*table_row]
+                        })
+                        .collect::<Vec<_>>(),
+                    data,
+                )
+            })
+            .collect::<Vec<_>>()
+        {
+            unsafe {
+                for (component_ptr, entity) in data.component_ptrs.get_mut().values().zip(entities)
+                {
+                    self.entity_mut(entity)
+                        .insert_by_id(component_id, OwningPtr::new(*component_ptr));
+                }
+            }
+        }
+    }
+
     /// Flushes queued entities and commands.
     ///
     /// Queued entities will be spawned, and then commands will be applied.
@@ -2954,6 +3029,7 @@ impl World {
     pub fn flush(&mut self) {
         self.flush_entities();
         self.flush_components();
+        self.flush_inherited_mut();
         self.flush_commands();
     }
 

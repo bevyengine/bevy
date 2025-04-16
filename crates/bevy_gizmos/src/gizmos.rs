@@ -10,6 +10,7 @@ use core::{
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
+    inheritance::InheritedComponents,
     resource::Resource,
     system::{
         Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
@@ -208,11 +209,17 @@ where
     unsafe fn new_archetype(
         state: &mut Self::State,
         archetype: &bevy_ecs::archetype::Archetype,
+        inherited_components: &InheritedComponents,
         system_meta: &mut SystemMeta,
     ) {
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
         unsafe {
-            GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta);
+            GizmosState::<Config, Clear>::new_archetype(
+                &mut state.state,
+                archetype,
+                inherited_components,
+                system_meta,
+            );
         };
     }
 

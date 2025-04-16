@@ -2,10 +2,13 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{MaybeLocation, Ticks, TicksMut},
-    component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
+    component::{Component, ComponentId, ComponentInfo, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
+    inheritance::{
+        InheritedArchetypeComponent, InheritedComponents, MutInherited, SharedMutComponentData,
+    },
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, Table, TableId, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
@@ -307,6 +310,15 @@ pub unsafe trait QueryData: WorldQuery {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w>;
+
+    unsafe fn fetch_inherited<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+        _is_inherited: bool,
+    ) -> Self::Item<'w> {
+        Self::fetch(fetch, entity, table_row)
+    }
 }
 
 /// A [`QueryData`] that is read only.
@@ -350,7 +362,12 @@ unsafe impl WorldQuery for Entity {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -427,7 +444,12 @@ unsafe impl WorldQuery for EntityLocation {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -503,7 +525,12 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -584,7 +611,12 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -665,7 +697,12 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        _: &'w Table,
+        _table_id: TableId,
+    ) {
         fetch.1.clone_from(&state.access);
     }
 
@@ -761,7 +798,12 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        _: &'w Table,
+        _table_id: TableId,
+    ) {
         fetch.1.clone_from(&state.access);
     }
 
@@ -853,7 +895,7 @@ where
     ) {
     }
 
-    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table) {}
+    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table, _: TableId) {}
 
     fn update_component_access(
         state: &Self::State,
@@ -953,7 +995,7 @@ where
     ) {
     }
 
-    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table) {}
+    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table, _: TableId) {}
 
     fn update_component_access(
         state: &Self::State,
@@ -1051,7 +1093,12 @@ unsafe impl WorldQuery for &Archetype {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -1106,6 +1153,9 @@ pub struct ReadFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::SparseSet
         Option<&'w ComponentSparseSet>,
     >,
+    inherited_tables: &'w Tables,
+    is_shared_table_component: bool,
+    shared_sparse_component_entity: Option<Entity>,
 }
 
 impl<T: Component> Clone for ReadFetch<'_, T> {
@@ -1128,7 +1178,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         fetch
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         &component_id: &ComponentId,
@@ -1146,6 +1196,11 @@ unsafe impl<T: Component> WorldQuery for &T {
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
+            // SAFETY: This variable will be used only to access tables that contain inherited components, which
+            // we are allowed to access since `update_archetype_component_access` is aware of inherited components.
+            inherited_tables: unsafe { &world.storages().tables },
+            is_shared_table_component: false,
+            shared_sparse_component_entity: None,
         }
     }
 
@@ -1156,35 +1211,79 @@ unsafe impl<T: Component> WorldQuery for &T {
         }
     };
 
-    #[inline]
+    #[inline(always)]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadFetch<'w, T>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
+            let table_id = archetype.table_id();
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table, table_id);
+            }
+        } else if archetype.has_inherited_components() && !archetype.contains(*component_id) {
+            match archetype
+                .inherited_components
+                .get(component_id)
+                .debug_checked_unwrap()
+            {
+                &InheritedArchetypeComponent::Sparse { entity, .. } => {
+                    fetch.shared_sparse_component_entity = Some(entity);
+                }
+                _ => unreachable!(),
             }
         }
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn set_table<'w>(
         fetch: &mut ReadFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
+        table_id: TableId,
     ) {
-        let table_data = Some(
-            table
-                .get_data_slice_for(component_id)
-                .debug_checked_unwrap()
+        if table.has_inherited_components() && !table.has_column(component_id) {
+            let info = table
+                .inherited_components
+                .get(&component_id)
+                .debug_checked_unwrap();
+            let table = fetch
+                .inherited_tables
+                .get(info.table_id)
+                .debug_checked_unwrap();
+            let component_ptr = table
+                .get_component(component_id, info.table_row)
+                .debug_checked_unwrap();
+            let table_data = Some(
+                core::slice::from_raw_parts::<'w, UnsafeCell<T>>(
+                    component_ptr.as_ptr() as *const _,
+                    1,
+                )
                 .into(),
-        );
-        // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.components.set_table(table_data) };
+            );
+            // SAFETY:
+            // - set_table is only called when T::STORAGE_TYPE = StorageType::Table
+            // - Current table doesn't contain the component, therefore it must be inherited and
+            //   so it must be set as the same component for all entities within this table.
+            //   This is achieved by setting the table_data as the pointer to this component
+            //   and forcing fetch to access only the first element of the column for all entities.
+            unsafe {
+                fetch.components.set_table(table_data);
+                fetch.is_shared_table_component = true;
+            };
+        } else {
+            let table_data = Some(
+                table
+                    .get_data_slice_for(component_id)
+                    .debug_checked_unwrap()
+                    .into(),
+            );
+            // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
+            unsafe { fetch.components.set_table(table_data) };
+        }
     }
 
     fn update_component_access(
@@ -1213,6 +1312,15 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> bool {
         set_contains_id(state)
     }
+
+    #[inline(always)]
+    fn has_inherited_components<'w>(fetch: &Self::Fetch<'w>) -> bool {
+        if Self::IS_DENSE {
+            fetch.is_shared_table_component
+        } else {
+            fetch.shared_sparse_component_entity.is_some()
+        }
+    }
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -1231,15 +1339,42 @@ unsafe impl<T: Component> QueryData for &T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
+        Self::fetch_inherited(
+            fetch,
+            entity,
+            table_row,
+            Self::has_inherited_components(fetch),
+        )
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_inherited<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+        is_inherited: bool,
+    ) -> Self::Item<'w> {
         fetch.components.extract(
             |table| {
+                let idx = if is_inherited {
+                    0
+                } else {
+                    table_row.as_usize()
+                };
+
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: Caller ensures `table_row` is in range.
-                let item = unsafe { table.get(table_row.as_usize()) };
+                let item = unsafe { table.get(idx) };
                 item.deref()
             },
             |sparse_set| {
+                let entity = if is_inherited {
+                    fetch.shared_sparse_component_entity.debug_checked_unwrap()
+                } else {
+                    entity
+                };
+
                 // SAFETY: Caller ensures `entity` is in range.
                 let item = unsafe {
                     sparse_set
@@ -1273,6 +1408,9 @@ pub struct RefFetch<'w, T: Component> {
     >,
     last_run: Tick,
     this_run: Tick,
+    inherited_tables: &'w Tables,
+    is_shared_table_component: bool,
+    shared_sparse_component_entity: Option<Entity>,
 }
 
 impl<T: Component> Clone for RefFetch<'_, T> {
@@ -1315,6 +1453,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             ),
             last_run,
             this_run,
+            // SAFETY: This variable will be used only to access tables that contain inherited components, which
+            // we are allowed to access since `update_archetype_component_access` is aware of inherited components.
+            inherited_tables: unsafe { &world.storages().tables },
+            is_shared_table_component: false,
+            shared_sparse_component_entity: None,
         }
     }
 
@@ -1329,13 +1472,24 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     unsafe fn set_archetype<'w>(
         fetch: &mut RefFetch<'w, T>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table, archetype.table_id());
+            }
+        } else if archetype.has_inherited_components() && !archetype.contains(*component_id) {
+            match archetype
+                .inherited_components
+                .get(component_id)
+                .debug_checked_unwrap()
+            {
+                &InheritedArchetypeComponent::Sparse { entity, .. } => {
+                    fetch.shared_sparse_component_entity = Some(entity);
+                }
+                _ => unreachable!(),
             }
         }
     }
@@ -1345,18 +1499,78 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         fetch: &mut RefFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
+        table_id: TableId,
     ) {
-        let column = table.get_column(component_id).debug_checked_unwrap();
-        let table_data = Some((
-            column.get_data_slice(table.entity_count()).into(),
-            column.get_added_ticks_slice(table.entity_count()).into(),
-            column.get_changed_ticks_slice(table.entity_count()).into(),
-            column
-                .get_changed_by_slice(table.entity_count())
-                .map(Into::into),
-        ));
-        // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.components.set_table(table_data) };
+        if table.has_inherited_components() && !table.has_column(component_id) {
+            let info = table
+                .inherited_components
+                .get(&component_id)
+                .debug_checked_unwrap();
+
+            let table = fetch
+                .inherited_tables
+                .get(info.table_id)
+                .debug_checked_unwrap();
+            let table_data = Some((
+                core::slice::from_raw_parts::<'w, UnsafeCell<T>>(
+                    table
+                        .get_component(component_id, info.table_row)
+                        .debug_checked_unwrap()
+                        .as_ptr() as *const _,
+                    1,
+                )
+                .into(),
+                core::slice::from_raw_parts(
+                    core::ptr::from_ref(
+                        table
+                            .get_added_tick(component_id, info.table_row)
+                            .debug_checked_unwrap(),
+                    ),
+                    1,
+                )
+                .into(),
+                core::slice::from_raw_parts(
+                    core::ptr::from_ref(
+                        table
+                            .get_changed_tick(component_id, info.table_row)
+                            .debug_checked_unwrap(),
+                    ),
+                    1,
+                )
+                .into(),
+                table
+                    .get_changed_by(component_id, info.table_row)
+                    .map(|loc| {
+                        core::slice::from_raw_parts(
+                            core::ptr::from_ref(loc.debug_checked_unwrap()),
+                            1,
+                        )
+                        .into()
+                    }),
+            ));
+            // SAFETY:
+            // - set_table is only called when T::STORAGE_TYPE = StorageType::Table
+            // - Current table doesn't contain the component, therefore it must be inherited and
+            //   so it must be set as the same component for all entities within this table.
+            //   This is achieved by setting the table_data as the pointer to this component
+            //   and forcing fetch to access only the first element of the column for all entities.
+            unsafe {
+                fetch.components.set_table(table_data);
+                fetch.is_shared_table_component = true;
+            };
+        } else {
+            let column = table.get_column(component_id).debug_checked_unwrap();
+            let table_data = Some((
+                column.get_data_slice(table.entity_count()).into(),
+                column.get_added_ticks_slice(table.entity_count()).into(),
+                column.get_changed_ticks_slice(table.entity_count()).into(),
+                column
+                    .get_changed_by_slice(table.entity_count())
+                    .map(Into::into),
+            ));
+            // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
+            unsafe { fetch.components.set_table(table_data) };
+        }
     }
 
     fn update_component_access(
@@ -1385,6 +1599,15 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) -> bool {
         set_contains_id(state)
     }
+
+    #[inline]
+    fn has_inherited_components<'w>(fetch: &Self::Fetch<'w>) -> bool {
+        if Self::IS_DENSE {
+            fetch.is_shared_table_component
+        } else {
+            fetch.shared_sparse_component_entity.is_some()
+        }
+    }
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -1403,20 +1626,41 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
+        Self::fetch_inherited(
+            fetch,
+            entity,
+            table_row,
+            Self::has_inherited_components(fetch),
+        )
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_inherited<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+        is_inherited: bool,
+    ) -> Self::Item<'w> {
         fetch.components.extract(
             |table| {
+                let idx = if is_inherited {
+                    0
+                } else {
+                    table_row.as_usize()
+                };
+
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.as_usize()) };
+                let component = unsafe { table_components.get(idx) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.as_usize()) };
+                let added = unsafe { added_ticks.get(idx) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
+                let changed = unsafe { changed_ticks.get(idx) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
+                let caller = callers.map(|callers| unsafe { callers.get(idx) });
 
                 Ref {
                     value: component.deref(),
@@ -1430,6 +1674,12 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 }
             },
             |sparse_set| {
+                let entity = if is_inherited {
+                    fetch.shared_sparse_component_entity.debug_checked_unwrap()
+                } else {
+                    entity
+                };
+
                 // SAFETY: The caller ensures `entity` is in range and has the component.
                 let (component, ticks, caller) = unsafe {
                     sparse_set
@@ -1468,6 +1718,11 @@ pub struct WriteFetch<'w, T: Component> {
     >,
     last_run: Tick,
     this_run: Tick,
+    shared_component_data: Option<&'w SharedMutComponentData>,
+    shared_sparse_component_entity: Option<Entity>,
+    inherited_tables: &'w Tables,
+    inherited_components: &'w InheritedComponents,
+    component_info: &'w ComponentInfo,
 }
 
 impl<T: Component> Clone for WriteFetch<'_, T> {
@@ -1490,7 +1745,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         fetch
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         &component_id: &ComponentId,
@@ -1510,6 +1765,14 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             ),
             last_run,
             this_run,
+            // SAFETY: This variable will be used only to access tables that contain inherited components, which
+            // we are allowed to access since `update_archetype_component_access` is aware of inherited components.
+            inherited_tables: unsafe { &world.storages().tables },
+
+            shared_component_data: None,
+            shared_sparse_component_entity: None,
+            inherited_components: world.inherited_components(),
+            component_info: world.components().get_info(component_id).unwrap(),
         }
     }
 
@@ -1520,38 +1783,148 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         }
     };
 
-    #[inline]
+    #[inline(always)]
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteFetch<'w, T>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table, archetype.table_id());
+            }
+        } else if archetype.has_inherited_components() && !archetype.contains(*component_id) {
+            match archetype
+                .inherited_components
+                .get(component_id)
+                .debug_checked_unwrap()
+            {
+                &InheritedArchetypeComponent::Sparse { entity, .. } => {
+                    fetch.shared_sparse_component_entity = Some(entity);
+                    fetch.shared_component_data = Some(
+                        fetch
+                            .inherited_components
+                            .shared_sparse_components
+                            .get()
+                            .as_mut()
+                            .debug_checked_unwrap()
+                            .entry((*component_id, archetype.id()))
+                            .or_insert_with(|| SharedMutComponentData {
+                                component_ptrs: Default::default(),
+                                bump: Default::default(),
+                                component_info: fetch.component_info.clone(),
+                            }),
+                    );
+                }
+                _ => unreachable!(),
             }
         }
     }
 
-    #[inline]
+    #[inline(always)]
     unsafe fn set_table<'w>(
         fetch: &mut WriteFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
+        table_id: TableId,
     ) {
-        let column = table.get_column(component_id).debug_checked_unwrap();
-        let table_data = Some((
-            column.get_data_slice(table.entity_count()).into(),
-            column.get_added_ticks_slice(table.entity_count()).into(),
-            column.get_changed_ticks_slice(table.entity_count()).into(),
-            column
-                .get_changed_by_slice(table.entity_count())
-                .map(Into::into),
-        ));
-        // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.components.set_table(table_data) };
+        if table.has_inherited_components() && !table.has_column(component_id) {
+            set_shared_components(fetch, component_id, table, table_id);
+
+            #[cold]
+            #[inline(always)]
+            unsafe fn set_shared_components<'w, T: Component>(
+                fetch: &mut WriteFetch<'w, T>,
+                component_id: ComponentId,
+                table: &'w Table,
+                table_id: TableId,
+            ) {
+                let info = table
+                    .inherited_components
+                    .get(&component_id)
+                    .debug_checked_unwrap();
+
+                let table = fetch
+                    .inherited_tables
+                    .get(info.table_id)
+                    .debug_checked_unwrap();
+                let table_data = Some((
+                    core::slice::from_raw_parts::<'w, UnsafeCell<T>>(
+                        table
+                            .get_component(component_id, info.table_row)
+                            .debug_checked_unwrap()
+                            .as_ptr() as *const _,
+                        1,
+                    )
+                    .into(),
+                    core::slice::from_raw_parts(
+                        core::ptr::from_ref(
+                            table
+                                .get_added_tick(component_id, info.table_row)
+                                .debug_checked_unwrap(),
+                        ),
+                        1,
+                    )
+                    .into(),
+                    core::slice::from_raw_parts(
+                        core::ptr::from_ref(
+                            table
+                                .get_changed_tick(component_id, info.table_row)
+                                .debug_checked_unwrap(),
+                        ),
+                        1,
+                    )
+                    .into(),
+                    table
+                        .get_changed_by(component_id, info.table_row)
+                        .map(|loc| {
+                            core::slice::from_raw_parts(
+                                core::ptr::from_ref(loc.debug_checked_unwrap()),
+                                1,
+                            )
+                            .into()
+                        }),
+                ));
+
+                // SAFETY:
+                // - set_table is only called when T::STORAGE_TYPE = StorageType::Table
+                // - Current table doesn't contain the component, therefore it must be inherited and
+                //   so it must be set as the same component for all entities within this table.
+                //   This is achieved by setting the table_data as the pointer to this component
+                //   and forcing fetch to access only the first element of the column for all entities.
+                unsafe {
+                    fetch.components.set_table(table_data);
+                    fetch.shared_component_data = Some(
+                        fetch
+                            .inherited_components
+                            .shared_table_components
+                            .get()
+                            .as_mut()
+                            .debug_checked_unwrap()
+                            .entry((component_id, table_id))
+                            .or_insert_with(|| SharedMutComponentData {
+                                component_ptrs: Default::default(),
+                                bump: Default::default(),
+                                component_info: fetch.component_info.clone(),
+                            }),
+                    );
+                };
+            }
+        } else {
+            let column = table.get_column(component_id).debug_checked_unwrap();
+            let table_data = Some((
+                column.get_data_slice(table.entity_count()).into(),
+                column.get_added_ticks_slice(table.entity_count()).into(),
+                column.get_changed_ticks_slice(table.entity_count()).into(),
+                column
+                    .get_changed_by_slice(table.entity_count())
+                    .map(Into::into),
+            ));
+            // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
+            unsafe { fetch.components.set_table(table_data) }
+        };
     }
 
     fn update_component_access(
@@ -1580,15 +1953,20 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) -> bool {
         set_contains_id(state)
     }
+
+    #[inline(always)]
+    fn has_inherited_components<'w>(fetch: &Self::Fetch<'w>) -> bool {
+        fetch.shared_component_data.is_some()
+    }
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     const IS_READ_ONLY: bool = false;
     type ReadOnly = &'__w T;
-    type Item<'w> = Mut<'w, T>;
+    type Item<'w> = MutInherited<'w, T>;
 
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
+    fn shrink<'wlong: 'wshort, 'wshort>(item: MutInherited<'wlong, T>) -> MutInherited<'wshort, T> {
         item
     }
 
@@ -1598,48 +1976,78 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        fetch.components.extract(
-            |table| {
-                // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, callers) =
-                    unsafe { table.debug_checked_unwrap() };
-
-                // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.as_usize()) };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.as_usize()) };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
-
-                Mut {
-                    value: component.deref_mut(),
-                    ticks: TicksMut {
-                        added: added.deref_mut(),
-                        changed: changed.deref_mut(),
-                        this_run: fetch.this_run,
-                        last_run: fetch.last_run,
-                    },
-                    changed_by: caller.map(|caller| caller.deref_mut()),
-                }
-            },
-            |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range and has the component.
-                let (component, ticks, caller) = unsafe {
-                    sparse_set
-                        .debug_checked_unwrap()
-                        .get_with_ticks(entity)
-                        .debug_checked_unwrap()
-                };
-
-                Mut {
-                    value: component.assert_unique().deref_mut(),
-                    ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    changed_by: caller.map(|caller| caller.deref_mut()),
-                }
-            },
+        Self::fetch_inherited(
+            fetch,
+            entity,
+            table_row,
+            Self::has_inherited_components(fetch),
         )
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_inherited<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+        is_inherited: bool,
+    ) -> Self::Item<'w> {
+        MutInherited {
+            shared_data: fetch.shared_component_data,
+            table_row: table_row.as_usize(),
+            is_inherited,
+            original_data: fetch.components.extract(
+                |table| {
+                    let idx = if is_inherited {
+                        0
+                    } else {
+                        table_row.as_usize()
+                    };
+                    // SAFETY: set_table was previously called
+                    let (table_components, added_ticks, changed_ticks, callers) =
+                        unsafe { table.debug_checked_unwrap() };
+
+                    // SAFETY: The caller ensures `table_row` is in range.
+                    let component = unsafe { table_components.get(idx) };
+                    // SAFETY: The caller ensures `table_row` is in range.
+                    let added = unsafe { added_ticks.get(idx) };
+                    // SAFETY: The caller ensures `table_row` is in range.
+                    let changed = unsafe { changed_ticks.get(idx) };
+                    // SAFETY: The caller ensures `table_row` is in range.
+                    let caller = callers.map(|callers| unsafe { callers.get(idx) });
+
+                    Mut {
+                        value: component.deref_mut(),
+                        ticks: TicksMut {
+                            added: added.deref_mut(),
+                            changed: changed.deref_mut(),
+                            this_run: fetch.this_run,
+                            last_run: fetch.last_run,
+                        },
+                        changed_by: caller.map(|caller| caller.deref_mut()),
+                    }
+                },
+                |sparse_set| {
+                    let entity = if is_inherited {
+                        fetch.shared_sparse_component_entity.debug_checked_unwrap()
+                    } else {
+                        entity
+                    };
+                    // SAFETY: The caller ensures `entity` is in range and has the component.
+                    let (component, ticks, caller) = unsafe {
+                        sparse_set
+                            .debug_checked_unwrap()
+                            .get_with_ticks(entity)
+                            .debug_checked_unwrap()
+                    };
+
+                    Mut {
+                        value: component.assert_unique().deref_mut(),
+                        ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
+                        changed_by: caller.map(|caller| caller.deref_mut()),
+                    }
+                },
+            ),
+        }
     }
 }
 
@@ -1687,8 +2095,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 
     #[inline]
     // Forwarded to `&mut T`
-    unsafe fn set_table<'w>(fetch: &mut WriteFetch<'w, T>, state: &ComponentId, table: &'w Table) {
-        <&mut T as WorldQuery>::set_table(fetch, state, table);
+    unsafe fn set_table<'w>(
+        fetch: &mut WriteFetch<'w, T>,
+        state: &ComponentId,
+        table: &'w Table,
+        table_id: TableId,
+    ) {
+        <&mut T as WorldQuery>::set_table(fetch, state, table, table_id);
     }
 
     // NOT forwarded to `&mut T`
@@ -1729,10 +2142,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T> {
     const IS_READ_ONLY: bool = false;
     type ReadOnly = Ref<'__w, T>;
-    type Item<'w> = Mut<'w, T>;
+    type Item<'w> = MutInherited<'w, T>;
 
     // Forwarded to `&mut T`
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         <&mut T as QueryData>::shrink(item)
     }
 
@@ -1744,7 +2157,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-    ) -> Mut<'w, T> {
+    ) -> Self::Item<'w> {
         <&mut T as QueryData>::fetch(fetch, entity, table_row)
     }
 }
@@ -1812,12 +2225,17 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut OptionFetch<'w, T>, state: &T::State, table: &'w Table) {
+    unsafe fn set_table<'w>(
+        fetch: &mut OptionFetch<'w, T>,
+        state: &T::State,
+        table: &'w Table,
+        table_id: TableId,
+    ) {
         fetch.matches = T::matches_component_set(state, &|id| table.has_column(id));
         if fetch.matches {
             // SAFETY: The invariants are upheld by the caller.
             unsafe {
-                T::set_table(&mut fetch.fetch, state, table);
+                T::set_table(&mut fetch.fetch, state, table, table_id);
             }
         }
     }
@@ -1989,7 +2407,12 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        table: &'w Table,
+        _table_id: TableId,
+    ) {
         *fetch = table.has_column(*state);
     }
 
@@ -2048,7 +2471,7 @@ unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
-    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident, $mask: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such the lints below may not always apply."
@@ -2085,9 +2508,9 @@ macro_rules! impl_tuple_query_data {
                 entity: Entity,
                 table_row: TableRow
             ) -> Self::Item<'w> {
-                let ($($name,)*) = fetch;
+                let ($($name,)*) = &mut fetch.inner;
                 // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe { $name::fetch($name, entity, table_row) },)*)
+                ($(unsafe { $name::fetch_inherited($name, entity, table_row, fetch.inherited_filter & $mask != 0 ) },)*)
             }
         }
 
@@ -2161,14 +2584,14 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline]
-            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table, _table_id: TableId) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
                     if $name.1 {
                         // SAFETY: The invariants are required to be upheld by the caller.
-                        unsafe { $name::set_table(&mut $name.0, $state, _table); }
+                        unsafe { $name::set_table(&mut $name.0, $state, _table, _table_id); }
                     }
                 )*
             }
@@ -2262,13 +2685,31 @@ macro_rules! impl_anytuple_fetch {
     };
 }
 
+const NUMBER: usize = 1 << 0;
+const NUMBER0: usize = 1 << 0;
+const NUMBER1: usize = 1 << 1;
+const NUMBER2: usize = 1 << 2;
+const NUMBER3: usize = 1 << 3;
+const NUMBER4: usize = 1 << 4;
+const NUMBER5: usize = 1 << 5;
+const NUMBER6: usize = 1 << 6;
+const NUMBER7: usize = 1 << 7;
+const NUMBER8: usize = 1 << 8;
+const NUMBER9: usize = 1 << 9;
+const NUMBER10: usize = 1 << 10;
+const NUMBER11: usize = 1 << 11;
+const NUMBER12: usize = 1 << 12;
+const NUMBER13: usize = 1 << 13;
+const NUMBER14: usize = 1 << 14;
+
 all_tuples!(
     #[doc(fake_variadic)]
     impl_tuple_query_data,
     0,
     15,
     F,
-    S
+    S,
+    NUMBER
 );
 all_tuples!(
     #[doc(fake_variadic)]
@@ -2314,7 +2755,13 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     }
 
     #[inline(always)]
-    unsafe fn set_table<'w>(_fetch: &mut (), _state: &D::State, _table: &Table) {}
+    unsafe fn set_table<'w>(
+        _fetch: &mut (),
+        _state: &D::State,
+        _table: &Table,
+        _table_id: TableId,
+    ) {
+    }
 
     fn update_component_access(_state: &D::State, _access: &mut FilteredAccess<ComponentId>) {}
 
@@ -2385,7 +2832,12 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     ) {
     }
 
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table: &'w Table,
+        _table_id: TableId,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -2469,16 +2921,17 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
 
     /// Fetches the internal value from the variant that corresponds to the
     /// component's [`StorageType`].
+    /// The second argument stores additional information about the position of the target in the table/sparse set:
+    /// - sparse set: either an override entity that should be used instead, or an [`Entity::PLACEHOLDER`], which means
+    ///   that the entity can be accessed using normal workflow.
+    /// - table: a bit mask that should be `&` with the target index.
+    #[inline]
     pub fn extract<R>(&self, table: impl FnOnce(T) -> R, sparse_set: impl FnOnce(S) -> R) -> R {
         match C::STORAGE_TYPE {
-            StorageType::Table => table(
-                // SAFETY: C::STORAGE_TYPE == StorageType::Table
-                unsafe { self.table },
-            ),
-            StorageType::SparseSet => sparse_set(
-                // SAFETY: C::STORAGE_TYPE == StorageType::SparseSet
-                unsafe { self.sparse_set },
-            ),
+            // SAFETY: C::STORAGE_TYPE == StorageType::Table
+            StorageType::Table => unsafe { table(self.table) },
+            // SAFETY: C::STORAGE_TYPE == StorageType::SparseSet
+            StorageType::SparseSet => unsafe { sparse_set(self.sparse_set) },
         }
     }
 }

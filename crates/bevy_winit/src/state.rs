@@ -295,7 +295,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 react_to_scale_factor_change(
                     window,
-                    &mut win,
+                    &mut win.ptr(),
                     scale_factor,
                     &mut window_backend_scale_factor_changed,
                     &mut window_scale_factor_changed,
@@ -954,7 +954,7 @@ pub fn winit_runner<T: Event>(mut app: App, event_loop: EventLoop<T>) -> AppExit
 
 pub(crate) fn react_to_resize(
     window_entity: Entity,
-    window: &mut Mut<'_, Window>,
+    window: &mut bevy_ecs::inheritance::MutInherited<'_, Window>,
     size: PhysicalSize<u32>,
     window_resized: &mut EventWriter<WindowResized>,
 ) {

@@ -2641,7 +2641,7 @@ impl<'a> TickCells<'a> {
 }
 
 /// Records when a component or resource was added and when it was last mutably dereferenced (or added).
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct ComponentTicks {
     /// Tick recording the time this component or resource was added.

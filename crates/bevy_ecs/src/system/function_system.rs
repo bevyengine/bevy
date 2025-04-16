@@ -474,12 +474,20 @@ impl<Param: SystemParam> SystemState<Param> {
         assert_eq!(self.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
 
         let archetypes = world.archetypes();
+        let inherited_components = world.inherited_components();
         let old_generation =
             core::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
             // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
-            unsafe { Param::new_archetype(&mut self.param_state, archetype, &mut self.meta) };
+            unsafe {
+                Param::new_archetype(
+                    &mut self.param_state,
+                    archetype,
+                    inherited_components,
+                    &mut self.meta,
+                );
+            };
         }
     }
 
@@ -785,12 +793,20 @@ where
         assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
 
         let archetypes = world.archetypes();
+        let inherited_components = world.inherited_components();
         let old_generation =
             core::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
             // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
-            unsafe { F::Param::new_archetype(&mut state.param, archetype, &mut self.system_meta) };
+            unsafe {
+                F::Param::new_archetype(
+                    &mut state.param,
+                    archetype,
+                    inherited_components,
+                    &mut self.system_meta,
+                );
+            };
         }
     }
 

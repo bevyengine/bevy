@@ -22,6 +22,7 @@ use crate::{
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::Event,
+    inheritance::MutInherited,
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -136,6 +137,7 @@ const _: () = {
         unsafe fn new_archetype(
             state: &mut Self::State,
             archetype: &bevy_ecs::archetype::Archetype,
+            inherited_components: &bevy_ecs::inheritance::InheritedComponents,
             system_meta: &mut bevy_ecs::system::SystemMeta,
         ) {
             // SAFETY: Caller guarantees the archetype is from the world used in `init_state`
@@ -143,6 +145,7 @@ const _: () = {
                 <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::new_archetype(
                     &mut state.state,
                     archetype,
+                    inherited_components,
                     system_meta,
                 );
             };
@@ -2078,7 +2081,10 @@ pub struct EntityEntryCommands<'a, T> {
 
 impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
     /// Modify the component `T` if it exists, using the function `modify`.
-    pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
+    pub fn and_modify(
+        &mut self,
+        modify: impl FnOnce(MutInherited<T>) + Send + Sync + 'static,
+    ) -> &mut Self {
         self.entity_commands
             .queue(move |mut entity: EntityWorldMut| {
                 if let Some(value) = entity.get_mut() {

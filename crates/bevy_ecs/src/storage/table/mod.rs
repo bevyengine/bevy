@@ -2,8 +2,10 @@ use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
+    inheritance::InheritedTableComponent,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    world::INHERIT_FROM,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
@@ -31,7 +33,7 @@ mod column;
 /// [`World`]: crate::world::World
 /// [`Archetype`]: crate::archetype::Archetype
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TableId(u32);
 
 impl TableId {
@@ -148,6 +150,7 @@ impl TableRow {
 pub(crate) struct TableBuilder {
     columns: SparseSet<ComponentId, ThinColumn>,
     capacity: usize,
+    has_inherited_components: bool,
 }
 
 impl TableBuilder {
@@ -156,6 +159,7 @@ impl TableBuilder {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
             capacity,
+            has_inherited_components: false,
         }
     }
 
@@ -166,6 +170,9 @@ impl TableBuilder {
             component_info.id(),
             ThinColumn::with_capacity(component_info, self.capacity),
         );
+        if component_info.id() == INHERIT_FROM {
+            self.has_inherited_components = true;
+        }
         self
     }
 
@@ -175,6 +182,8 @@ impl TableBuilder {
         Table {
             columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
+            has_inherited_components: self.has_inherited_components,
+            inherited_components: Default::default(),
         }
     }
 }
@@ -194,6 +203,8 @@ impl TableBuilder {
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, ThinColumn>,
     entities: Vec<Entity>,
+    has_inherited_components: bool,
+    pub(crate) inherited_components: HashMap<ComponentId, InheritedTableComponent>,
 }
 
 struct AbortOnPanic;
@@ -628,6 +639,14 @@ impl Table {
     /// Iterates over the [`ThinColumn`]s of the [`Table`].
     pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn> {
         self.columns.values()
+    }
+
+    /// Returns `true` if this table has components inherited from another table.
+    ///
+    /// Use [`crate::inheritance::InheritedComponents`] to get get the list of inherited components.
+    #[inline(always)]
+    pub fn has_inherited_components(&self) -> bool {
+        self.has_inherited_components
     }
 
     /// Clears all of the stored components in the [`Table`].

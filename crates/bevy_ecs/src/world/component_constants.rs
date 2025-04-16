@@ -14,6 +14,10 @@ pub const ON_REPLACE: ComponentId = ComponentId::new(2);
 pub const ON_REMOVE: ComponentId = ComponentId::new(3);
 /// [`ComponentId`] for [`OnDespawn`]
 pub const ON_DESPAWN: ComponentId = ComponentId::new(4);
+/// [`ComponentId`] for [`crate::inheritance::InheritFrom`]
+pub const INHERIT_FROM: ComponentId = ComponentId::new(5);
+/// [`ComponentId`] for [`crate::inheritance::Inherited`]
+pub const INHERITED: ComponentId = ComponentId::new(6);
 
 /// Trigger emitted when a component is inserted onto an entity that does not already have that
 /// component. Runs before `OnInsert`.
