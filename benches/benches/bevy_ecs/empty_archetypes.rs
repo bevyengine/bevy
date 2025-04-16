@@ -155,7 +155,7 @@ fn add_archetypes(world: &mut World, count: u16) {
 
 fn empty_archetypes(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("empty_archetypes");
-    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [10, 100, 1_000, 10_000] {
         let (mut world, mut schedule) = setup(true, |schedule| {
             schedule.add_systems(iter);
         });
@@ -186,7 +186,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             },
         );
     }
-    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [10, 100, 1_000, 10_000] {
         let (mut world, mut schedule) = setup(true, |schedule| {
             schedule.add_systems(for_each);
         });
@@ -217,7 +217,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             },
         );
     }
-    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [10, 100, 1_000, 10_000] {
         let (mut world, mut schedule) = setup(true, |schedule| {
             schedule.add_systems(par_for_each);
         });
