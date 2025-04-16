@@ -1,21 +1,21 @@
 use core::ops::Range;
 
-use crate::Mix;
+use bevy_math::Interpolate;
 
 /// Represents a range of colors that can be linearly interpolated, defined by a start and
 /// end point which must be in the same color space. It works for any color type that
-/// implements [`Mix`].
+/// implements [`bevy_math::Interpolate`] (which is all of them).
 ///
 /// This is useful for defining gradients or animated color transitions.
-pub trait ColorRange<T: Mix> {
+pub trait ColorRange<T: Interpolate> {
     /// Get the color value at the given interpolation factor, which should be between 0.0 (start)
     /// and 1.0 (end).
     fn at(&self, factor: f32) -> T;
 }
 
-impl<T: Mix> ColorRange<T> for Range<T> {
+impl<T: Interpolate> ColorRange<T> for Range<T> {
     fn at(&self, factor: f32) -> T {
-        self.start.mix(&self.end, factor.clamp(0.0, 1.0))
+        self.start.interp(&self.end, factor.clamp(0.0, 1.0))
     }
 }
 

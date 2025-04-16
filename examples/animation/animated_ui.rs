@@ -47,9 +47,9 @@ impl AnimationInfo {
         // Create a curve that animates font size.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(
+            PropertyCurve::new(
                 animated_field!(TextFont::font_size),
-                AnimatableKeyframeCurve::new(
+                KeyframeCurve::new(
                     [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
                         .into_iter()
                         .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
@@ -67,9 +67,9 @@ impl AnimationInfo {
         // that it is in the "srgba" format.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(
+            PropertyCurve::new(
                 TextColorProperty,
-                AnimatableKeyframeCurve::new([0.0, 1.0, 2.0, 3.0].into_iter().zip([
+                KeyframeCurve::new([0.0, 1.0, 2.0, 3.0].into_iter().zip([
                     Srgba::RED,
                     Srgba::GREEN,
                     Srgba::BLUE,

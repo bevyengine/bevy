@@ -312,7 +312,7 @@ use interval::InvalidIntervalError;
 use thiserror::Error;
 
 #[cfg(feature = "alloc")]
-use {crate::StableInterpolate, itertools::Itertools};
+use {crate::InterpolateStable, itertools::Itertools};
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -771,7 +771,7 @@ impl<C, T> CurveExt<T> for C where C: Curve<T> {}
 /// For more information, see the [module-level documentation].
 ///
 /// [curves]: Curve
-/// [stable interpolation]: crate::StableInterpolate
+/// [stable interpolation]: crate::InterpolateStable
 /// [module-level documentation]: self
 #[cfg(feature = "alloc")]
 pub trait CurveResampleExt<T>: Curve<T> {
@@ -826,10 +826,10 @@ pub trait CurveResampleExt<T>: Curve<T> {
     ///
     /// If `segments` is zero or if this curve has unbounded domain, a [`ResamplingError`] is returned.
     ///
-    /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    /// [automatic interpolation]: crate::common_traits::InterpolateStable
     fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
     where
-        T: StableInterpolate,
+        T: InterpolateStable,
     {
         let samples = self.samples(segments + 1)?.collect_vec();
         Ok(SampleAutoCurve {
@@ -901,13 +901,13 @@ pub trait CurveResampleExt<T>: Curve<T> {
     /// If `sample_times` doesn't contain at least two distinct times after filtering, a
     /// [`ResamplingError`] is returned.
     ///
-    /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    /// [automatic interpolation]: crate::common_traits::InterpolateStable
     fn resample_uneven_auto(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
     ) -> Result<UnevenSampleAutoCurve<T>, ResamplingError>
     where
-        T: StableInterpolate,
+        T: InterpolateStable,
     {
         let domain = self.domain();
         let mut times = sample_times

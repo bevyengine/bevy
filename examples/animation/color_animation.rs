@@ -1,20 +1,21 @@
 //! Demonstrates how to animate colors in different color spaces using mixing and splines.
 
-use bevy::{math::VectorSpace, prelude::*};
+use bevy::{
+    color::ColorCurve,
+    math::{Curve, Interpolate},
+    prelude::*,
+};
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using curves.
-trait CurveColor: VectorSpace + Into<Color> + Send + Sync + 'static {}
-impl<T: VectorSpace + Into<Color> + Send + Sync + 'static> CurveColor for T {}
+trait ColorSpace: Interpolate + Into<Color> + Clone + Send + Sync + 'static {}
 
-// We define this trait so we can reuse the same code for multiple color types that may be implemented using mixing.
-trait MixedColor: Mix + Into<Color> + Send + Sync + 'static {}
-impl<T: Mix + Into<Color> + Send + Sync + 'static> MixedColor for T {}
+impl<T: Interpolate + Into<Color> + Clone + Send + Sync + 'static> ColorSpace for T {}
 
-#[derive(Debug, Component)]
-struct Curve<T: CurveColor>(CubicCurve<T>);
+#[derive(Component)]
+struct ExampleCurve<T: ColorSpace>(ColorCurve<T>);
 
 #[derive(Debug, Component)]
-struct Mixed<T: MixedColor>([T; 4]);
+struct ExampleInterpolate<T: ColorSpace>([T; 4]);
 
 fn main() {
     App::new()
@@ -68,39 +69,39 @@ fn setup(mut commands: Commands) {
     spawn_mixed_sprite(&mut commands, -275., colors.map(Oklcha::from));
 }
 
-fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T; 4]) {
+fn spawn_curve_sprite<T: ColorSpace>(commands: &mut Commands, y: f32, points: [T; 4]) {
     commands.spawn((
         Sprite::sized(Vec2::new(75., 75.)),
         Transform::from_xyz(0., y, 0.),
-        Curve(CubicBezier::new([points]).to_curve().unwrap()),
+        ExampleCurve(ColorCurve::new(points).unwrap()),
     ));
 }
 
-fn spawn_mixed_sprite<T: MixedColor>(commands: &mut Commands, y: f32, colors: [T; 4]) {
+fn spawn_mixed_sprite<T: ColorSpace>(commands: &mut Commands, y: f32, colors: [T; 4]) {
     commands.spawn((
         Transform::from_xyz(0., y, 0.),
         Sprite::sized(Vec2::new(75., 75.)),
-        Mixed(colors),
+        ExampleInterpolate(colors),
     ));
 }
 
-fn animate_curve<T: CurveColor>(
+fn animate_curve<T: ColorSpace>(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut Sprite, &Curve<T>)>,
+    mut query: Query<(&mut Transform, &mut Sprite, &ExampleCurve<T>)>,
 ) {
     let t = (ops::sin(time.elapsed_secs()) + 1.) / 2.;
 
     for (mut transform, mut sprite, cubic_curve) in &mut query {
         // position takes a point from the curve where 0 is the initial point
         // and 1 is the last point
-        sprite.color = cubic_curve.0.position(t).into();
+        sprite.color = cubic_curve.0.sample(t * 3.).unwrap().into();
         transform.translation.x = 600. * (t - 0.5);
     }
 }
 
-fn animate_mixed<T: MixedColor>(
+fn animate_mixed<T: ColorSpace>(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut Sprite, &Mixed<T>)>,
+    mut query: Query<(&mut Transform, &mut Sprite, &ExampleInterpolate<T>)>,
 ) {
     let t = (ops::sin(time.elapsed_secs()) + 1.) / 2.;
 
@@ -116,7 +117,7 @@ fn animate_mixed<T: MixedColor>(
             // Lastly we determine the 'local' value of t in this interval.
             let local_t = (t * intervals) - start_i;
 
-            let color = mixed.0[start_i as usize].mix(&mixed.0[start_i as usize + 1], local_t);
+            let color = mixed.0[start_i as usize].interp(&mixed.0[start_i as usize + 1], local_t);
             color.into()
         };
         transform.translation.x = 600. * (t - 0.5);

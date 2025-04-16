@@ -26,7 +26,7 @@ use bevy::{
         bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
-    math::ops,
+    math::{ops, Interpolate},
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
@@ -126,8 +126,8 @@ fn setup(
     ));
 
     // Candle Flame
-    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 20.;
-    let scaled_orange = LinearRgba::from(ORANGE_RED) * 4.;
+    let scaled_white = LinearRgba::from(ANTIQUE_WHITE).scale_by(20.0);
+    let scaled_orange = LinearRgba::from(ORANGE_RED).scale_by(4.0);
     let emissive = LinearRgba {
         red: scaled_white.red + scaled_orange.red,
         green: scaled_white.green + scaled_orange.green,
@@ -289,7 +289,7 @@ fn setup(
         Transform::from_xyz(-1.0, 1.7, 0.0),
         PointLight {
             color: Color::from(
-                LinearRgba::from(ANTIQUE_WHITE).mix(&LinearRgba::from(ORANGE_RED), 0.2),
+                LinearRgba::from(ANTIQUE_WHITE).interp(&LinearRgba::from(ORANGE_RED), 0.2),
             ),
             intensity: 4_000.0,
             radius: 0.2,

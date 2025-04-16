@@ -363,13 +363,13 @@ fn setup(
         interior: materials.add(StandardMaterial {
             base_color: Color::BLACK,
             reflectance: 0.05,
-            emissive: 2.5 * INSIDE_POINT_COLOR,
+            emissive: INSIDE_POINT_COLOR.scale_by(2.5),
             ..default()
         }),
         boundary: materials.add(StandardMaterial {
             base_color: Color::BLACK,
             reflectance: 0.05,
-            emissive: 1.5 * BOUNDARY_POINT_COLOR,
+            emissive: BOUNDARY_POINT_COLOR.scale_by(1.5),
             ..default()
         }),
     });

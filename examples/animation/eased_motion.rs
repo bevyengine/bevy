@@ -129,11 +129,11 @@ impl AnimationInfo {
 
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(animated_field!(Transform::translation), translation_curve),
+            PropertyCurve::new(animated_field!(Transform::translation), translation_curve),
         );
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(animated_field!(Transform::rotation), rotation_curve),
+            PropertyCurve::new(animated_field!(Transform::rotation), rotation_curve),
         );
 
         // Save our animation clip as an asset.

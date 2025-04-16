@@ -1,8 +1,8 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, LinearRgba,
-    Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, LinearRgba, Luminance, Oklaba, Srgba,
+    StandardColor, Xyza,
 };
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{curve::InterpolateCurve, ops, Interpolate, InterpolateStable, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -34,8 +34,6 @@ pub struct Laba {
 }
 
 impl StandardColor for Laba {}
-
-impl_componentwise_vector_space!(Laba, [lightness, a, b, alpha]);
 
 impl Laba {
     /// Construct a new [`Laba`] color from components.
@@ -93,9 +91,9 @@ impl Default for Laba {
     }
 }
 
-impl Mix for Laba {
+impl Interpolate for Laba {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             lightness: self.lightness * n_factor + other.lightness * factor,
@@ -105,6 +103,9 @@ impl Mix for Laba {
         }
     }
 }
+
+impl InterpolateStable for Laba {}
+impl InterpolateCurve for Laba {}
 
 impl Gray for Laba {
     const BLACK: Self = Self::new(0., 0., 0., 1.);
