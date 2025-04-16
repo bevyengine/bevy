@@ -75,10 +75,16 @@ struct MyExtension {
     // so we start from binding slot 100, leaving slots 0-99 for the base material.
     #[uniform(100)]
     quantize_steps: u32,
-
     // Web examples WebGL2 support: structs must be 16 byte aligned.
+    #[cfg(feature = "webgl2")]
     #[uniform(100)]
-    _webgl2_padding: Vec3,
+    _webgl2_padding_8b: u32,
+    #[cfg(feature = "webgl2")]
+    #[uniform(100)]
+    _webgl2_padding_12b: u32,
+    #[cfg(feature = "webgl2")]
+    #[uniform(100)]
+    _webgl2_padding_16b: u32,
 }
 impl MyExtension {
     fn new(quantize_steps: u32) -> Self {
