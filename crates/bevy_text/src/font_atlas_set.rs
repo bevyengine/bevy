@@ -53,9 +53,8 @@ pub struct FontAtlasKey(pub u32, pub FontSmoothing);
 ///
 /// Provides the interface for adding and retrieving rasterized glyphs, and manages the [`FontAtlas`]es.
 ///
-/// There is one `FontAtlasSet` for each font.
-/// `FontAtlasSet`s are created and updated during text updates by the [`queue_text`](crate::pipeline::TextPipeline::queue_text) function
-///  and then stored in the [`FontAtlasSets`] resource.
+/// There is at most one `FontAtlasSet` for each font, stored in the `FontAtlasSets` resource.
+/// `FontAtlasSet`s are added and updated by the [`queue_text`](crate::pipeline::TextPipeline::queue_text) function.
 ///
 /// A `FontAtlasSet` contains one or more [`FontAtlas`]es for each font size.
 #[derive(Debug, TypePath)]
