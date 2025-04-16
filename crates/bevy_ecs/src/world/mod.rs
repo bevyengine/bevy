@@ -14,7 +14,7 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::inheritance::{Inherited, InheritedComponents};
+use crate::inheritance::{Inherited, InheritedComponents, MutInherited};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -1293,7 +1293,7 @@ impl World {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<T>> {
+    ) -> Option<MutInherited<T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
     }
 
@@ -2958,37 +2958,63 @@ impl World {
     }
 
     pub(crate) fn flush_inherited_mut(&mut self) {
-        for ((component_id, table_id), mut data) in self
+        for (component_id, entities, mut data) in self
             .inherited_components
             .shared_table_components
             .get_mut()
             .drain()
             .collect::<Vec<_>>()
+            .into_iter()
+            .map(|((component_id, table_id), mut data)| {
+                (
+                    component_id,
+                    data.component_ptrs
+                        .get_mut()
+                        .keys()
+                        .map(|table_row| self.storages().tables[table_id].entities()[*table_row])
+                        .collect::<Vec<_>>(),
+                    data,
+                )
+            })
+            .collect::<Vec<_>>()
         {
             unsafe {
-                for (table_row, component_ptr) in data.component_ptrs.get_mut() {
-                    let entity =
-                        self.storages().tables.get(table_id).unwrap().entities()[*table_row];
+                for (component_ptr, entity) in data.component_ptrs.get_mut().values().zip(entities)
+                {
                     self.entity_mut(entity)
                         .insert_by_id(component_id, OwningPtr::new(*component_ptr));
                 }
             }
         }
-        for ((component_id, archetype_id), mut data) in self
+        for (component_id, entities, mut data) in self
             .inherited_components
             .shared_sparse_components
             .get_mut()
             .drain()
             .collect::<Vec<_>>()
+            .into_iter()
+            .map(|((component_id, archetype_id), mut data)| {
+                (
+                    component_id,
+                    data.component_ptrs
+                        .get_mut()
+                        .keys()
+                        .map(|table_row| {
+                            self.storages
+                                .tables
+                                .get(self.archetypes().get(archetype_id).unwrap().table_id())
+                                .unwrap()
+                                .entities()[*table_row]
+                        })
+                        .collect::<Vec<_>>(),
+                    data,
+                )
+            })
+            .collect::<Vec<_>>()
         {
             unsafe {
-                for (entity, component_ptr) in data.component_ptrs.get_mut() {
-                    let entity = self
-                        .storages
-                        .tables
-                        .get(self.archetypes().get(archetype_id).unwrap().table_id())
-                        .unwrap()
-                        .entities()[*entity];
+                for (component_ptr, entity) in data.component_ptrs.get_mut().values().zip(entities)
+                {
                     self.entity_mut(entity)
                         .insert_by_id(component_id, OwningPtr::new(*component_ptr));
                 }

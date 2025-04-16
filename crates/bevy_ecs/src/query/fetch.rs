@@ -1993,7 +1993,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     ) -> Self::Item<'w> {
         MutInherited {
             shared_data: fetch.shared_component_data,
-            table_id_or_entity: table_row.as_usize(),
+            table_row: table_row.as_usize(),
             is_inherited,
             original_data: fetch.components.extract(
                 |table| {

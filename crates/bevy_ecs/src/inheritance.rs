@@ -20,7 +20,7 @@ use core::{
 };
 use std::boxed::Box;
 
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{OwningPtr, PtrMut};
 
 use crate::change_detection::TicksMut;
 use crate::query::DebugCheckedUnwrap;
@@ -193,6 +193,9 @@ pub(crate) struct SharedMutComponentData {
 }
 
 unsafe impl Send for SharedMutComponentData {}
+// SharedMutComponentData is NOT actually Sync, we need either a mutex or a concurrent hashmap + bumpalo-herd here.
+// But this shouldn't affect performance too much since this only matters whenever an inherited mutable component
+// is encountered.
 unsafe impl Sync for SharedMutComponentData {}
 
 impl SharedMutComponentData {
@@ -220,7 +223,7 @@ pub struct MutInherited<'w, T> {
     pub(crate) original_data: Mut<'w, T>,
     pub(crate) is_inherited: bool,
     pub(crate) shared_data: Option<&'w SharedMutComponentData>,
-    pub(crate) table_id_or_entity: usize,
+    pub(crate) table_row: usize,
 }
 
 impl<'w, T> MutInherited<'w, T> {
@@ -238,6 +241,13 @@ impl<'w, T> Deref for MutInherited<'w, T> {
     }
 }
 
+impl<'w, T> AsMut<T> for MutInherited<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        self.deref_mut()
+    }
+}
+
 impl<'w, T> DerefMut for MutInherited<'w, T> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -245,7 +255,7 @@ impl<'w, T> DerefMut for MutInherited<'w, T> {
             unsafe {
                 self.shared_data
                     .debug_checked_unwrap()
-                    .get_or_clone::<T>(self.original_data.value, self.table_id_or_entity)
+                    .get_or_clone::<T>(self.original_data.value, self.table_row)
             }
         } else {
             self.original_data.deref_mut()
@@ -307,6 +317,7 @@ pub struct InheritedComponents {
     /// Must be kept synchronized with `entities_to_ids`
     pub(crate) ids_to_entities: HashMap<ComponentId, Entity>,
 
+    /// These need proper multithreading support.
     pub(crate) shared_table_components:
         UnsafeCell<HashMap<(ComponentId, TableId), SharedMutComponentData>>,
     pub(crate) shared_sparse_components:
@@ -719,27 +730,6 @@ mod tests {
     }
 
     #[test]
-    fn skip_inherited_if_mutable() {
-        let mut world = World::new();
-
-        #[derive(Component, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
-        struct CompA(i32);
-
-        let component = CompA(6);
-        let component_id = world.register_component::<CompA>();
-
-        let base = world.spawn(component).id();
-        let inherited = world.spawn(InheritFrom(base)).id();
-
-        assert!(world.get_mut::<CompA>(inherited).is_none());
-        assert!(world.get_mut_by_id(inherited, component_id).is_none());
-
-        let mut query = world.query::<&mut CompA>();
-        assert!(query.get(&world, inherited).is_err());
-        assert_eq!(query.iter(&world).len(), 1);
-    }
-
-    #[test]
     fn inherited_components_circular() {
         let mut world = World::new();
 
@@ -854,7 +844,6 @@ mod tests {
     }
 
     #[test]
-    // #[ignore = "Mutable inherited components support is not yet implemented"]
     fn inherited_mutable() {
         let mut world = World::new();
 
@@ -864,17 +853,21 @@ mod tests {
         let component = CompA(6);
 
         let base = world.spawn(component).id();
-        let inherited = world.spawn(InheritFrom(base)).id();
+        let inherited1 = world.spawn(InheritFrom(base)).id();
+        let inherited2 = world.spawn(InheritFrom(base)).id();
 
         // let mut comp = world.get_mut::<CompA>(inherited).unwrap();
         let mut comp = world
             .query::<&mut CompA>()
-            .get_mut(&mut world, inherited)
+            .get_mut(&mut world, inherited1)
             .unwrap();
         comp.0 = 4;
+        let mut entity2 = world.get_entity_mut(inherited2).unwrap();
+        let mut comp2 = entity2.get_mut::<CompA>().unwrap();
+        comp2.0 = 1;
         world.flush();
 
         let mut query = world.query::<&CompA>();
-        assert_eq!(query.iter(&world).map(|c| c.0).sum::<i32>(), 10);
+        assert_eq!(query.iter(&world).map(|c| c.0).sum::<i32>(), 11);
     }
 }

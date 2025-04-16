@@ -7,7 +7,9 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
-    inheritance::{InheritedArchetypeComponent, InheritedComponents},
+    inheritance::{
+        InheritedArchetypeComponent, InheritedComponents, MutInherited, SharedMutComponentData,
+    },
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -833,7 +835,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.location,
                 true,
             )
-            .map(|(value, cells, caller)| Ref {
+            .map(|(value, cells, caller, _, _)| Ref {
                 // SAFETY: returned component is of type T
                 value: value.deref::<T>(),
                 ticks: Ticks::from_tick_cells(cells, last_change_tick, change_tick),
@@ -904,7 +906,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+    pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutInherited<'w, T>> {
         // SAFETY:
         // - trait bound `T: Component<Mutability = Mutable>` ensures component is mutable
         // - same safety requirements
@@ -917,7 +919,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other references to the component exist at the same time
     /// - the component `T` is mutable
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<MutInherited<'w, T>> {
         // SAFETY: same safety requirements
         unsafe {
             self.get_mut_using_ticks_assume_mutable(
@@ -937,7 +939,7 @@ impl<'w> UnsafeEntityCell<'w> {
         &self,
         last_change_tick: Tick,
         change_tick: Tick,
-    ) -> Option<Mut<'w, T>> {
+    ) -> Option<MutInherited<'w, T>> {
         self.world.assert_allows_mutable_access();
 
         let component_id = self.world.components().get_id(TypeId::of::<T>())?;
@@ -953,14 +955,21 @@ impl<'w> UnsafeEntityCell<'w> {
                 T::STORAGE_TYPE,
                 self.entity,
                 self.location,
-                false,
+                true,
             )
-            .map(|(value, cells, caller)| Mut {
-                // SAFETY: returned component is of type T
-                value: value.assert_unique().deref_mut::<T>(),
-                ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
-                changed_by: caller.map(|caller| caller.deref_mut()),
-            })
+            .map(
+                |(value, cells, caller, is_inherited, shared_data)| MutInherited {
+                    original_data: Mut {
+                        // SAFETY: returned component is of type T
+                        value: value.assert_unique().deref_mut::<T>(),
+                        ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+                        changed_by: caller.map(|caller| caller.deref_mut()),
+                    },
+                    is_inherited,
+                    table_row: self.location.table_row.as_usize(),
+                    shared_data,
+                },
+            )
         }
     }
 
@@ -1080,7 +1089,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.location,
                 false,
             )
-            .map(|(value, cells, caller)| MutUntyped {
+            .map(|(value, cells, caller, _, _)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                 value: value.assert_unique(),
                 ticks: TicksMut::from_tick_cells(
@@ -1129,7 +1138,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.location,
                 false,
             )
-            .map(|(value, cells, caller)| MutUntyped {
+            .map(|(value, cells, caller, _, _)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                 value: value.assert_unique(),
                 ticks: TicksMut::from_tick_cells(
@@ -1260,6 +1269,8 @@ unsafe fn get_component_and_ticks(
     Ptr<'_>,
     TickCells<'_>,
     MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
+    bool,
+    Option<&SharedMutComponentData>,
 )> {
     match storage_type {
         StorageType::Table => {
@@ -1287,6 +1298,7 @@ unsafe fn get_component_and_ticks(
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),
     }
+    .map(|(a, b, c)| (a, b, c, false, None))
     .or_else(|| {
         if !include_inherited {
             return None;
@@ -1298,6 +1310,7 @@ unsafe fn get_component_and_ticks(
                 table_row,
                 ..
             } => {
+                let original_table_id = location.table_id;
                 // This is fine since archetype-related fields aren't used by later code
                 let location = EntityLocation {
                     table_id,
@@ -1321,12 +1334,57 @@ unsafe fn get_component_and_ticks(
                             table
                                 .get_changed_by(component_id, location.table_row)
                                 .map(|changed_by| changed_by.debug_checked_unwrap()),
+                            true,
+                            Some(
+                                &*world
+                                    .inherited_components()
+                                    .shared_table_components
+                                    .get()
+                                    .as_mut()
+                                    .debug_checked_unwrap()
+                                    .entry((component_id, original_table_id))
+                                    .or_insert_with(|| SharedMutComponentData {
+                                        component_ptrs: Default::default(),
+                                        bump: Default::default(),
+                                        component_info: world
+                                            .components()
+                                            .get_info(component_id)
+                                            .unwrap()
+                                            .clone(),
+                                    }),
+                            ),
                         )
                     })
             }
-            &InheritedArchetypeComponent::Sparse { entity, .. } => {
-                world.fetch_sparse_set(component_id)?.get_with_ticks(entity)
-            }
+            InheritedArchetypeComponent::Sparse { entity, .. } => world
+                .fetch_sparse_set(component_id)?
+                .get_with_ticks(*entity)
+                .map(|(a, b, c)| {
+                    (
+                        a,
+                        b,
+                        c,
+                        true,
+                        Some(
+                            &*world
+                                .inherited_components()
+                                .shared_sparse_components
+                                .get()
+                                .as_mut()
+                                .debug_checked_unwrap()
+                                .entry((component_id, archetype.id()))
+                                .or_insert_with(|| SharedMutComponentData {
+                                    component_ptrs: Default::default(),
+                                    bump: Default::default(),
+                                    component_info: world
+                                        .components()
+                                        .get_info(component_id)
+                                        .unwrap()
+                                        .clone(),
+                                }),
+                        ),
+                    )
+                }),
         }
     })
 }
