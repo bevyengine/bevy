@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [features]
-default = ["std", "smallvec", "debug"]
+default = ["std", "smallvec", "debug", "auto_register_inventory"]
 
 # Features
 
