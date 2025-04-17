@@ -8,7 +8,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut, component::Component, event::EventReader,
     reflect::ReflectComponent, system::Query,
 };
-use bevy_platform_support::{collections::HashSet, hash::FixedHasher};
+use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;

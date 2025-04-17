@@ -763,7 +763,7 @@ pub mod __macro_exports {
 
             #[cfg(target_family = "wasm")]
             mod wasm_support {
-                use bevy_platform_support::sync::atomic::{AtomicBool, Ordering};
+                use bevy_platform::sync::atomic::{AtomicBool, Ordering};
 
                 static INIT_DONE: AtomicBool = AtomicBool::new(false);
 
@@ -797,7 +797,7 @@ pub mod __macro_exports {
         mod __automatic_type_registration_impl {
             use super::*;
             use alloc::vec::Vec;
-            use bevy_platform_support::sync::Mutex;
+            use bevy_platform::sync::Mutex;
 
             static REGISTRATION_FNS: Mutex<Vec<fn(&mut TypeRegistry)>> = Mutex::new(Vec::new());
 
@@ -853,7 +853,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use core::{
         any::TypeId,
         fmt::{Debug, Formatter},

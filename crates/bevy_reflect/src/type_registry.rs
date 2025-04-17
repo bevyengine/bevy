@@ -1,6 +1,6 @@
 use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
 use alloc::{boxed::Box, string::String};
-use bevy_platform_support::{
+use bevy_platform::{
     collections::{HashMap, HashSet},
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
@@ -288,7 +288,7 @@ impl TypeRegistry {
         type_id: TypeId,
         get_registration: impl FnOnce() -> TypeRegistration,
     ) -> bool {
-        use bevy_platform_support::collections::hash_map::Entry;
+        use bevy_platform::collections::hash_map::Entry;
 
         match self.registrations.entry(type_id) {
             Entry::Occupied(_) => false,
