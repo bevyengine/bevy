@@ -499,7 +499,152 @@ pub fn validate_parent_has_component<C: Component>(
 #[macro_export]
 macro_rules! children {
     [$($child:expr),*$(,)?] => {
-       $crate::hierarchy::Children::spawn(($($crate::spawn::Spawn($child)),*))
+       $crate::hierarchy::Children::spawn($crate::recursive_spawn!($($child),*))
+    };
+}
+
+// A tail-recursive spawn utility.
+//
+// Since `SpawnableList` is only implemented for tuples
+// up to twelve elements long, this macro will nest
+// longer sequences recursively. By default, this recursion
+// will top out at around 1400 elements, but it would be
+// ill-advised to spawn that many entities with this method.
+//
+// For spawning large batches of entities at a time,
+// consider `SpawnIter` or eagerly spawning with `Commands`.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! recursive_spawn {
+    // direct expansion
+    ($a:expr) => {
+        $crate::spawn::Spawn($a)
+    };
+    ($a:expr, $b:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr, $j:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+            $crate::spawn::Spawn($j),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr, $j:expr, $k:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+            $crate::spawn::Spawn($j),
+            $crate::spawn::Spawn($k),
+        )
+    };
+
+    // recursive expansion
+    (
+        $a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr,
+        $g:expr, $h:expr, $i:expr, $j:expr, $k:expr, $($rest:expr),*
+    ) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+            $crate::spawn::Spawn($j),
+            $crate::spawn::Spawn($k),
+            $crate::recursive_spawn!($($rest),*)
+        )
     };
 }
 
@@ -717,6 +862,39 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
         assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
+    }
+
+    #[test]
+    fn spawn_many_children() {
+        let mut world = World::new();
+
+        // 12 children should result in a flat tuple
+        let id = world
+            .spawn(children![(), (), (), (), (), (), (), (), (), (), (), ()])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 12,);
+
+        // 13 will start nesting, but should nonetheless produce a flat hierarchy
+        let id = world
+            .spawn(children![
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+            ])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 13,);
     }
 
     #[test]
