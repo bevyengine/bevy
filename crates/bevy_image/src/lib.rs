@@ -10,11 +10,20 @@ pub mod prelude {
     };
 }
 
+#[cfg(all(
+    feature = "zstd",
+    not(feature = "zstd_rust"),
+    not(feature = "zstd_native")
+))]
+compile_error!(
+    "There's a Bevy feature requiring zstd decompression support but no zstd backend is selected. Enable the \"zstd_rust\" or \"zstd_native\" feature."
+);
+
 mod image;
 pub use self::image::*;
 #[cfg(feature = "basis-universal")]
 mod basis;
-#[cfg(feature = "basis-universal")]
+#[cfg(feature = "compressed_image_saver")]
 mod compressed_image_saver;
 #[cfg(feature = "dds")]
 mod dds;
@@ -26,10 +35,12 @@ mod hdr_texture_loader;
 mod image_loader;
 #[cfg(feature = "ktx2")]
 mod ktx2;
+#[cfg(all(feature = "ktx2", feature = "basis-universal"))]
+mod ktx2_using_basisu;
 mod texture_atlas;
 mod texture_atlas_builder;
 
-#[cfg(feature = "basis-universal")]
+#[cfg(feature = "compressed_image_saver")]
 pub use compressed_image_saver::*;
 #[cfg(feature = "dds")]
 pub use dds::*;
@@ -41,6 +52,8 @@ pub use hdr_texture_loader::*;
 pub use image_loader::*;
 #[cfg(feature = "ktx2")]
 pub use ktx2::*;
+#[cfg(all(feature = "ktx2", feature = "basis-universal"))]
+pub use ktx2_using_basisu::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
