@@ -416,7 +416,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[Automatic types registartion](../examples/reflection/auto_register_static/src/lib.rs) | Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support
+[Automatic types registration](../examples/reflection/auto_register_static/src/lib.rs) | Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support
 [Custom Attributes](../examples/reflection/custom_attributes.rs) | Registering and accessing custom attributes on reflected types
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
 [Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection

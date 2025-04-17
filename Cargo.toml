@@ -2679,7 +2679,7 @@ path = "examples/reflection/auto_register_static/src/lib.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.auto_register_static]
-name = "Automatic types registartion"
+name = "Automatic types registration"
 description = "Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support"
 category = "Reflection"
 wasm = false
