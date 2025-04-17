@@ -1278,18 +1278,23 @@ fn get_component_ids(
     let mut component_ids = vec![];
 
     for component_path in component_paths {
-        let type_id = get_component_type_registration(type_registry, &component_path)?.type_id();
-        let Some(component_id) = world.components().get_id(type_id) else {
-            if strict {
-                return Err(anyhow!(
-                    "Component `{}` isn't used in the world",
-                    component_path
-                ));
-            }
-            continue;
-        };
-
-        component_ids.push((type_id, component_id));
+        let maybe_component_tuple = get_component_type_registration(type_registry, &component_path)
+            .ok()
+            .and_then(|type_registration| {
+                let type_id = type_registration.type_id();
+                world
+                    .components()
+                    .get_id(type_id)
+                    .map(|component_id| (type_id, component_id))
+            });
+        if let Some((type_id, component_id)) = maybe_component_tuple {
+            component_ids.push((type_id, component_id));
+        } else if strict {
+            return Err(anyhow!(
+                "Component `{}` isn't registered or used in the world",
+                component_path
+            ));
+        } // Skip the component if not found and not strict.
     }
 
     Ok(component_ids)
