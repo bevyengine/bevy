@@ -1,12 +1,11 @@
-#![allow(warnings)]
+//! Shows a tilemap chunk rendered with a single draw call.
 
 use bevy::{
+    asset::RenderAssetUsages,
     prelude::*,
-    sprite::{TilemapChunk, TilemapChunkIndices, TilemapChunkMaterial},
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    sprite::{TilemapChunk, TilemapChunkIndices},
 };
-use bevy_asset::RenderAssetUsages;
-use bevy_image::ImageSampler;
-use bevy_render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -17,14 +16,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<TilemapChunkMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-) {
+fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let chunk_size = UVec2::splat(64);
     let tile_size = UVec2::splat(16);
