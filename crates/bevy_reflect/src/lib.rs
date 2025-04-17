@@ -753,7 +753,7 @@ pub mod __macro_exports {
             /// Registers all collected types.
             pub fn register_types(registry: &mut TypeRegistry) {
                 #[cfg(target_family = "wasm")]
-                crate::__macro_exports::wasm_support::init();
+                wasm_support::init();
                 for registration_fn in inventory::iter::<AutomaticReflectRegistrations> {
                     registration_fn.0(registry);
                 }
