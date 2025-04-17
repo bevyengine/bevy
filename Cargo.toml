@@ -2675,7 +2675,7 @@ wasm = false
 
 [[example]]
 name = "auto_register_static"
-path = "examples/reflection/auto_register_static/src/main.rs"
+path = "examples/reflection/auto_register_static/src/lib.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.auto_register_static]
