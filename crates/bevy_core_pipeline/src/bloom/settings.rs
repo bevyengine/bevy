@@ -227,10 +227,9 @@ impl ExtractComponent for Bloom {
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
             camera.physical_target_size(),
-            camera.is_active,
             camera.hdr,
         ) {
-            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true)
+            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true)
                 if size.x != 0 && size.y != 0 =>
             {
                 let threshold = bloom.prefilter.threshold;

@@ -614,17 +614,13 @@ pub fn extract_core_3d_camera_phases(
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(Entity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(Entity, Has<NoIndirectDrawing>), With<Camera3d>>>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     live_entities.clear();
 
-    for (main_entity, camera, no_indirect_drawing) in &cameras_3d {
-        if !camera.is_active {
-            continue;
-        }
-
+    for (main_entity, no_indirect_drawing) in &cameras_3d {
         // If GPU culling is in use, use it (and indirect mode); otherwise, just
         // preprocess the meshes.
         let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {
@@ -663,7 +659,6 @@ pub fn extract_camera_prepass_phase(
             (
                 Entity,
                 RenderEntity,
-                &Camera,
                 Has<NoIndirectDrawing>,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
@@ -681,7 +676,6 @@ pub fn extract_camera_prepass_phase(
     for (
         main_entity,
         entity,
-        camera,
         no_indirect_drawing,
         depth_prepass,
         normal_prepass,
@@ -689,10 +683,6 @@ pub fn extract_camera_prepass_phase(
         deferred_prepass,
     ) in cameras_3d.iter()
     {
-        if !camera.is_active {
-            continue;
-        }
-
         // If GPU culling is in use, use it (and indirect mode); otherwise, just
         // preprocess the meshes.
         let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {

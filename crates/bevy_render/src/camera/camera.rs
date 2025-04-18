@@ -24,6 +24,7 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::{Component, HookContext},
     entity::{ContainsEntity, Entity},
+    entity_disabling::Disabled,
     event::EventReader,
     prelude::With,
     query::Has,
@@ -348,9 +349,6 @@ pub struct Camera {
     pub viewport: Option<Viewport>,
     /// Cameras with a higher order are rendered later, and thus on top of lower order cameras.
     pub order: isize,
-    /// If this is set to `true`, this camera will be rendered to its specified [`RenderTarget`]. If `false`, this
-    /// camera will not be rendered.
-    pub is_active: bool,
     /// Computed values for this camera, such as the projection matrix and the render target size.
     #[reflect(ignore, clone)]
     pub computed: ComputedCameraValues,
@@ -383,7 +381,6 @@ fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .
 impl Default for Camera {
     fn default() -> Self {
         Self {
-            is_active: true,
             order: 0,
             viewport: None,
             computed: Default::default(),
@@ -1096,6 +1093,7 @@ pub fn extract_cameras(
         Query<(
             Entity,
             RenderEntity,
+            Has<Disabled>,
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
@@ -1117,6 +1115,7 @@ pub fn extract_cameras(
     for (
         main_entity,
         render_entity,
+        disabled,
         camera,
         camera_render_graph,
         transform,
@@ -1130,7 +1129,7 @@ pub fn extract_cameras(
         no_indirect_drawing,
     ) in query.iter()
     {
-        if !camera.is_active {
+        if disabled {
             commands.entity(render_entity).remove::<(
                 ExtractedCamera,
                 ExtractedView,

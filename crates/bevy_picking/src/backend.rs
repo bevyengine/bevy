@@ -202,10 +202,6 @@ pub mod ray {
             ray_map.map.clear();
 
             for (camera_entity, camera, camera_tfm) in &cameras {
-                if !camera.is_active {
-                    continue;
-                }
-
                 for (&pointer_id, pointer_loc) in &pointers {
                     if let Some(ray) =
                         make_ray(&primary_window_entity, camera, camera_tfm, pointer_loc)

@@ -7,6 +7,7 @@ use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
+    entity_disabling::Disabled,
     prelude::{Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
@@ -20,7 +21,6 @@ use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
-    prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{
@@ -510,12 +510,17 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
+            (
+                RenderEntity,
+                Has<Disabled>,
+                &ScreenSpaceAmbientOcclusion,
+                &Msaa,
+            ),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
 ) {
-    for (entity, camera, ssao_settings, msaa) in &cameras {
+    for (entity, disabled, ssao_settings, msaa) in &cameras {
         if *msaa != Msaa::Off {
             error!(
                 "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
@@ -526,7 +531,7 @@ fn extract_ssao_settings(
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("SSAO entity wasn't synced.");
-        if camera.is_active {
+        if !disabled {
             entity_commands.insert(ssao_settings.clone());
         } else {
             entity_commands.remove::<ScreenSpaceAmbientOcclusion>();

@@ -308,7 +308,7 @@ pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &m
 
 pub fn build_directional_light_cascades(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    views: Query<(Entity, &GlobalTransform, &Projection, &Camera)>,
+    views: Query<(Entity, &GlobalTransform, &Projection)>,
     mut lights: Query<(
         &GlobalTransform,
         &DirectionalLight,
@@ -318,13 +318,7 @@ pub fn build_directional_light_cascades(
 ) {
     let views = views
         .iter()
-        .filter_map(|(entity, transform, projection, camera)| {
-            if camera.is_active {
-                Some((entity, projection, transform.compute_matrix()))
-            } else {
-                None
-            }
-        })
+        .map(|(entity, transform, projection)| (entity, projection, transform.compute_matrix()))
         .collect::<Vec<_>>();
 
     for (transform, directional_light, cascades_config, mut cascades) in &mut lights {

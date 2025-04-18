@@ -126,10 +126,7 @@ fn sprite_picking(
         let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho), _)) =
             cameras
                 .iter()
-                .filter(|(_, camera, _, _, cam_can_pick)| {
-                    let marker_requirement = !settings.require_markers || *cam_can_pick;
-                    camera.is_active && marker_requirement
-                })
+                .filter(|(_, _, _, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
                 .find(|(_, camera, _, _, _)| {
                     camera
                         .target

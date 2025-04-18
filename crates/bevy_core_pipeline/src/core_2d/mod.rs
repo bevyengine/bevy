@@ -48,7 +48,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -423,16 +423,12 @@ pub fn extract_core_2d_camera_phases(
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_2d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    cameras_2d: Extract<Query<Entity, With<Camera2d>>>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
 
-    for (main_entity, camera) in &cameras_2d {
-        if !camera.is_active {
-            continue;
-        }
-
+    for main_entity in &cameras_2d {
         // This is the main 2D camera, so we use the first subview index (0).
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 

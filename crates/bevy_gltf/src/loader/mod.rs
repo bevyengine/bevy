@@ -16,6 +16,7 @@ use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
+    entity_disabling::Disabled,
     hierarchy::ChildSpawner,
     name::Name,
     world::World,
@@ -37,7 +38,7 @@ use bevy_pbr::{
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
-    camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
+    camera::{OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     mesh::Mesh3d,
     primitives::Aabb,
     render_resource::Face,
@@ -1346,15 +1347,10 @@ fn load_node(
                     Projection::Perspective(perspective_projection)
                 }
             };
-            node.insert((
-                Camera3d::default(),
-                projection,
-                transform,
-                Camera {
-                    is_active: !*active_camera_found,
-                    ..Default::default()
-                },
-            ));
+            node.insert((Camera3d::default(), projection, transform));
+            if *active_camera_found {
+                node.insert(Disabled);
+            }
 
             *active_camera_found = true;
         }
