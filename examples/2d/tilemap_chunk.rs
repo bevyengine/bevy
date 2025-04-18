@@ -1,9 +1,8 @@
 //! Shows a tilemap chunk rendered with a single draw call.
 
 use bevy::{
-    asset::RenderAssetUsages,
+    dev_tools::fps_overlay::FpsOverlayPlugin,
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite::{TilemapChunk, TilemapChunkIndices},
 };
 use rand::{Rng, SeedableRng};
@@ -11,16 +10,59 @@ use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins((
+            DefaultPlugins.set(ImagePlugin::default_nearest()),
+            FpsOverlayPlugin::default(),
+        ))
         .add_systems(Startup, setup)
+        .add_systems(Update, (spawn_tilemap, update_tilemap))
         .run();
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+#[derive(Resource)]
+struct LoadingTileset {
+    is_loaded: bool,
+    handle: Handle<Image>,
+}
+
+#[derive(Component, Deref, DerefMut)]
+struct UpdateTimer(Timer);
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(LoadingTileset {
+        is_loaded: false,
+        handle: asset_server.load("textures/array_texture.png"),
+    });
+
+    commands.spawn((
+        Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            scale: 20.0,
+            ..OrthographicProjection::default_2d()
+        }),
+    ));
+}
+
+fn spawn_tilemap(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut loading_tileset: ResMut<LoadingTileset>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    if loading_tileset.is_loaded
+        || !asset_server
+            .load_state(loading_tileset.handle.id())
+            .is_loaded()
+    {
+        return;
+    }
+    loading_tileset.is_loaded = true;
+    let image = images.get_mut(&loading_tileset.handle).unwrap();
+    image.reinterpret_stacked_2d_as_array(4);
+
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let chunk_size = UVec2::splat(64);
-    let tile_size = UVec2::splat(16);
-    let tileset: Handle<Image> = images.add(create_test_tileset(tile_size));
+    let tile_size = UVec2::splat(250);
     let indices: Vec<Option<u32>> = (0..chunk_size.x * chunk_size.y)
         .map(|_| rng.gen_range(0..5))
         .map(|i| if i == 0 { None } else { Some(i - 1) })
@@ -30,41 +72,23 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         TilemapChunk {
             chunk_size,
             tile_size,
-            tileset,
+            tileset: loading_tileset.handle.clone(),
         },
         TilemapChunkIndices(indices),
+        UpdateTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
-
-    commands.spawn(Camera2d);
 }
 
-fn create_test_tileset(tile_size: UVec2) -> Image {
-    let num_tiles = 4u32;
-    let mut data = Vec::new();
+fn update_tilemap(time: Res<Time>, mut query: Query<(&mut TilemapChunkIndices, &mut UpdateTimer)>) {
+    for (mut indices, mut timer) in query.iter_mut() {
+        timer.tick(time.delta());
 
-    let colors = [
-        [255, 0, 0, 255],
-        [0, 255, 0, 255],
-        [0, 0, 255, 255],
-        [255, 255, 0, 255],
-    ];
-
-    for tile_idx in 0..num_tiles {
-        let color = colors[tile_idx as usize];
-        for _ in 0..tile_size.element_product() {
-            data.extend_from_slice(&color);
+        if timer.just_finished() {
+            let mut rng = ChaCha8Rng::from_entropy();
+            for _ in 0..50 {
+                let index = rng.gen_range(0..indices.len());
+                indices[index] = Some(rng.gen_range(0..5));
+            }
         }
     }
-
-    Image::new(
-        Extent3d {
-            width: tile_size.x,
-            height: tile_size.y,
-            depth_or_array_layers: num_tiles,
-        },
-        TextureDimension::D2,
-        data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
-    )
 }
