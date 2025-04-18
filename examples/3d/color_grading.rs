@@ -11,6 +11,7 @@ use bevy::{
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
 };
+use bevy_render::view::Hdr;
 use std::fmt::Display;
 
 static FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";
@@ -334,10 +335,7 @@ fn add_text<'a>(
 fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading: ColorGrading) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         color_grading,
         DistanceFog {

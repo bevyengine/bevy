@@ -18,6 +18,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
+use bevy_render::view::Hdr;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
@@ -227,10 +228,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .spawn((
             Camera3d::default(),
             Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
-            Camera {
-                hdr: true,
-                ..default()
-            },
+            Hdr,
             Msaa::Off,
         ))
         .insert(EnvironmentMapLight {

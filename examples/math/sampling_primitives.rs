@@ -8,6 +8,7 @@ use bevy::{
     math::prelude::*,
     prelude::*,
 };
+use bevy_render::view::Hdr;
 use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -340,7 +341,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            hdr: true, // HDR is required for bloom
             clear_color: ClearColorConfig::Custom(SKY_COLOR),
             ..default()
         },

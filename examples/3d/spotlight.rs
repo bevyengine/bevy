@@ -8,6 +8,7 @@ use bevy::{
     pbr::NotShadowCaster,
     prelude::*,
 };
+use bevy_render::view::Hdr;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -119,10 +120,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 

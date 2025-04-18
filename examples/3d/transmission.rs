@@ -303,10 +303,6 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
         ColorGrading {
             global: ColorGradingGlobal {

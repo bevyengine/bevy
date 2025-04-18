@@ -29,7 +29,6 @@ fn setup_scene(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            hdr: true, // 1. HDR is required for bloom
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },

@@ -65,10 +65,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     commands
         .spawn((
             Camera3d::default(),
-            Camera {
-                hdr: true,
-                ..default()
-            },
             Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
             Tonemapping::TonyMcMapface,
             Bloom::default(),

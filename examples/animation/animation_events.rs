@@ -5,6 +5,7 @@ use bevy::{
     core_pipeline::bloom::Bloom,
     prelude::*,
 };
+use bevy_render::view::Hdr;
 
 fn main() {
     App::new()
@@ -44,7 +45,6 @@ fn setup(
         Camera2d,
         Camera {
             clear_color: ClearColorConfig::Custom(BLACK.into()),
-            hdr: true,
             ..Default::default()
         },
         Bloom {

@@ -8,6 +8,7 @@ use bevy::{
     image::ImageLoaderSettings,
     prelude::*,
 };
+use bevy_render::view::Hdr;
 
 /// Entry point.
 pub fn main() {
@@ -95,10 +96,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn((
             Camera3d::default(),
-            Camera {
-                hdr: true,
-                ..default()
-            },
+            Hdr,
             Projection::Perspective(PerspectiveProjection {
                 fov: 27.0 / 180.0 * PI,
                 ..default()
