@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     pbr::CascadeShadowConfigBuilder,
-    platform_support::collections::HashMap,
+    platform::collections::HashMap,
     prelude::*,
     reflect::TypePath,
     render::{
