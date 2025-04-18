@@ -4,7 +4,7 @@ use bevy_asset::{load_internal_asset, weak_handle, Asset, Handle};
 use bevy_image::Image;
 use bevy_math::UVec2;
 use bevy_reflect::prelude::*;
-use bevy_render::{render_resource::*, storage::ShaderStorageBuffer};
+use bevy_render::render_resource::*;
 
 pub const TILEMAP_CHUNK_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("40f33e62-82f8-4578-b3fa-f22989e7c4bb");
@@ -42,8 +42,8 @@ pub struct TilemapChunkMaterial {
     #[sampler(2)]
     pub tileset: Handle<Image>,
 
-    #[storage(3, read_only)]
-    pub indices: Handle<ShaderStorageBuffer>,
+    #[texture(3, sample_type = "u_int")]
+    pub indices: Handle<Image>,
 }
 
 impl Material2d for TilemapChunkMaterial {

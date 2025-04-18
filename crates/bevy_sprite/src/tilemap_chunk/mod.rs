@@ -1,6 +1,6 @@
 use crate::MeshMaterial2d;
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -13,7 +13,7 @@ use bevy_image::Image;
 use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_render::{
     mesh::{Mesh, Mesh2d},
-    storage::ShaderStorageBuffer,
+    render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 
 mod tilemap_chunk_material;
@@ -55,7 +55,7 @@ fn on_add_tilemap_chunk(
     mut query: Query<(&TilemapChunk, &mut TilemapChunkIndices)>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<TilemapChunkMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut images: ResMut<Assets<Image>>,
 ) {
     let (
         TilemapChunk {
@@ -66,26 +66,31 @@ fn on_add_tilemap_chunk(
         mut indices,
     ) = query.get_mut(trigger.target()).unwrap();
 
-    // Ensure the indices buffer is the same size as the chunk
+    // Ensure the indices vec is the same size as the chunk
     indices.resize((chunk_size.x * chunk_size.y) as usize, None);
+
+    let indices_image = Image::new(
+        Extent3d {
+            width: chunk_size.x,
+            height: chunk_size.y,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        indices_image_data(indices.0.clone()),
+        TextureFormat::R32Uint,
+        RenderAssetUsages::default(),
+    );
 
     commands.entity(trigger.target()).insert((
         Mesh2d(meshes.add(Rectangle::from_size(
             chunk_size.as_vec2() * tile_size.as_vec2(),
         ))),
-        MeshMaterial2d(
-            materials.add(TilemapChunkMaterial {
-                chunk_size: *chunk_size,
-                tile_size: *tile_size,
-                tileset: tileset.clone(),
-                indices: buffers.add(ShaderStorageBuffer::from(
-                    indices
-                        .iter()
-                        .map(|i| i.unwrap_or(u32::MAX))
-                        .collect::<Vec<u32>>(),
-                )),
-            }),
-        ),
+        MeshMaterial2d(materials.add(TilemapChunkMaterial {
+            chunk_size: *chunk_size,
+            tile_size: *tile_size,
+            tileset: tileset.clone(),
+            indices: images.add(indices_image),
+        })),
     ));
 }
 
@@ -99,18 +104,22 @@ fn update_tilemap_chunk_indices(
         Changed<TilemapChunkIndices>,
     >,
     mut materials: ResMut<Assets<TilemapChunkMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut images: ResMut<Assets<Image>>,
 ) {
     for (chunk, mut indices, material) in &mut query {
         indices.resize((chunk.chunk_size.x * chunk.chunk_size.y) as usize, None);
         let material = materials.get_mut(material.id()).unwrap();
-        if let Some(buffer) = buffers.get_mut(&material.indices) {
-            buffer.set_data(
-                indices
-                    .iter()
-                    .map(|i| i.unwrap_or(u32::MAX))
-                    .collect::<Vec<u32>>(),
-            );
-        }
+        let indices_image = images.get_mut(&material.indices).unwrap();
+        indices_image.data = Some(indices_image_data(indices.0.clone()));
     }
+}
+
+fn indices_image_data(indices: Vec<Option<u32>>) -> Vec<u8> {
+    bytemuck::cast_slice(
+        &indices
+            .into_iter()
+            .map(|i| i.unwrap_or(u32::MAX))
+            .collect::<Vec<u32>>(),
+    )
+    .to_owned()
 }
