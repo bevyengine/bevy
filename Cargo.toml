@@ -826,6 +826,7 @@ wasm = false
 name = "tilemap_chunk"
 path = "examples/2d/tilemap_chunk.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.tilemap_chunk]
 name = "Tilemap Chunk"
