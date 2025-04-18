@@ -114,6 +114,7 @@ impl Plugin for ViewPlugin {
             .register_type::<OcclusionCulling>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
+                ExtractComponentPlugin::<Hdr>::default(),
                 ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
                 VisibilityPlugin,
@@ -198,6 +199,14 @@ impl Msaa {
         }
     }
 }
+
+/// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
+/// This allows rendering with a wider range of lighting values.
+#[derive(
+    Component, Default, Copy, Clone, ExtractComponent, Reflect, PartialEq, Eq, Hash, Debug,
+)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
+pub struct Hdr;
 
 /// An identifier for a view that is stable across frames.
 ///
