@@ -121,10 +121,6 @@ mod bloom {
     ) {
         commands.spawn((
             Camera2d,
-            Camera {
-                hdr: true,
-                ..default()
-            },
             Tonemapping::TonyMcMapface,
             Bloom::default(),
             StateScoped(super::Scene::Bloom),

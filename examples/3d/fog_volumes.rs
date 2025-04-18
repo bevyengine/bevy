@@ -10,6 +10,7 @@ use bevy::{
     pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
+use bevy_render::view::Hdr;
 
 /// Entry point.
 fn main() {
@@ -58,10 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-0.75, 1.0, 2.0).looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         VolumetricFog {
             // Make this relatively high in order to increase the fog quality.
             step_count: 64,

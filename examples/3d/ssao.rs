@@ -7,6 +7,7 @@ use bevy::{
     prelude::*,
     render::camera::TemporalJitter,
 };
+use bevy_render::view::Hdr;
 use std::f32::consts::PI;
 
 fn main() {
@@ -28,11 +29,8 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Hdr,
         Msaa::Off,
         ScreenSpaceAmbientOcclusion::default(),
         TemporalAntiAliasing::default(),

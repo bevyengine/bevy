@@ -7,6 +7,7 @@
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
 use bevy::{core_pipeline::Skybox, prelude::*};
+use bevy_render::view::Hdr;
 
 use std::{
     f32::consts::PI,
@@ -105,11 +106,8 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
+        Hdr,
     ));
 }
 
