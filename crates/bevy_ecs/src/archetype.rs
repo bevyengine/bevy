@@ -818,7 +818,6 @@ pub struct ArchetypeRecord {
 }
 
 /// Metadata about the [`ArchetypeId`] and whether it is newly create or not.
-#[derive(Clone, Copy)]
 pub(crate) struct ArchetypeIdState {
     id: ArchetypeId,
     is_new: bool,
@@ -838,9 +837,24 @@ impl ArchetypeIdState {
     }
 
     #[inline]
-    pub(crate) fn trigger_if_new(&self, world: &mut DeferredWorld) {
+    pub(crate) fn trigger_if_new(&mut self, world: &mut DeferredWorld) {
         if self.is_new {
             world.trigger(ArchetypeCreated(self.id));
+            // let id = self.id;
+            // world.commands().queue(move |world: &mut World| {
+            //     world.trigger(ArchetypeCreated(id));
+            //     std::println!("Trigger {:?}", id);
+            // });
+            self.is_new = false;
+        }
+    }
+}
+
+#[cfg(debug_assertions)]
+impl Drop for ArchetypeIdState {
+    fn drop(&mut self) {
+        if self.is_new {
+            panic!("New {:?} was not triggered before being dropped", self.id);
         }
     }
 }
@@ -855,13 +869,16 @@ impl Archetypes {
         };
         // SAFETY: Empty archetype has no components
         unsafe {
-            archetypes.get_id_or_insert(
+            let mut archetype_id_state = archetypes.get_id_or_insert(
                 &Components::default(),
                 &Observers::default(),
                 TableId::empty(),
                 Vec::new(),
                 Vec::new(),
             );
+            // No observers that are listening to the `ArchetypeCreated` event at this
+            // point so we can safely ignore it
+            archetype_id_state.is_new = false;
         }
         archetypes
     }
@@ -957,8 +974,10 @@ impl Archetypes {
     /// `table_components` and `sparse_set_components` must be sorted
     ///
     /// # Safety
-    /// [`TableId`] must exist in tables
+    /// - [`TableId`] must exist in tables
     /// `table_components` and `sparse_set_components` must exist in `components`
+    /// - Caller must call `ArchetypeIdState::trigger_if_new` on the returned `ArchetypeIdState`
+    #[must_use]
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
         components: &Components,

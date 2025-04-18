@@ -7,7 +7,7 @@ use crate::{
     entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
-        QueryState, ReadOnlyQueryData,
+        QueryState, QueryStateWrapper, ReadOnlyQueryData,
     },
     resource::Resource,
     storage::ResourceData,
@@ -353,8 +353,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         system_meta: &mut SystemMeta,
         world: &World,
     ) {
-        let state = world.entity(*state).get::<QueryState<D, F>>().unwrap();
-        state.update_archetype_component_access(
+        let state = world
+            .entity(*state)
+            .get::<QueryStateWrapper<D, F>>()
+            .unwrap();
+        state.inner().update_archetype_component_access(
             archetype,
             &mut system_meta.archetype_component_access,
         );
@@ -381,27 +384,27 @@ pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>
     system_meta: &mut SystemMeta,
     state: Option<QueryState<D, F>>,
 ) -> Entity {
+    let component_id = world.register_component::<QueryStateWrapper<D, F>>();
     let state: QueryState<D, F> = state.unwrap_or_else(|| {
-        std::println!(
-            "Creating new query state {}",
-            std::any::type_name::<QueryState<D, F>>()
-        );
         QueryState::new_with_access(world, &mut system_meta.archetype_component_access)
     });
 
+    let mut component_access = state.component_access.clone();
+    // The Query need access to its own state. Just to be consistent, this will not
+    // cause a conflict since QueryStateWrapper is immutable
+    component_access.add_component_read(component_id);
     assert_component_access_compatibility(
         &system_meta.name,
         core::any::type_name::<D>(),
         core::any::type_name::<F>(),
         &system_meta.component_access_set,
-        &state.component_access,
+        &component_access,
         world,
     );
 
-    system_meta
-        .component_access_set
-        .add(state.component_access.clone());
-    world.spawn(state).id()
+    system_meta.component_access_set.add(component_access);
+
+    world.spawn(QueryStateWrapper::new(state)).id()
 }
 
 fn assert_component_access_compatibility(
@@ -424,18 +427,19 @@ fn assert_component_access_compatibility(
     panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
 }
 
-/// SAFETY: Caller must ensure no other mutable access to QueryState<D,F>
-unsafe fn get_query_state<'w, D: QueryData + 'static, F: QueryFilter + 'static>(
+fn get_query_state<'w, D: QueryData + 'static, F: QueryFilter + 'static>(
     entity: Entity,
     world: UnsafeWorldCell<'w>,
 ) -> Option<&'w QueryState<D, F>> {
-    let state = world
-        .get_entity(entity)
-        .unwrap()
-        .get::<QueryState<D, F>>()
-        .unwrap();
+    // SAFETY: QueryStateWrapper is immutable so no mutable access is possible
+    let state = unsafe {
+        world
+            .get_entity(entity)
+            .ok()?
+            .get::<QueryStateWrapper<D, F>>()
+    };
 
-    Some(state)
+    state.map(|state| state.inner())
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If

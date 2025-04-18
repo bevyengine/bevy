@@ -1994,7 +1994,7 @@ impl<'w> EntityWorldMut<'w> {
         let old_location = self.location;
         // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
         // components exist in `bundle_info` because `Bundles::init_info` initializes a `BundleInfo` containing all components of the bundle type `T`
-        let new_archetype_id = unsafe {
+        let mut new_archetype_id = unsafe {
             bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
                 storages,
@@ -2181,7 +2181,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
         // and components in `bundle_info` must exist due to this function's safety invariants.
-        let new_archetype_id = bundle_info
+        let mut new_archetype_id = bundle_info
             .remove_bundle_from_archetype(
                 &mut world.archetypes,
                 &mut world.storages,

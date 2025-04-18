@@ -866,6 +866,7 @@ impl BundleInfo {
     ///
     /// # Safety
     /// `archetype_id` must exist and components in `bundle_info` must exist
+    /// Caller must call `ArchetypeIdState::trigger_if_new` on the returned value
     pub(crate) unsafe fn remove_bundle_from_archetype(
         &self,
         archetypes: &mut Archetypes,
@@ -950,15 +951,16 @@ impl BundleInfo {
             Some(new_archetype_id)
         };
         let current_archetype = &mut archetypes[archetype_id];
+        let archetype_id_result = result.as_ref().map(|id| id.id());
         // Cache the result in an edge.
         if intersection {
             current_archetype
                 .edges_mut()
-                .cache_archetype_after_bundle_remove(self.id(), result.map(|id| id.id()));
+                .cache_archetype_after_bundle_remove(self.id(), archetype_id_result);
         } else {
             current_archetype
                 .edges_mut()
-                .cache_archetype_after_bundle_take(self.id(), result.map(|id| id.id()));
+                .cache_archetype_after_bundle_take(self.id(), archetype_id_result);
         }
         result
     }
@@ -1023,7 +1025,7 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let bundle_id = bundle_info.id();
-        let archetype_id_state = bundle_info.insert_bundle_into_archetype(
+        let mut archetype_id_state = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
@@ -1400,7 +1402,7 @@ impl<'w> BundleSpawner<'w> {
         change_tick: Tick,
     ) -> Self {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
-        let archetype_id_state = bundle_info.insert_bundle_into_archetype(
+        let mut archetype_id_state = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
