@@ -801,29 +801,9 @@ pub mod __macro_exports {
 
             static REGISTRATION_FNS: Mutex<Vec<fn(&mut TypeRegistry)>> = Mutex::new(Vec::new());
 
-            /// # Safety
-            /// This function is expected to be used only by `load_type_registrations` macro.
-            /// It is unsafe to use it in any other way.
-            #[expect(
-                unsafe_code,
-                reason = "This function is unsafe to use outside of the intended macro."
-            )]
-            pub unsafe fn push_registration_fn(
-                registration_fn: unsafe extern "Rust" fn(&mut TypeRegistry),
-            ) {
-                REGISTRATION_FNS.lock().unwrap().push(
-                    // SAFETY: The caller is responsible for passing only valid functions here.
-                    #[expect(
-                        unsafe_code,
-                        reason = "The caller is responsible for passing only valid functions here."
-                    )]
-                    unsafe {
-                        core::mem::transmute::<
-                            for<'a> unsafe extern "Rust" fn(&'a mut TypeRegistry),
-                            for<'a> fn(&'a mut TypeRegistry),
-                        >(registration_fn)
-                    },
-                );
+            /// Adds adds a new registration function for [`TypeRegistry`]
+            pub fn push_registration_fn(registration_fn: fn(&mut TypeRegistry)) {
+                REGISTRATION_FNS.lock().unwrap().push(registration_fn);
             }
 
             /// Registers all collected types.
