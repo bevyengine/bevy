@@ -1,4 +1,4 @@
-use bevy_platform_support::{
+use bevy_platform::{
     prelude::Vec,
     sync::{
         atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU64, Ordering},

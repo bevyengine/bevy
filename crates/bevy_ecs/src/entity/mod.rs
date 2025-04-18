@@ -86,9 +86,9 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use core::{fmt, hash::Hash, num::NonZero, panic::Location};
 use log::warn;
 
 #[cfg(feature = "serialize")]
