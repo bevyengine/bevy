@@ -8,8 +8,9 @@ use bevy_core_pipeline::{
 };
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
+    entity_disabling::Disabled,
     prelude::{Component, Entity, ReflectComponent},
-    query::{QueryItem, With},
+    query::{Has, QueryItem, With},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -20,7 +21,7 @@ use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
-    prelude::{Camera, Projection},
+    prelude::Projection,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
@@ -347,7 +348,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
     let mut cameras_3d = main_world.query_filtered::<(
         RenderEntity,
-        &Camera,
+        Has<Disabled>,
         &Projection,
         &mut TemporalAntiAliasing,
     ), (
@@ -357,14 +358,14 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         With<MotionVectorPrepass>,
     )>();
 
-    for (entity, camera, camera_projection, mut taa_settings) in
+    for (entity, disabled, camera_projection, mut taa_settings) in
         cameras_3d.iter_mut(&mut main_world)
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if camera.is_active && has_perspective_projection {
+        if !disabled && has_perspective_projection {
             entity_commands.insert(taa_settings.clone());
             taa_settings.reset = false;
         } else {

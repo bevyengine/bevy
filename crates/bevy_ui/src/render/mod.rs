@@ -18,6 +18,7 @@ use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_ecs::entity_disabling::Disabled;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
@@ -612,6 +613,7 @@ pub fn extract_ui_camera_view(
             (
                 Entity,
                 RenderEntity,
+                Has<Disabled>,
                 &Camera,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
@@ -623,9 +625,9 @@ pub fn extract_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (main_entity, render_entity, disabled, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
-        if !camera.is_active {
+        if disabled {
             commands
                 .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.")

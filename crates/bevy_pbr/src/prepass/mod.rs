@@ -28,6 +28,7 @@ use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
 use bevy_ecs::{
+    entity_disabling::Disabled,
     prelude::*,
     system::{
         lifetimeless::{Read, SRes},
@@ -268,16 +269,14 @@ type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
-    views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>,
+    views: Query<(), Or<(With<Camera3d>, With<ShadowView>)>>,
     new_meshes: Query<
         (Entity, &GlobalTransform),
         (PreviousMeshFilter, Without<PreviousGlobalTransform>),
     >,
     mut meshes: Query<(&GlobalTransform, &mut PreviousGlobalTransform), PreviousMeshFilter>,
 ) {
-    let should_run = views.iter().any(|camera| camera.is_active);
-
-    if should_run {
+    if !views.is_empty() {
         for (entity, transform) in &new_meshes {
             let new_previous_transform = PreviousGlobalTransform(transform.affine());
             commands.entity(entity).try_insert(new_previous_transform);
@@ -689,13 +688,15 @@ impl PrepassPipelineInternal {
 // Extract the render phases for the prepass
 pub fn extract_camera_previous_view_data(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
+    cameras_3d: Extract<
+        Query<(RenderEntity, Has<Disabled>, Option<&PreviousViewData>), With<Camera3d>>,
+    >,
 ) {
-    for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
+    for (entity, disabled, maybe_previous_view_data) in cameras_3d.iter() {
         let mut entity = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if camera.is_active {
+        if !disabled {
             if let Some(previous_view_data) = maybe_previous_view_data {
                 entity.insert(previous_view_data.clone());
             }

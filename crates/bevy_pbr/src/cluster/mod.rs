@@ -6,7 +6,8 @@ use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
-    query::{With, Without},
+    entity_disabling::Disabled,
+    query::{Has, With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     system::{Commands, Query, Res},
@@ -383,13 +384,9 @@ impl Clusters {
 
 pub fn add_clusters(
     mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), (Without<Clusters>, With<Camera3d>)>,
+    cameras: Query<(Entity, Option<&ClusterConfig>), (Without<Clusters>, With<Camera3d>)>,
 ) {
-    for (entity, config, camera) in &cameras {
-        if !camera.is_active {
-            continue;
-        }
-
+    for (entity, config) in &cameras {
         let config = config.copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in
         // `assign_objects_to_clusters``
@@ -523,14 +520,14 @@ impl Default for GpuClusterableObjectsUniform {
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
+    views: Extract<Query<(RenderEntity, Has<Disabled>, &Clusters), With<Camera>>>,
     mapper: Extract<Query<RenderEntity>>,
 ) {
-    for (entity, clusters, camera) in &views {
+    for (entity, disabled, clusters) in &views {
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Clusters entity wasn't synced.");
-        if !camera.is_active {
+        if disabled {
             entity_commands.remove::<(ExtractedClusterableObjects, ExtractedClusterConfig)>();
             continue;
         }

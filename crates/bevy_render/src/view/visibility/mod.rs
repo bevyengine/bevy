@@ -499,14 +499,16 @@ fn reset_view_visibility(
 /// [`VisibilityClass`] component and that that component is nonempty.
 pub fn check_visibility(
     mut thread_queues: Local<Parallel<TypeIdMap<Vec<Entity>>>>,
-    mut view_query: Query<(
-        Entity,
-        &mut VisibleEntities,
-        &Frustum,
-        Option<&RenderLayers>,
-        &Camera,
-        Has<NoCpuCulling>,
-    )>,
+    mut view_query: Query<
+        (
+            Entity,
+            &mut VisibleEntities,
+            &Frustum,
+            Option<&RenderLayers>,
+            Has<NoCpuCulling>,
+        ),
+        With<Camera>,
+    >,
     mut visible_aabb_query: Query<(
         Entity,
         &InheritedVisibility,
@@ -523,13 +525,7 @@ pub fn check_visibility(
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
-        &mut view_query
-    {
-        if !camera.is_active {
-            continue;
-        }
-
+    for (view, mut visible_entities, frustum, maybe_view_mask, no_cpu_culling) in &mut view_query {
         let view_mask = maybe_view_mask.unwrap_or_default();
 
         visible_aabb_query.par_iter_mut().for_each_init(
