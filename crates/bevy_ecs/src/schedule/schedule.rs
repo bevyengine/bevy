@@ -11,7 +11,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},

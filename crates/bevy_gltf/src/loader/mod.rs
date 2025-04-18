@@ -36,7 +36,7 @@ use bevy_pbr::UvChannel;
 use bevy_pbr::{
     DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, MAX_JOINTS,
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     mesh::Mesh3d,

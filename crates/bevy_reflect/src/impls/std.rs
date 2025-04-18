@@ -214,7 +214,7 @@ impl_reflect_opaque!(::core::time::Duration(
     Deserialize,
     Default
 ));
-impl_reflect_opaque!(::bevy_platform_support::time::Instant(
+impl_reflect_opaque!(::bevy_platform::time::Instant(
     Clone, Debug, Hash, PartialEq
 ));
 impl_reflect_opaque!(::core::num::NonZeroI128(
@@ -315,7 +315,7 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
 ));
 impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>(Clone));
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>(Clone));
-impl_reflect_opaque!(::bevy_platform_support::sync::Arc<T: Send + Sync + ?Sized>(Clone));
+impl_reflect_opaque!(::bevy_platform::sync::Arc<T: Send + Sync + ?Sized>(Clone));
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
@@ -990,10 +990,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
     >
 );
 
-impl_reflect_for_hashmap!(bevy_platform_support::collections::HashMap<K, V, S>);
-impl_type_path!(::bevy_platform_support::collections::HashMap<K, V, S>);
+impl_reflect_for_hashmap!(bevy_platform::collections::HashMap<K, V, S>);
+impl_type_path!(::bevy_platform::collections::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashMap<K, V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform::collections::HashMap<K, V, S>;
     <
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
         V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1206,8 +1206,8 @@ macro_rules! impl_reflect_for_hashset {
     };
 }
 
-impl_type_path!(::bevy_platform_support::hash::NoOpHash);
-impl_type_path!(::bevy_platform_support::hash::FixedHasher);
+impl_type_path!(::bevy_platform::hash::NoOpHash);
+impl_type_path!(::bevy_platform::hash::FixedHasher);
 impl_reflect_opaque!(::core::net::SocketAddr(
     Clone,
     Debug,
@@ -1229,10 +1229,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
     >
 );
 
-impl_reflect_for_hashset!(::bevy_platform_support::collections::HashSet<V,S>);
-impl_type_path!(::bevy_platform_support::collections::HashSet<V, S>);
+impl_reflect_for_hashset!(::bevy_platform::collections::HashSet<V,S>);
+impl_type_path!(::bevy_platform::collections::HashSet<V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashSet<V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform::collections::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
@@ -2596,8 +2596,8 @@ mod tests {
         Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
-    use bevy_platform_support::collections::HashMap;
-    use bevy_platform_support::time::Instant;
+    use bevy_platform::collections::HashMap;
+    use bevy_platform::time::Instant;
     use core::{
         f32::consts::{PI, TAU},
         time::Duration,
