@@ -67,7 +67,7 @@ use crate::{
     },
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform_support::sync::atomic::{AtomicU32, Ordering};
+use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use core::{any::TypeId, fmt};
 use log::warn;
@@ -2254,6 +2254,7 @@ impl World {
     /// ```
     #[track_caller]
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
     )]
     pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
@@ -2273,6 +2274,7 @@ impl World {
     /// as a command.
     #[inline]
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
     )]
     pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
@@ -3791,7 +3793,7 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::Component;
-    use bevy_platform_support::collections::{HashMap, HashSet};
+    use bevy_platform::collections::{HashMap, HashSet};
     use core::{
         any::TypeId,
         panic,

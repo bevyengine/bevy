@@ -70,9 +70,9 @@ pub mod unique_array;
 pub mod unique_slice;
 pub mod unique_vec;
 
-pub use unique_array::UniqueEntityArray;
-pub use unique_slice::UniqueEntitySlice;
-pub use unique_vec::UniqueEntityVec;
+pub use unique_array::{UniqueEntityArray, UniqueEntityEquivalentArray};
+pub use unique_slice::{UniqueEntityEquivalentSlice, UniqueEntitySlice};
+pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
@@ -88,7 +88,7 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_platform_support::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
-use core::{fmt, hash::Hash, num::NonZero, panic::Location};
+use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -235,6 +235,7 @@ impl Hash for Entity {
 }
 
 #[deprecated(
+    since = "0.16.0",
     note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
 )]
 #[expect(unused, reason = "This is not implemented on this branch")]
@@ -656,6 +657,7 @@ impl Entities {
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     pub fn alloc_at(&mut self, _entity: Entity) -> Option<EntityLocation> {
@@ -666,6 +668,7 @@ impl Entities {
     ///
     /// Returns the location of the entity currently using the given ID, if any.
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     #[expect(

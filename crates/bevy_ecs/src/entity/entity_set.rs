@@ -3,7 +3,7 @@ use alloc::{
     collections::{btree_map, btree_set},
     rc::Rc,
 };
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 
 use core::{
     array,
@@ -13,9 +13,9 @@ use core::{
     option, result,
 };
 
-use super::{Entity, UniqueEntitySlice};
+use super::{Entity, UniqueEntityEquivalentSlice};
 
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 
 /// A trait for types that contain an [`Entity`].
 ///
@@ -432,20 +432,20 @@ impl<T, I: Iterator<Item: EntityEquivalent> + AsRef<[T]>> AsRef<[T]> for UniqueE
 }
 
 impl<T: EntityEquivalent, I: Iterator<Item: EntityEquivalent> + AsRef<[T]>>
-    AsRef<UniqueEntitySlice<T>> for UniqueEntityIter<I>
+    AsRef<UniqueEntityEquivalentSlice<T>> for UniqueEntityIter<I>
 {
-    fn as_ref(&self) -> &UniqueEntitySlice<T> {
+    fn as_ref(&self) -> &UniqueEntityEquivalentSlice<T> {
         // SAFETY: All elements in the original slice are unique.
-        unsafe { UniqueEntitySlice::from_slice_unchecked(self.iter.as_ref()) }
+        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.iter.as_ref()) }
     }
 }
 
 impl<T: EntityEquivalent, I: Iterator<Item: EntityEquivalent> + AsMut<[T]>>
-    AsMut<UniqueEntitySlice<T>> for UniqueEntityIter<I>
+    AsMut<UniqueEntityEquivalentSlice<T>> for UniqueEntityIter<I>
 {
-    fn as_mut(&mut self) -> &mut UniqueEntitySlice<T> {
+    fn as_mut(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
         // SAFETY: All elements in the original slice are unique.
-        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.iter.as_mut()) }
+        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(self.iter.as_mut()) }
     }
 }
 

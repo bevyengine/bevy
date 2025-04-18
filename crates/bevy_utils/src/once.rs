@@ -1,4 +1,4 @@
-use bevy_platform_support::sync::atomic::{AtomicBool, Ordering};
+use bevy_platform::sync::atomic::{AtomicBool, Ordering};
 
 /// Wrapper around an [`AtomicBool`], abstracting the backing implementation and
 /// ordering considerations.

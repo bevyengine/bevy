@@ -734,7 +734,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use core::{
         any::TypeId,
         fmt::{Debug, Formatter},
