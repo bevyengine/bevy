@@ -209,7 +209,7 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
             /// # Safety
             /// This function must only be used by the `load_type_registrations` macro.
             #[unsafe(export_name=#export_name)]
-            pub unsafe extern "C" fn bevy_register_type(registry: &mut #bevy_reflect_path::TypeRegistry) {
+            pub unsafe extern "Rust" fn bevy_register_type(registry: &mut #bevy_reflect_path::TypeRegistry) {
                 <#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register(registry);
             }
         })

@@ -809,7 +809,7 @@ pub mod __macro_exports {
                 reason = "This function is unsafe to use outside of the intended macro."
             )]
             pub unsafe fn push_registration_fn(
-                registration_fn: unsafe extern "C" fn(&mut TypeRegistry),
+                registration_fn: unsafe extern "Rust" fn(&mut TypeRegistry),
             ) {
                 REGISTRATION_FNS.lock().unwrap().push(
                     // SAFETY: The caller is responsible for passing only valid functions here.
@@ -819,7 +819,7 @@ pub mod __macro_exports {
                     )]
                     unsafe {
                         core::mem::transmute::<
-                            for<'a> unsafe extern "C" fn(&'a mut TypeRegistry),
+                            for<'a> unsafe extern "Rust" fn(&'a mut TypeRegistry),
                             for<'a> fn(&'a mut TypeRegistry),
                         >(registration_fn)
                     },

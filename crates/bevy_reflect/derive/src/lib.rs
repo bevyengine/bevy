@@ -890,7 +890,7 @@ pub fn load_type_registrations(_input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         {
             fn _register_types(){
-                unsafe extern "C" {
+                unsafe extern "Rust" {
                     #( fn #registration_fns(registry_ptr: &mut #bevy_reflect_path::TypeRegistry); )*
                 };
                 unsafe {
