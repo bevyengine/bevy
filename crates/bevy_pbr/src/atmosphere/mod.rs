@@ -430,7 +430,7 @@ impl ExtractComponent for Atmosphere {
 /// The aerial-view lut is a 3d LUT fit to the view frustum, which stores the luminance
 /// scattered towards the camera at each point (RGB channels), alongside the average
 /// transmittance to that point (A channel).
-#[derive(Clone, Component, Reflect, ShaderType)]
+#[derive(Clone, Component, Reflect, ShaderType, Copy)]
 #[reflect(Clone, Default)]
 pub struct AtmosphereSettings {
     /// The size of the transmittance LUT

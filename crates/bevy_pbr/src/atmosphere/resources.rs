@@ -852,7 +852,7 @@ pub(crate) fn prepare_atmosphere_buffer(
     atmosphere_entity: Query<(&Atmosphere, &AtmosphereSettings), With<Camera3d>>,
     mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
 ) {
-    let Ok((atmosphere, settings)) = atmosphere_entity.get_single() else {
+    let Ok((atmosphere, settings)) = atmosphere_entity.single() else {
         return;
     };
 

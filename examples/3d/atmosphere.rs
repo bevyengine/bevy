@@ -6,9 +6,8 @@ use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     input::mouse::{MouseMotion, MouseWheel},
     pbr::{
-        light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder,
-        DefaultOpaqueRendererMethod, FogVolume, ScreenSpaceAmbientOcclusion, VolumetricFog,
-        VolumetricLight,
+        light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder, FogVolume,
+        VolumetricFog, VolumetricLight,
     },
     prelude::*,
     render::camera::Exposure,
@@ -103,11 +102,10 @@ fn setup_camera_fog(mut commands: Commands) {
         },
     ));
 
-    // this breaks the pipeline
-    commands.spawn((
-        FogVolume::default(),
-        Transform::from_scale(Vec3::splat(35.0)),
-    ));
+    // commands.spawn((
+    //     FogVolume::default(),
+    //     Transform::from_scale(Vec3::splat(35.0)),
+    // ));
 }
 
 #[derive(Component)]
@@ -215,10 +213,18 @@ fn pan_camera(
     camera_query_view: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     windows: Query<&Window>,
 ) {
-    let (camera_transform, mut camera_orbit) = camera_query.single_mut();
-    let (sun_transform, mut sun_orbit) = sun_query.single_mut();
-    let (camera, camera_global_transform) = camera_query_view.single();
-    let window = windows.single();
+    let Ok((camera_transform, mut camera_orbit)) = camera_query.single_mut() else {
+        return;
+    };
+    let Ok((sun_transform, mut sun_orbit)) = sun_query.single_mut() else {
+        return;
+    };
+    let Ok((camera, camera_global_transform)) = camera_query_view.single() else {
+        return;
+    };
+    let Ok(window) = windows.single() else {
+        return;
+    };
 
     // Handle zoom with mouse wheel
     for ev in scroll_evr.read() {
