@@ -2,7 +2,6 @@ use crate::{Material2d, Material2dPlugin};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, Handle};
 use bevy_image::Image;
-use bevy_math::UVec2;
 use bevy_reflect::prelude::*;
 use bevy_render::render_resource::*;
 
@@ -32,17 +31,11 @@ impl Plugin for TilemapChunkMaterialPlugin {
 /// efficiently using a single draw call per chunk.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct TilemapChunkMaterial {
-    #[uniform(0)]
-    pub chunk_size: UVec2,
-
-    #[uniform(0)]
-    pub tile_size: UVec2,
-
-    #[texture(1, dimension = "2d_array")]
-    #[sampler(2)]
+    #[texture(0, dimension = "2d_array")]
+    #[sampler(1)]
     pub tileset: Handle<Image>,
 
-    #[texture(3, sample_type = "u_int")]
+    #[texture(2, sample_type = "u_int")]
     pub indices: Handle<Image>,
 }
 

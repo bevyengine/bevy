@@ -34,13 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         handle: asset_server.load("textures/array_texture.png"),
     });
 
-    commands.spawn((
-        Camera2d,
-        Projection::Orthographic(OrthographicProjection {
-            scale: 20.0,
-            ..OrthographicProjection::default_2d()
-        }),
-    ));
+    commands.spawn(Camera2d);
 }
 
 fn spawn_tilemap(
@@ -62,7 +56,7 @@ fn spawn_tilemap(
 
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let chunk_size = UVec2::splat(64);
-    let tile_size = UVec2::splat(250);
+    let tile_display_size = UVec2::splat(8);
     let indices: Vec<Option<u32>> = (0..chunk_size.x * chunk_size.y)
         .map(|_| rng.gen_range(0..5))
         .map(|i| if i == 0 { None } else { Some(i - 1) })
@@ -71,7 +65,7 @@ fn spawn_tilemap(
     commands.spawn((
         TilemapChunk {
             chunk_size,
-            tile_size,
+            tile_display_size,
             tileset: loading_tileset.handle.clone(),
         },
         TilemapChunkIndices(indices),

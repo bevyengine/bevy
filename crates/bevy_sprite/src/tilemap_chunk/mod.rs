@@ -38,8 +38,9 @@ impl Plugin for TilemapChunkPlugin {
 pub struct TilemapChunk {
     /// The size of the chunk in tiles
     pub chunk_size: UVec2,
-    /// The size of each tile in pixels
-    pub tile_size: UVec2,
+    /// The size to use for each tile, not to be confused with the size of a tile in the tileset image.
+    /// The size of the tile in the tileset image is determined by the tileset image's dimensions.
+    pub tile_display_size: UVec2,
     /// Handle to the tileset image containing all tile textures
     pub tileset: Handle<Image>,
 }
@@ -60,7 +61,7 @@ fn on_add_tilemap_chunk(
     let (
         TilemapChunk {
             chunk_size,
-            tile_size,
+            tile_display_size,
             tileset,
         },
         mut indices,
@@ -83,11 +84,9 @@ fn on_add_tilemap_chunk(
 
     commands.entity(trigger.target()).insert((
         Mesh2d(meshes.add(Rectangle::from_size(
-            chunk_size.as_vec2() * tile_size.as_vec2(),
+            chunk_size.as_vec2() * tile_display_size.as_vec2(),
         ))),
         MeshMaterial2d(materials.add(TilemapChunkMaterial {
-            chunk_size: *chunk_size,
-            tile_size: *tile_size,
             tileset: tileset.clone(),
             indices: images.add(indices_image),
         })),
