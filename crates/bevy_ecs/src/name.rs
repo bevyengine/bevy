@@ -6,7 +6,7 @@ use alloc::{
     borrow::{Cow, ToOwned},
     string::String,
 };
-use bevy_platform_support::hash::FixedHasher;
+use bevy_platform::hash::FixedHasher;
 use core::{
     hash::{BuildHasher, Hash, Hasher},
     ops::Deref,

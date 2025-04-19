@@ -5,7 +5,7 @@
 
 use alloc::sync::Arc;
 use bevy_ecs::prelude::Component;
-use bevy_platform_support::sync::Mutex;
+use bevy_platform::sync::Mutex;
 use core::{any::Any, marker::PhantomData, ops::Deref};
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
