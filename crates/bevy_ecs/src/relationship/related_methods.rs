@@ -7,7 +7,7 @@ use crate::{
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
-use bevy_platform_support::prelude::{Box, Vec};
+use bevy_platform::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
 
 use super::OrderedRelationshipSourceCollection;
@@ -98,6 +98,23 @@ impl<'w> EntityWorldMut<'w> {
                         .expect("hooks should have added relationship target")
                         .collection_mut_risky()
                         .place_most_recent(index);
+                }
+            }
+        });
+
+        self
+    }
+
+    /// Removes the relation `R` between this entity and the given entities.
+    pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        let id = self.id();
+        self.world_scope(|world| {
+            for related in related {
+                if world
+                    .get::<R>(*related)
+                    .is_some_and(|relationship| relationship.get() == id)
+                {
+                    world.entity_mut(*related).remove::<R>();
                 }
             }
         });
@@ -383,6 +400,15 @@ impl<'a> EntityCommands<'a> {
         self.add_related::<R>(&[entity])
     }
 
+    /// Removes the relation `R` between this entity and the given entities.
+    pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        let related: Box<[Entity]> = related.into();
+
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_related::<R>(&related);
+        })
+    }
+
     /// Replaces all the related entities with the given set of new related entities.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let related: Box<[Entity]> = related.into();
@@ -413,7 +439,7 @@ impl<'a> EntityCommands<'a> {
         let newly_related_entities: Box<[Entity]> = newly_related_entities.into();
 
         self.queue(move |mut entity: EntityWorldMut| {
-            entity.replace_children_with_difference(
+            entity.replace_related_with_difference::<R>(
                 &entities_to_unrelate,
                 &entities_to_relate,
                 &newly_related_entities,

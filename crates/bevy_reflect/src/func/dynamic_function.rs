@@ -11,7 +11,7 @@ use crate::{
     ReflectRef, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, boxed::Box};
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
 
@@ -480,7 +480,7 @@ mod tests {
     use crate::func::{FunctionError, IntoReturn, SignatureInfo};
     use crate::Type;
     use alloc::{format, string::String, vec, vec::Vec};
-    use bevy_platform_support::collections::HashSet;
+    use bevy_platform::collections::HashSet;
     use core::ops::Add;
 
     #[test]

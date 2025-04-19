@@ -18,7 +18,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
-use bevy_platform_support::time::Instant;
+use bevy_platform::time::Instant;
 use bevy_time::TimeSender;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,

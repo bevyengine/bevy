@@ -57,7 +57,7 @@ use crate::meshlet::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSet::{PrepareAssets, PrepareResources};
@@ -945,6 +945,10 @@ pub fn specialize_prepass_material_meshes<M>(
             let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
                 continue;
             };
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -956,10 +960,6 @@ pub fn specialize_prepass_material_meshes<M>(
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
-            else {
-                continue;
-            };
             let Some(material) = render_materials.get(material_asset_id) else {
                 continue;
             };

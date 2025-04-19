@@ -3,7 +3,7 @@ use core::fmt::Write;
 use taffy::{NodeId, TraversePartialTree};
 
 use bevy_ecs::prelude::Entity;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 
 use crate::layout::ui_surface::UiSurface;
 
