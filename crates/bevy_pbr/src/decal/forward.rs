@@ -7,6 +7,9 @@ use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
 use bevy_ecs::component::Component;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
+use bevy_render::render_asset::RenderAssets;
+use bevy_render::render_resource::{AsBindGroupShaderType, ShaderType};
+use bevy_render::texture::GpuImage;
 use bevy_render::{
     alpha::AlphaMode,
     mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable},
@@ -86,14 +89,34 @@ pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMat
 /// The `FORWARD_DECAL` shader define will be made available to your shader so that you can gate
 /// the forward decal code behind an ifdef.
 #[derive(Asset, AsBindGroup, TypePath, Clone, Debug)]
+#[uniform(200, ForwardDecalMaterialExtUniform)]
 pub struct ForwardDecalMaterialExt {
-    /// Controls how far away a surface must be before the decal will stop blending with it, and instead render as opaque.
+    /// Controls the distance threshold for decal blending with surfaces.
     ///
-    /// Decreasing this value will cause the decal to blend only to surfaces closer to it.
+    /// This parameter determines how far away a surface can be before the decal no longer blends
+    /// with it and instead renders with full opacity.
+    ///
+    /// Lower values cause the decal to only blend with close surfaces, while higher values allow
+    /// blending with more distant surfaces.
     ///
     /// Units are in meters.
-    #[uniform(200)]
     pub depth_fade_factor: f32,
+}
+
+#[derive(Clone, Default, ShaderType)]
+pub struct ForwardDecalMaterialExtUniform {
+    pub inv_depth_fade_factor: f32,
+}
+
+impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMaterialExt {
+    fn as_bind_group_shader_type(
+        &self,
+        _images: &RenderAssets<GpuImage>,
+    ) -> ForwardDecalMaterialExtUniform {
+        ForwardDecalMaterialExtUniform {
+            inv_depth_fade_factor: 1.0 / self.depth_fade_factor.max(0.001),
+        }
+    }
 }
 
 impl MaterialExtension for ForwardDecalMaterialExt {

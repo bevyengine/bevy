@@ -1576,6 +1576,9 @@ impl<'a> EntityCommands<'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
+    /// This will remove all components that intersect with the provided bundle;
+    /// the entity does not need to have all the components in the bundle.
+    ///
     /// This will emit a warning if the entity does not exist.
     ///
     /// # Example
@@ -1616,6 +1619,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Removes a [`Bundle`] of components from the entity.
+    ///
+    /// This will remove all components that intersect with the provided bundle;
+    /// the entity does not need to have all the components in the bundle.
     ///
     /// Unlike [`Self::remove`],
     /// this will not emit a warning if the entity does not exist.
@@ -1658,6 +1664,9 @@ impl<'a> EntityCommands<'a> {
 
     /// Removes a [`Bundle`] of components from the entity,
     /// and also removes any components required by the components in the bundle.
+    ///
+    /// This will remove all components that intersect with the provided bundle;
+    /// the entity does not need to have all the components in the bundle.
     ///
     /// # Example
     ///

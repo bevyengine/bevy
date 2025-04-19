@@ -7,7 +7,7 @@ use bevy::{
         },
         world::DeferredWorld,
     },
-    platform_support::collections::HashMap,
+    platform::collections::HashMap,
     prelude::*,
     ptr::OwningPtr,
 };
