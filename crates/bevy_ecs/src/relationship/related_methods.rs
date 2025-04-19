@@ -526,7 +526,7 @@ impl<'w, R: Relationship> RelatedSpawner<'w, R> {
     }
 
     /// Returns a mutable reference to the underlying [`World`].
-    pub fn world_mut(&self) -> &mut World {
+    pub fn world_mut(&mut self) -> &mut World {
         self.world
     }
 }
