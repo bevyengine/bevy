@@ -169,13 +169,13 @@ fn setup_meshes(
         Variation::MissingJointEntity,
         Variation::MissingSkinnedMeshComponent,
     ]
-    .iter()
+    .into_iter()
     .enumerate()
     {
         // Skip variations that are currently broken. See https://github.com/bevyengine/bevy/issues/16929,
         // https://github.com/bevyengine/bevy/pull/18074.
-        if (*variation == Variation::MissingSkinnedMeshComponent)
-            || (*variation == Variation::MissingMeshAttributes)
+        if (variation == Variation::MissingSkinnedMeshComponent)
+            || (variation == Variation::MissingMeshAttributes)
         {
             continue;
         }
@@ -188,7 +188,7 @@ fn setup_meshes(
             .spawn((ChildOf(joint_0), AnimatedJoint, Transform::IDENTITY))
             .id();
 
-        if *variation == Variation::MissingJointEntity {
+        if variation == Variation::MissingJointEntity {
             commands.entity(joint_1).despawn();
         }
 
@@ -203,7 +203,7 @@ fn setup_meshes(
             transform,
         ));
 
-        if *variation != Variation::MissingSkinnedMeshComponent {
+        if variation != Variation::MissingSkinnedMeshComponent {
             entity_commands.insert(SkinnedMesh {
                 inverse_bindposes: inverse_bindposes_handle.clone(),
                 joints: vec![joint_0, joint_1],
