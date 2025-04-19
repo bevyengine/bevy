@@ -4165,6 +4165,14 @@ description = "Demonstrates specular tints and maps"
 category = "3D Rendering"
 wasm = true
 
+[[example]]
+name = "test_invalid_skinned_mesh"
+path = "tests/3d/test_invalid_skinned_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_invalid_skinned_mesh]
+hidden = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
