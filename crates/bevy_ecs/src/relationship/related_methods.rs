@@ -519,6 +519,16 @@ impl<'w, R: Relationship> RelatedSpawner<'w, R> {
     pub fn target_entity(&self) -> Entity {
         self.target
     }
+
+    /// Returns a reference to the underlying [`World`].
+    pub fn world(&self) -> &World {
+        self.world
+    }
+
+    /// Returns a mutable reference to the underlying [`World`].
+    pub fn world_mut(&self) -> &mut World {
+        self.world
+    }
 }
 
 /// Uses commands to spawn related "source" entities with the given [`Relationship`], targeting
