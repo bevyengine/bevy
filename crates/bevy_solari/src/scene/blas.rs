@@ -24,8 +24,7 @@ impl BlasManager {
     }
 }
 
-// TODO: Only create BLAS's actually intended to be used for raytracing
-pub fn manage_blas(
+pub fn prepare_raytracing_blas(
     mut blas_manager: ResMut<BlasManager>,
     extracted_meshes: Res<ExtractedAssets<RenderMesh>>,
     mesh_allocator: Res<MeshAllocator>,
@@ -57,7 +56,7 @@ pub fn manage_blas(
             let index_slice = mesh_allocator.mesh_index_slice(asset_id).unwrap();
 
             let (blas, blas_size) =
-                create_blas(&vertex_slice, &index_slice, asset_id, &render_device);
+                allocate_blas(&vertex_slice, &index_slice, asset_id, &render_device);
 
             blas_manager.insert(*asset_id, blas);
 
@@ -93,7 +92,7 @@ pub fn manage_blas(
     render_queue.submit([command_encoder.finish()]);
 }
 
-fn create_blas(
+fn allocate_blas(
     vertex_slice: &MeshBufferSlice,
     index_slice: &MeshBufferSlice,
     asset_id: &AssetId<Mesh>,
@@ -130,5 +129,5 @@ fn is_mesh_raytracing_compatible(mesh: &Mesh) -> bool {
         Mesh::ATTRIBUTE_TANGENT.id,
     ]);
     let indexed_32 = matches!(mesh.indices(), Some(Indices::U32(..)));
-    triangle_list && vertex_attributes && indexed_32
+    mesh.enable_raytracing && triangle_list && vertex_attributes && indexed_32
 }

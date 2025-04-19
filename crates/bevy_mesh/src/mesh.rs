@@ -119,6 +119,8 @@ pub struct Mesh {
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
+    /// Whether or not to build a BLAS for use with bevy_solari raytracing.
+    pub enable_raytracing: bool,
 }
 
 impl Mesh {
@@ -203,6 +205,7 @@ impl Mesh {
             morph_targets: None,
             morph_target_names: None,
             asset_usage,
+            enable_raytracing: true,
         }
     }
 
