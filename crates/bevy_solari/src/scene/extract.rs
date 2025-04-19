@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_render::{extract_resource::ExtractResource, sync_world::RenderEntity, Extract};
 use bevy_transform::components::GlobalTransform;
 

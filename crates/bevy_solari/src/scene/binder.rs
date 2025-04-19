@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{ExtractedDirectionalLight, MeshMaterial3d, StandardMaterial};
-use bevy_platform_support::{collections::HashMap, hash::FixedHasher};
+use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
     mesh::allocator::MeshAllocator,
     render_asset::RenderAssets,
