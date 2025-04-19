@@ -17,9 +17,9 @@ use bevy::{
         camera::TemporalJitter,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
+        view::Hdr,
     },
 };
-use bevy_render::view::Hdr;
 
 fn main() {
     App::new()

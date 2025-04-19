@@ -8,10 +8,9 @@ use bevy::{
     reflect::TypePath,
     render::{
         render_resource::{AsBindGroup, ShaderRef},
-        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
+        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
     },
 };
-use bevy_render::view::Hdr;
 use std::f32::consts::PI;
 
 /// This example uses a shader source file from the assets subdirectory

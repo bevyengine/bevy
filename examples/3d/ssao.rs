@@ -5,9 +5,8 @@ use bevy::{
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
-    render::camera::TemporalJitter,
+    render::{camera::TemporalJitter, view::Hdr},
 };
-use bevy_render::view::Hdr;
 use std::f32::consts::PI;
 
 fn main() {

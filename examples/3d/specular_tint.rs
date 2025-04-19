@@ -2,8 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{color::palettes::css::WHITE, core_pipeline::Skybox, prelude::*};
-use bevy_render::view::Hdr;
+use bevy::{color::palettes::css::WHITE, core_pipeline::Skybox, prelude::*, render::view::Hdr};
 
 /// The camera rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.005;

@@ -4,8 +4,8 @@ use bevy::{
     color::palettes::css::{ALICE_BLUE, BLACK, CRIMSON},
     core_pipeline::bloom::Bloom,
     prelude::*,
+    render::view::Hdr,
 };
-use bevy_render::view::Hdr;
 
 fn main() {
     App::new()

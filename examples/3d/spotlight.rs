@@ -7,8 +7,8 @@ use bevy::{
     math::ops,
     pbr::NotShadowCaster,
     prelude::*,
+    render::view::Hdr,
 };
-use bevy_render::view::Hdr;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

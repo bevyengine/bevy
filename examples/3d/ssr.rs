@@ -16,9 +16,11 @@ use bevy::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::{
+        render_resource::{AsBindGroup, ShaderRef, ShaderType},
+        view::Hdr,
+    },
 };
-use bevy_render::view::Hdr;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";

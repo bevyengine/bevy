@@ -9,8 +9,8 @@ use bevy::{
     math::vec3,
     pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
+    render::view::Hdr,
 };
-use bevy_render::view::Hdr;
 
 /// Entry point.
 fn main() {

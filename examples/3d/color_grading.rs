@@ -9,9 +9,8 @@ use bevy::{
     ecs::system::EntityCommands,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
+    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
 };
-use bevy_render::view::Hdr;
 use std::fmt::Display;
 
 static FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";

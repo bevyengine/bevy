@@ -7,8 +7,8 @@ use bevy::{
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
     image::ImageLoaderSettings,
     prelude::*,
+    render::view::Hdr,
 };
-use bevy_render::view::Hdr;
 
 /// Entry point.
 pub fn main() {

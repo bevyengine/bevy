@@ -25,8 +25,8 @@ use bevy::{
     image::ImageLoaderSettings,
     math::vec3,
     prelude::*,
+    render::view::Hdr,
 };
-use bevy_render::view::Hdr;
 
 /// The size of each sphere.
 const SPHERE_SCALE: f32 = 0.9;
