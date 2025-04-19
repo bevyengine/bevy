@@ -6,7 +6,7 @@ use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     pbr::{light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
-    render::{camera::Exposure, view::Hdr},
+    render::camera::Exposure,
 };
 
 fn main() {
