@@ -928,7 +928,7 @@ pub struct Steps(usize, JumpAt);
 #[derive(Copy, Clone)]
 pub struct Elastic(f32);
 
-// Implements `Curve<f32>` by calling a function in `easing_functions`.
+/// Implements `Curve<f32>` for the given function in `easing_functions`.
 macro_rules! impl_ease_unit_struct {
     ($ty: ty, $fn: ident) => {
         impl Curve<f32> for $ty {
