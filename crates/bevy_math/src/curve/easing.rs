@@ -1612,72 +1612,56 @@ mod tests {
     fn unit_structs_match_function() {
         // Test that the unit structs match `EaseFunction`.
 
+        macro_rules! test {
+            ($f: ident, $t: expr) => {
+                assert_eq!($f.sample($t), EaseFunction::$f.sample($t));
+            };
+        }
+
         for t in [-1.0, 0.0, 0.25, 0.5, 0.75, 1.0, 2.0] {
-            assert_eq!(Linear.sample(t), EaseFunction::Linear.sample(t));
-            assert_eq!(QuadraticIn.sample(t), EaseFunction::QuadraticIn.sample(t));
-            assert_eq!(QuadraticOut.sample(t), EaseFunction::QuadraticOut.sample(t));
-            assert_eq!(
-                QuadraticInOut.sample(t),
-                EaseFunction::QuadraticInOut.sample(t)
-            );
-            assert_eq!(CubicIn.sample(t), EaseFunction::CubicIn.sample(t));
-            assert_eq!(CubicOut.sample(t), EaseFunction::CubicOut.sample(t));
-            assert_eq!(CubicInOut.sample(t), EaseFunction::CubicInOut.sample(t));
-            assert_eq!(QuarticIn.sample(t), EaseFunction::QuarticIn.sample(t));
-            assert_eq!(QuarticOut.sample(t), EaseFunction::QuarticOut.sample(t));
-            assert_eq!(QuarticInOut.sample(t), EaseFunction::QuarticInOut.sample(t));
-            assert_eq!(QuinticIn.sample(t), EaseFunction::QuinticIn.sample(t));
-            assert_eq!(QuinticOut.sample(t), EaseFunction::QuinticOut.sample(t));
-            assert_eq!(QuinticInOut.sample(t), EaseFunction::QuinticInOut.sample(t));
-            assert_eq!(SmoothStepIn.sample(t), EaseFunction::SmoothStepIn.sample(t));
-            assert_eq!(
-                SmoothStepOut.sample(t),
-                EaseFunction::SmoothStepOut.sample(t)
-            );
-            assert_eq!(SmoothStep.sample(t), EaseFunction::SmoothStep.sample(t));
-            assert_eq!(
-                SmootherStepIn.sample(t),
-                EaseFunction::SmootherStepIn.sample(t)
-            );
-            assert_eq!(
-                SmootherStepOut.sample(t),
-                EaseFunction::SmootherStepOut.sample(t)
-            );
-            assert_eq!(SmootherStep.sample(t), EaseFunction::SmootherStep.sample(t));
-            assert_eq!(SineIn.sample(t), EaseFunction::SineIn.sample(t));
-            assert_eq!(SineOut.sample(t), EaseFunction::SineOut.sample(t));
-            assert_eq!(SineInOut.sample(t), EaseFunction::SineInOut.sample(t));
-            assert_eq!(CircularIn.sample(t), EaseFunction::CircularIn.sample(t));
-            assert_eq!(CircularOut.sample(t), EaseFunction::CircularOut.sample(t));
-            assert_eq!(
-                CircularInOut.sample(t),
-                EaseFunction::CircularInOut.sample(t)
-            );
-            assert_eq!(
-                ExponentialIn.sample(t),
-                EaseFunction::ExponentialIn.sample(t)
-            );
-            assert_eq!(
-                ExponentialOut.sample(t),
-                EaseFunction::ExponentialOut.sample(t)
-            );
-            assert_eq!(
-                ExponentialInOut.sample(t),
-                EaseFunction::ExponentialInOut.sample(t)
-            );
-            assert_eq!(ElasticIn.sample(t), EaseFunction::ElasticIn.sample(t));
-            assert_eq!(ElasticOut.sample(t), EaseFunction::ElasticOut.sample(t));
-            assert_eq!(ElasticInOut.sample(t), EaseFunction::ElasticInOut.sample(t));
-            assert_eq!(BackIn.sample(t), EaseFunction::BackIn.sample(t));
-            assert_eq!(BackOut.sample(t), EaseFunction::BackOut.sample(t));
-            assert_eq!(BackInOut.sample(t), EaseFunction::BackInOut.sample(t));
-            assert_eq!(BounceIn.sample(t), EaseFunction::BounceIn.sample(t));
-            assert_eq!(BounceOut.sample(t), EaseFunction::BounceOut.sample(t));
-            assert_eq!(BounceInOut.sample(t), EaseFunction::BounceInOut.sample(t));
+            test!(Linear, t);
+            test!(QuadraticIn, t);
+            test!(QuadraticOut, t);
+            test!(QuadraticInOut, t);
+            test!(CubicIn, t);
+            test!(CubicOut, t);
+            test!(CubicInOut, t);
+            test!(QuarticIn, t);
+            test!(QuarticOut, t);
+            test!(QuarticInOut, t);
+            test!(QuinticIn, t);
+            test!(QuinticOut, t);
+            test!(QuinticInOut, t);
+            test!(SmoothStepIn, t);
+            test!(SmoothStepOut, t);
+            test!(SmoothStep, t);
+            test!(SmootherStepIn, t);
+            test!(SmootherStepOut, t);
+            test!(SmootherStep, t);
+            test!(SineIn, t);
+            test!(SineOut, t);
+            test!(SineInOut, t);
+            test!(CircularIn, t);
+            test!(CircularOut, t);
+            test!(CircularInOut, t);
+            test!(ExponentialIn, t);
+            test!(ExponentialOut, t);
+            test!(ExponentialInOut, t);
+            test!(ElasticIn, t);
+            test!(ElasticOut, t);
+            test!(ElasticInOut, t);
+            test!(BackIn, t);
+            test!(BackOut, t);
+            test!(BackInOut, t);
+            test!(BounceIn, t);
+            test!(BounceOut, t);
+            test!(BounceInOut, t);
+
             assert_eq!(
                 Steps(4, JumpAt::Start).sample(t),
                 EaseFunction::Steps(4, JumpAt::Start).sample(t)
             );
+
             assert_eq!(
                 Elastic(50.0).sample(t),
                 EaseFunction::Elastic(50.0).sample(t)
