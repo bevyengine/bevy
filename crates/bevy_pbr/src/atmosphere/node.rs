@@ -2,9 +2,14 @@ use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
 use bevy_math::{UVec2, Vec3Swizzles};
 use bevy_render::{
     extract_component::DynamicUniformIndex,
+    render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
-    render_resource::{ComputePass, ComputePassDescriptor, PipelineCache, RenderPassDescriptor},
+    render_resource::{
+        ComputePass, ComputePassDescriptor, Extent3d, Origin3d, PipelineCache,
+        RenderPassDescriptor, TextureAspect,
+    },
     renderer::RenderContext,
+    texture::GpuImage,
     view::{ViewTarget, ViewUniformOffset},
 };
 
@@ -12,8 +17,8 @@ use crate::ViewLightsUniformOffset;
 
 use super::{
     resources::{
-        AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
-        RenderSkyPipelineId,
+        AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereResources,
+        AtmosphereTransformsOffset, RenderSkyPipelineId, SkyViewLutUpsamplePipeline,
     },
     Atmosphere, AtmosphereSettings,
 };
@@ -22,6 +27,7 @@ use super::{
 pub enum AtmosphereNode {
     RenderLuts,
     RenderSky,
+    SkyViewLutUpsample,
 }
 
 #[derive(Default)]
@@ -216,6 +222,88 @@ impl ViewNode for RenderSkyNode {
             ],
         );
         render_sky_pass.draw(0..3, 0..1);
+
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub(super) struct SkyViewLutUpsampleNode;
+
+impl ViewNode for SkyViewLutUpsampleNode {
+    type ViewQuery = (
+        Read<AtmosphereSettings>,
+        Read<AtmosphereBindGroups>,
+        Read<DynamicUniformIndex<Atmosphere>>,
+        Read<DynamicUniformIndex<AtmosphereSettings>>,
+    );
+
+    fn run<'w>(
+        &self,
+        _graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext<'w>,
+        (settings, bind_groups, atmosphere_uniforms_offset, settings_uniforms_offset): QueryItem<
+            'w,
+            Self::ViewQuery,
+        >,
+        world: &'w World,
+    ) -> Result<(), NodeRunError> {
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let sky_view_lut_upsample_pipeline = world.resource::<SkyViewLutUpsamplePipeline>();
+        let gpu_images = world.resource::<RenderAssets<GpuImage>>();
+        let atmosphere_resources = world.resource::<AtmosphereResources>();
+
+        // Get the texture for the sky view LUT array from the resources
+        let Some(sky_view_lut_array_storage) =
+            gpu_images.get(&atmosphere_resources.sky_view_lut_array_storage_view)
+        else {
+            return Ok(());
+        };
+
+        // Get the cubemap texture view as well
+        let Some(sky_view_lut_array_cube) =
+            gpu_images.get(&atmosphere_resources.sky_view_lut_array)
+        else {
+            return Ok(());
+        };
+
+        let Some(compute_pipeline) =
+            pipeline_cache.get_compute_pipeline(sky_view_lut_upsample_pipeline.pipeline)
+        else {
+            return Ok(());
+        };
+
+        {
+            let mut pass =
+                render_context
+                    .command_encoder()
+                    .begin_compute_pass(&ComputePassDescriptor {
+                        label: Some("sky_view_lut_upsample_pass"),
+                        timestamp_writes: None,
+                    });
+
+            pass.set_pipeline(compute_pipeline);
+            pass.set_bind_group(
+                0,
+                &bind_groups.sky_view_lut_upsample,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                ],
+            );
+
+            pass.dispatch_workgroups(256 / 8, 256 / 8, 6);
+        } // End the compute pass
+
+        render_context.command_encoder().copy_texture_to_texture(
+            sky_view_lut_array_storage.texture.as_image_copy(),
+            sky_view_lut_array_cube.texture.as_image_copy(),
+            Extent3d {
+                width: 256,
+                height: 256,
+                depth_or_array_layers: 6,
+            },
+        );
 
         Ok(())
     }

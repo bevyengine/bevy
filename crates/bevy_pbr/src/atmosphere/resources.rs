@@ -1,3 +1,4 @@
+use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::{
     core_3d::Camera3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
@@ -9,10 +10,12 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_image::Image;
 use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     camera::Camera,
     extract_component::ComponentUniforms,
+    extract_resource::ExtractResource,
     render_asset::RenderAssets,
     render_resource::{binding_types::*, StorageBuffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -30,6 +33,7 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     pub multiscattering_lut: BindGroupLayout,
     pub sky_view_lut: BindGroupLayout,
     pub aerial_view_lut: BindGroupLayout,
+    pub sky_view_lut_upsample: BindGroupLayout,
 }
 
 #[derive(Resource)]
@@ -145,11 +149,33 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             ),
         );
 
+        let sky_view_lut_upsample = render_device.create_bind_group_layout(
+            "sky_view_lut_upsample_bind_group_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::COMPUTE,
+                (
+                    (0, uniform_buffer::<Atmosphere>(true)),
+                    (1, uniform_buffer::<AtmosphereSettings>(true)),
+                    (2, texture_2d(TextureSampleType::Float { filterable: true })), // sky view lut texture
+                    (3, sampler(SamplerBindingType::Filtering)), // sky view lut sampler
+                    (
+                        4,
+                        texture_storage_2d_array(
+                            // output 2D array texture
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
+                ),
+            ),
+        );
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            sky_view_lut_upsample,
         }
     }
 }
@@ -174,21 +200,12 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (9, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
                     (10, sampler(SamplerBindingType::Filtering)),
                     (
-                        // aerial view lut and sampler
                         11,
                         texture_3d(TextureSampleType::Float { filterable: true }),
-                    ),
+                    ), // aerial view lut and sampler
                     (12, sampler(SamplerBindingType::Filtering)),
-                    (
-                        //view depth texture
-                        13,
-                        texture_2d(TextureSampleType::Depth),
-                    ),
-                    (
-                        // directional shadow texture
-                        14,
-                        texture_2d_array(TextureSampleType::Depth),
-                    ),
+                    (13, texture_2d(TextureSampleType::Depth)), //view depth texture
+                    (14, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
                     (15, sampler(SamplerBindingType::Comparison)),
                     (
                         16,
@@ -220,14 +237,20 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         texture_3d(TextureSampleType::Float { filterable: true }),
                     ), // aerial view lut and sampler
                     (12, sampler(SamplerBindingType::Filtering)),
-                    (13, texture_2d_multisampled(TextureSampleType::Depth)), //view depth texture
-                    (14, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
-                    (15, sampler(SamplerBindingType::Comparison)),
                     (
-                        16,
+                        // sky view lut array for cubemap faces
+                        13,
+                        texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (14, sampler(SamplerBindingType::Filtering)),
+                    (15, texture_2d_multisampled(TextureSampleType::Depth)), //view depth texture
+                    (16, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
+                    (17, sampler(SamplerBindingType::Comparison)),
+                    (
+                        18,
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ), // blue noise texture and sampler
-                    (17, sampler(SamplerBindingType::Filtering)),
+                    (19, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
         );
@@ -306,6 +329,7 @@ pub(crate) struct AtmosphereLutPipelines {
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedComputePipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
+    pub sky_view_lut_upsample: CachedComputePipelineId,
 }
 
 impl FromWorld for AtmosphereLutPipelines {
@@ -354,11 +378,23 @@ impl FromWorld for AtmosphereLutPipelines {
             zero_initialize_workgroup_memory: false,
         });
 
+        let sky_view_lut_upsample =
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("sky_view_lut_upsample_pipeline".into()),
+                layout: vec![layouts.sky_view_lut_upsample.clone()],
+                push_constant_ranges: vec![],
+                shader: shaders::SKY_VIEW_LUT_UPSAMPLE,
+                shader_defs: vec![],
+                entry_point: "main".into(),
+                zero_initialize_workgroup_memory: false,
+            });
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            sky_view_lut_upsample,
         }
     }
 }
@@ -650,6 +686,7 @@ pub(crate) struct AtmosphereBindGroups {
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
     pub render_sky: BindGroup,
+    pub sky_view_lut_upsample: BindGroup,
 }
 
 pub(super) fn prepare_atmosphere_bind_groups(
@@ -674,6 +711,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
     shadow_samplers: Res<ShadowSamplers>,
     images: Res<RenderAssets<GpuImage>>,
+    atmosphere_resources: Res<AtmosphereResources>,
     mut commands: Commands,
 ) {
     if views.iter().len() == 0 {
@@ -801,12 +839,28 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
+        let sky_view_lut_upsample = render_device.create_bind_group(
+            "sky_view_lut_upsample_bind_group",
+            &layouts.sky_view_lut_upsample,
+            &BindGroupEntries::sequential((
+                atmosphere_binding.clone(),
+                settings_binding.clone(),
+                &textures.sky_view_lut.default_view,
+                &samplers.sky_view_lut,
+                &images
+                    .get(&atmosphere_resources.sky_view_lut_array_storage_view)
+                    .expect("sky_view_lut_array storage view not found")
+                    .texture_view,
+            )),
+        );
+
         commands.entity(entity).insert(AtmosphereBindGroups {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
             render_sky,
+            sky_view_lut_upsample,
         });
     }
 }
@@ -861,4 +915,79 @@ pub(crate) fn prepare_atmosphere_buffer(
         settings: *settings,
     });
     atmosphere_buffer.buffer.write_buffer(&device, &queue);
+}
+
+#[derive(Resource)]
+pub struct SkyViewLutUpsamplePipeline {
+    pub bind_group_layout: BindGroupLayout,
+    pub pipeline: CachedComputePipelineId,
+}
+
+impl FromWorld for SkyViewLutUpsamplePipeline {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        let layouts = world.resource::<AtmosphereBindGroupLayouts>();
+        let pipelines = world.resource::<AtmosphereLutPipelines>();
+
+        Self {
+            bind_group_layout: layouts.sky_view_lut_upsample.clone(),
+            pipeline: pipelines.sky_view_lut_upsample,
+        }
+    }
+}
+
+#[derive(Resource, Clone, ExtractResource)]
+pub struct AtmosphereResources {
+    pub sky_view_lut_array: Handle<Image>,
+    pub sky_view_lut_array_storage_view: Handle<Image>,
+}
+
+impl FromWorld for AtmosphereResources {
+    fn from_world(world: &mut World) -> Self {
+        // Create a default placeholder image for the cubemap
+        let mut images = world.resource_mut::<Assets<Image>>();
+
+        // Create the base texture that will be shared
+        let mut texture = Image::new_fill(
+            Extent3d {
+                width: 256,
+                height: 256,
+                depth_or_array_layers: 6, // 6 faces for cubemap
+            },
+            TextureDimension::D2,
+            &[0; 8],
+            TextureFormat::Rgba16Float,
+            RenderAssetUsages::all(),
+        );
+
+        // Ensure right usage flags
+        texture.texture_descriptor.usage = TextureUsages::STORAGE_BINDING
+            | TextureUsages::TEXTURE_BINDING
+            | TextureUsages::COPY_SRC
+            | TextureUsages::COPY_DST;
+
+        // Create the storage version (2D array view)
+        let mut storage_texture = texture.clone();
+        storage_texture.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        });
+
+        // Add the storage texture to assets
+        let storage_handle = images.add(storage_texture);
+
+        // Set up the cubemap view for rendering
+        texture.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::Cube),
+            ..Default::default()
+        });
+
+        // Add the cubemap to assets
+        let cubemap_handle = images.add(texture);
+
+        Self {
+            sky_view_lut_array: cubemap_handle,
+            sky_view_lut_array_storage_view: storage_handle,
+        }
+    }
 }

@@ -20,6 +20,7 @@
 @group(0) @binding(10) var sky_view_lut_sampler: sampler;
 @group(0) @binding(11) var aerial_view_lut: texture_3d<f32>;
 @group(0) @binding(12) var aerial_view_lut_sampler: sampler;
+@group(0) @binding(13) var view_depth_texture: texture_depth_2d;
 @group(0) @binding(14) var directional_shadow_texture: texture_depth_2d_array;
 @group(0) @binding(15) var directional_shadow_sampler: sampler_comparison;
 @group(0) @binding(16) var blue_noise_texture: texture_2d<f32>;

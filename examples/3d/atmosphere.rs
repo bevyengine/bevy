@@ -3,11 +3,11 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
+    core_pipeline::{auto_exposure::AutoExposure, bloom::Bloom, tonemapping::Tonemapping},
     input::mouse::{MouseMotion, MouseWheel},
     pbr::{
-        light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder, FogVolume,
-        VolumetricFog, VolumetricLight,
+        light_consts::lux, resources::AtmosphereResources, Atmosphere, AtmosphereSettings,
+        CascadeShadowConfigBuilder, FogVolume, VolumetricFog, VolumetricLight,
     },
     prelude::*,
     render::camera::Exposure,
@@ -30,7 +30,7 @@ fn main() {
         .run();
 }
 
-fn setup_camera_fog(mut commands: Commands) {
+fn setup_camera_fog(mut commands: Commands, atmosphere_resources: Res<AtmosphereResources>) {
     let initial_distance = 1.0;
     let initial_transform =
         Transform::from_xyz(-initial_distance, 0.1, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
@@ -43,6 +43,7 @@ fn setup_camera_fog(mut commands: Commands) {
                 hdr: true,
                 ..default()
             },
+            AutoExposure::default(),
             Msaa::Off,
             initial_transform.clone(),
             CameraOrbit {
@@ -59,6 +60,12 @@ fn setup_camera_fog(mut commands: Commands) {
             Tonemapping::AcesFitted,
             // Bloom gives the sun a much more natural look.
             Bloom::NATURAL,
+            EnvironmentMapLight {
+                intensity: 5000.0,
+                diffuse_map: atmosphere_resources.sky_view_lut_array.clone(),
+                specular_map: atmosphere_resources.sky_view_lut_array.clone(),
+                ..default()
+            },
         ))
         // .insert(ScreenSpaceAmbientOcclusion {
         //     constant_object_thickness: 4.0,
@@ -147,19 +154,19 @@ fn setup_terrain_scene(
             perceptual_roughness: 0.0,
             ..default()
         })),
-        Transform::from_xyz(-0.3, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
+        Transform::from_xyz(0.0, 0.25, 0.0).with_scale(Vec3::splat(0.25)),
     ));
 
-    commands.spawn((
-        Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            metallic: 0.0,
-            perceptual_roughness: 1.0,
-            ..default()
-        })),
-        Transform::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
-    ));
+    // commands.spawn((
+    //     Mesh3d(sphere_mesh.clone()),
+    //     MeshMaterial3d(materials.add(StandardMaterial {
+    //         base_color: Color::WHITE,
+    //         metallic: 0.0,
+    //         perceptual_roughness: 1.0,
+    //         ..default()
+    //     })),
+    //     Transform::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
+    // ));
 
     // let tall_cylinder_mesh = meshes.add(Cylinder {
     //     radius: 0.5,
@@ -177,25 +184,25 @@ fn setup_terrain_scene(
     // ));
 
     // ground plane
-    commands.spawn((
-        Mesh3d(meshes.add(Plane3d {
-            normal: Dir3::Y,
-            half_size: Vec2::splat(10.0),
-            ..default()
-        })),
-        MeshMaterial3d(materials.add(StandardMaterial { ..default() })),
-    ));
+    // commands.spawn((
+    //     Mesh3d(meshes.add(Plane3d {
+    //         normal: Dir3::Y,
+    //         half_size: Vec2::splat(10.0),
+    //         ..default()
+    //     })),
+    //     MeshMaterial3d(materials.add(StandardMaterial { ..default() })),
+    // ));
 
-    // Terrain
-    commands.spawn((
-        Terrain,
-        SceneRoot(
-            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
-        ),
-        Transform::from_xyz(-1.0, 0.0, -0.5)
-            .with_scale(Vec3::splat(0.5))
-            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
-    ));
+    // // Terrain
+    // commands.spawn((
+    //     Terrain,
+    //     SceneRoot(
+    //         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
+    //     ),
+    //     Transform::from_xyz(-1.0, 0.0, -0.5)
+    //         .with_scale(Vec3::splat(0.5))
+    //         .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+    // ));
 }
 
 fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {

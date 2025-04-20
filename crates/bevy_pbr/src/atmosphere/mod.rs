@@ -36,26 +36,31 @@
 mod node;
 pub mod resources;
 
-use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, load_internal_binary_asset};
-use bevy_core_pipeline::core_3d::graph::Node3d;
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::{load_internal_asset, load_internal_binary_asset, AssetServer, Assets, Handle};
+use bevy_core_pipeline::{core_3d::graph::Node3d, Skybox};
 use bevy_ecs::{
+    change_detection::DetectChanges,
     component::Component,
     query::{Changed, QueryItem, With},
     schedule::IntoScheduleConfigs,
-    system::{lifetimeless::Read, Query},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
-    render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
+    extract_resource::ExtractResourcePlugin,
+    render_resource::{
+        DownlevelFlags, Extent3d, ShaderType, SpecializedRenderPipelines, TextureDimension,
+        TextureFormat, TextureUsages, TextureViewDescriptor, TextureViewDimension,
+    },
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, TextureFormat, TextureUsages},
+    render_resource::Shader,
     renderer::RenderAdapter,
     Render, RenderApp, RenderSet,
 };
@@ -63,15 +68,18 @@ use bevy_render::{
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 use resources::{
     prepare_atmosphere_buffer, prepare_atmosphere_transforms, queue_render_sky_pipelines,
-    AtmosphereBuffer, AtmosphereTransforms, RenderSkyBindGroupLayouts,
+    AtmosphereBuffer, AtmosphereResources, AtmosphereTextures, AtmosphereTransforms,
+    RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
 
+use crate::light_probe::environment_map::EnvironmentMapLight;
+
 use self::{
-    node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
+    node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode, SkyViewLutUpsampleNode},
     resources::{
         prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmosphereLutPipelines, AtmosphereSamplers,
+        AtmosphereLutPipelines, AtmosphereSamplers, SkyViewLutUpsamplePipeline,
     },
 };
 
@@ -91,6 +99,8 @@ mod shaders {
     pub const MULTISCATTERING_LUT: Handle<Shader> =
         weak_handle!("bde3a71a-73e9-49fe-a379-a81940c67a1e");
     pub const SKY_VIEW_LUT: Handle<Shader> = weak_handle!("f87e007a-bf4b-4f99-9ef0-ac21d369f0e5");
+    pub const SKY_VIEW_LUT_UPSAMPLE: Handle<Shader> =
+        weak_handle!("d3890ef4-5a80-41ee-8cb3-9bf3ec512ea3");
     pub const AERIAL_VIEW_LUT: Handle<Shader> =
         weak_handle!("a3daf030-4b64-49ae-a6a7-354489597cbe");
     pub const RENDER_SKY: Handle<Shader> = weak_handle!("09422f46-d0f7-41c1-be24-121c17d6e834");
@@ -156,6 +166,13 @@ impl Plugin for AtmospherePlugin {
 
         load_internal_asset!(
             app,
+            shaders::SKY_VIEW_LUT_UPSAMPLE,
+            "sky_view_lut_upsample.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(
+            app,
             shaders::AERIAL_VIEW_LUT,
             "aerial_view_lut.wgsl",
             Shader::from_wgsl
@@ -172,12 +189,17 @@ impl Plugin for AtmospherePlugin {
 
         app.register_type::<Atmosphere>()
             .register_type::<AtmosphereSettings>()
+            .init_resource::<AtmosphereResources>()
             .add_plugins((
                 ExtractComponentPlugin::<Atmosphere>::default(),
                 ExtractComponentPlugin::<AtmosphereSettings>::default(),
                 UniformComponentPlugin::<Atmosphere>::default(),
                 UniformComponentPlugin::<AtmosphereSettings>::default(),
+                ExtractResourcePlugin::<AtmosphereResources>::default(),
             ));
+
+        // Add the system to update environment lighting
+        app.add_systems(Update, update_atmosphere_environment_lighting);
     }
 
     fn finish(&self, app: &mut App) {
@@ -213,6 +235,7 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .init_resource::<AtmosphereBuffer>()
+            .init_resource::<SkyViewLutUpsamplePipeline>()
             .add_systems(
                 Render,
                 (
@@ -230,12 +253,17 @@ impl Plugin for AtmospherePlugin {
                 Core3d,
                 AtmosphereNode::RenderLuts,
             )
+            .add_render_graph_node::<ViewNodeRunner<SkyViewLutUpsampleNode>>(
+                Core3d,
+                AtmosphereNode::SkyViewLutUpsample,
+            )
             .add_render_graph_edges(
                 Core3d,
                 (
-                    // END_PRE_PASSES -> RENDER_LUTS -> MAIN_PASS
+                    // END_PRE_PASSES -> RENDER_LUTS -> SKY_VIEW_LUT_UPSAMPLE -> MAIN_PASS
                     Node3d::EndPrepasses,
                     AtmosphereNode::RenderLuts,
+                    AtmosphereNode::SkyViewLutUpsample,
                     Node3d::StartMainPass,
                 ),
             )
@@ -517,5 +545,34 @@ fn configure_camera_depth_usages(
 ) {
     for mut camera in &mut cameras {
         camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
+    }
+}
+
+/// Updates any Skybox and EnvironmentMapLight components to use
+/// the sky view LUT array as their texture source.
+pub fn update_atmosphere_environment_lighting(
+    atmosphere_resources: Res<AtmosphereResources>,
+    mut query: Query<(&mut Skybox, &mut EnvironmentMapLight)>,
+    images: Res<Assets<Image>>,
+) {
+    // Only update if the cubemap has been created and is valid
+    if images
+        .get(&atmosphere_resources.sky_view_lut_array)
+        .is_some()
+    {
+        for (mut skybox, mut env_map) in query.iter_mut() {
+            // If the handles are different, update them
+            if skybox.image != atmosphere_resources.sky_view_lut_array {
+                skybox.image = atmosphere_resources.sky_view_lut_array.clone();
+            }
+
+            // Update the environment maps
+            if env_map.diffuse_map != atmosphere_resources.sky_view_lut_array {
+                env_map.diffuse_map = atmosphere_resources.sky_view_lut_array.clone();
+            }
+            if env_map.specular_map != atmosphere_resources.sky_view_lut_array {
+                env_map.specular_map = atmosphere_resources.sky_view_lut_array.clone();
+            }
+        }
     }
 }
