@@ -809,7 +809,9 @@ impl Entities {
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
             Some(Entity::from_raw_and_generation(index, generation))
         } else {
-            (self.allocator.is_valid_index(index)).then_some(Entity::from_raw(index))
+            self.allocator
+                .is_valid_index(index)
+                .then_some(Entity::from_raw(index))
         }
     }
 
