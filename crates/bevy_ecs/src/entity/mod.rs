@@ -268,10 +268,10 @@ pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
     // to make this struct equivalent to a u64.
     #[cfg(target_endian = "little")]
-    index: EntityRow,
+    row: EntityRow,
     generation: NonZero<u32>,
     #[cfg(target_endian = "big")]
-    index: EntityRow,
+    row: EntityRow,
 }
 
 // By not short-circuiting in comparisons, we get better codegen.
@@ -345,7 +345,10 @@ impl Entity {
     ) -> Entity {
         debug_assert!(generation.get() <= HIGH_MASK);
 
-        Self { index, generation }
+        Self {
+            row: index,
+            generation,
+        }
     }
 
     /// An entity ID with a placeholder value. This may or may not correspond to an actual entity,
@@ -420,7 +423,7 @@ impl Entity {
     /// No particular structure is guaranteed for the returned bits.
     #[inline(always)]
     pub const fn to_bits(self) -> u64 {
-        IdentifierMask::pack_into_u64(self.index.to_bits(), self.generation.get())
+        IdentifierMask::pack_into_u64(self.row.to_bits(), self.generation.get())
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
@@ -454,7 +457,7 @@ impl Entity {
             if kind == (IdKind::Entity as u8) {
                 if let Some(row) = EntityRow::try_from_bits(id.low()) {
                     return Ok(Self {
-                        index: row,
+                        row,
                         generation: id.high(),
                     });
                 }
@@ -472,13 +475,13 @@ impl Entity {
     /// specific snapshot of the world, such as when serializing.
     #[inline]
     pub const fn row(self) -> EntityRow {
-        self.index
+        self.row
     }
 
     /// Equivalent to `self.row().index()`. See [`Self::row`] for details.
     #[inline]
     pub const fn index(self) -> u32 {
-        self.index.index()
+        self.row.index()
     }
 
     /// Returns the generation of this Entity's index. The generation is incremented each time an
