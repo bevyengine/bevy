@@ -1627,7 +1627,7 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 // collection.
 pub fn changed_lights<M: Material>(
     needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
-    mut changed_entities: ResMut<ChangedEntities<M>>,
+    mut changed_entities: ResMut<ChangedMeshMaterialEntities<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
 ) {
     for entity in &needs_specialization {

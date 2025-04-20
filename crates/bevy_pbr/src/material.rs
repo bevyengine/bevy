@@ -282,13 +282,13 @@ where
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
             .register_type::<MeshMaterial3d<M>>()
-            .init_resource::<ChangedEntities<M>>()
+            .init_resource::<ChangedMeshMaterialEntities<M>>()
             .add_plugins((RenderAssetPlugin::<PreparedMaterial<M>>::default(),))
             .add_systems(
                 PostUpdate,
                 (
                     mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    check_changed_entities::<M>.after(AssetEvents),
+                    check_changed_mesh_material_entities::<M>.after(AssetEvents),
                 )
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
@@ -296,7 +296,7 @@ where
         if self.shadows_enabled {
             app.add_systems(
                 PostUpdate,
-                changed_lights::<M>.after(check_changed_entities::<M>),
+                changed_lights::<M>.after(check_changed_mesh_material_entities::<M>),
             );
         }
 
@@ -812,7 +812,7 @@ pub(crate) fn late_sweep_material_instances(
 }
 
 pub fn extract_entities_maybe_needing_specialization<M>(
-    changed_entities: Extract<Res<ChangedEntities<M>>>,
+    changed_entities: Extract<Res<ChangedMeshMaterialEntities<M>>>,
     mut entities_maybe_needing_specialization: ResMut<EntitiesMaybeNeedingSpecialization<M>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
@@ -860,13 +860,13 @@ pub fn extract_entities_maybe_needing_specialization<M>(
 }
 
 #[derive(Resource, Deref, DerefMut, Clone, Debug)]
-pub struct ChangedEntities<M> {
+pub struct ChangedMeshMaterialEntities<M> {
     #[deref]
     pub entities: Vec<Entity>,
     _marker: PhantomData<M>,
 }
 
-impl<M> Default for ChangedEntities<M> {
+impl<M> Default for ChangedMeshMaterialEntities<M> {
     fn default() -> Self {
         Self {
             entities: Default::default(),
@@ -961,7 +961,7 @@ impl<M> Default for SpecializedMaterialViewPipelineCache<M> {
     }
 }
 
-pub fn check_changed_entities<M>(
+pub fn check_changed_mesh_material_entities<M>(
     needs_specialization: Query<
         Entity,
         (
@@ -975,7 +975,7 @@ pub fn check_changed_entities<M>(
         ),
     >,
     mut par_local: Local<Parallel<Vec<Entity>>>,
-    mut changed_entities: ResMut<ChangedEntities<M>>,
+    mut changed_entities: ResMut<ChangedMeshMaterialEntities<M>>,
 ) where
     M: Material,
 {

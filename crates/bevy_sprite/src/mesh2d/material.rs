@@ -268,10 +268,10 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
-            .init_resource::<Changed2dEntities<M>>()
+            .init_resource::<ChangedMeshMaterial2dEntities<M>>()
             .register_type::<MeshMaterial2d<M>>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default())
-            .add_systems(PostUpdate, check_changed_entities::<M>.after(AssetEvents));
+            .add_systems(PostUpdate, check_changed_mesh_material_2d_entities::<M>.after(AssetEvents));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -555,7 +555,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
 }
 
 pub fn extract_entities_maybe_needing_specialization<M>(
-    changed_entities: Extract<Res<Changed2dEntities<M>>>,
+    changed_entities: Extract<Res<ChangedMeshMaterial2dEntities<M>>>,
     mut entities_maybe_needing_specialization: ResMut<Entities2dMaybeNeedingSpecialization<M>>,
     mut entity_specialization_ticks: ResMut<Entity2dSpecializationTicks<M>>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial2d<M>>>,
@@ -583,13 +583,13 @@ pub fn extract_entities_maybe_needing_specialization<M>(
 }
 
 #[derive(Clone, Resource, Deref, DerefMut, Debug)]
-pub struct Changed2dEntities<M> {
+pub struct ChangedMeshMaterial2dEntities<M> {
     #[deref]
     pub entities: Vec<Entity>,
     _marker: PhantomData<M>,
 }
 
-impl<M> Default for Changed2dEntities<M> {
+impl<M> Default for ChangedMeshMaterial2dEntities<M> {
     fn default() -> Self {
         Self {
             entities: Default::default(),
@@ -684,7 +684,7 @@ impl<M> Default for SpecializedMaterial2dViewPipelineCache<M> {
     }
 }
 
-pub fn check_changed_entities<M>(
+pub fn check_changed_mesh_material_2d_entities<M>(
     needs_specialization: Query<
         Entity,
         (
@@ -698,7 +698,7 @@ pub fn check_changed_entities<M>(
         ),
     >,
     mut par_local: Local<Parallel<Vec<Entity>>>,
-    mut changed_entities: ResMut<Changed2dEntities<M>>,
+    mut changed_entities: ResMut<ChangedMeshMaterial2dEntities<M>>,
 ) where
     M: Material2d,
 {
