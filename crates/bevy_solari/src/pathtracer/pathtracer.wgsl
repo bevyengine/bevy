@@ -1,13 +1,15 @@
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance
-#import bevy_pbr::utils::{PI, rand_f, rand_vec2f}
+#import bevy_pbr::utils::{rand_f, rand_vec2f}
+#import bevy_render::maths::PI;
 #import bevy_render::view::View
-
-// #import bevy_solari::scene_bindings::tlas
-@group(0) @binding(4) var tlas: acceleration_structure;
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, sample_cosine_hemisphere}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
 @group(1) @binding(1) var view_output: texture_storage_2d<rgba16float, write>;
 @group(1) @binding(2) var<uniform> view: View;
+
+const RAY_T_MIN = 0.001;
+const RAY_T_MAX = 100000.0;
 
 @compute @workgroup_size(8, 8, 1)
 fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -32,27 +34,27 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var irradiance = vec3(0.0);
     var throughput = vec3(1.0);
-    // loop {
-    //     let ray_hit = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX);
-    //     if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
-    //         let ray_hit = resolve_ray_hit(ray_hit);
+    loop {
+        let ray_hit = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX);
+        if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
+            let ray_hit = resolve_ray_hit_full(ray_hit);
 
-    //         irradiance += ray_hit.material.emissive * throughput;
+            irradiance += ray_hit.material.emissive * throughput;
 
-    //         let cos_theta = dot(ray_hit.world_normal, -ray_direction);
-    //         let diffuse_brdf = ray_hit.material.base_color / PI;
-    //         let cosine_hemisphere_pdf = cos_theta / PI;
-    //         throughput *= (diffuse_brdf * cos_theta) / cosine_hemisphere_pdf;
+            let cos_theta = dot(ray_hit.world_normal, -ray_direction);
+            let diffuse_brdf = ray_hit.material.base_color / PI;
+            let cosine_hemisphere_pdf = cos_theta / PI;
+            throughput *= (diffuse_brdf * cos_theta) / cosine_hemisphere_pdf;
 
-    //         let p = min(0.95, tonemapping_luminance(throughput));
-    //         if rand_f(&rng) > p { break; }
-    //         throughput /= p;
+            let p = min(0.95, tonemapping_luminance(throughput));
+            if rand_f(&rng) > p { break; }
+            throughput /= p;
 
-    //         ray_origin = ray_hit.world_position;
-    //         ray_direction = sample_cosine_hemisphere(ray_hit.world_normal, &rng);
-    //         ray_t_min = RAY_T_MIN;
-    //     } else { break; }
-    // }
+            ray_origin = ray_hit.world_position;
+            ray_direction = sample_cosine_hemisphere(ray_hit.world_normal, &rng);
+            ray_t_min = RAY_T_MIN;
+        } else { break; }
+    }
 
     irradiance *= view.exposure;
 
