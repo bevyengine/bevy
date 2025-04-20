@@ -62,8 +62,10 @@ fn setup_camera_fog(mut commands: Commands, atmosphere_resources: Res<Atmosphere
             Bloom::NATURAL,
             EnvironmentMapLight {
                 intensity: 5000.0,
-                diffuse_map: atmosphere_resources.environment_array.clone(),
-                specular_map: atmosphere_resources.environment_array.clone(),
+                // Use the diffuse irradiance map for ambient lighting
+                diffuse_map: atmosphere_resources.environment_diffuse.clone(),
+                // Use the environment array with mipmaps for specular reflections
+                specular_map: atmosphere_resources.environment_specular.clone(),
                 ..default()
             },
         ))
@@ -145,7 +147,7 @@ fn setup_terrain_scene(
 
     let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
 
-    // light probe spheres
+    // Main mirror sphere at center
     commands.spawn((
         Mesh3d(sphere_mesh.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
@@ -157,41 +159,27 @@ fn setup_terrain_scene(
         Transform::from_xyz(0.0, 0.25, 0.0).with_scale(Vec3::splat(0.25)),
     ));
 
-    // commands.spawn((
-    //     Mesh3d(sphere_mesh.clone()),
-    //     MeshMaterial3d(materials.add(StandardMaterial {
-    //         base_color: Color::WHITE,
-    //         metallic: 0.0,
-    //         perceptual_roughness: 1.0,
-    //         ..default()
-    //     })),
-    //     Transform::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
-    // ));
+    // Add 5 spheres with different roughness levels in a semicircle
+    let roughness_levels = [0.0, 0.25, 0.5, 0.75, 1.0];
+    let radius = 0.75; // Radius of the semicircle
 
-    // let tall_cylinder_mesh = meshes.add(Cylinder {
-    //     radius: 0.5,
-    //     half_height: 5.0,
-    //     ..default()
-    // });
+    for (i, roughness) in roughness_levels.iter().enumerate() {
+        // Calculate position in semicircle
+        let angle = PI * (i as f32) / (roughness_levels.len() - 1) as f32;
+        let x = radius * angle.sin();
+        let z = radius * angle.cos();
 
-    // commands.spawn((
-    //     Mesh3d(tall_cylinder_mesh.clone()),
-    //     MeshMaterial3d(materials.add(StandardMaterial {
-    //         base_color: Color::WHITE,
-    //         ..default()
-    //     })),
-    //     Transform::from_xyz(0.0, 5.0, 0.0),
-    // ));
-
-    // ground plane
-    // commands.spawn((
-    //     Mesh3d(meshes.add(Plane3d {
-    //         normal: Dir3::Y,
-    //         half_size: Vec2::splat(10.0),
-    //         ..default()
-    //     })),
-    //     MeshMaterial3d(materials.add(StandardMaterial { ..default() })),
-    // ));
+        commands.spawn((
+            Mesh3d(sphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::WHITE,
+                metallic: 1.0,
+                perceptual_roughness: *roughness,
+                ..default()
+            })),
+            Transform::from_xyz(x, 0.25, z).with_scale(Vec3::splat(0.15)),
+        ));
+    }
 
     // // Terrain
     // commands.spawn((

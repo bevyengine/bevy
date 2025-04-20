@@ -556,21 +556,21 @@ pub fn update_atmosphere_environment_lighting(
 ) {
     // Only update if the cubemap has been created and is valid
     if images
-        .get(&atmosphere_resources.environment_array)
+        .get(&atmosphere_resources.environment_specular)
         .is_some()
     {
         for (mut skybox, mut env_map) in query.iter_mut() {
             // If the handles are different, update them
-            if skybox.image != atmosphere_resources.environment_array {
-                skybox.image = atmosphere_resources.environment_array.clone();
+            if skybox.image != atmosphere_resources.environment_specular {
+                skybox.image = atmosphere_resources.environment_specular.clone();
             }
 
             // Update the environment maps
-            if env_map.diffuse_map != atmosphere_resources.environment_array {
-                env_map.diffuse_map = atmosphere_resources.environment_array.clone();
+            if env_map.diffuse_map != atmosphere_resources.environment_specular {
+                env_map.diffuse_map = atmosphere_resources.environment_specular.clone();
             }
-            if env_map.specular_map != atmosphere_resources.environment_array {
-                env_map.specular_map = atmosphere_resources.environment_array.clone();
+            if env_map.specular_map != atmosphere_resources.environment_specular {
+                env_map.specular_map = atmosphere_resources.environment_specular.clone();
             }
         }
     }

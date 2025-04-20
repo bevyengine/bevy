@@ -332,7 +332,8 @@ pub(crate) struct AtmosphereLutPipelines {
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedComputePipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
-    pub environment: CachedComputePipelineId,
+    pub environment_specular: CachedComputePipelineId,
+    pub environment_diffuse: CachedComputePipelineId,
 }
 
 impl FromWorld for AtmosphereLutPipelines {
@@ -381,22 +382,36 @@ impl FromWorld for AtmosphereLutPipelines {
             zero_initialize_workgroup_memory: false,
         });
 
-        let environment = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("environment_pipeline".into()),
-            layout: vec![layouts.environment.clone()],
-            push_constant_ranges: vec![],
-            shader: shaders::ENVIRONMENT,
-            shader_defs: vec![],
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
-        });
+        // Additional pipelines for environment cubemap generation with different entry points
+        let environment_specular =
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("environment_specular_pipeline".into()),
+                layout: vec![layouts.environment.clone()],
+                push_constant_ranges: vec![],
+                shader: shaders::ENVIRONMENT,
+                shader_defs: vec![],
+                entry_point: "specular".into(),
+                zero_initialize_workgroup_memory: false,
+            });
+
+        let environment_diffuse =
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("environment_diffuse_pipeline".into()),
+                layout: vec![layouts.environment.clone()],
+                push_constant_ranges: vec![],
+                shader: shaders::ENVIRONMENT,
+                shader_defs: vec![],
+                entry_point: "diffuse".into(),
+                zero_initialize_workgroup_memory: false,
+            });
 
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
-            environment,
+            environment_specular,
+            environment_diffuse,
         }
     }
 }
@@ -748,7 +763,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .expect("Blue noise texture not loaded");
 
     let environment_binding = &images
-        .get(&atmosphere_resources.environment_array_storage_view)
+        .get(&atmosphere_resources.environment_specular_storage_view)
         .expect("Environment array not loaded")
         .texture_view;
 
@@ -937,53 +952,76 @@ impl FromWorld for EnvironmentPipeline {
 
         Self {
             bind_group_layout: layouts.environment.clone(),
-            pipeline: pipelines.environment,
+            pipeline: pipelines.environment_specular,
         }
     }
 }
 
 #[derive(Resource, Clone, ExtractResource)]
 pub struct AtmosphereResources {
-    pub environment_array: Handle<Image>,
-    pub environment_array_storage_view: Handle<Image>,
+    pub environment_specular: Handle<Image>,
+    pub environment_specular_storage_view: Handle<Image>,
+    pub environment_diffuse: Handle<Image>,
+    pub environment_diffuse_storage_view: Handle<Image>,
+}
+
+fn create_environment_cubemap(size: u32) -> Image {
+    let mut texture = Image::new_fill(
+        Extent3d {
+            width: size,
+            height: size,
+            depth_or_array_layers: 6,
+        },
+        TextureDimension::D2,
+        &[0; 8],
+        TextureFormat::Rgba16Float,
+        RenderAssetUsages::all(),
+    );
+
+    texture.texture_descriptor.usage = TextureUsages::STORAGE_BINDING
+        | TextureUsages::TEXTURE_BINDING
+        | TextureUsages::COPY_SRC
+        | TextureUsages::COPY_DST
+        | TextureUsages::RENDER_ATTACHMENT;
+    return texture;
+}
+
+fn create_views(texture: &mut Image, images: &mut Assets<Image>) -> (Handle<Image>, Handle<Image>) {
+    // clone the texture
+    let mut storage_texture = texture.clone();
+    storage_texture.texture_view_descriptor = Some(TextureViewDescriptor {
+        dimension: Some(TextureViewDimension::D2Array),
+        ..Default::default()
+    });
+
+    let mut cubemap_texture = texture.clone();
+    cubemap_texture.texture_view_descriptor = Some(TextureViewDescriptor {
+        dimension: Some(TextureViewDimension::Cube),
+        ..Default::default()
+    });
+
+    let cubemap_texture_handle = images.add(cubemap_texture);
+    let storage_texture_handle = images.add(storage_texture);
+
+    return (cubemap_texture_handle, storage_texture_handle);
 }
 
 impl FromWorld for AtmosphereResources {
     fn from_world(world: &mut World) -> Self {
         let mut images = world.resource_mut::<Assets<Image>>();
-        let mut texture = Image::new_fill(
-            Extent3d {
-                width: 256,
-                height: 256,
-                depth_or_array_layers: 6,
-            },
-            TextureDimension::D2,
-            &[0; 8],
-            TextureFormat::Rgba16Float,
-            RenderAssetUsages::all(),
-        );
 
-        texture.texture_descriptor.usage = TextureUsages::STORAGE_BINDING
-            | TextureUsages::TEXTURE_BINDING
-            | TextureUsages::COPY_SRC
-            | TextureUsages::COPY_DST;
-
-        let mut storage_texture = texture.clone();
-        storage_texture.texture_view_descriptor = Some(TextureViewDescriptor {
-            dimension: Some(TextureViewDimension::D2Array),
-            ..Default::default()
-        });
-        let storage_handle = images.add(storage_texture);
-
-        texture.texture_view_descriptor = Some(TextureViewDescriptor {
-            dimension: Some(TextureViewDimension::Cube),
-            ..Default::default()
-        });
-        let cubemap_handle = images.add(texture);
+        let mut specular_texture = create_environment_cubemap(256);
+        let mut diffuse_texture = create_environment_cubemap(64);
+        let (environment_specular, environment_specular_storage_view) =
+            create_views(&mut specular_texture, images.as_mut());
+        let (environment_diffuse, environment_diffuse_storage_view) =
+            create_views(&mut diffuse_texture, images.as_mut());
 
         Self {
-            environment_array: cubemap_handle,
-            environment_array_storage_view: storage_handle,
+            environment_specular,
+            environment_specular_storage_view,
+            environment_diffuse,
+            environment_diffuse_storage_view,
         }
     }
 }
