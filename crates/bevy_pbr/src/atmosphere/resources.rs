@@ -33,7 +33,7 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     pub multiscattering_lut: BindGroupLayout,
     pub sky_view_lut: BindGroupLayout,
     pub aerial_view_lut: BindGroupLayout,
-    pub sky_view_lut_upsample: BindGroupLayout,
+    pub environment: BindGroupLayout,
 }
 
 #[derive(Resource)]
@@ -149,8 +149,8 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             ),
         );
 
-        let sky_view_lut_upsample = render_device.create_bind_group_layout(
-            "sky_view_lut_upsample_bind_group_layout",
+        let environment = render_device.create_bind_group_layout(
+            "environment_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::COMPUTE,
                 (
@@ -175,7 +175,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
-            sky_view_lut_upsample,
+            environment,
         }
     }
 }
@@ -329,7 +329,7 @@ pub(crate) struct AtmosphereLutPipelines {
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedComputePipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
-    pub sky_view_lut_upsample: CachedComputePipelineId,
+    pub environment: CachedComputePipelineId,
 }
 
 impl FromWorld for AtmosphereLutPipelines {
@@ -378,23 +378,22 @@ impl FromWorld for AtmosphereLutPipelines {
             zero_initialize_workgroup_memory: false,
         });
 
-        let sky_view_lut_upsample =
-            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                label: Some("sky_view_lut_upsample_pipeline".into()),
-                layout: vec![layouts.sky_view_lut_upsample.clone()],
-                push_constant_ranges: vec![],
-                shader: shaders::SKY_VIEW_LUT_UPSAMPLE,
-                shader_defs: vec![],
-                entry_point: "main".into(),
-                zero_initialize_workgroup_memory: false,
-            });
+        let environment = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("environment_pipeline".into()),
+            layout: vec![layouts.environment.clone()],
+            push_constant_ranges: vec![],
+            shader: shaders::ENVIRONMENT,
+            shader_defs: vec![],
+            entry_point: "main".into(),
+            zero_initialize_workgroup_memory: false,
+        });
 
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
-            sky_view_lut_upsample,
+            environment,
         }
     }
 }
@@ -686,7 +685,7 @@ pub(crate) struct AtmosphereBindGroups {
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
     pub render_sky: BindGroup,
-    pub sky_view_lut_upsample: BindGroup,
+    pub environment: BindGroup,
 }
 
 pub(super) fn prepare_atmosphere_bind_groups(
@@ -839,17 +838,17 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
-        let sky_view_lut_upsample = render_device.create_bind_group(
-            "sky_view_lut_upsample_bind_group",
-            &layouts.sky_view_lut_upsample,
+        let environment = render_device.create_bind_group(
+            "environment_bind_group",
+            &layouts.environment,
             &BindGroupEntries::sequential((
                 atmosphere_binding.clone(),
                 settings_binding.clone(),
                 &textures.sky_view_lut.default_view,
                 &samplers.sky_view_lut,
                 &images
-                    .get(&atmosphere_resources.sky_view_lut_array_storage_view)
-                    .expect("sky_view_lut_array storage view not found")
+                    .get(&atmosphere_resources.environment_array_storage_view)
+                    .expect("environment_array storage view not found")
                     .texture_view,
             )),
         );
@@ -860,7 +859,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             sky_view_lut,
             aerial_view_lut,
             render_sky,
-            sky_view_lut_upsample,
+            environment,
         });
     }
 }
@@ -918,28 +917,28 @@ pub(crate) fn prepare_atmosphere_buffer(
 }
 
 #[derive(Resource)]
-pub struct SkyViewLutUpsamplePipeline {
+pub struct EnvironmentPipeline {
     pub bind_group_layout: BindGroupLayout,
     pub pipeline: CachedComputePipelineId,
 }
 
-impl FromWorld for SkyViewLutUpsamplePipeline {
+impl FromWorld for EnvironmentPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let layouts = world.resource::<AtmosphereBindGroupLayouts>();
         let pipelines = world.resource::<AtmosphereLutPipelines>();
 
         Self {
-            bind_group_layout: layouts.sky_view_lut_upsample.clone(),
-            pipeline: pipelines.sky_view_lut_upsample,
+            bind_group_layout: layouts.environment.clone(),
+            pipeline: pipelines.environment,
         }
     }
 }
 
 #[derive(Resource, Clone, ExtractResource)]
 pub struct AtmosphereResources {
-    pub sky_view_lut_array: Handle<Image>,
-    pub sky_view_lut_array_storage_view: Handle<Image>,
+    pub environment_array: Handle<Image>,
+    pub environment_array_storage_view: Handle<Image>,
 }
 
 impl FromWorld for AtmosphereResources {
@@ -986,8 +985,8 @@ impl FromWorld for AtmosphereResources {
         let cubemap_handle = images.add(texture);
 
         Self {
-            sky_view_lut_array: cubemap_handle,
-            sky_view_lut_array_storage_view: storage_handle,
+            environment_array: cubemap_handle,
+            environment_array_storage_view: storage_handle,
         }
     }
 }

@@ -18,7 +18,7 @@ use crate::ViewLightsUniformOffset;
 use super::{
     resources::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereResources,
-        AtmosphereTransformsOffset, RenderSkyPipelineId, SkyViewLutUpsamplePipeline,
+        AtmosphereTransformsOffset, EnvironmentPipeline, RenderSkyPipelineId,
     },
     Atmosphere, AtmosphereSettings,
 };
@@ -27,7 +27,7 @@ use super::{
 pub enum AtmosphereNode {
     RenderLuts,
     RenderSky,
-    SkyViewLutUpsample,
+    Environment,
 }
 
 #[derive(Default)]
@@ -228,9 +228,9 @@ impl ViewNode for RenderSkyNode {
 }
 
 #[derive(Default)]
-pub(super) struct SkyViewLutUpsampleNode;
+pub(super) struct EnvironmentNode;
 
-impl ViewNode for SkyViewLutUpsampleNode {
+impl ViewNode for EnvironmentNode {
     type ViewQuery = (
         Read<AtmosphereSettings>,
         Read<AtmosphereBindGroups>,
@@ -249,26 +249,25 @@ impl ViewNode for SkyViewLutUpsampleNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let sky_view_lut_upsample_pipeline = world.resource::<SkyViewLutUpsamplePipeline>();
+        let environment_pipeline = world.resource::<EnvironmentPipeline>();
         let gpu_images = world.resource::<RenderAssets<GpuImage>>();
         let atmosphere_resources = world.resource::<AtmosphereResources>();
 
-        // Get the texture for the sky view LUT array from the resources
-        let Some(sky_view_lut_array_storage) =
-            gpu_images.get(&atmosphere_resources.sky_view_lut_array_storage_view)
+        // Get the texture for the environment array from the resources
+        let Some(environment_array_storage) =
+            gpu_images.get(&atmosphere_resources.environment_array_storage_view)
         else {
             return Ok(());
         };
 
         // Get the cubemap texture view as well
-        let Some(sky_view_lut_array_cube) =
-            gpu_images.get(&atmosphere_resources.sky_view_lut_array)
+        let Some(environment_array) = gpu_images.get(&atmosphere_resources.environment_array)
         else {
             return Ok(());
         };
 
         let Some(compute_pipeline) =
-            pipeline_cache.get_compute_pipeline(sky_view_lut_upsample_pipeline.pipeline)
+            pipeline_cache.get_compute_pipeline(environment_pipeline.pipeline)
         else {
             return Ok(());
         };
@@ -278,14 +277,14 @@ impl ViewNode for SkyViewLutUpsampleNode {
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("sky_view_lut_upsample_pass"),
+                        label: Some("environment_pass"),
                         timestamp_writes: None,
                     });
 
             pass.set_pipeline(compute_pipeline);
             pass.set_bind_group(
                 0,
-                &bind_groups.sky_view_lut_upsample,
+                &bind_groups.environment,
                 &[
                     atmosphere_uniforms_offset.index(),
                     settings_uniforms_offset.index(),
@@ -296,8 +295,8 @@ impl ViewNode for SkyViewLutUpsampleNode {
         } // End the compute pass
 
         render_context.command_encoder().copy_texture_to_texture(
-            sky_view_lut_array_storage.texture.as_image_copy(),
-            sky_view_lut_array_cube.texture.as_image_copy(),
+            environment_array_storage.texture.as_image_copy(),
+            environment_array.texture.as_image_copy(),
             Extent3d {
                 width: 256,
                 height: 256,

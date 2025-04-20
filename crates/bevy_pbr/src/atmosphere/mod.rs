@@ -76,10 +76,10 @@ use tracing::warn;
 use crate::light_probe::environment_map::EnvironmentMapLight;
 
 use self::{
-    node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode, SkyViewLutUpsampleNode},
+    node::{AtmosphereLutsNode, AtmosphereNode, EnvironmentNode, RenderSkyNode},
     resources::{
         prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmosphereLutPipelines, AtmosphereSamplers, SkyViewLutUpsamplePipeline,
+        AtmosphereLutPipelines, AtmosphereSamplers, EnvironmentPipeline,
     },
 };
 
@@ -99,8 +99,7 @@ mod shaders {
     pub const MULTISCATTERING_LUT: Handle<Shader> =
         weak_handle!("bde3a71a-73e9-49fe-a379-a81940c67a1e");
     pub const SKY_VIEW_LUT: Handle<Shader> = weak_handle!("f87e007a-bf4b-4f99-9ef0-ac21d369f0e5");
-    pub const SKY_VIEW_LUT_UPSAMPLE: Handle<Shader> =
-        weak_handle!("d3890ef4-5a80-41ee-8cb3-9bf3ec512ea3");
+    pub const ENVIRONMENT: Handle<Shader> = weak_handle!("d3890ef4-5a80-41ee-8cb3-9bf3ec512ea3");
     pub const AERIAL_VIEW_LUT: Handle<Shader> =
         weak_handle!("a3daf030-4b64-49ae-a6a7-354489597cbe");
     pub const RENDER_SKY: Handle<Shader> = weak_handle!("09422f46-d0f7-41c1-be24-121c17d6e834");
@@ -166,8 +165,8 @@ impl Plugin for AtmospherePlugin {
 
         load_internal_asset!(
             app,
-            shaders::SKY_VIEW_LUT_UPSAMPLE,
-            "sky_view_lut_upsample.wgsl",
+            shaders::ENVIRONMENT,
+            "environment.wgsl",
             Shader::from_wgsl
         );
 
@@ -235,7 +234,7 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .init_resource::<AtmosphereBuffer>()
-            .init_resource::<SkyViewLutUpsamplePipeline>()
+            .init_resource::<EnvironmentPipeline>()
             .add_systems(
                 Render,
                 (
@@ -253,17 +252,17 @@ impl Plugin for AtmospherePlugin {
                 Core3d,
                 AtmosphereNode::RenderLuts,
             )
-            .add_render_graph_node::<ViewNodeRunner<SkyViewLutUpsampleNode>>(
+            .add_render_graph_node::<ViewNodeRunner<EnvironmentNode>>(
                 Core3d,
-                AtmosphereNode::SkyViewLutUpsample,
+                AtmosphereNode::Environment,
             )
             .add_render_graph_edges(
                 Core3d,
                 (
-                    // END_PRE_PASSES -> RENDER_LUTS -> SKY_VIEW_LUT_UPSAMPLE -> MAIN_PASS
+                    // END_PRE_PASSES -> RENDER_LUTS -> ENVIRONMENT -> MAIN_PASS
                     Node3d::EndPrepasses,
                     AtmosphereNode::RenderLuts,
-                    AtmosphereNode::SkyViewLutUpsample,
+                    AtmosphereNode::Environment,
                     Node3d::StartMainPass,
                 ),
             )
@@ -557,21 +556,21 @@ pub fn update_atmosphere_environment_lighting(
 ) {
     // Only update if the cubemap has been created and is valid
     if images
-        .get(&atmosphere_resources.sky_view_lut_array)
+        .get(&atmosphere_resources.environment_array)
         .is_some()
     {
         for (mut skybox, mut env_map) in query.iter_mut() {
             // If the handles are different, update them
-            if skybox.image != atmosphere_resources.sky_view_lut_array {
-                skybox.image = atmosphere_resources.sky_view_lut_array.clone();
+            if skybox.image != atmosphere_resources.environment_array {
+                skybox.image = atmosphere_resources.environment_array.clone();
             }
 
             // Update the environment maps
-            if env_map.diffuse_map != atmosphere_resources.sky_view_lut_array {
-                env_map.diffuse_map = atmosphere_resources.sky_view_lut_array.clone();
+            if env_map.diffuse_map != atmosphere_resources.environment_array {
+                env_map.diffuse_map = atmosphere_resources.environment_array.clone();
             }
-            if env_map.specular_map != atmosphere_resources.sky_view_lut_array {
-                env_map.specular_map = atmosphere_resources.sky_view_lut_array.clone();
+            if env_map.specular_map != atmosphere_resources.environment_array {
+                env_map.specular_map = atmosphere_resources.environment_array.clone();
             }
         }
     }

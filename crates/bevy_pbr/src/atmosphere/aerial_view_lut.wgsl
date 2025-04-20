@@ -2,7 +2,7 @@
     mesh_view_types::{Lights, DirectionalLight},
     atmosphere::{
         types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, settings, view, lights, aerial_view_lut_out},
+        bindings::settings,
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
@@ -11,7 +11,6 @@
         },
     }
 }
-
 
 @group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
 

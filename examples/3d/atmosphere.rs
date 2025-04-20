@@ -62,8 +62,8 @@ fn setup_camera_fog(mut commands: Commands, atmosphere_resources: Res<Atmosphere
             Bloom::NATURAL,
             EnvironmentMapLight {
                 intensity: 5000.0,
-                diffuse_map: atmosphere_resources.sky_view_lut_array.clone(),
-                specular_map: atmosphere_resources.sky_view_lut_array.clone(),
+                diffuse_map: atmosphere_resources.environment_array.clone(),
+                specular_map: atmosphere_resources.environment_array.clone(),
                 ..default()
             },
         ))
