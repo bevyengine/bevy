@@ -1072,10 +1072,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 })
             }
 
-            fn bind_group_data(&self) -> Self::Data {
-                #get_prepared_data
-            }
-
             fn bind_group_layout_entries(
                 render_device: &#render_path::renderer::RenderDevice,
                 force_no_bindless: bool

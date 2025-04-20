@@ -215,12 +215,6 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         })
     }
 
-    fn bind_group_data(&self) -> Self::Data {
-        let base_data = self.base.bind_group_data();
-        let extended_data = self.extension.bind_group_data();
-        (base_data, extended_data)
-    }
-
     fn bind_group_layout_entries(
         render_device: &RenderDevice,
         mut force_non_bindless: bool,
