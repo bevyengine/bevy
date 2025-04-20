@@ -14,7 +14,7 @@ use tracing::{info_span, Span};
 
 use crate::{
     archetype::ArchetypeComponentId,
-    error::{default_error_handler, BevyError, ErrorContext, Result},
+    error::{get_error_handler, BevyError, ErrorContext, Result},
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
@@ -538,7 +538,7 @@ impl ExecutorState {
         world: UnsafeWorldCell,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
-        let error_handler = default_error_handler();
+        let error_handler = get_error_handler();
 
         for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
@@ -787,7 +787,7 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
 ) -> bool {
-    let error_handler = default_error_handler();
+    let error_handler = get_error_handler();
 
     #[expect(
         clippy::unnecessary_fold,

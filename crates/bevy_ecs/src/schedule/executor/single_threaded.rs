@@ -8,7 +8,7 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
-    error::{default_error_handler, BevyError, ErrorContext},
+    error::{get_error_handler, BevyError, ErrorContext},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
@@ -211,7 +211,7 @@ impl SingleThreadedExecutor {
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    let error_handler: fn(BevyError, ErrorContext) = default_error_handler();
+    let error_handler: fn(BevyError, ErrorContext) = get_error_handler();
 
     #[expect(
         clippy::unnecessary_fold,

@@ -7,7 +7,7 @@ use crate::{
     world::{error::EntityMutableFetchError, World},
 };
 
-use super::{default_error_handler, BevyError, ErrorContext};
+use super::{get_error_handler, BevyError, ErrorContext};
 
 /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
 /// a [`Command`] that internally handles an error if it occurs and returns `()`.
@@ -21,7 +21,7 @@ pub trait HandleError<Out = ()> {
     where
         Self: Sized,
     {
-        self.handle_error_with(default_error_handler())
+        self.handle_error_with(get_error_handler())
     }
 }
 

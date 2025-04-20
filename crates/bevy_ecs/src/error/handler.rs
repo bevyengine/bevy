@@ -1,5 +1,3 @@
-#[cfg(feature = "configurable_error_handler")]
-use bevy_platform::sync::OnceLock;
 use core::fmt::Display;
 
 use crate::{component::Tick, error::BevyError};
@@ -77,52 +75,66 @@ impl ErrorContext {
     }
 }
 
-/// A global error handler. This can be set at startup, as long as it is set before
-/// any uses. This should generally be configured _before_ initializing the app.
-///
-/// This should be set inside of your `main` function, before initializing the Bevy app.
-/// The value of this error handler can be accessed using the [`default_error_handler`] function,
-/// which calls [`OnceLock::get_or_init`] to get the value.
-///
-/// **Note:** this is only available when the `configurable_error_handler` feature of `bevy_ecs` (or `bevy`) is enabled!
-///
-/// # Example
-///
-/// ```
-/// # use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, warn};
-/// GLOBAL_ERROR_HANDLER.set(warn).expect("The error handler can only be set once, globally.");
-/// // initialize Bevy App here
-/// ```
-///
-/// To use this error handler in your app for custom error handling logic:
-///
-/// ```rust
-/// use bevy_ecs::error::{default_error_handler, GLOBAL_ERROR_HANDLER, BevyError, ErrorContext, panic};
-///
-/// fn handle_errors(error: BevyError, ctx: ErrorContext) {
-///    let error_handler = default_error_handler();
-///    error_handler(error, ctx);        
-/// }
-/// ```
-///
-/// # Warning
-///
-/// As this can *never* be overwritten, library code should never set this value.
+type BevyErrorHandler = fn(BevyError, ErrorContext);
+
 #[cfg(feature = "configurable_error_handler")]
-pub static GLOBAL_ERROR_HANDLER: OnceLock<fn(BevyError, ErrorContext)> = OnceLock::new();
+mod inner {
+    use super::*;
+    use core::sync::atomic::{AtomicPtr, Ordering};
 
-/// The default error handler. This defaults to [`panic()`],
-/// but if set, the [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
-/// The `configurable_error_handler` feature must be enabled to change this from the panicking default behavior,
-/// as there may be runtime overhead.
-#[inline]
-pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
-    #[cfg(not(feature = "configurable_error_handler"))]
-    return panic;
+    // TODO: If we're willing to stomach the perf cost we could do a `RwLock<Box<dyn Fn(..)>>`.
+    static GLOBAL_ERROR_HANDLER: AtomicPtr<()> = AtomicPtr::new(core::ptr::null_mut());
 
-    #[cfg(feature = "configurable_error_handler")]
-    return *GLOBAL_ERROR_HANDLER.get_or_init(|| panic);
+    /// Gets the global error handler.
+    ///
+    /// If not set by [`set_error_handler`] defaults to [`panic()`].
+    pub fn get_error_handler() -> BevyErrorHandler {
+        // We need the acquire ordering since a sufficiently malicious user might call `set_error_handler`
+        // and immediately call `get_error_handler` so we need to make sure these loads and stores are synchronized
+        // with each other.
+        let handler = GLOBAL_ERROR_HANDLER.load(Ordering::Acquire);
+
+        if handler.is_null() {
+            panic
+        } else {
+            // SAFETY: We just checked if this is null and the only way to set this value is using `set_error_handler` which
+            //         makes sure this is actually a `BevyErrorHandler`.
+            unsafe { core::mem::transmute::<*mut (), BevyErrorHandler>(handler) }
+        }
+    }
+
+    /// Sets the error handler.
+    ///
+    /// This function is only available with the `configurable_error_handler` method enabled.
+    pub fn set_error_handler(hook: BevyErrorHandler) {
+        // Casting function pointers to normal pointers and back is called out as non-portable
+        // by the `mem::transmute` documentation. The problem is that on some architectures
+        // the size of a function pointers might be different from the size of a normal pointer.
+        //
+        // As of 2025-04-20 we're aware of 2 such architectures that also have a official rust target:
+        // - WebAssembly: This architecture explicitly allows casting functions to ints and back.
+        // - AVR:         The only official target with this architecture (avr-none) has a pointer width of 16.
+        //                Which we don't support.
+        //
+        // Additionally the rust `alloc` library uses the same trick for its allocation error hook and we require
+        // `alloc` support in this crate.
+        //
+        // AtomicFnPtr when?
+
+        // See `get_error_handler` for why we need `Ordering::Release`.
+        GLOBAL_ERROR_HANDLER.store(hook as *mut (), Ordering::Release);
+    }
 }
+
+#[cfg(not(feature = "configurable_error_handler"))]
+mod inner {
+    /// Gets the global error handler. This is currently [`panic()`].
+    pub fn get_error_handler() -> super::BevyErrorHandler {
+        super::panic
+    }
+}
+
+pub use inner::*;
 
 macro_rules! inner {
     ($call:path, $e:ident, $c:ident) => {
@@ -181,3 +193,42 @@ pub fn trace(error: BevyError, ctx: ErrorContext) {
 #[track_caller]
 #[inline]
 pub fn ignore(_: BevyError, _: ErrorContext) {}
+
+#[cfg(test)]
+mod tests {
+    #![allow(
+        clippy::allow_attributes,
+        reason = "We can't use except because the allow attribute becomes redundant in some cases."
+    )]
+
+    #[allow(
+        unused,
+        reason = "With the correct combination of features we might end up not compiling any tests."
+    )]
+    use super::*;
+
+    #[test]
+    // This test only makes sense under miri
+    #[cfg(miri)]
+    fn default_handler() {
+        // Check under miri that we aren't casting a null into a function pointer in the default case
+
+        // Don't trigger dead code elimination
+        core::hint::black_box(get_error_handler());
+    }
+
+    #[test]
+    #[cfg(feature = "configurable_error_handler")]
+    fn set_handler() {
+        // We need to cast the function into a pointer ahead of time. The function pointers were randomly different otherwise.
+        let new_handler = dont_handler_error as fn(_, _);
+
+        set_error_handler(new_handler);
+        let handler = get_error_handler();
+
+        assert_eq!(handler as *const (), new_handler as *const ());
+    }
+
+    #[cfg(feature = "configurable_error_handler")]
+    fn dont_handler_error(_: BevyError, _: ErrorContext) {}
+}

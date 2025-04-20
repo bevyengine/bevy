@@ -8,7 +8,7 @@
 //! [`panic`] error handler function is used, resulting in a panic with the error message attached.
 //!
 //! You can change the default behavior by registering a custom error handler.
-//! Modify the [`GLOBAL_ERROR_HANDLER`] value to set a custom error handler function for your entire app.
+//! Use the [`set_error_handler`] method to set a custom error handler function for your entire app.
 //! In practice, this is generally feature-flagged: panicking or loudly logging errors in development,
 //! and quietly logging or ignoring them in production to avoid crashing the app.
 //!
@@ -36,7 +36,7 @@
 //! Remember to turn on the `configurable_error_handler` feature to set a global error handler!
 //!
 //! ```rust, ignore
-//! use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, BevyError, ErrorContext};
+//! use bevy_ecs::error::{set_error_handler, BevyError, ErrorContext};
 //! use log::trace;
 //!
 //! fn my_error_handler(error: BevyError, ctx: ErrorContext) {
@@ -49,7 +49,7 @@
 //!
 //! fn main() {
 //!     // This requires the "configurable_error_handler" feature to be enabled to be in scope.
-//!     GLOBAL_ERROR_HANDLER.set(my_error_handler).expect("The error handler can only be set once.");
+//!     set_error_handler(my_error_handler);
 //!     
 //!     // Initialize your Bevy App here
 //! }
