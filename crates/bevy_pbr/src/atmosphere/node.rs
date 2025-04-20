@@ -232,20 +232,26 @@ pub(super) struct EnvironmentNode;
 
 impl ViewNode for EnvironmentNode {
     type ViewQuery = (
-        Read<AtmosphereSettings>,
         Read<AtmosphereBindGroups>,
         Read<DynamicUniformIndex<Atmosphere>>,
         Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<AtmosphereTransformsOffset>,
+        Read<ViewUniformOffset>,
+        Read<ViewLightsUniformOffset>,
     );
 
     fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (settings, bind_groups, atmosphere_uniforms_offset, settings_uniforms_offset): QueryItem<
-            'w,
-            Self::ViewQuery,
-        >,
+        (
+            bind_groups,
+            atmosphere_uniforms_offset,
+            settings_uniforms_offset,
+            atmosphere_transforms_offset,
+            view_uniforms_offset,
+            lights_uniforms_offset,
+        ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -288,6 +294,9 @@ impl ViewNode for EnvironmentNode {
                 &[
                     atmosphere_uniforms_offset.index(),
                     settings_uniforms_offset.index(),
+                    atmosphere_transforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
                 ],
             );
 

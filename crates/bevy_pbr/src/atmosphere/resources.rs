@@ -156,10 +156,13 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 (
                     (0, uniform_buffer::<Atmosphere>(true)),
                     (1, uniform_buffer::<AtmosphereSettings>(true)),
-                    (2, texture_2d(TextureSampleType::Float { filterable: true })), // sky view lut texture
-                    (3, sampler(SamplerBindingType::Filtering)), // sky view lut sampler
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
+                    (3, uniform_buffer::<ViewUniform>(true)),
+                    (4, uniform_buffer::<GpuLights>(true)),
+                    (9, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
+                    (10, sampler(SamplerBindingType::Filtering)),
                     (
-                        4,
+                        13,
                         texture_storage_2d_array(
                             // output 2D array texture
                             TextureFormat::Rgba16Float,
@@ -744,6 +747,11 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .get(&shaders::BLUENOISE_TEXTURE)
         .expect("Blue noise texture not loaded");
 
+    let environment_binding = &images
+        .get(&atmosphere_resources.environment_array_storage_view)
+        .expect("Environment array not loaded")
+        .texture_view;
+
     for (entity, textures, view_depth_texture, shadow_bindings, msaa) in &views {
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
@@ -841,15 +849,15 @@ pub(super) fn prepare_atmosphere_bind_groups(
         let environment = render_device.create_bind_group(
             "environment_bind_group",
             &layouts.environment,
-            &BindGroupEntries::sequential((
-                atmosphere_binding.clone(),
-                settings_binding.clone(),
-                &textures.sky_view_lut.default_view,
-                &samplers.sky_view_lut,
-                &images
-                    .get(&atmosphere_resources.environment_array_storage_view)
-                    .expect("environment_array storage view not found")
-                    .texture_view,
+            &BindGroupEntries::with_indices((
+                (0, atmosphere_binding.clone()),
+                (1, settings_binding.clone()),
+                (2, transforms_binding.clone()),
+                (3, view_binding.clone()),
+                (4, lights_binding.clone()),
+                (9, &textures.sky_view_lut.default_view),
+                (10, &samplers.sky_view_lut),
+                (13, environment_binding),
             )),
         );
 
@@ -924,7 +932,6 @@ pub struct EnvironmentPipeline {
 
 impl FromWorld for EnvironmentPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
         let layouts = world.resource::<AtmosphereBindGroupLayouts>();
         let pipelines = world.resource::<AtmosphereLutPipelines>();
 
@@ -943,15 +950,12 @@ pub struct AtmosphereResources {
 
 impl FromWorld for AtmosphereResources {
     fn from_world(world: &mut World) -> Self {
-        // Create a default placeholder image for the cubemap
         let mut images = world.resource_mut::<Assets<Image>>();
-
-        // Create the base texture that will be shared
         let mut texture = Image::new_fill(
             Extent3d {
                 width: 256,
                 height: 256,
-                depth_or_array_layers: 6, // 6 faces for cubemap
+                depth_or_array_layers: 6,
             },
             TextureDimension::D2,
             &[0; 8],
@@ -959,29 +963,22 @@ impl FromWorld for AtmosphereResources {
             RenderAssetUsages::all(),
         );
 
-        // Ensure right usage flags
         texture.texture_descriptor.usage = TextureUsages::STORAGE_BINDING
             | TextureUsages::TEXTURE_BINDING
             | TextureUsages::COPY_SRC
             | TextureUsages::COPY_DST;
 
-        // Create the storage version (2D array view)
         let mut storage_texture = texture.clone();
         storage_texture.texture_view_descriptor = Some(TextureViewDescriptor {
             dimension: Some(TextureViewDimension::D2Array),
             ..Default::default()
         });
-
-        // Add the storage texture to assets
         let storage_handle = images.add(storage_texture);
 
-        // Set up the cubemap view for rendering
         texture.texture_view_descriptor = Some(TextureViewDescriptor {
             dimension: Some(TextureViewDimension::Cube),
             ..Default::default()
         });
-
-        // Add the cubemap to assets
         let cubemap_handle = images.add(texture);
 
         Self {

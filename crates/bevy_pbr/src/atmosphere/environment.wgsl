@@ -1,19 +1,15 @@
 #import bevy_render::maths::PI_2
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
-    functions::{PI, PI_1_2}
+    bindings::{atmosphere, settings},
+    functions::{PI, PI_1_2, sample_sky_view_lut, direction_world_to_atmosphere}
 }
 
 struct ComputeParams {
     slice_index: u32,
 }
 
-// Sequential bindings - not related to the other atmosphere shaders' bindings
-@group(0) @binding(0) var<uniform> atmosphere: Atmosphere;
-@group(0) @binding(1) var<uniform> settings: AtmosphereSettings;
-@group(0) @binding(2) var sky_view_lut: texture_2d<f32>;
-@group(0) @binding(3) var lut_sampler: sampler;
-@group(0) @binding(4) var output: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(13) var output: texture_storage_2d_array<rgba16float, write>;
 
 // Convert from cubemap face and UV to direction vector
 fn face_uv_to_direction(face: u32, uv: vec2<f32>) -> vec3<f32> {
@@ -24,52 +20,28 @@ fn face_uv_to_direction(face: u32, uv: vec2<f32>) -> vec3<f32> {
     var dir: vec3<f32>;
     switch face {
         case 0u: { // +X
-            dir = vec3<f32>(1.0, coords.y, coords.x);
+            dir = vec3<f32>(1.0, -coords.y, coords.x);
         }
         case 1u: { // -X
-            dir = vec3<f32>(-1.0, coords.y, -coords.x);
+            dir = vec3<f32>(-1.0, -coords.y, -coords.x);
         }
         case 2u: { // +Y
-            dir = vec3<f32>(coords.x, -1.0, -coords.y);
-        }
-        case 3u: { // -Y
             dir = vec3<f32>(coords.x, 1.0, coords.y);
         }
+        case 3u: { // -Y
+            dir = vec3<f32>(coords.x, -1.0, -coords.y);
+        }
         case 4u: { // +Z
-            dir = vec3<f32>(coords.x, coords.y, -1.0);
+            dir = vec3<f32>(coords.x, -coords.y, -1.0);
         }
         default: { // -Z (5)
-            dir = vec3<f32>(-coords.x, coords.y, 1.0);
+            dir = vec3<f32>(-coords.x, -coords.y, 1.0);
         }
     }
     
     return normalize(dir);
 }
 
-// Convert direction to sky view LUT UV coordinates
-fn direction_to_sky_view_lut_uv(dir: vec3<f32>) -> vec2<f32> {
-    let height = f32(textureDimensions(sky_view_lut).y);
-    
-    // First transform the direction from cubemap space to atmosphere space
-    // This is what was missing - we need to convert the direction to atmosphere space
-    // where the horizon is aligned with the XZ plane
-    let dir_as = normalize(vec3(dir.x, dir.y, dir.z));
-    
-    // Extract mu (cosine of zenith angle) - this is just the y component in atmosphere space
-    let mu = dir_as.y;
-    
-    // Get azimuth angle around Y axis, now in atmosphere space
-    let azimuth = atan2(dir_as.x, -dir_as.z);
-    
-    // Convert to UV coordinates
-    // Map azimuth from [-π, π] to [0, 1]
-    let u = (azimuth / PI_2) + 0.5;
-    
-    // Map mu from [-1, 1] to [0, 1]
-    let v = (mu + 1.0) * 0.5;
-    
-    return vec2<f32>(u, v);
-}
 
 // Generate a test pattern for debugging
 fn test_pattern(face: u32, uv: vec2<f32>) -> vec4<f32> {
@@ -139,21 +111,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     // OPTION 1: Use test pattern
     let colorDebug = test_pattern(slice_index, uv);
-    
-    // OPTION 2: Original implementation (commented out)
-    // Convert face and UV to direction vector
-    let dir = face_uv_to_direction(slice_index, uv);
 
-    
-    
-    // Sample from the sky view LUT using this direction
-    let sky_view_uv = direction_to_sky_view_lut_uv(dir);
+    let ray_dir_ws = face_uv_to_direction(slice_index, uv);
+    let r = atmosphere.bottom_radius;
 
-    // second pattern using sky view uv
-    let colorDebug2 = test_pattern(slice_index, sky_view_uv);
-    let color = textureSampleLevel(sky_view_lut, lut_sampler, sky_view_uv, 0.0);
-
-    let outColor = mix(colorDebug2, color, 0.5);
+    let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws);
+    let inscattering = sample_sky_view_lut(r, ray_dir_as);
+    let color = vec4<f32>(inscattering, 1.0);
 
     // Write to the correct slice of the output texture
     textureStore(output, vec2<i32>(global_id.xy), i32(slice_index), color);
