@@ -4,9 +4,14 @@ use serde::de::{DeserializeSeed, Error, Visitor};
 
 /// A deserializer for type registrations.
 ///
-/// This will return a [`&TypeRegistration`] corresponding to the given type.
-/// This deserializer expects a string containing the _full_ [type path] of the
-/// type to find the `TypeRegistration` of.
+/// The string provided may be **either** of the following:
+/// * the *full* [type path] (`"my_crate::module::MyType"`), **or**
+/// * the *short* type path returned by [`TypePath::short_type_path`]  
+///   (`"MyType"`).
+///
+/// For backward‑compatibility the deserializer first attempts a lookup with the
+/// full type path; if no registration is found it falls back to the short type
+/// path.
 ///
 /// [`&TypeRegistration`]: TypeRegistration
 /// [type path]: crate::TypePath::type_path
