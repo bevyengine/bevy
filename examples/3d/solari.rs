@@ -74,7 +74,8 @@ fn add_raytracing_meshes_on_scene_load(
         if let Ok(mesh) = mesh.get(descendant) {
             commands
                 .entity(descendant)
-                .insert(RaytracingMesh3d(mesh.0.clone()));
+                .insert(RaytracingMesh3d(mesh.0.clone()))
+                .remove::<Mesh3d>();
         }
     }
 }
