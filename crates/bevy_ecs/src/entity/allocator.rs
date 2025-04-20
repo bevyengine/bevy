@@ -87,8 +87,8 @@ impl Chunk {
     /// [`Self::set`] must have been called on this index before, ensuring it is in bounds and the chunk is initialized.
     #[inline]
     unsafe fn get(&self, index: u32) -> Entity {
-        // Relaxed is fine since caller ensures we are iitialized already.
-        // In order for the caller to guarantee that, they must have an ordering that orders this get after the required `set`.
+        // Relaxed is fine since caller ensures we are initialized already.
+        // In order for the caller to guarantee that, they must have an ordering that orders this `get` after the required `set`.
         let head = self.first.load(Ordering::Relaxed);
         // SAFETY: caller ensures we are in bounds and init (because `set` must be in bounds)
         let target = unsafe { &*head.add(index as usize) };
@@ -106,8 +106,8 @@ impl Chunk {
         let after_index_slice_len = chunk_capacity - index;
         let len = after_index_slice_len.min(ideal_len) as usize;
 
-        // Relaxed is fine since caller ensures we are iitialized already.
-        // In order for the caller to guarantee that, they must have an ordering that orders this get after the required `set`.
+        // Relaxed is fine since caller ensures we are initialized already.
+        // In order for the caller to guarantee that, they must have an ordering that orders this `get` after the required `set`.
         let head = self.first.load(Ordering::Relaxed);
 
         // SAFETY: Caller ensures we are init, so the chunk was allocated via a `Vec` and the index is within the capacity.
@@ -172,16 +172,17 @@ impl Chunk {
     }
 }
 
-/// This is a buffer that has been split into chunks, so that each chunk is pinned in memory.
-/// Conceptually, each chunk is put end-to-end to form the buffer.
-/// This will expand in capacity as needed, but a separate system must track the length of the list in the buffer.
+/// This is a buffer that has been split into power-of-two sized chunks, so that each chunk is pinned in memory.
+/// Conceptually, each chunk is put end-to-end to form the buffer. This ultimately avoids copying elements on resize,
+/// while allowing it to expand in capacity as needed. A separate system must track the length of the list in the buffer.
+/// Each chunk is twice as large as the last, except for the first two which have a capacity of 512.
 struct FreeBuffer([Chunk; Self::NUM_CHUNKS as usize]);
 
 impl FreeBuffer {
     const NUM_CHUNKS: u32 = 24;
     const NUM_SKIPPED: u32 = u32::BITS - Self::NUM_CHUNKS;
 
-    /// Constructs a empty [`FreeBuffer`].
+    /// Constructs an empty [`FreeBuffer`].
     const fn new() -> Self {
         Self([const { Chunk::new() }; Self::NUM_CHUNKS as usize])
     }
@@ -219,7 +220,7 @@ impl FreeBuffer {
     #[inline]
     fn index_in_chunk(&self, full_index: u32) -> (&Chunk, u32, u32) {
         let (chunk_index, index_in_chunk, chunk_capacity) = Self::index_info(full_index);
-        // SAFETY: The chunk index is correct
+        // SAFETY: Caller ensures the chunk index is correct
         let chunk = unsafe { self.0.get_unchecked(chunk_index as usize) };
         (chunk, index_in_chunk, chunk_capacity)
     }
@@ -277,7 +278,7 @@ impl Drop for FreeBuffer {
 ///
 /// # Safety
 ///
-/// [`FreeBuffer::set`] must have been called on these indices before to initialize memory.
+/// [`FreeBuffer::set`] must have been called on these indices beforehand to initialize memory.
 struct FreeBufferIterator<'a> {
     buffer: &'a FreeBuffer,
     indices: core::ops::RangeInclusive<u32>,
@@ -316,9 +317,9 @@ impl<'a> core::iter::FusedIterator for FreeBufferIterator<'a> {}
 
 /// This tracks the state of a [`FreeCount`], which has lots of information packed into it.
 ///
-/// - The first 33 bits store a signed 33 bit integer. This behaves like a u33, but we define 1^33 as 0.
+/// - The first 33 bits store a signed 33 bit integer. This behaves like a u33, but we define `1 << 33` as 0.
 /// - The 34th bit stores a flag that indicates if the count has been disabled/suspended.
-/// - The remaining 30 bits are the generation. The generation just differentiate different versions of the state that happen to encode the same length.
+/// - The remaining 30 bits are the generation. The generation just differentiates different versions of the state that happen to encode the same length.
 #[derive(Clone, Copy)]
 struct FreeCountState(u64);
 
@@ -551,7 +552,7 @@ impl FreeList {
                 #[cfg(feature = "std")]
                 if attempts % 64 == 0 {
                     attempts += 1;
-                    // scheduler probably isn't running the thead doing the `free` call, so yield so it can finish.
+                    // scheduler probably isn't running the thread doing the `free` call, so yield so it can finish.
                     std::thread::yield_now();
                 } else {
                     attempts += 1;
