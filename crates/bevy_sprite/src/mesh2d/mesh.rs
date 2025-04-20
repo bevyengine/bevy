@@ -108,7 +108,8 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ViewKeyCache>()
+                .init_resource::<View2dKeyCache>()
+                .init_resource::<Mesh2dKeyCache>()
                 .init_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
@@ -158,7 +159,6 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .insert_resource(batched_instance_buffer)
                 .init_resource::<Mesh2dPipeline>()
-                .init_resource::<ViewKeyCache>()
                 .init_resource::<ViewSpecializationTicks>()
                 .add_systems(
                     Render,
@@ -179,13 +179,16 @@ impl Plugin for Mesh2dRenderPlugin {
 }
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
+pub struct View2dKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct Mesh2dKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewSpecializationTicks(MainEntityHashMap<Tick>);
 
 pub fn check_views_need_specialization(
-    mut view_key_cache: ResMut<ViewKeyCache>,
+    mut view_key_cache: ResMut<View2dKeyCache>,
     mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
     views: Query<(
         &MainEntity,

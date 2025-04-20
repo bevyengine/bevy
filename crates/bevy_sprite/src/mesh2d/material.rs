@@ -1,6 +1,6 @@
 use crate::{
-    DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
+    DrawMesh2d, Mesh2d, Mesh2dKeyCache, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup, View2dKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
@@ -268,17 +268,16 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
-            .init_resource::<EntitiesNeedingSpecialization<M>>()
+            .init_resource::<Changed2dEntities<M>>()
             .register_type::<MeshMaterial2d<M>>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default())
-            .add_systems(
-                PostUpdate,
-                check_entities_needing_specialization::<M>.after(AssetEvents),
-            );
+            .add_systems(PostUpdate, check_changed_entities::<M>.after(AssetEvents));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<EntitySpecializationTicks<M>>()
+                .init_resource::<Entity2dSpecializationTicks<M>>()
+                .init_resource::<Entities2dMaybeNeedingSpecialization<M>>()
+                .init_resource::<Material2dKeyCache<M>>()
                 .init_resource::<SpecializedMaterial2dPipelineCache<M>>()
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
                 .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
@@ -288,13 +287,14 @@ where
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_entities_needs_specialization::<M>.after(extract_cameras),
+                        extract_entities_maybe_needing_specialization::<M>.after(extract_cameras),
                         extract_mesh_materials_2d::<M>,
                     ),
                 )
                 .add_systems(
                     Render,
                     (
+                        check_entities_needing_specialization::<M>.in_set(RenderSet::PrepareAssets),
                         specialize_material2d_meshes::<M>
                             .in_set(RenderSet::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial2d<M>>)
@@ -554,13 +554,13 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
     }
 }
 
-pub fn extract_entities_needs_specialization<M>(
-    entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
+pub fn extract_entities_maybe_needing_specialization<M>(
+    changed_entities: Extract<Res<Changed2dEntities<M>>>,
+    mut entities_maybe_needing_specialization: ResMut<Entities2dMaybeNeedingSpecialization<M>>,
+    mut entity_specialization_ticks: ResMut<Entity2dSpecializationTicks<M>>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial2d<M>>>,
     mut specialized_material2d_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
     views: Query<&MainEntity, With<ExtractedView>>,
-    ticks: SystemChangeTick,
 ) where
     M: Material2d,
 {
@@ -575,20 +575,21 @@ pub fn extract_entities_needs_specialization<M>(
             }
         }
     }
-    for entity in entities_needing_specialization.iter() {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
+
+    entities_maybe_needing_specialization.clear();
+    for entity in &changed_entities.entities {
+        entities_maybe_needing_specialization.push(MainEntity::from(*entity));
     }
 }
 
 #[derive(Clone, Resource, Deref, DerefMut, Debug)]
-pub struct EntitiesNeedingSpecialization<M> {
+pub struct Changed2dEntities<M> {
     #[deref]
     pub entities: Vec<Entity>,
     _marker: PhantomData<M>,
 }
 
-impl<M> Default for EntitiesNeedingSpecialization<M> {
+impl<M> Default for Changed2dEntities<M> {
     fn default() -> Self {
         Self {
             entities: Default::default(),
@@ -597,14 +598,47 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
     }
 }
 
+#[derive(Resource, Deref, DerefMut, Clone, Debug)]
+pub struct Entities2dMaybeNeedingSpecialization<M> {
+    #[deref]
+    pub entities: Vec<MainEntity>,
+    _marker: PhantomData<M>,
+}
+
+impl<M> Default for Entities2dMaybeNeedingSpecialization<M> {
+    fn default() -> Self {
+        Self {
+            entities: Default::default(),
+            _marker: Default::default(),
+        }
+    }
+}
+
+/// Stores the last [`Material2d::Data`] for each entity in the main world.
+#[derive(Resource, Deref, DerefMut, Clone, Debug)]
+pub struct Material2dKeyCache<M: Material2d> {
+    #[deref]
+    pub entities: MainEntityHashMap<M::Data>,
+    _marker: PhantomData<M>,
+}
+
+impl<M: Material2d> Default for Material2dKeyCache<M> {
+    fn default() -> Self {
+        Self {
+            entities: MainEntityHashMap::default(),
+            _marker: Default::default(),
+        }
+    }
+}
+
 #[derive(Clone, Resource, Deref, DerefMut, Debug)]
-pub struct EntitySpecializationTicks<M> {
+pub struct Entity2dSpecializationTicks<M> {
     #[deref]
     pub entities: MainEntityHashMap<Tick>,
     _marker: PhantomData<M>,
 }
 
-impl<M> Default for EntitySpecializationTicks<M> {
+impl<M> Default for Entity2dSpecializationTicks<M> {
     fn default() -> Self {
         Self {
             entities: MainEntityHashMap::default(),
@@ -650,7 +684,7 @@ impl<M> Default for SpecializedMaterial2dViewPipelineCache<M> {
     }
 }
 
-pub fn check_entities_needing_specialization<M>(
+pub fn check_changed_entities<M>(
     needs_specialization: Query<
         Entity,
         (
@@ -664,35 +698,88 @@ pub fn check_entities_needing_specialization<M>(
         ),
     >,
     mut par_local: Local<Parallel<Vec<Entity>>>,
-    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
+    mut changed_entities: ResMut<Changed2dEntities<M>>,
 ) where
     M: Material2d,
 {
-    entities_needing_specialization.clear();
+    changed_entities.clear();
 
     needs_specialization
         .par_iter()
         .for_each(|entity| par_local.borrow_local_mut().push(entity));
 
-    par_local.drain_into(&mut entities_needing_specialization);
+    par_local.drain_into(&mut changed_entities);
+}
+
+fn check_entities_needing_specialization<M>(
+    entities_maybe_needing_specialization: ResMut<Entities2dMaybeNeedingSpecialization<M>>,
+    mut material_key_cache: ResMut<Material2dKeyCache<M>>,
+    mut mesh_key_cache: ResMut<Mesh2dKeyCache>,
+    mut entity_specialization_ticks: ResMut<Entity2dSpecializationTicks<M>>,
+    render_material_instances: Res<RenderMaterial2dInstances<M>>,
+    render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
+    render_mesh_instances: Res<RenderMesh2dInstances>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
+    ticks: SystemChangeTick,
+) where
+    M: Material2d,
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
+    for entity in &entities_maybe_needing_specialization.entities {
+        let Some(render_material_instance) = render_material_instances.get(entity) else {
+            continue;
+        };
+        let Some(material) = render_materials.get(*render_material_instance) else {
+            continue;
+        };
+        let Some(mesh_instance) = render_mesh_instances.get(entity) else {
+            continue;
+        };
+        let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            continue;
+        };
+
+        let mesh_key = Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
+            | material.properties.mesh_pipeline_key_bits;
+        let material_key = material.key.clone();
+        if let Some(prev_material_key) = material_key_cache.entities.get(entity) {
+            if *prev_material_key != material_key {
+                material_key_cache.insert(*entity, material_key);
+                entity_specialization_ticks.insert(*entity, ticks.this_run());
+            }
+        } else {
+            material_key_cache.entities.insert(*entity, material_key);
+            entity_specialization_ticks.insert(*entity, ticks.this_run());
+        }
+        if let Some(prev_mesh_key) = mesh_key_cache.get(entity) {
+            if *prev_mesh_key != mesh_key {
+                mesh_key_cache.insert(*entity, mesh_key);
+                entity_specialization_ticks.insert(*entity, ticks.this_run());
+            }
+        } else {
+            mesh_key_cache.insert(*entity, mesh_key);
+            entity_specialization_ticks.insert(*entity, ticks.this_run());
+        }
+    }
 }
 
 pub fn specialize_material2d_meshes<M: Material2d>(
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    (render_meshes, render_materials): (
+    (render_meshes, render_mesh_instances, render_material_instances): (
         Res<RenderAssets<RenderMesh>>,
-        Res<RenderAssets<PreparedMaterial2d<M>>>,
+        Res<RenderMesh2dInstances>,
+        Res<RenderMaterial2dInstances<M>>,
     ),
-    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
-    render_material_instances: Res<RenderMaterial2dInstances<M>>,
     transparent_render_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_render_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     alpha_mask_render_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
-    view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
+    view_key_cache: Res<View2dKeyCache>,
+    mesh_key_cache: Res<Mesh2dKeyCache>,
+    material_key_cache: Res<Material2dKeyCache<M>>,
+    entity_specialization_ticks: Res<Entity2dSpecializationTicks<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
     ticks: SystemChangeTick,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
@@ -714,17 +801,21 @@ pub fn specialize_material2d_meshes<M: Material2d>(
         let Some(view_key) = view_key_cache.get(view_entity) else {
             continue;
         };
-
-        let view_tick = view_specialization_ticks.get(view_entity).unwrap();
+        let Some(mesh_key) = mesh_key_cache.get(view_entity) else {
+            continue;
+        };
+        let Some(material_key) = material_key_cache.get(view_entity) else {
+            continue;
+        };
+        let Some(view_tick) = view_specialization_ticks.get(view_entity) else {
+            continue;
+        };
         let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
             .entry(*view_entity)
             .or_default();
 
         for (_, visible_entity) in visible_entities.iter::<Mesh2d>() {
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                continue;
-            };
-            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
+            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
                 continue;
             };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
@@ -738,22 +829,16 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             if !needs_specialization {
                 continue;
             }
-            let Some(material_2d) = render_materials.get(*material_asset_id) else {
-                continue;
-            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let mesh_key = *view_key
-                | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
-                | material_2d.properties.mesh_pipeline_key_bits;
-
+            let mesh_key = *view_key | *mesh_key;
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material2d_pipeline,
                 Material2dKey {
                     mesh_key,
-                    bind_group_data: material_2d.key.clone(),
+                    bind_group_data: material_key.clone(),
                 },
                 &mesh.layout,
             );

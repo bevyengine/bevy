@@ -1,5 +1,4 @@
 use self::assign::ClusterableObjectType;
-use crate::material_bind_groups::MaterialBindGroupAllocator;
 use crate::*;
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
@@ -19,6 +18,7 @@ use bevy_render::experimental::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
 use bevy_render::sync_world::MainEntityHashMap;
+use bevy_render::view::Msaa;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
@@ -1625,17 +1625,17 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 
 // These will be extracted in the material extraction, which will also clear the needs_specialization
 // collection.
-pub fn check_light_entities_needing_specialization<M: Material>(
+pub fn changed_lights<M: Material>(
     needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
-    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
+    mut changed_entities: ResMut<ChangedEntities<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
 ) {
     for entity in &needs_specialization {
-        entities_needing_specialization.push(entity);
+        changed_entities.push(entity);
     }
 
     for removed in removed_components.read() {
-        entities_needing_specialization.entities.push(removed);
+        changed_entities.push(removed);
     }
 }
 
@@ -1724,18 +1724,16 @@ pub fn specialize_shadows<M: Material>(
         render_mesh_instances,
         render_materials,
         render_material_instances,
-        material_bind_group_allocator,
+        shadow_render_phases,
     ): (
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
         Res<RenderAssets<PreparedMaterial<M>>>,
         Res<RenderMaterialInstances>,
-        Res<MaterialBindGroupAllocator<M>>,
+        Res<ViewBinnedRenderPhases<Shadow>>,
     ),
-    shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
@@ -1745,6 +1743,8 @@ pub fn specialize_shadows<M: Material>(
     >,
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
     light_key_cache: Res<LightKeyCache>,
+    mesh_key_cache: Res<MeshKeyCache>,
+    material_key_cache: Res<MaterialKeyCache<M>>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache<M>>,
     light_specialization_ticks: Res<LightSpecializationTicks>,
     entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
@@ -1773,7 +1773,6 @@ pub fn specialize_shadows<M: Material>(
             else {
                 continue;
             };
-
             let visible_entities = match light_entity {
                 LightEntity::Directional {
                     light_entity,
@@ -1797,7 +1796,6 @@ pub fn specialize_shadows<M: Material>(
                     .get(*light_entity)
                     .expect("Failed to get spot light visible entities"),
             };
-
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
@@ -1809,6 +1807,12 @@ pub fn specialize_shadows<M: Material>(
                 .or_default();
 
             for (_, visible_entity) in visible_entities.iter().copied() {
+                let Some(mesh_key) = mesh_key_cache.get(&visible_entity) else {
+                    continue;
+                };
+                let Some(material_key) = material_key_cache.get(&visible_entity) else {
+                    continue;
+                };
                 let Some(material_instances) =
                     render_material_instances.instances.get(&visible_entity)
                 else {
@@ -1822,7 +1826,9 @@ pub fn specialize_shadows<M: Material>(
                 else {
                     continue;
                 };
-                let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
+                let Some(entity_tick) = entity_specialization_ticks.get(&visible_entity) else {
+                    continue;
+                };
                 let last_specialized_tick = view_specialized_material_pipeline_cache
                     .get(&visible_entity)
                     .map(|(tick, _)| *tick);
@@ -1842,46 +1848,20 @@ pub fn specialize_shadows<M: Material>(
                 {
                     continue;
                 }
-                let Some(material_bind_group) =
-                    material_bind_group_allocator.get(material.binding.group)
-                else {
-                    continue;
-                };
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                     continue;
                 };
 
-                let mut mesh_key =
-                    *light_key | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits());
-
-                // Even though we don't use the lightmap in the shadow map, the
-                // `SetMeshBindGroup` render command will bind the data for it. So
-                // we need to include the appropriate flag in the mesh pipeline key
-                // to ensure that the necessary bind group layout entries are
-                // present.
-                if render_lightmaps
-                    .render_lightmaps
-                    .contains_key(&visible_entity)
-                {
-                    mesh_key |= MeshPipelineKey::LIGHTMAPPED;
-                }
-
-                mesh_key |= match material.properties.alpha_mode {
-                    AlphaMode::Mask(_)
-                    | AlphaMode::Blend
-                    | AlphaMode::Premultiplied
-                    | AlphaMode::Add
-                    | AlphaMode::AlphaToCoverage => MeshPipelineKey::MAY_DISCARD,
-                    _ => MeshPipelineKey::NONE,
-                };
+                let mut mesh_key = *light_key | *mesh_key;
+                let alpha_mode = material.properties.alpha_mode;
+                // Shadow views don't have msaa
+                mesh_key |= alpha_mode_pipeline_key(alpha_mode, &Msaa::Off);
                 let pipeline_id = pipelines.specialize(
                     &pipeline_cache,
                     &prepass_pipeline,
                     MaterialPipelineKey {
                         mesh_key,
-                        bind_group_data: material_bind_group
-                            .get_extra_data(material.binding.slot)
-                            .clone(),
+                        bind_group_data: material_key.clone(),
                     },
                     &mesh.layout,
                 );

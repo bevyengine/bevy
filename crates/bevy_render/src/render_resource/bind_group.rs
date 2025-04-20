@@ -571,6 +571,9 @@ pub trait AsBindGroup {
         force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
+    /// Retrieves the data that will be stored alongside the bind group.
+    fn bind_group_data(&self) -> Self::Data;
+
     /// Creates the bind group layout matching all bind groups returned by
     /// [`AsBindGroup::as_bind_group`]
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout

@@ -233,6 +233,7 @@ impl Plugin for MeshRenderPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewKeyCache>()
+                .init_resource::<MeshKeyCache>()
                 .init_resource::<ViewSpecializationTicks>()
                 .init_resource::<GpuPreprocessingSupport>()
                 .init_resource::<SkinUniforms>()
@@ -322,6 +323,9 @@ impl Plugin for MeshRenderPlugin {
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct MeshKeyCache(MainEntityHashMap<MeshPipelineKey>);
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
