@@ -140,7 +140,7 @@ impl EntityRow {
     /// The bits are opaque and should not be regarded as meaningful.
     #[inline(always)]
     const fn to_bits(self) -> u32 {
-        // SAFETY: NonMax and NonZero are repr transparent.
+        // SAFETY: NonMax is repr transparent.
         unsafe { mem::transmute::<NonMaxU32, u32>(self.0) }
     }
 
