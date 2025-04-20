@@ -40,9 +40,12 @@ impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
             where
                 E: Error,
             {
-                self.0.get_with_type_path(type_path).ok_or_else(|| {
-                    make_custom_error(format_args!("no registration found for `{type_path}`"))
-                })
+                self.0
+                    .get_with_type_path(type_path)
+                    .or_else(|| self.0.get_with_short_type_path(type_path))
+                    .ok_or_else(|| {
+                        make_custom_error(format_args!("no registration found for `{type_path}`"))
+                    })
             }
         }
 
