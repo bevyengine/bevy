@@ -846,14 +846,12 @@ impl Image {
     /// Create a new zero-filled image with a given size, which can be rendered to. This is primarily
     /// for use as a render target for a [`Camera`]. See [`RenderTarget::Image`].
     ///
+    /// You can use [`TEXTURE_FORMAT_SDR`] and [`TEXTURE_FORMAT_HDR`]
+    /// for Standard Dynamic Range (SDR) and High Dynamic Range (HDR) respectively.
+    ///
     /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
     /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
-    pub fn new_target_texture(width: u32, height: u32, hdr: bool) -> Self {
-        let format = if hdr {
-            TEXTURE_FORMAT_HDR
-        } else {
-            TEXTURE_FORMAT_SDR
-        };
+    pub fn new_target_texture(width: u32, height: u32, format: TextureFormat) -> Self {
         let size = Extent3d {
             width,
             height,
@@ -867,7 +865,7 @@ impl Image {
         let data = vec![0; format.pixel_size() * size.volume()];
 
         Image {
-            data,
+            data: Some(data),
             texture_descriptor: TextureDescriptor {
                 size,
                 format,

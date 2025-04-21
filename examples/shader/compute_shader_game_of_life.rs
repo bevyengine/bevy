@@ -51,9 +51,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let mut image = Image::new_target_texture(SIZE.0, SIZE.1, false);
+    let mut image = Image::new_target_texture(SIZE.0, SIZE.1, TextureFormat::R32Float);
     image.asset_usage = RenderAssetUsages::RENDER_WORLD;
-    image.texture_descriptor.format = TextureFormat::R32Float;
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
     let image0 = images.add(image.clone());
