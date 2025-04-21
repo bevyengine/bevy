@@ -32,6 +32,11 @@ struct Slot {
 
 impl Slot {
     /// Produces a meaningless empty value. This is a valid but incorrect `Entity`.
+    /// It's valid because the bits do represent a valid bit pattern of an `Entity`.
+    /// It's incorrect because this is in the free buffer even though the entity was never freed.
+    /// Importantly, [`FreeCount`] determines which part of the free buffer is the free list.
+    /// An empty slot may be in the free buffer, but should not be in the free list.
+    /// This can be thought of as the `MaybeUninit` uninit in `Vec`'s excess capacity.
     fn empty() -> Self {
         let source = Entity::PLACEHOLDER;
         #[cfg(not(target_has_atomic = "64"))]
