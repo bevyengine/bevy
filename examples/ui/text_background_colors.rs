@@ -21,7 +21,7 @@ const PALETTE: [Color; 5] = [
     Color::Srgba(PURPLE),
 ];
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     // UI camera
     commands.spawn(Camera2d);
 
