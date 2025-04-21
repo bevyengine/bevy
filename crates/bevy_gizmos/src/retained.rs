@@ -100,6 +100,7 @@ pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(Entity, &Gizmo, &GlobalTransform, Option<&RenderLayers>)>>,
+    time: Extract<bevy_ecs::system::Res<bevy_time::Time>>,
 ) {
     use bevy_math::Affine3;
     use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
@@ -119,6 +120,7 @@ pub(crate) fn extract_linegizmos(
         let (gap_scale, line_scale) = if let GizmoLineStyle::Dashed {
             gap_scale,
             line_scale,
+            ..
         } = gizmo.line_config.style
         {
             if gap_scale <= 0.0 {
@@ -140,6 +142,7 @@ pub(crate) fn extract_linegizmos(
                 joints_resolution,
                 gap_scale,
                 line_scale,
+                time: time.elapsed_secs(),
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },

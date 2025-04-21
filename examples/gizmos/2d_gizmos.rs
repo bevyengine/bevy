@@ -8,6 +8,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
+        .init_gizmo_group::<MyAnimatedGizmos>()
         .add_systems(Startup, setup)
         .add_systems(Update, (draw_example_collection, update_config))
         .run();
@@ -17,7 +18,11 @@ fn main() {
 #[derive(Default, Reflect, GizmoConfigGroup)]
 struct MyRoundGizmos {}
 
-fn setup(mut commands: Commands) {
+// We can create our own gizmo config group!
+#[derive(Default, Reflect, GizmoConfigGroup)]
+struct MyAnimatedGizmos {}
+
+fn setup(mut commands: Commands, mut config_store: ResMut<GizmoConfigStore>) {
     commands.spawn(Camera2d);
     // text
     commands.spawn((
@@ -35,11 +40,17 @@ fn setup(mut commands: Commands) {
             ..default()
         },
     ));
+    config_store.config_mut::<MyAnimatedGizmos>().0.line.style = GizmoLineStyle::Dashed {
+        gap_scale: 10.0,
+        line_scale: 10.0,
+        animated: true,
+    };
 }
 
 fn draw_example_collection(
     mut gizmos: Gizmos,
     mut my_gizmos: Gizmos<MyRoundGizmos>,
+    mut my_animated: Gizmos<MyAnimatedGizmos>,
     time: Res<Time>,
 ) {
     let sin_t_scaled = ops::sin(time.elapsed_secs()) * 50.;
@@ -120,6 +131,8 @@ fn draw_example_collection(
         )
         .with_double_end()
         .with_tip_length(10.);
+
+    my_animated.line_2d(Vec2::ZERO, Vec2::ONE * 100.0, YELLOW_GREEN);
 }
 
 fn update_config(
@@ -145,6 +158,7 @@ fn update_config(
             GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
                 gap_scale: 3.0,
                 line_scale: 5.0,
+                animated: false,
             },
             _ => GizmoLineStyle::Solid,
         };
@@ -176,6 +190,14 @@ fn update_config(
             GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
                 gap_scale: 3.0,
                 line_scale: 5.0,
+                animated: false,
+            },
+            GizmoLineStyle::Dashed {
+                animated: false, ..
+            } => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 5.0,
+                animated: true,
             },
             _ => GizmoLineStyle::Solid,
         };

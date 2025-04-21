@@ -34,6 +34,7 @@ bevy_time = { path = "../bevy_time", version = "0.16.0-dev" }
 # other
 bytemuck = "1.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+itertools = { version = "0.14.0", default-features = false }
 
 [lints]
 workspace = true

@@ -176,6 +176,7 @@ impl Plugin for GizmoPlugin {
         #[cfg(feature = "bevy_render")]
         app.add_plugins(aabb::AabbGizmoPlugin)
             .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
+            .add_systems(bevy_app::Update, update_gizmo_time)
             .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
 
         #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
@@ -217,7 +218,7 @@ impl Plugin for GizmoPlugin {
         let line_layout = render_device.create_bind_group_layout(
             "LineGizmoUniform layout",
             &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX,
+                ShaderStages::VERTEX | ShaderStages::FRAGMENT,
                 uniform_buffer::<LineGizmoUniform>(true),
             ),
         );
@@ -418,11 +419,21 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
     }
 }
 
+fn update_gizmo_time(
+    mut q: bevy_ecs::system::Query<&mut LineGizmoUniform>,
+    time: Res<bevy_time::Time>,
+) {
+    q.iter_mut().for_each(|mut uniform| {
+        uniform.time = time.elapsed_secs();
+    });
+}
+
 #[cfg(feature = "bevy_render")]
 fn extract_gizmo_data(
     mut commands: Commands,
     handles: Extract<Res<GizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
+    time: Extract<Res<bevy_time::Time>>,
 ) {
     use bevy_utils::once;
     use config::GizmoLineStyle;
@@ -450,6 +461,7 @@ fn extract_gizmo_data(
         let (gap_scale, line_scale) = if let GizmoLineStyle::Dashed {
             gap_scale,
             line_scale,
+            ..
         } = config.line.style
         {
             if gap_scale <= 0.0 {
@@ -471,6 +483,7 @@ fn extract_gizmo_data(
                 joints_resolution,
                 gap_scale,
                 line_scale,
+                time: time.elapsed_secs(),
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
@@ -501,9 +514,10 @@ struct LineGizmoUniform {
     // Only used if the current configs `line_style` is set to `GizmoLineStyle::Dashed{_}`
     gap_scale: f32,
     line_scale: f32,
+    time: f32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
-    _padding: bevy_math::Vec3,
+    _padding: bevy_math::Vec2,
 }
 
 /// A collection of gizmos.
