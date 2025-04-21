@@ -11,6 +11,16 @@ use log::warn;
 use super::{Entity, EntitySetIterator};
 
 /// This is the item we store in the free list.
+/// Effectively, this is a `MaybeUninit<Entity>` where uninit is represented by `Entity::PLACEHOLDER`.
+///
+/// We use atomics internally not for special ordring but for *a* ordering.
+/// Conceptually, this could just be `SyncCell<Entity>`,
+/// but accessing that requires additional unsafe justification, and could cause unsound optimizations by the compiler.
+///
+/// No [`Slot`] access is ever contested between two threads due to the ordering constraints in the [`FreeCount`].
+/// That also guarantees a proper ordering between slot access.
+/// Hence these atomics don't need to account for any synchronization, and relaxed ordring is used everywhere.
+// TODO: consider fully justifying `SyncCell` here with no atomics.
 struct Slot {
     #[cfg(not(target_has_atomic = "64"))]
     entity_index: AtomicU32,
@@ -35,7 +45,6 @@ impl Slot {
         };
     }
 
-    // TODO: could maybe make this `&mut` so then we can use a `SyncCell` with no `Slot` atomics
     #[inline]
     fn set_entity(&self, entity: Entity) {
         #[cfg(not(target_has_atomic = "64"))]
