@@ -5,7 +5,7 @@
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         meshlet_raster_clusters,
-        meshlet_software_raster_cluster_count,
+        meshlet_previous_raster_counts,
         meshlet_visibility_buffer,
         view,
         get_meshlet_vertex_count,
@@ -40,7 +40,7 @@ fn rasterize_cluster(
     if workgroup_id_1d >= meshlet_software_raster_cluster_count { return; }
 #endif
 
-    let cluster_id = workgroup_id_1d;
+    let cluster_id = workgroup_id_1d + meshlet_previous_raster_counts[0];
     let instanced_offset = meshlet_raster_clusters[cluster_id];
     var meshlet = meshlets[instanced_offset.offset];
 

@@ -5,6 +5,7 @@
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         meshlet_raster_clusters,
+        meshlet_previous_raster_counts,
         meshlet_visibility_buffer,
         view,
         get_meshlet_triangle_count,
@@ -27,7 +28,8 @@ struct VertexOutput {
 
 @vertex
 fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    let cluster_id = meshlet_raster_cluster_rightmost_slot - instance_index;
+    let cluster_in_draw = meshlet_previous_raster_counts[1] + instance_index;
+    let cluster_id = meshlet_raster_cluster_rightmost_slot - cluster_in_draw;
     let instanced_offset = meshlet_raster_clusters[cluster_id];
     var meshlet = meshlets[instanced_offset.offset];
 

@@ -27,6 +27,8 @@ use core::iter;
 pub struct ResourceManager {
     /// Intermediate buffer of cluster IDs for use with rasterizing the visibility buffer
     visibility_buffer_raster_clusters: Buffer,
+    /// Intermediate buffer of previous counts of clusters in rasterizer buckets
+    pub visibility_buffer_raster_cluster_prev_counts: Buffer,
     /// Intermediate buffer of count of clusters to software rasterize
     software_raster_cluster_count: Buffer,
     /// BVH traversal queues
@@ -63,6 +65,7 @@ pub struct ResourceManager {
     pub resolve_depth_shadow_view_bind_group_layout: BindGroupLayout,
     pub resolve_material_depth_bind_group_layout: BindGroupLayout,
     pub material_shade_bind_group_layout: BindGroupLayout,
+    pub fill_counts_bind_group_layout: BindGroupLayout,
     pub remap_1d_to_2d_dispatch_bind_group_layout: Option<BindGroupLayout>,
 }
 
@@ -79,6 +82,14 @@ impl ResourceManager {
                 usage: BufferUsages::STORAGE,
                 mapped_at_creation: false,
             }),
+            visibility_buffer_raster_cluster_prev_counts: render_device.create_buffer(
+                &BufferDescriptor {
+                    label: Some("meshlet_visibility_buffer_raster_cluster_prev_counts"),
+                    size: size_of::<u32>() as u64 * 2,
+                    usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                },
+            ),
             software_raster_cluster_count: render_device.create_buffer(&BufferDescriptor {
                 label: Some("meshlet_software_raster_cluster_count"),
                 size: size_of::<u32>() as u64,
@@ -236,6 +247,7 @@ impl ResourceManager {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
                         storage_buffer_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
@@ -256,6 +268,7 @@ impl ResourceManager {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
                         storage_buffer_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -327,6 +340,7 @@ impl ResourceManager {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                         texture_storage_2d(TextureFormat::R64Uint, StorageTextureAccess::Atomic),
                         uniform_buffer::<ViewUniform>(true),
                     ),
@@ -338,6 +352,7 @@ impl ResourceManager {
                     &BindGroupLayoutEntries::sequential(
                         ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
                         (
+                            storage_buffer_read_only_sized(false, None),
                             storage_buffer_read_only_sized(false, None),
                             storage_buffer_read_only_sized(false, None),
                             storage_buffer_read_only_sized(false, None),
@@ -393,6 +408,17 @@ impl ResourceManager {
                     ),
                 ),
             ),
+            fill_counts_bind_group_layout: render_device.create_bind_group_layout(
+                "meshlet_fill_counts_bind_group_layout",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::COMPUTE,
+                    (
+                        storage_buffer_sized(false, None),
+                        storage_buffer_sized(false, None),
+                        storage_buffer_sized(false, None),
+                    ),
+                ),
+            ),
             remap_1d_to_2d_dispatch_bind_group_layout: needs_dispatch_remap.then(|| {
                 render_device.create_bind_group_layout(
                     "meshlet_remap_1d_to_2d_dispatch_bind_group_layout",
@@ -437,10 +463,8 @@ pub struct MeshletViewResources {
     pub back_meshlet_cull_count: Buffer,
     pub back_meshlet_cull_dispatch: Buffer,
     pub meshlet_cull_queue: Buffer,
-    pub visibility_buffer_software_raster_indirect_args_first: Buffer,
-    pub visibility_buffer_software_raster_indirect_args_second: Buffer,
-    pub visibility_buffer_hardware_raster_indirect_args_first: Buffer,
-    pub visibility_buffer_hardware_raster_indirect_args_second: Buffer,
+    pub visibility_buffer_software_raster_indirect_args: Buffer,
+    pub visibility_buffer_hardware_raster_indirect_args: Buffer,
     pub depth_pyramid: ViewDepthPyramid,
     previous_depth_pyramid: TextureView,
     pub material_depth: Option<CachedTexture>,
@@ -464,7 +488,8 @@ pub struct MeshletViewBindGroups {
     pub resolve_depth: BindGroup,
     pub resolve_material_depth: Option<BindGroup>,
     pub material_shade: Option<BindGroup>,
-    pub remap_1d_to_2d_dispatch: Option<(BindGroup, BindGroup)>,
+    pub remap_1d_to_2d_dispatch: Option<BindGroup>,
+    pub fill_counts: BindGroup,
 }
 
 // TODO: Cache things per-view and skip running this system / optimize this system
@@ -606,50 +631,50 @@ pub fn prepare_meshlet_per_frame_resources(
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_first_bvh_cull_count_front"),
                 contents: bytemuck::bytes_of(&0u32),
-                usage: BufferUsages::STORAGE,
+                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             });
         let first_bvh_cull_dispatch_front =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_first_bvh_cull_dispatch_front"),
                 contents: DispatchIndirectArgs { x: 0, y: 1, z: 1 }.as_bytes(),
-                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
+                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT | BufferUsages::COPY_DST,
             });
         let first_bvh_cull_count_back =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_first_bvh_cull_count_back"),
                 contents: bytemuck::bytes_of(&0u32),
-                usage: BufferUsages::STORAGE,
+                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             });
         let first_bvh_cull_dispatch_back =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_first_bvh_cull_dispatch_back"),
                 contents: DispatchIndirectArgs { x: 0, y: 1, z: 1 }.as_bytes(),
-                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
+                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT | BufferUsages::COPY_DST,
             });
 
         let second_bvh_cull_count_front =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_second_bvh_cull_count_front"),
                 contents: bytemuck::bytes_of(&0u32),
-                usage: BufferUsages::STORAGE,
+                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             });
         let second_bvh_cull_dispatch_front =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_second_bvh_cull_dispatch_front"),
                 contents: DispatchIndirectArgs { x: 0, y: 1, z: 1 }.as_bytes(),
-                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
+                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT | BufferUsages::COPY_DST,
             });
         let second_bvh_cull_count_back =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_second_bvh_cull_count_back"),
                 contents: bytemuck::bytes_of(&0u32),
-                usage: BufferUsages::STORAGE,
+                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             });
         let second_bvh_cull_dispatch_back =
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_second_bvh_cull_dispatch_back"),
                 contents: DispatchIndirectArgs { x: 0, y: 1, z: 1 }.as_bytes(),
-                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
+                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT | BufferUsages::COPY_DST,
             });
 
         let front_meshlet_cull_count =
@@ -677,34 +702,16 @@ pub fn prepare_meshlet_per_frame_resources(
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
 
-        let visibility_buffer_software_raster_indirect_args_first = render_device
+        let visibility_buffer_software_raster_indirect_args = render_device
             .create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("meshlet_visibility_buffer_software_raster_indirect_args_first"),
-                contents: DispatchIndirectArgs { x: 0, y: 1, z: 1 }.as_bytes(),
-                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
-            });
-        let visibility_buffer_software_raster_indirect_args_second = render_device
-            .create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("visibility_buffer_software_raster_indirect_args_second"),
+                label: Some("meshlet_visibility_buffer_software_raster_indirect_args"),
                 contents: DispatchIndirectArgs { x: 0, y: 1, z: 1 }.as_bytes(),
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
 
-        let visibility_buffer_hardware_raster_indirect_args_first = render_device
+        let visibility_buffer_hardware_raster_indirect_args = render_device
             .create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("meshlet_visibility_buffer_hardware_raster_indirect_args_first"),
-                contents: DrawIndirectArgs {
-                    vertex_count: 128 * 3,
-                    instance_count: 0,
-                    first_vertex: 0,
-                    first_instance: 0,
-                }
-                .as_bytes(),
-                usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
-            });
-        let visibility_buffer_hardware_raster_indirect_args_second = render_device
-            .create_buffer_with_data(&BufferInitDescriptor {
-                label: Some("visibility_buffer_hardware_raster_indirect_args_second"),
+                label: Some("meshlet_visibility_buffer_hardware_raster_indirect_args"),
                 contents: DrawIndirectArgs {
                     vertex_count: 128 * 3,
                     instance_count: 0,
@@ -773,10 +780,8 @@ pub fn prepare_meshlet_per_frame_resources(
             back_meshlet_cull_count,
             back_meshlet_cull_dispatch,
             meshlet_cull_queue: resource_manager.cluster_cull_candidate_queue.clone(),
-            visibility_buffer_software_raster_indirect_args_first,
-            visibility_buffer_software_raster_indirect_args_second,
-            visibility_buffer_hardware_raster_indirect_args_first,
-            visibility_buffer_hardware_raster_indirect_args_second,
+            visibility_buffer_software_raster_indirect_args,
+            visibility_buffer_hardware_raster_indirect_args,
             depth_pyramid,
             previous_depth_pyramid,
             material_depth: not_shadow_view
@@ -1007,10 +1012,13 @@ pub fn prepare_meshlet_view_bind_groups(
                 meshlet_mesh_manager.meshlet_cull_data.binding(),
                 instance_manager.instance_uniforms.binding().unwrap(),
                 view_resources
-                    .visibility_buffer_software_raster_indirect_args_first
+                    .visibility_buffer_software_raster_indirect_args
                     .as_entire_binding(),
                 view_resources
-                    .visibility_buffer_hardware_raster_indirect_args_first
+                    .visibility_buffer_hardware_raster_indirect_args
+                    .as_entire_binding(),
+                resource_manager
+                    .visibility_buffer_raster_cluster_prev_counts
                     .as_entire_binding(),
                 resource_manager
                     .visibility_buffer_raster_clusters
@@ -1034,10 +1042,13 @@ pub fn prepare_meshlet_view_bind_groups(
                 meshlet_mesh_manager.meshlet_cull_data.binding(),
                 instance_manager.instance_uniforms.binding().unwrap(),
                 view_resources
-                    .visibility_buffer_software_raster_indirect_args_second
+                    .visibility_buffer_software_raster_indirect_args
                     .as_entire_binding(),
                 view_resources
-                    .visibility_buffer_hardware_raster_indirect_args_second
+                    .visibility_buffer_hardware_raster_indirect_args
+                    .as_entire_binding(),
+                resource_manager
+                    .visibility_buffer_raster_cluster_prev_counts
                     .as_entire_binding(),
                 resource_manager
                     .visibility_buffer_raster_clusters
@@ -1074,6 +1085,9 @@ pub fn prepare_meshlet_view_bind_groups(
                 meshlet_mesh_manager.indices.binding(),
                 meshlet_mesh_manager.vertex_positions.binding(),
                 instance_manager.instance_uniforms.binding().unwrap(),
+                resource_manager
+                    .visibility_buffer_raster_cluster_prev_counts
+                    .as_entire_binding(),
                 resource_manager
                     .software_raster_cluster_count
                     .as_entire_binding(),
@@ -1129,33 +1143,35 @@ pub fn prepare_meshlet_view_bind_groups(
             .remap_1d_to_2d_dispatch_bind_group_layout
             .as_ref()
             .map(|layout| {
-                (
-                    render_device.create_bind_group(
-                        "meshlet_remap_1d_to_2d_dispatch_first_bind_group",
-                        layout,
-                        &BindGroupEntries::sequential((
-                            view_resources
-                                .visibility_buffer_software_raster_indirect_args_first
-                                .as_entire_binding(),
-                            resource_manager
-                                .software_raster_cluster_count
-                                .as_entire_binding(),
-                        )),
-                    ),
-                    render_device.create_bind_group(
-                        "meshlet_remap_1d_to_2d_dispatch_second_bind_group",
-                        layout,
-                        &BindGroupEntries::sequential((
-                            view_resources
-                                .visibility_buffer_software_raster_indirect_args_second
-                                .as_entire_binding(),
-                            resource_manager
-                                .software_raster_cluster_count
-                                .as_entire_binding(),
-                        )),
-                    ),
+                render_device.create_bind_group(
+                    "meshlet_remap_1d_to_2d_dispatch_bind_group",
+                    layout,
+                    &BindGroupEntries::sequential((
+                        view_resources
+                            .visibility_buffer_software_raster_indirect_args
+                            .as_entire_binding(),
+                        resource_manager
+                            .software_raster_cluster_count
+                            .as_entire_binding(),
+                    )),
                 )
             });
+
+        let fill_counts = render_device.create_bind_group(
+            "meshlet_fill_counts_bind_group",
+            &resource_manager.fill_counts_bind_group_layout,
+            &BindGroupEntries::sequential((
+                view_resources
+                    .visibility_buffer_software_raster_indirect_args
+                    .as_entire_binding(),
+                view_resources
+                    .visibility_buffer_hardware_raster_indirect_args
+                    .as_entire_binding(),
+                resource_manager
+                    .visibility_buffer_raster_cluster_prev_counts
+                    .as_entire_binding(),
+            )),
+        );
 
         commands.entity(view_entity).insert(MeshletViewBindGroups {
             clear_visibility_buffer,
@@ -1173,6 +1189,7 @@ pub fn prepare_meshlet_view_bind_groups(
             resolve_material_depth,
             material_shade,
             remap_1d_to_2d_dispatch,
+            fill_counts,
         });
     }
 }

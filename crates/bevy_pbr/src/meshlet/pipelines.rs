@@ -28,6 +28,8 @@ pub const MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("c218ce17-cf59-4268-8898-13ecf384f133");
 pub const MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("f5b7edfc-2eac-4407-8f5c-1265d4d795c2");
+pub const MESHLET_FILL_COUNTS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("1047cc44-4839-482b-aa9b-82dde28ee954");
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
@@ -52,6 +54,7 @@ pub struct MeshletPipelines {
     resolve_depth_shadow_view: CachedRenderPipelineId,
     resolve_material_depth: CachedRenderPipelineId,
     remap_1d_to_2d_dispatch: Option<CachedComputePipelineId>,
+    fill_counts: CachedComputePipelineId,
 }
 
 impl FromWorld for MeshletPipelines {
@@ -101,6 +104,7 @@ impl FromWorld for MeshletPipelines {
             .clone();
 
         let vertex_state = world.resource::<FullscreenShader>().to_vertex_state();
+        let fill_counts_layout = resource_manager.fill_counts_bind_group_layout.clone();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
         Self {
@@ -555,6 +559,16 @@ impl FromWorld for MeshletPipelines {
                     zero_initialize_workgroup_memory: false,
                 })
             }),
+
+            fill_counts: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("meshlet_fill_counts_pipeline".into()),
+                layout: vec![fill_counts_layout],
+                push_constant_ranges: vec![],
+                shader: MESHLET_FILL_COUNTS_SHADER_HANDLE,
+                shader_defs: vec![],
+                entry_point: "fill_counts".into(),
+                zero_initialize_workgroup_memory: false,
+            }),
         }
     }
 }
@@ -584,6 +598,7 @@ impl MeshletPipelines {
         &RenderPipeline,
         &RenderPipeline,
         Option<&ComputePipeline>,
+        &ComputePipeline,
     )> {
         let pipeline_cache = world.get_resource::<PipelineCache>()?;
         let pipeline = world.get_resource::<Self>()?;
@@ -616,6 +631,7 @@ impl MeshletPipelines {
                 Some(id) => Some(pipeline_cache.get_compute_pipeline(id)?),
                 None => None,
             },
+            pipeline_cache.get_compute_pipeline(pipeline.fill_counts)?,
         ))
     }
 }

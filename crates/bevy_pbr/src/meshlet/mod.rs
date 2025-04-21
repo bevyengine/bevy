@@ -224,6 +224,12 @@ impl Plugin for MeshletPlugin {
             "remap_1d_to_2d_dispatch.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            MESHLET_FILL_COUNTS_SHADER_HANDLE,
+            "fill_counts.wgsl",
+            Shader::from_wgsl
+        );
 
         app.init_asset::<MeshletMesh>()
             .register_asset_loader(MeshletMeshLoader);

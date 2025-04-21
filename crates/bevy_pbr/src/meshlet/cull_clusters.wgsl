@@ -7,6 +7,7 @@
     meshlet_cull_data,
     meshlet_software_raster_indirect_args,
     meshlet_hardware_raster_indirect_args,
+    meshlet_previous_raster_counts,
     meshlet_raster_clusters,
     meshlet_meshlet_cull_count_read,
     meshlet_meshlet_cull_count_write,
@@ -79,9 +80,11 @@ fn cull_clusters(
     if false {
         // Append this cluster to the list for software rasterization
         buffer_slot = atomicAdd(&meshlet_software_raster_indirect_args.x, 1u);
+        buffer_slot += meshlet_previous_raster_counts[0];
     } else {
         // Append this cluster to the list for hardware rasterization
         buffer_slot = atomicAdd(&meshlet_hardware_raster_indirect_args.instance_count, 1u);
+        buffer_slot += meshlet_previous_raster_counts[1];
         buffer_slot = constants.rightmost_slot - buffer_slot;
     }
     meshlet_raster_clusters[buffer_slot] = InstancedOffset(instance_id, instanced_offset.offset);

@@ -166,18 +166,19 @@ var<push_constant> constants: Constants;
 // Raster queue data
 @group(0) @binding(5) var<storage, read_write> meshlet_software_raster_indirect_args: DispatchIndirectArgs;
 @group(0) @binding(6) var<storage, read_write> meshlet_hardware_raster_indirect_args: DrawIndirectArgs;
-@group(0) @binding(7) var<storage, read_write> meshlet_raster_clusters: array<InstancedOffset>;
+@group(0) @binding(7) var<storage, read> meshlet_previous_raster_counts: array<u32>;
+@group(0) @binding(8) var<storage, read_write> meshlet_raster_clusters: array<InstancedOffset>;
 
 // Meshlet cull queue data
-@group(0) @binding(8) var<storage, read> meshlet_meshlet_cull_count_read: u32;
+@group(0) @binding(9) var<storage, read> meshlet_meshlet_cull_count_read: u32;
 
 // Second pass queue data
 #ifdef MESHLET_FIRST_CULLING_PASS
-@group(0) @binding(9) var<storage, read_write> meshlet_meshlet_cull_count_write: atomic<u32>;
-@group(0) @binding(10) var<storage, read_write> meshlet_meshlet_cull_dispatch: DispatchIndirectArgs;
-@group(0) @binding(11) var<storage, read_write> meshlet_meshlet_cull_queue: array<InstancedOffset>;
+@group(0) @binding(10) var<storage, read_write> meshlet_meshlet_cull_count_write: atomic<u32>;
+@group(0) @binding(11) var<storage, read_write> meshlet_meshlet_cull_dispatch: DispatchIndirectArgs;
+@group(0) @binding(12) var<storage, read_write> meshlet_meshlet_cull_queue: array<InstancedOffset>;
 #else
-@group(0) @binding(9) var<storage, read> meshlet_meshlet_cull_queue: array<InstancedOffset>;
+@group(0) @binding(10) var<storage, read> meshlet_meshlet_cull_queue: array<InstancedOffset>;
 #endif
 #endif
 
@@ -187,13 +188,14 @@ var<push_constant> constants: Constants;
 @group(0) @binding(2) var<storage, read> meshlet_indices: array<u32>; // Many per meshlet
 @group(0) @binding(3) var<storage, read> meshlet_vertex_positions: array<u32>; // Many per meshlet
 @group(0) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
-@group(0) @binding(5) var<storage, read> meshlet_software_raster_cluster_count: u32;
+@group(0) @binding(5) var<storage, read> meshlet_previous_raster_counts: array<u32>;
+@group(0) @binding(6) var<storage, read> meshlet_software_raster_cluster_count: u32;
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-@group(0) @binding(6) var meshlet_visibility_buffer: texture_storage_2d<r64uint, atomic>;
+@group(0) @binding(7) var meshlet_visibility_buffer: texture_storage_2d<r64uint, atomic>;
 #else
-@group(0) @binding(6) var meshlet_visibility_buffer: texture_storage_2d<r32uint, atomic>;
+@group(0) @binding(7) var meshlet_visibility_buffer: texture_storage_2d<r32uint, atomic>;
 #endif
-@group(0) @binding(7) var<uniform> view: View;
+@group(0) @binding(8) var<uniform> view: View;
 
 // TODO: Load only twice, instead of 3x in cases where you load 3 indices per thread?
 fn get_meshlet_vertex_id(index_id: u32) -> u32 {
