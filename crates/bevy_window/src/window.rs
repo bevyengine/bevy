@@ -6,7 +6,7 @@ use bevy_ecs::{
     prelude::Component,
 };
 use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
-use bevy_platform_support::sync::LazyLock;
+use bevy_platform::sync::LazyLock;
 use log::warn;
 
 #[cfg(feature = "bevy_reflect")]

@@ -13,8 +13,8 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::hash::FixedHasher;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::hash::FixedHasher;
 use bevy_render::experimental::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
@@ -1806,10 +1806,12 @@ pub fn specialize_shadows<M: Material>(
                 let Ok(material_asset_id) = material_instances.asset_id.try_typed::<M>() else {
                     continue;
                 };
-                let entity_tick = params
-                    .entity_specialization_ticks
-                    .get(&visible_entity)
-                    .unwrap();
+                let Some(mesh_instance) =
+                    params.render_mesh_instances.render_mesh_queue_data(visible_entity)
+                else {
+                    continue;
+                };
+                let entity_tick = params.entity_specialization_ticks.get(&visible_entity).unwrap();
                 let last_specialized_tick = view_specialized_material_pipeline_cache
                     .get(&visible_entity)
                     .map(|(tick, _)| *tick);
@@ -1821,12 +1823,6 @@ pub fn specialize_shadows<M: Material>(
                     continue;
                 }
                 let Some(material) = render_materials.get(material_asset_id) else {
-                    continue;
-                };
-                let Some(mesh_instance) = params
-                    .render_mesh_instances
-                    .render_mesh_queue_data(visible_entity)
-                else {
                     continue;
                 };
                 if !mesh_instance
