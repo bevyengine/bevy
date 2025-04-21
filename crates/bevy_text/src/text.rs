@@ -407,6 +407,30 @@ impl TextColor {
     pub const WHITE: Self = TextColor(Color::WHITE);
 }
 
+/// The background color of the text for this section.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct TextBackgroundColor(pub Color);
+
+impl Default for TextBackgroundColor {
+    fn default() -> Self {
+        Self(Color::BLACK)
+    }
+}
+
+impl<T: Into<Color>> From<T> for TextBackgroundColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
+
+impl TextBackgroundColor {
+    /// Black colored text
+    pub const BLACK: Self = TextBackgroundColor(Color::BLACK);
+    /// White colored text
+    pub const WHITE: Self = TextBackgroundColor(Color::WHITE);
+}
+
 /// Determines how lines will be broken when preventing text from running out of bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
