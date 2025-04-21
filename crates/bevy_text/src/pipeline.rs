@@ -9,7 +9,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
-use bevy_math::{UVec2, Vec2};
+use bevy_math::{Rect, UVec2, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -272,6 +272,10 @@ impl TextPipeline {
                 .try_for_each(|(layout_glyph, line_y, line_i)| {
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
+                    bevy_log::info!(
+                        "span_index: {span_index}, entity: {}",
+                        computed.entities[span_index].entity.index()
+                    );
                     let font_id = glyph_info[span_index].0;
                     let font_smoothing = glyph_info[span_index].1;
 
@@ -342,6 +346,31 @@ impl TextPipeline {
 
             result
         });
+
+        layout_info.rects.clear();
+        for run in buffer.layout_runs() {
+            let Some((mut current_section, mut start, mut end)) =
+                run.glyphs.get(0).map(|g| (g.metadata, g.x, g.x + g.w))
+            else {
+                continue;
+            };
+            for glyph in run.glyphs.iter() {
+                let section_index = glyph.metadata;
+                if section_index != current_section {
+                    layout_info.rects.push((
+                        computed.entities[current_section].entity,
+                        Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                    ));
+                    start = end;
+                    current_section = section_index;
+                }
+                end = glyph.x + glyph.w;
+            }
+            layout_info.rects.push((
+                computed.entities[current_section].entity,
+                Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+            ));
+        }
 
         // Return the scratch vec.
         self.glyph_info = glyph_info;
@@ -418,6 +447,8 @@ impl TextPipeline {
 pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
+    /// Rects
+    pub rects: Vec<(Entity, Rect)>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
