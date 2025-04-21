@@ -164,7 +164,7 @@ impl EntityRow {
     #[inline(always)]
     const fn try_from_bits(bits: u32) -> Option<Self> {
         match NonZero::<u32>::new(bits) {
-            // SAFETY: NonMax is repr transparent.
+            // SAFETY: NonMax and NonZero are repr transparent.
             Some(underlying) => Some(Self(unsafe {
                 mem::transmute::<NonZero<u32>, NonMaxU32>(underlying)
             })),
