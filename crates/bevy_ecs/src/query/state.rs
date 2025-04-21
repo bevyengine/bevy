@@ -984,7 +984,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::fresh_from_index(365).unwrap();
+    /// let wrong_entity = Entity::fresh_from_row(365).unwrap();
     ///
     /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
     /// ```
@@ -1022,7 +1022,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::fresh_from_index(365).unwrap();
+    /// let wrong_entity = Entity::fresh_from_row(365).unwrap();
     ///
     /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
     /// ```
@@ -1078,7 +1078,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
-    /// let wrong_entity = Entity::fresh_from_index(57).unwrap();
+    /// let wrong_entity = Entity::fresh_from_row(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
@@ -1124,7 +1124,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
-    /// let wrong_entity = Entity::fresh_from_index(57).unwrap();
+    /// let wrong_entity = Entity::fresh_from_row(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
@@ -1452,7 +1452,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
-    /// # let wrong_entity = Entity::fresh_from_index(57).unwrap();
+    /// # let wrong_entity = Entity::fresh_from_row(57).unwrap();
     /// # let invalid_entity = world.spawn_empty().id();
     ///
     /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
