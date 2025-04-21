@@ -5,8 +5,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{
-        ComputePass, ComputePassDescriptor, Extent3d, Origin3d, PipelineCache,
-        RenderPassDescriptor, TextureAspect,
+        ComputePass, ComputePassDescriptor, Extent3d, PipelineCache, RenderPassDescriptor,
     },
     renderer::RenderContext,
     texture::GpuImage,
@@ -18,7 +17,7 @@ use crate::ViewLightsUniformOffset;
 use super::{
     resources::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereResources,
-        AtmosphereTransformsOffset, EnvironmentPipeline, RenderSkyPipelineId,
+        AtmosphereTransformsOffset, RenderSkyPipelineId,
     },
     Atmosphere, AtmosphereSettings,
 };
@@ -260,56 +259,34 @@ impl ViewNode for EnvironmentNode {
         let atmosphere_resources = world.resource::<AtmosphereResources>();
 
         // Get the texture for the environment array from the resources
-        let Some(environment_specular_storage) =
-            gpu_images.get(&atmosphere_resources.environment_specular_storage_view)
+        let Some(environment_storage) =
+            gpu_images.get(&atmosphere_resources.environment_storage_view)
         else {
             return Ok(());
         };
 
         // Get the cubemap texture view as well
-        let Some(environment_specular) = gpu_images.get(&atmosphere_resources.environment_specular)
-        else {
-            return Ok(());
-        };
-
-        // Get the diffuse irradiance map
-        let Some(environment_diffuse_storage) =
-            gpu_images.get(&atmosphere_resources.environment_diffuse_storage_view)
-        else {
-            return Ok(());
-        };
-
-        // Get the diffuse irradiance map
-        let Some(environment_diffuse) = gpu_images.get(&atmosphere_resources.environment_diffuse)
-        else {
+        let Some(environment) = gpu_images.get(&atmosphere_resources.environment) else {
             return Ok(());
         };
 
         // Get the base level pipeline for environment cubemap generation
-        let Some(specular_pipeline) =
-            pipeline_cache.get_compute_pipeline(pipelines.environment_specular)
+        let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
         else {
             return Ok(());
         };
 
-        // Get the diffuse irradiance pipeline
-        let Some(diffuse_pipeline) =
-            pipeline_cache.get_compute_pipeline(pipelines.environment_diffuse)
-        else {
-            return Ok(());
-        };
-
-        // Generate the environment cubemap (specular reflections)
+        // Generate the environment cubemap
         {
             let mut pass =
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("environment_specular_pass"),
+                        label: Some("environment_pass"),
                         timestamp_writes: None,
                     });
 
-            pass.set_pipeline(specular_pipeline);
+            pass.set_pipeline(environment_pipeline);
             pass.set_bind_group(
                 0,
                 &bind_groups.environment,
@@ -323,60 +300,19 @@ impl ViewNode for EnvironmentNode {
             );
 
             pass.dispatch_workgroups(
-                environment_specular_storage.size.width / 8,
-                environment_specular_storage.size.height / 8,
-                6, // 6 cubemap faces
-            );
-        }
-
-        // Generate the diffuse irradiance map
-        {
-            let mut pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("diffuse_irradiance_pass"),
-                        timestamp_writes: None,
-                    });
-
-            pass.set_pipeline(diffuse_pipeline);
-            pass.set_bind_group(
-                0,
-                &bind_groups.environment,
-                &[
-                    atmosphere_uniforms_offset.index(),
-                    settings_uniforms_offset.index(),
-                    atmosphere_transforms_offset.index(),
-                    view_uniforms_offset.offset,
-                    lights_uniforms_offset.offset,
-                ],
-            );
-
-            pass.dispatch_workgroups(
-                environment_diffuse.size.width / 8,
-                environment_diffuse.size.height / 8,
+                environment_storage.size.width / 8,
+                environment_storage.size.height / 8,
                 6, // 6 cubemap faces
             );
         }
 
         // Copy environment cubemap to the final texture
         render_context.command_encoder().copy_texture_to_texture(
-            environment_specular_storage.texture.as_image_copy(),
-            environment_specular.texture.as_image_copy(),
+            environment_storage.texture.as_image_copy(),
+            environment.texture.as_image_copy(),
             Extent3d {
-                width: environment_specular_storage.size.width,
-                height: environment_specular_storage.size.height,
-                depth_or_array_layers: 6,
-            },
-        );
-
-        // Copy diffuse irradiance map to the diffuse cubemap
-        render_context.command_encoder().copy_texture_to_texture(
-            environment_diffuse_storage.texture.as_image_copy(),
-            environment_diffuse.texture.as_image_copy(),
-            Extent3d {
-                width: environment_diffuse.size.width,
-                height: environment_diffuse.size.height,
+                width: environment_storage.size.width,
+                height: environment_storage.size.height,
                 depth_or_array_layers: 6,
             },
         );

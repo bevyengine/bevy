@@ -7,7 +7,7 @@ use bevy::{
     input::mouse::{MouseMotion, MouseWheel},
     pbr::{
         light_consts::lux, resources::AtmosphereResources, Atmosphere, AtmosphereSettings,
-        CascadeShadowConfigBuilder, FogVolume, VolumetricFog, VolumetricLight,
+        VolumetricFog, VolumetricLight,
     },
     prelude::*,
     render::camera::Exposure,
@@ -21,11 +21,7 @@ fn main() {
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(
             Update,
-            (
-                dynamic_scene,
-                pan_camera,
-                smooth_camera_movement.after(pan_camera),
-            ),
+            (pan_camera, smooth_camera_movement.after(pan_camera)),
         )
         .run();
 }
@@ -62,10 +58,8 @@ fn setup_camera_fog(mut commands: Commands, atmosphere_resources: Res<Atmosphere
             Bloom::NATURAL,
             EnvironmentMapLight {
                 intensity: 5000.0,
-                // Use the diffuse irradiance map for ambient lighting
-                diffuse_map: atmosphere_resources.environment_diffuse.clone(),
-                // Use the environment array with mipmaps for specular reflections
-                specular_map: atmosphere_resources.environment_specular.clone(),
+                diffuse_map: atmosphere_resources.environment.clone(),
+                specular_map: atmosphere_resources.environment.clone(),
                 ..default()
             },
         ))
@@ -135,16 +129,7 @@ fn setup_terrain_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
-    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
-    let cascade_shadow_config = CascadeShadowConfigBuilder {
-        first_cascade_far_bound: 0.3,
-        maximum_distance: 3.0,
-        ..default()
-    }
-    .build();
-
     let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
 
     // Main mirror sphere at center
@@ -193,25 +178,19 @@ fn setup_terrain_scene(
     // ));
 }
 
-fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
-    // suns.iter_mut()
-    //     .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * PI / 10.0));
-}
-
 fn pan_camera(
     mut motion_evr: EventReader<MouseMotion>,
     mut scroll_evr: EventReader<MouseWheel>,
     mut camera_query: Query<(&Transform, &mut CameraOrbit), With<Camera3d>>,
     mut sun_query: Query<(&Transform, &mut SunOrbit), (With<DirectionalLight>, Without<Camera3d>)>,
     mouse_button: Res<ButtonInput<MouseButton>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
     camera_query_view: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     windows: Query<&Window>,
 ) {
     let Ok((camera_transform, mut camera_orbit)) = camera_query.single_mut() else {
         return;
     };
-    let Ok((sun_transform, mut sun_orbit)) = sun_query.single_mut() else {
+    let Ok((_, mut sun_orbit)) = sun_query.single_mut() else {
         return;
     };
     let Ok((camera, camera_global_transform)) = camera_query_view.single() else {
@@ -281,7 +260,7 @@ fn smooth_camera_movement(
     let damping = 1.0 - (-8.0 * time.delta_secs()).exp();
 
     // Update camera
-    if let Ok((mut transform, orbit)) = camera_query.get_single_mut() {
+    if let Ok((mut transform, orbit)) = camera_query.single_mut() {
         transform.translation = transform
             .translation
             .lerp(orbit.target_transform.translation, damping);
@@ -291,7 +270,7 @@ fn smooth_camera_movement(
     }
 
     // Update sun
-    if let Ok((mut transform, orbit)) = sun_query.get_single_mut() {
+    if let Ok((mut transform, orbit)) = sun_query.single_mut() {
         transform.translation = transform
             .translation
             .lerp(orbit.target_transform.translation, damping);

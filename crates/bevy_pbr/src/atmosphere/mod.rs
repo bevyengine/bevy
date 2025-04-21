@@ -36,15 +36,14 @@
 mod node;
 pub mod resources;
 
-use bevy_app::{App, Plugin, Update};
-use bevy_asset::{load_internal_asset, load_internal_binary_asset, AssetServer, Assets, Handle};
-use bevy_core_pipeline::{core_3d::graph::Node3d, Skybox};
+use bevy_app::{App, Plugin};
+use bevy_asset::{load_internal_asset, load_internal_binary_asset};
+use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
-    change_detection::DetectChanges,
     component::Component,
     query::{Changed, QueryItem, With},
     schedule::IntoScheduleConfigs,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
+    system::{lifetimeless::Read, Query},
 };
 use bevy_image::Image;
 use bevy_math::{UVec2, UVec3, Vec3};
@@ -53,8 +52,7 @@ use bevy_render::{
     extract_component::UniformComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     render_resource::{
-        DownlevelFlags, Extent3d, ShaderType, SpecializedRenderPipelines, TextureDimension,
-        TextureFormat, TextureUsages, TextureViewDescriptor, TextureViewDimension,
+        DownlevelFlags, ShaderType, SpecializedRenderPipelines, TextureFormat, TextureUsages,
     },
 };
 use bevy_render::{
@@ -68,12 +66,9 @@ use bevy_render::{
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 use resources::{
     prepare_atmosphere_buffer, prepare_atmosphere_transforms, queue_render_sky_pipelines,
-    AtmosphereBuffer, AtmosphereResources, AtmosphereTextures, AtmosphereTransforms,
-    RenderSkyBindGroupLayouts,
+    AtmosphereBuffer, AtmosphereResources, AtmosphereTransforms, RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
-
-use crate::light_probe::environment_map::EnvironmentMapLight;
 
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, EnvironmentNode, RenderSkyNode},
@@ -196,9 +191,6 @@ impl Plugin for AtmospherePlugin {
                 UniformComponentPlugin::<AtmosphereSettings>::default(),
                 ExtractResourcePlugin::<AtmosphereResources>::default(),
             ));
-
-        // Add the system to update environment lighting
-        app.add_systems(Update, update_atmosphere_environment_lighting);
     }
 
     fn finish(&self, app: &mut App) {
@@ -544,34 +536,5 @@ fn configure_camera_depth_usages(
 ) {
     for mut camera in &mut cameras {
         camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
-    }
-}
-
-/// Updates any Skybox and EnvironmentMapLight components to use
-/// the sky view LUT array as their texture source.
-pub fn update_atmosphere_environment_lighting(
-    atmosphere_resources: Res<AtmosphereResources>,
-    mut query: Query<(&mut Skybox, &mut EnvironmentMapLight)>,
-    images: Res<Assets<Image>>,
-) {
-    // Only update if the cubemap has been created and is valid
-    if images
-        .get(&atmosphere_resources.environment_specular)
-        .is_some()
-    {
-        for (mut skybox, mut env_map) in query.iter_mut() {
-            // If the handles are different, update them
-            if skybox.image != atmosphere_resources.environment_specular {
-                skybox.image = atmosphere_resources.environment_specular.clone();
-            }
-
-            // Update the environment maps
-            if env_map.diffuse_map != atmosphere_resources.environment_specular {
-                env_map.diffuse_map = atmosphere_resources.environment_specular.clone();
-            }
-            if env_map.specular_map != atmosphere_resources.environment_specular {
-                env_map.specular_map = atmosphere_resources.environment_specular.clone();
-            }
-        }
     }
 }
