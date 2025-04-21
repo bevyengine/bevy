@@ -843,11 +843,17 @@ impl Image {
         Image::new(size, dimension, data, format, asset_usage)
     }
 
-    /// Create a new zero-filled image with a given size, which can be rendered to. This is primarily
-    /// for use as a render target for a [`Camera`]. See [`RenderTarget::Image`].
+    /// Create a new zero-filled image with a given size, which can be rendered to.
+    /// This is primarily for use as a render target for a [`Camera`].
+    /// See [`RenderTarget::Image`].
     ///
     /// You can use [`TEXTURE_FORMAT_SDR`] and [`TEXTURE_FORMAT_HDR`]
     /// for Standard Dynamic Range (SDR) and High Dynamic Range (HDR) respectively.
+    ///
+    /// The default texture usages are
+    /// [`TEXTURE_BINDING`](TextureUsages::TEXTURE_BINDING),
+    /// [`COPY_DST`](TextureUsages::COPY_DST),
+    /// [`RENDER_ATTACHMENT`](TextureUsages::RENDER_ATTACHMENT).
     ///
     /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
     /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
