@@ -798,8 +798,8 @@ mod test {
         let translation = vec3(1.0, 0.0, 0.0);
 
         // These will be overwritten.
-        let mut child = Entity::fresh_from_index(0).unwrap();
-        let mut grandchild = Entity::fresh_from_index(1).unwrap();
+        let mut child = Entity::fresh_from_row(0).unwrap();
+        let mut grandchild = Entity::fresh_from_row(1).unwrap();
         let parent = app
             .world_mut()
             .spawn(Transform::from_translation(translation))
@@ -849,7 +849,7 @@ mod test {
         );
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
-            let mut grandchild = Entity::fresh_from_index(0).unwrap();
+            let mut grandchild = Entity::fresh_from_row(0).unwrap();
             let child = world
                 .spawn(Transform::IDENTITY)
                 .with_children(|builder| {

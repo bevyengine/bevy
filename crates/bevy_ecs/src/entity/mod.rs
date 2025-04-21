@@ -336,19 +336,16 @@ pub(crate) enum AllocAtWithoutReplacement {
 }
 
 impl Entity {
-    /// Construct an [`Entity`] from a raw `index` value and a non-zero `generation` value.
+    /// Construct an [`Entity`] from a raw `row` value and a non-zero `generation` value.
     /// Ensure that the generation value is never greater than `0x7FFF_FFFF`.
     #[inline(always)]
     pub(crate) const fn from_raw_and_generation(
-        index: EntityRow,
+        row: EntityRow,
         generation: NonZero<u32>,
     ) -> Entity {
         debug_assert!(generation.get() <= HIGH_MASK);
 
-        Self {
-            row: index,
-            generation,
-        }
+        Self { row, generation }
     }
 
     /// An entity ID with a placeholder value. This may or may not correspond to an actual entity,
@@ -404,13 +401,13 @@ impl Entity {
         Self::from_raw_and_generation(row, NonZero::<u32>::MIN)
     }
 
-    /// This is equivalent to [`from_raw`](Self::from_raw) except that it uses an index instead of an [`EntityRow`].
+    /// This is equivalent to [`from_raw`](Self::from_raw) except that it uses an row instead of an [`EntityRow`].
     ///
-    /// Returns `None` if the index is `u32::MAX`.
+    /// Returns `None` if the row is `u32::MAX`.
     #[inline(always)]
-    pub const fn fresh_from_index(index: u32) -> Option<Entity> {
-        match NonMaxU32::new(index) {
-            Some(index) => Some(Self::from_raw(EntityRow::new(index))),
+    pub const fn fresh_from_row(row: u32) -> Option<Entity> {
+        match NonMaxU32::new(row) {
+            Some(row) => Some(Self::from_raw(EntityRow::new(row))),
             None => None,
         }
     }
@@ -484,9 +481,9 @@ impl Entity {
         self.row.index()
     }
 
-    /// Returns the generation of this Entity's index. The generation is incremented each time an
-    /// entity with a given index is despawned. This serves as a "count" of the number of times a
-    /// given index has been reused (index, generation) pairs uniquely identify a given Entity.
+    /// Returns the generation of this Entity's row. The generation is incremented each time an
+    /// entity with a given row is despawned. This serves as a "count" of the number of times a
+    /// given row has been reused (row, generation) pairs uniquely identify a given Entity.
     #[inline]
     pub const fn generation(self) -> u32 {
         // Mask so not to expose any flags

@@ -1039,7 +1039,7 @@ mod tests {
 
         let (mut world, ..) = setup_ui_test_world();
 
-        let root_node_entity = Entity::fresh_from_index(1).unwrap();
+        let root_node_entity = Entity::fresh_from_row(1).unwrap();
 
         struct TestSystemParam {
             root_node_entity: Entity,
