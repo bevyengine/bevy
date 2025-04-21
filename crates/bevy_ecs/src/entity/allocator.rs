@@ -13,13 +13,13 @@ use super::{Entity, EntitySetIterator};
 /// This is the item we store in the free list.
 /// Effectively, this is a `MaybeUninit<Entity>` where uninit is represented by `Entity::PLACEHOLDER`.
 ///
-/// We use atomics internally not for special ordring but for *a* ordering.
+/// We use atomics internally not for special ordering but for *a* ordering.
 /// Conceptually, this could just be `SyncCell<Entity>`,
 /// but accessing that requires additional unsafe justification, and could cause unsound optimizations by the compiler.
 ///
 /// No [`Slot`] access is ever contested between two threads due to the ordering constraints in the [`FreeCount`].
 /// That also guarantees a proper ordering between slot access.
-/// Hence these atomics don't need to account for any synchronization, and relaxed ordring is used everywhere.
+/// Hence these atomics don't need to account for any synchronization, and relaxed ordering is used everywhere.
 // TODO: consider fully justifying `SyncCell` here with no atomics.
 struct Slot {
     #[cfg(not(target_has_atomic = "64"))]
@@ -31,7 +31,7 @@ struct Slot {
 }
 
 impl Slot {
-    /// Produces a meaningless an empty value. This produces a valid but incorrect `Entity`.
+    /// Produces a meaningless empty value. This is a valid but incorrect `Entity`.
     fn empty() -> Self {
         let source = Entity::PLACEHOLDER;
         #[cfg(not(target_has_atomic = "64"))]
@@ -56,7 +56,7 @@ impl Slot {
         self.inner_entity.store(entity.to_bits(), Ordering::Relaxed);
     }
 
-    /// Gets the stored entity. The result be [`Entity::PLACEHOLDER`] unless [`set_entity`](Self::set_entity) has been called.
+    /// Gets the stored entity. The result will be [`Entity::PLACEHOLDER`] unless [`set_entity`](Self::set_entity) has been called.
     #[inline]
     fn get_entity(&self) -> Entity {
         #[cfg(not(target_has_atomic = "64"))]
@@ -509,7 +509,7 @@ impl FreeList {
         Some(unsafe { self.buffer.get(index) })
     }
 
-    /// Allocates an as many [`Entity`]s from the free list as are available, up to `count`.
+    /// Allocates as many [`Entity`]s from the free list as are available, up to `count`.
     ///
     /// # Safety
     ///
@@ -533,7 +533,7 @@ impl FreeList {
             }
         };
 
-        // SAFETY: The indices are all less then the length.
+        // SAFETY: The indices are all less than the length.
         unsafe { self.buffer.iter(indices) }
     }
 
@@ -578,7 +578,7 @@ impl FreeList {
             let len = state.length();
             let index = len.checked_sub(1)?;
 
-            // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
+            // SAFETY: This was less than `len`, so it must have been `set` via `free` before.
             let entity = unsafe { self.buffer.get(index) };
 
             let ideal_state = state.pop(1);
@@ -769,7 +769,7 @@ impl Allocator {
     pub unsafe fn alloc_many_unsafe(&self, count: u32) -> AllocEntitiesIterator<'static> {
         // SAFETY: Caller ensures this instance is valid until the returned value is dropped.
         let this: &'static Self = unsafe { &*core::ptr::from_ref(self) };
-        // SAFETY:  Caller ensures free is not called.
+        // SAFETY: Caller ensures free is not called.
         unsafe { this.shared.alloc_many(count) }
     }
 }
