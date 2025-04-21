@@ -346,7 +346,7 @@ impl TextPipeline {
         layout_info.section_rects.clear();
         for run in buffer.layout_runs() {
             let Some((mut current_section, mut start, mut end)) =
-                run.glyphs.get(0).map(|g| (g.metadata, g.x, g.x + g.w))
+                run.glyphs.first().map(|g| (g.metadata, g.x, g.x + g.w))
             else {
                 continue;
             };
