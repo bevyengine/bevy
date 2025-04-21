@@ -917,8 +917,8 @@ pub fn extract_text_background_colors(
         let size = -0.5 * uinode.size().extend(0.);
         let transform = global_transform.affine() * bevy_math::Affine3A::from_translation(size);
 
-        for &(span_entity, rect) in text_layout_info.span_rects.iter() {
-            let Ok(text_background_color) = text_background_colors_query.get(span_entity) else {
+        for &(section_entity, rect) in text_layout_info.section_rects.iter() {
+            let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
                 continue;
             };
 

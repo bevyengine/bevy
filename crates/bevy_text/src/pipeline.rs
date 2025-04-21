@@ -343,7 +343,7 @@ impl TextPipeline {
             result
         });
 
-        layout_info.span_rects.clear();
+        layout_info.section_rects.clear();
         for run in buffer.layout_runs() {
             let Some((mut current_section, mut start, mut end)) =
                 run.glyphs.get(0).map(|g| (g.metadata, g.x, g.x + g.w))
@@ -353,7 +353,7 @@ impl TextPipeline {
             for glyph in run.glyphs.iter() {
                 let section_index = glyph.metadata;
                 if section_index != current_section {
-                    layout_info.span_rects.push((
+                    layout_info.section_rects.push((
                         computed.entities[current_section].entity,
                         Rect::new(start, run.line_top, end, run.line_top + run.line_height),
                     ));
@@ -362,7 +362,7 @@ impl TextPipeline {
                 }
                 end = glyph.x + glyph.w;
             }
-            layout_info.span_rects.push((
+            layout_info.section_rects.push((
                 computed.entities[current_section].entity,
                 Rect::new(start, run.line_top, end, run.line_top + run.line_height),
             ));
@@ -445,7 +445,7 @@ pub struct TextLayoutInfo {
     pub glyphs: Vec<PositionedGlyph>,
     /// Rects bounding the text block's text sections.
     /// A text section spanning more than one line will have multiple bounding rects.
-    pub span_rects: Vec<(Entity, Rect)>,
+    pub section_rects: Vec<(Entity, Rect)>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
