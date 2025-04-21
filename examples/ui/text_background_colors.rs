@@ -3,39 +3,84 @@
 use bevy::{
     color::palettes::css::{BLUE, GREEN, PURPLE, RED, YELLOW},
     prelude::*,
+    text::TextBackgroundColor,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
+        .add_systems(Update, cycle_text_background_colors)
         .run();
 }
+
+const PALETTE: [Color; 5] = [
+    Color::Srgba(RED),
+    Color::Srgba(GREEN),
+    Color::Srgba(BLUE),
+    Color::Srgba(YELLOW),
+    Color::Srgba(PURPLE),
+];
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
-    // Text with one section
+
+    let message_text = [
+        "T", "e", "x", "t\n", "B", "a", "c", "k", "g", "r", "o", "u", "n", "d\n", "C", "o", "l",
+        "o", "r", "s", "!",
+    ];
+
+    for (i, section_str) in message_text.iter().enumerate() {
+        commands.spawn((
+            TextSpan::new(*section_str),
+            BackgroundColor(PALETTE[i % PALETTE.len()]),
+        ));
+    }
+
     commands
-        .spawn((
-            Text::default(),
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-            TextFont {
-                // This font is loaded and will be used instead of the default font.
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 67.0,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..Default::default()
+        })
         .with_children(|commands| {
-            for (text, color) in [
-                ("A", RED),
-                ("B", GREEN),
-                ("C", BLUE),
-                ("D", YELLOW),
-                ("E", PURPLE),
-            ] {
-                commands.spawn((TextSpan::new(text), TextColor(color.into())));
-            }
+            commands
+                .spawn((
+                    Text::default(),
+                    TextLayout {
+                        justify: JustifyText::Center,
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|commands| {
+                    for (i, section_str) in message_text.iter().enumerate() {
+                        commands.spawn((
+                            TextSpan::new(*section_str),
+                            TextColor::BLACK,
+                            TextFont {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 100.,
+                                ..default()
+                            },
+                            TextBackgroundColor(PALETTE[i % PALETTE.len()]),
+                        ));
+                    }
+                });
         });
+}
+
+fn cycle_text_background_colors(
+    time: Res<Time>,
+    children_query: Query<&Children, With<Text>>,
+    mut text_background_colors_query: Query<&mut TextBackgroundColor>,
+) {
+    let n = time.elapsed_secs() as usize;
+    let children = children_query.single().unwrap();
+
+    for (i, child) in children.iter().enumerate() {
+        text_background_colors_query.get_mut(child).unwrap().0 = PALETTE[(i + n) % PALETTE.len()];
+    }
 }
