@@ -509,7 +509,7 @@ impl FreeList {
         Some(unsafe { self.buffer.get(index) })
     }
 
-    /// Allocates an as many [`Entity`]s from the free list as are available, up to `count`.
+    /// Allocates as many [`Entity`]s from the free list as are available, up to `count`.
     ///
     /// # Safety
     ///
@@ -533,7 +533,7 @@ impl FreeList {
             }
         };
 
-        // SAFETY: The indices are all less then the length.
+        // SAFETY: The indices are all less than the length.
         unsafe { self.buffer.iter(indices) }
     }
 
@@ -578,7 +578,7 @@ impl FreeList {
             let len = state.length();
             let index = len.checked_sub(1)?;
 
-            // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
+            // SAFETY: This was less than `len`, so it must have been `set` via `free` before.
             let entity = unsafe { self.buffer.get(index) };
 
             let ideal_state = state.pop(1);
@@ -769,7 +769,7 @@ impl Allocator {
     pub unsafe fn alloc_many_unsafe(&self, count: u32) -> AllocEntitiesIterator<'static> {
         // SAFETY: Caller ensures this instance is valid until the returned value is dropped.
         let this: &'static Self = unsafe { &*core::ptr::from_ref(self) };
-        // SAFETY:  Caller ensures free is not called.
+        // SAFETY: Caller ensures free is not called.
         unsafe { this.shared.alloc_many(count) }
     }
 }
