@@ -35,7 +35,7 @@ impl Slot {
         };
     }
 
-    // TODO: could maybe make this `&mut`??
+    // TODO: could maybe make this `&mut` so then we can use a `SyncCell` with no `Slot` atomics
     #[inline]
     fn set_entity(&self, entity: Entity) {
         #[cfg(not(target_has_atomic = "64"))]
