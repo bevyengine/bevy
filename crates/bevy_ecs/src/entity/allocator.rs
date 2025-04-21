@@ -192,7 +192,7 @@ impl FreeBuffer {
     #[inline]
     fn capacity_of_chunk(chunk_index: u32) -> u32 {
         // We do this because we're skipping the first `NUM_SKIPPED` powers, so we need to make up for them by doubling the first index.
-        // This is why the first 2 indices both have a capacity of 256.
+        // This is why the first 2 indices both have a capacity of 512.
         let corrected = chunk_index.max(1);
         // We add NUM_SKIPPED because the total capacity should be as if [`Self::NUM_CHUNKS`] were 32.
         // This skips the first NUM_SKIPPED powers.
