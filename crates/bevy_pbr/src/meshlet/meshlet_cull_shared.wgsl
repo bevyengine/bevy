@@ -40,12 +40,13 @@ fn normalize_plane(p: vec4<f32>) -> vec4<f32> {
 fn aabb_in_frustum(aabb: MeshletAabb, instance_id: u32) -> bool {
     let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
     let clip_from_local = view.clip_from_world * world_from_local;
+    let row_major = transpose(clip_from_local);
     let planes = array(
-        clip_from_local[3] + clip_from_local[0],
-        clip_from_local[3] - clip_from_local[0],
-        clip_from_local[3] + clip_from_local[1],
-        clip_from_local[3] - clip_from_local[1],
-        clip_from_local[2],
+        row_major[3] + row_major[0],
+        row_major[3] - row_major[0],
+        row_major[3] + row_major[1],
+        row_major[3] - row_major[1],
+        row_major[2],
     );
 
     for (var i = 0; i < 5; i++) {
