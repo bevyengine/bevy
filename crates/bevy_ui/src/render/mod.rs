@@ -51,7 +51,9 @@ pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
+use bevy_text::{
+    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
+};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
@@ -105,6 +107,7 @@ pub enum RenderUiSystem {
     ExtractImages,
     ExtractTextureSlice,
     ExtractBorders,
+    ExtractTextBackgrounds,
     ExtractTextShadows,
     ExtractText,
     ExtractDebug,
@@ -135,6 +138,7 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystem::ExtractImages,
                 RenderUiSystem::ExtractTextureSlice,
                 RenderUiSystem::ExtractBorders,
+                RenderUiSystem::ExtractTextBackgrounds,
                 RenderUiSystem::ExtractTextShadows,
                 RenderUiSystem::ExtractText,
                 RenderUiSystem::ExtractDebug,
@@ -148,6 +152,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
+                extract_text_background_colors.in_set(RenderUiSystem::ExtractTextBackgrounds),
                 extract_text_shadows.in_set(RenderUiSystem::ExtractTextShadows),
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
                 #[cfg(feature = "bevy_ui_debug")]
@@ -875,6 +880,70 @@ pub fn extract_text_shadows(
             }
 
             end += 1;
+        }
+    }
+}
+
+pub fn extract_text_background_colors(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedNodeTarget,
+            &TextLayoutInfo,
+        )>,
+    >,
+    text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut camera_mapper = camera_map.get_mapper();
+    for (entity, uinode, global_transform, inherited_visibility, clip, camera, text_layout_info) in
+        &uinode_query
+    {
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        let size = -0.5 * uinode.size().extend(0.);
+        let transform = global_transform.affine() * bevy_math::Affine3A::from_translation(size);
+
+        for &(span_entity, rect) in text_layout_info.span_rects.iter() {
+            let Ok(text_background_color) = text_background_colors_query.get(span_entity) else {
+                continue;
+            };
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: text_background_color.0.to_linear(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: rect.size(),
+                },
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    transform: transform * Mat4::from_translation(rect.center().extend(0.)),
+                    flip_x: false,
+                    flip_y: false,
+                    border: uinode.border(),
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
         }
     }
 }

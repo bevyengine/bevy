@@ -272,10 +272,6 @@ impl TextPipeline {
                 .try_for_each(|(layout_glyph, line_y, line_i)| {
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    bevy_log::info!(
-                        "span_index: {span_index}, entity: {}",
-                        computed.entities[span_index].entity.index()
-                    );
                     let font_id = glyph_info[span_index].0;
                     let font_smoothing = glyph_info[span_index].1;
 
@@ -347,7 +343,7 @@ impl TextPipeline {
             result
         });
 
-        layout_info.rects.clear();
+        layout_info.span_rects.clear();
         for run in buffer.layout_runs() {
             let Some((mut current_section, mut start, mut end)) =
                 run.glyphs.get(0).map(|g| (g.metadata, g.x, g.x + g.w))
@@ -357,7 +353,7 @@ impl TextPipeline {
             for glyph in run.glyphs.iter() {
                 let section_index = glyph.metadata;
                 if section_index != current_section {
-                    layout_info.rects.push((
+                    layout_info.span_rects.push((
                         computed.entities[current_section].entity,
                         Rect::new(start, run.line_top, end, run.line_top + run.line_height),
                     ));
@@ -366,7 +362,7 @@ impl TextPipeline {
                 }
                 end = glyph.x + glyph.w;
             }
-            layout_info.rects.push((
+            layout_info.span_rects.push((
                 computed.entities[current_section].entity,
                 Rect::new(start, run.line_top, end, run.line_top + run.line_height),
             ));
@@ -447,8 +443,9 @@ impl TextPipeline {
 pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
-    /// Rects
-    pub rects: Vec<(Entity, Rect)>,
+    /// Rects bounding the text block's text sections.
+    /// A text section spanning more than one line will have multiple bounding rects.
+    pub span_rects: Vec<(Entity, Rect)>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
