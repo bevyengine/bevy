@@ -127,7 +127,7 @@ impl Chunk {
     ///
     /// # Safety
     ///
-    /// This must not be called concurrently.
+    /// This must not be called concurrently with itself.
     /// Index must be in bounds.
     /// Access does not conflict with another [`Self::get`].
     #[inline]
@@ -151,7 +151,7 @@ impl Chunk {
     ///
     /// # Safety
     ///
-    /// This must not be called concurrently.
+    /// This must not be called concurrently with itself.
     #[cold]
     unsafe fn init(&self, chunk_capacity: u32) -> *mut Slot {
         let mut buff = ManuallyDrop::new(Vec::new());
@@ -167,7 +167,7 @@ impl Chunk {
     ///
     /// # Safety
     ///
-    /// This must not be called concurrently.
+    /// This must not be called concurrently with itself.
     /// `chunk_capacity` must be the same as it was initialized with.
     unsafe fn dealloc(&self, chunk_capacity: u32) {
         // Relaxed is fine here since this is not called concurrently.
@@ -249,7 +249,7 @@ impl FreeBuffer {
     ///
     /// # Safety
     ///
-    /// This must not be called concurrently.
+    /// This must not be called concurrently with itself.
     /// Access does not conflict with another [`Self::get`].
     #[inline]
     unsafe fn set(&self, full_index: u32, entity: Entity) {
