@@ -628,7 +628,7 @@ impl Entities {
     }
 
     /// Allocate an entity ID directly.
-    /// Caller is responsible to set the [`EntityLocation`] if desierd,
+    /// Caller is responsible for setting the [`EntityLocation`] if desired,
     /// which must be done before [`get`](Self::get)ing its [`EntityLocation`].
     pub fn alloc(&self) -> Entity {
         self.allocator.alloc()
@@ -770,11 +770,11 @@ impl Entities {
         meta.location = location;
     }
 
-    /// Get's the meta for this index mutably, creating it if it did not exist.
+    /// Gets the meta for this index mutably, creating it if it did not exist.
     ///
-    /// # Safetey
+    /// # Safety
     ///
-    /// `idnex` must be a valid index
+    /// `index` must be a valid index
     #[inline]
     unsafe fn force_get_meta_mut(&mut self, index: usize) -> &mut EntityMeta {
         if index >= self.meta.len() {
