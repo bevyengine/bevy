@@ -53,7 +53,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             TextSpan::new(*section_str),
                             TextColor::BLACK,
                             TextFont {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 100.,
                                 ..default()
                             },
