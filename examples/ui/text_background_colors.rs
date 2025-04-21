@@ -3,7 +3,6 @@
 use bevy::{
     color::palettes::css::{BLUE, GREEN, PURPLE, RED, YELLOW},
     prelude::*,
-    text::TextBackgroundColor,
 };
 
 fn main() {
@@ -30,13 +29,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "T", "e", "x", "t\n", "B", "a", "c", "k", "g", "r", "o", "u", "n", "d\n", "C", "o", "l",
         "o", "r", "s", "!",
     ];
-
-    for (i, section_str) in message_text.iter().enumerate() {
-        commands.spawn((
-            TextSpan::new(*section_str),
-            BackgroundColor(PALETTE[i % PALETTE.len()]),
-        ));
-    }
 
     commands
         .spawn(Node {
