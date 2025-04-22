@@ -20,7 +20,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render::camera::RenderTarget;
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
@@ -48,7 +48,7 @@ pub mod prelude {
 /// This plugin contains several settings, and is added to the world as a resource after initialization.
 /// You can configure pointer input settings at runtime by accessing the resource.
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Clone)]
 pub struct PointerInputPlugin {
     /// Should touch inputs be updated?
     pub is_touch_enabled: bool,
@@ -118,14 +118,14 @@ pub fn mouse_pick_events(
             WindowEvent::CursorMoved(event) => {
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(event.window))
-                        .normalize(primary_window.get_single().ok())
+                        .normalize(primary_window.single().ok())
                     {
                         Some(target) => target,
                         None => continue,
                     },
                     position: event.position,
                 };
-                pointer_events.send(PointerInput::new(
+                pointer_events.write(PointerInput::new(
                     PointerId::Mouse,
                     location,
                     PointerAction::Move {
@@ -138,7 +138,7 @@ pub fn mouse_pick_events(
             WindowEvent::MouseButtonInput(input) => {
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(input.window))
-                        .normalize(primary_window.get_single().ok())
+                        .normalize(primary_window.single().ok())
                     {
                         Some(target) => target,
                         None => continue,
@@ -155,14 +155,14 @@ pub fn mouse_pick_events(
                     ButtonState::Pressed => PointerAction::Press(button),
                     ButtonState::Released => PointerAction::Release(button),
                 };
-                pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
+                pointer_events.write(PointerInput::new(PointerId::Mouse, location, action));
             }
             WindowEvent::MouseWheel(event) => {
                 let MouseWheel { unit, x, y, window } = *event;
 
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(window))
-                        .normalize(primary_window.get_single().ok())
+                        .normalize(primary_window.single().ok())
                     {
                         Some(target) => target,
                         None => continue,
@@ -172,7 +172,7 @@ pub fn mouse_pick_events(
 
                 let action = PointerAction::Scroll { x, y, unit };
 
-                pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
+                pointer_events.write(PointerInput::new(PointerId::Mouse, location, action));
             }
             _ => {}
         }
@@ -195,7 +195,7 @@ pub fn touch_pick_events(
             let pointer = PointerId::Touch(touch.id);
             let location = Location {
                 target: match RenderTarget::Window(WindowRef::Entity(touch.window))
-                    .normalize(primary_window.get_single().ok())
+                    .normalize(primary_window.single().ok())
                 {
                     Some(target) => target,
                     None => continue,
@@ -207,7 +207,7 @@ pub fn touch_pick_events(
                     debug!("Spawning pointer {:?}", pointer);
                     commands.spawn((pointer, PointerLocation::new(location.clone())));
 
-                    pointer_events.send(PointerInput::new(
+                    pointer_events.write(PointerInput::new(
                         pointer,
                         location,
                         PointerAction::Press(PointerButton::Primary),
@@ -221,7 +221,7 @@ pub fn touch_pick_events(
                         if last_touch == touch {
                             continue;
                         }
-                        pointer_events.send(PointerInput::new(
+                        pointer_events.write(PointerInput::new(
                             pointer,
                             location,
                             PointerAction::Move {
@@ -232,7 +232,7 @@ pub fn touch_pick_events(
                     touch_cache.insert(touch.id, *touch);
                 }
                 TouchPhase::Ended => {
-                    pointer_events.send(PointerInput::new(
+                    pointer_events.write(PointerInput::new(
                         pointer,
                         location,
                         PointerAction::Release(PointerButton::Primary),
@@ -240,7 +240,7 @@ pub fn touch_pick_events(
                     touch_cache.remove(&touch.id);
                 }
                 TouchPhase::Canceled => {
-                    pointer_events.send(PointerInput::new(
+                    pointer_events.write(PointerInput::new(
                         pointer,
                         location,
                         PointerAction::Cancel,

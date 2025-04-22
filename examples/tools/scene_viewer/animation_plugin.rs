@@ -1,9 +1,7 @@
 //! Control animations of entities in the loaded scene.
 use std::collections::HashMap;
 
-use bevy::{
-    animation::AnimationTarget, ecs::entity::hash_map::EntityHashMap, gltf::Gltf, prelude::*,
-};
+use bevy::{animation::AnimationTarget, ecs::entity::EntityHashMap, gltf::Gltf, prelude::*};
 
 use crate::scene_viewer_plugin::SceneHandle;
 
@@ -109,7 +107,7 @@ fn assign_clips(
                 }
 
                 // Go to the next parent.
-                current = children.get(entity).ok().map(ChildOf::get);
+                current = children.get(entity).ok().map(ChildOf::parent);
             }
         }
 

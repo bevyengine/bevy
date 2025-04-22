@@ -7,7 +7,7 @@ use core::time::Duration;
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
-/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_ecs::schedule::IntoScheduleConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::on_timer;
 /// fn main() {
@@ -47,7 +47,7 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 ///
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
-/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_ecs::schedule::IntoScheduleConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::on_real_timer;
 /// fn main() {
@@ -87,7 +87,7 @@ pub fn on_real_timer(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool 
 ///
 /// ```rust,no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
-/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_ecs::schedule::IntoScheduleConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::once_after_delay;
 /// fn main() {
@@ -117,7 +117,7 @@ pub fn once_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + C
 ///
 /// ```rust,no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
-/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_ecs::schedule::IntoScheduleConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::once_after_delay;
 /// fn main() {
@@ -147,7 +147,7 @@ pub fn once_after_real_delay(duration: Duration) -> impl FnMut(Res<Time<Real>>) 
 ///
 /// ```rust,no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
-/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_ecs::schedule::IntoScheduleConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::repeating_after_delay;
 /// fn main() {
@@ -177,7 +177,7 @@ pub fn repeating_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> boo
 ///
 /// ```rust,no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
-/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_ecs::schedule::IntoScheduleConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::repeating_after_real_delay;
 /// fn main() {
@@ -209,7 +209,7 @@ pub fn repeating_after_real_delay(
 ///
 /// ```rust,no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
-/// # use bevy_ecs::schedule::{common_conditions::not, IntoSystemConfigs};
+/// # use bevy_ecs::schedule::{common_conditions::not, IntoScheduleConfigs};
 /// # use bevy_time::common_conditions::paused;
 /// fn main() {
 ///     App::new()
@@ -238,7 +238,7 @@ pub fn paused(time: Res<Time<Virtual>>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::schedule::{IntoSystemConfigs, Schedule};
+    use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule};
 
     fn test_system() {}
 

@@ -18,7 +18,7 @@ use crate::{
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::any::TypeId;
 
-use super::IntoSystem;
+use super::{IntoSystem, SystemParamValidationError};
 
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
@@ -30,7 +30,7 @@ use super::IntoSystem;
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
+/// see [`IntoScheduleConfigs`](crate::schedule::IntoScheduleConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
 pub trait System: Send + Sync + 'static {
     /// The system's input.
@@ -69,6 +69,8 @@ pub trait System: Send + Sync + 'static {
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
     ///   registered in `archetype_component_access`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
+    /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
+    ///   [`UnsafeWorldCell::world_mut`] on `world`.
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
@@ -83,14 +85,25 @@ pub trait System: Send + Sync + 'static {
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        let ret = self.run_without_applying_deferred(input, world);
+        self.apply_deferred(world);
+        ret
+    }
+
+    /// Runs the system with the given input in the world.
+    ///
+    /// [`run_readonly`]: ReadOnlySystem::run_readonly
+    fn run_without_applying_deferred(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Self::Out {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        let ret = unsafe { self.run_unsafe(input, world_cell) };
-        self.apply_deferred(world);
-        ret
+        unsafe { self.run_unsafe(input, world_cell) }
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
@@ -121,11 +134,14 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError>;
 
     /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
-    fn validate_param(&mut self, world: &World) -> bool {
+    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
         let world_cell = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
@@ -139,7 +155,7 @@ pub trait System: Send + Sync + 'static {
 
     /// Update the system's archetype component [`Access`].
     ///
-    /// ## Note for implementors
+    /// ## Note for implementers
     /// `world` may only be used to access metadata. This can be done in safe code
     /// via functions such as [`UnsafeWorldCell::archetypes`].
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
@@ -352,36 +368,35 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        if system.validate_param(self) {
-            Ok(system.run(input, self))
-        } else {
-            Err(RunSystemError::InvalidParams(system.name()))
-        }
+        system
+            .validate_param(self)
+            .map_err(|err| RunSystemError::InvalidParams {
+                system: system.name(),
+                err,
+            })?;
+        Ok(system.run(input, self))
     }
 }
 
 /// Running system failed.
-#[derive(Error)]
+#[derive(Error, Debug)]
 pub enum RunSystemError {
     /// System could not be run due to parameters that failed validation.
-    ///
-    /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
-    InvalidParams(Cow<'static, str>),
-}
-
-impl Debug for RunSystemError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
-        }
-    }
+    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
+    #[error("System {system} did not run due to failed parameter validation: {err}")]
+    InvalidParams {
+        /// The identifier of the system that was run.
+        system: Cow<'static, str>,
+        /// The returned parameter validation error.
+        err: SystemParamValidationError,
+    },
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::prelude::*;
+    use alloc::string::ToString;
 
     #[test]
     fn run_system_once() {
@@ -451,8 +466,10 @@ mod tests {
 
         let mut world = World::default();
         // This fails because `T` has not been added to the world yet.
-        let result = world.run_system_once(system.warn_param_missing());
+        let result = world.run_system_once(system);
 
-        assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));
+        assert!(matches!(result, Err(RunSystemError::InvalidParams { .. })));
+        let expected = "System bevy_ecs::system::system::tests::run_system_once_invalid_params::system did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist";
+        assert_eq!(expected, result.unwrap_err().to_string());
     }
 }

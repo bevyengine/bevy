@@ -122,9 +122,9 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
     for y in -half_y..half_y {
         for x in -half_x..half_x {
             let position = Vec2::new(x as f32, y as f32);
-            let translation = (position * tile_size).extend(rng.gen::<f32>());
-            let rotation = Quat::from_rotation_z(rng.gen::<f32>());
-            let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
+            let translation = (position * tile_size).extend(rng.r#gen::<f32>());
+            let rotation = Quat::from_rotation_z(rng.r#gen::<f32>());
+            let scale = Vec3::splat(rng.r#gen::<f32>() * 2.0);
             let color = Hsla::hsl(rng.gen_range(0.0..360.0), 0.8, 0.8);
 
             text2ds.push((
@@ -155,7 +155,9 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
 
 // System for rotating and translating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
-    let mut camera_transform = camera_query.single_mut();
+    let Ok(mut camera_transform) = camera_query.single_mut() else {
+        return;
+    };
     camera_transform.rotate_z(time.delta_secs() * 0.5);
     *camera_transform =
         *camera_transform * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());

@@ -9,11 +9,12 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
     query::{Changed, Without},
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
+use bevy_math::Vec3Swizzles;
+use bevy_render::camera::CameraUpdateSystem;
 use bevy_transform::prelude::GlobalTransform;
 
 use accesskit::{Node, Rect, Role};
@@ -36,28 +37,20 @@ fn calc_label(
 }
 
 fn calc_bounds(
-    camera: Query<(&Camera, &GlobalTransform)>,
     mut nodes: Query<(
         &mut AccessibilityNode,
         Ref<ComputedNode>,
         Ref<GlobalTransform>,
     )>,
 ) {
-    if let Ok((camera, camera_transform)) = camera.get_single() {
-        for (mut accessible, node, transform) in &mut nodes {
-            if node.is_changed() || transform.is_changed() {
-                if let Ok(translation) =
-                    camera.world_to_viewport(camera_transform, transform.translation())
-                {
-                    let bounds = Rect::new(
-                        translation.x.into(),
-                        translation.y.into(),
-                        (translation.x + node.size.x).into(),
-                        (translation.y + node.size.y).into(),
-                    );
-                    accessible.set_bounds(bounds);
-                }
-            }
+    for (mut accessible, node, transform) in &mut nodes {
+        if node.is_changed() || transform.is_changed() {
+            let center = transform.translation().xy();
+            let half_size = 0.5 * node.size;
+            let min = center - half_size;
+            let max = center + half_size;
+            let bounds = Rect::new(min.x as f64, min.y as f64, max.x as f64, max.y as f64);
+            accessible.set_bounds(bounds);
         }
     }
 }

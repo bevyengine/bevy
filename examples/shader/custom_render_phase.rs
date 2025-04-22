@@ -23,12 +23,12 @@ use bevy::{
         DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
         MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
     },
-    platform_support::collections::HashSet,
+    platform::collections::HashSet,
     prelude::*,
     render::{
         batching::{
             gpu_preprocessing::{
-                batch_and_prepare_sorted_render_phase, IndirectParametersMetadata,
+                batch_and_prepare_sorted_render_phase, IndirectParametersCpuMetadata,
                 UntypedPhaseIndirectParametersBuffers,
             },
             GetBatchData, GetFullBatchData,
@@ -42,8 +42,8 @@ use bevy::{
         },
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
-            DrawFunctions, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, SetItemPipeline,
-            SortedPhaseItem, SortedRenderPhasePlugin, ViewSortedRenderPhases,
+            DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
+            SortedRenderPhasePlugin, ViewSortedRenderPhases,
         },
         render_resource::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
@@ -374,9 +374,9 @@ impl GetBatchData for StencilPipeline {
                 flags: mesh_transforms.flags,
                 first_vertex_index,
                 current_skin_index: u32::MAX,
-                previous_skin_index: u32::MAX,
                 material_and_lightmap_bind_group_slot: 0,
                 tag: 0,
+                pad: 0,
             }
         };
         Some((mesh_uniform, None))
@@ -430,12 +430,10 @@ impl GetFullBatchData for StencilPipeline {
             None,
             None,
             None,
-            None,
         ))
     }
 
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
@@ -445,23 +443,22 @@ impl GetFullBatchData for StencilPipeline {
         // Note that `IndirectParameters` covers both of these structures, even
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
-        let indirect_parameters = IndirectParametersMetadata {
-            mesh_index: *mesh_index,
+        let indirect_parameters = IndirectParametersCpuMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 None => !0,
                 Some(batch_set_index) => u32::from(batch_set_index),
             },
-            early_instance_count: 0,
-            late_instance_count: 0,
         };
 
         if indexed {
             indirect_parameters_buffers
-                .set_indexed(indirect_parameters_offset, indirect_parameters);
+                .indexed
+                .set(indirect_parameters_offset, indirect_parameters);
         } else {
             indirect_parameters_buffers
-                .set_non_indexed(indirect_parameters_offset, indirect_parameters);
+                .non_indexed
+                .set(indirect_parameters_offset, indirect_parameters);
         }
     }
 

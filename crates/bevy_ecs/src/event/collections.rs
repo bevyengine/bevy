@@ -73,7 +73,7 @@ use {
 /// - [`EventReader`]s that read at least once per update will never drop events.
 /// - [`EventReader`]s that read once within two updates might still receive some events
 /// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
-///     before those updates.
+///   before those updates.
 ///
 /// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
@@ -320,7 +320,7 @@ impl<E: Event> Extend<E> for Events<E> {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub(crate) struct EventSequence<E: Event> {
     pub(crate) events: Vec<EventInstance<E>>,
     pub(crate) start_event_count: usize,

@@ -6,7 +6,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{Entities, Entity, EntityBorrow, EntityDoesNotExistError, EntityLocation},
+    entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -15,7 +15,7 @@ use crate::{
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
 use thiserror::Error;
@@ -138,6 +138,12 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
     /// This is an incredibly error-prone operation and is only valid in a small number of circumstances.
+    ///
+    /// Calling this method implies mutable access to the *whole* world (see first point on safety section
+    /// below), which includes all entities, components, and resources. Notably, calling this on
+    /// [`WorldQuery::init_fetch`](crate::query::WorldQuery::init_fetch) and
+    /// [`SystemParam::get_param`](crate::system::SystemParam::get_param) are most likely *unsound* unless
+    /// you can prove that the underlying [`World`] is exclusive, which in normal circumstances is not.
     ///
     /// # Safety
     /// - `self` must have been obtained from a call to [`World::as_unsafe_world_cell`]
@@ -671,7 +677,9 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn increment_trigger_id(self) {
         self.assert_allows_mutable_access();
         // SAFETY: Caller ensure there are no outstanding references
-        unsafe { (*self.ptr).last_trigger_id += 1 }
+        unsafe {
+            (*self.ptr).last_trigger_id = (*self.ptr).last_trigger_id.wrapping_add(1);
+        }
     }
 }
 
@@ -748,7 +756,7 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
-    ///     [`Self::contains_type_id`].
+    ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(self, component_id: ComponentId) -> bool {
         self.archetype().contains(component_id)
@@ -1073,6 +1081,54 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    /// This method assumes the [`Component`] is mutable, skipping that check.
+    ///
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_mut_assume_mutable`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
+    /// - the component `T` is mutable
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable_by_id(
+        self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'w>, GetEntityMutByIdError> {
+        self.world.assert_allows_mutable_access();
+
+        let info = self
+            .world
+            .components()
+            .get_info(component_id)
+            .ok_or(GetEntityMutByIdError::InfoNotFound)?;
+
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        unsafe {
+            get_component_and_ticks(
+                self.world,
+                component_id,
+                info.storage_type(),
+                self.entity,
+                self.location,
+            )
+            .map(|(value, cells, caller)| MutUntyped {
+                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                value: value.assert_unique(),
+                ticks: TicksMut::from_tick_cells(
+                    cells,
+                    self.world.last_change_tick(),
+                    self.world.change_tick(),
+                ),
+                changed_by: caller.map(|caller| caller.deref_mut()),
+            })
+            .ok_or(GetEntityMutByIdError::ComponentNotFound)
+        }
+    }
+
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(self) -> MaybeLocation {
         self.world()
@@ -1125,7 +1181,7 @@ impl<'w> UnsafeWorldCell<'w> {
 ///
 /// # Safety
 /// - `location` must refer to an archetype that contains `entity`
-///     the archetype
+///   the archetype
 /// - `component_id` must be valid
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated
@@ -1195,7 +1251,7 @@ unsafe fn get_component_and_ticks(
 ///
 /// # Safety
 /// - `location` must refer to an archetype that contains `entity`
-///     the archetype
+///   the archetype
 /// - `component_id` must be valid
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated
@@ -1217,7 +1273,7 @@ unsafe fn get_ticks(
     }
 }
 
-impl EntityBorrow for UnsafeEntityCell<'_> {
+impl ContainsEntity for UnsafeEntityCell<'_> {
     fn entity(&self) -> Entity {
         self.id()
     }

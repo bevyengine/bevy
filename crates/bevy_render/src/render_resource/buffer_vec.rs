@@ -103,6 +103,11 @@ impl<T: NoUninit> RawBufferVec<T> {
         self.values.append(&mut other.values);
     }
 
+    /// Returns the value at the given index.
+    pub fn get(&self, index: u32) -> Option<&T> {
+        self.values.get(index as usize)
+    }
+
     /// Sets the value at the given index.
     ///
     /// The index must be less than [`RawBufferVec::len`].
@@ -311,7 +316,7 @@ where
 
         // TODO: Consider using unsafe code to push uninitialized, to prevent
         // the zeroing. It shows up in profiles.
-        self.data.extend(iter::repeat(0).take(element_size));
+        self.data.extend(iter::repeat_n(0, element_size));
 
         // Take a slice of the new data for `write_into` to use. This is
         // important: it hoists the bounds check up here so that the compiler
@@ -451,8 +456,14 @@ where
 
     /// Reserves space for one more element in the buffer and returns its index.
     pub fn add(&mut self) -> usize {
+        self.add_multiple(1)
+    }
+
+    /// Reserves space for the given number of elements in the buffer and
+    /// returns the index of the first one.
+    pub fn add_multiple(&mut self, count: usize) -> usize {
         let index = self.len;
-        self.len += 1;
+        self.len += count;
         index
     }
 

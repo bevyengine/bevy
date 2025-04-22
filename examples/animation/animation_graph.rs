@@ -299,7 +299,7 @@ fn setup_node_rects(commands: &mut Commands) {
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
             ));
 
-            if let NodeType::Clip(ref clip) = node_type {
+            if let NodeType::Clip(clip) = node_type {
                 container.insert((
                     Interaction::None,
                     RelativeCursorPosition::default(),

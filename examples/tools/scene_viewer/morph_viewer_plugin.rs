@@ -188,7 +188,7 @@ fn update_text(
         return;
     };
 
-    let Ok(text) = texts.get_single() else {
+    let Ok(text) = texts.single() else {
         return;
     };
 
@@ -273,21 +273,16 @@ fn detect_morphs(
         |(i, target): (usize, &Target)| target.text_span(AVAILABLE_KEYS[i].name, style.clone());
     spans.extend(detected.iter().enumerate().map(target_to_text));
     commands.insert_resource(WeightsControl { weights: detected });
-    commands
-        .spawn((
-            Text::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
-        ))
-        .with_children(|p| {
-            for span in spans {
-                p.spawn(span);
-            }
-        });
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+        Children::spawn(spans),
+    ));
 }
 
 pub struct MorphViewerPlugin;

@@ -120,11 +120,16 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             event_loop_builder.with_android_app(bevy_window::ANDROID_APP.get().expect(msg).clone());
         }
 
+        let event_loop = event_loop_builder
+            .build()
+            .expect("Failed to build event loop");
+
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
+            .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
             .add_event::<RawWinitWindowEvent>()
-            .set_runner(winit_runner::<T>)
+            .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
                 Last,
                 (
@@ -139,21 +144,13 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
         app.add_plugins(AccessKitPlugin);
         app.add_plugins(cursor::CursorPlugin);
-
-        let event_loop = event_loop_builder
-            .build()
-            .expect("Failed to build event loop");
-
-        // `winit`'s windows are bound to the event loop that created them, so the event loop must
-        // be inserted as a resource here to pass it onto the runner.
-        app.insert_non_send_resource(event_loop);
     }
 }
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
 #[derive(Debug, Default, Clone, Copy, Event, Reflect)]
-#[reflect(Debug, Default)]
+#[reflect(Debug, Default, Clone)]
 pub struct WakeUp;
 
 /// The original window event as produced by Winit. This is meant as an escape
@@ -179,6 +176,15 @@ pub struct RawWinitWindowEvent {
 /// Use `Res<EventLoopProxy>` to receive this resource.
 #[derive(Resource, Deref)]
 pub struct EventLoopProxyWrapper<T: 'static>(EventLoopProxy<T>);
+
+/// A wrapper around [`winit::event_loop::OwnedDisplayHandle`]
+///
+/// The `DisplayHandleWrapper` can be used to build integrations that rely on direct
+/// access to the display handle
+///
+/// Use `Res<DisplayHandleWrapper>` to receive this resource.
+#[derive(Resource, Deref)]
+pub struct DisplayHandleWrapper(pub winit::event_loop::OwnedDisplayHandle);
 
 trait AppSendEvent {
     fn send(&mut self, event: impl Into<WindowEvent>);
