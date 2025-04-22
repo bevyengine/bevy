@@ -1,8 +1,8 @@
 use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::entity::Entity;
 
-use bevy_ecs::entity::hash_map::EntityHashMap;
-use bevy_platform_support::collections::HashMap;
+use bevy_ecs::entity::EntityHashMap;
+use bevy_platform::collections::HashMap;
 use bevy_window::{
     CursorGrabMode, MonitorSelection, VideoModeSelection, Window, WindowMode, WindowPosition,
     WindowResolution, WindowWrapper,

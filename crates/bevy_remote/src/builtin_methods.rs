@@ -14,7 +14,7 @@ use bevy_ecs::{
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     GetPath, PartialReflect, TypeRegistration, TypeRegistry,

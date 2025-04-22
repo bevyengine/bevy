@@ -2,7 +2,7 @@
 
 use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{
     serde::{
         ReflectDeserializer, TypeRegistrationDeserializer, TypedReflectDeserializer,
@@ -515,7 +515,7 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{hash_map::EntityHashMap, Entity},
+        entity::{Entity, EntityHashMap},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::AppTypeRegistry,

@@ -55,7 +55,7 @@ fn main() {
 
     // If we run the app, we'll see the following output at startup:
     //
-    //  WARN Encountered an error in system `fallible_systems::failing_system`: "Resource not initialized"
+    //  WARN Encountered an error in system `fallible_systems::failing_system`: Resource not initialized
     // ERROR fallible_systems::failing_system failed: Resource not initialized
     //  INFO captured error: Resource not initialized
     app.run();

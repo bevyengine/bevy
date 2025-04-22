@@ -6,7 +6,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{Entities, Entity, EntityBorrow, EntityDoesNotExistError, EntityLocation},
+    entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -15,7 +15,7 @@ use crate::{
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
 use thiserror::Error;
@@ -1273,7 +1273,7 @@ unsafe fn get_ticks(
     }
 }
 
-impl EntityBorrow for UnsafeEntityCell<'_> {
+impl ContainsEntity for UnsafeEntityCell<'_> {
     fn entity(&self) -> Entity {
         self.id()
     }

@@ -43,6 +43,7 @@ pub mod identifier;
 pub mod intern;
 pub mod label;
 pub mod name;
+pub mod never;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
@@ -73,7 +74,7 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
         component::Component,
-        entity::{Entity, EntityBorrow, EntityMapper},
+        entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
@@ -146,7 +147,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_platform_support::collections::HashSet;
+    use bevy_platform::collections::HashSet;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use core::{
         any::TypeId,

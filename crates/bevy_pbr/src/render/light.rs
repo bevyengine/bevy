@@ -8,13 +8,13 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
+    entity::{EntityHashMap, EntityHashSet},
     prelude::*,
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::hash::FixedHasher;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::hash::FixedHasher;
 use bevy_render::experimental::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
@@ -1735,7 +1735,7 @@ pub fn specialize_shadows<M: Material>(
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
         Res<RenderAssets<PreparedMaterial<M>>>,
-        Res<RenderMaterialInstances<M>>,
+        Res<RenderMaterialInstances>,
         Res<MaterialBindGroupAllocator<M>>,
     ),
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
@@ -1814,8 +1814,20 @@ pub fn specialize_shadows<M: Material>(
                 .entry(extracted_view_light.retained_view_entity)
                 .or_default();
 
+
             for (_, visible_entity, _) in visible_entities.iter().cloned() {
-                let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
+                let Some(material_instances) =
+                    render_material_instances.instances.get(&visible_entity)
+                else {
+                    continue;
+                };
+                let Ok(material_asset_id) = material_instances.asset_id.try_typed::<M>() else {
+                    continue;
+                };
+                let Some(mesh_instance) =
+                    render_mesh_instances.render_mesh_queue_data(visible_entity)
+                else {
+
                     continue;
                 };
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
@@ -1829,12 +1841,7 @@ pub fn specialize_shadows<M: Material>(
                 if !needs_specialization {
                     continue;
                 }
-                let Some(material) = render_materials.get(*material_asset_id) else {
-                    continue;
-                };
-                let Some(mesh_instance) =
-                    render_mesh_instances.render_mesh_queue_data(visible_entity)
-                else {
+                let Some(material) = render_materials.get(material_asset_id) else {
                     continue;
                 };
                 if !mesh_instance
@@ -1912,7 +1919,7 @@ pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
@@ -2005,10 +2012,14 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 }
 
-                let Some(material_asset_id) = render_material_instances.get(&main_entity) else {
+                let Some(material_instance) = render_material_instances.instances.get(&main_entity)
+                else {
                     continue;
                 };
-                let Some(material) = render_materials.get(*material_asset_id) else {
+                let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
+                    continue;
+                };
+                let Some(material) = render_materials.get(material_asset_id) else {
                     continue;
                 };
 
@@ -2254,18 +2265,12 @@ impl ShadowPassNode {
         world: &'w World,
         is_late: bool,
     ) -> Result<(), NodeRunError> {
-        let diagnostics = render_context.diagnostic_recorder();
-
-        let view_entity = graph.view_entity();
-
         let Some(shadow_render_phases) = world.get_resource::<ViewBinnedRenderPhases<Shadow>>()
         else {
             return Ok(());
         };
 
-        let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
-
-        if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
+        if let Ok(view_lights) = self.main_view_query.get_manual(world, graph.view_entity()) {
             for view_light_entity in view_lights.lights.iter().copied() {
                 let Ok((view_light, extracted_light_view, occlusion_culling)) =
                     self.view_light_query.get_manual(world, view_light_entity)
@@ -2321,8 +2326,6 @@ impl ShadowPassNode {
                 });
             }
         }
-
-        time_span.end(render_context.command_encoder());
 
         Ok(())
     }

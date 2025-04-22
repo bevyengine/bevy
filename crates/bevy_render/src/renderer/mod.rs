@@ -18,7 +18,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
-use bevy_platform_support::time::Instant;
+use bevy_platform::time::Instant;
 use bevy_time::TimeSender;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
@@ -498,6 +498,10 @@ impl<'w> RenderContext<'w> {
 
         let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
 
+        #[cfg(feature = "trace")]
+        let _command_buffer_generation_tasks_span =
+            info_span!("command_buffer_generation_tasks").entered();
+
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         {
             let mut task_based_command_buffers = ComputeTaskPool::get().scope(|task_pool| {
@@ -536,6 +540,9 @@ impl<'w> RenderContext<'w> {
                 }
             }
         }
+
+        #[cfg(feature = "trace")]
+        drop(_command_buffer_generation_tasks_span);
 
         command_buffers.sort_unstable_by_key(|(i, _)| *i);
 
