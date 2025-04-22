@@ -80,11 +80,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     }
     use ureq::Agent;
 
-    static AGENT: LazyLock<Agent> = LazyLock::new(|| {
-        Agent::config_builder()
-            .build()
-            .new_agent()
-    });
+    static AGENT: LazyLock<Agent> = LazyLock::new(|| Agent::config_builder().build().new_agent());
 
     match AGENT.get(str_path).call() {
         Ok(mut response) => {
