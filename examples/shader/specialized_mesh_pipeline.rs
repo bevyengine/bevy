@@ -118,7 +118,10 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
             .init_resource::<SpecializedMeshPipelines<CustomMeshPipeline>>()
             // We need to use a custom draw command so we need to register it
             .add_render_command::<Opaque3d, DrawSpecializedPipelineCommands>()
-            .add_systems(Render, queue_custom_mesh_pipeline.in_set(RenderSystems::Queue));
+            .add_systems(
+                Render,
+                queue_custom_mesh_pipeline.in_set(RenderSystems::Queue),
+            );
     }
 
     fn finish(&self, app: &mut App) {

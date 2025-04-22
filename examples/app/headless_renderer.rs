@@ -217,7 +217,10 @@ impl Plugin for ImageCopyPlugin {
             .add_systems(ExtractSchedule, image_copy_extract)
             // Receives image data from buffer to channel
             // so we need to run it after the render graph is done
-            .add_systems(Render, receive_image_from_buffer.after(RenderSystems::Render));
+            .add_systems(
+                Render,
+                receive_image_from_buffer.after(RenderSystems::Render),
+            );
     }
 }
 

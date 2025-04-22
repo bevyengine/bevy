@@ -313,7 +313,10 @@ impl Plugin for ColoredMesh2dPlugin {
                 ExtractSchedule,
                 extract_colored_mesh2d.after(extract_mesh2d),
             )
-            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSystems::QueueMeshes));
+            .add_systems(
+                Render,
+                queue_colored_mesh2d.in_set(RenderSystems::QueueMeshes),
+            );
     }
 
     fn finish(&self, app: &mut App) {

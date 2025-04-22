@@ -61,7 +61,9 @@ impl Plugin for GpuReadbackPlugin {
                     Render,
                     (
                         prepare_buffers.in_set(RenderSystems::PrepareResources),
-                        map_buffers.after(render_system).in_set(RenderSystems::Render),
+                        map_buffers
+                            .after(render_system)
+                            .in_set(RenderSystems::Render),
                     ),
                 );
         }

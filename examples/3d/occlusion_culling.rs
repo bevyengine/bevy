@@ -220,7 +220,8 @@ impl Plugin for ReadbackIndirectParametersPlugin {
             .add_systems(ExtractSchedule, readback_indirect_parameters)
             .add_systems(
                 Render,
-                create_indirect_parameters_staging_buffers.in_set(RenderSystems::PrepareResourcesFlush),
+                create_indirect_parameters_staging_buffers
+                    .in_set(RenderSystems::PrepareResourcesFlush),
             )
             // Add the node that allows us to read the indirect parameters back
             // from the GPU to the CPU, which allows us to determine how many
