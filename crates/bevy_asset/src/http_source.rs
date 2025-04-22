@@ -61,7 +61,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
     use alloc::{boxed::Box, vec::Vec};
-    use bevy_platform_support::sync::LazyLock;
+    use bevy_platform::sync::LazyLock;
     use std::io::{self, BufReader, Read};
 
     let str_path = path.to_str().ok_or_else(|| {
