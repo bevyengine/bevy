@@ -1987,13 +1987,12 @@ pub fn queue_shadows<M: Material>(
                 };
 
                 // Skip the entity if it's not in the camera render layers.
-                match (camera_layers, mesh_render_layers) {
-                    (Some(camera_layers), Some(mesh_layers)) => {
-                        if !camera_layers.intersects(&mesh_layers) {
-                            continue;
-                        }
+                if let (Some(camera_layers), Some(mesh_layers)) =
+                    (camera_layers, mesh_render_layers)
+                {
+                    if !camera_layers.intersects(&mesh_layers) {
+                        continue;
                     }
-                    _ => {}
                 }
 
                 // Skip the entity if it's cached in a bin and up to date.
