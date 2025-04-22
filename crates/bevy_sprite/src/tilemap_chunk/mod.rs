@@ -61,7 +61,7 @@ pub struct TilemapChunkIndices(pub Vec<Option<u32>>);
 
 fn on_add_tilemap_chunk(
     trigger: Trigger<OnAdd, TilemapChunk>,
-    tilemap_chunk_query: Query<(&TilemapChunk, &mut TilemapChunkIndices)>,
+    tilemap_chunk_query: Query<(&TilemapChunk, &TilemapChunkIndices)>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<TilemapChunkMaterial>>,
