@@ -425,9 +425,9 @@ impl<T: Into<Color>> From<T> for TextBackgroundColor {
 }
 
 impl TextBackgroundColor {
-    /// Black colored text
+    /// Black background
     pub const BLACK: Self = TextBackgroundColor(Color::BLACK);
-    /// White colored text
+    /// White background
     pub const WHITE: Self = TextBackgroundColor(Color::WHITE);
 }
 
