@@ -11,13 +11,13 @@ use crate::{
     archetype::ArchetypeFlags,
     change_detection::MaybeLocation,
     component::ComponentId,
-    entity::hash_map::EntityHashMap,
+    entity::EntityHashMap,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_ptr::Ptr;
 use core::{
     fmt::Debug,
@@ -843,7 +843,7 @@ impl World {
 mod tests {
     use alloc::{vec, vec::Vec};
 
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
     use crate::component::ComponentId;
@@ -1654,7 +1654,7 @@ mod tests {
         fn on_add(trigger: Trigger<OnAdd, A>, mut commands: Commands) {
             commands
                 .entity(trigger.target())
-                .with_related::<crate::hierarchy::ChildOf>(|rsc| {
+                .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
                     rsc.spawn_empty();
                 });
         }

@@ -223,7 +223,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, SystemSet},
     world::FromWorld,
 };
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
 use tracing::error;
@@ -670,7 +670,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState, UnapprovedPathMode,
+        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -686,8 +686,7 @@ mod tests {
         prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_log::LogPlugin;
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use bevy_reflect::TypePath;
     use core::time::Duration;
     use serde::{Deserialize, Serialize};
@@ -726,8 +725,6 @@ mod tests {
         CannotLoadDependency { dependency: AssetPath<'static> },
         #[error("A RON error occurred during loading")]
         RonSpannedError(#[from] ron::error::SpannedError),
-        #[error(transparent)]
-        DuplicateLabelAssetError(#[from] DuplicateLabelAssetError),
         #[error("An IO error occurred during loading")]
         Io(#[from] std::io::Error),
     }
@@ -758,7 +755,7 @@ mod tests {
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     })?;
-                let cool = loaded.get_asset().get();
+                let cool = loaded.get();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {
@@ -773,7 +770,7 @@ mod tests {
                     .sub_texts
                     .drain(..)
                     .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
-                    .collect::<Result<Vec<_>, _>>()?,
+                    .collect(),
             })
         }
 
@@ -857,11 +854,7 @@ mod tests {
             AssetSourceId::Default,
             AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
         )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ));
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
         (app, gate_opener)
     }
 
@@ -1759,11 +1752,7 @@ mod tests {
             "unstable",
             AssetSource::build().with_reader(move || Box::new(unstable_reader.clone())),
         )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ))
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
         .init_asset::<CoolText>()
         .register_asset_loader(CoolTextLoader)
         .init_resource::<ErrorTracker>()
@@ -1811,49 +1800,6 @@ mod tests {
         app.world_mut().run_schedule(Update);
     }
 
-    #[test]
-    fn fails_to_load_for_duplicate_subasset_labels() {
-        let mut app = App::new();
-
-        let dir = Dir::default();
-        dir.insert_asset_text(
-            Path::new("a.ron"),
-            r#"(
-    text: "b",
-    dependencies: [],
-    embedded_dependencies: [],
-    sub_texts: ["A", "A"],
-)"#,
-        );
-
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSource::build()
-                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
-        )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ));
-
-        app.init_asset::<CoolText>()
-            .init_asset::<SubText>()
-            .register_asset_loader(CoolTextLoader);
-
-        let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle = asset_server.load::<CoolText>("a.ron");
-
-        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
-            LoadState::Loading => None,
-            LoadState::Failed(err) => {
-                assert!(matches!(*err, AssetLoadError::AssetLoaderError(_)));
-                Some(())
-            }
-            state => panic!("Unexpected asset state: {state:?}"),
-        });
-    }
-
     // This test is not checking a requirement, but documenting a current limitation. We simply are
     // not capable of loading subassets when doing nested immediate loads.
     #[test]
@@ -1877,11 +1823,7 @@ mod tests {
             AssetSource::build()
                 .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
         )
-        .add_plugins((
-            TaskPoolPlugin::default(),
-            LogPlugin::default(),
-            AssetPlugin::default(),
-        ));
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
 
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
@@ -1986,7 +1928,6 @@ mod tests {
         )
         .add_plugins((
             TaskPoolPlugin::default(),
-            LogPlugin::default(),
             AssetPlugin {
                 unapproved_path_mode: mode,
                 ..Default::default()

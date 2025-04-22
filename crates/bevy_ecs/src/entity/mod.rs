@@ -54,12 +54,22 @@ pub use hash::*;
 pub mod hash_map;
 pub mod hash_set;
 
+pub use hash_map::EntityHashMap;
+pub use hash_set::EntityHashSet;
+
 pub mod index_map;
 pub mod index_set;
+
+pub use index_map::EntityIndexMap;
+pub use index_set::EntityIndexSet;
 
 pub mod unique_array;
 pub mod unique_slice;
 pub mod unique_vec;
+
+pub use unique_array::{UniqueEntityArray, UniqueEntityEquivalentArray};
+pub use unique_slice::{UniqueEntityEquivalentSlice, UniqueEntitySlice};
+pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
@@ -73,7 +83,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform::sync::atomic::Ordering;
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -81,7 +91,7 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_has_atomic = "64")]
-use bevy_platform_support::sync::atomic::AtomicI64 as AtomicIdCursor;
+use bevy_platform::sync::atomic::AtomicI64 as AtomicIdCursor;
 #[cfg(target_has_atomic = "64")]
 type IdCursor = i64;
 
@@ -89,7 +99,7 @@ type IdCursor = i64;
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
 #[cfg(not(target_has_atomic = "64"))]
-use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
+use bevy_platform::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
 
@@ -234,6 +244,7 @@ impl Hash for Entity {
 }
 
 #[deprecated(
+    since = "0.16.0",
     note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
 )]
 pub(crate) enum AllocAtWithoutReplacement {
@@ -684,6 +695,7 @@ impl Entities {
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
@@ -718,6 +730,7 @@ impl Entities {
     ///
     /// Returns the location of the entity currently using the given ID, if any.
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     #[expect(

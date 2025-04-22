@@ -289,6 +289,7 @@ macro_rules! impl_exclusive_system_function {
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
+                    _: PhantomData<In>,
                     mut f: impl FnMut(In::Param<'_>, &mut World, $($param,)*) -> Out,
                     input: In::Inner<'_>,
                     world: &mut World,
@@ -297,7 +298,7 @@ macro_rules! impl_exclusive_system_function {
                     f(In::wrap(input), world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, input, world, $($param),*)
+                call_inner(PhantomData::<In>, self, input, world, $($param),*)
             }
         }
     };

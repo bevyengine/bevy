@@ -373,37 +373,35 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        match system.validate_param(self) {
-            Ok(()) => Ok(system.run(input, self)),
-            // TODO: should we expse the fact that the system was skipped to the user?
-            // Should we somehow unify this better with system error handling?
-            Err(_) => Err(RunSystemError::InvalidParams(system.name())),
-        }
+        system
+            .validate_param(self)
+            .map_err(|err| RunSystemError::InvalidParams {
+                system: system.name(),
+                err,
+            })?;
+        Ok(system.run(input, self))
     }
 }
 
 /// Running system failed.
-#[derive(Error)]
+#[derive(Error, Debug)]
 pub enum RunSystemError {
     /// System could not be run due to parameters that failed validation.
-    ///
-    /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
-    InvalidParams(Cow<'static, str>),
-}
-
-impl Debug for RunSystemError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
-        }
-    }
+    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
+    #[error("System {system} did not run due to failed parameter validation: {err}")]
+    InvalidParams {
+        /// The identifier of the system that was run.
+        system: Cow<'static, str>,
+        /// The returned parameter validation error.
+        err: SystemParamValidationError,
+    },
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::prelude::*;
+    use alloc::string::ToString;
 
     #[test]
     fn run_system_once() {
@@ -475,6 +473,8 @@ mod tests {
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system_once(system);
 
-        assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));
+        assert!(matches!(result, Err(RunSystemError::InvalidParams { .. })));
+        let expected = "System bevy_ecs::system::system::tests::run_system_once_invalid_params::system did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist";
+        assert_eq!(expected, result.unwrap_err().to_string());
     }
 }
