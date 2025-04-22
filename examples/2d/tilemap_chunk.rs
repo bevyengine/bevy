@@ -1,7 +1,6 @@
 //! Shows a tilemap chunk rendered with a single draw call.
 
 use bevy::{
-    dev_tools::fps_overlay::FpsOverlayPlugin,
     prelude::*,
     sprite::{TilemapChunk, TilemapChunkIndices},
 };
@@ -10,10 +9,7 @@ use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(ImagePlugin::default_nearest()),
-            FpsOverlayPlugin::default(),
-        ))
+        .add_plugins((DefaultPlugins.set(ImagePlugin::default_nearest()),))
         .add_systems(Startup, setup)
         .add_systems(Update, (spawn_tilemap, update_tilemap))
         .run();
@@ -57,7 +53,7 @@ fn spawn_tilemap(
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let chunk_size = UVec2::splat(64);
     let tile_display_size = UVec2::splat(8);
-    let indices: Vec<Option<u32>> = (0..chunk_size.x * chunk_size.y)
+    let indices: Vec<Option<u32>> = (0..chunk_size.x * chunk_size.y - 1)
         .map(|_| rng.gen_range(0..5))
         .map(|i| if i == 0 { None } else { Some(i - 1) })
         .collect();
