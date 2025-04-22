@@ -1916,7 +1916,7 @@ pub fn queue_shadows<M: Material>(
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
-    view_lights: Query<(Entity, &ViewLightEntities, &RenderLayers), With<ExtractedView>>,
+    view_lights: Query<(Entity, &ViewLightEntities, Option<&RenderLayers>), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<
@@ -1980,8 +1980,13 @@ pub fn queue_shadows<M: Material>(
                 };
 
                 // Skip the entity if it's not in the camera render layers.
-                if !camera_layers.intersects(mesh_render_layers.as_ref().unwrap_or(&RenderLayers::default())) {
-                    continue;
+                match (camera_layers, mesh_render_layers) {
+                    (Some(camera_layers), Some(mesh_layers)) => {
+                        if !camera_layers.intersects(&mesh_layers) {
+                            continue;
+                        }
+                    }
+                    _ => {}
                 }
 
                 // Skip the entity if it's cached in a bin and up to date.
