@@ -332,7 +332,7 @@ pub fn start_gizmo_context<Config, Clear>(
 ///
 /// Pop the default gizmos context out of the [`Swap<Clear>`] gizmo storage.
 ///
-/// This must be called before [`UpdateGizmoMeshes`] in the [`Last`] schedule.
+/// This must be called before [`GizmoMeshSystems`] in the [`Last`] schedule.
 pub fn end_gizmo_context<Config, Clear>(
     mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
     mut default: ResMut<GizmoStorage<Config, ()>>,
@@ -367,7 +367,7 @@ where
 
 /// Propagate the contextual gizmo into the `Update` storage for rendering.
 ///
-/// This should be before [`UpdateGizmoMeshes`].
+/// This should be before [`GizmoMeshSystems`].
 pub fn propagate_gizmos<Config, Clear>(
     mut update_storage: ResMut<GizmoStorage<Config, ()>>,
     contextual_storage: Res<GizmoStorage<Config, Clear>>,

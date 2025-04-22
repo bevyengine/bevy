@@ -107,7 +107,7 @@ pub enum UiSystems {
     ///
     /// Runs in [`PostUpdate`].
     Layout,
-    /// UI systems ordered after [`UiSystem::Layout`].
+    /// UI systems ordered after [`UiSystems::Layout`].
     ///
     /// Runs in [`PostUpdate`].
     PostLayout,
@@ -190,7 +190,7 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystems::Layout)
-            .before(TransformSystems::TransformPropagate);
+            .before(TransformSystems::Propagate);
 
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
@@ -208,7 +208,7 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .in_set(AmbiguousWithText),
-                update_clipping_system.after(TransformSystems::TransformPropagate),
+                update_clipping_system.after(TransformSystems::Propagate),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`

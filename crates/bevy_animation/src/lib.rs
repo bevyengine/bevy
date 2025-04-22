@@ -1261,7 +1261,7 @@ impl Plugin for AnimationPlugin {
                 )
                     .chain()
                     .in_set(AnimationSystems)
-                    .before(TransformSystems::TransformPropagate),
+                    .before(TransformSystems::Propagate),
             );
     }
 }

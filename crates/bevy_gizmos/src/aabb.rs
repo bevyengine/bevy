@@ -39,7 +39,7 @@ impl Plugin for AabbGizmoPlugin {
                     }),
                 )
                     .after(bevy_render::view::VisibilitySystems::CalculateBounds)
-                    .after(TransformSystems::TransformPropagate),
+                    .after(TransformSystems::Propagate),
             );
     }
 }

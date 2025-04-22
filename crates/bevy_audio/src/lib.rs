@@ -92,7 +92,7 @@ impl Plugin for AudioPlugin {
                 PostUpdate,
                 AudioPlaybackSystems
                     .run_if(audio_output_available)
-                    .after(TransformSystems::TransformPropagate), // For spatial audio transforms
+                    .after(TransformSystems::Propagate), // For spatial audio transforms
             )
             .add_systems(
                 PostUpdate,

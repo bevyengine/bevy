@@ -6,7 +6,7 @@ use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TransformSystems {
     /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
-    TransformPropagate,
+    Propagate,
 }
 
 /// The base plugin for handling [`Transform`](crate::components::Transform) components
@@ -30,7 +30,7 @@ impl Plugin for TransformPlugin {
                     sync_simple_transforms,
                 )
                     .chain()
-                    .in_set(TransformSystems::TransformPropagate),
+                    .in_set(TransformSystems::Propagate),
             )
             .add_systems(
                 PostUpdate,
@@ -41,7 +41,7 @@ impl Plugin for TransformPlugin {
                     sync_simple_transforms,
                 )
                     .chain()
-                    .in_set(TransformSystems::TransformPropagate),
+                    .in_set(TransformSystems::Propagate),
             );
     }
 }

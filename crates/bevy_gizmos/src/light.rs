@@ -126,7 +126,7 @@ impl Plugin for LightGizmoPlugin {
                         config.config::<LightGizmoConfigGroup>().1.draw_all
                     }),
                 )
-                    .after(TransformSystems::TransformPropagate),
+                    .after(TransformSystems::Propagate),
             );
     }
 }

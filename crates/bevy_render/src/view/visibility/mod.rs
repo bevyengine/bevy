@@ -342,7 +342,7 @@ impl Plugin for VisibilityPlugin {
                 PostUpdate,
                 (CalculateBounds, UpdateFrusta, VisibilityPropagate)
                     .before(CheckVisibility)
-                    .after(TransformSystems::TransformPropagate),
+                    .after(TransformSystems::Propagate),
             )
             .configure_sets(
                 PostUpdate,
