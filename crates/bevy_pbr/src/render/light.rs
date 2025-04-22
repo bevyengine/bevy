@@ -459,7 +459,9 @@ pub fn extract_lights(
                 cascade_visible_entities.insert(
                     entity,
                     v.iter()
-                        .map(|v| create_render_visible_mesh_entities(&mapper, v, &mesh_layers_query))
+                        .map(|v| {
+                            create_render_visible_mesh_entities(&mapper, v, &mesh_layers_query)
+                        })
                         .collect(),
                 );
             } else {
@@ -1814,7 +1816,6 @@ pub fn specialize_shadows<M: Material>(
                 .entry(extracted_view_light.retained_view_entity)
                 .or_default();
 
-
             for (_, visible_entity, _) in visible_entities.iter().cloned() {
                 let Some(material_instances) =
                     render_material_instances.instances.get(&visible_entity)
@@ -1827,7 +1828,6 @@ pub fn specialize_shadows<M: Material>(
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(visible_entity)
                 else {
-
                     continue;
                 };
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
