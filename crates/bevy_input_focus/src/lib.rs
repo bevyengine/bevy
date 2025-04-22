@@ -195,7 +195,7 @@ impl Plugin for InputDispatchPlugin {
                     dispatch_focused_input::<GamepadButtonChangedEvent>,
                     dispatch_focused_input::<MouseWheel>,
                 )
-                    .in_set(InputFocusSet::Dispatch),
+                    .in_set(InputFocusSystems::Dispatch),
             );
 
         #[cfg(feature = "bevy_reflect")]
@@ -209,7 +209,7 @@ impl Plugin for InputDispatchPlugin {
 ///
 /// These systems run in the [`PreUpdate`] schedule.
 #[derive(SystemSet, Debug, PartialEq, Eq, Hash, Clone)]
-pub enum InputFocusSet {
+pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     Dispatch,
 }

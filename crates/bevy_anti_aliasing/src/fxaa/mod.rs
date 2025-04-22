@@ -18,7 +18,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::default;
 
@@ -96,7 +96,7 @@ impl Plugin for FxaaPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
-            .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare))
+            .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSystems::Prepare))
             .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(Core3d, Node3d::Fxaa)
             .add_render_graph_edges(
                 Core3d,

@@ -13,7 +13,7 @@ use super::registry::ShouldUpdateEvents;
 
 #[doc(hidden)]
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct EventUpdates;
+pub struct EventUpdateSystems;
 
 /// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
 ///

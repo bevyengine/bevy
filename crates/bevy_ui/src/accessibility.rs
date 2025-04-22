@@ -14,7 +14,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_math::Vec3Swizzles;
-use bevy_render::camera::CameraUpdateSystem;
+use bevy_render::camera::CameraUpdateSystems;
 use bevy_transform::prelude::GlobalTransform;
 
 use accesskit::{Node, Rect, Role};
@@ -151,8 +151,8 @@ impl Plugin for AccessibilityPlugin {
             PostUpdate,
             (
                 calc_bounds
-                    .after(bevy_transform::TransformSystem::TransformPropagate)
-                    .after(CameraUpdateSystem)
+                    .after(bevy_transform::TransformSystems::TransformPropagate)
+                    .after(CameraUpdateSystems)
                     // the listed systems do not affect calculated size
                     .ambiguous_with(crate::ui_stack_system),
                 button_changed,

@@ -71,7 +71,7 @@ pub struct StateTransitionEvent<S: States> {
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum StateTransitionSteps {
+pub enum StateTransitionSystems {
     /// States apply their transitions from [`NextState`](super::NextState)
     /// and compute functions based on their parent states.
     DependentTransitions,
@@ -191,10 +191,10 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
     let mut schedule = Schedule::new(StateTransition);
     schedule.configure_sets(
         (
-            StateTransitionSteps::DependentTransitions,
-            StateTransitionSteps::ExitSchedules,
-            StateTransitionSteps::TransitionSchedules,
-            StateTransitionSteps::EnterSchedules,
+            StateTransitionSystems::DependentTransitions,
+            StateTransitionSystems::ExitSchedules,
+            StateTransitionSystems::TransitionSchedules,
+            StateTransitionSystems::EnterSchedules,
         )
             .chain(),
     );

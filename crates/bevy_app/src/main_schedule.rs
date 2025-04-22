@@ -196,7 +196,7 @@ pub struct Last;
 
 /// Animation system set. This exists in [`PostUpdate`].
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct Animation;
+pub struct AnimationSystems;
 
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
@@ -318,9 +318,9 @@ impl Plugin for MainSchedulePlugin {
             .configure_sets(
                 RunFixedMainLoop,
                 (
-                    RunFixedMainLoopSystem::BeforeFixedMainLoop,
-                    RunFixedMainLoopSystem::FixedMainLoop,
-                    RunFixedMainLoopSystem::AfterFixedMainLoop,
+                    RunFixedMainLoopSystems::BeforeFixedMainLoop,
+                    RunFixedMainLoopSystems::FixedMainLoop,
+                    RunFixedMainLoopSystems::AfterFixedMainLoop,
                 )
                     .chain(),
             );
@@ -400,7 +400,8 @@ impl FixedMain {
 /// Note that in contrast to most other Bevy schedules, systems added directly to
 /// [`RunFixedMainLoop`] will *not* be parallelized between each other.
 #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone, SystemSet)]
-pub enum RunFixedMainLoopSystem {
+// TODO: `FixedMainLoopSystems`?
+pub enum RunFixedMainLoopSystems {
     /// Runs before the fixed update logic.
     ///
     /// A good example of a system that fits here

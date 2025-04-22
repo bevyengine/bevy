@@ -34,7 +34,7 @@ use bevy::{
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
         renderer::{RenderAdapter, RenderContext, RenderDevice},
         settings::WgpuFeatures,
-        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSet,
+        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSystems,
     },
 };
 use bytemuck::Pod;
@@ -220,7 +220,7 @@ impl Plugin for ReadbackIndirectParametersPlugin {
             .add_systems(ExtractSchedule, readback_indirect_parameters)
             .add_systems(
                 Render,
-                create_indirect_parameters_staging_buffers.in_set(RenderSet::PrepareResourcesFlush),
+                create_indirect_parameters_staging_buffers.in_set(RenderSystems::PrepareResourcesFlush),
             )
             // Add the node that allows us to read the indirect parameters back
             // from the GPU to the CPU, which allows us to determine how many

@@ -17,7 +17,7 @@ fn main() {
         .add_systems(FixedUpdate, controls)
         .add_systems(
             PostUpdate,
-            draw_cursor.after(TransformSystem::TransformPropagate),
+            draw_cursor.after(TransformSystems::TransformPropagate),
         )
         .run();
 }

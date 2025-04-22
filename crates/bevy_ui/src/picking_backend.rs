@@ -81,7 +81,7 @@ impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiPickingSettings>()
             .register_type::<(UiPickingCamera, UiPickingSettings)>()
-            .add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
+            .add_systems(PreUpdate, ui_picking.in_set(PickingSystems::Backend));
     }
 }
 

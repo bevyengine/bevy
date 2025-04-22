@@ -1,7 +1,7 @@
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems, WgpuWrapper,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
@@ -40,7 +40,7 @@ impl Plugin for WindowRenderPlugin {
                         .run_if(need_surface_configuration)
                         .before(prepare_windows),
                 )
-                .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
+                .add_systems(Render, prepare_windows.in_set(RenderSystems::ManageViews));
         }
     }
 

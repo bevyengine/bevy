@@ -283,7 +283,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use crate::{AssetEvents, AssetPlugin, Handle};
+    use crate::{AssetEventSystems, AssetPlugin, Handle};
     use alloc::{vec, vec::Vec};
     use core::num::NonZero;
     use std::println;
@@ -406,7 +406,7 @@ mod tests {
             .init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0, 0, 0]))
             .add_systems(Update, add_some)
-            .add_systems(PostUpdate, count_update.after(AssetEvents));
+            .add_systems(PostUpdate, count_update.after(AssetEventSystems));
 
         // First run of the app, `add_systems(Startup…)` runs.
         app.update(); // run_count == 0
@@ -441,7 +441,7 @@ mod tests {
                 },
             )
             .add_systems(Update, update_some)
-            .add_systems(PostUpdate, count_update.after(AssetEvents));
+            .add_systems(PostUpdate, count_update.after(AssetEventSystems));
 
         // First run of the app, `add_systems(Startup…)` runs.
         app.update(); // run_count == 0

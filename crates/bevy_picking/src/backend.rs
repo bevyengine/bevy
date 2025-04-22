@@ -42,7 +42,7 @@ pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
         pointer::{PointerId, PointerLocation},
-        PickSet, Pickable,
+        Pickable, PickingSystems,
     };
 }
 
@@ -54,7 +54,7 @@ pub mod prelude {
 ///
 /// Note that systems reading these events in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
-/// against [`PickSet::Backend`](crate::PickSet::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
+/// against [`PickingSystems::Backend`](crate::PickingSystems::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
 #[derive(Event, Debug, Clone, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct PointerHits {

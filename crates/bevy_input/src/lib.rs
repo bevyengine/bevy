@@ -76,7 +76,7 @@ pub struct InputPlugin;
 
 /// Label for systems that update the input data.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-pub struct InputSystem;
+pub struct InputSystems;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
@@ -85,7 +85,7 @@ impl Plugin for InputPlugin {
             .add_event::<KeyboardInput>()
             .add_event::<KeyboardFocusLost>()
             .init_resource::<ButtonInput<KeyCode>>()
-            .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystem))
+            .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystems))
             // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
@@ -98,7 +98,7 @@ impl Plugin for InputPlugin {
                     accumulate_mouse_motion_system,
                     accumulate_mouse_scroll_system,
                 )
-                    .in_set(InputSystem),
+                    .in_set(InputSystems),
             )
             .add_event::<PinchGesture>()
             .add_event::<RotationGesture>()
@@ -122,12 +122,12 @@ impl Plugin for InputPlugin {
                     gamepad_connection_system,
                     gamepad_event_processing_system.after(gamepad_connection_system),
                 )
-                    .in_set(InputSystem),
+                    .in_set(InputSystems),
             )
             // touch
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
-            .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystem));
+            .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystems));
 
         #[cfg(feature = "bevy_reflect")]
         {

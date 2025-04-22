@@ -14,7 +14,7 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
 use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 
@@ -342,7 +342,7 @@ impl Plugin for VisibilityPlugin {
                 PostUpdate,
                 (CalculateBounds, UpdateFrusta, VisibilityPropagate)
                     .before(CheckVisibility)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystems::TransformPropagate),
             )
             .configure_sets(
                 PostUpdate,

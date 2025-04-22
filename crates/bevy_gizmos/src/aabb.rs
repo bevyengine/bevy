@@ -14,7 +14,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::primitives::Aabb;
 use bevy_transform::{
     components::{GlobalTransform, Transform},
-    TransformSystem,
+    TransformSystems,
 };
 
 use crate::{
@@ -39,7 +39,7 @@ impl Plugin for AabbGizmoPlugin {
                     }),
                 )
                     .after(bevy_render::view::VisibilitySystems::CalculateBounds)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystems::TransformPropagate),
             );
     }
 }

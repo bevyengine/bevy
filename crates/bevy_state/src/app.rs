@@ -6,7 +6,7 @@ use log::warn;
 use crate::{
     state::{
         setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+        StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
     },
     state_scoped::clear_state_scoped_entities,
 };
@@ -226,7 +226,7 @@ impl AppExtStates for SubApp {
         // because [`OnExit`] only runs for one specific variant of the state.
         self.add_systems(
             StateTransition,
-            clear_state_scoped_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
+            clear_state_scoped_entities::<S>.in_set(StateTransitionSystems::ExitSchedules),
         )
     }
 

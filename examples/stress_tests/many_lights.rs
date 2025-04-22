@@ -9,7 +9,7 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalClusterableObjectMeta},
     prelude::*,
-    render::{camera::ScalingMode, Render, RenderApp, RenderSet},
+    render::{camera::ScalingMode, Render, RenderApp, RenderSystems},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -158,7 +158,7 @@ impl Plugin for LogVisibleLights {
             return;
         };
 
-        render_app.add_systems(Render, print_visible_light_count.in_set(RenderSet::Prepare));
+        render_app.add_systems(Render, print_visible_light_count.in_set(RenderSystems::Prepare));
     }
 }
 

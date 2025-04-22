@@ -8,7 +8,7 @@ use crate::meshlet::{
 };
 use crate::*;
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{Asset, AssetEvents, AssetId, AssetServer, UntypedAssetId};
+use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId};
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
@@ -288,7 +288,7 @@ where
                 PostUpdate,
                 (
                     mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    check_entities_needing_specialization::<M>.after(AssetEvents),
+                    check_entities_needing_specialization::<M>.after(AssetEventSystems),
                 )
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
@@ -316,9 +316,9 @@ where
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_mesh_materials::<M>.in_set(ExtractMaterialsSet),
+                        extract_mesh_materials::<M>.in_set(MaterialExtractionSystems),
                         early_sweep_material_instances::<M>
-                            .after(ExtractMaterialsSet)
+                            .after(MaterialExtractionSystems)
                             .before(late_sweep_material_instances),
                         extract_entities_needs_specialization::<M>.after(extract_cameras),
                     ),
@@ -327,13 +327,13 @@ where
                     Render,
                     (
                         specialize_material_meshes::<M>
-                            .in_set(RenderSet::PrepareMeshes)
+                            .in_set(RenderSystems::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>)
                             .after(prepare_assets::<RenderMesh>)
                             .after(collect_meshes_for_gpu_building)
                             .after(set_mesh_motion_vector_flags),
                         queue_material_meshes::<M>
-                            .in_set(RenderSet::QueueMeshes)
+                            .in_set(RenderSystems::QueueMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>),
                     ),
                 )
@@ -344,7 +344,7 @@ where
                         write_material_bind_group_buffers::<M>,
                     )
                         .chain()
-                        .in_set(RenderSet::PrepareBindGroups)
+                        .in_set(RenderSystems::PrepareBindGroups)
                         .after(prepare_assets::<PreparedMaterial<M>>),
                 );
 
@@ -356,14 +356,15 @@ where
                     .add_systems(
                         Render,
                         (
-                            check_views_lights_need_specialization.in_set(RenderSet::PrepareAssets),
+                            check_views_lights_need_specialization
+                                .in_set(RenderSystems::PrepareAssets),
                             // specialize_shadows::<M> also needs to run after prepare_assets::<PreparedMaterial<M>>,
                             // which is fine since ManageViews is after PrepareAssets
                             specialize_shadows::<M>
-                                .in_set(RenderSet::ManageViews)
+                                .in_set(RenderSystems::ManageViews)
                                 .after(prepare_lights),
                             queue_shadows::<M>
-                                .in_set(RenderSet::QueueMeshes)
+                                .in_set(RenderSystems::QueueMeshes)
                                 .after(prepare_assets::<PreparedMaterial<M>>),
                         ),
                     );
@@ -373,7 +374,7 @@ where
             render_app.add_systems(
                 Render,
                 queue_material_meshlet_meshes::<M>
-                    .in_set(RenderSet::QueueMeshes)
+                    .in_set(RenderSystems::QueueMeshes)
                     .run_if(resource_exists::<InstanceManager>),
             );
 
@@ -381,7 +382,7 @@ where
             render_app.add_systems(
                 Render,
                 prepare_material_meshlet_meshes_main_opaque_pass::<M>
-                    .in_set(RenderSet::QueueMeshes)
+                    .in_set(RenderSystems::QueueMeshes)
                     .after(prepare_assets::<PreparedMaterial<M>>)
                     .before(queue_material_meshlet_meshes::<M>)
                     .run_if(resource_exists::<InstanceManager>),
@@ -637,7 +638,7 @@ pub struct RenderMaterialInstance {
 
 /// A [`SystemSet`] that contains all `extract_mesh_materials` systems.
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ExtractMaterialsSet;
+pub struct MaterialExtractionSystems;
 
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {

@@ -23,7 +23,7 @@ use core::cell::RefCell;
 use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
-use bevy_input::InputSystem;
+use bevy_input::InputSystems;
 use bevy_platform::collections::HashMap;
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
@@ -84,7 +84,7 @@ pub struct GilrsPlugin;
 
 /// Updates the running gamepad rumble effects.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-pub struct RumbleSystem;
+pub struct RumbleSystems;
 
 impl Plugin for GilrsPlugin {
     fn build(&self, app: &mut App) {
@@ -106,8 +106,8 @@ impl Plugin for GilrsPlugin {
                 app.init_resource::<GilrsGamepads>();
                 app.init_resource::<RunningRumbleEffects>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
-                    .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))
-                    .add_systems(PostUpdate, play_gilrs_rumble.in_set(RumbleSystem));
+                    .add_systems(PreUpdate, gilrs_event_system.before(InputSystems))
+                    .add_systems(PostUpdate, play_gilrs_rumble.in_set(RumbleSystems));
             }
             Err(err) => error!("Failed to start Gilrs. {}", err),
         }

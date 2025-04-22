@@ -57,7 +57,7 @@ pub struct TimePlugin;
 /// Updates the elapsed time. Any system that interacts with [`Time`] component should run after
 /// this.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-pub struct TimeSystem;
+pub struct TimeSystems;
 
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
@@ -79,12 +79,12 @@ impl Plugin for TimePlugin {
         app.add_systems(
             First,
             time_system
-                .in_set(TimeSystem)
+                .in_set(TimeSystems)
                 .ambiguous_with(event_update_system),
         )
         .add_systems(
             RunFixedMainLoop,
-            run_fixed_main_schedule.in_set(RunFixedMainLoopSystem::FixedMainLoop),
+            run_fixed_main_schedule.in_set(RunFixedMainLoopSystems::FixedMainLoop),
         );
 
         // Ensure the events are not dropped until `FixedMain` systems can observe them

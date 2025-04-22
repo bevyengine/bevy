@@ -543,15 +543,15 @@ impl Plugin for RemotePlugin {
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
                 RemoteLast,
-                (RemoteSet::ProcessRequests, RemoteSet::Cleanup).chain(),
+                (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
             )
             .add_systems(
                 RemoteLast,
                 (
                     (process_remote_requests, process_ongoing_watching_requests)
                         .chain()
-                        .in_set(RemoteSet::ProcessRequests),
-                    remove_closed_watching_requests.in_set(RemoteSet::Cleanup),
+                        .in_set(RemoteSystems::ProcessRequests),
+                    remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
                 ),
             );
     }
@@ -565,7 +565,7 @@ pub struct RemoteLast;
 ///
 /// These can be useful for ordering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RemoteSet {
+pub enum RemoteSystems {
     /// Processing of remote requests.
     ProcessRequests,
     /// Cleanup (remove closed watchers etc)

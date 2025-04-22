@@ -137,7 +137,7 @@ impl From<Node> for AccessibilityNode {
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize, Clone)
 )]
-pub enum AccessibilitySystem {
+pub enum AccessibilitySystems {
     /// Update the accessibility tree
     Update,
 }

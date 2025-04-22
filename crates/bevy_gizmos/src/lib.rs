@@ -24,7 +24,7 @@ extern crate self as bevy_gizmos;
 
 /// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum GizmoRenderSystem {
+pub enum GizmoRenderSystems {
     /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
     #[cfg(feature = "bevy_sprite")]
     QueueLineGizmos2d,
@@ -120,7 +120,7 @@ use {
         },
         renderer::RenderDevice,
         sync_world::{MainEntity, TemporaryRenderEntity},
-        Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+        Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
     },
     bytemuck::cast_slice,
 };
@@ -185,7 +185,7 @@ impl Plugin for GizmoPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
-                prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
+                prepare_line_gizmo_bind_group.in_set(RenderSystems::PrepareBindGroups),
             );
 
             render_app.add_systems(ExtractSchedule, (extract_gizmo_data, extract_linegizmos));
@@ -268,20 +268,20 @@ impl AppGizmoBuilder for App {
             .add_systems(
                 RunFixedMainLoop,
                 start_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystem::BeforeFixedMainLoop),
+                    .in_set(bevy_app::RunFixedMainLoopSystems::BeforeFixedMainLoop),
             )
             .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
             .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
             .add_systems(
                 RunFixedMainLoop,
                 end_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystem::AfterFixedMainLoop),
+                    .in_set(bevy_app::RunFixedMainLoopSystems::AfterFixedMainLoop),
             )
             .add_systems(
                 Last,
                 (
-                    propagate_gizmos::<Config, Fixed>.before(UpdateGizmoMeshes),
-                    update_gizmo_meshes::<Config>.in_set(UpdateGizmoMeshes),
+                    propagate_gizmos::<Config, Fixed>.before(GizmoMeshSystems),
+                    update_gizmo_meshes::<Config>.in_set(GizmoMeshSystems),
                 ),
             );
 
@@ -380,7 +380,7 @@ pub fn propagate_gizmos<Config, Clear>(
 
 /// System set for updating the rendering meshes for drawing gizmos.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct UpdateGizmoMeshes;
+pub struct GizmoMeshSystems;
 
 /// Prepare gizmos for rendering.
 ///

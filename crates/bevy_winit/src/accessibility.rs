@@ -11,7 +11,7 @@ use accesskit::{
 };
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    AccessibilityNode, AccessibilityRequested, AccessibilitySystem,
+    AccessibilityNode, AccessibilityRequested, AccessibilitySystems,
     ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates,
 };
 use bevy_app::{App, Plugin, PostUpdate};
@@ -302,7 +302,7 @@ impl Plugin for AccessKitPlugin {
                         .before(poll_receivers)
                         .before(update_accessibility_nodes),
                 )
-                    .in_set(AccessibilitySystem::Update),
+                    .in_set(AccessibilitySystems::Update),
             );
     }
 }

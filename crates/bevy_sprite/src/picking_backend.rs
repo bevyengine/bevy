@@ -75,7 +75,7 @@ impl Plugin for SpritePickingPlugin {
             .register_type::<SpritePickingCamera>()
             .register_type::<SpritePickingMode>()
             .register_type::<SpritePickingSettings>()
-            .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
+            .add_systems(PreUpdate, sprite_picking.in_set(PickingSystems::Backend));
     }
 }
 

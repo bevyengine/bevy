@@ -74,7 +74,7 @@ use bevy_render::camera::TemporalJitter;
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
-use bevy_render::RenderSet::PrepareAssets;
+use bevy_render::RenderSystems::PrepareAssets;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
@@ -196,7 +196,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
                     ExtractSchedule,
-                    ExtractMeshesSet
+                    MeshExtractionSystems
                         .after(view::extract_visibility_ranges)
                         .after(late_sweep_material_instances),
                 )
@@ -206,22 +206,22 @@ impl Plugin for MeshRenderPlugin {
                         extract_skins,
                         extract_morphs,
                         gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
-                            .before(ExtractMeshesSet),
+                            .before(MeshExtractionSystems),
                     ),
                 )
                 .add_systems(
                     Render,
                     (
-                        set_mesh_motion_vector_flags.in_set(RenderSet::PrepareMeshes),
-                        prepare_skins.in_set(RenderSet::PrepareResources),
-                        prepare_morphs.in_set(RenderSet::PrepareResources),
-                        prepare_mesh_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        set_mesh_motion_vector_flags.in_set(RenderSystems::PrepareMeshes),
+                        prepare_skins.in_set(RenderSystems::PrepareResources),
+                        prepare_morphs.in_set(RenderSystems::PrepareResources),
+                        prepare_mesh_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         prepare_mesh_view_bind_groups
-                            .in_set(RenderSet::PrepareBindGroups)
+                            .in_set(RenderSystems::PrepareBindGroups)
                             .after(prepare_oit_buffers),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
-                            .in_set(RenderSet::Cleanup)
-                            .after(RenderSet::Render),
+                            .in_set(RenderSystems::Cleanup)
+                            .after(RenderSystems::Render),
                     ),
                 );
         }
@@ -259,17 +259,17 @@ impl Plugin for MeshRenderPlugin {
                     .init_resource::<MeshesToReextractNextFrame>()
                     .add_systems(
                         ExtractSchedule,
-                        extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
+                        extract_meshes_for_gpu_building.in_set(MeshExtractionSystems),
                     )
                     .add_systems(
                         Render,
                         (
                             gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                                .in_set(RenderSet::PrepareResourcesFlush),
+                                .in_set(RenderSystems::PrepareResourcesFlush),
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
-                                .in_set(RenderSet::PrepareResources),
+                                .in_set(RenderSystems::PrepareResources),
                             collect_meshes_for_gpu_building
-                                .in_set(RenderSet::PrepareMeshes)
+                                .in_set(RenderSystems::PrepareMeshes)
                                 // This must be before
                                 // `set_mesh_motion_vector_flags` so it doesn't
                                 // overwrite those flags.
@@ -284,12 +284,12 @@ impl Plugin for MeshRenderPlugin {
                     .insert_resource(cpu_batched_instance_buffer)
                     .add_systems(
                         ExtractSchedule,
-                        extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
+                        extract_meshes_for_cpu_building.in_set(MeshExtractionSystems),
                     )
                     .add_systems(
                         Render,
                         no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
+                            .in_set(RenderSystems::PrepareResourcesFlush),
                     );
             };
 
@@ -1296,7 +1296,7 @@ pub struct RenderMeshQueueData<'a> {
 /// A [`SystemSet`] that encompasses both [`extract_meshes_for_cpu_building`]
 /// and [`extract_meshes_for_gpu_building`].
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ExtractMeshesSet;
+pub struct MeshExtractionSystems;
 
 /// Extracts meshes from the main world into the render world, populating the
 /// [`RenderMeshInstances`].
