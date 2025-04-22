@@ -401,7 +401,7 @@ impl Entity {
         Self::from_raw_and_generation(row, NonZero::<u32>::MIN)
     }
 
-    /// This is equivalent to [`from_raw`](Self::from_raw) except that it uses an row instead of an [`EntityRow`].
+    /// This is equivalent to [`from_raw`](Self::from_raw) except that it takes a `u32` instead of an [`EntityRow`].
     ///
     /// Returns `None` if the row is `u32::MAX`.
     #[inline(always)]
