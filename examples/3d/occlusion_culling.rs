@@ -6,6 +6,7 @@
 //! the effects of occlusion culling can be seen.
 
 use std::{
+    any::TypeId,
     f32::consts::PI,
     fmt::Write as _,
     result::Result,
@@ -15,9 +16,13 @@ use std::{
 use bevy::{
     color::palettes::css::{SILVER, WHITE},
     core_pipeline::{
-        core_3d::graph::{Core3d, Node3d},
+        core_3d::{
+            graph::{Core3d, Node3d},
+            Opaque3d,
+        },
         prepass::DepthPrepass,
     },
+    pbr::PbrPlugin,
     prelude::*,
     render::{
         batching::gpu_preprocessing::{
@@ -29,7 +34,7 @@ use bevy::{
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
         renderer::{RenderAdapter, RenderContext, RenderDevice},
         settings::WgpuFeatures,
-        Render, RenderApp, RenderPlugin, RenderSet,
+        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSet,
     },
 };
 use bytemuck::Pod;
@@ -172,6 +177,8 @@ impl Default for AppStatus {
 }
 
 fn main() {
+    let render_debug_flags = RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS;
+
     App::new()
         .add_plugins(
             DefaultPlugins
@@ -183,7 +190,11 @@ fn main() {
                     ..default()
                 })
                 .set(RenderPlugin {
-                    allow_copies_from_indirect_parameters: true,
+                    debug_flags: render_debug_flags,
+                    ..default()
+                })
+                .set(PbrPlugin {
+                    debug_flags: render_debug_flags,
                     ..default()
                 }),
         )
@@ -421,6 +432,14 @@ impl render_graph::Node for ReadbackIndirectParametersNode {
             return Ok(());
         };
 
+        // Get the indirect parameters buffers corresponding to the opaque 3D
+        // phase, since all our meshes are in that phase.
+        let Some(phase_indirect_parameters_buffers) =
+            indirect_parameters_buffers.get(&TypeId::of::<Opaque3d>())
+        else {
+            return Ok(());
+        };
+
         // Grab both the buffers we're copying from and the staging buffers
         // we're copying to. Remember that we can't map the indirect parameters
         // buffers directly, so we have to copy their contents to a staging
@@ -431,8 +450,10 @@ impl render_graph::Node for ReadbackIndirectParametersNode {
             Some(indirect_parameters_staging_data_buffer),
             Some(indirect_parameters_staging_batch_sets_buffer),
         ) = (
-            indirect_parameters_buffers.indexed_data_buffer(),
-            indirect_parameters_buffers.indexed_batch_sets_buffer(),
+            phase_indirect_parameters_buffers.indexed.data_buffer(),
+            phase_indirect_parameters_buffers
+                .indexed
+                .batch_sets_buffer(),
             indirect_parameters_mapping_buffers.data.as_ref(),
             indirect_parameters_mapping_buffers.batch_sets.as_ref(),
         )
@@ -474,10 +495,18 @@ fn create_indirect_parameters_staging_buffers(
     indirect_parameters_buffers: Res<IndirectParametersBuffers>,
     render_device: Res<RenderDevice>,
 ) {
+    let Some(phase_indirect_parameters_buffers) =
+        indirect_parameters_buffers.get(&TypeId::of::<Opaque3d>())
+    else {
+        return;
+    };
+
     // Fetch the indirect parameters buffers that we're going to copy from.
     let (Some(indexed_data_buffer), Some(indexed_batch_set_buffer)) = (
-        indirect_parameters_buffers.indexed_data_buffer(),
-        indirect_parameters_buffers.indexed_batch_sets_buffer(),
+        phase_indirect_parameters_buffers.indexed.data_buffer(),
+        phase_indirect_parameters_buffers
+            .indexed
+            .batch_sets_buffer(),
     ) else {
         return;
     };

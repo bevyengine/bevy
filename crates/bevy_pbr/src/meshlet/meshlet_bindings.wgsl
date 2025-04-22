@@ -100,9 +100,9 @@ fn cluster_is_second_pass_candidate(cluster_id: u32) -> bool {
 @group(0) @binding(6) var<storage, read> meshlet_raster_clusters: array<u32>; // Single object shared between all workgroups
 @group(0) @binding(7) var<storage, read> meshlet_software_raster_cluster_count: u32;
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-@group(0) @binding(8) var<storage, read_write> meshlet_visibility_buffer: array<atomic<u64>>; // Per pixel
+@group(0) @binding(8) var meshlet_visibility_buffer: texture_storage_2d<r64uint, atomic>;
 #else
-@group(0) @binding(8) var<storage, read_write> meshlet_visibility_buffer: array<atomic<u32>>; // Per pixel
+@group(0) @binding(8) var meshlet_visibility_buffer: texture_storage_2d<r32uint, atomic>;
 #endif
 @group(0) @binding(9) var<uniform> view: View;
 
@@ -149,7 +149,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
-@group(1) @binding(0) var<storage, read> meshlet_visibility_buffer: array<u64>; // Per pixel
+@group(1) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r64uint, read>;
 @group(1) @binding(1) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
 @group(1) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per meshlet
 @group(1) @binding(3) var<storage, read> meshlet_indices: array<u32>; // Many per meshlet

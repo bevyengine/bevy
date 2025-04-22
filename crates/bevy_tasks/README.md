@@ -36,7 +36,7 @@ The determining factor for what kind of work should go in each pool is latency r
 
 ## `no_std` Support
 
-To enable `no_std` support in this crate, you will need to disable default features, and enable the `edge_executor` and `critical-section` features. For platforms without full support for Rust atomics, you may also need to enable the `portable-atomic` feature.
+To enable `no_std` support in this crate, you will need to disable default features, and enable the `edge_executor` and `critical-section` features.
 
 [bevy]: https://bevyengine.org
 [rayon]: https://github.com/rayon-rs/rayon

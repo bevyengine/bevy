@@ -1,5 +1,5 @@
-//! This module contains the definition of the [`EntityCommand`] trait, as well as
-//! blanket implementations of the trait for closures.
+//! Contains the definition of the [`EntityCommand`] trait,
+//! as well as the blanket implementation of the trait for closures.
 //!
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
@@ -7,17 +7,15 @@
 use alloc::vec::Vec;
 use log::info;
 
-#[cfg(feature = "track_location")]
-use core::panic::Location;
-
 use crate::{
     bundle::{Bundle, InsertMode},
+    change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
     event::Event,
-    result::Result,
-    system::{command::HandleError, Command, IntoObserverSystem},
-    world::{error::EntityFetchError, EntityWorldMut, FromWorld, World},
+    relationship::RelationshipHookMode,
+    system::IntoObserverSystem,
+    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
 };
 use bevy_ptr::OwningPtr;
 
@@ -81,54 +79,8 @@ use bevy_ptr::OwningPtr;
 /// }
 /// ```
 pub trait EntityCommand<Out = ()>: Send + 'static {
-    /// Executes this command for the given [`Entity`] and
-    /// returns a [`Result`] for error handling.
+    /// Executes this command for the given [`Entity`].
     fn apply(self, entity: EntityWorldMut) -> Out;
-}
-/// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
-/// internally runs the [`EntityCommand`] on that entity.
-///
-// NOTE: This is a separate trait from `EntityCommand` because "result-returning entity commands" and
-// "non-result returning entity commands" require different implementations, so they cannot be automatically
-// implemented. And this isn't the type of implementation that we want to thrust on people implementing
-// EntityCommand.
-pub trait CommandWithEntity<Out> {
-    /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
-    /// internally runs the [`EntityCommand`] on that entity.
-    fn with_entity(self, entity: Entity) -> impl Command<Out> + HandleError<Out>;
-}
-
-impl<C: EntityCommand> CommandWithEntity<Result<(), EntityFetchError>> for C {
-    fn with_entity(
-        self,
-        entity: Entity,
-    ) -> impl Command<Result<(), EntityFetchError>> + HandleError<Result<(), EntityFetchError>>
-    {
-        move |world: &mut World| -> Result<(), EntityFetchError> {
-            let entity = world.get_entity_mut(entity)?;
-            self.apply(entity);
-            Ok(())
-        }
-    }
-}
-
-impl<
-        C: EntityCommand<Result<T, Err>>,
-        T,
-        Err: core::fmt::Debug + core::fmt::Display + Send + Sync + 'static,
-    > CommandWithEntity<Result<T, EntityCommandError<Err>>> for C
-{
-    fn with_entity(
-        self,
-        entity: Entity,
-    ) -> impl Command<Result<T, EntityCommandError<Err>>> + HandleError<Result<T, EntityCommandError<Err>>>
-    {
-        move |world: &mut World| {
-            let entity = world.get_entity_mut(entity)?;
-            self.apply(entity)
-                .map_err(EntityCommandError::CommandFailed)
-        }
-    }
 }
 
 /// An error that occurs when running an [`EntityCommand`] on a specific entity.
@@ -136,7 +88,7 @@ impl<
 pub enum EntityCommandError<E> {
     /// The entity this [`EntityCommand`] tried to run on could not be fetched.
     #[error(transparent)]
-    EntityFetchError(#[from] EntityFetchError),
+    EntityFetchError(#[from] EntityMutableFetchError),
     /// An error that occurred while running the [`EntityCommand`].
     #[error("{0}")]
     CommandFailed(E),
@@ -151,43 +103,28 @@ where
     }
 }
 
-/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity,
-/// replacing any that were already present.
+/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
-pub fn insert(bundle: impl Bundle) -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(
-            bundle,
-            InsertMode::Replace,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
-    }
-}
-
-/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity,
-/// except for any that were already present.
-#[track_caller]
-pub fn insert_if_new(bundle: impl Bundle) -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
-    move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(
-            bundle,
-            InsertMode::Keep,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
     }
 }
 
 /// An [`EntityCommand`] that adds a dynamic component to an entity.
+///
+/// # Safety
+///
+/// - [`ComponentId`] must be from the same world as the target entity.
+/// - `T` must have the same layout as the one passed during `component_id` creation.
 #[track_caller]
-pub fn insert_by_id<T: Send + 'static>(component_id: ComponentId, value: T) -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+pub unsafe fn insert_by_id<T: Send + 'static>(
+    component_id: ComponentId,
+    value: T,
+    mode: InsertMode,
+) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         // SAFETY:
         // - `component_id` safety is ensured by the caller
@@ -196,8 +133,9 @@ pub fn insert_by_id<T: Send + 'static>(component_id: ComponentId, value: T) -> i
             entity.insert_by_id_with_caller(
                 component_id,
                 ptr,
-                #[cfg(feature = "track_location")]
+                mode,
                 caller,
+                RelationshipHookMode::Run,
             );
         });
     }
@@ -207,29 +145,19 @@ pub fn insert_by_id<T: Send + 'static>(component_id: ComponentId, value: T) -> i
 /// the component's [`FromWorld`] implementation.
 #[track_caller]
 pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(
-            value,
-            mode,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
     }
 }
 
 /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity.
 #[track_caller]
 pub fn remove<T: Bundle>() -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove_with_caller::<T>(
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.remove_with_caller::<T>(caller);
     }
 }
 
@@ -237,40 +165,27 @@ pub fn remove<T: Bundle>() -> impl EntityCommand {
 /// as well as the required components for each component removed.
 #[track_caller]
 pub fn remove_with_requires<T: Bundle>() -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove_with_requires_with_caller::<T>(
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.remove_with_requires_with_caller::<T>(caller);
     }
 }
 
 /// An [`EntityCommand`] that removes a dynamic component from an entity.
 #[track_caller]
 pub fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove_by_id_with_caller(
-            component_id,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.remove_by_id_with_caller(component_id, caller);
     }
 }
 
 /// An [`EntityCommand`] that removes all components from an entity.
 #[track_caller]
 pub fn clear() -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.clear_with_caller(
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.clear_with_caller(caller);
     }
 }
 
@@ -278,13 +193,9 @@ pub fn clear() -> impl EntityCommand {
 /// except for those in the given [`Bundle`].
 #[track_caller]
 pub fn retain<T: Bundle>() -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.retain_with_caller::<T>(
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.retain_with_caller::<T>(caller);
     }
 }
 
@@ -292,17 +203,15 @@ pub fn retain<T: Bundle>() -> impl EntityCommand {
 ///
 /// # Note
 ///
-/// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
-/// to despawn descendants. This results in "recursive despawn" behavior.
+/// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget)
+/// that is configured to despawn descendants.
+///
+/// For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
 #[track_caller]
 pub fn despawn() -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |entity: EntityWorldMut| {
-        entity.despawn_with_caller(
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.despawn_with_caller(caller);
     }
 }
 
@@ -312,14 +221,23 @@ pub fn despawn() -> impl EntityCommand {
 pub fn observe<E: Event, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.observe_with_caller(
-            observer,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        entity.observe_with_caller(observer, caller);
+    }
+}
+
+/// An [`EntityCommand`] that sends a [`Trigger`](crate::observer::Trigger) targeting an entity.
+///
+/// This will run any [`Observer`](crate::observer::Observer) of the given [`Event`] watching the entity.
+#[track_caller]
+pub fn trigger(event: impl Event) -> impl EntityCommand {
+    let caller = MaybeLocation::caller();
+    move |mut entity: EntityWorldMut| {
+        let id = entity.id();
+        entity.world_scope(|world| {
+            world.trigger_targets_with_caller(event, id, caller);
+        });
     }
 }
 
@@ -356,6 +274,7 @@ pub fn log_components() -> impl EntityCommand {
         let debug_infos: Vec<_> = entity
             .world()
             .inspect_entity(entity.id())
+            .expect("Entity existence is verified before an EntityCommand is executed")
             .map(ComponentInfo::name)
             .collect();
         info!("Entity {}: {debug_infos:?}", entity.id());

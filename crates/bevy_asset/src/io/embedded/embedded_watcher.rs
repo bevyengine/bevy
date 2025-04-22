@@ -4,7 +4,7 @@ use crate::io::{
     AssetSourceEvent, AssetWatcher,
 };
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use core::time::Duration;
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
 use parking_lot::RwLock;
@@ -24,6 +24,7 @@ pub struct EmbeddedWatcher {
 }
 
 impl EmbeddedWatcher {
+    /// Creates a new `EmbeddedWatcher` that watches for changes to the embedded assets in the given `dir`.
     pub fn new(
         dir: Dir,
         root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,

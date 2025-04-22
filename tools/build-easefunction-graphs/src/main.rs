@@ -1,7 +1,10 @@
 //! Generates graphs for the `EaseFunction` docs.
+
+#![expect(clippy::print_stdout, reason = "Allowed in tools.")]
+
 use std::path::PathBuf;
 
-use bevy_math::curve::{CurveExt, EaseFunction, EasingCurve};
+use bevy_math::curve::{CurveExt, EaseFunction, EasingCurve, JumpAt};
 use svg::{
     node::element::{self, path::Data},
     Document,
@@ -55,7 +58,10 @@ fn main() {
         EaseFunction::BounceOut,
         EaseFunction::BounceInOut,
         EaseFunction::Linear,
-        EaseFunction::Steps(4),
+        EaseFunction::Steps(4, JumpAt::Start),
+        EaseFunction::Steps(4, JumpAt::End),
+        EaseFunction::Steps(4, JumpAt::None),
+        EaseFunction::Steps(4, JumpAt::Both),
         EaseFunction::Elastic(50.0),
     ] {
         let curve = EasingCurve::new(0.0, 1.0, function);
@@ -71,7 +77,7 @@ fn main() {
 
         // Curve can go out past endpoints
         let mut min = 0.0f32;
-        let mut max = 0.0f32;
+        let mut max = 1.0f32;
         for &(_, y) in &samples {
             min = min.min(y);
             max = max.max(y);
@@ -104,7 +110,12 @@ fn main() {
                 data
             });
 
-        let name = format!("{function:?}");
+        let opt_tag = match function {
+            EaseFunction::Steps(_n, jump_at) => format!("{jump_at:?}"),
+            _ => String::new(),
+        };
+
+        let name = format!("{opt_tag}{function:?}");
         let tooltip = element::Title::new(&name);
 
         const MARGIN: f32 = 0.04;

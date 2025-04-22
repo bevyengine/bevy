@@ -18,7 +18,9 @@ use std::path::{Path, PathBuf};
 use tracing::error;
 
 /// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
-/// for each relevant change. This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.
+/// for each relevant change.
+///
+/// This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.
 /// "Debouncing" defines a time window to hold on to events and then removes duplicate events that fall into this window.
 /// This introduces a small delay in processing events, but it helps reduce event duplicates. A small delay is also necessary
 /// on some systems to avoid processing a change event before it has actually been applied.
@@ -27,12 +29,13 @@ pub struct FileWatcher {
 }
 
 impl FileWatcher {
+    /// Creates a new [`FileWatcher`] that watches for changes to the asset files in the given `path`.
     pub fn new(
         path: PathBuf,
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = normalize_path(&path);
+        let root = normalize_path(&path).canonicalize()?;
         let watcher = new_asset_event_debouncer(
             path.clone(),
             debounce_wait_time,
@@ -259,7 +262,8 @@ impl FilesystemEventHandler for FileEventHandler {
         self.last_event = None;
     }
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
-        Some(get_asset_path(&self.root, absolute_path))
+        let absolute_path = absolute_path.canonicalize().ok()?;
+        Some(get_asset_path(&self.root, &absolute_path))
     }
 
     fn handle(&mut self, _absolute_paths: &[PathBuf], event: AssetSourceEvent) {

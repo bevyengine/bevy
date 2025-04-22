@@ -46,7 +46,7 @@ fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
 /// Contains global values useful when writing shaders.
 /// Currently only contains values related to time.
 #[derive(Default, Clone, Resource, ExtractResource, Reflect, ShaderType)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Clone)]
 pub struct GlobalsUniform {
     /// The time since startup in seconds.
     /// Wraps to 0 after 1 hour.

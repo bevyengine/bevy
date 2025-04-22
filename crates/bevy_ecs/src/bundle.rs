@@ -9,29 +9,29 @@ use crate::{
         Archetype, ArchetypeAfterBundleInsert, ArchetypeId, Archetypes, BundleComponentStatus,
         ComponentStatus, SpawnBundleStatus,
     },
+    change_detection::MaybeLocation,
     component::{
-        Component, ComponentId, Components, RequiredComponentConstructor, RequiredComponents,
-        StorageType, Tick,
+        Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
+        RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
+    relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REPLACE},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::TypeIdMap;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
 use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
-/// Implementors of the `Bundle` trait are called 'bundles'.
+/// Implementers of the `Bundle` trait are called 'bundles'.
 ///
 /// Each bundle represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
@@ -72,7 +72,7 @@ use variadics_please::all_tuples;
 /// That is, if the entity does not have all the components of the bundle, those
 /// which are present will be removed.
 ///
-/// # Implementors
+/// # Implementers
 ///
 /// Every type which implements [`Component`] also implements `Bundle`, since
 /// [`Component`] types can be added to or removed from an entity.
@@ -151,14 +151,14 @@ use variadics_please::all_tuples;
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
-    fn component_ids(components: &mut Components, ids: &mut impl FnMut(ComponentId));
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 
     /// Registers components that are required by the components in this [`Bundle`].
     fn register_required_components(
-        _components: &mut Components,
+        _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
     );
 }
@@ -223,12 +223,12 @@ pub trait BundleEffect {
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids(components: &mut Components, ids: &mut impl FnMut(ComponentId)) {
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
     }
 
     fn register_required_components(
-        components: &mut Components,
+        components: &mut ComponentsRegistrator,
         required_components: &mut RequiredComponents,
     ) {
         let component_id = components.register_component::<C>();
@@ -288,7 +288,7 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            fn component_ids(components: &mut Components,  ids: &mut impl FnMut(ComponentId)){
+            fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, ids);)*
             }
 
@@ -297,7 +297,7 @@ macro_rules! tuple_impl {
             }
 
             fn register_required_components(
-                components: &mut Components,
+                components: &mut ComponentsRegistrator,
                 required_components: &mut RequiredComponents,
             ) {
                 $(<$name as Bundle>::register_required_components(components, required_components);)*
@@ -623,7 +623,7 @@ impl BundleInfo {
         change_tick: Tick,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> T::Effect {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -638,20 +638,12 @@ impl BundleInfo {
                     // the target table contains the component.
                     let column = table.get_column_mut(component_id).debug_checked_unwrap();
                     match (status, insert_mode) {
-                        (ComponentStatus::Added, _) => column.initialize(
-                            table_row,
-                            component_ptr,
-                            change_tick,
-                            #[cfg(feature = "track_location")]
-                            caller,
-                        ),
-                        (ComponentStatus::Existing, InsertMode::Replace) => column.replace(
-                            table_row,
-                            component_ptr,
-                            change_tick,
-                            #[cfg(feature = "track_location")]
-                            caller,
-                        ),
+                        (ComponentStatus::Added, _) => {
+                            column.initialize(table_row, component_ptr, change_tick, caller);
+                        }
+                        (ComponentStatus::Existing, InsertMode::Replace) => {
+                            column.replace(table_row, component_ptr, change_tick, caller);
+                        }
                         (ComponentStatus::Existing, InsertMode::Keep) => {
                             if let Some(drop_fn) = table.get_drop_for(component_id) {
                                 drop_fn(component_ptr);
@@ -664,13 +656,7 @@ impl BundleInfo {
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    sparse_set.insert(
-                        entity,
-                        component_ptr,
-                        change_tick,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
+                    sparse_set.insert(entity, component_ptr, change_tick, caller);
                 }
             }
             bundle_component += 1;
@@ -683,7 +669,6 @@ impl BundleInfo {
                 change_tick,
                 table_row,
                 entity,
-                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -712,7 +697,7 @@ impl BundleInfo {
         component_id: ComponentId,
         storage_type: StorageType,
         component_ptr: OwningPtr,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         {
             match storage_type {
@@ -721,26 +706,14 @@ impl BundleInfo {
                         // SAFETY: If component_id is in required_components, BundleInfo::new requires that
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
-                    column.initialize(
-                        table_row,
-                        component_ptr,
-                        change_tick,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
+                    column.initialize(table_row, component_ptr, change_tick, caller);
                 }
                 StorageType::SparseSet => {
                     let sparse_set =
                         // SAFETY: If component_id is in required_components, BundleInfo::new requires that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    sparse_set.insert(
-                        entity,
-                        component_ptr,
-                        change_tick,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
+                    sparse_set.insert(entity, component_ptr, change_tick, caller);
                 }
             }
         }
@@ -1026,9 +999,12 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         change_tick: Tick,
     ) -> Self {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut world.components, &mut world.storages);
+            .register_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
@@ -1127,7 +1103,8 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
     ) -> (EntityLocation, T::Effect) {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
@@ -1145,7 +1122,6 @@ impl<'w> BundleInserter<'w> {
                         ON_REPLACE,
                         entity,
                         archetype_after_insert.iter_existing(),
-                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -1153,8 +1129,8 @@ impl<'w> BundleInserter<'w> {
                     archetype,
                     entity,
                     archetype_after_insert.iter_existing(),
-                    #[cfg(feature = "track_location")]
                     caller,
+                    relationship_hook_mode,
                 );
             }
         }
@@ -1183,7 +1159,6 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1225,7 +1200,6 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1308,7 +1282,6 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1327,7 +1300,6 @@ impl<'w> BundleInserter<'w> {
                 new_archetype,
                 entity,
                 archetype_after_insert.iter_added(),
-                #[cfg(feature = "track_location")]
                 caller,
             );
             if new_archetype.has_add_observer() {
@@ -1335,7 +1307,6 @@ impl<'w> BundleInserter<'w> {
                     ON_ADD,
                     entity,
                     archetype_after_insert.iter_added(),
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -1346,15 +1317,14 @@ impl<'w> BundleInserter<'w> {
                         new_archetype,
                         entity,
                         archetype_after_insert.iter_inserted(),
-                        #[cfg(feature = "track_location")]
                         caller,
+                        relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
                             entity,
                             archetype_after_insert.iter_inserted(),
-                            #[cfg(feature = "track_location")]
                             caller,
                         );
                     }
@@ -1366,15 +1336,14 @@ impl<'w> BundleInserter<'w> {
                         new_archetype,
                         entity,
                         archetype_after_insert.iter_added(),
-                        #[cfg(feature = "track_location")]
                         caller,
+                        relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
                             entity,
                             archetype_after_insert.iter_added(),
-                            #[cfg(feature = "track_location")]
                             caller,
                         );
                     }
@@ -1404,9 +1373,12 @@ pub(crate) struct BundleSpawner<'w> {
 impl<'w> BundleSpawner<'w> {
     #[inline]
     pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut world.components, &mut world.storages);
+            .register_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
@@ -1456,7 +1428,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> (EntityLocation, T::Effect) {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
@@ -1481,7 +1453,6 @@ impl<'w> BundleSpawner<'w> {
                 self.change_tick,
                 bundle,
                 InsertMode::Replace,
-                #[cfg(feature = "track_location")]
                 caller,
             );
             entities.set(entity.index(), location);
@@ -1499,7 +1470,6 @@ impl<'w> BundleSpawner<'w> {
                 archetype,
                 entity,
                 bundle_info.iter_contributed_components(),
-                #[cfg(feature = "track_location")]
                 caller,
             );
             if archetype.has_add_observer() {
@@ -1507,7 +1477,6 @@ impl<'w> BundleSpawner<'w> {
                     ON_ADD,
                     entity,
                     bundle_info.iter_contributed_components(),
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -1515,15 +1484,14 @@ impl<'w> BundleSpawner<'w> {
                 archetype,
                 entity,
                 bundle_info.iter_contributed_components(),
-                #[cfg(feature = "track_location")]
                 caller,
+                RelationshipHookMode::Run,
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
                     ON_INSERT,
                     entity,
                     bundle_info.iter_contributed_components(),
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -1538,18 +1506,11 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn<T: Bundle>(
         &mut self,
         bundle: T,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> (Entity, T::Effect) {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        let (_, after_effect) = unsafe {
-            self.spawn_non_existent(
-                entity,
-                bundle,
-                #[cfg(feature = "track_location")]
-                caller,
-            )
-        };
+        let (_, after_effect) = unsafe { self.spawn_non_existent(entity, bundle, caller) };
         (entity, after_effect)
     }
 
@@ -1620,11 +1581,11 @@ impl Bundles {
     /// Also registers all the components in the bundle.
     pub(crate) fn register_info<T: Bundle>(
         &mut self,
-        components: &mut Components,
+        components: &mut ComponentsRegistrator,
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
+        *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
             T::component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
@@ -1636,8 +1597,7 @@ impl Bundles {
                 unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
-        });
-        id
+        })
     }
 
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
@@ -1645,7 +1605,7 @@ impl Bundles {
     /// Also registers all the components in the bundle.
     pub(crate) fn register_contributed_bundle_info<T: Bundle>(
         &mut self,
-        components: &mut Components,
+        components: &mut ComponentsRegistrator,
         storages: &mut Storages,
     ) -> BundleId {
         if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {

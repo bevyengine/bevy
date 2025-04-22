@@ -1,8 +1,9 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
+#[cfg(feature = "ghost_nodes")]
+use crate::ui_node::ComputedNodeTarget;
 use crate::Node;
 use bevy_ecs::{prelude::*, system::SystemParam};
-
 #[cfg(feature = "ghost_nodes")]
 use bevy_reflect::prelude::*;
 #[cfg(feature = "ghost_nodes")]
@@ -11,7 +12,6 @@ use bevy_render::view::Visibility;
 use bevy_transform::prelude::Transform;
 #[cfg(feature = "ghost_nodes")]
 use smallvec::SmallVec;
-
 /// Marker component for entities that should be ignored within UI hierarchies.
 ///
 /// The UI systems will traverse past these and treat their first non-ghost descendants as direct children of their first non-ghost ancestor.
@@ -20,8 +20,8 @@ use smallvec::SmallVec;
 #[cfg(feature = "ghost_nodes")]
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[cfg_attr(feature = "ghost_nodes", derive(Default))]
-#[reflect(Component, Debug)]
-#[require(Visibility, Transform)]
+#[reflect(Component, Debug, Clone)]
+#[require(Visibility, Transform, ComputedNodeTarget)]
 pub struct GhostNode;
 
 #[cfg(feature = "ghost_nodes")]
@@ -150,7 +150,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 
     /// Returns the UI parent of the provided entity.
     pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
-        self.parents_query.get(entity).ok().map(|parent| parent.0)
+        self.parents_query.get(entity).ok().map(ChildOf::parent)
     }
 
     /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.

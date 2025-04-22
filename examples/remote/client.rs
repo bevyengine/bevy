@@ -49,7 +49,7 @@ fn main() -> AnyhowResult<()> {
     let req = BrpRequest {
         jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
-        id: Some(serde_json::json!(1)),
+        id: Some(serde_json::to_value(1)?),
         params: Some(
             serde_json::to_value(BrpQueryParams {
                 data: BrpQuery {

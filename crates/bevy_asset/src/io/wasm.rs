@@ -53,7 +53,7 @@ fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_
 
 impl HttpWasmAssetReader {
     // Also used by HttpSourceAssetReader
-    pub(crate) async fn fetch_bytes<'a>(
+    pub(crate) async fn fetch_bytes(
         &self,
         path: PathBuf,
     ) -> Result<impl Reader, AssetReaderError> {

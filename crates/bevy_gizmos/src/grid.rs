@@ -186,10 +186,9 @@ where
     /// # Arguments
     ///
     /// - `isometry` defines the translation and rotation of the grid.
-    ///              - the translation specifies the center of the grid
-    ///              - defines the orientation of the grid, by default
-    ///                we assume the grid is contained in a plane parallel
-    ///                to the XY plane
+    ///   - the translation specifies the center of the grid
+    ///   - defines the orientation of the grid, by default we assume the grid is contained in a
+    ///     plane parallel to the XY plane
     /// - `cell_count`: defines the amount of cells in the x and y axes
     /// - `spacing`: defines the distance between cells along the x and y axes
     /// - `color`: color of the grid
@@ -241,9 +240,8 @@ where
     /// # Arguments
     ///
     /// - `isometry` defines the translation and rotation of the grid.
-    ///              - the translation specifies the center of the grid
-    ///              - defines the orientation of the grid, by default
-    ///                we assume the grid is aligned with all axes
+    ///   - the translation specifies the center of the grid
+    ///   - defines the orientation of the grid, by default we assume the grid is aligned with all axes
     /// - `cell_count`: defines the amount of cells in the x, y and z axes
     /// - `spacing`: defines the distance between cells along the x, y and z axes
     /// - `color`: color of the grid
@@ -295,9 +293,8 @@ where
     /// # Arguments
     ///
     /// - `isometry` defines the translation and rotation of the grid.
-    ///              - the translation specifies the center of the grid
-    ///              - defines the orientation of the grid, by default
-    ///                we assume the grid is aligned with all axes
+    ///   - the translation specifies the center of the grid
+    ///   - defines the orientation of the grid, by default we assume the grid is aligned with all axes
     /// - `cell_count`: defines the amount of cells in the x and y axes
     /// - `spacing`: defines the distance between cells along the x and y axes
     /// - `color`: color of the grid

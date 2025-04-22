@@ -4,6 +4,7 @@ use super::cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use super::{Curve, Interval};
 
 use crate::StableInterpolate;
+#[cfg(feature = "bevy_reflect")]
 use alloc::format;
 use core::any::type_name;
 use core::fmt::{self, Debug};

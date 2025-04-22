@@ -98,14 +98,14 @@ fn setup_contributor_selection(
         let transform = Transform::from_xyz(
             rng.gen_range(-400.0..400.0),
             rng.gen_range(0.0..400.0),
-            rng.gen(),
+            rng.r#gen(),
         );
         let dir = rng.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
         let hue = name_to_hue(&name);
 
         // Some sprites should be flipped for variety
-        let flipped = rng.gen();
+        let flipped = rng.r#gen();
 
         let entity = commands
             .spawn((
@@ -256,7 +256,7 @@ fn collisions(
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
     mut rng: ResMut<SharedRng>,
 ) {
-    let Ok(window) = window.get_single() else {
+    let Ok(window) = window.single() else {
         return;
     };
 

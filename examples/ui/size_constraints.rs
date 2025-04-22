@@ -269,7 +269,7 @@ fn update_buttons(
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
             Interaction::Pressed => {
-                button_activated_event.send(ButtonActivatedEvent(button_id));
+                button_activated_event.write(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
                         bar_node.flex_basis = value.0;

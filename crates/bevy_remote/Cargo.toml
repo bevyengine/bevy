@@ -1,7 +1,7 @@
 [package]
 name = "bevy_remote"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "The Bevy Remote Protocol"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -22,7 +22,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", features = [
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
   "serialize",
 ] }

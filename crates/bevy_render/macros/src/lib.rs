@@ -60,7 +60,8 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
         sampler,
         bind_group_data,
         storage,
-        bindless
+        bindless,
+        data
     )
 )]
 pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {

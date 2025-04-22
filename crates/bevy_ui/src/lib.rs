@@ -45,6 +45,9 @@ use widget::{ImageNode, ImageNodeSize};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_ui_picking_backend")]
+    #[doc(hidden)]
+    pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
@@ -56,7 +59,7 @@ pub mod prelude {
             geometry::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, ImageNode, Label},
+            widget::{Button, ImageNode, Label, NodeImageMode},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
@@ -72,24 +75,19 @@ use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{update_clipping_system, update_target_camera_system};
+use update::{update_clipping_system, update_ui_context_system};
 
 /// The basic plugin for Bevy UI
 pub struct UiPlugin {
     /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
     /// The layout and interaction components will still be updated as normal.
     pub enable_rendering: bool,
-    /// Whether to add the UI picking backend to the app.
-    #[cfg(feature = "bevy_ui_picking_backend")]
-    pub add_picking: bool,
 }
 
 impl Default for UiPlugin {
     fn default() -> Self {
         Self {
             enable_rendering: true,
-            #[cfg(feature = "bevy_ui_picking_backend")]
-            add_picking: true,
         }
     }
 }
@@ -103,6 +101,8 @@ pub enum UiSystem {
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
+    /// Update content requirements before layout.
+    Content,
     /// After this label, the ui layout state has been updated.
     ///
     /// Runs in [`PostUpdate`].
@@ -168,11 +168,13 @@ impl Plugin for UiPlugin {
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
+            .register_type::<ComputedNodeTarget>()
             .configure_sets(
                 PostUpdate,
                 (
                     CameraUpdateSystem,
-                    UiSystem::Prepare.before(UiSystem::Stack).after(Animation),
+                    UiSystem::Prepare.after(Animation),
+                    UiSystem::Content,
                     UiSystem::Layout,
                     UiSystem::PostLayout,
                 )
@@ -182,6 +184,9 @@ impl Plugin for UiPlugin {
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
+
+        #[cfg(feature = "bevy_ui_picking_backend")]
+        app.add_plugins(picking_backend::UiPickingPlugin);
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystem::Layout)
@@ -195,7 +200,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                update_target_camera_system.in_set(UiSystem::Prepare),
+                update_ui_context_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
@@ -209,17 +214,12 @@ impl Plugin for UiPlugin {
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
-                    .in_set(UiSystem::Prepare)
+                    .in_set(UiSystem::Content)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
             ),
         );
         build_text_interop(app);
-
-        #[cfg(feature = "bevy_ui_picking_backend")]
-        if self.add_picking {
-            app.add_plugins(picking_backend::UiPickingPlugin);
-        }
 
         if !self.enable_rendering {
             return;
@@ -261,7 +261,7 @@ fn build_text_interop(app: &mut App) {
                 widget::measure_text_system,
             )
                 .chain()
-                .in_set(UiSystem::Prepare)
+                .in_set(UiSystem::Content)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 // Potential conflict: `Assets<Image>`

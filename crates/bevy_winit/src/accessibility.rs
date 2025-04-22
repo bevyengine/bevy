@@ -3,6 +3,7 @@
 use alloc::{collections::VecDeque, sync::Arc};
 use bevy_input_focus::InputFocus;
 use std::sync::Mutex;
+use winit::event_loop::ActiveEventLoop;
 
 use accesskit::{
     ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role, Tree,
@@ -15,7 +16,7 @@ use bevy_a11y::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
@@ -66,8 +67,7 @@ impl AccessKitState {
     fn build_initial_tree(&mut self) -> TreeUpdate {
         let root = self.build_root();
         let accesskit_window_id = NodeId(self.entity.to_bits());
-        let mut tree = Tree::new(accesskit_window_id);
-        tree.app_name = Some(self.name.clone());
+        let tree = Tree::new(accesskit_window_id);
         self.requested.set(true);
 
         TreeUpdate {
@@ -116,6 +116,7 @@ impl DeactivationHandler for WinitDeactivationHandler {
 
 /// Prepares accessibility for a winit window.
 pub(crate) fn prepare_accessibility_for_window(
+    event_loop: &ActiveEventLoop,
     winit_window: &winit::window::Window,
     entity: Entity,
     name: String,
@@ -131,6 +132,7 @@ pub(crate) fn prepare_accessibility_for_window(
     let deactivation_handler = WinitDeactivationHandler;
 
     let adapter = Adapter::with_direct_handlers(
+        event_loop,
         winit_window,
         activation_handler,
         action_handler,
@@ -159,7 +161,7 @@ fn poll_receivers(
     for (_id, handler) in handlers.iter() {
         let mut handler = handler.lock().unwrap();
         while let Some(event) = handler.pop_front() {
-            actions.send(ActionRequestWrapper(event));
+            actions.write(ActionRequestWrapper(event));
         }
     }
 }
@@ -183,7 +185,7 @@ fn update_accessibility_nodes(
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
-    let Ok((primary_window_id, primary_window)) = primary_window.get_single() else {
+    let Ok((primary_window_id, primary_window)) = primary_window.single() else {
         return;
     };
     let Some(adapter) = adapters.get_mut(&primary_window_id) else {
@@ -227,9 +229,9 @@ fn update_adapter(
 ) -> TreeUpdate {
     let mut to_update = vec![];
     let mut window_children = vec![];
-    for (entity, node, children, parent) in &nodes {
+    for (entity, node, children, child_of) in &nodes {
         let mut node = (**node).clone();
-        queue_node_for_update(entity, parent, &node_entities, &mut window_children);
+        queue_node_for_update(entity, child_of, &node_entities, &mut window_children);
         add_children_nodes(children, &node_entities, &mut node);
         let node_id = NodeId(entity.to_bits());
         to_update.push((node_id, node));
@@ -258,7 +260,7 @@ fn queue_node_for_update(
     window_children: &mut Vec<NodeId>,
 ) {
     let should_push = if let Some(child_of) = child_of {
-        !node_entities.contains(child_of.get())
+        !node_entities.contains(child_of.parent())
     } else {
         true
     };

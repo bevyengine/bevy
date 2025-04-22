@@ -1061,7 +1061,7 @@ mod tests {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
 
-        let curve = EasingCurve::new(start, end, EaseFunction::Steps(4));
+        let curve = EasingCurve::new(start, end, EaseFunction::Steps(4, JumpAt::End));
         [
             (0.0, start),
             (0.249, start),
