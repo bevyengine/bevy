@@ -40,13 +40,9 @@ fn should_cull_instance(instance_id: u32) -> bool {
 
 @compute
 @workgroup_size(128, 1, 1) // 1 instance per thread
-fn cull_instances(
-    @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>,
-    @builtin(local_invocation_index) local_invocation_index: u32,
-) {
+fn cull_instances(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Calculate the instance ID for this thread
-    let dispatch_id = local_invocation_index + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
+    let dispatch_id = global_invocation_id.x;
     if dispatch_id >= instance_count() { return; }
 
     let instance_id = map_instance_id(dispatch_id);

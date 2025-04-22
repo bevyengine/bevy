@@ -26,13 +26,9 @@
 
 @compute
 @workgroup_size(128, 1, 1) // 8 threads per node
-fn cull_bvh(
-    @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>,
-    @builtin(local_invocation_index) local_invocation_index: u32,
-) {
+fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Calculate the queue ID for this thread
-    let dispatch_id = local_invocation_index + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
+    let dispatch_id = global_invocation_id.x;
     var node = dispatch_id >> 3u;
     let subnode = dispatch_id & 7u;
     if node >= meshlet_bvh_cull_count_read { return; }
@@ -49,7 +45,7 @@ fn cull_bvh(
 
     let parent_is_imperceptible = lod_error_is_imperceptible(lod_sphere, parent_error, instance_id);
     // Error and frustum cull, in both passes
-    if parent_is_imperceptible || !aabb_in_frustum(aabb, instance_id) { return; }
+    // if parent_is_imperceptible || !aabb_in_frustum(aabb, instance_id) { return; }
 
     let child_offset = get_aabb_child_offset(&aabb_error_offset);
     let index = subnode >> 2u;
@@ -91,12 +87,24 @@ fn cull_bvh(
             atomicAdd(&meshlet_bvh_cull_dispatch.x, 1u);
         }
     } else {
+#ifdef MESHLET_FIRST_CULLING_PASS
         let base = atomicAdd(&meshlet_meshlet_cull_count_early, child_count);
-        for (var i = base; i < base + child_count; i++) {
+        let end = base + child_count;
+        for (var i = base; i < end; i++) {
+            meshlet_meshlet_cull_queue[i] = value;
+            value.offset += 1u;
+        }
+        let req = (end + 127u) >> 7u;
+        atomicMax(&meshlet_meshlet_cull_dispatch_early.x, req);
+#else
+        let base = atomicAdd(&meshlet_meshlet_cull_count_late, child_count);
+        let start = constants.rightmost_slot - base;
+        for (var i = start; i < start - child_count; i--) {
             meshlet_meshlet_cull_queue[i] = value;
             value.offset += 1u;
         }
         let req = (base + child_count + 127u) >> 7u;
-        atomicMax(&meshlet_meshlet_cull_dispatch_early.x, req);
+        atomicMax(&meshlet_meshlet_cull_dispatch_late.x, req);
+#endif
     }
 }

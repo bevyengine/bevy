@@ -44,11 +44,9 @@ fn cull_clusters(
     let error = get_aabb_error(&aabb_error_offset);
     let lod_sphere = (*cull_data).lod_group_sphere;
 
-#ifdef MESHLET_FIRST_CULLING_PASS
     let is_imperceptible = lod_error_is_imperceptible(lod_sphere, error, instance_id);
-    // Error and frustum cull, only in the first pass
+    // Error and frustum cull, in both passes
     if !is_imperceptible || !aabb_in_frustum(aabb, instance_id) { return; }
-#endif
 
     // If we pass, try occlusion culling
     // If this node was occluded, push it's children to the second pass to check against this frame's HZB

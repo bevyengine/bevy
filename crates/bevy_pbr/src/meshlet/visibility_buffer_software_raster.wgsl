@@ -6,6 +6,7 @@
         meshlet_instance_uniforms,
         meshlet_raster_clusters,
         meshlet_previous_raster_counts,
+        meshlet_software_raster_cluster_count,
         meshlet_visibility_buffer,
         view,
         get_meshlet_vertex_count,

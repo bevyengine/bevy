@@ -21,22 +21,22 @@ impl PersistentGpuBufferable for Arc<[BvhNode]> {
         let size = size_of::<BvhNode>();
         let base_bvh_node_index = (buffer_offset / size as u64) as u32;
         for (i, &node) in self.iter().enumerate() {
-            let i = i * size;
             let bytes = bytemuck::cast::<_, [u8; size_of::<BvhNode>()]>(BvhNode {
                 aabbs: std::array::from_fn(|i| {
                     let aabb = node.aabbs[i];
                     MeshletAabbErrorOffset {
                         child_offset: aabb.child_offset
                             + if node.child_counts[i] == u8::MAX {
-                                base_meshlet_index
-                            } else {
                                 base_bvh_node_index
+                            } else {
+                                base_meshlet_index
                             },
                         ..aabb
                     }
                 }),
                 ..node
             });
+            let i = i * size;
             buffer_slice[i..(i + size)].clone_from_slice(&bytes);
         }
     }

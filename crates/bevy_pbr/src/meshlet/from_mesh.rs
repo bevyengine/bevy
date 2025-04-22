@@ -12,6 +12,7 @@ use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
 };
+use bevy_tasks::{AsyncComputeTaskPool, ParallelSlice};
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use core::{f32, ops::Range};
 use itertools::Itertools;
@@ -22,6 +23,7 @@ use meshopt::{
 use metis::{option::Opt, Graph};
 use smallvec::SmallVec;
 use thiserror::Error;
+use tracing::debug_span;
 
 // Aim to have 8 meshlets per group
 const TARGET_MESHLETS_PER_GROUP: usize = 8;
@@ -67,6 +69,9 @@ impl MeshletMesh {
         mesh: &Mesh,
         vertex_position_quantization_factor: u8,
     ) -> Result<Self, MeshToMeshletMeshConversionError> {
+        let s = debug_span!("build meshlet mesh");
+        let _e = s.enter();
+
         // Validate mesh format
         let indices = validate_input_mesh(mesh)?;
 
@@ -106,6 +111,9 @@ impl MeshletMesh {
         let mut simplification_queue: Vec<_> = (0..meshlets.len() as u32).collect();
         let mut stuck = Vec::new();
         while !simplification_queue.is_empty() {
+            let s = debug_span!("simplify lod", meshlets = simplification_queue.len());
+            let _e = s.enter();
+
             // For each meshlet build a list of connected meshlets (meshlets that share a vertex)
             let connected_meshlets_per_meshlet = find_connected_meshlets(
                 &simplification_queue,
@@ -132,17 +140,16 @@ impl MeshletMesh {
                 position_only_vertex_count,
             );
 
-            let first_group = all_groups.len() as u32;
-            let mut passed_tris = 0;
-            let mut stuck_tris = 0;
-            // TODO: Parallelize
-            for mut group in groups.into_iter() {
+            let simplified = groups.par_chunk_map(AsyncComputeTaskPool::get(), 1, |_, groups| {
+                let mut group = groups[0].clone();
+
                 // If the group only has a single meshlet we can't simplify it
                 if group.meshlets.len() == 1 {
-                    stuck_tris += triangles_in_meshlets(&meshlets, group.meshlets.iter().copied());
-                    stuck.push(group);
-                    continue;
+                    return Err(group);
                 }
+
+                let s = debug_span!("simplify group", meshlets = group.meshlets.len());
+                let _e = s.enter();
 
                 // Simplify the group to ~50% triangle count
                 let Some((simplified_group_indices, mut group_error)) = simplify_meshlet_group(
@@ -154,9 +161,7 @@ impl MeshletMesh {
                     &vertex_locks,
                 ) else {
                     // Couldn't simplify the group enough
-                    stuck_tris += triangles_in_meshlets(&meshlets, group.meshlets.iter().copied());
-                    stuck.push(group);
-                    continue;
+                    return Err(group);
                 };
 
                 // Force the group error to be atleast as large as all of it's constituent meshlet's
@@ -167,27 +172,45 @@ impl MeshletMesh {
                 group.parent_error = group_error;
 
                 // Build new meshlets using the simplified group
-                let new_meshlets_count = split_simplified_group_into_new_meshlets(
+                let new_meshlets = compute_meshlets(
                     &simplified_group_indices,
                     &vertices,
                     &position_only_vertex_remap,
                     position_only_vertex_count,
-                    &mut meshlets,
-                ) as u32;
+                );
 
-                // Calculate the culling bounding sphere for the new meshlets and set their LOD group data
-                let new_meshlet_ids =
-                    (meshlets.len() as u32 - new_meshlets_count)..meshlets.len() as u32;
-                temp_cull_data.extend(new_meshlet_ids.clone().map(|id| {
-                    let mut bounds = compute_meshlet_bounds(meshlets.get(id as _), &mut vertices);
-                    bounds.lod_group_sphere = group.lod_bounds;
-                    bounds.error = group.parent_error;
-                    bounds
-                }));
+                Ok((group, new_meshlets))
+            });
 
-                passed_tris += triangles_in_meshlets(&meshlets, new_meshlet_ids.clone());
-                simplification_queue.extend(new_meshlet_ids);
-                all_groups.push(group);
+            let first_group = all_groups.len() as u32;
+            let mut passed_tris = 0;
+            let mut stuck_tris = 0;
+            for group in simplified {
+                match group {
+                    Ok((group, new_meshlets)) => {
+                        let start = meshlets.len();
+                        merge_meshlets(&mut meshlets, new_meshlets);
+                        let end = meshlets.len();
+                        // Calculate the culling bounding sphere for the new meshlets and set their LOD group data
+                        let new_meshlet_ids = start as u32..end as u32;
+                        temp_cull_data.extend(new_meshlet_ids.clone().map(|id| {
+                            let mut bounds =
+                                compute_meshlet_bounds(meshlets.get(id as _), &mut vertices);
+                            bounds.lod_group_sphere = group.lod_bounds;
+                            bounds.error = group.parent_error;
+                            bounds
+                        }));
+
+                        passed_tris += triangles_in_meshlets(&meshlets, new_meshlet_ids.clone());
+                        simplification_queue.extend(new_meshlet_ids);
+                        all_groups.push(group);
+                    }
+                    Err(group) => {
+                        stuck_tris +=
+                            triangles_in_meshlets(&meshlets, group.meshlets.iter().copied());
+                        stuck.push(group);
+                    }
+                }
             }
 
             // If we have enough triangles that passed, we can retry simplifying the stuck
@@ -238,7 +261,7 @@ impl MeshletMesh {
             meshlet_cull_data: temp_cull_data
                 .into_iter()
                 .map(|cull_data| MeshletCullData {
-                    aabb: aabb_to_meshlet(cull_data.aabb, cull_data.error, None),
+                    aabb: aabb_to_meshlet(cull_data.aabb, cull_data.error, 0),
                     lod_group_sphere: sphere_to_meshlet(cull_data.lod_group_sphere),
                 })
                 .collect(),
@@ -555,38 +578,18 @@ fn simplify_meshlet_group(
     Some((simplified_group_indices, error))
 }
 
-fn split_simplified_group_into_new_meshlets(
-    simplified_group_indices: &[u32],
-    vertices: &VertexDataAdapter<'_>,
-    position_only_vertex_remap: &[u32],
-    position_only_vertex_count: usize,
-    meshlets: &mut Meshlets,
-) -> usize {
-    let simplified_meshlets = compute_meshlets(
-        simplified_group_indices,
-        vertices,
-        position_only_vertex_remap,
-        position_only_vertex_count,
-    );
-    let new_meshlets_count = simplified_meshlets.len();
-
+fn merge_meshlets(meshlets: &mut Meshlets, merge: Meshlets) {
     let vertex_offset = meshlets.vertices.len() as u32;
     let triangle_offset = meshlets.triangles.len() as u32;
-    meshlets
-        .vertices
-        .extend_from_slice(&simplified_meshlets.vertices);
-    meshlets
-        .triangles
-        .extend_from_slice(&simplified_meshlets.triangles);
+    meshlets.vertices.extend_from_slice(&merge.vertices);
+    meshlets.triangles.extend_from_slice(&merge.triangles);
     meshlets
         .meshlets
-        .extend(simplified_meshlets.meshlets.into_iter().map(|mut meshlet| {
+        .extend(merge.meshlets.into_iter().map(|mut meshlet| {
             meshlet.vertex_offset += vertex_offset;
             meshlet.triangle_offset += triangle_offset;
             meshlet
         }));
-
-    new_meshlets_count
 }
 
 fn build_and_compress_per_meshlet_vertex_data(
@@ -914,8 +917,7 @@ impl BvhBuilder {
             if child.group != u32::MAX {
                 let group = &groups[child.group as usize];
                 let out = &mut out[onode];
-                out.aabbs[i] =
-                    aabb_to_meshlet(group.aabb, group.parent_error, Some(group.meshlets[0]));
+                out.aabbs[i] = aabb_to_meshlet(group.aabb, group.parent_error, group.meshlets[0]);
                 out.lod_bounds[i] = sphere_to_meshlet(group.lod_bounds);
                 out.child_counts[i] = group.meshlets[1] as _;
             } else {
@@ -946,7 +948,7 @@ impl BvhBuilder {
                 }));
 
                 let out = &mut out[onode];
-                out.aabbs[i] = aabb_to_meshlet(aabb, parent_error, Some(child_id));
+                out.aabbs[i] = aabb_to_meshlet(aabb, parent_error, child_id);
                 out.lod_bounds[i] = sphere_to_meshlet(lod_bounds);
                 out.child_counts[i] = u8::MAX;
             }
@@ -994,7 +996,7 @@ impl BvhBuilder {
         if self.nodes.len() == 1 {
             let mut o = BvhNode::default();
             let group = &groups[0];
-            o.aabbs[0] = aabb_to_meshlet(group.aabb, group.parent_error, Some(group.meshlets[0]));
+            o.aabbs[0] = aabb_to_meshlet(group.aabb, group.parent_error, group.meshlets[0]);
             o.lod_bounds[0] = sphere_to_meshlet(group.lod_bounds);
             o.child_counts[0] = group.meshlets[1] as _;
             out.push(o);
@@ -1043,12 +1045,12 @@ fn aabb_default() -> Aabb3d {
     }
 }
 
-fn aabb_to_meshlet(aabb: Aabb3d, error: f32, offset: Option<u32>) -> MeshletAabbErrorOffset {
+fn aabb_to_meshlet(aabb: Aabb3d, error: f32, child_offset: u32) -> MeshletAabbErrorOffset {
     MeshletAabbErrorOffset {
         center: aabb.center().into(),
         error,
         half_extent: aabb.half_size().into(),
-        child_offset: offset.unwrap_or(0),
+        child_offset,
     }
 }
 

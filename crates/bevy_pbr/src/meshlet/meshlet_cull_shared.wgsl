@@ -12,23 +12,7 @@
 
 // https://github.com/zeux/meshoptimizer/blob/1e48e96c7e8059321de492865165e9ef071bffba/demo/nanite.cpp#L115
 fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, instance_id: u32) -> bool {
-    let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
-    let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
-    let sphere_world_space = (world_from_local * vec4(lod_sphere.xyz, 1.0)).xyz;
-    let radius_world_space = world_scale * lod_sphere.w;
-    let error_world_space = world_scale * simplification_error;
-
-    var projected_error = error_world_space;
-    if view.clip_from_view[3][3] != 1.0 {
-        // Perspective
-        let distance_to_closest_point_on_sphere = distance(sphere_world_space, view.world_position) - radius_world_space;
-        let distance_to_closest_point_on_sphere_clamped_to_znear = max(distance_to_closest_point_on_sphere, view.clip_from_view[3][2]);
-        projected_error /= distance_to_closest_point_on_sphere_clamped_to_znear;
-    }
-    projected_error *= view.clip_from_view[1][1] * 0.5;
-    projected_error *= view.viewport.w;
-
-    return projected_error < 1.0;
+    return simplification_error == 0.0;
 }
 
 fn normalize_plane(p: vec4<f32>) -> vec4<f32> {
