@@ -20,7 +20,6 @@ allow = [
   "MIT-0",
   "MPL-2.0",
   "Unlicense",
-  "OpenSSL",
   "Zlib",
 ]
 

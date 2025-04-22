@@ -81,21 +81,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use ureq::Agent;
 
     static AGENT: LazyLock<Agent> = LazyLock::new(|| {
-        use alloc::sync::Arc;
-        use ureq::{
-            tls::{TlsConfig, TlsProvider},
-            Agent,
-        };
-
-        let crypto = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
         Agent::config_builder()
-            .tls_config(
-                TlsConfig::builder()
-                    .provider(TlsProvider::Rustls)
-                    // requires rustls or rustls-no-provider feature
-                    .unversioned_rustls_crypto_provider(crypto)
-                    .build(),
-            )
             .build()
             .new_agent()
     });

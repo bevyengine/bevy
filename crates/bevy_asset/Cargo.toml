@@ -14,7 +14,7 @@ keywords = ["bevy"]
 file_watcher = ["notify-debouncer-full", "watch"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
-http_source = ["ureq", "rustls"]
+http_source = ["ureq"]
 http_source_cache = []
 asset_processor = []
 watch = []
@@ -70,18 +70,12 @@ uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify-debouncer-full = { version = "0.5.0", optional = true }
-# updating ureq: while ureq is semver stable rustls is not, meaning unlikely but possible breaking changes on minor releases. https://github.com/bevyengine/bevy/pull/16366#issuecomment-2572890794
-ureq = { version = "3.0.4", optional = true, default-features = false, features = [
-  "rustls-no-provider",
+# updating ureq: while ureq is semver stable, it depends on rustls which is not, meaning unlikely but possible breaking changes on minor releases. https://github.com/bevyengine/bevy/pull/16366#issuecomment-2572890794
+ureq = { version = "3", optional = true, default-features = false, features = [
   "gzip",
   "json",
 ] }
-rustls = { version = "0.23", optional = true, default-features = false, features = [
-  "aws_lc_rs",
-  "logging",
-  "std",
-  "tls12",
-] }
+
 
 [dev-dependencies]
 bevy_log = { path = "../bevy_log", version = "0.16.0-dev" }
