@@ -11,45 +11,14 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins.set(ImagePlugin::default_nearest()),))
         .add_systems(Startup, setup)
-        .add_systems(Update, (spawn_tilemap, update_tilemap))
+        .add_systems(Update, (update_tileset_image, update_tilemap))
         .run();
-}
-
-#[derive(Resource)]
-struct LoadingTileset {
-    is_loaded: bool,
-    handle: Handle<Image>,
 }
 
 #[derive(Component, Deref, DerefMut)]
 struct UpdateTimer(Timer);
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(LoadingTileset {
-        is_loaded: false,
-        handle: asset_server.load("textures/array_texture.png"),
-    });
-
-    commands.spawn(Camera2d);
-}
-
-fn spawn_tilemap(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut loading_tileset: ResMut<LoadingTileset>,
-    mut images: ResMut<Assets<Image>>,
-) {
-    if loading_tileset.is_loaded
-        || !asset_server
-            .load_state(loading_tileset.handle.id())
-            .is_loaded()
-    {
-        return;
-    }
-    loading_tileset.is_loaded = true;
-    let image = images.get_mut(&loading_tileset.handle).unwrap();
-    image.reinterpret_stacked_2d_as_array(4);
-
+fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let chunk_size = UVec2::splat(64);
     let tile_display_size = UVec2::splat(8);
@@ -62,11 +31,27 @@ fn spawn_tilemap(
         TilemapChunk {
             chunk_size,
             tile_display_size,
-            tileset: loading_tileset.handle.clone(),
+            tileset: assets.load("textures/array_texture.png"),
         },
         TilemapChunkIndices(indices),
         UpdateTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
+
+    commands.spawn(Camera2d);
+}
+
+fn update_tileset_image(
+    chunk_query: Single<&TilemapChunk>,
+    mut events: EventReader<AssetEvent<Image>>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    let chunk = *chunk_query;
+    for event in events.read() {
+        if event.is_loaded_with_dependencies(chunk.tileset.id()) {
+            let image = images.get_mut(&chunk.tileset).unwrap();
+            image.reinterpret_stacked_2d_as_array(4);
+        }
+    }
 }
 
 fn update_tilemap(time: Res<Time>, mut query: Query<(&mut TilemapChunkIndices, &mut UpdateTimer)>) {
