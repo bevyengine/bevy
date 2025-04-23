@@ -41,15 +41,15 @@ use crate::{ComputedNode, ImageNode, Node, PositionType, Val};
 /// [`update_viewport_render_target_size`]
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Debug)]
-pub struct Viewport {
+pub struct ViewportNode {
     /// The entity representing the [`Camera`] associated with this viewport.
     ///
-    /// Note that removing the [`Viewport`] component will not despawn this entity.
+    /// Note that removing the [`ViewportNode`] component will not despawn this entity.
     pub camera: Entity,
 }
 
-impl Viewport {
-    /// Creates a new [`Viewport`] with a given `camera`.
+impl ViewportNode {
+    /// Creates a new [`ViewportNode`] with a given `camera`.
     pub fn new(camera: Entity) -> Self {
         Self { camera }
     }
@@ -65,7 +65,7 @@ impl Viewport {
 )]
 pub fn viewport_picking(
     mut commands: Commands,
-    viewport_query: Query<(&Viewport, &PointerId, &Children)>,
+    viewport_query: Query<(&ViewportNode, &PointerId, &Children)>,
     node_query: Query<(&ComputedNode, &ImageNode, &GlobalTransform)>,
     camera_query: Query<&Camera>,
     hover_map: Res<HoverMap>,
@@ -154,7 +154,7 @@ pub fn viewport_picking(
 /// Spawns a new viewport widget with the given `camera` and `target`.
 pub fn viewport(camera: Entity, target: Handle<Image>) -> impl Bundle {
     (
-        Viewport::new(camera),
+        ViewportNode::new(camera),
         #[cfg(feature = "bevy_ui_picking_backend")]
         PointerId::Custom(Uuid::new_v4()),
         children![(
@@ -175,7 +175,7 @@ pub fn viewport(camera: Entity, target: Handle<Image>) -> impl Bundle {
 
 /// Updates the size of the associated render target for viewports when the node size changes.
 pub fn update_viewport_render_target_size(
-    viewport_query: Query<(&Viewport, &Children)>,
+    viewport_query: Query<(&ViewportNode, &Children)>,
     node_query: Query<&ComputedNode, Changed<ComputedNode>>,
     camera_query: Query<&Camera>,
     mut images: ResMut<Assets<Image>>,
