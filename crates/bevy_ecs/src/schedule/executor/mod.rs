@@ -21,7 +21,7 @@ use crate::{
     prelude::{IntoSystemSet, SystemSet},
     query::{Access, FilteredAccessSet},
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
-    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError},
+    system::{RunSystemError, ScheduleSystem, System, SystemIn, SystemParamValidationError},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -168,7 +168,7 @@ pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
 
 impl System for ApplyDeferred {
     type In = ();
-    type Out = Result<()>;
+    type Out = ();
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed("bevy_ecs::apply_deferred")
@@ -214,13 +214,17 @@ impl System for ApplyDeferred {
         &mut self,
         _input: SystemIn<'_, Self>,
         _world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
         Ok(())
     }
 
-    fn run(&mut self, _input: SystemIn<'_, Self>, _world: &mut World) -> Self::Out {
+    fn run(
+        &mut self,
+        _input: SystemIn<'_, Self>,
+        _world: &mut World,
+    ) -> Result<Self::Out, RunSystemError> {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
         Ok(())
@@ -280,7 +284,7 @@ mod __rust_begin_short_backtrace {
     use crate::world::unsafe_world_cell::UnsafeWorldCell;
     use crate::{
         error::Result,
-        system::{ReadOnlySystem, ScheduleSystem},
+        system::{ReadOnlySystem, RunSystemError, ScheduleSystem},
         world::World,
     };
 
@@ -289,7 +293,10 @@ mod __rust_begin_short_backtrace {
     // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
     #[cfg(feature = "std")]
     #[inline(never)]
-    pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
+    pub(super) unsafe fn run_unsafe(
+        system: &mut ScheduleSystem,
+        world: UnsafeWorldCell,
+    ) -> Result<(), RunSystemError> {
         let result = system.run_unsafe((), world);
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
@@ -304,13 +311,16 @@ mod __rust_begin_short_backtrace {
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: UnsafeWorldCell,
-    ) -> O {
+    ) -> Result<O, RunSystemError> {
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run_unsafe((), world))
     }
 
     #[inline(never)]
-    pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) -> Result {
+    pub(super) fn run(
+        system: &mut ScheduleSystem,
+        world: &mut World,
+    ) -> Result<(), RunSystemError> {
         let result = system.run((), world);
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
@@ -321,7 +331,7 @@ mod __rust_begin_short_backtrace {
     pub(super) fn run_without_applying_deferred(
         system: &mut ScheduleSystem,
         world: &mut World,
-    ) -> Result {
+    ) -> Result<(), RunSystemError> {
         let result = system.run_without_applying_deferred((), world);
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
@@ -332,7 +342,7 @@ mod __rust_begin_short_backtrace {
     pub(super) fn readonly_run<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
-    ) -> O {
+    ) -> Result<O, RunSystemError> {
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run((), world))
     }
@@ -464,13 +474,16 @@ mod tests {
 
     #[test]
     fn piped_system_second_system_skipped() {
+        // This system will be run before the second system is validated
         fn pipe_out(mut counter: ResMut<Counter>) -> u8 {
             counter.0 += 1;
             42
         }
 
         // This system should be skipped when run due to no matching entity
-        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>) {}
+        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>, mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
 
         let mut world = World::new();
         world.init_resource::<Counter>();
@@ -479,7 +492,7 @@ mod tests {
         schedule.add_systems(pipe_out.pipe(pipe_in));
         schedule.run(&mut world);
         let counter = world.resource::<Counter>();
-        assert_eq!(counter.0, 0);
+        assert_eq!(counter.0, 1);
     }
 
     #[test]

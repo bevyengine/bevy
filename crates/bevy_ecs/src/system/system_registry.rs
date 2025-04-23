@@ -3,7 +3,10 @@ use crate::reflect::ReflectComponent;
 use crate::{
     change_detection::Mut,
     entity::Entity,
-    system::{input::SystemInput, BoxedSystem, IntoSystem, SystemParamValidationError},
+    error::BevyError,
+    system::{
+        input::SystemInput, BoxedSystem, IntoSystem, RunSystemError, SystemParamValidationError,
+    },
     world::World,
 };
 use alloc::boxed::Box;
@@ -351,16 +354,10 @@ impl World {
             initialized = true;
         }
 
-        let result = system
-            .validate_param(self)
-            .map_err(|err| RegisteredSystemError::InvalidParams { system: id, err })
-            .map(|()| {
-                // Wait to run the commands until the system is available again.
-                // This is needed so the systems can recursively run themselves.
-                let ret = system.run_without_applying_deferred(input, self);
-                system.queue_deferred(self.into());
-                ret
-            });
+        // Wait to run the commands until the system is available again.
+        // This is needed so the systems can recursively run themselves.
+        let result = system.run_without_applying_deferred(input, self);
+        system.queue_deferred(self.into());
 
         // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
@@ -372,7 +369,7 @@ impl World {
 
         // Run any commands enqueued by the system
         self.flush();
-        result
+        Ok(result?)
     }
 
     /// Registers a system or returns its cached [`SystemId`].
@@ -493,14 +490,21 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
-    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
-    #[error("System {system:?} did not run due to failed parameter validation: {err}")]
-    InvalidParams {
-        /// The identifier of the system that was run.
-        system: SystemId<I, O>,
-        /// The returned parameter validation error.
-        err: SystemParamValidationError,
-    },
+    /// This is not considered an error.
+    #[error("System did not run due to failed parameter validation: {0}")]
+    Skipped(SystemParamValidationError),
+    /// System returned an error or failed required parameter validation.
+    #[error("System returned error: {0}")]
+    Failed(BevyError),
+}
+
+impl<I: SystemInput, O> From<RunSystemError> for RegisteredSystemError<I, O> {
+    fn from(value: RunSystemError) -> Self {
+        match value {
+            RunSystemError::Skipped(err) => Self::Skipped(err),
+            RunSystemError::Failed(err) => Self::Failed(err),
+        }
+    }
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -512,11 +516,8 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
             Self::SystemNotCached => write!(f, "SystemNotCached"),
             Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
             Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
-            Self::InvalidParams { system, err } => f
-                .debug_struct("InvalidParams")
-                .field("system", system)
-                .field("err", err)
-                .finish(),
+            Self::Skipped(arg0) => f.debug_tuple("Skipped").field(arg0).finish(),
+            Self::Failed(arg0) => f.debug_tuple("Failed").field(arg0).finish(),
         }
     }
 }
@@ -787,10 +788,8 @@ mod tests {
 
     #[test]
     fn cached_system_into_same_system_type() {
-        use crate::error::Result;
-
         struct Foo;
-        impl IntoSystem<(), Result<()>, ()> for Foo {
+        impl IntoSystem<(), (), ()> for Foo {
             type System = ApplyDeferred;
             fn into_system(_: Self) -> Self::System {
                 ApplyDeferred
@@ -798,7 +797,7 @@ mod tests {
         }
 
         struct Bar;
-        impl IntoSystem<(), Result<()>, ()> for Bar {
+        impl IntoSystem<(), (), ()> for Bar {
             type System = ApplyDeferred;
             fn into_system(_: Self) -> Self::System {
                 ApplyDeferred
@@ -876,11 +875,8 @@ mod tests {
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 
-        assert!(matches!(
-            result,
-            Err(RegisteredSystemError::InvalidParams { .. })
-        ));
-        let expected = format!("System {id:?} did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist");
+        assert!(matches!(result, Err(RegisteredSystemError::Failed { .. })));
+        let expected = format!("System returned error: Parameter `Res<T>` failed validation: Resource does not exist\n");
         assert_eq!(expected, result.unwrap_err().to_string());
     }
 

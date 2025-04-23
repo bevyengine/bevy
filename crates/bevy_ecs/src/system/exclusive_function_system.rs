@@ -1,11 +1,14 @@
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
+    error::Result,
+    never::Never,
     query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
-        System, SystemIn, SystemInput, SystemMeta,
+        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, Fallible,
+        FallibleFunctionSystem, Infallible, IntoSystem, Skippable, System, SystemIn, SystemInput,
+        SystemMeta,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -14,7 +17,7 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
-use super::SystemParamValidationError;
+use super::{RunSystemError, SystemParamValidationError};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -50,15 +53,18 @@ where
 #[doc(hidden)]
 pub struct IsExclusiveFunctionSystem;
 
-impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F
+impl<In, Out, Marker, F> IntoSystem<In, Out, (IsExclusiveFunctionSystem, Marker)> for F
 where
+    In: SystemInput,
+    Out: 'static,
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<Marker>,
+    FallibleFunctionSystem<F, Out>:
+        ExclusiveSystemParamFunction<Marker, In = In, Out = Result<Out, RunSystemError>>,
 {
-    type System = ExclusiveFunctionSystem<Marker, F>;
+    type System = ExclusiveFunctionSystem<Marker, FallibleFunctionSystem<F, Out>>;
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
-            func,
+            func: FallibleFunctionSystem::new(func),
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
@@ -66,15 +72,91 @@ where
     }
 }
 
-const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
-
-impl<Marker, F> System for ExclusiveFunctionSystem<Marker, F>
+impl<Marker, F, Out> ExclusiveSystemParamFunction<(Marker, Infallible)>
+    for FallibleFunctionSystem<F, Out>
 where
-    Marker: 'static,
-    F: ExclusiveSystemParamFunction<Marker>,
+    Out: 'static,
+    F: ExclusiveSystemParamFunction<Marker, Out = Out>,
 {
     type In = F::In;
-    type Out = F::Out;
+    type Out = Result<Out, RunSystemError>;
+    type Param = F::Param;
+    fn run(
+        &mut self,
+        world: &mut World,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        param_value: ExclusiveSystemParamItem<Self::Param>,
+    ) -> Self::Out {
+        Ok(self.0.run(world, input, param_value))
+    }
+}
+
+impl<Marker, Out, F> ExclusiveSystemParamFunction<(Marker, Fallible)>
+    for FallibleFunctionSystem<F, Out>
+where
+    Out: 'static,
+    F: ExclusiveSystemParamFunction<Marker, Out = Result<Out>>,
+{
+    type In = F::In;
+    type Out = Result<Out, RunSystemError>;
+    type Param = F::Param;
+    fn run(
+        &mut self,
+        world: &mut World,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        param_value: ExclusiveSystemParamItem<Self::Param>,
+    ) -> Self::Out {
+        Ok(self.0.run(world, input, param_value)?)
+    }
+}
+
+impl<Marker, Out, F> ExclusiveSystemParamFunction<(Marker, Out, Never)>
+    for FallibleFunctionSystem<F, Out>
+where
+    Out: 'static,
+    F: ExclusiveSystemParamFunction<Marker, Out = Never>,
+{
+    type In = F::In;
+    type Out = Result<Out, RunSystemError>;
+    type Param = F::Param;
+    fn run(
+        &mut self,
+        world: &mut World,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        param_value: ExclusiveSystemParamItem<Self::Param>,
+    ) -> Self::Out {
+        self.0.run(world, input, param_value)
+    }
+}
+
+impl<Marker, Out, F> ExclusiveSystemParamFunction<(Marker, Skippable)>
+    for FallibleFunctionSystem<F, Out>
+where
+    Out: 'static,
+    F: ExclusiveSystemParamFunction<Marker, Out = Result<Out, RunSystemError>>,
+{
+    type In = F::In;
+    type Out = Result<Out, RunSystemError>;
+    type Param = F::Param;
+    fn run(
+        &mut self,
+        world: &mut World,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        param_value: ExclusiveSystemParamItem<Self::Param>,
+    ) -> Self::Out {
+        self.0.run(world, input, param_value)
+    }
+}
+
+const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
+
+impl<Marker, F, Out> System for ExclusiveFunctionSystem<Marker, F>
+where
+    Marker: 'static,
+    F: ExclusiveSystemParamFunction<Marker, Out = Result<Out, RunSystemError>>,
+{
+    type In = F::In;
+    type Out = Out;
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
@@ -120,7 +202,7 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         // SAFETY: The safety is upheld by the caller.
         let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {

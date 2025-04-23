@@ -16,7 +16,7 @@ use crate::{
     error::{default_error_handler, BevyError, ErrorContext, Result},
     prelude::Resource,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::ScheduleSystem,
+    system::{RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -679,10 +679,12 @@ impl ExecutorState {
                 // - `is_exclusive` returned false
                 // - `update_archetype_component_access` has been called.
                 unsafe {
-                    if let Err(err) = __rust_begin_short_backtrace::run_unsafe(
-                        system,
-                        context.environment.world_cell,
-                    ) {
+                    if let Err(RunSystemError::Failed(err)) =
+                        __rust_begin_short_backtrace::run_unsafe(
+                            system,
+                            context.environment.world_cell,
+                        )
+                    {
                         (context.error_handler)(
                             err,
                             ErrorContext::System {
@@ -731,7 +733,9 @@ impl ExecutorState {
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                    if let Err(RunSystemError::Failed(err)) =
+                        __rust_begin_short_backtrace::run(system, world)
+                    {
                         (context.error_handler)(
                             err,
                             ErrorContext::System {
@@ -836,26 +840,27 @@ unsafe fn evaluate_and_fold_conditions(
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
             // - `update_archetype_component_access` has been called for condition.
-            match unsafe { condition.validate_param_unsafe(world) } {
-                Ok(()) => (),
-                Err(e) => {
-                    if !e.skipped {
+            unsafe { condition.validate_param_unsafe(world) }
+                .map_err(From::from)
+                .and_then(|()| unsafe {
+                    // SAFETY:
+                    // - The caller ensures that `world` has permission to read any data
+                    //   required by the condition.
+                    // - `update_archetype_component_access` has been called for condition.
+                    __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
+                })
+                .unwrap_or_else(|err| {
+                    if let RunSystemError::Failed(err) = err {
                         error_handler(
-                            e.into(),
+                            err,
                             ErrorContext::System {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                             },
-                        );
-                    }
-                    return false;
-                }
-            }
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the condition.
-            // - `update_archetype_component_access` has been called for condition.
-            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
+                        )
+                    };
+                    false
+                })
         })
         .fold(true, |acc, res| acc && res)
 }

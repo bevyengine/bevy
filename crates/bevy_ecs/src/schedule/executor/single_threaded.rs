@@ -10,6 +10,7 @@ use std::eprintln;
 use crate::{
     error::{default_error_handler, BevyError, ErrorContext},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
+    system::RunSystemError,
     world::World,
 };
 
@@ -92,25 +93,6 @@ impl SystemExecutor for SingleThreadedExecutor {
             should_run &= system_conditions_met;
 
             let system = &mut schedule.systems[system_index];
-            if should_run {
-                let valid_params = match system.validate_param(world) {
-                    Ok(()) => true,
-                    Err(e) => {
-                        if !e.skipped {
-                            error_handler(
-                                e.into(),
-                                ErrorContext::System {
-                                    name: system.name(),
-                                    last_run: system.get_last_run(),
-                                },
-                            );
-                        }
-                        false
-                    }
-                };
-
-                should_run &= valid_params;
-            }
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
@@ -128,7 +110,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             let f = AssertUnwindSafe(|| {
-                if let Err(err) =
+                if let Err(RunSystemError::Failed(err)) =
                     __rust_begin_short_backtrace::run_without_applying_deferred(system, world)
                 {
                     error_handler(
@@ -203,22 +185,20 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            match condition.validate_param(world) {
-                Ok(()) => (),
-                Err(e) => {
-                    if !e.skipped {
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world).unwrap_or_else(
+                |err| {
+                    if let RunSystemError::Failed(err) = err {
                         error_handler(
-                            e.into(),
+                            err,
                             ErrorContext::System {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                             },
-                        );
-                    }
-                    return false;
-                }
-            }
-            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
+                        )
+                    };
+                    false
+                },
+            )
         })
         .fold(true, |acc, res| acc && res)
 }

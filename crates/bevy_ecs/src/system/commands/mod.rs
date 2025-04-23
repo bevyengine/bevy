@@ -443,7 +443,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     // Return from the system successfully.
     ///     Ok(())
     /// }
-    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// # bevy_ecs::system::assert_is_system::<(), (), _>(example_system);
     /// ```
     ///
     /// # See also
