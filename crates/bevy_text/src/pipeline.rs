@@ -357,7 +357,7 @@ impl TextPipeline {
                         computed.entities[current_section].entity,
                         Rect::new(start, run.line_top, end, run.line_top + run.line_height),
                     ));
-                    start = end;
+                    start = end.max(glyph.x);
                     current_section = section_index;
                 }
                 end = glyph.x + glyph.w;
