@@ -38,7 +38,7 @@ impl Plugin for TilemapChunkPlugin {
 
 /// A resource storing the meshes for each tilemap chunk size.
 #[derive(Resource, Default, Deref, DerefMut)]
-struct TilemapChunkMeshMap(HashMap<UVec2, Handle<Mesh>>);
+pub struct TilemapChunkMeshMap(HashMap<UVec2, Handle<Mesh>>);
 
 /// A component representing a chunk of a tilemap.
 /// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
