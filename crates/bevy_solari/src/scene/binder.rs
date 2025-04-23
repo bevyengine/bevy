@@ -143,7 +143,7 @@ pub fn prepare_raytracing_scene_bindings(
         *tlas.get_mut_single(instance_id).unwrap() = Some(TlasInstance::new(
             blas,
             tlas_transform(&transform),
-            instance_id as u32,
+            Default::default(),
             0xFF,
         ));
 
@@ -411,7 +411,7 @@ struct GpuLightSource {
 impl GpuLightSource {
     fn new_emissive_mesh_light(instance_id: u32, triangle_count: u32) -> GpuLightSource {
         Self {
-            kind: triangle_count >> 1,
+            kind: triangle_count << 1,
             id: instance_id,
         }
     }

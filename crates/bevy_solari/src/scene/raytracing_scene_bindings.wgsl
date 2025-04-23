@@ -1,8 +1,5 @@
 #define_import_path bevy_solari::scene_bindings
 
-#import bevy_pbr::utils::rand_f
-#import bevy_render::maths::PI
-
 struct InstanceGeometryIds {
     vertex_buffer_id: u32,
     vertex_buffer_offset: u32,
@@ -69,7 +66,7 @@ struct DirectionalLight {
 @group(0) @binding(5) var tlas: acceleration_structure;
 @group(0) @binding(6) var<storage> transforms: array<mat4x4<f32>>;
 @group(0) @binding(7) var<storage> geometry_ids: array<InstanceGeometryIds>;
-@group(0) @binding(8) var<storage> material_ids: array<u32>;
+@group(0) @binding(8) var<storage> material_ids: array<u32>; // TODO: Store material_id in instance_custom_index instead?
 @group(0) @binding(9) var<storage> light_sources: array<LightSource>;
 @group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;
 
@@ -84,7 +81,7 @@ fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ra
 }
 
 fn sample_texture(id: u32, uv: vec2<f32>) -> vec3<f32> {
-    return textureSampleLevel(textures[id], samplers[id], uv, 0.0).rgb;
+    return textureSampleLevel(textures[id], samplers[id], uv, 0.0).rgb; // TODO: Mipmap
 }
 
 struct ResolvedMaterial {
@@ -98,7 +95,6 @@ struct ResolvedRayHitFull {
     geometric_world_normal: vec3<f32>,
     uv: vec2<f32>,
     material: ResolvedMaterial,
-    triangle_area: f32,
 }
 
 fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
@@ -118,25 +114,25 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
 }
 
 fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
-    let object_geometry_ids = geometry_ids[ray_hit.instance_custom_index];
-    let material_id = material_ids[ray_hit.instance_custom_index];
+    let instance_geometry_ids = geometry_ids[ray_hit.instance_id];
+    let material_id = material_ids[ray_hit.instance_id];
 
-    let index_buffer = &index_buffers[object_geometry_ids.index_buffer_id].indices;
-    let vertex_buffer = &vertex_buffers[object_geometry_ids.vertex_buffer_id].vertices;
+    let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
+    let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
     let material = materials[material_id];
 
-    let indices_i = (ray_hit.primitive_index * 3u) + vec3(0u, 1u, 2u) + object_geometry_ids.index_buffer_offset;
-    let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + object_geometry_ids.vertex_buffer_offset;
+    let indices_i = (ray_hit.primitive_index * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
+    let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + instance_geometry_ids.vertex_buffer_offset;
     let vertices = array<Vertex, 3>(unpack_vertex((*vertex_buffer)[indices.x]), unpack_vertex((*vertex_buffer)[indices.y]), unpack_vertex((*vertex_buffer)[indices.z]));
     let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
 
-    let transform = transforms[ray_hit.instance_custom_index];
+    let transform = transforms[ray_hit.instance_id];
     let local_position = mat3x3(vertices[0].position, vertices[1].position, vertices[2].position) * barycentrics;
     let world_position = (transform * vec4(local_position, 1.0)).xyz;
 
     let uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
 
-    let local_normal = mat3x3(vertices[0].normal, vertices[1].normal, vertices[2].normal) * barycentrics;
+    let local_normal = mat3x3(vertices[0].normal, vertices[1].normal, vertices[2].normal) * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
     var world_normal = normalize(mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz) * local_normal);
     let geometric_world_normal = world_normal;
     if material.normal_map_texture_id != TEXTURE_MAP_NONE {
@@ -151,20 +147,5 @@ fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
 
     let resolved_material = resolve_material(material, uv);
 
-    let triangle_edge0 = vertices[0].position - vertices[1].position;
-    let triangle_edge1 = vertices[0].position - vertices[2].position;
-    let triangle_area = length(cross(triangle_edge0, triangle_edge1)) / 2.0;
-
-    return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, uv, resolved_material, triangle_area);
-}
-
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec28%3A303
-fn sample_cosine_hemisphere(normal: vec3<f32>, state: ptr<function, u32>) -> vec3<f32> {
-    let cos_theta = 1.0 - 2.0 * rand_f(state);
-    let phi = 2.0 * PI * rand_f(state);
-    let sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
-    let x = normal.x + sin_theta * cos(phi);
-    let y = normal.y + sin_theta * sin(phi);
-    let z = normal.z + cos_theta;
-    return vec3(x, y, z);
+    return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, uv, resolved_material);
 }

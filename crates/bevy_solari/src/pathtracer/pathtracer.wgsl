@@ -1,8 +1,9 @@
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
-#import bevy_render::maths::PI;
+#import bevy_render::maths::PI
 #import bevy_render::view::View
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, sample_cosine_hemisphere}
+#import bevy_solari::sampling::sample_cosine_hemisphere
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
 @group(1) @binding(1) var view_output: texture_storage_2d<rgba16float, write>;

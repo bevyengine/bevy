@@ -28,6 +28,7 @@ use tracing::warn;
 
 const RAYTRACING_SCENE_BINDINGS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("9a69dbce-d718-4d10-841b-4025b28b525c");
+const SAMPLING_SHADER_HANDLE: Handle<Shader> = weak_handle!("a3dd800b-9eaa-4e2b-8576-80b14b521ae9");
 
 pub struct RaytracingScenePlugin;
 
@@ -37,6 +38,12 @@ impl Plugin for RaytracingScenePlugin {
             app,
             RAYTRACING_SCENE_BINDINGS_SHADER_HANDLE,
             "raytracing_scene_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            SAMPLING_SHADER_HANDLE,
+            "sampling.wgsl",
             Shader::from_wgsl
         );
 
