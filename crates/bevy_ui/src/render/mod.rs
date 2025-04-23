@@ -914,8 +914,7 @@ pub fn extract_text_background_colors(
             continue;
         };
 
-        let size = -0.5 * uinode.size().extend(0.);
-        let transform = global_transform.affine() * bevy_math::Affine3A::from_translation(size);
+        let transform = global_transform.affine() * bevy_math::Affine3A::from_translation(-0.5 * uinode.size().extend(0.));
 
         for &(section_entity, rect) in text_layout_info.section_rects.iter() {
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
