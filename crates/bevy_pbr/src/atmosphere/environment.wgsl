@@ -2,7 +2,7 @@
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
     bindings::{atmosphere, settings},
-    functions::{sample_sky_view_lut, direction_world_to_atmosphere}
+    functions::{sample_sky_view_lut, direction_world_to_atmosphere, max_atmosphere_distance, raymarch_atmosphere}
 }
 
 @group(0) @binding(13) var output: texture_storage_2d_array<rgba16float, write>;
@@ -54,9 +54,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     );
     
     let ray_dir_ws = face_uv_to_direction(slice_index, uv);
-    let r = atmosphere.bottom_radius;
+    let r = atmosphere.bottom_radius + 0.1;
     let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws);
     let inscattering = sample_sky_view_lut(r, ray_dir_as);
+    // let world_pos = vec3(0.0, r, 0.0);
+    // let up = normalize(world_pos);
+    // let mu = dot(ray_dir_ws, up);
+    // let raymarch_steps = 16.0;
+    // let t_max = max_atmosphere_distance(r, mu);
+    // let sample_count = mix(1.0, raymarch_steps, clamp(t_max * 0.01, 0.0, 1.0));
+    // let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, uv, true);
+    // let inscattering = result.inscattering;
     let color = vec4<f32>(inscattering, 1.0);
 
     // Write to the correct slice of the output texture

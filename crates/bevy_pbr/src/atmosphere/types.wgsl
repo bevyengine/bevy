@@ -34,6 +34,7 @@ struct AtmosphereSettings {
     aerial_view_lut_max_distance: f32,
     scene_units_to_m: f32,
     jitter_strength: f32,
+    environment_size: vec2<u32>,
 }
 
 

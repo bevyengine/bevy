@@ -6,8 +6,8 @@ use bevy::{
     core_pipeline::{auto_exposure::AutoExposure, bloom::Bloom, tonemapping::Tonemapping},
     input::mouse::{MouseMotion, MouseWheel},
     pbr::{
-        light_consts::lux, resources::AtmosphereResources, Atmosphere, AtmosphereSettings,
-        VolumetricFog, VolumetricLight,
+        light_consts::lux, Atmosphere, AtmosphereSettings, VolumetricFog, VolumetricLight,
+        AtmosphereEnvironmentMapLight,
     },
     prelude::*,
     render::camera::Exposure,
@@ -26,7 +26,7 @@ fn main() {
         .run();
 }
 
-fn setup_camera_fog(mut commands: Commands, atmosphere_resources: Res<AtmosphereResources>) {
+fn setup_camera_fog(mut commands: Commands) {
     let initial_distance = 1.0;
     let initial_transform =
         Transform::from_xyz(-initial_distance, 0.1, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
@@ -56,12 +56,12 @@ fn setup_camera_fog(mut commands: Commands, atmosphere_resources: Res<Atmosphere
             Tonemapping::AcesFitted,
             // Bloom gives the sun a much more natural look.
             Bloom::NATURAL,
-            EnvironmentMapLight {
-                intensity: 5000.0,
-                diffuse_map: atmosphere_resources.environment.clone(),
-                specular_map: atmosphere_resources.environment.clone(),
-                ..default()
-            },
+            // EnvironmentMapLight {
+            //     intensity: 5000.0,
+            //     diffuse_map: atmosphere_resources.environment.clone(),
+            //     specular_map: atmosphere_resources.environment.clone(),
+            //     ..default()
+            // },
         ))
         // .insert(ScreenSpaceAmbientOcclusion {
         //     constant_object_thickness: 4.0,
@@ -84,6 +84,12 @@ fn setup_camera_fog(mut commands: Commands, atmosphere_resources: Res<Atmosphere
             ambient_intensity: 0.0,
             ..default()
         });
+
+    commands.spawn((
+        LightProbe,
+        AtmosphereEnvironmentMapLight,
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
 
     let sun_transform = Transform::from_xyz(1.0, 1.0, -0.3).looking_at(Vec3::ZERO, Vec3::Y);
 

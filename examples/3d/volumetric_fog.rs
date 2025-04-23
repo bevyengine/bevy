@@ -4,7 +4,6 @@ use bevy::{
     color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     input::mouse::{MouseMotion, MouseWheel},
-    math::{vec3, VectorSpace},
     pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
@@ -63,7 +62,6 @@ fn main() {
 struct CameraOrbit {
     target_transform: Transform,
     distance: f32,
-    target: Vec3,
 }
 
 /// Initializes the scene.
@@ -89,7 +87,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             CameraOrbit {
                 target_transform: initial_transform,
                 distance: initial_distance,
-                target,
             },
             Tonemapping::TonyMcMapface,
             Bloom::default(),
@@ -294,10 +291,10 @@ fn pan_camera(
     mut scroll_evr: EventReader<MouseWheel>,
     mut camera_query: Query<(&Transform, &mut CameraOrbit), With<Camera3d>>,
     mouse_button: Res<ButtonInput<MouseButton>>,
-    camera_query_view: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
-    windows: Query<&Window>,
 ) {
-    let (camera_transform, mut camera_orbit) = camera_query.single_mut();
+    let Ok((camera_transform, mut camera_orbit)) = camera_query.single_mut() else {
+        return;
+    };
     for ev in scroll_evr.read() {
         let zoom_factor = camera_orbit.distance * 0.01;
         camera_orbit.distance = (camera_orbit.distance - ev.y * zoom_factor).clamp(0.5, 400.0);
@@ -326,7 +323,7 @@ fn smooth_camera_movement(
     let damping = 1.0 - (-8.0 * time.delta_secs()).exp();
 
     // Update camera
-    if let Ok((mut transform, orbit)) = camera_query.get_single_mut() {
+    if let Ok((mut transform, orbit)) = camera_query.single_mut() {
         transform.translation = transform
             .translation
             .lerp(orbit.target_transform.translation, damping);

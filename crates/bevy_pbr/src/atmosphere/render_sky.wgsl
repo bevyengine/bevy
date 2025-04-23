@@ -36,7 +36,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let up = normalize(world_pos);
     let mu = dot(ray_dir_ws, up);
 
-    let should_raymarch = true; //length(world_pos) >= atmosphere.top_radius;
+    let should_raymarch = true;//in.uv.x > 0.5;
 
     let raymarch_steps = 16.0;
 
@@ -52,7 +52,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         if should_raymarch {
             let t_max = max_atmosphere_distance(r, mu);
             let sample_count = mix(1.0, raymarch_steps, clamp(t_max * 0.01, 0.0, 1.0));
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, in.uv);
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, in.uv, true);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
@@ -65,7 +65,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
 
         if should_raymarch {
             let sample_count = mix(1.0, raymarch_steps, clamp(t * 0.01, 0.0, 1.0));
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, sample_count, in.uv);
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, sample_count, in.uv, true);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }

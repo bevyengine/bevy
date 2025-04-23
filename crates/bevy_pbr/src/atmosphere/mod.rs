@@ -50,7 +50,6 @@ use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
-    extract_resource::ExtractResourcePlugin,
     render_resource::{
         DownlevelFlags, ShaderType, SpecializedRenderPipelines, TextureFormat, TextureUsages,
     },
@@ -66,15 +65,17 @@ use bevy_render::{
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 use resources::{
     prepare_atmosphere_buffer, prepare_atmosphere_transforms, queue_render_sky_pipelines,
-    AtmosphereBuffer, AtmosphereResources, AtmosphereTransforms, RenderSkyBindGroupLayouts,
+    AtmosphereBuffer, AtmosphereTransforms, RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
+
+use crate::LightProbe;
 
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, EnvironmentNode, RenderSkyNode},
     resources::{
-        prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmosphereLutPipelines, AtmosphereSamplers, EnvironmentPipeline,
+        prepare_atmosphere_bind_groups, prepare_probe_textures, prepare_view_textures,
+        AtmosphereBindGroupLayouts, AtmospherePipelines, AtmosphereSamplers,
     },
 };
 
@@ -183,13 +184,12 @@ impl Plugin for AtmospherePlugin {
 
         app.register_type::<Atmosphere>()
             .register_type::<AtmosphereSettings>()
-            .init_resource::<AtmosphereResources>()
             .add_plugins((
                 ExtractComponentPlugin::<Atmosphere>::default(),
                 ExtractComponentPlugin::<AtmosphereSettings>::default(),
+                ExtractComponentPlugin::<AtmosphereEnvironmentMapLight>::default(),
                 UniformComponentPlugin::<Atmosphere>::default(),
                 UniformComponentPlugin::<AtmosphereSettings>::default(),
-                ExtractResourcePlugin::<AtmosphereResources>::default(),
             ));
     }
 
@@ -222,17 +222,19 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereBindGroupLayouts>()
             .init_resource::<RenderSkyBindGroupLayouts>()
             .init_resource::<AtmosphereSamplers>()
-            .init_resource::<AtmosphereLutPipelines>()
+            .init_resource::<AtmospherePipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .init_resource::<AtmosphereBuffer>()
-            .init_resource::<EnvironmentPipeline>()
             .add_systems(
                 Render,
                 (
                     configure_camera_depth_usages.in_set(RenderSet::ManageViews),
                     queue_render_sky_pipelines.in_set(RenderSet::Queue),
-                    prepare_atmosphere_textures.in_set(RenderSet::PrepareResources),
+                    prepare_view_textures.in_set(RenderSet::PrepareResources),
+                    prepare_probe_textures
+                        .in_set(RenderSet::PrepareResources)
+                        .after(prepare_view_textures),
                     prepare_atmosphere_transforms.in_set(RenderSet::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     prepare_atmosphere_buffer
@@ -244,10 +246,7 @@ impl Plugin for AtmospherePlugin {
                 Core3d,
                 AtmosphereNode::RenderLuts,
             )
-            .add_render_graph_node::<ViewNodeRunner<EnvironmentNode>>(
-                Core3d,
-                AtmosphereNode::Environment,
-            )
+            .add_render_graph_node::<EnvironmentNode>(Core3d, AtmosphereNode::Environment)
             .add_render_graph_edges(
                 Core3d,
                 (
@@ -498,6 +497,9 @@ pub struct AtmosphereSettings {
 
     /// The strength of the jitter applied to the raymarching steps.
     pub jitter_strength: f32,
+
+    /// The size of the environment map.
+    pub environment_size: UVec2,
 }
 
 impl Default for AtmosphereSettings {
@@ -515,6 +517,7 @@ impl Default for AtmosphereSettings {
             aerial_view_lut_max_distance: 3.2e4,
             scene_units_to_m: 1.0,
             jitter_strength: 0.99,
+            environment_size: UVec2::new(512, 512),
         }
     }
 }
@@ -536,5 +539,21 @@ fn configure_camera_depth_usages(
 ) {
     for mut camera in &mut cameras {
         camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
+    }
+}
+
+/// This component marks a light probe entity for generating an environment map
+/// using the atmosphere's environment map shader.
+#[derive(Component, Clone)]
+#[require(LightProbe)]
+pub struct AtmosphereEnvironmentMapLight;
+
+impl ExtractComponent for AtmosphereEnvironmentMapLight {
+    type QueryData = Read<AtmosphereEnvironmentMapLight>;
+    type QueryFilter = With<LightProbe>;
+    type Out = AtmosphereEnvironmentMapLight;
+
+    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
     }
 }

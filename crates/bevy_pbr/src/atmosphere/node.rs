@@ -1,14 +1,14 @@
-use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
+use bevy_ecs::{
+    query::{QueryItem, QueryState},
+    system::lifetimeless::Read,
+    world::{FromWorld, World},
+};
 use bevy_math::{UVec2, Vec3Swizzles};
 use bevy_render::{
     extract_component::DynamicUniformIndex,
-    render_asset::RenderAssets,
-    render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
-    render_resource::{
-        ComputePass, ComputePassDescriptor, Extent3d, PipelineCache, RenderPassDescriptor,
-    },
+    render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
+    render_resource::{ComputePass, ComputePassDescriptor, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
-    texture::GpuImage,
     view::{ViewTarget, ViewUniformOffset},
 };
 
@@ -16,7 +16,7 @@ use crate::ViewLightsUniformOffset;
 
 use super::{
     resources::{
-        AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereResources,
+        AtmosphereBindGroups, AtmospherePipelines, AtmosphereProbeBindGroups,
         AtmosphereTransformsOffset, RenderSkyPipelineId,
     },
     Atmosphere, AtmosphereSettings,
@@ -58,7 +58,7 @@ impl ViewNode for AtmosphereLutsNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let pipelines = world.resource::<AtmosphereLutPipelines>();
+        let pipelines = world.resource::<AtmospherePipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let (
             Some(transmittance_lut_pipeline),
@@ -226,58 +226,61 @@ impl ViewNode for RenderSkyNode {
     }
 }
 
-#[derive(Default)]
-pub(super) struct EnvironmentNode;
-
-impl ViewNode for EnvironmentNode {
-    type ViewQuery = (
-        Read<AtmosphereBindGroups>,
+pub(super) struct EnvironmentNode {
+    main_view_query: QueryState<(
+        Read<AtmosphereSettings>,
         Read<DynamicUniformIndex<Atmosphere>>,
         Read<DynamicUniformIndex<AtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
-    );
+    )>,
+    probe_query: QueryState<(Read<AtmosphereProbeBindGroups>,)>,
+}
 
-    fn run<'w>(
+impl FromWorld for EnvironmentNode {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            main_view_query: QueryState::new(world),
+            probe_query: QueryState::new(world),
+        }
+    }
+}
+
+impl Node for EnvironmentNode {
+    fn update(&mut self, world: &mut World) {
+        self.main_view_query.update_archetypes(world);
+        self.probe_query.update_archetypes(world);
+    }
+
+    fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (
-            bind_groups,
-            atmosphere_uniforms_offset,
-            settings_uniforms_offset,
-            atmosphere_transforms_offset,
-            view_uniforms_offset,
-            lights_uniforms_offset,
-        ): QueryItem<'w, Self::ViewQuery>,
-        world: &'w World,
+        graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext,
+        world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<AtmosphereLutPipelines>();
-        let gpu_images = world.resource::<RenderAssets<GpuImage>>();
-        let atmosphere_resources = world.resource::<AtmosphereResources>();
+        let pipelines = world.resource::<AtmospherePipelines>();
+        let view_entity = graph.view_entity();
 
-        // Get the texture for the environment array from the resources
-        let Some(environment_storage) =
-            gpu_images.get(&atmosphere_resources.environment_storage_view)
-        else {
-            return Ok(());
-        };
-
-        // Get the cubemap texture view as well
-        let Some(environment) = gpu_images.get(&atmosphere_resources.environment) else {
-            return Ok(());
-        };
-
-        // Get the base level pipeline for environment cubemap generation
         let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
         else {
             return Ok(());
         };
 
-        // Generate the environment cubemap
-        {
+        let (Ok((
+            settings,
+            atmosphere_uniforms_offset,
+            settings_uniforms_offset,
+            atmosphere_transforms_offset,
+            view_uniforms_offset,
+            lights_uniforms_offset,
+        )),) = (self.main_view_query.get_manual(world, view_entity),)
+        else {
+            return Ok(());
+        };
+
+        for (bind_groups,) in self.probe_query.iter_manual(world) {
             let mut pass =
                 render_context
                     .command_encoder()
@@ -300,22 +303,11 @@ impl ViewNode for EnvironmentNode {
             );
 
             pass.dispatch_workgroups(
-                environment_storage.size.width / 8,
-                environment_storage.size.height / 8,
+                settings.environment_size.x / 8,
+                settings.environment_size.y / 8,
                 6, // 6 cubemap faces
             );
         }
-
-        // Copy environment cubemap to the final texture
-        render_context.command_encoder().copy_texture_to_texture(
-            environment_storage.texture.as_image_copy(),
-            environment.texture.as_image_copy(),
-            Extent3d {
-                width: environment_storage.size.width,
-                height: environment_storage.size.height,
-                depth_or_array_layers: 6,
-            },
-        );
 
         Ok(())
     }

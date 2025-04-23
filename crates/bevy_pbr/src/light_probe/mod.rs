@@ -2,7 +2,10 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_core_pipeline::core_3d::{
+    graph::{Core3d, Node3d},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -18,9 +21,11 @@ use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    extract_component::ExtractComponentPlugin,
     extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
+    render_graph::RenderGraphApp,
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -30,14 +35,22 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
+use prefilter::{
+    extract_prefilter_entities, prepare_prefilter_bind_groups, prepare_prefilter_textures,
+    FilteredEnvironmentMapLight, PrefilterPipelines, SpdFirstNode, SpdSecondNode,
+};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
-    light_probe::environment_map::{
-        EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE,
+    light_probe::{
+        environment_map::{EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE},
+        prefilter::{
+            ImportanceSampleNode, IrradianceNode, PrefilterBindGroupLayouts, PrefilterNode,
+            PrefilterSamplers, IMPORTANCE_SAMPLE_SHADER_HANDLE, SPD_SHADER_HANDLE,
+        },
     },
 };
 
@@ -48,6 +61,7 @@ pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> =
 
 pub mod environment_map;
 pub mod irradiance_volume;
+pub mod prefilter;
 
 /// The maximum number of each type of light probe that each view will consider.
 ///
@@ -362,6 +376,13 @@ impl Plugin for LightProbePlugin {
             "irradiance_volume.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(app, SPD_SHADER_HANDLE, "spd.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            IMPORTANCE_SAMPLE_SHADER_HANDLE,
+            "importance_sample.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
@@ -375,16 +396,43 @@ impl Plugin for LightProbePlugin {
 
         render_app
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
+            .add_plugins(ExtractComponentPlugin::<FilteredEnvironmentMapLight>::default())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
+            .init_resource::<PrefilterBindGroupLayouts>()
+            .init_resource::<PrefilterSamplers>()
+            .init_resource::<PrefilterPipelines>()
+            .add_render_graph_node::<SpdFirstNode>(Core3d, PrefilterNode::GenerateMipmap)
+            .add_render_graph_node::<SpdSecondNode>(Core3d, PrefilterNode::GenerateMipmapSecond)
+            .add_render_graph_node::<ImportanceSampleNode>(Core3d, PrefilterNode::ImportanceSample)
+            .add_render_graph_node::<IrradianceNode>(Core3d, PrefilterNode::IrradianceMap)
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    Node3d::EndPrepasses,
+                    PrefilterNode::GenerateMipmap,
+                    PrefilterNode::GenerateMipmapSecond,
+                    PrefilterNode::ImportanceSample,
+                    PrefilterNode::IrradianceMap,
+                    Node3d::StartMainPass,
+                ),
+            )
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
                 Render,
-                (upload_light_probes, prepare_environment_uniform_buffer)
-                    .in_set(RenderSet::PrepareResources),
-            );
+                (
+                    prepare_prefilter_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    (
+                        upload_light_probes,
+                        prepare_environment_uniform_buffer,
+                        prepare_prefilter_textures,
+                    )
+                        .in_set(RenderSet::PrepareResources),
+                ),
+            )
+            .add_systems(ExtractSchedule, extract_prefilter_entities);
     }
 }
 

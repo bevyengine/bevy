@@ -272,7 +272,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
         let shadow_map_factor = get_shadow(light_i, world_pos, ray_dir);
 
         // Transmittance from scattering event to light source
-        let scattering_factor = shadow_factor * scattering_coeff * shadow_map_factor;
+        let scattering_factor = shadow_factor * scattering_coeff;
 
         // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
@@ -481,6 +481,7 @@ fn raymarch_atmosphere(
     t_max: f32,
     sample_count: f32,
     uv: vec2<f32>,
+    jitter: bool
 ) -> RaymarchResult {
     let r = length(pos);
     let up = normalize(pos);
@@ -502,12 +503,15 @@ fn raymarch_atmosphere(
         return result;
     }
 
-    let jitter = (get_blue_noise(uv) - 0.5) * settings.jitter_strength + 0.5;
+    var sample_offset = (get_blue_noise(uv) - 0.5) * settings.jitter_strength + 0.5;
+    if !jitter {
+        sample_offset = MIDPOINT_RATIO;
+    }
     
     var prev_t = t_start;
     for (var s = 0.0; s < sample_count; s += 1.0) {
         // Linear distribution from atmosphere entry to exit/ground
-        let t_i = t_start + t_total * (s + jitter) / sample_count;
+        let t_i = t_start + t_total * (s + sample_offset) / sample_count;
         let dt_i = (t_i - prev_t);
         prev_t = t_i;
 
