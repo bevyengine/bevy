@@ -844,16 +844,21 @@ impl Image {
     }
 
     /// Create a new zero-filled image with a given size, which can be rendered to.
+    /// Useful for mirrors, UI, or exporting images for example.
     /// This is primarily for use as a render target for a [`Camera`].
     /// See [`RenderTarget::Image`].
     ///
-    /// You can use [`TEXTURE_FORMAT_SDR`] and [`TEXTURE_FORMAT_HDR`]
-    /// for Standard Dynamic Range (SDR) and High Dynamic Range (HDR) respectively.
+    /// For Standard Dynamic Range (SDR) images you can use [`TextureFormat::Rgba8UnormSrgb`].
+    /// For High Dynamic Range (HDR) images you can use [`TextureFormat::Rgba16Float`].
     ///
-    /// The default texture usages are
+    /// The default [`TextureUsages`] are
     /// [`TEXTURE_BINDING`](TextureUsages::TEXTURE_BINDING),
     /// [`COPY_DST`](TextureUsages::COPY_DST),
     /// [`RENDER_ATTACHMENT`](TextureUsages::RENDER_ATTACHMENT).
+    ///
+    /// The default [`RenderAssetUsages`] is [`MAIN_WORLD | RENDER_WORLD`](RenderAssetUsages::default)
+    /// so that it is accessible from the CPU and GPU.
+    /// You can customise this by changing the [`asset_usage`](Image::asset_usage) field.
     ///
     /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
     /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
