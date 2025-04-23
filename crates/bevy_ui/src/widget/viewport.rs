@@ -1,14 +1,11 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
+    component::require,
     entity::Entity,
     event::EventReader,
-    hierarchy::Children,
     prelude::Component,
-    query::Changed,
+    query::{Changed, Or},
     reflect::ReflectComponent,
-    spawn::SpawnRelated,
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
@@ -31,7 +28,7 @@ use bevy_utils::default;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use uuid::Uuid;
 
-use crate::{ComputedNode, ImageNode, Node, PositionType, Val};
+use crate::{ComputedNode, Node};
 
 /// Component used to render a [`Camera::target`]  to a node.
 ///
@@ -41,6 +38,8 @@ use crate::{ComputedNode, ImageNode, Node, PositionType, Val};
 /// [`update_viewport_render_target_size`]
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Debug)]
+#[require(Node)]
+#[cfg_attr(feature = "bevy_ui_picking_backend", require(Pickable (|| Pickable::IGNORE), PointerId (|| PointerId::Custom(Uuid::new_v4()))))]
 pub struct ViewportNode {
     /// The entity representing the [`Camera`] associated with this viewport.
     ///
@@ -59,14 +58,9 @@ impl ViewportNode {
 /// Handles viewport picking logic.
 ///
 /// Viewport entities that are being hovered or dragged will have all pointer inputs sent to them.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "System requires a lot of arguments"
-)]
 pub fn viewport_picking(
     mut commands: Commands,
-    viewport_query: Query<(&ViewportNode, &PointerId, &Children)>,
-    node_query: Query<(&ComputedNode, &ImageNode, &GlobalTransform)>,
+    viewport_query: Query<(&ViewportNode, &PointerId, &ComputedNode, &GlobalTransform)>,
     camera_query: Query<&Camera>,
     hover_map: Res<HoverMap>,
     pointer_state: Res<PointerState>,
@@ -98,26 +92,17 @@ pub fn viewport_picking(
     }
 
     for (viewport_entity, pick_pointer_id) in viewport_picks {
-        let Ok((&viewport, &viewport_pointer_id, viewport_children)) =
+        let Ok((&viewport, &viewport_pointer_id, computed_node, global_transform)) =
             viewport_query.get(viewport_entity)
         else {
             // This can only happen if entities in `dragged_last_frame` had one of these
             // components removed since we last queried them
             continue;
         };
-
-        let Some((computed_node, image_node, global_transform)) = viewport_children
-            .iter()
-            .find_map(|child| node_query.get(*child).ok())
-        else {
+        let Ok(camera) = camera_query.get(viewport.camera) else {
             continue;
         };
-
-        let Some(cam_viewport_size) = camera_query
-            .get(viewport.camera)
-            .ok()
-            .and_then(Camera::logical_viewport_size)
-        else {
+        let Some(cam_viewport_size) = camera.logical_viewport_size() else {
             continue;
         };
 
@@ -130,6 +115,10 @@ pub fn viewport_picking(
         let top_left = node_rect.min * computed_node.inverse_scale_factor();
         let logical_size = computed_node.size() * computed_node.inverse_scale_factor();
 
+        let Some(target) = camera.target.as_image() else {
+            continue;
+        };
+
         for input in pointer_inputs
             .read()
             .filter(|input| input.pointer_id == pick_pointer_id)
@@ -139,7 +128,7 @@ pub fn viewport_picking(
 
             let location = Location {
                 position,
-                target: NormalizedRenderTarget::Image(image_node.image.clone().into()),
+                target: NormalizedRenderTarget::Image(target.clone().into()),
             };
 
             commands.send_event(PointerInput {
@@ -151,44 +140,16 @@ pub fn viewport_picking(
     }
 }
 
-/// Spawns a new viewport widget with the given `camera` and `target`.
-pub fn viewport(camera: Entity, target: Handle<Image>) -> impl Bundle {
-    (
-        ViewportNode::new(camera),
-        #[cfg(feature = "bevy_ui_picking_backend")]
-        PointerId::Custom(Uuid::new_v4()),
-        children![(
-            ImageNode::new(target),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::ZERO,
-                bottom: Val::ZERO,
-                left: Val::ZERO,
-                right: Val::ZERO,
-                ..default()
-            },
-            #[cfg(feature = "bevy_ui_picking_backend")]
-            Pickable::IGNORE,
-        )],
-    )
-}
-
 /// Updates the size of the associated render target for viewports when the node size changes.
 pub fn update_viewport_render_target_size(
-    viewport_query: Query<(&ViewportNode, &Children)>,
-    node_query: Query<&ComputedNode, Changed<ComputedNode>>,
+    viewport_query: Query<
+        (&ViewportNode, &ComputedNode),
+        Or<(Changed<ComputedNode>, Changed<ViewportNode>)>,
+    >,
     camera_query: Query<&Camera>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    for (viewport, children) in &viewport_query {
-        let Some(computed_node) = children
-            .iter()
-            .find_map(|child| node_query.get(*child).ok())
-        else {
-            // Node hasn't been changed, or one wasn't found
-            continue;
-        };
-
+    for (viewport, computed_node) in &viewport_query {
         let camera = camera_query.get(viewport.camera).unwrap();
         let size = computed_node.size();
 

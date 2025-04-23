@@ -7,7 +7,7 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
-use crate::widget::ImageNode;
+use crate::widget::{ImageNode, ViewportNode};
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera,
     Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias, UiTargetCamera,
@@ -105,6 +105,7 @@ pub enum RenderUiSystem {
     ExtractImages,
     ExtractTextureSlice,
     ExtractBorders,
+    ExtractViewportNodes,
     ExtractTextShadows,
     ExtractText,
     ExtractDebug,
@@ -148,6 +149,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
+                extract_viewport_nodes.in_set(RenderUiSystem::ExtractViewportNodes),
                 extract_text_shadows.in_set(RenderUiSystem::ExtractTextShadows),
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
                 #[cfg(feature = "bevy_ui_debug")]
@@ -696,6 +698,69 @@ pub fn extract_ui_camera_view(
     }
 
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
+}
+
+pub fn extract_viewport_nodes(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    camera_query: Extract<Query<&Camera>>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            Option<&UiTargetCamera>,
+            &ViewportNode,
+        )>,
+    >,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut camera_mapper = camera_map.get_mapper();
+    for (entity, uinode, transform, inherited_visibility, clip, camera, viewport_node) in
+        &uinode_query
+    {
+        // Skip invisible images
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        let Some(image) = camera_query
+            .get(viewport_node.camera)
+            .ok()
+            .and_then(|camera| camera.target.as_image())
+        else {
+            continue;
+        };
+
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            stack_index: uinode.stack_index,
+            color: LinearRgba::WHITE,
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: uinode.size,
+            },
+            clip: clip.map(|clip| clip.clip),
+            image: image.id(),
+            extracted_camera_entity,
+            item: ExtractedUiItem::Node {
+                atlas_scaling: None,
+                transform: transform.compute_matrix(),
+                flip_x: false,
+                flip_y: false,
+                border: uinode.border(),
+                border_radius: uinode.border_radius(),
+                node_type: NodeType::Rect,
+            },
+            main_entity: entity.into(),
+        });
+    }
 }
 
 pub fn extract_text_sections(
