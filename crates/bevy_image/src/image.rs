@@ -858,7 +858,7 @@ impl Image {
     ///
     /// The default [`RenderAssetUsages`] is [`MAIN_WORLD | RENDER_WORLD`](RenderAssetUsages::default)
     /// so that it is accessible from the CPU and GPU.
-    /// You can customise this by changing the [`asset_usage`](Image::asset_usage) field.
+    /// You can customize this by changing the [`asset_usage`](Image::asset_usage) field.
     ///
     /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
     /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
