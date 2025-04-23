@@ -286,7 +286,7 @@ struct DepthRayMarchResult {
     /// Range: `0..=1` as a lerp factor over `ray_start_cs..=ray_end_cs`.
     hit_t: f32,
 
-    /// UV correspindong to `hit_t`.
+    /// UV corresponding to `hit_t`.
     hit_uv: vec2<f32>,
 
     /// The distance that the hit point penetrates into the hit surface.

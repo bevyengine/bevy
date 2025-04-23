@@ -1,10 +1,9 @@
 use alloc::vec::Vec;
 use bevy_ecs::{
+    change_detection::MaybeLocation,
     event::{Event, EventCursor, EventId, EventInstance},
     resource::Resource,
 };
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -74,7 +73,7 @@ use {
 /// - [`EventReader`]s that read at least once per update will never drop events.
 /// - [`EventReader`]s that read once within two updates might still receive some events
 /// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
-///     before those updates.
+///   before those updates.
 ///
 /// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
@@ -123,21 +122,12 @@ impl<E: Event> Events<E> {
     /// This method returns the [ID](`EventId`) of the sent `event`.
     #[track_caller]
     pub fn send(&mut self, event: E) -> EventId<E> {
-        self.send_with_caller(
-            event,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.send_with_caller(event, MaybeLocation::caller())
     }
 
-    pub(crate) fn send_with_caller(
-        &mut self,
-        event: E,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) -> EventId<E> {
+    pub(crate) fn send_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
-            #[cfg(feature = "track_location")]
             caller,
             _marker: PhantomData,
         };
@@ -307,8 +297,7 @@ impl<E: Event> Extend<E> for Events<E> {
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
                 id: event_count,
-                #[cfg(feature = "track_location")]
-                caller: Location::caller(),
+                caller: MaybeLocation::caller(),
                 _marker: PhantomData,
             };
             event_count += 1;
@@ -331,7 +320,7 @@ impl<E: Event> Extend<E> for Events<E> {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub(crate) struct EventSequence<E: Event> {
     pub(crate) events: Vec<EventInstance<E>>,
     pub(crate) start_event_count: usize,
@@ -378,8 +367,7 @@ impl<E: Event> Iterator for SendBatchIds<E> {
 
         let result = Some(EventId {
             id: self.last_count,
-            #[cfg(feature = "track_location")]
-            caller: Location::caller(),
+            caller: MaybeLocation::caller(),
             _marker: PhantomData,
         });
 

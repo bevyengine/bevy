@@ -55,7 +55,7 @@ type ComplexBundle = (C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
 /// use the [`Reflect`] trait instead of [`Clone`].
 fn reflection_cloner<B: Bundle + GetTypeRegistration>(
     world: &mut World,
-    recursive: bool,
+    linked_cloning: bool,
 ) -> EntityCloner {
     // Get mutable access to the type registry, creating it if it does not exist yet.
     let registry = world.get_resource_or_init::<AppTypeRegistry>();
@@ -77,7 +77,7 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration>(
     for component in component_ids {
         builder.override_clone_behavior_with_id(component, ComponentCloneBehavior::reflect());
     }
-    builder.recursive(recursive);
+    builder.linked_cloning(linked_cloning);
 
     builder.finish()
 }
@@ -136,7 +136,7 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
         reflection_cloner::<B>(&mut world, true)
     } else {
         let mut builder = EntityCloner::build(&mut world);
-        builder.recursive(true);
+        builder.linked_cloning(true);
         builder.finish()
     };
 
@@ -153,9 +153,9 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
 
         hierarchy_level.clear();
 
-        for parent_id in current_hierarchy_level {
+        for parent in current_hierarchy_level {
             for _ in 0..children {
-                let child_id = world.spawn((B::default(), ChildOf(parent_id))).id();
+                let child_id = world.spawn((B::default(), ChildOf(parent))).id();
                 hierarchy_level.push(child_id);
             }
         }

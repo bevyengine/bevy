@@ -1,7 +1,7 @@
 [package]
 name = "bevy_mikktspace"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 authors = [
   "Benjamin Wasty <benny.wasty@gmail.com>",
   "David Harvey-Macaulay <alteous@outlook.com>",
@@ -13,7 +13,7 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "Zlib AND (MIT OR Apache-2.0)"
 keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
-rust-version = "1.76.0"
+rust-version = "1.85.0"
 
 [features]
 default = ["std"]
@@ -22,7 +22,7 @@ std = ["glam/std"]
 libm = ["glam/libm", "dep:libm"]
 
 [dependencies]
-glam = { version = "0.29.0", default-features = false }
+glam = { version = "0.29.3", default-features = false }
 libm = { version = "0.2", default-features = false, optional = true }
 
 [[example]]

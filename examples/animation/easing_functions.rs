@@ -68,7 +68,10 @@ fn setup(mut commands: Commands) {
         EaseFunction::BounceInOut,
         // "Other" row
         EaseFunction::Linear,
-        EaseFunction::Steps(4),
+        EaseFunction::Steps(4, JumpAt::End),
+        EaseFunction::Steps(4, JumpAt::Start),
+        EaseFunction::Steps(4, JumpAt::Both),
+        EaseFunction::Steps(4, JumpAt::None),
         EaseFunction::Elastic(50.0),
     ]
     .chunks(COLS);

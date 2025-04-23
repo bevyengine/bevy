@@ -368,39 +368,31 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
-    commands
-        .spawn((
-            HeaderNode,
-            Node {
-                justify_self: JustifySelf::Center,
-                top: Val::Px(5.0),
-                ..Default::default()
-            },
-            UiTargetCamera(active_camera),
-        ))
-        .with_children(|p| {
-            p.spawn((
-                Text::default(),
-                HeaderText,
-                TextLayout::new_with_justify(JustifyText::Center),
-            ))
-            .with_children(|p| {
-                p.spawn(TextSpan::new("Primitive: "));
-                p.spawn(TextSpan(format!(
-                    "{text}",
-                    text = PrimitiveSelected::default()
-                )));
-                p.spawn(TextSpan::new("\n\n"));
-                p.spawn(TextSpan::new(
+    commands.spawn((
+        HeaderNode,
+        Node {
+            justify_self: JustifySelf::Center,
+            top: Val::Px(5.0),
+            ..Default::default()
+        },
+        UiTargetCamera(active_camera),
+        children![(
+            Text::default(),
+            HeaderText,
+            TextLayout::new_with_justify(JustifyText::Center),
+            children![
+                TextSpan::new("Primitive: "),
+                TextSpan(format!("{text}", text = PrimitiveSelected::default())),
+                TextSpan::new("\n\n"),
+                TextSpan::new(
                     "Press 'C' to switch between 2D and 3D mode\n\
                     Press 'Up' or 'Down' to switch to the next/previous primitive",
-                ));
-                p.spawn(TextSpan::new("\n\n"));
-                p.spawn(TextSpan::new(
-                    "(If nothing is displayed, there's no rendering support yet)",
-                ));
-            });
-        });
+                ),
+                TextSpan::new("\n\n"),
+                TextSpan::new("(If nothing is displayed, there's no rendering support yet)",),
+            ]
+        )],
+    ));
 }
 
 fn update_text(

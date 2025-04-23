@@ -1,26 +1,27 @@
 use core::ops::Deref;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 
 use crate::{
     archetype::Archetype,
-    change_detection::MutUntyped,
+    change_detection::{MaybeLocation, MutUntyped},
     component::{ComponentId, HookContext, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
+    relationship::RelationshipHookMode,
     resource::Resource,
     system::{Commands, Query},
     traversal::Traversal,
-    world::{error::EntityFetchError, WorldEntityFetch},
+    world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
 use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
+///
+/// This means that in order to add entities, for example, you will need to use commands instead of the world directly.
 pub struct DeferredWorld<'w> {
     // SAFETY: Implementors must not use this reference to make structural changes
     world: UnsafeWorldCell<'w>,
@@ -96,26 +97,44 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,
-    ) -> Result<Option<R>, EntityFetchError> {
+    ) -> Result<Option<R>, EntityMutableFetchError> {
         // If the component is not registered, then it doesn't exist on this entity, so no action required.
         let Some(component_id) = self.component_id::<T>() else {
             return Ok(None);
         };
 
-        let entity_cell = match self.get_entity_mut(entity) {
-            Ok(cell) => cell,
-            Err(EntityFetchError::AliasedMutability(..)) => {
-                return Err(EntityFetchError::AliasedMutability(entity))
-            }
-            Err(EntityFetchError::NoSuchEntity(..)) => {
-                return Err(EntityFetchError::NoSuchEntity(
-                    entity,
-                    self.entities().entity_does_not_exist_error_details(entity),
-                ))
-            }
-        };
+        self.modify_component_by_id(entity, component_id, move |component| {
+            // SAFETY: component matches the component_id collected in the above line
+            let mut component = unsafe { component.with_type::<T>() };
 
-        if !entity_cell.contains::<T>() {
+            f(&mut component)
+        })
+    }
+
+    /// Temporarily removes a [`Component`] identified by the provided
+    /// [`ComponentId`] from the provided [`Entity`] and runs the provided
+    /// closure on it, returning the result if the component was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut_by_id`](DeferredWorld::get_mut_by_id).
+    ///
+    /// You should prefer the typed [`modify_component`](DeferredWorld::modify_component)
+    /// whenever possible.
+    #[inline]
+    pub(crate) fn modify_component_by_id<R>(
+        &mut self,
+        entity: Entity,
+        component_id: ComponentId,
+        f: impl for<'a> FnOnce(MutUntyped<'a>) -> R,
+    ) -> Result<Option<R>, EntityMutableFetchError> {
+        let entity_cell = self.get_entity_mut(entity)?;
+
+        if !entity_cell.contains_id(component_id) {
             return Ok(None);
         }
 
@@ -132,16 +151,15 @@ impl<'w> DeferredWorld<'w> {
                 archetype,
                 entity,
                 [component_id].into_iter(),
-                #[cfg(feature = "track_location")]
-                Location::caller(),
+                MaybeLocation::caller(),
+                RelationshipHookMode::Run,
             );
             if archetype.has_replace_observer() {
                 self.trigger_observers(
                     ON_REPLACE,
                     entity,
                     [component_id].into_iter(),
-                    #[cfg(feature = "track_location")]
-                    Location::caller(),
+                    MaybeLocation::caller(),
                 );
             }
         }
@@ -153,11 +171,11 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY: we will run the required hooks to simulate removal/replacement.
         let mut component = unsafe {
             entity_cell
-                .get_mut_assume_mutable::<T>()
+                .get_mut_assume_mutable_by_id(component_id)
                 .expect("component access confirmed above")
         };
 
-        let result = f(&mut component);
+        let result = f(component.reborrow());
 
         // Simulate adding this component by updating the relevant ticks
         *component.ticks.added = *component.ticks.changed;
@@ -173,16 +191,15 @@ impl<'w> DeferredWorld<'w> {
                 archetype,
                 entity,
                 [component_id].into_iter(),
-                #[cfg(feature = "track_location")]
-                Location::caller(),
+                MaybeLocation::caller(),
+                RelationshipHookMode::Run,
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(
                     ON_INSERT,
                     entity,
                     [component_id].into_iter(),
-                    #[cfg(feature = "track_location")]
-                    Location::caller(),
+                    MaybeLocation::caller(),
                 );
             }
         }
@@ -207,23 +224,23 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityFetchError::NoSuchEntity`] if any of the given `entities` do not exist in the world.
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
     ///
     /// # Examples
     ///
     /// For examples, see [`DeferredWorld::entity_mut`].
     ///
     /// [`EntityMut`]: crate::world::EntityMut
-    /// [`&EntityHashSet`]: crate::entity::hash_set::EntityHashSet
-    /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
+    /// [`&EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
         entities: F,
-    ) -> Result<F::DeferredMut<'_>, EntityFetchError> {
+    ) -> Result<F::DeferredMut<'_>, EntityMutableFetchError> {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
@@ -325,7 +342,7 @@ impl<'w> DeferredWorld<'w> {
     /// ## [`&EntityHashSet`]
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet, world::DeferredWorld};
+    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet, world::DeferredWorld};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -348,12 +365,59 @@ impl<'w> DeferredWorld<'w> {
     /// ```
     ///
     /// [`EntityMut`]: crate::world::EntityMut
-    /// [`&EntityHashSet`]: crate::entity::hash_set::EntityHashSet
-    /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
+    /// [`&EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::DeferredMut<'_> {
         self.get_entity_mut(entities).unwrap()
+    }
+
+    /// Simultaneously provides access to entity data and a command queue, which
+    /// will be applied when the [`World`] is next flushed.
+    ///
+    /// This allows using borrowed entity data to construct commands where the
+    /// borrow checker would otherwise prevent it.
+    ///
+    /// See [`World::entities_and_commands`] for the non-deferred version.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{prelude::*, world::DeferredWorld};
+    /// #[derive(Component)]
+    /// struct Targets(Vec<Entity>);
+    /// #[derive(Component)]
+    /// struct TargetedBy(Entity);
+    ///
+    /// # let mut _world = World::new();
+    /// # let e1 = _world.spawn_empty().id();
+    /// # let e2 = _world.spawn_empty().id();
+    /// # let eid = _world.spawn(Targets(vec![e1, e2])).id();
+    /// let mut world: DeferredWorld = // ...
+    /// #   DeferredWorld::from(&mut _world);
+    /// let (entities, mut commands) = world.entities_and_commands();
+    ///
+    /// let entity = entities.get(eid).unwrap();
+    /// for &target in entity.get::<Targets>().unwrap().0.iter() {
+    ///     commands.entity(target).insert(TargetedBy(eid));
+    /// }
+    /// # _world.flush();
+    /// # assert_eq!(_world.get::<TargetedBy>(e1).unwrap().0, eid);
+    /// # assert_eq!(_world.get::<TargetedBy>(e2).unwrap().0, eid);
+    /// ```
+    pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
+        let cell = self.as_unsafe_world_cell();
+        // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        let fetcher = unsafe { EntityFetcher::new(cell) };
+        // SAFETY:
+        // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
+        // - Command queue access does not conflict with entity access.
+        let raw_queue = unsafe { cell.get_raw_command_queue() };
+        // SAFETY: `&mut self` ensures the commands does not outlive the world.
+        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+
+        (fetcher, commands)
     }
 
     /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
@@ -519,7 +583,7 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         if archetype.has_add_hook() {
             for component_id in targets {
@@ -531,10 +595,8 @@ impl<'w> DeferredWorld<'w> {
                         HookContext {
                             entity,
                             component_id,
-                            #[cfg(feature = "track_location")]
-                            caller: Some(caller),
-                            #[cfg(not(feature = "track_location"))]
-                            caller: None,
+                            caller,
+                            relationship_hook_mode: RelationshipHookMode::Run,
                         },
                     );
                 }
@@ -552,7 +614,8 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
     ) {
         if archetype.has_insert_hook() {
             for component_id in targets {
@@ -564,10 +627,8 @@ impl<'w> DeferredWorld<'w> {
                         HookContext {
                             entity,
                             component_id,
-                            #[cfg(feature = "track_location")]
-                            caller: Some(caller),
-                            #[cfg(not(feature = "track_location"))]
-                            caller: None,
+                            caller,
+                            relationship_hook_mode,
                         },
                     );
                 }
@@ -585,7 +646,8 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
     ) {
         if archetype.has_replace_hook() {
             for component_id in targets {
@@ -597,10 +659,8 @@ impl<'w> DeferredWorld<'w> {
                         HookContext {
                             entity,
                             component_id,
-                            #[cfg(feature = "track_location")]
-                            caller: Some(caller),
-                            #[cfg(not(feature = "track_location"))]
-                            caller: None,
+                            caller,
+                            relationship_hook_mode,
                         },
                     );
                 }
@@ -618,7 +678,7 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         if archetype.has_remove_hook() {
             for component_id in targets {
@@ -630,10 +690,8 @@ impl<'w> DeferredWorld<'w> {
                         HookContext {
                             entity,
                             component_id,
-                            #[cfg(feature = "track_location")]
-                            caller: Some(caller),
-                            #[cfg(not(feature = "track_location"))]
-                            caller: None,
+                            caller,
+                            relationship_hook_mode: RelationshipHookMode::Run,
                         },
                     );
                 }
@@ -651,7 +709,7 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         if archetype.has_despawn_hook() {
             for component_id in targets {
@@ -663,10 +721,8 @@ impl<'w> DeferredWorld<'w> {
                         HookContext {
                             entity,
                             component_id,
-                            #[cfg(feature = "track_location")]
-                            caller: Some(caller),
-                            #[cfg(not(feature = "track_location"))]
-                            caller: None,
+                            caller,
+                            relationship_hook_mode: RelationshipHookMode::Run,
                         },
                     );
                 }
@@ -684,7 +740,7 @@ impl<'w> DeferredWorld<'w> {
         event: ComponentId,
         target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
@@ -693,7 +749,6 @@ impl<'w> DeferredWorld<'w> {
             components,
             &mut (),
             &mut false,
-            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -707,10 +762,10 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         mut target: Entity,
-        components: &[ComponentId],
+        components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) where
         T: Traversal<E>,
     {
@@ -719,10 +774,9 @@ impl<'w> DeferredWorld<'w> {
                 self.reborrow(),
                 event,
                 target,
-                components.iter().copied(),
+                components.clone(),
                 data,
                 &mut propagate,
-                #[cfg(feature = "track_location")]
                 caller,
             );
             if !propagate {

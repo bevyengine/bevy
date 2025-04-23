@@ -5,7 +5,6 @@ on:
   pull_request:
   push:
     branches:
-      - main
       - release-*
 
 env:
@@ -152,7 +151,56 @@ jobs:
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
-        run: cargo run -p ci -- compile-check-no-std
+        run: cargo check -p bevy --no-default-features --features default_no_std --target x86_64-unknown-none
+  check-compiles-no-std-portable-atomic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-no-std-portable-atomic-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv6m-none-eabi
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cargo check -p bevy --no-default-features --features default_no_std --target thumbv6m-none-eabi
+
+  check-compiles-no-std-examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-no-std-examples-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-none
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cd examples/no_std/library && cargo check --no-default-features --features libm,critical-section --target x86_64-unknown-none
 
   build-wasm:
     runs-on: ubuntu-latest
@@ -211,7 +259,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
       - name: Run Markdown Lint
-        uses: docker://ghcr.io/github/super-linter:slim-v4
+        uses: super-linter/super-linter/slim@v7.3.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
@@ -244,7 +292,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.29.5
+        uses: crate-ci/typos@v1.31.1
       - name: Typos info
         if: failure()
         run: |
@@ -254,49 +302,6 @@ jobs:
           echo 'if you use VSCode, you can also install `Typos Spell Checker'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
 
-  run-examples-macos-metal:
-    runs-on: macos-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Disable audio
-        # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
-        run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
-      - name: Run examples
-        run: |
-          for example in .github/example-run/*.ron; do
-            example_name=`basename $example .ron`
-            echo -n $example_name > last_example_run
-            echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
-            sleep 10
-            if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
-              mkdir screenshots-$example_name
-              mv screenshot-*.png screenshots-$example_name/
-            fi
-          done
-          mkdir traces && mv trace*.json traces/
-          mkdir screenshots && mv screenshots-* screenshots/
-      - name: save traces
-        uses: actions/upload-artifact@v4
-        with:
-          name: example-traces-macos
-          path: traces
-      - name: Save PR number
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          echo ${{ github.event.number }} > ./screenshots/PR
-      - name: save screenshots
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots-macos
-          path: screenshots
-      - uses: actions/upload-artifact@v4
-        if: ${{ failure() && github.event_name == 'pull_request' }}
-        with:
-          name: example-run-macos
-          path: example-run/
   check-doc:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -335,6 +340,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -369,6 +375,7 @@ jobs:
     needs: check-missing-examples-in-docs
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -412,6 +419,7 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: get MSRV
         id: msrv
         run: |
@@ -445,7 +453,7 @@ jobs:
         shell: bash
         run: |
           errors=""
-          for file in $(find examples tests -name '*.rs'); do
+          for file in $(find examples tests -name '*.rs' -not -path 'examples/mobile/*'); do
               if grep -q "use bevy_" "$file"; then
                   errors+="ERROR: Detected internal Bevy import in $file\n"
               fi

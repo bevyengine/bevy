@@ -1,39 +1,26 @@
 //! Contains error types returned by bevy's schedule.
 
 use alloc::vec::Vec;
-use thiserror::Error;
 
 use crate::{
     component::ComponentId,
-    entity::{Entity, EntityDoesNotExistDetails},
+    entity::{Entity, EntityDoesNotExistError},
     schedule::InternedScheduleLabel,
 };
 
 /// The error type returned by [`World::try_run_schedule`] if the provided schedule does not exist.
 ///
 /// [`World::try_run_schedule`]: crate::world::World::try_run_schedule
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 #[error("The schedule with the label {0:?} was not found.")]
 pub struct TryRunScheduleError(pub InternedScheduleLabel);
-
-/// The error type returned by [`World::try_despawn`] if the provided entity does not exist.
-///
-/// [`World::try_despawn`]: crate::world::World::try_despawn
-#[derive(Error, Debug, Clone, Copy)]
-#[error("Could not despawn the entity with ID {entity} because it {details}")]
-pub struct TryDespawnError {
-    /// The entity's ID.
-    pub entity: Entity,
-    /// Details on why the entity does not exist, if available.
-    pub details: EntityDoesNotExistDetails,
-}
 
 /// The error type returned by [`World::try_insert_batch`] and [`World::try_insert_batch_if_new`]
 /// if any of the provided entities do not exist.
 ///
 /// [`World::try_insert_batch`]: crate::world::World::try_insert_batch
 /// [`World::try_insert_batch_if_new`]: crate::world::World::try_insert_batch_if_new
-#[derive(Error, Debug, Clone)]
+#[derive(thiserror::Error, Debug, Clone)]
 #[error("Could not insert bundles of type {bundle_type} into the entities with the following IDs because they do not exist: {entities:?}")]
 pub struct TryInsertBatchError {
     /// The bundles' type name.
@@ -42,8 +29,13 @@ pub struct TryInsertBatchError {
     pub entities: Vec<Entity>,
 }
 
+/// An error that occurs when a specified [`Entity`] could not be despawned.
+#[derive(thiserror::Error, Debug, Clone, Copy)]
+#[error("Could not despawn entity: {0}")]
+pub struct EntityDespawnError(#[from] pub EntityMutableFetchError);
+
 /// An error that occurs when dynamically retrieving components from an entity.
-#[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityComponentError {
     /// The component with the given [`ComponentId`] does not exist on the entity.
     #[error("The component with ID {0:?} does not exist on the entity.")]
@@ -54,24 +46,26 @@ pub enum EntityComponentError {
 }
 
 /// An error that occurs when fetching entities mutably from a world.
-#[derive(Error, Debug, Clone, Copy)]
-pub enum EntityFetchError {
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntityMutableFetchError {
     /// The entity with the given ID does not exist.
-    #[error("The entity with ID {0} {1}")]
-    NoSuchEntity(Entity, EntityDoesNotExistDetails),
+    #[error(transparent)]
+    EntityDoesNotExist(#[from] EntityDoesNotExistError),
     /// The entity with the given ID was requested mutably more than once.
     #[error("The entity with ID {0} was requested mutably more than once")]
     AliasedMutability(Entity),
 }
 
-impl PartialEq for EntityFetchError {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::NoSuchEntity(e1, _), Self::NoSuchEntity(e2, _)) if e1 == e2 => true,
-            (Self::AliasedMutability(e1), Self::AliasedMutability(e2)) if e1 == e2 => true,
-            _ => false,
-        }
-    }
+/// An error that occurs when getting a resource of a given type in a world.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceFetchError {
+    /// The resource has never been initialized or registered with the world.
+    #[error("The resource has never been initialized or registered with the world. Did you forget to add it using `app.insert_resource` / `app.init_resource`?")]
+    NotRegistered,
+    /// The resource with the given [`ComponentId`] does not currently exist in the world.
+    #[error("The resource with ID {0:?} does not currently exist in the world.")]
+    DoesNotExist(ComponentId),
+    /// Cannot get access to the resource with the given [`ComponentId`] in the world as it conflicts with an on going operation.
+    #[error("Cannot get access to the resource with ID {0:?} in the world as it conflicts with an on going operation.")]
+    NoResourceAccess(ComponentId),
 }
-
-impl Eq for EntityFetchError {}

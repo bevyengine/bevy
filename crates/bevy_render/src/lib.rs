@@ -78,9 +78,11 @@ pub use extract_param::Extract;
 
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
-use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
-use render_asset::RenderAssetBytesPerFrame;
+use render_asset::{
+    extract_render_asset_bytes_per_frame, reset_render_asset_bytes_per_frame,
+    RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
+};
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
@@ -102,6 +104,7 @@ use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
@@ -120,12 +123,21 @@ pub struct RenderPlugin {
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
-    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
-    /// that they can be read back to CPU.
-    ///
-    /// This is a debugging feature that may reduce performance. It primarily
-    /// exists for the `occlusion_culling` example.
-    pub allow_copies_from_indirect_parameters: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
+}
+
+bitflags! {
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    #[derive(Clone, Copy, PartialEq, Default, Debug)]
+    pub struct RenderDebugFlags: u8 {
+        /// If true, this sets the `COPY_SRC` flag on indirect draw parameters
+        /// so that they can be read back to CPU.
+        ///
+        /// This is a debugging feature that may reduce performance. It
+        /// primarily exists for the `occlusion_culling` example.
+        const ALLOW_COPIES_FROM_INDIRECT_PARAMETERS = 1;
+    }
 }
 
 /// The systems sets of the default [`App`] rendering schedule.
@@ -146,6 +158,9 @@ pub enum RenderSet {
     Queue,
     /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
     QueueMeshes,
+    /// A sub-set within [`Queue`](RenderSet::Queue) where meshes that have
+    /// become invisible or changed phases are removed from the bins.
+    QueueSweep,
     // TODO: This could probably be moved in favor of a system ordering
     // abstraction in `Render` or `Queue`
     /// Sort the [`SortedRenderPhase`](render_phase::SortedRenderPhase)s and
@@ -156,6 +171,9 @@ pub enum RenderSet {
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
+    /// Collect phase buffers after
+    /// [`PrepareResources`](RenderSet::PrepareResources) has run.
+    PrepareResourcesCollectPhaseBuffers,
     /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before [`PrepareBindGroups`](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
@@ -172,7 +190,7 @@ pub enum RenderSet {
 }
 
 /// The main render schedule.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
 
 impl Render {
@@ -201,12 +219,18 @@ impl Render {
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
         schedule.configure_sets(
-            QueueMeshes
+            (QueueMeshes, QueueSweep)
+                .chain()
                 .in_set(Queue)
                 .after(prepare_assets::<RenderMesh>),
         );
         schedule.configure_sets(
-            (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
+            (
+                PrepareResources,
+                PrepareResourcesCollectPhaseBuffers,
+                PrepareResourcesFlush,
+                PrepareBindGroups,
+            )
                 .chain()
                 .in_set(Prepare),
         );
@@ -222,7 +246,7 @@ impl Render {
 ///
 /// This schedule is run on the main world, but its buffers are not applied
 /// until it is returned to the render world.
-#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
+#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
 
 /// The simulation [`World`] of the application, stored as a resource.
@@ -261,12 +285,12 @@ struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
-pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("475c76aa-4afd-4a6b-9878-1fc1e2f41216");
 pub const MATHS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("d94d70d4-746d-49c4-bfc3-27d63f2acda0");
 pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("33a80b2f-aaf7-4c86-b828-e7ae83b72f1a");
+pub const BINDLESS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("13f1baaa-41bf-448e-929e-258f9307a522");
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
@@ -293,7 +317,7 @@ impl Plugin for RenderPlugin {
                     let primary_window = app
                         .world_mut()
                         .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
-                        .get_single(app.world())
+                        .single(app.world())
                         .ok()
                         .cloned();
                     let settings = render_creation.clone();
@@ -376,16 +400,26 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin {
-                allow_copies_from_indirect_parameters: self.allow_copies_from_indirect_parameters,
+                debug_flags: self.debug_flags,
             },
             SyncWorldPlugin,
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
+            #[cfg(feature = "tracing-tracy")]
+            diagnostic::RenderDiagnosticsPlugin,
         ));
 
-        app.init_resource::<RenderAssetBytesPerFrame>()
-            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());
+        app.init_resource::<RenderAssetBytesPerFrame>();
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
+            render_app
+                .add_systems(ExtractSchedule, extract_render_asset_bytes_per_frame)
+                .add_systems(
+                    Render,
+                    reset_render_asset_bytes_per_frame.in_set(RenderSet::Cleanup),
+                );
+        }
 
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
@@ -412,6 +446,12 @@ impl Plugin for RenderPlugin {
             "color_operations.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            BINDLESS_SHADER_HANDLE,
+            "bindless.wgsl",
+            Shader::from_wgsl
+        );
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
@@ -435,14 +475,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
-                .insert_resource(adapter_info)
-                .add_systems(
-                    Render,
-                    (|mut bpf: ResMut<RenderAssetBytesPerFrame>| {
-                        bpf.reset();
-                    })
-                    .in_set(RenderSet::Cleanup),
-                );
+                .insert_resource(adapter_info);
         }
     }
 }
@@ -550,4 +583,27 @@ pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
             .map_while(|c| c.to_digit(10))
             .fold(0, |acc, digit| acc * 10 + digit),
     )
+}
+
+/// Get the Mali driver version if the adapter is a Mali GPU.
+pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
+    if !cfg!(target_os = "android") {
+        return None;
+    }
+
+    let driver_name = adapter.get_info().name;
+    if !driver_name.contains("Mali") {
+        return None;
+    }
+    let driver_info = adapter.get_info().driver_info;
+    if let Some(start_pos) = driver_info.find("v1.r") {
+        if let Some(end_pos) = driver_info[start_pos..].find('p') {
+            let start_idx = start_pos + 4; // Skip "v1.r"
+            let end_idx = start_pos + end_pos;
+
+            return driver_info[start_idx..end_idx].parse::<u32>().ok();
+        }
+    }
+
+    None
 }

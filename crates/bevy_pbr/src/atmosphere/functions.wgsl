@@ -49,7 +49,7 @@ const ROOT_2: f32 = 1.41421356; // √2
 // the exponential falloff of atmospheric density.
 const MIDPOINT_RATIO: f32 = 0.3;
 
-// LUT UV PARAMATERIZATIONS
+// LUT UV PARAMETERIZATIONS
 
 fn unit_to_sub_uvs(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
     return (val + 0.5f / resolution) * (resolution / (resolution + 1.0f));
@@ -118,6 +118,27 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     return textureSampleLevel(transmittance_lut, transmittance_lut_sampler, uv, 0.0).rgb;
 }
 
+// NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
+// under the license reproduced in bruneton_functions.wgsl (variant of MIT license)
+//
+// FIXME: this function should be in bruneton_functions.wgsl, but because naga_oil doesn't 
+// support cyclic imports it's stuck here
+fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
+    let r_t = get_local_r(r, mu, t);
+    let mu_t = clamp((r * mu + t) / r_t, -1.0, 1.0);
+
+    if ray_intersects_ground(r, mu) {
+        return min(
+            sample_transmittance_lut(r_t, -mu_t) / sample_transmittance_lut(r, -mu),
+            vec3(1.0)
+        );
+    } else {
+        return min(
+            sample_transmittance_lut(r, mu) / sample_transmittance_lut(r_t, mu_t), vec3(1.0)
+        );
+    }
+}
+
 fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = multiscattering_lut_r_mu_to_uv(r, mu);
     return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
@@ -130,23 +151,31 @@ fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
 
+fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
+    let view_pos = view.view_from_clip * vec4(ndc, 1.0);
+    let t = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
+    return t;
+}
+
 // RGB channels: total inscattered light along the camera ray to the current sample.
 // A channel: average transmittance across all wavelengths to the current sample.
-fn sample_aerial_view_lut(uv: vec2<f32>, depth: f32) -> vec4<f32> {
-    let view_pos = view.view_from_clip * vec4(uv_to_ndc(uv), depth, 1.0);
-    let dist = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
+fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
     let t_max = settings.aerial_view_lut_max_distance;
     let num_slices = f32(settings.aerial_view_lut_size.z);
-    // Offset the W coordinate by -0.5 over the max distance in order to 
-    // align sampling position with slice boundaries, since each texel 
-    // stores the integral over its entire slice
-    let uvw = vec3(uv, saturate(dist / t_max - 0.5 / num_slices));
+    // Each texel stores the value of the scattering integral over the whole slice,
+    // which requires us to offset the w coordinate by half a slice. For
+    // example, if we wanted the value of the integral at the boundary between slices,
+    // we'd need to sample at the center of the previous slice, and vice-versa for
+    // sampling in the center of a slice.
+    let uvw = vec3(uv, saturate(t / t_max - 0.5 / num_slices));
     let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
-    // Treat the first slice specially since there is 0 scattering at the camera
-    let delta_slice = t_max / num_slices;
-    let fade = saturate(dist / delta_slice);
+    // Since sampling anywhere between w=0 and w=t_slice will clamp to the first slice,
+    // we need to do a linear step over the first slice towards zero at the camera's
+    // position to recover the correct integral value.
+    let t_slice = t_max / num_slices;
+    let fade = saturate(t / t_slice);
     // Recover the values from log space
-    return exp(sample) * fade;
+    return exp(sample.rgb) * fade;
 }
 
 // PHASE FUNCTIONS
@@ -248,11 +277,11 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 
 const SUN_ANGULAR_SIZE: f32 = 0.0174533; // angular diameter of sun in radians
 
-fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
+fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     let r = view_radius();
     let mu_view = ray_dir_ws.y;
     let shadow_factor = f32(!ray_intersects_ground(r, mu_view));
-    var sun_illuminance = vec3(0.0);
+    var sun_radiance = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
@@ -260,9 +289,9 @@ fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> ve
         let pixel_size = fwidth(angle_to_sun);
         let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE * 0.5);
         let sun_solid_angle = (SUN_ANGULAR_SIZE * SUN_ANGULAR_SIZE) * 4.0 * FRAC_PI;
-        sun_illuminance += ((*light).color.rgb / sun_solid_angle) * factor * shadow_factor;
+        sun_radiance += ((*light).color.rgb / sun_solid_angle) * factor * shadow_factor;
     }
-    return sun_illuminance * transmittance * view.exposure;
+    return sun_radiance;
 }
 
 // TRANSFORM UTILITIES

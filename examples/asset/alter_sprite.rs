@@ -127,7 +127,7 @@ fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Single<&Sprite, Wit
         return;
     };
 
-    for pixel in &mut image.data {
+    for pixel in image.data.as_mut().unwrap() {
         // Directly modify the asset data, which will affect all users of this asset. By
         // contrast, mutating the handle (as we did above) affects only one copy. In this case,
         // we'll just invert the colors, by way of demonstration. Notice that both uses of the
