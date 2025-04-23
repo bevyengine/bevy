@@ -2,7 +2,10 @@
 
 use std::f32::consts::PI;
 
-use bevy::{image::TEXTURE_FORMAT_SDR, prelude::*, render::view::RenderLayers};
+use bevy::{
+    prelude::*,
+    render::{render_resource::TextureFormat, view::RenderLayers},
+};
 
 fn main() {
     App::new()
@@ -27,7 +30,7 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
 ) {
     // This is the texture that will be rendered to.
-    let image = Image::new_target_texture(512, 512, TEXTURE_FORMAT_SDR);
+    let image = Image::new_target_texture(512, 512, TextureFormat::bevy_default());
 
     let image_handle = images.add(image);
 
