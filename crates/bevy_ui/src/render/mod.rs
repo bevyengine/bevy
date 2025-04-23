@@ -705,7 +705,7 @@ pub fn extract_viewport_nodes(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
             &ViewportNode,
         )>,
     >,

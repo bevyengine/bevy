@@ -1,9 +1,8 @@
 use bevy_asset::Assets;
 use bevy_ecs::{
-    component::require,
+    component::Component,
     entity::Entity,
     event::EventReader,
-    prelude::Component,
     query::{Changed, Or},
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
@@ -17,7 +16,7 @@ use bevy_picking::{
     pointer::{Location, PointerId, PointerInput},
     Pickable,
 };
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, NormalizedRenderTarget},
@@ -34,12 +33,14 @@ use crate::{ComputedNode, Node};
 ///
 /// # See Also
 ///
-/// [`on_add_viewport`]
 /// [`update_viewport_render_target_size`]
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Debug)]
 #[require(Node)]
-#[cfg_attr(feature = "bevy_ui_picking_backend", require(Pickable (|| Pickable::IGNORE), PointerId (|| PointerId::Custom(Uuid::new_v4()))))]
+#[cfg_attr(
+    feature = "bevy_ui_picking_backend",
+    require(PointerId::Custom(Uuid::new_v4()))
+)]
 pub struct ViewportNode {
     /// The entity representing the [`Camera`] associated with this viewport.
     ///
