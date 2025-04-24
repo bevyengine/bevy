@@ -1,8 +1,8 @@
-//! Shows how to use a game state enum to run systems during state transitions.
+//! Shows how to spawn entities that are scoped to specific game states.
 //! A simple to understand, yet powerful pattern is to pre-define certain game states.
 //! During transitions between states, entities often need to be created which are
-//! only meant to exist during a given state. This example shows how that is supposed
-//! to look, can can be easily adapted for real use cases.
+//! only meant to exist during a given state. This example shows how that can be done
+//! in a way that can easily be adapted to real use cases.
 
 use bevy::prelude::*;
 

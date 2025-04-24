@@ -92,8 +92,8 @@ pub fn despawn_entities_on_exit_state<S: States>(
     }
 }
 
-/// Entities marked with this component will be removed
-/// when the world's state of the matching type matches the supplied value.
+/// Entities marked with this component will be despawned
+/// upon entering the given state.
 ///
 /// To enable this feature remember to configure your application
 /// with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities) on your state(s) of choice.
