@@ -233,6 +233,38 @@ impl ComputedNode {
     pub const fn inverse_scale_factor(&self) -> f32 {
         self.inverse_scale_factor
     }
+
+    // Returns true if `point` within the node.
+    //
+    // Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
+    pub fn contains_point(&self, point: Vec2) -> bool {
+        let local_point = self.transform.inverse().transform_point2(point);
+        let [top, bottom] = if local_point.x < 0. {
+            [self.border_radius.top_left, self.border_radius.bottom_left]
+        } else {
+            [
+                self.border_radius.top_right,
+                self.border_radius.bottom_right,
+            ]
+        };
+        let r = if local_point.y < 0. { top } else { bottom };
+        let corner_to_point = local_point.abs() - 0.5 * self.size;
+        let q = corner_to_point + r;
+        let l = q.max(Vec2::ZERO).length();
+        let m = q.max_element().min(0.);
+        l + m - r < 0.
+    }
+
+    pub fn transform_point(&self, point: Vec2) -> Vec2 {
+        self.transform.inverse().transform_point2(point) - 0.5 * self.size
+    }
+
+    pub fn normalize_point(&self, point: Vec2) -> Option<Vec2> {
+        self.size
+            .cmpgt(Vec2::ZERO)
+            .all()
+            .then_some(self.transform_point(point) / self.size)
+    }
 }
 
 impl ComputedNode {

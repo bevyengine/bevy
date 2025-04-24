@@ -262,13 +262,7 @@ pub fn ui_focus_system(
             };
 
             let contains_cursor = relative_cursor_position_component.mouse_over()
-                && cursor_position.is_some_and(|point| {
-                    pick_rounded_rect(
-                        *point - node_rect.center(),
-                        node_rect.size(),
-                        node.node.border_radius,
-                    )
-                });
+                && cursor_position.is_some_and(|point| node.node.contains_point(*point));
 
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position
@@ -329,27 +323,4 @@ pub fn ui_focus_system(
             }
         }
     }
-}
-
-// Returns true if `point` (relative to the rectangle's center) is within the bounds of a rounded rectangle with
-// the given size and border radius.
-//
-// Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
-pub(crate) fn pick_rounded_rect(
-    point: Vec2,
-    size: Vec2,
-    border_radius: ResolvedBorderRadius,
-) -> bool {
-    let [top, bottom] = if point.x < 0. {
-        [border_radius.top_left, border_radius.bottom_left]
-    } else {
-        [border_radius.top_right, border_radius.bottom_right]
-    };
-    let r = if point.y < 0. { top } else { bottom };
-
-    let corner_to_point = point.abs() - 0.5 * size;
-    let q = corner_to_point + r;
-    let l = q.max(Vec2::ZERO).length();
-    let m = q.max_element().min(0.);
-    l + m - r < 0.
 }
