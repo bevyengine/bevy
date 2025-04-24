@@ -21,7 +21,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
-use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3Swizzles};
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::renderer::RenderContext;
@@ -892,11 +892,11 @@ impl Default for UiMeta {
     }
 }
 
-pub(crate) const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
-    Vec3::new(-0.5, -0.5, 0.0),
-    Vec3::new(0.5, -0.5, 0.0),
-    Vec3::new(0.5, 0.5, 0.0),
-    Vec3::new(-0.5, 0.5, 0.0),
+pub(crate) const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
+    Vec2::new(-0.5, -0.5),
+    Vec2::new(0.5, -0.5),
+    Vec2::new(0.5, 0.5),
+    Vec2::new(-0.5, 0.5),
 ];
 
 pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
@@ -1118,11 +1118,11 @@ pub fn prepare_uinodes(
                             let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
                                 {
                                     transform
-                                        .transform_point2(pos.truncate() * rect_size.truncate())
+                                        .transform_point2(pos * rect_size.truncate())
                                         .extend(0.)
                                 }
                             });
-                            let points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
+                            let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size.xy());
 
                             // Calculate the effect of clipping
                             // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -1275,7 +1275,7 @@ pub fn prepare_uinodes(
                                 let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
                                     glyph
                                         .transform
-                                        .transform_point2(pos.truncate() * glyph_rect.size())
+                                        .transform_point2(pos * glyph_rect.size())
                                         .extend(0.)
                                 });
 

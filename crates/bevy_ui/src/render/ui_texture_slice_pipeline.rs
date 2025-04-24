@@ -11,7 +11,7 @@ use bevy_ecs::{
     },
 };
 use bevy_image::prelude::*;
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -25,7 +25,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
-use bevy_transform::prelude::GlobalTransform;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 use widget::ImageNode;
@@ -224,7 +223,7 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
 
 pub struct ExtractedUiTextureSlice {
     pub stack_index: u32,
-    pub transform: Mat4,
+    pub transform: Affine2,
     pub rect: Rect,
     pub atlas_rect: Option<Rect>,
     pub image: AssetId<Image>,
@@ -252,7 +251,6 @@ pub fn extract_ui_texture_slices(
         Query<(
             Entity,
             &ComputedNode,
-            &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -263,7 +261,7 @@ pub fn extract_ui_texture_slices(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, inherited_visibility, clip, camera, image) in &slicers_query {
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -312,7 +310,7 @@ pub fn extract_ui_texture_slices(
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: uinode.stack_index,
-            transform: transform.compute_matrix(),
+            transform: uinode.transform,
             color: image.color.into(),
             rect: Rect {
                 min: Vec2::ZERO,
@@ -503,11 +501,12 @@ pub fn prepare_ui_slices(
 
                     let uinode_rect = texture_slices.rect;
 
-                    let rect_size = uinode_rect.size().extend(1.0);
+                    let rect_size = uinode_rect.size();
 
                     // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| (texture_slices.transform * (pos * rect_size).extend(1.)).xyz());
+                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                        (texture_slices.transform.transform_point2(pos * rect_size)).extend(0.)
+                    });
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -542,7 +541,7 @@ pub fn prepare_ui_slices(
                     ];
 
                     let transformed_rect_size =
-                        texture_slices.transform.transform_vector3(rect_size);
+                        texture_slices.transform.transform_vector2(rect_size);
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π

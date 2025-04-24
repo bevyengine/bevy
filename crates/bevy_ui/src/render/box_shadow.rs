@@ -18,7 +18,7 @@ use bevy_ecs::{
     },
 };
 use bevy_image::BevyDefault as _;
-use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
 use bevy_render::{
@@ -29,7 +29,6 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
 use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
@@ -215,7 +214,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
 /// Description of a shadow to be sorted and queued for rendering
 pub struct ExtractedBoxShadow {
     pub stack_index: u32,
-    pub transform: Mat4,
+    pub transform: Affine2,
     pub bounds: Vec2,
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
@@ -240,7 +239,6 @@ pub fn extract_shadows(
         Query<(
             Entity,
             &ComputedNode,
-            &GlobalTransform,
             &InheritedVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
@@ -251,7 +249,7 @@ pub fn extract_shadows(
 ) {
     let mut mapping = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
+    for (entity, uinode, visibility, box_shadow, clip, camera) in &box_shadow_query {
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
@@ -306,7 +304,7 @@ pub fn extract_shadows(
             extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 stack_index: uinode.stack_index,
-                transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
+                transform: uinode.transform * Affine2::from_translation(offset),
                 color: drop_shadow.color.into(),
                 bounds: shadow_size + 6. * blur_radius,
                 clip: clip.map(|clip| clip.clip),
@@ -409,11 +407,15 @@ pub fn prepare_shadows(
                     .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
                 {
-                    let rect_size = box_shadow.bounds.extend(1.0);
+                    let rect_size = box_shadow.bounds;
 
                     // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| (box_shadow.transform * (pos * rect_size).extend(1.)).xyz());
+                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                        box_shadow
+                            .transform
+                            .transform_point2(pos * rect_size)
+                            .extend(0.)
+                    });
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -447,7 +449,7 @@ pub fn prepare_shadows(
                         positions[3] + positions_diff[3].extend(0.),
                     ];
 
-                    let transformed_rect_size = box_shadow.transform.transform_vector3(rect_size);
+                    let transformed_rect_size = box_shadow.transform.transform_vector2(rect_size);
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -496,7 +498,7 @@ pub fn prepare_shadows(
                             size: box_shadow.size.into(),
                             radius,
                             blur: box_shadow.blur_radius,
-                            bounds: rect_size.xy().into(),
+                            bounds: rect_size.into(),
                         });
                     }
 

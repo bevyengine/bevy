@@ -63,7 +63,6 @@ pub fn extract_debug_overlay(
             &ComputedNode,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &GlobalTransform,
             &ComputedNodeTarget,
         )>,
     >,
@@ -75,7 +74,7 @@ pub fn extract_debug_overlay(
 
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, visibility, maybe_clip, transform, computed_target) in &uinode_query {
+    for (entity, uinode, visibility, maybe_clip, computed_target) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
@@ -101,7 +100,7 @@ pub fn extract_debug_overlay(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
-                transform: transform.compute_matrix(),
+                transform: uinode.transform,
                 flip_x: false,
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),

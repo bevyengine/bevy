@@ -11,7 +11,7 @@ use bevy_ecs::{
     },
 };
 use bevy_image::BevyDefault as _;
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
@@ -24,7 +24,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
 pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -337,7 +336,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
 
 pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub stack_index: u32,
-    pub transform: Mat4,
+    pub transform: Affine2,
     pub rect: Rect,
     pub border: BorderRect,
     pub border_radius: ResolvedBorderRadius,
@@ -372,7 +371,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         Query<(
             Entity,
             &ComputedNode,
-            &GlobalTransform,
             &MaterialNode<M>,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -383,9 +381,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
-        uinode_query.iter()
-    {
+    for (entity, computed_node, handle, inherited_visibility, clip, camera) in uinode_query.iter() {
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
             continue;
@@ -403,7 +399,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: computed_node.stack_index,
-            transform: transform.compute_matrix(),
+            transform: computed_node.transform,
             material: handle.id(),
             rect: Rect {
                 min: Vec2::ZERO,
@@ -475,10 +471,13 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
                     let uinode_rect = extracted_uinode.rect;
 
-                    let rect_size = uinode_rect.size().extend(1.0);
+                    let rect_size = uinode_rect.size();
 
                     let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                        (extracted_uinode.transform * (pos * rect_size).extend(1.0)).xyz()
+                        extracted_uinode
+                            .transform
+                            .transform_point2(pos * rect_size)
+                            .extend(1.0)
                     });
 
                     let positions_diff = if let Some(clip) = extracted_uinode.clip {
@@ -512,7 +511,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                     ];
 
                     let transformed_rect_size =
-                        extracted_uinode.transform.transform_vector3(rect_size);
+                        extracted_uinode.transform.transform_vector2(rect_size);
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
