@@ -189,7 +189,7 @@ impl Plugin for UiPlugin {
 
         #[cfg(feature = "bevy_ui_picking_backend")]
         app.add_plugins(picking_backend::UiPickingPlugin)
-            .add_systems(PreUpdate, widget::viewport_picking.in_set(PickSet::Last));
+            .add_systems(First, widget::viewport_picking.in_set(PickSet::Input));
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystem::Layout)

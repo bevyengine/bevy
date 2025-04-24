@@ -72,33 +72,24 @@ pub fn viewport_picking(
     hover_map: Res<HoverMap>,
     pointer_state: Res<PointerState>,
     mut pointer_inputs: EventReader<PointerInput>,
-    mut dragged_last_frame: Local<HashMap<Entity, PointerId>>,
 ) {
     // Handle hovered entities.
-    //
-    // Entities that were dragged last frame need to be considered to handle drag end events.
-    //
-    // In general, dragged entities need to be considered to allow for dragging in and out of
-    // viewports.
-    let mut viewport_picks: HashMap<Entity, PointerId> = dragged_last_frame
-        .drain()
-        .chain(hover_map.iter().flat_map(|(hover_pointer_id, hits)| {
+    let mut viewport_picks: HashMap<Entity, PointerId> = hover_map
+        .iter()
+        .flat_map(|(hover_pointer_id, hits)| {
             hits.iter()
                 .filter(|(entity, _)| viewport_query.contains(**entity))
                 .map(|(entity, _)| (*entity, *hover_pointer_id))
-        }))
+        })
         .collect();
 
-    // Handle dragged entities.
-    //
-    // See the above comment for why dragged entities need to be considered.
+    // Handle dragged entities, which need to be considered for dragging in and out of viewports.
     for ((pointer_id, _), pointer_state) in pointer_state.pointer_buttons.iter() {
         for &target in pointer_state
             .dragging
             .keys()
             .filter(|&entity| viewport_query.contains(*entity))
         {
-            dragged_last_frame.insert(target, *pointer_id);
             viewport_picks.insert(target, *pointer_id);
         }
     }
