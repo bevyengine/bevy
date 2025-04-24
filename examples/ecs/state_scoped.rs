@@ -1,8 +1,8 @@
-//! Shows how to spawn entities that are scoped to specific game states.
-//! A simple to understand, yet powerful pattern is to pre-define certain game states.
-//! During transitions between states, entities often need to be created which are
-//! only meant to exist during a given state. This example shows how that can be done
-//! in a way that can easily be adapted to real use cases.
+//! Shows how to spawn entities that are automatically despawned either when
+//! entering or exiting specific game states.
+//!
+//! This pattern is useful for managing menus, levels, or other state-specific
+//! content that should only exist during certain states.
 
 use bevy::prelude::*;
 
