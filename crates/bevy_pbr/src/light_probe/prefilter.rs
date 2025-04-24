@@ -7,17 +7,21 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_math::{UVec2, Vec2};
 use bevy_render::{
     extract_component::ExtractComponent,
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel},
     render_resource::{
-        binding_types::*, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutEntries, BindingResource, BufferBinding, BufferInitDescriptor, BufferUsages,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
-        FilterMode, PipelineCache, SamplerBindingType, Shader, ShaderStages, ShaderType,
-        StorageTextureAccess, TextureFormat, TextureSampleType, TextureUsages,
-        TextureViewDescriptor, TextureViewDimension,
+        FilterMode, PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
+        ShaderDefVal, ShaderStages, ShaderType, StorageTextureAccess, TextureAspect,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureView, TextureViewDescriptor, TextureViewDimension, UniformBuffer,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
     texture::{CachedTexture, TextureCache},
     Extract,
 };
@@ -145,7 +149,7 @@ impl FromWorld for PrefilterBindGroupLayouts {
                     //     ),
                     // ), // Output mip 12
                     (13, sampler(SamplerBindingType::Filtering)), // Linear sampler
-                    (14, uniform_buffer::<SpdConstants>(true)),   // Uniforms
+                    (14, uniform_buffer::<SpdConstants>(false)),  // Uniforms
                 ),
             ),
         );
@@ -168,7 +172,7 @@ impl FromWorld for PrefilterBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ), // Output specular map
-                    (3, uniform_buffer::<ImportanceSamplingConstants>(true)), // Uniforms
+                    (3, uniform_buffer::<ImportanceSamplingConstants>(false)), // Uniforms
                 ),
             ),
         );
@@ -191,7 +195,7 @@ impl FromWorld for PrefilterBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ), // Output irradiance map
-                    (3, uniform_buffer::<IrradianceConstants>(true)), // Uniforms
+                    (3, uniform_buffer::<IrradianceConstants>(false)), // Uniforms
                 ),
             ),
         );
@@ -207,24 +211,23 @@ impl FromWorld for PrefilterBindGroupLayouts {
 /// Samplers for the prefiltering process
 #[derive(Resource)]
 pub struct PrefilterSamplers {
-    pub linear: bevy_render::render_resource::Sampler,
+    pub linear: Sampler,
 }
 
 impl FromWorld for PrefilterSamplers {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let linear =
-            render_device.create_sampler(&bevy_render::render_resource::SamplerDescriptor {
-                label: Some("prefilter_linear_sampler"),
-                address_mode_u: bevy_render::render_resource::AddressMode::ClampToEdge,
-                address_mode_v: bevy_render::render_resource::AddressMode::ClampToEdge,
-                address_mode_w: bevy_render::render_resource::AddressMode::ClampToEdge,
-                mag_filter: FilterMode::Linear,
-                min_filter: FilterMode::Linear,
-                mipmap_filter: FilterMode::Linear,
-                ..Default::default()
-            });
+        let linear = render_device.create_sampler(&SamplerDescriptor {
+            label: Some("prefilter_linear_sampler"),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Linear,
+            ..Default::default()
+        });
 
         Self { linear }
     }
@@ -244,13 +247,22 @@ impl FromWorld for PrefilterPipelines {
         let pipeline_cache = world.resource::<PipelineCache>();
         let layouts = world.resource::<PrefilterBindGroupLayouts>();
 
+        let render_device = world.resource::<RenderDevice>();
+        let features = render_device.features();
+        let shader_defs = if features.contains(WgpuFeatures::SUBGROUP) {
+            println!("Subgroup support is enabled");
+            vec![ShaderDefVal::Int("SUBGROUP_SUPPORT".into(), 1)]
+        } else {
+            vec![]
+        };
+
         // Single Pass Downsampling for Base Mip Levels (0-5)
         let spd_first = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("spd_first_pipeline".into()),
             layout: vec![layouts.spd.clone()],
             push_constant_ranges: vec![],
             shader: SPD_SHADER_HANDLE,
-            shader_defs: vec![],
+            shader_defs: shader_defs.clone(),
             entry_point: "spd_downsample_first".into(),
             zero_initialize_workgroup_memory: false,
         });
@@ -261,7 +273,7 @@ impl FromWorld for PrefilterPipelines {
             layout: vec![layouts.spd.clone()],
             push_constant_ranges: vec![],
             shader: SPD_SHADER_HANDLE,
-            shader_defs: vec![],
+            shader_defs,
             entry_point: "spd_downsample_second".into(),
             zero_initialize_workgroup_memory: false,
         });
@@ -329,7 +341,7 @@ pub fn prepare_prefilter_textures(
         // Create environment map with 8 mip levels (512x512 -> 1x1)
         let environment_map = texture_cache.get(
             &render_device,
-            bevy_render::render_resource::TextureDescriptor {
+            TextureDescriptor {
                 label: Some("prefilter_environment_map"),
                 size: Extent3d {
                     width: 512,
@@ -338,7 +350,7 @@ pub fn prepare_prefilter_textures(
                 },
                 mip_level_count: 9, // 512, 256, 128, 64, 32, 16, 8, 4, 2, 1
                 sample_count: 1,
-                dimension: bevy_render::render_resource::TextureDimension::D2,
+                dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
                 view_formats: &[],
@@ -348,7 +360,7 @@ pub fn prepare_prefilter_textures(
         // Create specular prefiltered maps
         let specular_map = texture_cache.get(
             &render_device,
-            bevy_render::render_resource::TextureDescriptor {
+            TextureDescriptor {
                 label: Some("prefilter_specular_map"),
                 size: Extent3d {
                     width: 512,
@@ -357,7 +369,7 @@ pub fn prepare_prefilter_textures(
                 },
                 mip_level_count: 9, // Different roughness values
                 sample_count: 1,
-                dimension: bevy_render::render_resource::TextureDimension::D2,
+                dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
                 view_formats: &[],
@@ -367,7 +379,7 @@ pub fn prepare_prefilter_textures(
         // Create irradiance map (32x32 is enough for diffuse)
         let irradiance_map = texture_cache.get(
             &render_device,
-            bevy_render::render_resource::TextureDescriptor {
+            TextureDescriptor {
                 label: Some("prefilter_irradiance_map"),
                 size: Extent3d {
                     width: 32,
@@ -376,7 +388,7 @@ pub fn prepare_prefilter_textures(
                 },
                 mip_level_count: 1,
                 sample_count: 1,
-                dimension: bevy_render::render_resource::TextureDimension::D2,
+                dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
                 view_formats: &[],
@@ -392,16 +404,16 @@ pub fn prepare_prefilter_textures(
 }
 
 /// Shader constants for SPD algorithm
-#[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy, ShaderType)]
+#[derive(Clone, Copy, ShaderType)]
 #[repr(C)]
 pub struct SpdConstants {
     mips: u32,
-    inverse_input_size: [f32; 2],
+    inverse_input_size: Vec2,
     _padding: u32,
 }
 
 /// Constants for importance sampling
-#[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy, ShaderType)]
+#[derive(Clone, Copy, ShaderType)]
 #[repr(C)]
 pub struct ImportanceSamplingConstants {
     mip_level: f32,
@@ -411,11 +423,13 @@ pub struct ImportanceSamplingConstants {
 }
 
 /// Constants for irradiance convolution
-#[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy, ShaderType)]
+#[derive(Clone, Copy, ShaderType)]
 #[repr(C)]
 pub struct IrradianceConstants {
     sample_count: u32,
-    _padding: [u32; 3],
+    _padding1: u32,
+    _padding2: u32,
+    _padding3: u32,
 }
 
 /// Stores bind groups for the prefiltering process
@@ -433,6 +447,7 @@ pub fn prepare_prefilter_bind_groups(
         With<FilteredEnvironmentMapLight>,
     >,
     render_device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
     layouts: Res<PrefilterBindGroupLayouts>,
     samplers: Res<PrefilterSamplers>,
     mut commands: Commands,
@@ -440,18 +455,13 @@ pub fn prepare_prefilter_bind_groups(
     for (entity, textures, prefilter) in &light_probes {
         // Create SPD bind group
         let spd_constants = SpdConstants {
-            mips: 8,                                        // Number of mip levels
-            inverse_input_size: [1.0 / 512.0, 1.0 / 512.0], // 1.0 / input size
+            mips: 8,                                                 // Number of mip levels
+            inverse_input_size: Vec2::new(1.0 / 512.0, 1.0 / 512.0), // 1.0 / input size
             _padding: 0,
         };
 
-        let spd_constants_buffer = render_device.create_buffer_with_data(
-            &bevy_render::render_resource::BufferInitDescriptor {
-                label: Some("spd_constants_buffer"),
-                contents: bytemuck::cast_slice(&[spd_constants]),
-                usage: bevy_render::render_resource::BufferUsages::UNIFORM,
-            },
-        );
+        let mut spd_constants_buffer = UniformBuffer::from(spd_constants);
+        spd_constants_buffer.write_buffer(&render_device, &queue);
 
         let storage_view = prefilter
             .environment_map
@@ -515,16 +525,7 @@ pub fn prepare_prefilter_bind_groups(
                 //     &create_storage_view(&textures.specular_map, 12, &render_device),
                 // ),
                 (13, &samplers.linear),
-                (
-                    14,
-                    bevy_render::render_resource::BindingResource::Buffer(
-                        bevy_render::render_resource::BufferBinding {
-                            buffer: &spd_constants_buffer,
-                            offset: 0,
-                            size: None,
-                        },
-                    ),
-                ),
+                (14, &spd_constants_buffer),
             )),
         );
 
@@ -541,13 +542,8 @@ pub fn prepare_prefilter_bind_groups(
                 _padding: 0,
             };
 
-            let importance_constants_buffer = render_device.create_buffer_with_data(
-                &bevy_render::render_resource::BufferInitDescriptor {
-                    label: Some(&format!("importance_constants_buffer_mip_{}", mip)),
-                    contents: bytemuck::cast_slice(&[importance_constants]),
-                    usage: bevy_render::render_resource::BufferUsages::UNIFORM,
-                },
-            );
+            let mut importance_constants_buffer = UniformBuffer::from(importance_constants);
+            importance_constants_buffer.write_buffer(&render_device, &queue);
 
             let mip_storage_view =
                 create_storage_view(&textures.specular_map, mip as u32, &render_device);
@@ -559,16 +555,7 @@ pub fn prepare_prefilter_bind_groups(
                     (0, &textures.environment_map.default_view),
                     (1, &samplers.linear),
                     (2, &mip_storage_view),
-                    (
-                        3,
-                        bevy_render::render_resource::BindingResource::Buffer(
-                            bevy_render::render_resource::BufferBinding {
-                                buffer: &importance_constants_buffer,
-                                offset: 0,
-                                size: None,
-                            },
-                        ),
-                    ),
+                    (3, &importance_constants_buffer),
                 )),
             );
 
@@ -578,16 +565,13 @@ pub fn prepare_prefilter_bind_groups(
         // Create irradiance bind group
         let irradiance_constants = IrradianceConstants {
             sample_count: 64, // Higher for good diffuse approximation
-            _padding: [0, 0, 0],
+            _padding1: 0,
+            _padding2: 0,
+            _padding3: 0,
         };
 
-        let irradiance_constants_buffer = render_device.create_buffer_with_data(
-            &bevy_render::render_resource::BufferInitDescriptor {
-                label: Some("irradiance_constants_buffer"),
-                contents: bytemuck::cast_slice(&[irradiance_constants]),
-                usage: bevy_render::render_resource::BufferUsages::UNIFORM,
-            },
-        );
+        let mut irradiance_constants_buffer = UniformBuffer::from(irradiance_constants);
+        irradiance_constants_buffer.write_buffer(&render_device, &queue);
 
         let irradiance_bind_group = render_device.create_bind_group(
             "irradiance_bind_group",
@@ -598,13 +582,7 @@ pub fn prepare_prefilter_bind_groups(
                 (2, &textures.irradiance_map.default_view),
                 (
                     3,
-                    bevy_render::render_resource::BindingResource::Buffer(
-                        bevy_render::render_resource::BufferBinding {
-                            buffer: &irradiance_constants_buffer,
-                            offset: 0,
-                            size: None,
-                        },
-                    ),
+                    &irradiance_constants_buffer,
                 ),
             )),
         );
@@ -622,12 +600,12 @@ fn create_storage_view(
     texture: &CachedTexture,
     mip: u32,
     _render_device: &RenderDevice,
-) -> bevy_render::render_resource::TextureView {
+) -> TextureView {
     texture.texture.create_view(&TextureViewDescriptor {
         label: Some(format!("storage_view_mip_{}", mip).as_str()),
         format: Some(texture.texture.format()),
         dimension: Some(TextureViewDimension::D2Array),
-        aspect: bevy_render::render_resource::TextureAspect::All,
+        aspect: TextureAspect::All,
         base_mip_level: mip,
         mip_level_count: Some(1),
         base_array_layer: 0,
@@ -663,13 +641,11 @@ impl Node for SpdFirstNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipelines = world.resource::<PrefilterPipelines>();
 
-        // Get the pipeline
         let Some(spd_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.spd_first) else {
             return Ok(());
         };
 
         for (_, bind_groups) in self.query.iter_manual(world) {
-            // Create compute pass
             let mut compute_pass =
                 render_context
                     .command_encoder()
@@ -678,12 +654,14 @@ impl Node for SpdFirstNode {
                         timestamp_writes: None,
                     });
 
-            // Set pipeline and bind group with dynamic offset
             compute_pass.set_pipeline(spd_pipeline);
-            compute_pass.set_bind_group(0, &bind_groups.spd, &[0]);
+            compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
-            // Dispatch workgroups - for a 512x512 texture with 16x16 workgroups
-            compute_pass.dispatch_workgroups(32, 32, 6); // 6 faces of cubemap
+            // Calculate the optimal dispatch size based on our shader's workgroup size and thread mapping
+            // The workgroup size is 256x1x1, and our remap_for_wave_reduction maps these threads to a 8x8 block
+            // For a 512x512 texture, we need 512/64 = 8 workgroups in X and 512/64 = 8 workgroups in Y
+            // Each workgroup processes 64x64 pixels (256 threads each handling 16 pixels)
+            compute_pass.dispatch_workgroups(8, 8, 6); // 6 faces of cubemap
         }
 
         Ok(())
@@ -717,13 +695,11 @@ impl Node for SpdSecondNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipelines = world.resource::<PrefilterPipelines>();
 
-        // Get the pipeline
         let Some(spd_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.spd_second) else {
             return Ok(());
         };
 
         for (_, bind_groups) in self.query.iter_manual(world) {
-            // Create compute pass
             let mut compute_pass =
                 render_context
                     .command_encoder()
@@ -732,12 +708,11 @@ impl Node for SpdSecondNode {
                         timestamp_writes: None,
                     });
 
-            // Set pipeline and bind group with dynamic offset
             compute_pass.set_pipeline(spd_pipeline);
-            compute_pass.set_bind_group(0, &bind_groups.spd, &[0]); // Provide dynamic offset of 0
+            compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
             // Dispatch workgroups - for each face
-            compute_pass.dispatch_workgroups(1, 1, 6);
+            compute_pass.dispatch_workgroups(2, 2, 6);
         }
 
         Ok(())
@@ -771,7 +746,6 @@ impl Node for ImportanceSampleNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipelines = world.resource::<PrefilterPipelines>();
 
-        // Get the pipeline
         let Some(importance_sample_pipeline) =
             pipeline_cache.get_compute_pipeline(pipelines.importance_sample)
         else {
@@ -779,7 +753,6 @@ impl Node for ImportanceSampleNode {
         };
 
         for (_, bind_groups) in self.query.iter_manual(world) {
-            // Create compute pass
             let mut compute_pass =
                 render_context
                     .command_encoder()
@@ -788,12 +761,11 @@ impl Node for ImportanceSampleNode {
                         timestamp_writes: None,
                     });
 
-            // Set pipeline
             compute_pass.set_pipeline(importance_sample_pipeline);
 
             // Process each mip level
             for (mip, bind_group) in bind_groups.importance_sample.iter().enumerate() {
-                compute_pass.set_bind_group(0, bind_group, &[0]);
+                compute_pass.set_bind_group(0, bind_group, &[]);
 
                 // Calculate dispatch size based on mip level
                 let mip_size = 512u32 >> mip;
@@ -835,14 +807,12 @@ impl Node for IrradianceNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipelines = world.resource::<PrefilterPipelines>();
 
-        // Get the pipeline
         let Some(irradiance_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.irradiance)
         else {
             return Ok(());
         };
 
         for (_, bind_groups) in self.query.iter_manual(world) {
-            // Create compute pass
             let mut compute_pass =
                 render_context
                     .command_encoder()
@@ -851,9 +821,8 @@ impl Node for IrradianceNode {
                         timestamp_writes: None,
                     });
 
-            // Set pipeline and bind group
             compute_pass.set_pipeline(irradiance_pipeline);
-            compute_pass.set_bind_group(0, &bind_groups.irradiance, &[0]);
+            compute_pass.set_bind_group(0, &bind_groups.irradiance, &[]);
 
             // Dispatch workgroups - 32x32 texture with 8x8 workgroups
             compute_pass.dispatch_workgroups(4, 4, 6); // 6 faces

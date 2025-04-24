@@ -159,7 +159,7 @@ fn spd_downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
     var v = spd_load_intermediate(x, y);
     v = spd_reduce_quad(v, subgroup_invocation_id);
     if local_invocation_index % 4u == 0u {
-        spd_store((workgroup_id * 8u) + vec2(x / 2u, y / 2u), v, base_mip + 2u, slice);
+        spd_store((workgroup_id * 8u) + vec2(x / 2u, y / 2u), v, base_mip, slice);
         spd_store_intermediate(x + (y / 2u) % 2u, y, v);
     }
 #else
@@ -170,7 +170,7 @@ fn spd_downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
             vec2(x * 2u + 0u, y * 2u + 1u),
             vec2(x * 2u + 1u, y * 2u + 1u),
         );
-        spd_store((workgroup_id * 8u) + vec2(x, y), v, base_mip + 2u, slice);
+        spd_store((workgroup_id * 8u) + vec2(x, y), v, base_mip, slice);
         spd_store_intermediate(x * 2u + y % 2u, y * 2u, v);
     }
 #endif
@@ -182,7 +182,7 @@ fn spd_downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
         var v = spd_load_intermediate(x * 2u + y % 2u, y * 2u);
         v = spd_reduce_quad(v, subgroup_invocation_id);
         if local_invocation_index % 4u == 0u {
-            spd_store((workgroup_id * 4u) + vec2(x / 2u, y / 2u), v, base_mip + 3u, slice);
+            spd_store((workgroup_id * 4u) + vec2(x / 2u, y / 2u), v, base_mip, slice);
             spd_store_intermediate(x * 2u + y / 2u, y * 2u, v);
         }
     }
@@ -194,7 +194,7 @@ fn spd_downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
             vec2(x * 4u + 0u + 1u, y * 4u + 2u),
             vec2(x * 4u + 2u + 1u, y * 4u + 2u),
         );
-        spd_store((workgroup_id * 4u) + vec2(x, y), v, base_mip + 3u, slice);
+        spd_store((workgroup_id * 4u) + vec2(x, y), v, base_mip, slice);
         spd_store_intermediate(x * 4u + y, y * 4u, v);
     }
 #endif
@@ -206,7 +206,7 @@ fn spd_downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
         var v = spd_load_intermediate(x * 4u + y, y * 4u);
         v = spd_reduce_quad(v, subgroup_invocation_id);
         if local_invocation_index % 4u == 0u {
-            spd_store((workgroup_id * 2u) + vec2(x / 2u, y / 2u), v, base_mip + 4u, slice);
+            spd_store((workgroup_id * 2u) + vec2(x / 2u, y / 2u), v, base_mip, slice);
             spd_store_intermediate(x / 2u + y, 0u, v);
         }
     }
@@ -218,7 +218,7 @@ fn spd_downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
             vec2(x * 8u + 0u + 1u + y * 2u, y * 8u + 4u),
             vec2(x * 8u + 4u + 1u + y * 2u, y * 8u + 4u),
         );
-        spd_store((workgroup_id * 2u) + vec2(x, y), v, base_mip + 4u, slice);
+        spd_store((workgroup_id * 2u) + vec2(x, y), v, base_mip, slice);
         spd_store_intermediate(x + y * 2u, 0u, v);
     }
 #endif
@@ -230,12 +230,14 @@ fn spd_downsample_mip_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
         var v = spd_load_intermediate(local_invocation_index, 0u);
         v = spd_reduce_quad(v, subgroup_invocation_id);
         if local_invocation_index % 4u == 0u {
-            spd_store(workgroup_id, v, base_mip + 5u, slice);
+            spd_store(workgroup_id, v, base_mip, slice);
         }
     }
 #else
-    let v = spd_reduce_intermediate(vec2(0u, 0u), vec2(1u, 0u), vec2(2u, 0u), vec2(3u, 0u));
-    spd_store(workgroup_id, v, base_mip + 5u, slice);
+    if local_invocation_index < 1u {
+        let v = spd_reduce_intermediate(vec2(0u, 0u), vec2(1u, 0u), vec2(2u, 0u), vec2(3u, 0u));
+        spd_store(workgroup_id, v, base_mip, slice);
+    }
 #endif
 }
 
@@ -292,21 +294,33 @@ fn spd_downsample_mips_6_7(x: u32, y: u32, mips: u32, slice: u32) {
 }
 
 fn remap_for_wave_reduction(a: u32) -> vec2u {
-    return vec2(
-        insertBits(extractBits(a, 2u, 3u), a, 0u, 1u),
-        insertBits(extractBits(a, 3u, 3u), extractBits(a, 1u, 2u), 0u, 2u),
-    );
+    // This function maps linear thread IDs to 2D coordinates in a special pattern
+    // to ensure that neighboring threads process neighboring pixels
+    // For example, this transforms linear thread IDs 0,1,2,3 into a 2×2 square
+    
+    // Extract bits to form the X and Y coordinates
+    let x = insertBits(extractBits(a, 2u, 3u), a, 0u, 1u);
+    let y = insertBits(extractBits(a, 3u, 3u), extractBits(a, 1u, 2u), 0u, 2u);
+    
+    return vec2u(x, y);
 }
 
 fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
-    let texture_coord = vec2f(uv) * constants.inverse_input_size + constants.inverse_input_size;
+    let texture_coord = (vec2f(uv) + 0.5) * constants.inverse_input_size;
+    
     let result = textureSampleLevel(mip_0, sampler_linear_clamp, texture_coord, slice, 0.0);
+
+#ifdef SRGB_CONVERSION
     return vec4(
         srgb_from_linear(result.r),
         srgb_from_linear(result.g),
         srgb_from_linear(result.b),
         result.a
     );
+#else
+    return result;
+#endif
+
 }
 
 fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {

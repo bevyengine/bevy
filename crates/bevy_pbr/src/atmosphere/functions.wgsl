@@ -272,7 +272,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
         let shadow_map_factor = get_shadow(light_i, world_pos, ray_dir);
 
         // Transmittance from scattering event to light source
-        let scattering_factor = shadow_factor * scattering_coeff;
+        let scattering_factor = shadow_factor * scattering_coeff * shadow_map_factor;
 
         // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
