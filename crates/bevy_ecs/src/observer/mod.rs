@@ -26,9 +26,11 @@ use core::{
 };
 use smallvec::SmallVec;
 
-/// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
-/// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
-/// contains event propagation information. See [`Trigger::propagate`] for more information.
+/// A type that encapsulates information about a triggered [Event] during a specific [Observer] run. It includes
+/// the [Event] data, the corresponding [Entity] that triggered it, and details about event propagation.
+/// See [Trigger::propagate] for more information. It also provides a [Bundle] type representing a set of
+/// components associated with the triggered event. This would be useful to access the components or data
+/// that are related to the event.
 pub struct Trigger<'w, E, B: Bundle = ()> {
     event: &'w mut E,
     propagate: &'w mut bool,
