@@ -1,7 +1,8 @@
-use crate::{CalculatedClip, ComputedNode, ComputedNodeTarget, UiStack};
+use crate::{CalculatedClip, ComputedNode, ComputedNodeTarget, Node, OverflowAxis, UiStack};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
+    hierarchy::ChildOf,
     prelude::{Component, With},
     query::QueryData,
     reflect::ReflectComponent,
@@ -12,6 +13,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::InheritedVisibility};
+use bevy_sprite::BorderRect;
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -80,19 +82,9 @@ impl Default for Interaction {
     reflect(Serialize, Deserialize)
 )]
 pub struct RelativeCursorPosition {
-    /// Visible area of the Node relative to the size of the entire Node.
-    pub normalized_visible_node_rect: Rect,
     /// Cursor position relative to the size and position of the Node.
     /// A None value indicates that the cursor position is unknown.
     pub normalized: Option<Vec2>,
-}
-
-impl RelativeCursorPosition {
-    /// A helper function to check if the mouse is over the node
-    pub fn mouse_over(&self) -> bool {
-        self.normalized
-            .is_some_and(|position| self.normalized_visible_node_rect.contains(position))
-    }
 }
 
 /// Describes whether the node should block interactions with lower nodes
@@ -135,7 +127,6 @@ pub struct NodeQuery {
     interaction: Option<&'static mut Interaction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
-    calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedNodeTarget,
 }
@@ -152,6 +143,8 @@ pub fn ui_focus_system(
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
+    clipping_query: Query<(&ComputedNode, &Node)>,
+    child_of_query: Query<&ChildOf>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -232,16 +225,65 @@ pub fn ui_focus_system(
             }
             let camera_entity = node.target_camera.camera()?;
 
-            let node_rect =
-                Rect::from_center_size(node.node.transform.translation, node.node.size());
-
-            // Intersect with the calculated clip rect to find the bounds of the visible region of the node
-            let visible_rect = node
-                .calculated_clip
-                .map(|clip| node_rect.intersect(clip.clip))
-                .unwrap_or(node_rect);
-
             let cursor_position = camera_cursor_positions.get(&camera_entity);
+
+            fn clip_check_recursive(
+                point: Vec2,
+                entity: Entity,
+                clipping_query: &Query<'_, '_, (&ComputedNode, &Node)>,
+                child_of_query: &Query<&ChildOf>,
+            ) -> bool {
+                if let Ok(child_of) = child_of_query.get(entity) {
+                    let parent = child_of.0;
+                    if let Ok((computed_node, node)) = clipping_query.get(parent) {
+                        // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
+
+                        let mut clip_rect =
+                            Rect::from_center_size(Vec2::ZERO, 0.5 * computed_node.size);
+
+                        let clip_inset = match node.overflow_clip_margin.visual_box {
+                            crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
+                            crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
+                            crate::OverflowClipBox::PaddingBox => computed_node.border(),
+                        };
+
+                        clip_rect.min.x += clip_inset.left;
+                        clip_rect.min.y += clip_inset.top;
+                        clip_rect.max.x -= clip_inset.right;
+                        clip_rect.max.y -= clip_inset.bottom;
+
+                        if node.overflow.x == OverflowAxis::Visible {
+                            clip_rect.min.x = -f32::INFINITY;
+                            clip_rect.max.x = f32::INFINITY;
+                        }
+                        if node.overflow.y == OverflowAxis::Visible {
+                            clip_rect.min.y = -f32::INFINITY;
+                            clip_rect.max.y = f32::INFINITY;
+                        }
+
+                        if !clip_rect
+                            .contains(computed_node.transform.inverse().transform_point2(point))
+                        {
+                            return false;
+                        }
+                    }
+                    return clip_check_recursive(point, parent, clipping_query, child_of_query);
+                }
+                // point unclipped by all ancestors
+                true
+            }
+
+            let contains_cursor = cursor_position.is_some_and(|point| {
+                node.node.contains_point(*point)
+                    && clip_check_recursive(*point, *entity, &clipping_query, &child_of_query)
+            });
+
+            // parent_query.get(current)
+
+            // while let Ok(parent) = parent_query.get(current) {
+
+            //     current = parent.0;
+            // }
 
             // The mouse position relative to the node
             // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
@@ -250,19 +292,14 @@ pub fn ui_focus_system(
                 // ensure node size is non-zero in all dimensions, otherwise relative position will be
                 // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
                 // false positives for mouse_over (#12395)
-                (node_rect.size().cmpgt(Vec2::ZERO).all())
-                    .then_some((*cursor_position - node_rect.min) / node_rect.size())
+                node.node.normalize_point(*cursor_position)
             });
 
             // If the current cursor position is within the bounds of the node's visible area, consider it for
             // clicking
             let relative_cursor_position_component = RelativeCursorPosition {
-                normalized_visible_node_rect: visible_rect.normalize(node_rect),
                 normalized: relative_cursor_position,
             };
-
-            let contains_cursor = relative_cursor_position_component.mouse_over()
-                && cursor_position.is_some_and(|point| node.node.contains_point(*point));
 
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position
@@ -323,4 +360,47 @@ pub fn ui_focus_system(
             }
         }
     }
+}
+
+pub fn clip_check_recursive(
+    point: Vec2,
+    entity: Entity,
+    clipping_query: &Query<'_, '_, (&ComputedNode, &Node)>,
+    child_of_query: &Query<&ChildOf>,
+) -> bool {
+    if let Ok(child_of) = child_of_query.get(entity) {
+        let parent = child_of.0;
+        if let Ok((computed_node, node)) = clipping_query.get(parent) {
+            // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
+
+            let mut clip_rect = Rect::from_center_size(Vec2::ZERO, 0.5 * computed_node.size);
+
+            let clip_inset = match node.overflow_clip_margin.visual_box {
+                crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
+                crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
+                crate::OverflowClipBox::PaddingBox => computed_node.border(),
+            };
+
+            clip_rect.min.x += clip_inset.left;
+            clip_rect.min.y += clip_inset.top;
+            clip_rect.max.x -= clip_inset.right;
+            clip_rect.max.y -= clip_inset.bottom;
+
+            if node.overflow.x == OverflowAxis::Visible {
+                clip_rect.min.x = -f32::INFINITY;
+                clip_rect.max.x = f32::INFINITY;
+            }
+            if node.overflow.y == OverflowAxis::Visible {
+                clip_rect.min.y = -f32::INFINITY;
+                clip_rect.max.y = f32::INFINITY;
+            }
+
+            if !clip_rect.contains(computed_node.transform.inverse().transform_point2(point)) {
+                return false;
+            }
+        }
+        return clip_check_recursive(point, parent, clipping_query, child_of_query);
+    }
+    // point unclipped by all ancestors
+    true
 }
