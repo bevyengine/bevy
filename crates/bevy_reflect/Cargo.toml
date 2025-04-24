@@ -106,7 +106,7 @@ petgraph = { version = "0.7", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }
-uuid = { version = "1.13.1", default-features = false, optional = true, features = [
+uuid = { version = "1", default-features = false, optional = true, features = [
   "v4",
   "serde",
 ] }
