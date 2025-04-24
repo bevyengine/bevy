@@ -75,7 +75,7 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub inverse_scale_factor: f32,
-    /// Transform for the node
+    /// Transform from coordinates local to the node to global UI coordinates
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub transform: Affine2,
