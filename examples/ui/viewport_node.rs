@@ -1,19 +1,18 @@
 //! A simple scene to demonstrate spawning a viewport widget. The example will demonstrate how to
 //! pick entities visible in the widget's view.
 
-use bevy::picking::pointer::PointerInteraction;
-use bevy::prelude::*;
-
-use bevy::ui::widget::ViewportNode;
 use bevy::{
     image::{TextureFormatPixelInfo, Volume},
-    window::PrimaryWindow,
-};
-use bevy_render::{
-    camera::RenderTarget,
-    render_resource::{
-        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    picking::pointer::PointerInteraction,
+    prelude::*,
+    render::{
+        camera::RenderTarget,
+        render_resource::{
+            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+        },
     },
+    ui::widget::ViewportNode,
+    window::PrimaryWindow,
 };
 
 fn main() {
