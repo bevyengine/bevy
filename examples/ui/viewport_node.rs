@@ -38,7 +38,7 @@ fn test(
     commands.spawn(Camera3d::default());
 
     // Set up an texture for the 3D camera to render to
-    let window = window.get_single().unwrap();
+    let window = window.single().unwrap();
     let window_size = window.physical_size();
     let size = Extent3d {
         width: window_size.x,
