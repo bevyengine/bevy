@@ -221,7 +221,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
                             required_components,
-                            <#ident as Default>::default,
+                            {
+                                use #bevy_ecs_path::component::CreateRequirement;
+                                (&&#bevy_ecs_path::component:ComponentRequirement::<#ident>(core::marker::PhantomData)).get
+                            },
+                            //<#ident as #bevy_ecs_path::component::CreateRequirement>::create_requirement,
+                            //#bevy_ecs_path::component::CreateRequirement::create_requirement(&&#bevy_ecs_path::component:ComponentRequirement::<#ident>(core::marker::PhantomData)),
                             inheritance_depth,
                             recursion_check_stack
                         );

@@ -37,6 +37,46 @@ use disqualified::ShortName;
 use smallvec::SmallVec;
 use thiserror::Error;
 
+/// Makes component requirement errors look slightly less ugly.
+#[doc(hidden)]
+pub struct ComponentRequirement<T>(PhantomData<T>);
+
+impl<T> ComponentRequirement<T> {
+    const IS_DEFAULT_OR_UNIT: () = {
+        if size_of::<T>() != 0 {
+            panic!("Your requirement must implement default if it is not a unit struct.");
+        }
+    };
+}
+
+/// All component requirements must have some way to create them.
+/// This is implemented for traits with Default, and also unit structs.
+#[doc(hidden)]
+pub trait CreateRequirement {
+    type Requirement;
+    fn create_requirement(&self) -> Self::Requirement;
+}
+
+// Deref specialization will try this implementation first.
+impl<T: Default> CreateRequirement for &ComponentRequirement<T> {
+    type Requirement = T;
+    fn create_requirement(&self) -> Self::Requirement {
+        T::default()
+    }
+}
+
+// Deref specialization will try this implementation second.
+impl<T> CreateRequirement for ComponentRequirement<T> {
+    type Requirement = T;
+    fn create_requirement(&self) -> Self::Requirement {
+        // Despite the name, this just panics if the size isn't 0.
+        let _ = ComponentRequirement::<T>::IS_DEFAULT_OR_UNIT;
+        // I do not know if this is safe.
+        // We can hope that because it has a size of 0 that it will be fine.
+        unsafe { std::mem::zeroed() }
+    }
+}
+
 /// A data type that can be used to store data for an [entity].
 ///
 /// `Component` is a [derivable trait]: this means that a data type can implement it by applying a `#[derive(Component)]` attribute to it.
