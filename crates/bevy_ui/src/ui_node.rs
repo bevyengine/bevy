@@ -621,8 +621,19 @@ pub struct Node {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
 
-    /// Rotate, scale, skew, or translate an element.
-    pub transform: Transform,
+    /// Translation along the x-axis.
+    /// `Val::percent` values are resolved based on the computed width of the Ui Node.
+    x_translation: Val,
+
+    /// Translation along the y-axis.
+    /// `Val::percent` values are resolved based on the computed width of the Ui Node.
+    y_translation: Val,
+
+    /// Resize an element. A negative value reflects the node in that axis.
+    scale: Vec2,
+
+    /// Rotate an element clockwise by the given value in radians.
+    rotation: f32,
 }
 
 impl Node {
@@ -666,7 +677,10 @@ impl Node {
         grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
-        transform: Transform::IDENTITY,
+        x_translation: Val::ZERO,
+        y_translation: Val::ZERO,
+        scale: Vec2::ONE,
+        rotation: 0.,
     };
 }
 
