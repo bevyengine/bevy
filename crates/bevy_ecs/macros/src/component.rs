@@ -229,7 +229,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                                         let b = a.get_self();
                                         b
                                     });
-                                
+
                                     if !valid {
                                         panic!(
                                             #requirement_invalid_message
