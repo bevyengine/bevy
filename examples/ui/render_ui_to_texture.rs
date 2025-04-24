@@ -2,29 +2,25 @@
 
 use std::f32::consts::PI;
 
-use bevy::color::palettes::css::BLUE;
-use bevy::input::ButtonState;
-use bevy::picking::pointer::PointerAction;
-use bevy::window::{WindowEvent, WindowRef};
 use bevy::{
-    color::{palettes::css::GOLD, palettes::css::RED},
+    asset::uuid::Uuid,
+    color::palettes::css::{BLUE, GOLD, RED},
+    input::ButtonState,
     picking::{
         backend::ray::RayMap,
-        pointer::{Location, PointerId, PointerLocation},
+        pointer::{Location, PointerAction, PointerId, PointerInput},
         PickSet,
     },
     prelude::*,
     render::{
         camera::{ManualTextureViews, RenderTarget},
+        mesh::Indices,
         mesh::VertexAttributeValues,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
-    window::PrimaryWindow,
+    window::{PrimaryWindow, WindowEvent},
 };
-use bevy_asset::uuid::Uuid;
-use bevy_internal::picking::pointer::PointerInput;
-use bevy_render::mesh::Indices;
 
 const CUBE_POINTER_ID: PointerId = PointerId::Custom(Uuid::from_u128(90870987));
 
