@@ -66,7 +66,17 @@ impl<T> Check<T, false> {
     }
 
     pub fn create_requirement(&self) -> fn() -> T {
+        // The other checker should only let 0 sized types use this function.
+        // This is just a bit of extra assurance.
+        const {
+            if size_of::<T>() != 0 {
+                panic!("Something has gone terribly wrong.")
+            }
+        }
         || {
+            // SAFETY:
+            // I do not know if this is safe.
+            // We can hope that because it has a size of 0 that it will be fine.
             let requirement: T = unsafe { core::mem::zeroed() };
             requirement
         }
