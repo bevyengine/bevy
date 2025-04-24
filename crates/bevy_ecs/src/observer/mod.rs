@@ -17,7 +17,7 @@ use crate::{
     world::{DeferredWorld, *},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_ptr::Ptr;
 use core::{
     fmt::Debug,
@@ -843,7 +843,7 @@ impl World {
 mod tests {
     use alloc::{vec, vec::Vec};
 
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
     use crate::component::ComponentId;
