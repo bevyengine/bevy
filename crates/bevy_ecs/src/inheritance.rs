@@ -13,12 +13,12 @@ use core::{
     alloc::Layout,
     cell::UnsafeCell,
     ops::{Deref, DerefMut},
+    panic::Location,
     ptr::NonNull,
 };
 
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 
-use crate::query::DebugCheckedUnwrap;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeEntity, ArchetypeId, ArchetypeRecord, Archetypes},
     change_detection::MaybeLocation,
@@ -31,6 +31,7 @@ use crate::{
     storage::{TableId, TableRow, Tables},
     world::{DeferredWorld, Mut, World},
 };
+use crate::{change_detection::TicksMut, query::DebugCheckedUnwrap};
 
 #[derive(Component)]
 #[component(
@@ -215,63 +216,67 @@ impl SharedMutComponentData {
     }
 }
 
-#[derive(Debug)]
 pub struct MutInherited<'w, T> {
-    pub(crate) original_data: Mut<'w, T>,
+    pub(crate) value: *mut T,
+    pub(crate) added: *mut Tick,
+    pub(crate) changed: *mut Tick,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
+    pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
     pub(crate) is_inherited: bool,
     pub(crate) shared_data: Option<&'w SharedMutComponentData>,
     pub(crate) table_row: usize,
 }
 
 impl<'w, T> MutInherited<'w, T> {
-    pub fn ptr(&mut self) -> &mut Mut<'w, T> {
-        &mut self.original_data
-    }
+    // pub fn ptr(&mut self) -> &mut Mut<'w, T> {
+    //     &mut self.original_data
+    // }
 
-    pub fn into_inner(mut self) -> &'w mut T {
-        if self.is_inherited {
-            unsafe {
-                self.shared_data
-                    .debug_checked_unwrap()
-                    .get_or_clone::<T>(self.original_data.value, self.table_row)
-            }
-        } else {
-            self.original_data.set_changed();
-            self.original_data.value
-        }
-    }
+    // pub fn into_inner(mut self) -> &'w mut T {
+    //     if self.is_inherited {
+    //         unsafe {
+    //             self.shared_data
+    //                 .debug_checked_unwrap()
+    //                 .get_or_clone::<T>(self.value, self.table_row)
+    //         }
+    //     } else {
+    //         self.ticks.
+    //         self.original_data.value
+    //     }
+    // }
 
-    pub fn map_unchanged<U>(self, f: impl FnOnce(&mut T) -> &mut U) -> MutInherited<'w, U> {
-        if self.is_inherited {
-            unsafe {
-                let new_value = f(self
-                    .shared_data
-                    .debug_checked_unwrap()
-                    .get_or_clone::<T>(self.original_data.value, self.table_row));
-                MutInherited {
-                    original_data: Mut {
-                        value: new_value,
-                        ticks: self.original_data.ticks,
-                        changed_by: self.original_data.changed_by,
-                    },
-                    is_inherited: self.is_inherited,
-                    shared_data: self.shared_data,
-                    table_row: self.table_row,
-                }
-            }
-        } else {
-            MutInherited {
-                original_data: Mut {
-                    value: f(self.original_data.value),
-                    ticks: self.original_data.ticks,
-                    changed_by: self.original_data.changed_by,
-                },
-                is_inherited: self.is_inherited,
-                shared_data: self.shared_data,
-                table_row: self.table_row,
-            }
-        }
-    }
+    // pub fn map_unchanged<U>(self, f: impl FnOnce(&mut T) -> &mut U) -> MutInherited<'w, U> {
+    //     if self.is_inherited {
+    //         unsafe {
+    //             let new_value = f(self
+    //                 .shared_data
+    //                 .debug_checked_unwrap()
+    //                 .get_or_clone::<T>(self.original_data.value, self.table_row));
+    //             MutInherited {
+    //                 original_data: Mut {
+    //                     value: new_value,
+    //                     ticks: self.original_data.ticks,
+    //                     changed_by: self.original_data.changed_by,
+    //                 },
+    //                 is_inherited: self.is_inherited,
+    //                 shared_data: self.shared_data,
+    //                 table_row: self.table_row,
+    //             }
+    //         }
+    //     } else {
+    //         MutInherited {
+    //             original_data: Mut {
+    //                 value: f(self.original_data.value),
+    //                 ticks: self.original_data.ticks,
+    //                 changed_by: self.original_data.changed_by,
+    //             },
+    //             is_inherited: self.is_inherited,
+    //             shared_data: self.shared_data,
+    //             table_row: self.table_row,
+    //         }
+    //     }
+    // }
 }
 
 impl<'w, T> AsRef<T> for MutInherited<'w, T> {
@@ -286,7 +291,7 @@ impl<'w, T> Deref for MutInherited<'w, T> {
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
-        self.original_data.deref()
+        unsafe { &*self.value }
     }
 }
 
@@ -304,10 +309,11 @@ impl<'w, T> DerefMut for MutInherited<'w, T> {
             unsafe {
                 self.shared_data
                     .debug_checked_unwrap()
-                    .get_or_clone::<T>(self.original_data.value, self.table_row)
+                    .get_or_clone::<T>(&mut *self.value, self.table_row)
             }
         } else {
-            self.original_data.deref_mut()
+            self.set_changed();
+            unsafe { &mut *self.value }
         }
     }
 }
@@ -315,26 +321,26 @@ impl<'w, T> DerefMut for MutInherited<'w, T> {
 impl<'w, T> DetectChanges for MutInherited<'w, T> {
     #[inline(always)]
     fn is_added(&self) -> bool {
-        self.original_data.is_added()
+        false
     }
 
     #[inline(always)]
     fn is_changed(&self) -> bool {
-        self.original_data.is_changed()
+        false
     }
 
     #[inline(always)]
     fn last_changed(&self) -> Tick {
-        self.original_data.last_changed()
+        unsafe { *self.changed }
     }
 
     #[inline(always)]
     fn changed_by(&self) -> MaybeLocation {
-        self.original_data.changed_by()
+        self.changed_by.copied()
     }
 
     fn added(&self) -> Tick {
-        self.original_data.added()
+        unsafe { *self.added }
     }
 }
 
@@ -343,30 +349,20 @@ impl<'w, T> DetectChangesMut for MutInherited<'w, T> {
 
     #[inline(always)]
     fn set_changed(&mut self) {
-        self.original_data.set_changed();
+        unsafe { *self.changed = self.this_run };
     }
 
     #[inline(always)]
-    fn set_last_changed(&mut self, last_changed: Tick) {
-        self.original_data.set_last_changed(last_changed);
-    }
+    fn set_last_changed(&mut self, last_changed: Tick) {}
 
     #[inline(always)]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
-        self.original_data.bypass_change_detection()
+        self.deref_mut()
     }
 
-    fn set_added(&mut self) {
-        if !self.is_inherited {
-            self.original_data.set_added();
-        }
-    }
+    fn set_added(&mut self) {}
 
-    fn set_last_added(&mut self, last_added: Tick) {
-        if !self.is_inherited {
-            self.original_data.set_last_added(last_added);
-        }
-    }
+    fn set_last_added(&mut self, last_added: Tick) {}
 }
 
 #[derive(Default)]

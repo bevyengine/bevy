@@ -1991,63 +1991,66 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         table_row: TableRow,
         is_inherited: bool,
     ) -> Self::Item<'w> {
-        MutInherited {
-            shared_data: fetch.shared_component_data,
-            table_row: table_row.as_usize(),
-            is_inherited,
-            original_data: fetch.components.extract(
-                |table| {
-                    let idx = if is_inherited {
-                        0
-                    } else {
-                        table_row.as_usize()
-                    };
-                    // SAFETY: set_table was previously called
-                    let (table_components, added_ticks, changed_ticks, callers) =
-                        unsafe { table.debug_checked_unwrap() };
+        fetch.components.extract(
+            |table| {
+                let idx = if is_inherited {
+                    0
+                } else {
+                    table_row.as_usize()
+                };
+                // SAFETY: set_table was previously called
+                let (table_components, added_ticks, changed_ticks, callers) =
+                    unsafe { table.debug_checked_unwrap() };
 
-                    // SAFETY: The caller ensures `table_row` is in range.
-                    let component = unsafe { table_components.get(idx) };
-                    // SAFETY: The caller ensures `table_row` is in range.
-                    let added = unsafe { added_ticks.get(idx) };
-                    // SAFETY: The caller ensures `table_row` is in range.
-                    let changed = unsafe { changed_ticks.get(idx) };
-                    // SAFETY: The caller ensures `table_row` is in range.
-                    let caller = callers.map(|callers| unsafe { callers.get(idx) });
+                // SAFETY: The caller ensures `table_row` is in range.
+                let component = unsafe { table_components.get(idx) };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let added = unsafe { added_ticks.get(idx) };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let changed = unsafe { changed_ticks.get(idx) };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let caller = callers.map(|callers| unsafe { callers.get(idx) });
 
-                    Mut {
-                        value: component.deref_mut(),
-                        ticks: TicksMut {
-                            added: added.deref_mut(),
-                            changed: changed.deref_mut(),
-                            this_run: fetch.this_run,
-                            last_run: fetch.last_run,
-                        },
-                        changed_by: caller.map(|caller| caller.deref_mut()),
-                    }
-                },
-                |sparse_set| {
-                    let entity = if is_inherited {
-                        fetch.shared_sparse_component_entity.debug_checked_unwrap()
-                    } else {
-                        entity
-                    };
-                    // SAFETY: The caller ensures `entity` is in range and has the component.
-                    let (component, ticks, caller) = unsafe {
-                        sparse_set
-                            .debug_checked_unwrap()
-                            .get_with_ticks(entity)
-                            .debug_checked_unwrap()
-                    };
+                MutInherited {
+                    // value: component.deref_mut(),
+                    value: component.get(),
+                    added: added.get(),
+                    changed: changed.get(),
+                    this_run: fetch.this_run,
+                    last_run: fetch.last_run,
+                    changed_by: caller.map(|caller| caller.deref_mut()),
+                    is_inherited,
+                    shared_data: fetch.shared_component_data,
+                    table_row: table_row.as_usize(),
+                }
+            },
+            |sparse_set| {
+                let entity = if is_inherited {
+                    fetch.shared_sparse_component_entity.debug_checked_unwrap()
+                } else {
+                    entity
+                };
+                // SAFETY: The caller ensures `entity` is in range and has the component.
+                let (component, ticks, caller) = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_with_ticks(entity)
+                        .debug_checked_unwrap()
+                };
 
-                    Mut {
-                        value: component.assert_unique().deref_mut(),
-                        ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                        changed_by: caller.map(|caller| caller.deref_mut()),
-                    }
-                },
-            ),
-        }
+                MutInherited {
+                    value: component.as_ptr().cast(),
+                    added: ticks.added.get(),
+                    changed: ticks.changed.get(),
+                    last_run: fetch.last_run,
+                    this_run: fetch.this_run,
+                    changed_by: caller.map(|caller| caller.deref_mut()),
+                    is_inherited,
+                    shared_data: fetch.shared_component_data,
+                    table_row: table_row.as_usize(),
+                }
+            },
+        )
     }
 }
 

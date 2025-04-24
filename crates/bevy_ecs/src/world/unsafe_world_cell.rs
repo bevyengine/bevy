@@ -959,12 +959,12 @@ impl<'w> UnsafeEntityCell<'w> {
             )
             .map(
                 |(value, cells, caller, is_inherited, shared_data)| MutInherited {
-                    original_data: Mut {
-                        // SAFETY: returned component is of type T
-                        value: value.assert_unique().deref_mut::<T>(),
-                        ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
-                        changed_by: caller.map(|caller| caller.deref_mut()),
-                    },
+                    value: value.as_ptr().cast(),
+                    this_run: change_tick,
+                    last_run: last_change_tick,
+                    added: cells.added.get(),
+                    changed: cells.changed.get(),
+                    changed_by: caller.map(|caller| caller.deref_mut()),
                     is_inherited,
                     table_row: self.location.table_row.as_usize(),
                     shared_data,
