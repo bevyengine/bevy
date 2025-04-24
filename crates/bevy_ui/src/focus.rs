@@ -1,4 +1,4 @@
-use crate::{CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius, UiStack};
+use crate::{CalculatedClip, ComputedNode, ComputedNodeTarget, UiStack};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
