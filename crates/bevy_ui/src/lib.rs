@@ -41,7 +41,7 @@ pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
 
-use widget::{ImageNode, ImageNodeSize};
+use widget::{ImageNode, ImageNodeSize, ViewportNode};
 
 /// The UI prelude.
 ///
@@ -158,6 +158,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiTargetCamera>()
             .register_type::<ImageNode>()
             .register_type::<ImageNodeSize>()
+            .register_type::<ViewportNode>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
