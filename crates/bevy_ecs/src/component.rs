@@ -42,11 +42,11 @@ use thiserror::Error;
 pub struct ComponentRequirement<T>(pub PhantomData<T>);
 
 impl<T> ComponentRequirement<T> {
-    const IS_DEFAULT_OR_UNIT: () = {
+    const fn is_default_or_unit() {
         if size_of::<T>() != 0 {
             panic!("Your requirement must implement default if it is not a unit struct.");
         }
-    };
+    }
 }
 
 /// All component requirements must have some way to create them.
@@ -70,7 +70,8 @@ impl<T> CreateRequirement for ComponentRequirement<T> {
     type Requirement = T;
     fn create_requirement(&self) -> fn() -> Self::Requirement {
         // Despite the name, this just panics if the size isn't 0.
-        ComponentRequirement::<T>::IS_DEFAULT_OR_UNIT;
+        const { ComponentRequirement::<T>::is_default_or_unit() };
+        //_ = ComponentRequirement::<T>::IS_DEFAULT_OR_UNIT;
         || {
             // SAFETY:
             // I do not know if this is safe.
