@@ -13,7 +13,7 @@ use bevy_ecs::{
     world::Ref,
 };
 
-use bevy_math::{Mat4, Vec2};
+use bevy_math::{Affine3A, Quat, Vec2, Vec3};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
 use thiserror::Error;
@@ -176,7 +176,7 @@ with UI components as a child of an entity without UI components, your UI layout
             &mut ui_surface,
             true,
             None,
-            Mat4::IDENTITY,
+            Affine3A::IDENTITY,
             &mut node_update_query,
             &ui_children,
             computed_target.scale_factor.recip(),
@@ -192,7 +192,7 @@ with UI components as a child of an entity without UI components, your UI layout
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
         root_size: Option<Vec2>,
-        mut transform: Mat4,
+        mut transform: Affine3A,
         node_update_query: &mut Query<(
             &mut ComputedNode,
             &Node,
@@ -256,16 +256,29 @@ with UI components as a child of an entity without UI components, your UI layout
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
-            let mut node_transform = style.transform;
-            node_transform.translation /= inverse_target_scale_factor;
-            transform *=
-                node_transform.compute_matrix() * Mat4::from_translation(node_center.extend(0.));
+            let viewport_size = root_size.unwrap_or(node.size);
+
+            let resolve_translation = |mut val: Val, extent: f32, viewport_size: Vec2| {
+                if let Val::Px(ref mut value) = val {
+                    *value /= inverse_target_scale_factor
+                }
+                val.resolve(extent, viewport_size).unwrap_or(0.)
+            };
+
+            let node_transform = Affine3A::from_scale_rotation_translation(
+                style.scale.extend(1.),
+                Quat::from_rotation_z(style.rotation),
+                Vec3::new(
+                    resolve_translation(style.x_translation, layout_size.x, viewport_size),
+                    resolve_translation(style.y_translation, layout_size.y, viewport_size),
+                    0.,
+                ),
+            );
+            transform *= node_transform * Affine3A::from_translation(node_center.extend(0.));
             let new_global_transform = GlobalTransform::from(transform);
             if new_global_transform != *global_transform {
                 *global_transform = new_global_transform;
             }
-
-            let viewport_size = root_size.unwrap_or(node.size);
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius

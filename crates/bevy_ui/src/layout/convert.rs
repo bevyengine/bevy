@@ -448,7 +448,7 @@ impl RepeatedGridTrack {
 
 #[cfg(test)]
 mod tests {
-    use bevy_transform::components::Transform;
+    use bevy_math::Vec2;
 
     use super::*;
 
@@ -524,9 +524,12 @@ mod tests {
             ],
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
-            transform: Transform::IDENTITY,
+            x_translation: Val::ZERO,
+            y_translation: Val::ZERO,
+            scale: Vec2::ONE,
+            rotation: 0.,
         };
-        let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
+        let viewport_values = LayoutContext::new(1.0, Vec2::new(800., 600.));
         let taffy_style = from_node(&node, &viewport_values, false);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
@@ -664,7 +667,7 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(2.0, bevy_math::Vec2::new(800., 600.));
+        let context = LayoutContext::new(2.0, Vec2::new(800., 600.));
         let cases = [
             (Val::Auto, LengthPercentage::Length(0.)),
             (Val::Percent(1.), LengthPercentage::Percent(0.01)),
