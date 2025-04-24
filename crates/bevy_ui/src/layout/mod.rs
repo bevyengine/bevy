@@ -267,7 +267,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let node_transform = Affine3A::from_scale_rotation_translation(
                 style.scale.extend(1.),
-                Quat::from_rotation_z(style.rotation),
+                Quat::from_rotation_z(-style.rotation),
                 Vec3::new(
                     resolve_translation(style.x_translation, layout_size.x, viewport_size),
                     resolve_translation(style.y_translation, layout_size.y, viewport_size),
