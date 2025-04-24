@@ -218,13 +218,31 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                     });
                 }
                 None => {
+                    let requirement_invalid_message = format!("The component {} requires {requirement}, but {requirement} does not implement Default, nor is it a unit struct.", ast.ident, requirement=ident.to_token_stream().to_string());
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
                             required_components,
                             {
-                                use #bevy_ecs_path::component::CreateRequirement;
-                                (&&#bevy_ecs_path::component::ComponentRequirement::<#ident>(core::marker::PhantomData)).create_requirement()
+                                const _: () = {
+                                    let valid = #bevy_ecs_path::component::component_requirement_is_valid(&|| {
+                                        let a = &#bevy_ecs_path::component::Check::<#ident, true>(core::marker::PhantomData);
+                                        let b = a.get_self();
+                                        b
+                                    });
+                                
+                                    if !valid {
+                                        panic!(
+                                            #requirement_invalid_message
+                                        );
+                                    }
+                                };
+
+                                #bevy_ecs_path::component::Check::<#ident, true>(core::marker::PhantomData).create_requirement()
                             },
+                            // {
+                            //     use #bevy_ecs_path::component::CreateRequirement;
+                            //     (&&#bevy_ecs_path::component::ComponentRequirement::<#ident>(core::marker::PhantomData)).create_requirement()
+                            // },
                             //<#ident as #bevy_ecs_path::component::CreateRequirement>::create_requirement,
                             //#bevy_ecs_path::component::CreateRequirement::create_requirement(&&#bevy_ecs_path::component:ComponentRequirement::<#ident>(core::marker::PhantomData)),
                             inheritance_depth,

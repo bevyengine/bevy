@@ -37,49 +37,60 @@ use disqualified::ShortName;
 use smallvec::SmallVec;
 use thiserror::Error;
 
-/// Makes component requirement errors look slightly less ugly.
+/// Checks if a struct has Default.
 #[doc(hidden)]
-pub struct ComponentRequirement<T>(pub PhantomData<T>);
+pub struct Check<T, const OUTCOME: bool>(pub PhantomData<T>);
 
-impl<T> ComponentRequirement<T> {
-    const fn is_default_or_unit() {
-        if size_of::<T>() != 0 {
-            panic!("Your requirement must implement default if it is not a unit struct.");
-        }
+impl<T> Deref for Check<T, true> {
+    type Target = Check<T, false>;
+    fn deref(&self) -> &Self::Target {
+        &Check(PhantomData)
     }
 }
 
-/// All component requirements must have some way to create them.
-/// This is implemented for traits with Default, and also unit structs.
-#[doc(hidden)]
-pub trait CreateRequirement {
-    type Requirement;
-    fn create_requirement(&self) -> fn() -> Self::Requirement;
-}
-
 // Deref specialization will try this implementation first.
-impl<T: Default> CreateRequirement for &ComponentRequirement<T> {
-    type Requirement = T;
-    fn create_requirement(&self) -> fn() -> Self::Requirement {
+impl<T: Default> Check<T, true> {
+    pub fn get_self(&self) -> &Self {
+        self
+    }
+
+    pub fn create_requirement(&self) -> fn() -> T {
         || T::default()
     }
 }
 
 // Deref specialization will try this implementation second.
-impl<T> CreateRequirement for ComponentRequirement<T> {
-    type Requirement = T;
-    fn create_requirement(&self) -> fn() -> Self::Requirement {
-        // Despite the name, this just panics if the size isn't 0.
-        const { ComponentRequirement::<T>::is_default_or_unit() };
-        //_ = ComponentRequirement::<T>::IS_DEFAULT_OR_UNIT;
+impl<T> Check<T, false> {
+    pub fn get_self(&self) -> &Self {
+        self
+    }
+
+    pub fn create_requirement(&self) -> fn() -> T {
         || {
-            // SAFETY:
-            // I do not know if this is safe.
-            // We can hope that because it has a size of 0 that it will be fine.
-            let requirement: Self::Requirement = unsafe { core::mem::zeroed() };
+            let requirement: T = unsafe { core::mem::zeroed() };
             requirement
         }
     }
+}
+
+/// A trait for checking whether Check is true or false.
+/// This is likely not required, as I can instead just check their const generic, but I was encountering lifetime issues, so I'll just use this until I find a solution.
+#[doc(hidden)]
+pub trait HasDefault {
+    type Actual;
+    const HAS_DEFAULT: bool;
+}
+
+impl<T, const OUTCOME: bool> HasDefault for &Check<T, OUTCOME> {
+    type Actual = T;
+    const HAS_DEFAULT: bool = OUTCOME;
+}
+
+/// Checks if a component's requirement is valid.
+/// It is valid if it has Default, or if it has a size of 0 and is therefore a unit struct.
+#[doc(hidden)]
+pub const fn component_requirement_is_valid<T: HasDefault>(_: &impl FnOnce() -> T) -> bool {
+    T::HAS_DEFAULT || size_of::<T::Actual>() == 0
 }
 
 /// A data type that can be used to store data for an [entity].
