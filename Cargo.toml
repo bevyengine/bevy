@@ -3499,6 +3499,17 @@ description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "viewport_node"
+path = "examples/ui/viewport_node.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.viewport_node]
+name = "Viewport Node"
+description = "Demonstrates how to create a viewport node with picking support"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
