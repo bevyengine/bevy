@@ -13,9 +13,7 @@ use bevy_ecs::{
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_math::Vec3Swizzles;
 use bevy_render::camera::CameraUpdateSystem;
-use bevy_transform::prelude::GlobalTransform;
 
 use accesskit::{Node, Rect, Role};
 
@@ -36,16 +34,10 @@ fn calc_label(
     name.map(String::into_boxed_str)
 }
 
-fn calc_bounds(
-    mut nodes: Query<(
-        &mut AccessibilityNode,
-        Ref<ComputedNode>,
-        Ref<GlobalTransform>,
-    )>,
-) {
-    for (mut accessible, node, transform) in &mut nodes {
-        if node.is_changed() || transform.is_changed() {
-            let center = transform.translation().xy();
+fn calc_bounds(mut nodes: Query<(&mut AccessibilityNode, Ref<ComputedNode>)>) {
+    for (mut accessible, node) in &mut nodes {
+        if node.is_changed() {
+            let center = node.transform.translation;
             let half_size = 0.5 * node.size;
             let min = center - half_size;
             let max = center + half_size;
