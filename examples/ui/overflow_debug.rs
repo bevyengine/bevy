@@ -4,7 +4,6 @@ use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget:
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
-const HALF_CONTAINER_SIZE: f32 = CONTAINER_SIZE / 2.0;
 const LOOP_LENGTH: f32 = 4.0;
 
 fn main() {
@@ -49,8 +48,8 @@ struct Move;
 
 impl UpdateTransform for Move {
     fn update(&self, t: f32, node: &mut Node) {
-        node.transform.translation.x = ops::sin(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
-        node.transform.translation.y = -ops::cos(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
+        node.x_translation = Val::Percent(ops::sin(t * TAU - FRAC_PI_2) * 50.);
+        node.y_translation = Val::Percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.);
     }
 }
 
@@ -59,8 +58,8 @@ struct Scale;
 
 impl UpdateTransform for Scale {
     fn update(&self, t: f32, node: &mut Node) {
-        node.transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
-        node.transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
+        node.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
+        node.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
     }
 }
 
@@ -69,8 +68,7 @@ struct Rotate;
 
 impl UpdateTransform for Rotate {
     fn update(&self, t: f32, node: &mut Node) {
-        node.transform.rotation =
-            Quat::from_axis_angle(Vec3::Z, (ops::cos(t * TAU) * 45.0).to_radians());
+        node.rotation = (ops::cos(t * TAU) * 45.0).to_radians();
     }
 }
 

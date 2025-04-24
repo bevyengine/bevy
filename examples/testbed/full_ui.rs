@@ -207,7 +207,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 ImageNode::new(asset_server.load("branding/bevy_logo_light.png")),
                                 // Uses the transform to rotate the logo image by 45 degrees
-                                Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
+                                Node {
+                                    rotation: 0.25 * PI,
+                                    ..Default::default()
+                                },
                                 BorderRadius::all(Val::Px(10.)),
                                 Outline {
                                     width: Val::Px(2.),
