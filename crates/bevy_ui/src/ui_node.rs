@@ -230,6 +230,14 @@ impl ComputedNode {
     pub const fn inverse_scale_factor(&self) -> f32 {
         self.inverse_scale_factor
     }
+
+    #[inline]
+    pub const fn with_transform<'a>(
+        &'a self,
+        transform: &'a GlobalTransform,
+    ) -> TransformedNode<'a> {
+        TransformedNode(self, transform)
+    }
 }
 
 impl ComputedNode {
@@ -250,6 +258,14 @@ impl ComputedNode {
 impl Default for ComputedNode {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+pub struct TransformedNode<'a>(&'a ComputedNode, &'a GlobalTransform);
+
+impl TransformedNode<'_> {
+    pub fn relative_position(&self, point: Vec2) -> Vec2 {
+        self.1.transform_point(point.extend(0.)).truncate()
     }
 }
 
