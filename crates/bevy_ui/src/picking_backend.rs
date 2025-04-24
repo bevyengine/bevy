@@ -31,7 +31,6 @@ use bevy_math::{Rect, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::prelude::*;
-use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -91,7 +90,6 @@ impl Plugin for UiPickingPlugin {
 pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
-    global_transform: &'static GlobalTransform,
     pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
@@ -186,10 +184,7 @@ pub fn ui_picking(
             continue;
         };
 
-        let node_rect = Rect::from_center_size(
-            node.global_transform.translation().truncate(),
-            node.node.size(),
-        );
+        let node_rect = Rect::from_center_size(node.node.transform.translation, node.node.size());
 
         // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
         if node_rect.size() == Vec2::ZERO {

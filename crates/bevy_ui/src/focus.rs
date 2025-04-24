@@ -12,7 +12,6 @@ use bevy_math::{Rect, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::InheritedVisibility};
-use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -133,7 +132,6 @@ pub struct State {
 pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
-    global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
@@ -234,10 +232,8 @@ pub fn ui_focus_system(
             }
             let camera_entity = node.target_camera.camera()?;
 
-            let node_rect = Rect::from_center_size(
-                node.global_transform.translation().truncate(),
-                node.node.size(),
-            );
+            let node_rect =
+                Rect::from_center_size(node.node.transform.translation, node.node.size());
 
             // Intersect with the calculated clip rect to find the bounds of the visible region of the node
             let visible_rect = node
