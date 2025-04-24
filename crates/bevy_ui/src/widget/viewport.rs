@@ -14,7 +14,6 @@ use bevy_picking::{
     events::PointerState,
     hover::HoverMap,
     pointer::{Location, PointerId, PointerInput},
-    Pickable,
 };
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
