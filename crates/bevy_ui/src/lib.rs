@@ -190,15 +190,7 @@ impl Plugin for UiPlugin {
 
         #[cfg(feature = "bevy_ui_picking_backend")]
         app.add_plugins(picking_backend::UiPickingPlugin)
-            .add_systems(
-                First,
-                widget::viewport_picking
-                    .in_set(PickSet::Input)
-                    // `viewport_picking` sends inputs based on pick events from the previous
-                    // frame.
-                    .ambiguous_with(bevy_picking::input::mouse_pick_events)
-                    .ambiguous_with(bevy_picking::input::touch_pick_events),
-            );
+            .add_systems(First, widget::viewport_picking.in_set(PickSet::PostInput));
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystem::Layout)
