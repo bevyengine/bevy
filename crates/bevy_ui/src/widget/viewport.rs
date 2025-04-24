@@ -5,7 +5,7 @@ use bevy_ecs::{
     event::EventReader,
     query::{Changed, Or},
     reflect::ReflectComponent,
-    system::{Commands, Local, Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::Rect;
