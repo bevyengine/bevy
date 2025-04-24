@@ -39,7 +39,7 @@ use thiserror::Error;
 
 /// Makes component requirement errors look slightly less ugly.
 #[doc(hidden)]
-pub struct ComponentRequirement<T>(PhantomData<T>);
+pub struct ComponentRequirement<T>(pub PhantomData<T>);
 
 impl<T> ComponentRequirement<T> {
     const IS_DEFAULT_OR_UNIT: () = {
@@ -54,26 +54,30 @@ impl<T> ComponentRequirement<T> {
 #[doc(hidden)]
 pub trait CreateRequirement {
     type Requirement;
-    fn create_requirement(&self) -> Self::Requirement;
+    fn create_requirement(&self) -> fn() -> Self::Requirement;
 }
 
 // Deref specialization will try this implementation first.
 impl<T: Default> CreateRequirement for &ComponentRequirement<T> {
     type Requirement = T;
-    fn create_requirement(&self) -> Self::Requirement {
-        T::default()
+    fn create_requirement(&self) -> fn() -> Self::Requirement {
+        || T::default()
     }
 }
 
 // Deref specialization will try this implementation second.
 impl<T> CreateRequirement for ComponentRequirement<T> {
     type Requirement = T;
-    fn create_requirement(&self) -> Self::Requirement {
+    fn create_requirement(&self) -> fn() -> Self::Requirement {
         // Despite the name, this just panics if the size isn't 0.
-        let _ = ComponentRequirement::<T>::IS_DEFAULT_OR_UNIT;
-        // I do not know if this is safe.
-        // We can hope that because it has a size of 0 that it will be fine.
-        unsafe { std::mem::zeroed() }
+        ComponentRequirement::<T>::IS_DEFAULT_OR_UNIT;
+        || {
+            // SAFETY:
+            // I do not know if this is safe.
+            // We can hope that because it has a size of 0 that it will be fine.
+            let requirement: Self::Requirement = unsafe { core::mem::zeroed() };
+            requirement
+        }
     }
 }
 

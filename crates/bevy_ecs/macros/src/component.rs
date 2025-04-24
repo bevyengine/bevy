@@ -223,7 +223,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                             required_components,
                             {
                                 use #bevy_ecs_path::component::CreateRequirement;
-                                (&&#bevy_ecs_path::component:ComponentRequirement::<#ident>(core::marker::PhantomData)).get
+                                (&&#bevy_ecs_path::component::ComponentRequirement::<#ident>(core::marker::PhantomData)).create_requirement()
                             },
                             //<#ident as #bevy_ecs_path::component::CreateRequirement>::create_requirement,
                             //#bevy_ecs_path::component::CreateRequirement::create_requirement(&&#bevy_ecs_path::component:ComponentRequirement::<#ident>(core::marker::PhantomData)),
