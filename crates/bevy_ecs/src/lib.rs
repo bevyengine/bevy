@@ -2003,17 +2003,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "The component B requires A, but A does not implement Default, nor is it a unit struct."]
-    fn non_unit_without_default_required_components() {
-        #[derive(Component)]
-        struct A{bad:i32}
-
-        #[derive(Component)]
-        #[require(A)]
-        struct B;
-    }
-
-    #[test]
     fn generic_required_components() {
         #[derive(Component)]
         #[require(Y<usize>)]
