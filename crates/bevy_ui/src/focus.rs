@@ -1,4 +1,4 @@
-use crate::{CalculatedClip, ComputedNode, ComputedNodeTarget, Node, OverflowAxis, UiStack};
+use crate::{ComputedNode, ComputedNodeTarget, Node, OverflowAxis, UiStack};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
@@ -227,63 +227,10 @@ pub fn ui_focus_system(
 
             let cursor_position = camera_cursor_positions.get(&camera_entity);
 
-            fn clip_check_recursive(
-                point: Vec2,
-                entity: Entity,
-                clipping_query: &Query<'_, '_, (&ComputedNode, &Node)>,
-                child_of_query: &Query<&ChildOf>,
-            ) -> bool {
-                if let Ok(child_of) = child_of_query.get(entity) {
-                    let parent = child_of.0;
-                    if let Ok((computed_node, node)) = clipping_query.get(parent) {
-                        // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
-
-                        let mut clip_rect =
-                            Rect::from_center_size(Vec2::ZERO, 0.5 * computed_node.size);
-
-                        let clip_inset = match node.overflow_clip_margin.visual_box {
-                            crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
-                            crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
-                            crate::OverflowClipBox::PaddingBox => computed_node.border(),
-                        };
-
-                        clip_rect.min.x += clip_inset.left;
-                        clip_rect.min.y += clip_inset.top;
-                        clip_rect.max.x -= clip_inset.right;
-                        clip_rect.max.y -= clip_inset.bottom;
-
-                        if node.overflow.x == OverflowAxis::Visible {
-                            clip_rect.min.x = -f32::INFINITY;
-                            clip_rect.max.x = f32::INFINITY;
-                        }
-                        if node.overflow.y == OverflowAxis::Visible {
-                            clip_rect.min.y = -f32::INFINITY;
-                            clip_rect.max.y = f32::INFINITY;
-                        }
-
-                        if !clip_rect
-                            .contains(computed_node.transform.inverse().transform_point2(point))
-                        {
-                            return false;
-                        }
-                    }
-                    return clip_check_recursive(point, parent, clipping_query, child_of_query);
-                }
-                // point unclipped by all ancestors
-                true
-            }
-
             let contains_cursor = cursor_position.is_some_and(|point| {
                 node.node.contains_point(*point)
                     && clip_check_recursive(*point, *entity, &clipping_query, &child_of_query)
             });
-
-            // parent_query.get(current)
-
-            // while let Ok(parent) = parent_query.get(current) {
-
-            //     current = parent.0;
-            // }
 
             // The mouse position relative to the node
             // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner

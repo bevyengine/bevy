@@ -24,7 +24,7 @@
 
 #![deny(missing_docs)]
 
-use crate::{prelude::*, UiStack};
+use crate::{clip_check_recursive, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
@@ -91,7 +91,6 @@ pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
     pickable: Option<&'static Pickable>,
-    calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedNodeTarget,
 }
@@ -113,6 +112,8 @@ pub fn ui_picking(
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
+    clipping_query: Query<(&ComputedNode, &Node)>,
+    child_of_query: Query<&ChildOf>,
 ) {
     // For each camera, the pointer and its position
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
@@ -191,11 +192,11 @@ pub fn ui_picking(
             continue;
         }
 
-        // Intersect with the calculated clip rect to find the bounds of the visible region of the node
-        let visible_rect = node
-            .calculated_clip
-            .map(|clip| node_rect.intersect(clip.clip))
-            .unwrap_or(node_rect);
+        // // Intersect with the calculated clip rect to find the bounds of the visible region of the node
+        // let visible_rect = node
+        //     .calculated_clip
+        //     .map(|clip| node_rect.intersect(clip.clip))
+        //     .unwrap_or(node_rect);
 
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
@@ -203,13 +204,19 @@ pub fn ui_picking(
         // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
         // Coordinates are relative to the entire node, not just the visible region.
         for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
-            let relative_cursor_position = (*cursor_position - node_rect.min) / node_rect.size();
+            let Some(relative_cursor_position) = node.node.normalize_point(*cursor_position) else {
+                continue;
+            };
 
-            if visible_rect
-                .normalize(node_rect)
-                .contains(relative_cursor_position)
-                && node.node.contains_point(*cursor_position)
-            {
+            let contains_cursor = node.node.contains_point(*cursor_position)
+                && clip_check_recursive(
+                    *cursor_position,
+                    *node_entity,
+                    &clipping_query,
+                    &child_of_query,
+                );
+
+            if contains_cursor {
                 hit_nodes
                     .entry((camera_entity, *pointer_id))
                     .or_default()
