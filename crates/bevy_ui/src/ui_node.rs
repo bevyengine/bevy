@@ -2,7 +2,7 @@ use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, Affine2, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
@@ -10,7 +10,6 @@ use bevy_render::{
     view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::components::GlobalTransform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -76,6 +75,8 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub inverse_scale_factor: f32,
+    /// Transform for this node
+    pub transform: Affine2,
 }
 
 impl ComputedNode {
@@ -230,14 +231,6 @@ impl ComputedNode {
     pub const fn inverse_scale_factor(&self) -> f32 {
         self.inverse_scale_factor
     }
-
-    #[inline]
-    pub const fn with_transform<'a>(
-        &'a self,
-        transform: &'a GlobalTransform,
-    ) -> TransformedNode<'a> {
-        TransformedNode(self, transform)
-    }
 }
 
 impl ComputedNode {
@@ -252,20 +245,13 @@ impl ComputedNode {
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
         inverse_scale_factor: 1.,
+        transform: Affine2::IDENTITY,
     };
 }
 
 impl Default for ComputedNode {
     fn default() -> Self {
         Self::DEFAULT
-    }
-}
-
-pub struct TransformedNode<'a>(&'a ComputedNode, &'a GlobalTransform);
-
-impl TransformedNode<'_> {
-    pub fn relative_position(&self, point: Vec2) -> Vec2 {
-        self.1.transform_point(point.extend(0.)).truncate()
     }
 }
 
@@ -346,7 +332,6 @@ impl From<Vec2> for ScrollPosition {
     FocusPolicy,
     ScrollPosition,
     Visibility,
-    GlobalTransform,
     VisibilityClass,
     ZIndex
 )]
