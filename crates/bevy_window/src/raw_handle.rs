@@ -51,8 +51,8 @@ impl<W: 'static> Deref for WindowWrapper<W> {
 #[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapper {
     /// A shared reference to the window.
-    /// This allows us to extend the lifetime of the window, 
-    /// so it doesn’t get eagerly dropped while a pipelined 
+    /// This allows us to extend the lifetime of the window,
+    /// so it doesn’t get eagerly dropped while a pipelined
     /// renderer still has frames in flight that need to draw to it.
     _window: Arc<dyn Any + Send + Sync>,
     /// Raw handle to a window.
