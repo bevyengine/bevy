@@ -10,7 +10,7 @@ use bevy_render::{
     view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::GlobalTransform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -621,19 +621,21 @@ pub struct Node {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
 
-    /// Translation along the x-axis.
-    /// `Val::percent` values are resolved based on the computed width of the Ui Node.
-    x_translation: Val,
+    /// Translate the node along the x-axis.
+    /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
+    /// `Val::Auto` is resolved to `0.`.
+    pub x_translation: Val,
 
-    /// Translation along the y-axis.
-    /// `Val::percent` values are resolved based on the computed width of the Ui Node.
-    y_translation: Val,
+    /// Translate the node along the y-axis.
+    /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
+    /// `Val::Auto` is resolved to `0.`.
+    pub y_translation: Val,
 
-    /// Resize an element. A negative value reflects the node in that axis.
-    scale: Vec2,
+    /// Resize the node. A negative value reflects the node in that axis.
+    pub scale: Vec2,
 
-    /// Rotate an element clockwise by the given value in radians.
-    rotation: f32,
+    /// Rotate the node clockwise by the given value in radians.
+    pub rotation: f32,
 }
 
 impl Node {
