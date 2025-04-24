@@ -13,9 +13,9 @@ use bevy_math::Rect;
 use bevy_picking::{
     events::PointerState,
     hover::HoverMap,
-    pointer::{Location, PointerId, PointerInput},
+    pointer::{Location, PointerId, PointerInput, PointerLocation},
 };
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, NormalizedRenderTarget},
@@ -60,14 +60,27 @@ impl ViewportNode {
 /// Viewport entities that are being hovered or dragged will have all pointer inputs sent to them.
 pub fn viewport_picking(
     mut commands: Commands,
-    viewport_query: Query<(&ViewportNode, &PointerId, &ComputedNode, &GlobalTransform)>,
+    mut viewport_query: Query<(
+        Entity,
+        &ViewportNode,
+        &PointerId,
+        &mut PointerLocation,
+        &ComputedNode,
+        &GlobalTransform,
+    )>,
     camera_query: Query<&Camera>,
     hover_map: Res<HoverMap>,
     pointer_state: Res<PointerState>,
     mut pointer_inputs: EventReader<PointerInput>,
-    mut dragged_last_frame: Local<HashSet<(Entity, PointerId)>>,
+    mut dragged_last_frame: Local<HashMap<Entity, PointerId>>,
 ) {
-    let mut viewport_picks: HashSet<(Entity, PointerId)> = dragged_last_frame
+    // Handle hovered entities.
+    //
+    // Entities that were dragged last frame need to be considered to handle drag end events.
+    //
+    // In general, dragged entities need to be considered to allow for dragging in and out of
+    // viewports.
+    let mut viewport_picks: HashMap<Entity, PointerId> = dragged_last_frame
         .drain()
         .chain(hover_map.iter().flat_map(|(hover_pointer_id, hits)| {
             hits.iter()
@@ -76,27 +89,32 @@ pub fn viewport_picking(
         }))
         .collect();
 
-    // Currently, we have only retrieved viewport entities if they are being hovered. However, this
-    // does not allow dragging in-and-out of viewports.
+    // Handle dragged entities.
     //
-    // We resolve this by considering viewports that are being dragged.
+    // See the above comment for why dragged entities need to be considered.
     for ((pointer_id, _), pointer_state) in pointer_state.pointer_buttons.iter() {
         for &target in pointer_state
             .dragging
             .keys()
             .filter(|&entity| viewport_query.contains(*entity))
         {
-            dragged_last_frame.insert((target, *pointer_id));
-            viewport_picks.insert((target, *pointer_id));
+            dragged_last_frame.insert(target, *pointer_id);
+            viewport_picks.insert(target, *pointer_id);
         }
     }
 
-    for (viewport_entity, pick_pointer_id) in viewport_picks {
-        let Ok((&viewport, &viewport_pointer_id, computed_node, global_transform)) =
-            viewport_query.get(viewport_entity)
-        else {
-            // This can only happen if entities in `dragged_last_frame` had one of these
-            // components removed since we last queried them
+    for (
+        viewport_entity,
+        &viewport,
+        &viewport_pointer_id,
+        mut viewport_pointer_location,
+        computed_node,
+        global_transform,
+    ) in &mut viewport_query
+    {
+        let Some(pick_pointer_id) = viewport_picks.get(&viewport_entity) else {
+            // Lift the viewport pointer if it's not being used.
+            viewport_pointer_location.location = None;
             continue;
         };
         let Ok(camera) = camera_query.get(viewport.camera) else {
@@ -121,7 +139,7 @@ pub fn viewport_picking(
 
         for input in pointer_inputs
             .read()
-            .filter(|input| input.pointer_id == pick_pointer_id)
+            .filter(|input| &input.pointer_id == pick_pointer_id)
         {
             let local_position = (input.location.position - top_left) / logical_size;
             let position = local_position * cam_viewport_size;
@@ -130,6 +148,7 @@ pub fn viewport_picking(
                 position,
                 target: NormalizedRenderTarget::Image(target.clone().into()),
             };
+            viewport_pointer_location.location = Some(location.clone());
 
             commands.send_event(PointerInput {
                 location,
