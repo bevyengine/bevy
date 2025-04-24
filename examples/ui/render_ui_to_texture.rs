@@ -2,21 +2,38 @@
 
 use std::f32::consts::PI;
 
+use bevy::color::palettes::css::BLUE;
+use bevy::input::ButtonState;
+use bevy::picking::pointer::PointerAction;
+use bevy::window::{WindowEvent, WindowRef};
 use bevy::{
-    color::palettes::css::GOLD,
+    color::{palettes::css::GOLD, palettes::css::RED},
+    picking::{
+        backend::ray::RayMap,
+        pointer::{Location, PointerId, PointerLocation},
+        PickSet,
+    },
     prelude::*,
     render::{
-        camera::RenderTarget,
+        camera::{ManualTextureViews, RenderTarget},
+        mesh::VertexAttributeValues,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
+    window::PrimaryWindow,
 };
+use bevy_asset::uuid::Uuid;
+use bevy_internal::picking::pointer::PointerInput;
+use bevy_render::mesh::Indices;
+
+const CUBE_POINTER_ID: PointerId = PointerId::Custom(Uuid::from_u128(90870987));
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, rotator_system)
+        .add_systems(First, drive_diegetic_pointer.in_set(PickSet::Input))
         .run();
 }
 
@@ -86,10 +103,37 @@ fn setup(
                 },
                 TextColor::BLACK,
             ));
+            parent
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        width: Val::Px(100.),
+                        height: Val::Px(100.),
+                        ..default()
+                    },
+                    BackgroundColor(BLUE.into()),
+                ))
+                .observe(
+                    |pointer: Trigger<Pointer<Drag>>, mut nodes: Query<&mut Node>| {
+                        let mut node = nodes.get_mut(pointer.target()).unwrap();
+                        node.left = Val::Px(pointer.pointer_location.position.x - 50.0);
+                        node.top = Val::Px(pointer.pointer_location.position.y - 50.0);
+                    },
+                )
+                .observe(
+                    |pointer: Trigger<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
+                        colors.get_mut(pointer.target()).unwrap().0 = RED.into();
+                    },
+                )
+                .observe(
+                    |pointer: Trigger<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
+                        colors.get_mut(pointer.target()).unwrap().0 = BLUE.into();
+                    },
+                );
         });
 
     let cube_size = 4.0;
-    let cube_handle = meshes.add(Cuboid::new(cube_size, cube_size, cube_size));
+    let cube_handle = meshes.add(Torus::new(cube_size / 2.0, cube_size));
 
     // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
@@ -113,13 +157,125 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+
+    commands.spawn((CUBE_POINTER_ID, CubePointer));
 }
 
-const ROTATION_SPEED: f32 = 0.5;
+const ROTATION_SPEED: f32 = 0.1;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
     for mut transform in &mut query {
         transform.rotate_x(1.0 * time.delta_secs() * ROTATION_SPEED);
         transform.rotate_y(0.7 * time.delta_secs() * ROTATION_SPEED);
     }
+}
+
+#[derive(Component)]
+struct CubePointer;
+
+fn drive_diegetic_pointer(
+    mut cursor_last: Local<Vec2>,
+    mut raycast: MeshRayCast,
+    rays: Res<RayMap>,
+    cubes: Query<&Mesh3d, With<Cube>>,
+    meshes: Res<Assets<Mesh>>,
+    ui_camera: Query<&Camera, With<Camera2d>>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
+    windows: Query<(Entity, &Window)>,
+    images: Res<Assets<Image>>,
+    manual_texture_views: Res<ManualTextureViews>,
+    mut window_events: EventReader<WindowEvent>,
+    mut pointer_input: EventWriter<PointerInput>,
+) -> Result {
+    let target = ui_camera
+        .single()?
+        .target
+        .normalize(primary_window.single().ok())
+        .unwrap();
+    let target_info = target
+        .get_render_target_info(windows, &images, &manual_texture_views)
+        .unwrap();
+    let size = target_info.physical_size.as_vec2();
+
+    let settings = MeshRayCastSettings {
+        visibility: RayCastVisibility::VisibleInView,
+        filter: &|entity| cubes.contains(entity),
+        early_exit_test: &|_| false,
+    };
+
+    for (_id, ray) in rays.iter() {
+        for (cube, hit) in raycast.cast_ray(*ray, &settings) {
+            let mesh = meshes.get(cubes.get(*cube)?).unwrap();
+            let uvs = mesh.attribute(Mesh::ATTRIBUTE_UV_0);
+            let Some(VertexAttributeValues::Float32x2(uvs)) = uvs else {
+                continue;
+            };
+
+            let uvs: [Vec2; 3] = if let Some(indices) = mesh.indices() {
+                let i = hit.triangle_index.unwrap() * 3;
+                match indices {
+                    Indices::U16(indices) => [
+                        Vec2::from(uvs[indices[i] as usize]),
+                        Vec2::from(uvs[indices[i + 1] as usize]),
+                        Vec2::from(uvs[indices[i + 2] as usize]),
+                    ],
+                    Indices::U32(indices) => [
+                        Vec2::from(uvs[indices[i] as usize]),
+                        Vec2::from(uvs[indices[i + 1] as usize]),
+                        Vec2::from(uvs[indices[i + 2] as usize]),
+                    ],
+                }
+            } else {
+                let i = hit.triangle_index.unwrap() * 3;
+                [
+                    Vec2::from(uvs[i]),
+                    Vec2::from(uvs[i + 1]),
+                    Vec2::from(uvs[i + 2]),
+                ]
+            };
+
+            let bc = hit.barycentric_coords.zxy();
+            let uv = bc.x * uvs[0] + bc.y * uvs[1] + bc.z * uvs[2];
+            let position = size * uv;
+
+            if position != *cursor_last {
+                pointer_input.write(PointerInput::new(
+                    CUBE_POINTER_ID,
+                    Location {
+                        target: target.clone(),
+                        position,
+                    },
+                    PointerAction::Move {
+                        delta: position - *cursor_last,
+                    },
+                ));
+                *cursor_last = position;
+            }
+        }
+    }
+
+    for window_event in window_events.read() {
+        if let WindowEvent::MouseButtonInput(input) = window_event {
+            let button = match input.button {
+                MouseButton::Left => PointerButton::Primary,
+                MouseButton::Right => PointerButton::Secondary,
+                MouseButton::Middle => PointerButton::Middle,
+                _ => continue,
+            };
+            let action = match input.state {
+                ButtonState::Pressed => PointerAction::Press(button),
+                ButtonState::Released => PointerAction::Release(button),
+            };
+            pointer_input.write(PointerInput::new(
+                CUBE_POINTER_ID,
+                Location {
+                    target: target.clone(),
+                    position: *cursor_last,
+                },
+                action,
+            ));
+        }
+    }
+
+    Result::Ok(())
 }
