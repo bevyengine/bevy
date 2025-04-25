@@ -199,6 +199,7 @@ bevy_render = [
   "bevy_image",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
+  "bevy_winit?/bevy_render",
 ]
 
 # Enable assertions to check the validity of parameters passed to glam

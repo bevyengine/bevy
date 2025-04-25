@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
@@ -9,11 +7,12 @@ use bevy_ecs::{
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
+use bevy_render::view::surface_target::SurfaceTargetSource;
 use bevy_window::{
-    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
-    WindowWrapper,
+    ClosingWindow, Monitor, PrimaryMonitor, VideoMode, Window, WindowClosed, WindowClosing,
+    WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
 };
+use std::collections::HashMap;
 use tracing::{error, info, warn};
 
 use winit::{
@@ -37,7 +36,7 @@ use crate::{
     get_selected_videomode, select_monitor,
     state::react_to_resize,
     winit_monitors::WinitMonitors,
-    CreateMonitorParams, CreateWindowParams, WinitWindows,
+    CreateMonitorParams, CreateWindowParams, WinitWindowWrapper, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -58,7 +57,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         monitors,
     ): SystemParamItem<CreateWindowParams<F>>,
 ) {
-    for (entity, mut window, handle_holder) in &mut created_windows {
+    for (entity, mut window) in &mut created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -90,11 +89,16 @@ pub fn create_windows<F: QueryFilter + 'static>(
             WinitWindowPressedKeys::default(),
         ));
 
-        if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
-            commands.entity(entity).insert(handle_wrapper.clone());
-            if let Some(handle_holder) = handle_holder {
-                *handle_holder.0.lock().unwrap() = Some(handle_wrapper);
-            }
+        #[cfg(feature = "bevy_render")]
+        {
+            #[cfg(any(target_os = "ios", target_os = "macos"))]
+            let main_thread_only = true;
+            #[cfg(not(any(target_os = "ios", target_os = "macos")))]
+            let main_thread_only = false;
+
+            let surface_target_source =
+                SurfaceTargetSource::new(main_thread_only, winit_window.clone());
+            commands.entity(entity).insert(surface_target_source);
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -240,7 +244,7 @@ pub(crate) fn despawn_windows(
     mut closing_events: EventWriter<WindowClosing>,
     mut closed_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
-    mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
+    mut windows_to_drop: Local<Vec<WinitWindowWrapper>>,
     mut exit_events: EventReader<AppExit>,
 ) {
     // Drop all the windows that are waiting to be closed
