@@ -10,6 +10,14 @@ use crate::{
 
 /// An alternative to types like [`Res`] that should `skip` instead of panic when they dont exist.
 /// Unlike [`Option<Res<T>>`], this will cause the system to be skipped entirely if the resource does not exist.
+/// # Example
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Resource)]
+/// struct Foo;
+/// 
+/// fn skips_if_not_present(res: When<Foo>){}
+/// ```
 pub struct When<'a, T> {
     pub(crate) value: &'a T,
 }
@@ -67,6 +75,14 @@ unsafe impl<'a, T: Resource> SystemParam for When<'a, T> {
 
 /// An alternative to types like [`ResMut`] that should `skip` instead of panic when they dont exist.
 /// Unlike [`Option<ResMut<T>>`], this will cause the system to be skipped entirely if the resource does not exist.
+/// # Example
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Resource)]
+/// struct Foo;
+/// 
+/// fn skips_if_not_present(res: WhenMut<Foo>){}
+/// ```
 pub struct WhenMut<'a, T> {
     pub(crate) value: &'a mut T,
 }
