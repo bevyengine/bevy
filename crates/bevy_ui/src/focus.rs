@@ -1,5 +1,6 @@
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedNodeTarget, Node, OverflowAxis, UiStack,
+    picking_backend::clip_check_recursive, ui_transform::UiGlobalTransform, ComputedNode,
+    ComputedNodeTarget, Node, UiStack,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -11,11 +12,10 @@ use bevy_ecs::{
     system::{Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
-use bevy_math::{Rect, Vec2};
+use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::InheritedVisibility};
-use bevy_sprite::BorderRect;
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -321,28 +321,4 @@ pub fn ui_focus_system(
             }
         }
     }
-}
-
-/// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
-pub fn clip_check_recursive(
-    point: Vec2,
-    entity: Entity,
-    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: &Query<&ChildOf>,
-) -> bool {
-    if let Ok(child_of) = child_of_query.get(entity) {
-        let parent = child_of.0;
-        if let Ok((computed_node, transform, node)) = clipping_query.get(parent) {
-            if !computed_node
-                .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
-                .contains(transform.inverse().transform_point2(point))
-            {
-                // The point is clipped and should be ignored by picking
-                return false;
-            }
-        }
-        return clip_check_recursive(point, parent, clipping_query, child_of_query);
-    }
-    // Reached root, point unclipped by all ancestors
-    true
 }

@@ -24,7 +24,7 @@
 
 #![deny(missing_docs)]
 
-use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
+use crate::{prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
@@ -261,4 +261,28 @@ pub fn ui_picking(
 
         output.write(PointerHits::new(*pointer, picks, order));
     }
+}
+
+/// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
+pub fn clip_check_recursive(
+    point: Vec2,
+    entity: Entity,
+    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
+    child_of_query: &Query<&ChildOf>,
+) -> bool {
+    if let Ok(child_of) = child_of_query.get(entity) {
+        let parent = child_of.0;
+        if let Ok((computed_node, transform, node)) = clipping_query.get(parent) {
+            if !computed_node
+                .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
+                .contains(transform.inverse().transform_point2(point))
+            {
+                // The point is clipped and should be ignored by picking
+                return false;
+            }
+        }
+        return clip_check_recursive(point, parent, clipping_query, child_of_query);
+    }
+    // Reached root, point unclipped by all ancestors
+    true
 }
