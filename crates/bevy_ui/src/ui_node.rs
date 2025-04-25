@@ -268,7 +268,7 @@ impl ComputedNode {
         overflow: Overflow,
         overflow_clip_margin: OverflowClipMargin,
     ) -> Rect {
-        let mut clip_rect = Rect::from_center_size(Vec2::ZERO, 0.5 * self.size);
+        let mut clip_rect = Rect::from_center_size(Vec2::ZERO, self.size);
 
         let clip_inset = match overflow_clip_margin.visual_box {
             OverflowClipBox::BorderBox => BorderRect::ZERO,
