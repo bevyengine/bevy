@@ -367,7 +367,7 @@ mod tests {
     use bevy_core_pipeline::core_2d::Camera2d;
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
-    use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_math::{Affine2, Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::systems::mark_dirty_trees;
@@ -699,23 +699,21 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<ChildOf>>()
+            .query_filtered::<(Entity, &ComputedNode), Without<ChildOf>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
-                |option_rect, (entity, node, global_transform)| {
-                    let current_rect = Rect::from_center_size(
-                        global_transform.translation().truncate(),
-                        node.size(),
-                    );
+                |option_rect, (entity, node)| {
+                    let current_rect =
+                        Rect::from_center_size(node.transform.translation, node.size());
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
                         "root ui node {entity} doesn't have a logical size"
                     );
                     assert_ne!(
-                        global_transform.affine(),
-                        GlobalTransform::default().affine(),
-                        "root ui node {entity} global transform is not populated"
+                        node.transform,
+                        Affine2::default(),
+                        "root ui node {entity} transform is not populated"
                     );
                     let Some((rect, is_overlapping)) = option_rect else {
                         return Some((current_rect, false));
