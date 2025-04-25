@@ -8,6 +8,8 @@ doc-valid-idents = [
   "VSync",
   "WebGL2",
   "WebGPU",
+  "AppKit",
+  "UIKit",
   "..",
 ]
 

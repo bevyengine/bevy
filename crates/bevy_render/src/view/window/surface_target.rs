@@ -100,7 +100,7 @@ impl SurfaceTargetSource {
     ///
     /// ## Safety
     ///
-    /// If the surface target source strictly only allows main-thread access (e.g. UiKit, AppKit),
+    /// If the surface target source strictly only allows main-thread access (e.g. UIKit, AppKit),
     /// you *must* set `main_thread_only` or use [`SurfaceTargetSource::new_non_send`] instead.
     pub fn new<T: HasSurfaceTarget + Send + Sync + 'static>(
         main_thread_only: bool,
@@ -182,7 +182,7 @@ pub trait HasSurfaceTarget {
     /// **It's up to the caller to ensure:**
     ///
     /// - The returned surface is only used on an appropriate thread. Certain platforms / surface targets
-    ///   like UiKit and AppKit require access ONLY on the main thread. It is up to the caller to know
+    ///   like UIKit and AppKit require access ONLY on the main thread. It is up to the caller to know
     ///   platform conventions and abide by them.
     ///
     /// **It's up to the trait implementor to ensure:**
