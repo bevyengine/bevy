@@ -2,7 +2,7 @@ use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
     BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
-    Outline, OverflowAxis, ScrollPosition, Val,
+    Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -295,24 +295,28 @@ with UI components as a child of an entity without UI components, your UI layout
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
                 node.outline_width = if style.display != Display::None {
-                    match outline.width {
-                        Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
-                        width => width,
-                    }
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.)
+                    outline
+                        .width
+                        .resolve(
+                            inverse_target_scale_factor.recip(),
+                            node.size().x,
+                            viewport_size,
+                        )
+                        .unwrap_or(0.)
+                        .max(0.)
                 } else {
                     0.
                 };
 
-                node.outline_offset = match outline.offset {
-                    Val::Px(offset) => Val::Px(offset / inverse_target_scale_factor),
-                    offset => offset,
-                }
-                .resolve(node.size().x, viewport_size)
-                .unwrap_or(0.)
-                .max(0.);
+                node.outline_offset = outline
+                    .offset
+                    .resolve(
+                        inverse_target_scale_factor.recip(),
+                        node.size().x,
+                        viewport_size,
+                    )
+                    .unwrap_or(0.)
+                    .max(0.);
             }
 
             let scroll_position: Vec2 = maybe_scroll_position

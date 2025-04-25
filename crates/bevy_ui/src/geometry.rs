@@ -255,15 +255,19 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// Resolves a [`Val`] from the given context values and returns this as an [`f32`].
-    /// The [`Val::Px`] value (if present), `parent_size` and `viewport_size` should all be in the same coordinate space.
-    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
+    /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `parent_size`,
+    /// and `viewport_size`.
     ///
-    /// **Note:** If a [`Val::Px`] is resolved, its inner value is returned unchanged.
-    pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
+    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
+    pub fn resolve(
+        self,
+        scale_factor: f32,
+        parent_size: f32,
+        viewport_size: Vec2,
+    ) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(parent_size * value / 100.0),
-            Val::Px(value) => Ok(value),
+            Val::Px(value) => Ok(value * scale_factor),
             Val::Vw(value) => Ok(viewport_size.x * value / 100.0),
             Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
             Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
@@ -687,7 +691,7 @@ mod tests {
     fn val_evaluate() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Percent(80.).resolve(size, viewport_size).unwrap();
+        let result = Val::Percent(80.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, size * 0.8);
     }
@@ -696,7 +700,7 @@ mod tests {
     fn val_resolve_px() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Px(10.).resolve(size, viewport_size).unwrap();
+        let result = Val::Px(10.).resolve(1., size, viewport_size).unwrap();
 
         assert_eq!(result, 10.);
     }
@@ -709,33 +713,45 @@ mod tests {
         for value in (-10..10).map(|value| value as f32) {
             // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
             assert_eq!(
-                Val::Vw(value).resolve(size, viewport_size),
-                Val::Vh(value).resolve(size, viewport_size)
+                Val::Vw(value).resolve(1., size, viewport_size),
+                Val::Vh(value).resolve(1., size, viewport_size)
             );
             assert_eq!(
-                Val::VMin(value).resolve(size, viewport_size),
-                Val::VMax(value).resolve(size, viewport_size)
+                Val::VMin(value).resolve(1., size, viewport_size),
+                Val::VMax(value).resolve(1., size, viewport_size)
             );
             assert_eq!(
-                Val::VMin(value).resolve(size, viewport_size),
-                Val::Vw(value).resolve(size, viewport_size)
+                Val::VMin(value).resolve(1., size, viewport_size),
+                Val::Vw(value).resolve(1., size, viewport_size)
             );
         }
 
         let viewport_size = vec2(1000., 500.);
-        assert_eq!(Val::Vw(100.).resolve(size, viewport_size).unwrap(), 1000.);
-        assert_eq!(Val::Vh(100.).resolve(size, viewport_size).unwrap(), 500.);
-        assert_eq!(Val::Vw(60.).resolve(size, viewport_size).unwrap(), 600.);
-        assert_eq!(Val::Vh(40.).resolve(size, viewport_size).unwrap(), 200.);
-        assert_eq!(Val::VMin(50.).resolve(size, viewport_size).unwrap(), 250.);
-        assert_eq!(Val::VMax(75.).resolve(size, viewport_size).unwrap(), 750.);
+        assert_eq!(
+            Val::Vw(100.).resolve(1., size, viewport_size).unwrap(),
+            1000.
+        );
+        assert_eq!(
+            Val::Vh(100.).resolve(1., size, viewport_size).unwrap(),
+            500.
+        );
+        assert_eq!(Val::Vw(60.).resolve(1., size, viewport_size).unwrap(), 600.);
+        assert_eq!(Val::Vh(40.).resolve(1., size, viewport_size).unwrap(), 200.);
+        assert_eq!(
+            Val::VMin(50.).resolve(1., size, viewport_size).unwrap(),
+            250.
+        );
+        assert_eq!(
+            Val::VMax(75.).resolve(1., size, viewport_size).unwrap(),
+            750.
+        );
     }
 
     #[test]
     fn val_auto_is_non_evaluable() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let resolve_auto = Val::Auto.resolve(size, viewport_size);
+        let resolve_auto = Val::Auto.resolve(1., size, viewport_size);
 
         assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));
     }
