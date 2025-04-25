@@ -1,16 +1,14 @@
-mod texture;
 mod buffer;
+mod texture;
 
-use std::{marker::PhantomData, sync::Arc};
+use std::sync::Arc;
 
 use bevy_ecs::resource::Resource;
 
 use super::{
-    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, ResourceNode, TypeHandle,
-    VirtualResource,
+    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, GraphResourceNodeHandle, PassNode,
+    ResourceNode, TypeHandle, VirtualResource,
 };
-
-pub struct PassNode {}
 
 pub trait ImportToFrameGraph
 where
@@ -49,37 +47,21 @@ pub struct FrameGraph {
     pass_nodes: Vec<PassNode>,
 }
 
-pub struct GraphResourceNodeHandle<ResourceType> {
-    pub resource_node_handle: TypeHandle<ResourceNode>,
-    pub version: u32,
-    _marker: PhantomData<ResourceType>,
-}
-
-impl<ResourceType> GraphResourceNodeHandle<ResourceType> {
-    pub fn new(resource_node_handle: TypeHandle<ResourceNode>, version: u32) -> Self {
-        Self {
-            resource_node_handle,
-            version,
-            _marker: PhantomData,
-        }
-    }
-}
-
 impl FrameGraph {
-    pub fn get_pass_node_mut(&self, handle: &TypeHandle<PassNode>) -> &PassNode {
-        &self.pass_nodes[handle.index]
+    pub fn get_pass_node_mut(&mut self, handle: &TypeHandle<PassNode>) -> &mut PassNode {
+        &mut self.pass_nodes[handle.index]
     }
 
     pub fn get_pass_node(&self, handle: &TypeHandle<PassNode>) -> &PassNode {
         &self.pass_nodes[handle.index]
     }
 
-    pub fn get_resource_node_mut(&self, handle: &TypeHandle<PassNode>) -> &PassNode {
-        &self.pass_nodes[handle.index]
+    pub fn get_resource_node_mut(&mut self, handle: &TypeHandle<ResourceNode>) -> &mut ResourceNode {
+        &mut self.resource_nodes[handle.index]
     }
 
-    pub fn get_resource_node(&self, handle: &TypeHandle<PassNode>) -> &PassNode {
-        &self.pass_nodes[handle.index]
+    pub fn get_resource_node(&self, handle: &TypeHandle<ResourceNode>) -> &ResourceNode {
+        &self.resource_nodes[handle.index]
     }
 
     pub fn import<ResourceType>(

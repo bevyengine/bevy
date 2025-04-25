@@ -1,47 +1,9 @@
 use super::{
-    AnyFrameGraphResource, FrameGraphBuffer, FrameGraphTexture, GraphResource, ResourceNode,
-    TypeHandle,
+    AnyFrameGraphResource, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource, ResourceNode, ResourceRead, ResourceRef, TypeHandle
 };
 use crate::renderer::RenderDevice;
 use bevy_platform::collections::HashMap;
-use std::{borrow::Cow, marker::PhantomData, ops::Range};
-
-pub enum FrameGraphError {
-    ResourceNotFound,
-}
-
-pub trait Pass {
-    fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError>;
-}
-
-pub struct RenderPass {
-    render_pass_info: RenderPassInfo,
-    drawers: Vec<Box<dyn RenderPassDrawer>>,
-}
-
-pub trait RenderPassDrawer: 'static + Send + Sync {
-    fn draw(&self, tracked_render_pass: &mut TrackedRenderPass) -> Result<(), FrameGraphError>;
-}
-
-impl Pass for RenderPass {
-    fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
-        let mut tracked_render_pass = render_context.begin_render_pass(&self.render_pass_info)?;
-
-        for drawer in self.drawers.iter() {
-            drawer.draw(&mut tracked_render_pass)?;
-        }
-
-        tracked_render_pass.end();
-        Ok(())
-    }
-}
-
-pub struct ResourceRef<ResourceType, VieType> {
-    pub handle: TypeHandle<ResourceNode>,
-    _marker: PhantomData<(ResourceType, VieType)>,
-}
-
-pub struct ResourceRead;
+use std::{borrow::Cow,  ops::Range};
 
 pub struct TextureViewInfo {
     pub label: Option<Cow<'static, str>>,
@@ -122,6 +84,39 @@ pub struct RenderContext {
     command_buffer_queue: Vec<wgpu::CommandBuffer>,
 }
 
+impl RenderContext {
+    pub fn begin_render_pass<'a>(
+        &'a mut self,
+        render_pass_info: &RenderPassInfo,
+    ) -> Result<TrackedRenderPass<'a>, FrameGraphError> {
+        let mut command_encoder = self
+            .render_device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+
+        let render_pass =
+            render_pass_info.create_render_pass(&self.resource_table, &mut command_encoder)?;
+
+        Ok(TrackedRenderPass {
+            command_encoder,
+            render_pass,
+            render_context: self,
+        })
+    }
+
+    pub fn get_resource<ResourceType: GraphResource>(
+        &self,
+        resource_ref: &ResourceRef<ResourceType, ResourceRead>,
+    ) -> Result<&ResourceType, FrameGraphError> {
+        self.resource_table
+            .get_resource(resource_ref)
+            .ok_or(FrameGraphError::ResourceNotFound)
+    }
+
+    pub fn add_command_buffer(&mut self, command_buffer: wgpu::CommandBuffer) {
+        self.command_buffer_queue.push(command_buffer);
+    }
+}
+
 pub struct TrackedRenderPass<'a> {
     command_encoder: wgpu::CommandEncoder,
     render_pass: wgpu::RenderPass<'static>,
@@ -143,11 +138,7 @@ impl<'a> TrackedRenderPass<'a> {
         slot: u32,
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
     ) -> Result<(), FrameGraphError> {
-        let buffer = self
-            .render_context
-            .resource_table
-            .get_resource(&buffer_ref)
-            .ok_or(FrameGraphError::ResourceNotFound)?;
+        let buffer = self.render_context.get_resource(&buffer_ref)?;
         self.render_pass
             .set_vertex_buffer(slot, buffer.resource.slice(0..));
 
@@ -159,11 +150,7 @@ impl<'a> TrackedRenderPass<'a> {
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         index_format: wgpu::IndexFormat,
     ) -> Result<(), FrameGraphError> {
-        let buffer = self
-            .render_context
-            .resource_table
-            .get_resource(&buffer_ref)
-            .ok_or(FrameGraphError::ResourceNotFound)?;
+        let buffer = self.render_context.get_resource(&buffer_ref)?;
 
         self.render_pass
             .set_index_buffer(buffer.resource.slice(0..), index_format);
@@ -171,34 +158,10 @@ impl<'a> TrackedRenderPass<'a> {
         Ok(())
     }
 
-    fn end(self) {
+    pub fn end(self) {
         drop(self.render_pass);
-
         let command_buffer = self.command_encoder.finish();
-
-        self.render_context
-            .command_buffer_queue
-            .push(command_buffer);
-    }
-}
-
-impl RenderContext {
-    pub fn begin_render_pass<'a>(
-        &'a mut self,
-        render_pass_info: &RenderPassInfo,
-    ) -> Result<TrackedRenderPass<'a>, FrameGraphError> {
-        let mut command_encoder = self
-            .render_device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-
-        let render_pass =
-            render_pass_info.create_render_pass(&self.resource_table, &mut command_encoder)?;
-
-        Ok(TrackedRenderPass {
-            command_encoder,
-            render_pass,
-            render_context: self,
-        })
+        self.render_context.add_command_buffer(command_buffer);
     }
 }
 

@@ -1,4 +1,57 @@
+use std::marker::PhantomData;
+
 use super::{handle::TypeHandle, AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, PassNode};
+
+pub trait ResourceView {}
+
+pub struct ResourceRef<ResourceType, VieType> {
+    pub handle: TypeHandle<ResourceNode>,
+    _marker: PhantomData<(ResourceType, VieType)>,
+}
+
+impl<ResourceType, VieType> ResourceRef<ResourceType, VieType> {
+    pub fn new(handle: TypeHandle<ResourceNode>) -> Self {
+        Self {
+            handle,
+            _marker: PhantomData,
+        }
+    }
+}
+
+pub struct ResourceRead;
+pub struct ResourceWrite;
+
+impl ResourceView for ResourceRead {}
+impl ResourceView for ResourceWrite {}
+
+pub struct GraphResourceNodeHandle<ResourceType> {
+    pub handle: TypeHandle<ResourceNode>,
+    pub version: u32,
+    _marker: PhantomData<ResourceType>,
+}
+
+impl<ResourceType> GraphResourceNodeHandle<ResourceType> {
+    pub fn raw(&self) -> GraphRawResourceNodeHandle {
+        GraphRawResourceNodeHandle {
+            handle: self.handle,
+            version: self.version,
+        }
+    }
+
+    pub fn new(handle: TypeHandle<ResourceNode>, version: u32) -> Self {
+        Self {
+            handle,
+            version,
+            _marker: PhantomData,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct GraphRawResourceNodeHandle {
+    pub handle: TypeHandle<ResourceNode>,
+    pub version: u32,
+}
 
 pub struct ResourceNode {
     pub handle: TypeHandle<ResourceNode>,
