@@ -186,10 +186,8 @@ pub fn ui_picking(
             continue;
         };
 
-        let node_rect = Rect::from_center_size(node.transform.translation, node.node.size());
-
         // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
-        if node_rect.size() == Vec2::ZERO {
+        if node.node.size() == Vec2::ZERO {
             continue;
         }
 
