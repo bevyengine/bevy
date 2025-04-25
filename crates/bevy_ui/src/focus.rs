@@ -84,8 +84,8 @@ impl Default for Interaction {
     reflect(Serialize, Deserialize)
 )]
 pub struct RelativeCursorPosition {
-    /// True if the cursor position is over an unclipped section of the Node.
-    pub mouse_over: bool,
+    /// True if the cursor position is over an unclipped area of the Node.
+    pub cursor_over: bool,
     /// Cursor position relative to the size and position of the Node.
     /// A None value indicates that the cursor position is unknown.
     pub normalized: Option<Vec2>,
@@ -93,8 +93,8 @@ pub struct RelativeCursorPosition {
 
 impl RelativeCursorPosition {
     /// A helper function to check if the mouse is over the node
-    pub fn mouse_over(&self) -> bool {
-        self.mouse_over
+    pub fn cursor_over(&self) -> bool {
+        self.cursor_over
     }
 }
 
@@ -257,7 +257,7 @@ pub fn ui_focus_system(
             // If the current cursor position is within the bounds of the node's visible area, consider it for
             // clicking
             let relative_cursor_position_component = RelativeCursorPosition {
-                mouse_over: contains_cursor,
+                cursor_over: contains_cursor,
                 normalized: normalized_cursor_position,
             };
 
