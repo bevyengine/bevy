@@ -199,7 +199,7 @@ pub fn ui_picking(
         // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
         // Coordinates are relative to the entire node, not just the visible region.
         for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
-            let Some(relative_cursor_position) =
+            let Some(normalized_cursor_position) =
                 node.node.normalize_point(*node.transform, *cursor_position)
             else {
                 continue;
@@ -217,7 +217,7 @@ pub fn ui_picking(
                 hit_nodes
                     .entry((camera_entity, *pointer_id))
                     .or_default()
-                    .push((*node_entity, relative_cursor_position));
+                    .push((*node_entity, normalized_cursor_position));
             }
         }
     }

@@ -70,8 +70,8 @@ impl Default for Interaction {
     }
 }
 
-/// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
-/// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
+/// A component storing the position of the mouse relative to the node, (0., 0.) being the center and (0.5, 0.5) being the bottom-right
+/// If the mouse is not over the node, the value will go beyond the range of (-0.5, -0.5) to (0.5, 0.5)
 ///
 /// It can be used alongside [`Interaction`] to get the position of the press.
 ///
@@ -245,9 +245,9 @@ pub fn ui_focus_system(
             });
 
             // The mouse position relative to the node
-            // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
+            // (-0.5, -0.5) is the top-left corner, (0.5, 0.5) is the bottom-right corner
             // Coordinates are relative to the entire node, not just the visible region.
-            let relative_cursor_position = cursor_position.and_then(|cursor_position| {
+            let normalized_cursor_position = cursor_position.and_then(|cursor_position| {
                 // ensure node size is non-zero in all dimensions, otherwise relative position will be
                 // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
                 // false positives for mouse_over (#12395)
@@ -258,7 +258,7 @@ pub fn ui_focus_system(
             // clicking
             let relative_cursor_position_component = RelativeCursorPosition {
                 mouse_over: contains_cursor,
-                normalized: relative_cursor_position,
+                normalized: normalized_cursor_position,
             };
 
             // Save the relative cursor position to the correct component
@@ -271,7 +271,8 @@ pub fn ui_focus_system(
                 Some(*entity)
             } else {
                 if let Some(mut interaction) = node.interaction {
-                    if *interaction == Interaction::Hovered || (relative_cursor_position.is_none())
+                    if *interaction == Interaction::Hovered
+                        || (normalized_cursor_position.is_none())
                     {
                         interaction.set_if_neq(Interaction::None);
                     }
