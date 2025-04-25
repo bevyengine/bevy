@@ -1,3 +1,6 @@
+mod texture;
+mod buffer;
+
 use std::{marker::PhantomData, sync::Arc};
 
 use bevy_ecs::resource::Resource;
