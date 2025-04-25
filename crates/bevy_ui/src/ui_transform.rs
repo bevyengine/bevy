@@ -27,6 +27,7 @@ impl UiVec {
         y: Val::ZERO,
     };
 
+    /// Creates a new [`UiVec`] where both components are in logical pixels
     pub const fn px(x: f32, y: f32) -> Self {
         Self {
             x: Val::Px(x),
@@ -34,6 +35,7 @@ impl UiVec {
         }
     }
 
+    /// Creates a new [`UiVec`] where both components are precentage values
     pub const fn percent(x: f32, y: f32) -> Self {
         Self {
             x: Val::Percent(x),
@@ -41,8 +43,24 @@ impl UiVec {
         }
     }
 
+    /// Creates a new [`UiVec`]
     pub const fn new(x: Val, y: Val) -> Self {
         Self { x, y }
+    }
+
+    /// Resolves this [`UiVec`] from the given `scale_factor`, `parent_size`,
+    /// and `viewport_size`.
+    ///
+    /// Component values of [`Val::Auto`] are resolved to 0.
+    pub fn resolve(&self, scale_factor: f32, base_size: Vec2, viewport_size: Vec2) -> Vec2 {
+        Vec2::new(
+            self.x
+                .resolve(scale_factor, base_size.x, viewport_size)
+                .unwrap_or(0.),
+            self.y
+                .resolve(scale_factor, base_size.y, viewport_size)
+                .unwrap_or(0.),
+        )
     }
 }
 
@@ -52,7 +70,7 @@ impl Default for UiVec {
     }
 }
 
-/// 2D transform for UI nodes
+/// Relative 2D transform for UI nodes
 ///
 /// [`UiGlobalTransform`] is automatically inserted whenever [`UiTransform`] is inserted.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
@@ -95,7 +113,7 @@ impl UiTransform {
         }
     }
 
-    /// Creates a UI transform representing a translation
+    /// Creates a UI transform representing a responsive translation.
     pub fn from_translation(translation: UiVec) -> Self {
         Self {
             translation,
@@ -103,7 +121,7 @@ impl UiTransform {
         }
     }
 
-    /// Creates a UI transform representing a scaling
+    /// Creates a UI transform representing a scaling.
     pub fn from_scale(scale: Vec2) -> Self {
         Self {
             scale,
@@ -118,7 +136,7 @@ impl Default for UiTransform {
     }
 }
 
-/// 2D transform for UI nodes
+/// Absolute 2D transform for UI nodes
 ///
 /// [`UiGlobalTransform`]s are updated from [`UiTransform`] and [`Node`](crate::ui_node::Node)
 ///  in [`ui_layout_system`](crate::layout::ui_layout_system)
