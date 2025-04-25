@@ -306,7 +306,7 @@ pub fn extract_shadows(
             extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 stack_index: uinode.stack_index,
-                transform: transform.0 * Affine2::from_translation(offset),
+                transform: Affine2::from(transform) * Affine2::from_translation(offset),
                 color: drop_shadow.color.into(),
                 bounds: shadow_size + 6. * blur_radius,
                 clip: clip.map(|clip| clip.clip),

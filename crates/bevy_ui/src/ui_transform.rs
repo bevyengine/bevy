@@ -1,6 +1,5 @@
 use crate::Val;
 use bevy_derive::Deref;
-use bevy_derive::DerefMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_math::Affine2;
@@ -145,17 +144,44 @@ impl Default for UiTransform {
 ///
 /// [`UiGlobalTransform`]s are updated from [`UiTransform`] and [`Node`](crate::ui_node::Node)
 ///  in [`ui_layout_system`](crate::layout::ui_layout_system)
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, Deref, DerefMut)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, Deref)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct UiGlobalTransform(pub Affine2);
+pub struct UiGlobalTransform(Affine2);
 
 impl Default for UiGlobalTransform {
     fn default() -> Self {
         Self(Affine2::IDENTITY)
+    }
+}
+
+impl UiGlobalTransform {
+    /// If the transform is invertible returns its inverse.
+    /// Otherwise returns `None`.
+    #[inline]
+    pub fn try_inverse(&self) -> Option<Affine2> {
+        (self.matrix2.determinant() != 0.).then_some(self.inverse())
+    }
+}
+
+impl From<Affine2> for UiGlobalTransform {
+    fn from(value: Affine2) -> Self {
+        Self(value)
+    }
+}
+
+impl From<UiGlobalTransform> for Affine2 {
+    fn from(value: UiGlobalTransform) -> Self {
+        value.0
+    }
+}
+
+impl From<&UiGlobalTransform> for Affine2 {
+    fn from(value: &UiGlobalTransform) -> Self {
+        value.0
     }
 }

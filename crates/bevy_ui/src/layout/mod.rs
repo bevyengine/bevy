@@ -272,8 +272,8 @@ with UI components as a child of an entity without UI components, your UI layout
             );
             propagated_transform *= node_transform * Affine2::from_translation(node_center);
 
-            if propagated_transform != global_transform.0 {
-                global_transform.0 = propagated_transform;
+            if propagated_transform != **global_transform {
+                *global_transform = propagated_transform.into();
             }
 
             if let Some(border_radius) = maybe_border_radius {

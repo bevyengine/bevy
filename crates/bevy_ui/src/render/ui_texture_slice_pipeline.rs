@@ -312,7 +312,7 @@ pub fn extract_ui_texture_slices(
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: uinode.stack_index,
-            transform: transform.0,
+            transform: transform.into(),
             color: image.color.into(),
             rect: Rect {
                 min: Vec2::ZERO,

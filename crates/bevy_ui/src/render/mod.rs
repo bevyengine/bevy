@@ -369,7 +369,7 @@ pub fn extract_uinode_background_colors(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
-                transform: transform.0,
+                transform: transform.into(),
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
@@ -453,7 +453,7 @@ pub fn extract_uinode_images(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling,
-                transform: transform.0,
+                transform: transform.into(),
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 border: uinode.border,
@@ -521,7 +521,7 @@ pub fn extract_uinode_borders(
                     extracted_camera_entity,
                     item: ExtractedUiItem::Node {
                         atlas_scaling: None,
-                        transform: transform.0,
+                        transform: transform.into(),
                         flip_x: false,
                         flip_y: false,
                         border: computed_node.border(),
@@ -553,7 +553,7 @@ pub fn extract_uinode_borders(
                 clip: maybe_clip.map(|clip| clip.clip),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
-                    transform: transform.0,
+                    transform: transform.into(),
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,
@@ -736,7 +736,7 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform = transform.0 * Affine2::from_translation(-0.5 * uinode.size());
+        let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
 
         for (
             i,
@@ -824,7 +824,7 @@ pub fn extract_text_shadows(
             continue;
         };
 
-        let node_transform = transform.0
+        let node_transform = Affine2::from(*transform)
             * Affine2::from_translation(
                 -0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor(),
             );

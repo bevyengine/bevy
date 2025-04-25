@@ -237,7 +237,12 @@ impl ComputedNode {
     //
     // Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
     pub fn contains_point(&self, transform: UiGlobalTransform, point: Vec2) -> bool {
-        let local_point = transform.inverse().transform_point2(point);
+        let Some(local_point) = transform
+            .try_inverse()
+            .map(|transform| transform.transform_point2(point))
+        else {
+            return false;
+        };
         let [top, bottom] = if local_point.x < 0. {
             [self.border_radius.top_left, self.border_radius.bottom_left]
         } else {
@@ -259,7 +264,9 @@ impl ComputedNode {
         self.size
             .cmpgt(Vec2::ZERO)
             .all()
-            .then_some(transform.inverse().transform_point2(point) / self.size)
+            .then(|| transform.try_inverse())
+            .flatten()
+            .map(|transform| transform.transform_point2(point) / self.size)
     }
 
     /// Resolve the node's clipping rect in local space

@@ -403,7 +403,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: computed_node.stack_index,
-            transform: transform.0,
+            transform: transform.into(),
             material: handle.id(),
             rect: Rect {
                 min: Vec2::ZERO,
