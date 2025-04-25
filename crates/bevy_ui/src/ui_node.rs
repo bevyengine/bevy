@@ -1178,7 +1178,7 @@ pub struct OverflowClipMargin {
 
 impl OverflowClipMargin {
     pub const DEFAULT: Self = Self {
-        visual_box: OverflowClipBox::ContentBox,
+        visual_box: OverflowClipBox::PaddingBox,
         margin: 0.,
     };
 
