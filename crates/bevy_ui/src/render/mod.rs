@@ -7,6 +7,7 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
+use crate::prelude::UiGlobalTransform;
 use crate::widget::ImageNode;
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
@@ -329,6 +330,7 @@ pub fn extract_uinode_background_colors(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -339,7 +341,9 @@ pub fn extract_uinode_background_colors(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, inherited_visibility, clip, camera, background_color) in &uinode_query {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, background_color) in
+        &uinode_query
+    {
         // Skip invisible backgrounds
         if !inherited_visibility.get()
             || background_color.0.is_fully_transparent()
@@ -365,7 +369,7 @@ pub fn extract_uinode_background_colors(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
-                transform: uinode.transform,
+                transform: transform.0,
                 flip_x: false,
                 flip_y: false,
                 border: uinode.border(),
@@ -385,6 +389,7 @@ pub fn extract_uinode_images(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -394,7 +399,7 @@ pub fn extract_uinode_images(
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, inherited_visibility, clip, camera, image) in &uinode_query {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -448,7 +453,7 @@ pub fn extract_uinode_images(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling,
-                transform: uinode.transform,
+                transform: transform.0,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 border: uinode.border,
@@ -468,6 +473,7 @@ pub fn extract_uinode_borders(
             Entity,
             &Node,
             &ComputedNode,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -483,6 +489,7 @@ pub fn extract_uinode_borders(
         entity,
         node,
         computed_node,
+        transform,
         inherited_visibility,
         maybe_clip,
         camera,
@@ -514,7 +521,7 @@ pub fn extract_uinode_borders(
                     extracted_camera_entity,
                     item: ExtractedUiItem::Node {
                         atlas_scaling: None,
-                        transform: computed_node.transform,
+                        transform: transform.0,
                         flip_x: false,
                         flip_y: false,
                         border: computed_node.border(),
@@ -546,7 +553,7 @@ pub fn extract_uinode_borders(
                 clip: maybe_clip.map(|clip| clip.clip),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
-                    transform: computed_node.transform,
+                    transform: transform.0,
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,
@@ -694,6 +701,7 @@ pub fn extract_text_sections(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -708,8 +716,16 @@ pub fn extract_text_sections(
     let mut end = start + 1;
 
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, inherited_visibility, clip, camera, computed_block, text_layout_info) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        computed_block,
+        text_layout_info,
+    ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -720,7 +736,7 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform = uinode.transform * Affine2::from_translation(-0.5 * uinode.size());
+        let transform = transform.0 * Affine2::from_translation(-0.5 * uinode.size());
 
         for (
             i,
@@ -782,6 +798,7 @@ pub fn extract_text_shadows(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &ComputedNodeTarget,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -795,7 +812,7 @@ pub fn extract_text_shadows(
     let mut end = start + 1;
 
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, target, inherited_visibility, clip, text_layout_info, shadow) in
+    for (entity, uinode, transform, target, inherited_visibility, clip, text_layout_info, shadow) in
         &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -807,7 +824,7 @@ pub fn extract_text_shadows(
             continue;
         };
 
-        let transform = uinode.transform
+        let node_transform = transform.0
             * Affine2::from_translation(
                 -0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor(),
             );
@@ -828,7 +845,7 @@ pub fn extract_text_shadows(
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
-                transform: transform * Affine2::from_translation(*position),
+                transform: node_transform * Affine2::from_translation(*position),
                 rect,
             });
 

@@ -208,6 +208,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ImageNode::new(asset_server.load("branding/bevy_logo_light.png")),
                                 // Uses the transform to rotate the logo image by 45 degrees
                                 Node {
+                                    ..Default::default()
+                                },
+                                UiTransform {
                                     rotation: 0.25 * PI,
                                     ..Default::default()
                                 },

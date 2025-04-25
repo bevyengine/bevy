@@ -1,5 +1,6 @@
 use core::{hash::Hash, marker::PhantomData, ops::Range};
 
+use crate::prelude::UiGlobalTransform;
 use crate::*;
 use bevy_asset::*;
 use bevy_ecs::{
@@ -371,6 +372,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &MaterialNode<M>,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -381,7 +383,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, computed_node, handle, inherited_visibility, clip, camera) in uinode_query.iter() {
+    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
+        uinode_query.iter()
+    {
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
             continue;
@@ -399,7 +403,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: computed_node.stack_index,
-            transform: computed_node.transform,
+            transform: transform.0,
             material: handle.id(),
             rect: Rect {
                 min: Vec2::ZERO,

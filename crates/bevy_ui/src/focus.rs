@@ -1,4 +1,6 @@
-use crate::{ComputedNode, ComputedNodeTarget, Node, OverflowAxis, UiStack};
+use crate::{
+    ui_transform::UiGlobalTransform, ComputedNode, ComputedNodeTarget, Node, OverflowAxis, UiStack,
+};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
@@ -82,9 +84,18 @@ impl Default for Interaction {
     reflect(Serialize, Deserialize)
 )]
 pub struct RelativeCursorPosition {
+    /// True if the cursor position is over an unclipped section of the Node.
+    pub mouse_over: bool,
     /// Cursor position relative to the size and position of the Node.
     /// A None value indicates that the cursor position is unknown.
     pub normalized: Option<Vec2>,
+}
+
+impl RelativeCursorPosition {
+    /// A helper function to check if the mouse is over the node
+    pub fn mouse_over(&self) -> bool {
+        self.mouse_over
+    }
 }
 
 /// Describes whether the node should block interactions with lower nodes
@@ -124,6 +135,7 @@ pub struct State {
 pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
+    transform: &'static UiGlobalTransform,
     interaction: Option<&'static mut Interaction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
@@ -143,7 +155,7 @@ pub fn ui_focus_system(
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
-    clipping_query: Query<(&ComputedNode, &Node)>,
+    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf>,
 ) {
     let primary_window = primary_window.iter().next();
@@ -228,7 +240,7 @@ pub fn ui_focus_system(
             let cursor_position = camera_cursor_positions.get(&camera_entity);
 
             let contains_cursor = cursor_position.is_some_and(|point| {
-                node.node.contains_point(*point)
+                node.node.contains_point(*node.transform, *point)
                     && clip_check_recursive(*point, *entity, &clipping_query, &child_of_query)
             });
 
@@ -239,12 +251,13 @@ pub fn ui_focus_system(
                 // ensure node size is non-zero in all dimensions, otherwise relative position will be
                 // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
                 // false positives for mouse_over (#12395)
-                node.node.normalize_point(*cursor_position)
+                node.node.normalize_point(*node.transform, *cursor_position)
             });
 
             // If the current cursor position is within the bounds of the node's visible area, consider it for
             // clicking
             let relative_cursor_position_component = RelativeCursorPosition {
+                mouse_over: contains_cursor,
                 normalized: relative_cursor_position,
             };
 
@@ -312,12 +325,12 @@ pub fn ui_focus_system(
 pub fn clip_check_recursive(
     point: Vec2,
     entity: Entity,
-    clipping_query: &Query<'_, '_, (&ComputedNode, &Node)>,
+    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: &Query<&ChildOf>,
 ) -> bool {
     if let Ok(child_of) = child_of_query.get(entity) {
         let parent = child_of.0;
-        if let Ok((computed_node, node)) = clipping_query.get(parent) {
+        if let Ok((computed_node, transform, node)) = clipping_query.get(parent) {
             // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
 
             let mut clip_rect = Rect::from_center_size(Vec2::ZERO, 0.5 * computed_node.size);
@@ -342,7 +355,7 @@ pub fn clip_check_recursive(
                 clip_rect.max.y = f32::INFINITY;
             }
 
-            if !clip_rect.contains(computed_node.transform.inverse().transform_point2(point)) {
+            if !clip_rect.contains(transform.inverse().transform_point2(point)) {
                 return false;
             }
         }

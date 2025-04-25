@@ -524,10 +524,6 @@ mod tests {
             ],
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
-            x_translation: Val::ZERO,
-            y_translation: Val::ZERO,
-            scale: Vec2::ONE,
-            rotation: 0.,
         };
         let viewport_values = LayoutContext::new(1.0, Vec2::new(800., 600.));
         let taffy_style = from_node(&node, &viewport_values, false);

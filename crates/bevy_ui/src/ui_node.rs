@@ -1,8 +1,11 @@
-use crate::{FocusPolicy, UiRect, Val};
+use crate::{
+    ui_transform::{UiGlobalTransform, UiTransform},
+    FocusPolicy, UiRect, Val,
+};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Affine2, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
@@ -75,10 +78,6 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub inverse_scale_factor: f32,
-    /// Transform from coordinates local to the node to global UI coordinates
-    ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub transform: Affine2,
 }
 
 impl ComputedNode {
@@ -237,8 +236,8 @@ impl ComputedNode {
     // Returns true if `point` within the node.
     //
     // Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
-    pub fn contains_point(&self, point: Vec2) -> bool {
-        let local_point = self.transform.inverse().transform_point2(point);
+    pub fn contains_point(&self, transform: UiGlobalTransform, point: Vec2) -> bool {
+        let local_point = transform.inverse().transform_point2(point);
         let [top, bottom] = if local_point.x < 0. {
             [self.border_radius.top_left, self.border_radius.bottom_left]
         } else {
@@ -255,15 +254,15 @@ impl ComputedNode {
         l + m - r < 0.
     }
 
-    pub fn transform_point(&self, point: Vec2) -> Vec2 {
-        self.transform.inverse().transform_point2(point) - 0.5 * self.size
+    pub fn transform_point(&self, transform: UiGlobalTransform, point: Vec2) -> Vec2 {
+        transform.inverse().transform_point2(point) - 0.5 * self.size
     }
 
-    pub fn normalize_point(&self, point: Vec2) -> Option<Vec2> {
+    pub fn normalize_point(&self, transform: UiGlobalTransform, point: Vec2) -> Option<Vec2> {
         self.size
             .cmpgt(Vec2::ZERO)
             .all()
-            .then_some(self.transform_point(point) / self.size)
+            .then_some(self.transform_point(transform, point) / self.size)
     }
 }
 
@@ -279,7 +278,6 @@ impl ComputedNode {
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
         inverse_scale_factor: 1.,
-        transform: Affine2::IDENTITY,
     };
 }
 
@@ -360,6 +358,8 @@ impl From<Vec2> for ScrollPosition {
 #[require(
     ComputedNode,
     ComputedNodeTarget,
+    UiTransform,
+    UiGlobalTransform,
     BackgroundColor,
     BorderColor,
     BorderRadius,
@@ -655,22 +655,6 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
-
-    /// Translate the node along the x-axis.
-    /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
-    /// `Val::Auto` is resolved to `0.`.
-    pub x_translation: Val,
-
-    /// Translate the node along the y-axis.
-    /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
-    /// `Val::Auto` is resolved to `0.`.
-    pub y_translation: Val,
-
-    /// Resize the node. A negative value reflects the node in that axis.
-    pub scale: Vec2,
-
-    /// Rotate the node clockwise by the given value in radians.
-    pub rotation: f32,
 }
 
 impl Node {
@@ -714,10 +698,6 @@ impl Node {
         grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
-        x_translation: Val::ZERO,
-        y_translation: Val::ZERO,
-        scale: Vec2::ONE,
-        rotation: 0.,
     };
 }
 

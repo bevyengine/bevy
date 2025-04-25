@@ -60,6 +60,7 @@ pub mod prelude {
             geometry::*,
             ui_material::*,
             ui_node::*,
+            ui_transform::*,
             widget::{Button, ImageNode, Label, NodeImageMode},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },

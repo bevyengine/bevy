@@ -90,8 +90,7 @@ fn update_clipping(
         maybe_inherited_clip
     } else {
         // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
-        let mut clip_rect =
-            Rect::from_center_size(computed_node.transform.translation, computed_node.size());
+        let mut clip_rect = Rect::from_center_size(transform.translation, computed_node.size());
 
         // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
         //

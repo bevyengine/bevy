@@ -1,6 +1,7 @@
 use crate::{
     experimental::UiChildren,
     prelude::{Button, Label},
+    ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
     ComputedNode,
 };
@@ -34,10 +35,16 @@ fn calc_label(
     name.map(String::into_boxed_str)
 }
 
-fn calc_bounds(mut nodes: Query<(&mut AccessibilityNode, Ref<ComputedNode>)>) {
-    for (mut accessible, node) in &mut nodes {
-        if node.is_changed() {
-            let center = node.transform.translation;
+fn calc_bounds(
+    mut nodes: Query<(
+        &mut AccessibilityNode,
+        Ref<ComputedNode>,
+        Ref<UiGlobalTransform>,
+    )>,
+) {
+    for (mut accessible, node, transform) in &mut nodes {
+        if node.is_changed() || transform.is_changed() {
+            let center = transform.translation;
             let half_size = 0.5 * node.size;
             let min = center - half_size;
             let max = center + half_size;

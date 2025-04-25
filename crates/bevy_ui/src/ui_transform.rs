@@ -1,5 +1,8 @@
+use std::f32::consts::PI;
+
 use crate::Val;
 use bevy_derive::Deref;
+use bevy_derive::DerefMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_math::Affine2;
@@ -49,6 +52,9 @@ impl Default for UiVec {
     }
 }
 
+/// 2D transform for UI nodes
+///
+/// [`UiGlobalTransform`] is automatically inserted whenever [`UiTransform`] is inserted.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -56,6 +62,7 @@ impl Default for UiVec {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[require(UiGlobalTransform)]
 pub struct UiTransform {
     /// Translate the node.
     pub translation: UiVec,
@@ -71,6 +78,38 @@ impl UiTransform {
         scale: Vec2::ONE,
         rotation: 0.,
     };
+
+    /// Creates a UI transform representing a rotation in `angle` radians.
+    pub fn from_angle(angle: f32) -> Self {
+        Self {
+            rotation: angle,
+            ..Self::IDENTITY
+        }
+    }
+
+    /// Creates a UI transform representing a rotation in `angle` degrees.
+    pub fn from_angle_deg(angle: f32) -> Self {
+        Self {
+            rotation: PI * angle / 180.,
+            ..Self::IDENTITY
+        }
+    }
+
+    /// Creates a UI transform representing a translation
+    pub fn from_translation(translation: UiVec) -> Self {
+        Self {
+            translation,
+            ..Self::IDENTITY
+        }
+    }
+
+    /// Creates a UI transform representing a scaling
+    pub fn from_scale(scale: Vec2) -> Self {
+        Self {
+            scale,
+            ..Self::IDENTITY
+        }
+    }
 }
 
 impl Default for UiTransform {
@@ -79,7 +118,11 @@ impl Default for UiTransform {
     }
 }
 
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, Deref)]
+/// 2D transform for UI nodes
+///
+/// [`UiGlobalTransform`]s are updated from [`UiTransform`] and [`Node`](crate::ui_node::Node)
+///  in [`ui_layout_system`](crate::layout::ui_layout_system)
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",

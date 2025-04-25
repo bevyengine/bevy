@@ -1,5 +1,6 @@
 use core::{hash::Hash, ops::Range};
 
+use crate::prelude::UiGlobalTransform;
 use crate::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -251,6 +252,7 @@ pub fn extract_ui_texture_slices(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -261,7 +263,7 @@ pub fn extract_ui_texture_slices(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, inherited_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -310,7 +312,7 @@ pub fn extract_ui_texture_slices(
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: uinode.stack_index,
-            transform: uinode.transform,
+            transform: transform.0,
             color: image.color.into(),
             rect: Rect {
                 min: Vec2::ZERO,

@@ -40,16 +40,16 @@ struct AnimationState {
 struct Container(u8);
 
 trait UpdateTransform {
-    fn update(&self, t: f32, transform: &mut Node);
+    fn update(&self, t: f32, transform: &mut UiTransform);
 }
 
 #[derive(Component)]
 struct Move;
 
 impl UpdateTransform for Move {
-    fn update(&self, t: f32, node: &mut Node) {
-        node.x_translation = Val::Percent(ops::sin(t * TAU - FRAC_PI_2) * 50.);
-        node.y_translation = Val::Percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.);
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.translation.x = Val::Percent(ops::sin(t * TAU - FRAC_PI_2) * 50.);
+        transform.translation.y = Val::Percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.);
     }
 }
 
@@ -57,9 +57,9 @@ impl UpdateTransform for Move {
 struct Scale;
 
 impl UpdateTransform for Scale {
-    fn update(&self, t: f32, node: &mut Node) {
-        node.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
-        node.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
+        transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
     }
 }
 
@@ -67,8 +67,8 @@ impl UpdateTransform for Scale {
 struct Rotate;
 
 impl UpdateTransform for Rotate {
-    fn update(&self, t: f32, node: &mut Node) {
-        node.rotation = (ops::cos(t * TAU) * 45.0).to_radians();
+    fn update(&self, t: f32, transform: &mut UiTransform) {
+        transform.rotation = (ops::cos(t * TAU) * 45.0).to_radians();
     }
 }
 
@@ -224,10 +224,10 @@ fn update_animation(
 
 fn update_transform<T: UpdateTransform + Component>(
     animation: Res<AnimationState>,
-    mut containers: Query<(&mut Node, &T)>,
+    mut containers: Query<(&mut UiTransform, &T)>,
 ) {
-    for (mut node, update_transform) in &mut containers {
-        update_transform.update(animation.t, &mut node);
+    for (mut transform, update_transform) in &mut containers {
+        update_transform.update(animation.t, &mut transform);
     }
 }
 

@@ -24,7 +24,7 @@
 
 #![deny(missing_docs)]
 
-use crate::{clip_check_recursive, prelude::*, UiStack};
+use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
@@ -90,6 +90,7 @@ impl Plugin for UiPickingPlugin {
 pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
+    transform: &'static UiGlobalTransform,
     pickable: Option<&'static Pickable>,
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedNodeTarget,
@@ -112,7 +113,7 @@ pub fn ui_picking(
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
-    clipping_query: Query<(&ComputedNode, &Node)>,
+    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf>,
 ) {
     // For each camera, the pointer and its position
@@ -185,7 +186,7 @@ pub fn ui_picking(
             continue;
         };
 
-        let node_rect = Rect::from_center_size(node.node.transform.translation, node.node.size());
+        let node_rect = Rect::from_center_size(node.transform.translation, node.node.size());
 
         // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
         if node_rect.size() == Vec2::ZERO {
@@ -198,11 +199,13 @@ pub fn ui_picking(
         // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
         // Coordinates are relative to the entire node, not just the visible region.
         for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
-            let Some(relative_cursor_position) = node.node.normalize_point(*cursor_position) else {
+            let Some(relative_cursor_position) =
+                node.node.normalize_point(*node.transform, *cursor_position)
+            else {
                 continue;
             };
 
-            let contains_cursor = node.node.contains_point(*cursor_position)
+            let contains_cursor = node.node.contains_point(*node.transform, *cursor_position)
                 && clip_check_recursive(
                     *cursor_position,
                     *node_entity,

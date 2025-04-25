@@ -2,6 +2,7 @@
 
 use core::{hash::Hash, ops::Range};
 
+use crate::prelude::UiGlobalTransform;
 use crate::{
     BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystem,
     ResolvedBorderRadius, TransparentUi, Val,
@@ -239,6 +240,7 @@ pub fn extract_shadows(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &InheritedVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
@@ -249,7 +251,7 @@ pub fn extract_shadows(
 ) {
     let mut mapping = camera_map.get_mapper();
 
-    for (entity, uinode, visibility, box_shadow, clip, camera) in &box_shadow_query {
+    for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
@@ -304,7 +306,7 @@ pub fn extract_shadows(
             extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 stack_index: uinode.stack_index,
-                transform: uinode.transform * Affine2::from_translation(offset),
+                transform: transform.0 * Affine2::from_translation(offset),
                 color: drop_shadow.color.into(),
                 bounds: shadow_size + 6. * blur_radius,
                 clip: clip.map(|clip| clip.clip),
