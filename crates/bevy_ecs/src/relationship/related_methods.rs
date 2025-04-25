@@ -1,3 +1,4 @@
+use crate::entity::ContainsEntity;
 use crate::{
     bundle::Bundle,
     entity::{hash_set::EntityHashSet, Entity},
@@ -10,7 +11,7 @@ use crate::{
 use bevy_platform::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
 
-use super::OrderedRelationshipSourceCollection;
+use super::{OrderedRelationshipSourceCollection, RelationshipSourceItem};
 
 impl<'w> EntityWorldMut<'w> {
     /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
@@ -90,7 +91,7 @@ impl<'w> EntityWorldMut<'w> {
                         .get_mut::<R::RelationshipTarget>(id)
                         .expect("hooks should have added relationship target")
                         .collection_mut_risky()
-                        .place(*related, index);
+                        .place(RelationshipSourceItem::from_entity(*related), index);
                 } else {
                     world.entity_mut(*related).insert(R::from(id));
                     world
@@ -149,8 +150,8 @@ impl<'w> EntityWorldMut<'w> {
         let id = self.id();
         self.world_scope(|world| {
             for related in existing_relations.iter() {
-                if !potential_relations.remove(related) {
-                    world.entity_mut(related).remove::<R>();
+                if !potential_relations.remove(related.entity()) {
+                    world.entity_mut(related.entity()).remove::<R>();
                 }
             }
 
@@ -164,7 +165,12 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
         existing_relations.clear();
-        existing_relations.extend_from_iter(related.iter().copied());
+        existing_relations.extend_from_iter(
+            related
+                .iter()
+                .copied()
+                .map(RelationshipSourceItem::from_entity),
+        );
         self.insert(R::RelationshipTarget::from_collection_risky(
             existing_relations,
         ));
@@ -219,7 +225,11 @@ impl<'w> EntityWorldMut<'w> {
             );
 
             if let Some(target) = self.get::<R::RelationshipTarget>() {
-                let existing_relationships: EntityHashSet = target.collection().iter().collect();
+                let existing_relationships: EntityHashSet = target
+                    .collection()
+                    .iter()
+                    .map(|item| item.entity())
+                    .collect();
 
                 assert!(
                     existing_relationships.is_disjoint(&newly_related_entities),
@@ -259,13 +269,23 @@ impl<'w> EntityWorldMut<'w> {
                 let collection = target.collection_mut_risky();
                 collection.clear();
 
-                collection.extend_from_iter(entities_to_relate.iter().copied());
+                collection.extend_from_iter(
+                    entities_to_relate
+                        .iter()
+                        .copied()
+                        .map(RelationshipSourceItem::from_entity),
+                );
             } else {
                 let mut empty =
                     <R::RelationshipTarget as RelationshipTarget>::Collection::with_capacity(
                         entities_to_relate.len(),
                     );
-                empty.extend_from_iter(entities_to_relate.iter().copied());
+                empty.extend_from_iter(
+                    entities_to_relate
+                        .iter()
+                        .copied()
+                        .map(RelationshipSourceItem::from_entity),
+                );
 
                 // SAFETY: We've just initialized this collection and we know there's no `RelationshipTarget` on `self`
                 self.insert(R::RelationshipTarget::from_collection_risky(empty));
@@ -287,8 +307,8 @@ impl<'w> EntityWorldMut<'w> {
     pub fn despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
         if let Some(sources) = self.take::<S>() {
             self.world_scope(|world| {
-                for entity in sources.iter() {
-                    if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                for item in sources.iter() {
+                    if let Ok(entity_mut) = world.get_entity_mut(item.entity()) {
                         entity_mut.despawn();
                     }
                 }
@@ -312,7 +332,10 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         self.insert(bundle.clone());
         if let Some(relationship_target) = self.get::<S>() {
-            let related_vec: Vec<Entity> = relationship_target.iter().collect();
+            let related_vec: Vec<Entity> = relationship_target
+                .iter()
+                .map(|item| item.entity())
+                .collect();
             for related in related_vec {
                 self.world_scope(|world| {
                     world
@@ -335,7 +358,10 @@ impl<'w> EntityWorldMut<'w> {
     pub fn remove_recursive<S: RelationshipTarget, B: Bundle>(&mut self) -> &mut Self {
         self.remove::<B>();
         if let Some(relationship_target) = self.get::<S>() {
-            let related_vec: Vec<Entity> = relationship_target.iter().collect();
+            let related_vec: Vec<Entity> = relationship_target
+                .iter()
+                .map(|item| item.entity())
+                .collect();
             for related in related_vec {
                 self.world_scope(|world| {
                     world.entity_mut(related).remove_recursive::<S, B>();

@@ -1,10 +1,25 @@
+use crate::entity::ContainsEntity;
 use crate::entity::{hash_set::EntityHashSet, Entity};
 use alloc::vec::Vec;
 use smallvec::SmallVec;
 
+/// Represents a single item within a [`RelationshipSourceCollection`].
+pub trait RelationshipSourceItem: 'static + ContainsEntity + Copy {
+    /// Create a new item from an [`Entity`].
+    fn from_entity(entity: Entity) -> Self;
+}
+
+/// This trait signals that a [`RelationshipSourceItem`] is ordered.
+pub trait OrderedRelationshipSourceItem: RelationshipSourceItem + Ord {}
+
+impl<T: RelationshipSourceItem + Ord> OrderedRelationshipSourceItem for T {}
+
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
 pub trait RelationshipSourceCollection {
+    /// The type of the [`Entity`]-like item stored in the collection.
+    type Item: RelationshipSourceItem;
+
     /// The type of iterator returned by the `iter` method.
     ///
     /// This is an associated type (rather than using a method that returns an opaque return-position impl trait)
@@ -12,7 +27,7 @@ pub trait RelationshipSourceCollection {
     /// are available to the user when implemented without unduly restricting the possible collections.
     ///
     /// The [`SourceIter`](super::SourceIter) type alias can be helpful to reduce confusion when working with this associated type.
-    type SourceIter<'a>: Iterator<Item = Entity>
+    type SourceIter<'a>: Iterator<Item = Self::Item>
     where
         Self: 'a;
 
@@ -34,13 +49,13 @@ pub trait RelationshipSourceCollection {
     /// Returns whether the entity was added to the collection.
     /// Mainly useful when dealing with collections that don't allow
     /// multiple instances of the same entity ([`EntityHashSet`]).
-    fn add(&mut self, entity: Entity) -> bool;
+    fn add(&mut self, item: Self::Item) -> bool;
 
     /// Removes the given `entity` from the collection.
     ///
     /// Returns whether the collection actually contained
     /// the entity.
-    fn remove(&mut self, entity: Entity) -> bool;
+    fn remove(&mut self, item: Self::Item) -> bool;
 
     /// Iterates all entities in the collection.
     fn iter(&self) -> Self::SourceIter<'_>;
@@ -65,11 +80,11 @@ pub trait RelationshipSourceCollection {
     /// Add multiple entities to collection at once.
     ///
     /// May be faster than repeatedly calling [`Self::add`].
-    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+    fn extend_from_iter(&mut self, items: impl IntoIterator<Item = Self::Item>) {
         // The method name shouldn't conflict with `Extend::extend` as it's in the rust prelude and
         // would always conflict with it.
-        for entity in entities {
-            self.add(entity);
+        for item in items {
+            self.add(item);
         }
     }
 }
@@ -78,20 +93,20 @@ pub trait RelationshipSourceCollection {
 pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     /// Inserts the entity at a specific index.
     /// If the index is too large, the entity will be added to the end of the collection.
-    fn insert(&mut self, index: usize, entity: Entity);
+    fn insert(&mut self, index: usize, entity: Self::Item);
     /// Removes the entity at the specified idnex if it exists.
-    fn remove_at(&mut self, index: usize) -> Option<Entity>;
+    fn remove_at(&mut self, index: usize) -> Option<Self::Item>;
     /// Inserts the entity at a specific index.
     /// This will never reorder other entities.
     /// If the index is too large, the entity will be added to the end of the collection.
-    fn insert_stable(&mut self, index: usize, entity: Entity);
+    fn insert_stable(&mut self, index: usize, entity: Self::Item);
     /// Removes the entity at the specified idnex if it exists.
     /// This will never reorder other entities.
-    fn remove_at_stable(&mut self, index: usize) -> Option<Entity>;
+    fn remove_at_stable(&mut self, index: usize) -> Option<Self::Item>;
     /// Sorts the source collection.
     fn sort(&mut self);
     /// Inserts the entity at the proper place to maintain sorting.
-    fn insert_sorted(&mut self, entity: Entity);
+    fn insert_sorted(&mut self, item: Self::Item);
 
     /// This places the most recently added entity at the particular index.
     fn place_most_recent(&mut self, index: usize);
@@ -99,25 +114,25 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     /// This places the given entity at the particular index.
     /// This will do nothing if the entity is not in the collection.
     /// If the index is out of bounds, this will put the entity at the end.
-    fn place(&mut self, entity: Entity, index: usize);
+    fn place(&mut self, item: Self::Item, index: usize);
 
     /// Adds the entity at index 0.
-    fn push_front(&mut self, entity: Entity) {
-        self.insert(0, entity);
+    fn push_front(&mut self, item: Self::Item) {
+        self.insert(0, item);
     }
 
     /// Adds the entity to the back of the collection.
-    fn push_back(&mut self, entity: Entity) {
-        self.insert(usize::MAX, entity);
+    fn push_back(&mut self, item: Self::Item) {
+        self.insert(usize::MAX, item);
     }
 
     /// Removes the first entity.
-    fn pop_front(&mut self) -> Option<Entity> {
+    fn pop_front(&mut self) -> Option<Self::Item> {
         self.remove_at(0)
     }
 
     /// Removes the last entity.
-    fn pop_back(&mut self) -> Option<Entity> {
+    fn pop_back(&mut self) -> Option<Self::Item> {
         if self.is_empty() {
             None
         } else {
@@ -126,8 +141,10 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     }
 }
 
-impl RelationshipSourceCollection for Vec<Entity> {
-    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
+impl<T: RelationshipSourceItem> RelationshipSourceCollection for Vec<T> {
+    type Item = T;
+
+    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, T>>;
 
     fn new() -> Self {
         Vec::new()
@@ -141,14 +158,14 @@ impl RelationshipSourceCollection for Vec<Entity> {
         Vec::with_capacity(capacity)
     }
 
-    fn add(&mut self, entity: Entity) -> bool {
-        Vec::push(self, entity);
+    fn add(&mut self, item: Self::Item) -> bool {
+        Vec::push(self, item);
 
         true
     }
 
-    fn remove(&mut self, entity: Entity) -> bool {
-        if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
+    fn remove(&mut self, item: Self::Item) -> bool {
+        if let Some(index) = <[Self::Item]>::iter(self).position(|i| i.entity() == item.entity()) {
             Vec::remove(self, index);
             return true;
         }
@@ -157,7 +174,7 @@ impl RelationshipSourceCollection for Vec<Entity> {
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
-        <[Entity]>::iter(self).copied()
+        <[Self::Item]>::iter(self).copied()
     }
 
     fn len(&self) -> usize {
@@ -172,33 +189,33 @@ impl RelationshipSourceCollection for Vec<Entity> {
         Vec::shrink_to_fit(self);
     }
 
-    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        self.extend(entities);
+    fn extend_from_iter(&mut self, items: impl IntoIterator<Item = Self::Item>) {
+        self.extend(items);
     }
 }
 
-impl OrderedRelationshipSourceCollection for Vec<Entity> {
-    fn insert(&mut self, index: usize, entity: Entity) {
-        self.push(entity);
+impl<T: OrderedRelationshipSourceItem> OrderedRelationshipSourceCollection for Vec<T> {
+    fn insert(&mut self, index: usize, item: Self::Item) {
+        self.push(item);
         let len = self.len();
         if index < len {
             self.swap(index, len - 1);
         }
     }
 
-    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+    fn remove_at(&mut self, index: usize) -> Option<Self::Item> {
         (index < self.len()).then(|| self.swap_remove(index))
     }
 
-    fn insert_stable(&mut self, index: usize, entity: Entity) {
+    fn insert_stable(&mut self, index: usize, item: Self::Item) {
         if index < self.len() {
-            Vec::insert(self, index, entity);
+            Vec::insert(self, index, item);
         } else {
-            self.push(entity);
+            self.push(item);
         }
     }
 
-    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+    fn remove_at_stable(&mut self, index: usize) -> Option<Self::Item> {
         (index < self.len()).then(|| self.remove(index))
     }
 
@@ -206,29 +223,31 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
         self.sort_unstable();
     }
 
-    fn insert_sorted(&mut self, entity: Entity) {
-        let index = self.partition_point(|e| e <= &entity);
-        self.insert_stable(index, entity);
+    fn insert_sorted(&mut self, item: Self::Item) {
+        let index = self.partition_point(|e| e <= &item);
+        self.insert_stable(index, item);
     }
 
     fn place_most_recent(&mut self, index: usize) {
-        if let Some(entity) = self.pop() {
+        if let Some(item) = self.pop() {
             let index = index.min(self.len().saturating_sub(1));
-            self.insert(index, entity);
+            self.insert(index, item);
         }
     }
 
-    fn place(&mut self, entity: Entity, index: usize) {
-        if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
+    fn place(&mut self, item: Self::Item, index: usize) {
+        if let Some(current) = <[Self::Item]>::iter(self).position(|e| *e == item) {
             // The len is at least 1, so the subtraction is safe.
             let index = index.min(self.len().saturating_sub(1));
             Vec::remove(self, current);
-            self.insert(index, entity);
+            self.insert(index, item);
         };
     }
 }
 
 impl RelationshipSourceCollection for EntityHashSet {
+    type Item = Entity;
+
     type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a>>;
 
     fn new() -> Self {
@@ -274,8 +293,10 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 }
 
-impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
-    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
+impl<const N: usize, T: RelationshipSourceItem> RelationshipSourceCollection for SmallVec<[T; N]> {
+    type Item = T;
+
+    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, T>>;
 
     fn new() -> Self {
         SmallVec::new()
@@ -289,14 +310,14 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
         SmallVec::with_capacity(capacity)
     }
 
-    fn add(&mut self, entity: Entity) -> bool {
-        SmallVec::push(self, entity);
+    fn add(&mut self, item: Self::Item) -> bool {
+        SmallVec::push(self, item);
 
         true
     }
 
-    fn remove(&mut self, entity: Entity) -> bool {
-        if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
+    fn remove(&mut self, item: Self::Item) -> bool {
+        if let Some(index) = <[Self::Item]>::iter(self).position(|e| e.entity() == item.entity()) {
             SmallVec::remove(self, index);
             return true;
         }
@@ -305,7 +326,7 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
-        <[Entity]>::iter(self).copied()
+        <[Self::Item]>::iter(self).copied()
     }
 
     fn len(&self) -> usize {
@@ -320,12 +341,20 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
         SmallVec::shrink_to_fit(self);
     }
 
-    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        self.extend(entities);
+    fn extend_from_iter(&mut self, items: impl IntoIterator<Item = Self::Item>) {
+        self.extend(items);
+    }
+}
+
+impl RelationshipSourceItem for Entity {
+    fn from_entity(entity: Entity) -> Self {
+        entity
     }
 }
 
 impl RelationshipSourceCollection for Entity {
+    type Item = Self;
+
     type SourceIter<'a> = core::option::IntoIter<Entity>;
 
     fn new() -> Self {
@@ -394,28 +423,30 @@ impl RelationshipSourceCollection for Entity {
     }
 }
 
-impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N]> {
-    fn insert(&mut self, index: usize, entity: Entity) {
-        self.push(entity);
+impl<const N: usize, T: OrderedRelationshipSourceItem> OrderedRelationshipSourceCollection
+    for SmallVec<[T; N]>
+{
+    fn insert(&mut self, index: usize, item: Self::Item) {
+        self.push(item);
         let len = self.len();
         if index < len {
             self.swap(index, len - 1);
         }
     }
 
-    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+    fn remove_at(&mut self, index: usize) -> Option<Self::Item> {
         (index < self.len()).then(|| self.swap_remove(index))
     }
 
-    fn insert_stable(&mut self, index: usize, entity: Entity) {
+    fn insert_stable(&mut self, index: usize, item: Self::Item) {
         if index < self.len() {
-            SmallVec::<[Entity; N]>::insert(self, index, entity);
+            SmallVec::<[Self::Item; N]>::insert(self, index, item);
         } else {
-            self.push(entity);
+            self.push(item);
         }
     }
 
-    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+    fn remove_at_stable(&mut self, index: usize) -> Option<Self::Item> {
         (index < self.len()).then(|| self.remove(index))
     }
 
@@ -423,9 +454,9 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
         self.sort_unstable();
     }
 
-    fn insert_sorted(&mut self, entity: Entity) {
-        let index = self.partition_point(|e| e <= &entity);
-        self.insert_stable(index, entity);
+    fn insert_sorted(&mut self, item: Self::Item) {
+        let index = self.partition_point(|e| e <= &item);
+        self.insert_stable(index, item);
     }
 
     fn place_most_recent(&mut self, index: usize) {
@@ -435,12 +466,12 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
         }
     }
 
-    fn place(&mut self, entity: Entity, index: usize) {
-        if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
+    fn place(&mut self, item: Self::Item, index: usize) {
+        if let Some(current) = <[Self::Item]>::iter(self).position(|e| *e == item) {
             // The len is at least 1, so the subtraction is safe.
             let index = index.min(self.len() - 1);
-            SmallVec::<[Entity; N]>::remove(self, current);
-            self.insert(index, entity);
+            SmallVec::<[Self::Item; N]>::remove(self, current);
+            self.insert(index, item);
         };
     }
 }
