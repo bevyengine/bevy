@@ -12,6 +12,9 @@ pub type Layer = usize;
 /// Cameras with this component will only render entities with intersecting
 /// layers.
 ///
+/// Cameras without this component will only render entities belonging to the default 
+/// render layer (RenderLayers::layer(0)).
+/// 
 /// Entities may belong to one or more layers, or no layer at all.
 ///
 /// The [`Default`] instance of `RenderLayers` contains layer `0`, the first layer.
