@@ -22,7 +22,7 @@ pub struct When<'a, T> {
     pub(crate) value: &'a T,
 }
 
-impl<T> std::ops::Deref for When<'_, T> {
+impl<T> core::ops::Deref for When<'_, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.value
@@ -32,6 +32,8 @@ impl<T> std::ops::Deref for When<'_, T> {
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for When<'a, T> {}
 
+// SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
+// conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for When<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = When<'w, T>;
@@ -40,19 +42,7 @@ unsafe impl<'a, T: Resource> SystemParam for When<'a, T> {
         Res::<'a, T>::init_state(world, system_meta)
     }
 
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'w>,
-        change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        unsafe {
-            let value: Res<'w, T> = Res::get_param(state, system_meta, world, change_tick);
-            When {
-                value: value.into_inner(),
-            }
-        }
-    }
+    #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
@@ -69,6 +59,22 @@ unsafe impl<'a, T: Resource> SystemParam for When<'a, T> {
             Err(SystemParamValidationError::skipped::<Self>(
                 "Resource does not exist",
             ))
+        }
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        // SAFETY: Res::get_param does not use unsafe code
+        unsafe {
+            let value: Res<'w, T> = Res::get_param(state, system_meta, world, change_tick);
+            When {
+                value: value.into_inner(),
+            }
         }
     }
 }
@@ -87,14 +93,14 @@ pub struct WhenMut<'a, T> {
     pub(crate) value: &'a mut T,
 }
 
-impl<T> std::ops::Deref for WhenMut<'_, T> {
+impl<T> core::ops::Deref for WhenMut<'_, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.value
     }
 }
 
-impl<T> std::ops::DerefMut for WhenMut<'_, T> {
+impl<T> core::ops::DerefMut for WhenMut<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.value
     }
@@ -103,6 +109,8 @@ impl<T> std::ops::DerefMut for WhenMut<'_, T> {
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for WhenMut<'a, T> {}
 
+// SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
+// conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for WhenMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = WhenMut<'w, T>;
@@ -111,19 +119,7 @@ unsafe impl<'a, T: Resource> SystemParam for WhenMut<'a, T> {
         ResMut::<'a, T>::init_state(world, system_meta)
     }
 
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'w>,
-        change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        unsafe {
-            let value: ResMut<'w, T> = ResMut::get_param(state, system_meta, world, change_tick);
-            WhenMut {
-                value: value.into_inner(),
-            }
-        }
-    }
+    #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
@@ -142,6 +138,22 @@ unsafe impl<'a, T: Resource> SystemParam for WhenMut<'a, T> {
             ))
         }
     }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        // SAFETY: ResMut::get_param does not use unsafe code
+        unsafe {
+            let value: ResMut<'w, T> = ResMut::get_param(state, system_meta, world, change_tick);
+            WhenMut {
+                value: value.into_inner(),
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -150,14 +162,14 @@ mod test {
 
     use super::{When, WhenMut};
 
-    #[derive(Default, Resource)]
+    #[derive(Resource)]
     struct Foo;
 
     #[test]
     #[should_panic]
     fn runs_when_present() {
         let mut world = World::new();
-        world.insert_resource(Foo::default());
+        world.insert_resource(Foo);
         let mut schedule = Schedule::default();
         schedule.add_systems(|_res: When<Foo>| panic!("will run"));
         schedule.run(&mut world);
@@ -173,7 +185,7 @@ mod test {
     #[should_panic]
     fn runs_when_present_mut() {
         let mut world = World::new();
-        world.insert_resource(Foo::default());
+        world.insert_resource(Foo);
         let mut schedule = Schedule::default();
         schedule.add_systems(|_res: WhenMut<Foo>| panic!("will run"));
         schedule.run(&mut world);
