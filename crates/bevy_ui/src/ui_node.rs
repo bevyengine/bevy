@@ -361,7 +361,6 @@ impl From<Vec2> for ScrollPosition {
     ComputedNode,
     ComputedNodeTarget,
     UiTransform,
-    UiGlobalTransform,
     BackgroundColor,
     BorderColor,
     BorderRadius,
