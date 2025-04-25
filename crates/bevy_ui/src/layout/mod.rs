@@ -261,19 +261,13 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let viewport_size = root_size.unwrap_or(node.size);
 
-            let resolve_translation = |mut val: Val, extent: f32, viewport_size: Vec2| {
-                if let Val::Px(ref mut value) = val {
-                    *value /= inverse_target_scale_factor
-                }
-                val.resolve(extent, viewport_size).unwrap_or(0.)
-            };
-
             let node_transform = Affine2::from_scale_angle_translation(
                 transform.scale,
                 -transform.rotation,
-                Vec2::new(
-                    resolve_translation(transform.translation.x, layout_size.x, viewport_size),
-                    resolve_translation(transform.translation.y, layout_size.y, viewport_size),
+                transform.translation.resolve(
+                    inverse_target_scale_factor,
+                    layout_size,
+                    viewport_size,
                 ),
             );
             propagated_transform *= node_transform * Affine2::from_translation(node_center);
