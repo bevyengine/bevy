@@ -15,7 +15,7 @@ use crate::{
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct Foo;
-/// 
+///
 /// fn skips_if_not_present(res: When<Foo>){}
 /// ```
 pub struct When<'a, T> {
@@ -80,7 +80,7 @@ unsafe impl<'a, T: Resource> SystemParam for When<'a, T> {
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct Foo;
-/// 
+///
 /// fn skips_if_not_present(res: WhenMut<Foo>){}
 /// ```
 pub struct WhenMut<'a, T> {
