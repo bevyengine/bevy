@@ -339,7 +339,7 @@ pub enum RelationshipHookMode {
 
 #[cfg(test)]
 mod tests {
-    use crate::entity::ContainsEntity;
+    use crate::entity::{ContainsEntity, EntityEquivalent};
     use crate::prelude::RelationshipTarget;
     use crate::relationship::{Relationship, RelationshipSourceItem};
     use crate::world::World;
@@ -445,6 +445,8 @@ mod tests {
                 self.0
             }
         }
+
+        unsafe impl EntityEquivalent for E {}
 
         impl RelationshipSourceItem for E {
             fn from_entity(entity: Entity) -> Self {

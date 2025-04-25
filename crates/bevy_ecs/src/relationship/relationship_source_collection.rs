@@ -1,10 +1,10 @@
-use crate::entity::ContainsEntity;
+use crate::entity::EntityEquivalent;
 use crate::entity::{hash_set::EntityHashSet, Entity};
 use alloc::vec::Vec;
 use smallvec::SmallVec;
 
 /// Represents a single item within a [`RelationshipSourceCollection`].
-pub trait RelationshipSourceItem: 'static + ContainsEntity + Copy {
+pub trait RelationshipSourceItem: 'static + EntityEquivalent + Copy {
     /// Create a new item from an [`Entity`].
     fn from_entity(entity: Entity) -> Self;
 }
@@ -165,7 +165,7 @@ impl<T: RelationshipSourceItem> RelationshipSourceCollection for Vec<T> {
     }
 
     fn remove(&mut self, item: Self::Item) -> bool {
-        if let Some(index) = <[Self::Item]>::iter(self).position(|i| i.entity() == item.entity()) {
+        if let Some(index) = <[Self::Item]>::iter(self).position(|i| *i == item) {
             Vec::remove(self, index);
             return true;
         }
@@ -224,7 +224,7 @@ impl<T: OrderedRelationshipSourceItem> OrderedRelationshipSourceCollection for V
     }
 
     fn insert_sorted(&mut self, item: Self::Item) {
-        let index = self.partition_point(|e| e <= &item);
+        let index = self.partition_point(|i| i <= &item);
         self.insert_stable(index, item);
     }
 
@@ -236,7 +236,7 @@ impl<T: OrderedRelationshipSourceItem> OrderedRelationshipSourceCollection for V
     }
 
     fn place(&mut self, item: Self::Item, index: usize) {
-        if let Some(current) = <[Self::Item]>::iter(self).position(|e| *e == item) {
+        if let Some(current) = <[Self::Item]>::iter(self).position(|i| *i == item) {
             // The len is at least 1, so the subtraction is safe.
             let index = index.min(self.len().saturating_sub(1));
             Vec::remove(self, current);
