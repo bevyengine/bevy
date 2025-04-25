@@ -254,17 +254,12 @@ impl ComputedNode {
         l + m - r < 0.
     }
 
-    /// Transform a point to node space with the center of the node at the origin and the corners at [+/-self.size.x, +/-self.self.y]
-    pub fn transform_point(&self, transform: UiGlobalTransform, point: Vec2) -> Vec2 {
-        transform.inverse().transform_point2(point)
-    }
-
     /// Transform a point to normalized node space with the center of the node at the origin and the corners at [+/-0.5, +/-0.5]
     pub fn normalize_point(&self, transform: UiGlobalTransform, point: Vec2) -> Option<Vec2> {
         self.size
             .cmpgt(Vec2::ZERO)
             .all()
-            .then_some(self.transform_point(transform, point) / self.size)
+            .then_some(transform.inverse().transform_point2(point) / self.size)
     }
 
     /// Resolve the node's clipping rect in local space

@@ -195,29 +195,26 @@ pub fn ui_picking(
 
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
-        // The mouse position relative to the node
-        // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
+        // Find the normalized cursor position relative to the node.
+        // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
         // Coordinates are relative to the entire node, not just the visible region.
         for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
-            let Some(normalized_cursor_position) =
-                node.node.normalize_point(*node.transform, *cursor_position)
-            else {
-                continue;
-            };
-
-            let contains_cursor = node.node.contains_point(*node.transform, *cursor_position)
+            if node.node.contains_point(*node.transform, *cursor_position)
                 && clip_check_recursive(
                     *cursor_position,
                     *node_entity,
                     &clipping_query,
                     &child_of_query,
-                );
-
-            if contains_cursor {
+                )
+            {
                 hit_nodes
                     .entry((camera_entity, *pointer_id))
                     .or_default()
-                    .push((*node_entity, normalized_cursor_position));
+                    .push((
+                        *node_entity,
+                        node.transform.inverse().transform_point2(*cursor_position)
+                            / node.node.size(),
+                    ));
             }
         }
     }
