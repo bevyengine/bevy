@@ -446,6 +446,7 @@ mod tests {
             }
         }
 
+        // SAFE: It's just a test. I promise we'll be ok!
         unsafe impl EntityEquivalent for E {}
 
         impl RelationshipSourceItem for E {
