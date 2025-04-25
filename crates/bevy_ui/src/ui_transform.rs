@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use crate::Val;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
@@ -8,6 +6,7 @@ use bevy_ecs::prelude::ReflectComponent;
 use bevy_math::Affine2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
+use core::f32::consts::PI;
 
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
