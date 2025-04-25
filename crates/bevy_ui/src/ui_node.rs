@@ -1224,9 +1224,9 @@ impl OverflowClipMargin {
 )]
 pub enum OverflowClipBox {
     /// Clip any content that overflows outside the content box
-    #[default]
     ContentBox,
     /// Clip any content that overflows outside the padding box
+    #[default]
     PaddingBox,
     /// Clip any content that overflows outside the border box
     BorderBox,
