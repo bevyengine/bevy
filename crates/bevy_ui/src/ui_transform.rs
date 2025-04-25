@@ -10,6 +10,12 @@ use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct UiVec {
     /// Translate the node along the x-axis.
     /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
