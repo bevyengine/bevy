@@ -323,6 +323,7 @@ pub fn ui_focus_system(
     }
 }
 
+/// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
 pub fn clip_check_recursive(
     point: Vec2,
     entity: Entity,
@@ -332,36 +333,16 @@ pub fn clip_check_recursive(
     if let Ok(child_of) = child_of_query.get(entity) {
         let parent = child_of.0;
         if let Ok((computed_node, transform, node)) = clipping_query.get(parent) {
-            // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
-
-            let mut clip_rect = Rect::from_center_size(Vec2::ZERO, 0.5 * computed_node.size);
-
-            let clip_inset = match node.overflow_clip_margin.visual_box {
-                crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
-                crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
-                crate::OverflowClipBox::PaddingBox => computed_node.border(),
-            };
-
-            clip_rect.min.x += clip_inset.left;
-            clip_rect.min.y += clip_inset.top;
-            clip_rect.max.x -= clip_inset.right;
-            clip_rect.max.y -= clip_inset.bottom;
-
-            if node.overflow.x == OverflowAxis::Visible {
-                clip_rect.min.x = -f32::INFINITY;
-                clip_rect.max.x = f32::INFINITY;
-            }
-            if node.overflow.y == OverflowAxis::Visible {
-                clip_rect.min.y = -f32::INFINITY;
-                clip_rect.max.y = f32::INFINITY;
-            }
-
-            if !clip_rect.contains(transform.inverse().transform_point2(point)) {
+            if !computed_node
+                .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
+                .contains(transform.inverse().transform_point2(point))
+            {
+                // The point is clipped and should be ignored by picking
                 return false;
             }
         }
         return clip_check_recursive(point, parent, clipping_query, child_of_query);
     }
-    // point unclipped by all ancestors
+    // Reached root, point unclipped by all ancestors
     true
 }

@@ -266,6 +266,37 @@ impl ComputedNode {
             .all()
             .then_some(self.transform_point(transform, point) / self.size)
     }
+
+    /// Resolve the node's clipping rect in local space
+    pub fn resolve_clip_rect(
+        &self,
+        overflow: Overflow,
+        overflow_clip_margin: OverflowClipMargin,
+    ) -> Rect {
+        let mut clip_rect = Rect::from_center_size(Vec2::ZERO, 0.5 * self.size);
+
+        let clip_inset = match overflow_clip_margin.visual_box {
+            OverflowClipBox::BorderBox => BorderRect::ZERO,
+            OverflowClipBox::ContentBox => self.content_inset(),
+            OverflowClipBox::PaddingBox => self.border(),
+        };
+
+        clip_rect.min.x += clip_inset.left;
+        clip_rect.min.y += clip_inset.top;
+        clip_rect.max.x -= clip_inset.right;
+        clip_rect.max.y -= clip_inset.bottom;
+
+        if overflow.x == OverflowAxis::Visible {
+            clip_rect.min.x = -f32::INFINITY;
+            clip_rect.max.x = f32::INFINITY;
+        }
+        if overflow.y == OverflowAxis::Visible {
+            clip_rect.min.y = -f32::INFINITY;
+            clip_rect.max.y = f32::INFINITY;
+        }
+
+        clip_rect
+    }
 }
 
 impl ComputedNode {
