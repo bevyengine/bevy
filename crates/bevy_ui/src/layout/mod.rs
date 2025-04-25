@@ -1,5 +1,6 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
+    ui_transform::{UiGlobalTransform, UiTransform},
     BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
     Outline, OverflowAxis, ScrollPosition, Val,
 };
@@ -83,6 +84,8 @@ pub fn ui_layout_system(
     ui_children: UiChildren,
     mut node_update_query: Query<(
         &mut ComputedNode,
+        &UiTransform,
+        &mut UiGlobalTransform,
         &Node,
         Option<&LayoutConfig>,
         Option<&BorderRadius>,
@@ -190,9 +193,11 @@ with UI components as a child of an entity without UI components, your UI layout
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
         root_size: Option<Vec2>,
-        mut transform: Affine2,
+        mut propagated_transform: Affine2,
         node_update_query: &mut Query<(
             &mut ComputedNode,
+            &UiTransform,
+            &mut UiGlobalTransform,
             &Node,
             Option<&LayoutConfig>,
             Option<&BorderRadius>,
@@ -206,6 +211,8 @@ with UI components as a child of an entity without UI components, your UI layout
     ) {
         if let Ok((
             mut node,
+            transform,
+            mut global_transform,
             style,
             maybe_layout_config,
             maybe_border_radius,
@@ -262,17 +269,18 @@ with UI components as a child of an entity without UI components, your UI layout
             };
 
             let node_transform = Affine2::from_scale_angle_translation(
-                style.scale,
-                -style.rotation,
+                transform.scale,
+                -transform.rotation,
                 Vec2::new(
-                    resolve_translation(style.x_translation, layout_size.x, viewport_size),
-                    resolve_translation(style.y_translation, layout_size.y, viewport_size),
+                    resolve_translation(transform.translation.x, layout_size.x, viewport_size),
+                    resolve_translation(transform.translation.y, layout_size.y, viewport_size),
                 ),
             );
-            transform *= node_transform * Affine2::from_translation(node_center);
+            propagated_transform *= node_transform * Affine2::from_translation(node_center);
 
-            if transform != node.transform {
-                node.transform = transform;
+            if propagated_transform != node.transform {
+                node.transform = propagated_transform;
+                global_transform.0 = propagated_transform;
             }
 
             if let Some(border_radius) = maybe_border_radius {
@@ -347,7 +355,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     ui_surface,
                     use_rounding,
                     Some(viewport_size),
-                    transform,
+                    propagated_transform,
                     node_update_query,
                     ui_children,
                     inverse_target_scale_factor,

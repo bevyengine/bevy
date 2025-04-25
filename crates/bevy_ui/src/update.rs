@@ -2,6 +2,7 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
+    ui_transform::UiGlobalTransform,
     CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
     UiTargetCamera,
 };
@@ -22,7 +23,12 @@ use bevy_sprite::BorderRect;
 pub fn update_clipping_system(
     mut commands: Commands,
     root_nodes: UiRootNodes,
-    mut node_query: Query<(&Node, &ComputedNode, Option<&mut CalculatedClip>)>,
+    mut node_query: Query<(
+        &Node,
+        &ComputedNode,
+        &UiGlobalTransform,
+        Option<&mut CalculatedClip>,
+    )>,
     ui_children: UiChildren,
 ) {
     for root_node in root_nodes.iter() {
@@ -39,11 +45,17 @@ pub fn update_clipping_system(
 fn update_clipping(
     commands: &mut Commands,
     ui_children: &UiChildren,
-    node_query: &mut Query<(&Node, &ComputedNode, Option<&mut CalculatedClip>)>,
+    node_query: &mut Query<(
+        &Node,
+        &ComputedNode,
+        &UiGlobalTransform,
+        Option<&mut CalculatedClip>,
+    )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
-    let Ok((node, computed_node, maybe_calculated_clip)) = node_query.get_mut(entity) else {
+    let Ok((node, computed_node, transform, maybe_calculated_clip)) = node_query.get_mut(entity)
+    else {
         return;
     };
 

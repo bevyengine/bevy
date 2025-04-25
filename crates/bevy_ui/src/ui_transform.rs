@@ -11,11 +11,11 @@ pub struct UiVec {
     /// Translate the node along the x-axis.
     /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
     /// `Val::Auto` is resolved to `0.`.
-    x: Val,
+    pub x: Val,
     /// Translate the node along the y-axis.
     /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
     /// `Val::Auto` is resolved to `0.`.
-    y: Val,
+    pub y: Val,
 }
 
 impl UiVec {
@@ -36,6 +36,10 @@ impl UiVec {
             x: Val::Percent(x),
             y: Val::Percent(y),
         }
+    }
+
+    pub const fn new(x: Val, y: Val) -> Self {
+        Self { x, y }
     }
 }
 
@@ -82,7 +86,7 @@ impl Default for UiTransform {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct UiGlobalTransform(Affine2);
+pub struct UiGlobalTransform(pub Affine2);
 
 impl Default for UiGlobalTransform {
     fn default() -> Self {
