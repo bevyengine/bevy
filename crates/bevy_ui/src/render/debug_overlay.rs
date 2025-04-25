@@ -1,4 +1,5 @@
 use crate::ui_node::ComputedNodeTarget;
+use crate::ui_transform::UiGlobalTransform;
 use crate::CalculatedClip;
 use crate::ComputedNode;
 use bevy_asset::AssetId;
@@ -15,7 +16,6 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
-use bevy_transform::components::GlobalTransform;
 
 use super::ExtractedUiItem;
 use super::ExtractedUiNode;
@@ -61,6 +61,7 @@ pub fn extract_debug_overlay(
         Query<(
             Entity,
             &ComputedNode,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
@@ -74,7 +75,7 @@ pub fn extract_debug_overlay(
 
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, visibility, maybe_clip, computed_target) in &uinode_query {
+    for (entity, uinode, transform, visibility, maybe_clip, computed_target) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
@@ -100,7 +101,7 @@ pub fn extract_debug_overlay(
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
-                transform: uinode.transform,
+                transform: transform.0,
                 flip_x: false,
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
