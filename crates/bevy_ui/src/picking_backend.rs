@@ -192,12 +192,6 @@ pub fn ui_picking(
             continue;
         }
 
-        // // Intersect with the calculated clip rect to find the bounds of the visible region of the node
-        // let visible_rect = node
-        //     .calculated_clip
-        //     .map(|clip| node_rect.intersect(clip.clip))
-        //     .unwrap_or(node_rect);
-
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
         // The mouse position relative to the node
