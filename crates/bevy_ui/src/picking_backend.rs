@@ -27,7 +27,7 @@
 use crate::{prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::{Rect, Vec2};
+use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::prelude::*;
