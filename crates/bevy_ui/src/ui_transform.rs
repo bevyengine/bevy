@@ -35,7 +35,7 @@ impl UiVec {
         }
     }
 
-    /// Creates a new [`UiVec`] where both components are precentage values
+    /// Creates a new [`UiVec`] where both components are percentage values
     pub const fn percent(x: f32, y: f32) -> Self {
         Self {
             x: Val::Percent(x),
