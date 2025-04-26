@@ -33,6 +33,10 @@ pub enum GizmoRenderSystems {
     QueueLineGizmos3d,
 }
 
+/// Deprecated alias for [`GizmoRenderSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `GizmoRenderSystems`.")]
+pub type GizmoRenderSystem = GizmoRenderSystems;
+
 #[cfg(feature = "bevy_render")]
 pub mod aabb;
 pub mod arcs;
@@ -381,6 +385,10 @@ pub fn propagate_gizmos<Config, Clear>(
 /// System set for updating the rendering meshes for drawing gizmos.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GizmoMeshSystems;
+
+/// Deprecated alias for [`GizmoMeshSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `GizmoMeshSystems`.")]
+pub type UpdateGizmoMeshes = GizmoMeshSystems;
 
 /// Prepare gizmos for rendering.
 ///

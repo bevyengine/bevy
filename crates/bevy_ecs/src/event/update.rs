@@ -15,6 +15,10 @@ use super::registry::ShouldUpdateEvents;
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct EventUpdateSystems;
 
+/// Deprecated alias for [`EventUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `EventUpdateSystems`.")]
+pub type EventUpdates = EventUpdateSystems;
+
 /// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
 ///
 /// This will change the behavior of the [`EventRegistry`] to only run after a fixed update cycle has passed.

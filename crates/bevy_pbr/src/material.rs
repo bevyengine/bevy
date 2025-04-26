@@ -640,6 +640,10 @@ pub struct RenderMaterialInstance {
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MaterialExtractionSystems;
 
+/// Deprecated alias for [`MaterialExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `MaterialExtractionSystems`.")]
+pub type ExtractMaterialsSet = MaterialExtractionSystems;
+
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key

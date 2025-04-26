@@ -658,11 +658,19 @@ impl AssetApp for App {
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct AssetTrackingSystems;
 
+/// Deprecated alias for [`AssetTrackingSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetTrackingSystems`.")]
+pub type TrackAssets = AssetTrackingSystems;
+
 /// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
 ///
 /// [`Events`]: bevy_ecs::event::Events
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct AssetEventSystems;
+
+/// Deprecated alias for [`AssetEventSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetEventSystems`.")]
+pub type AssetEvents = AssetEventSystems;
 
 #[cfg(test)]
 mod tests {

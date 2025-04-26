@@ -198,6 +198,10 @@ pub struct Last;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct AnimationSystems;
 
+/// Deprecated alias for [`AnimationSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AnimationSystems`.")]
+pub type Animation = AnimationSystems;
+
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
 #[derive(Resource, Debug)]
@@ -480,3 +484,7 @@ pub enum RunFixedMainLoopSystems {
     /// ```
     AfterFixedMainLoop,
 }
+
+/// Deprecated alias for [`RunFixedMainLoopSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RunFixedMainLoopSystems`.")]
+pub type RunFixedMainLoopSystem = RunFixedMainLoopSystems;

@@ -83,6 +83,10 @@ pub enum StateTransitionSystems {
     EnterSchedules,
 }
 
+/// Deprecated alias for [`StateTransitionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `StateTransitionSystems`.")]
+pub type StateTransitionSteps = StateTransitionSystems;
+
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 /// System set that runs exit schedule(s) for state `S`.
 pub struct ExitSchedules<S: States>(PhantomData<S>);

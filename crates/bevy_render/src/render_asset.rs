@@ -29,6 +29,10 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct AssetExtractionSystems;
 
+/// Deprecated alias for [`AssetExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetExtractionSystems`.")]
+pub type ExtractAssetsSet = AssetExtractionSystems;
+
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
 /// In the [`ExtractSchedule`] step the [`RenderAsset::SourceAsset`] is transferred

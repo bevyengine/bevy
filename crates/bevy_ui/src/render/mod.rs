@@ -110,6 +110,10 @@ pub enum RenderUiSystems {
     ExtractDebug,
 }
 
+/// Deprecated alias for [`RenderUiSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RenderUiSystems`.")]
+pub type RenderUiSystem = RenderUiSystems;
+
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 

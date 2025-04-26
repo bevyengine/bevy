@@ -142,6 +142,10 @@ pub enum AccessibilitySystems {
     Update,
 }
 
+/// Deprecated alias for [`AccessibilitySystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AccessibilitySystems`.")]
+pub type AccessibilitySystem = AccessibilitySystems;
+
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
 #[derive(Default)]
 pub struct AccessibilityPlugin;

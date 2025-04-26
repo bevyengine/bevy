@@ -48,6 +48,10 @@ impl Plugin for CameraProjectionPlugin {
 #[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystems;
 
+/// Deprecated alias for [`CameraUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `CameraUpdateSystems`.")]
+pub type CameraUpdateSystem = CameraUpdateSystems;
+
 /// Describes a type that can generate a projection matrix, allowing it to be added to a
 /// [`Camera`]'s [`Projection`] component.
 ///

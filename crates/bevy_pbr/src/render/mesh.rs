@@ -1298,6 +1298,10 @@ pub struct RenderMeshQueueData<'a> {
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MeshExtractionSystems;
 
+/// Deprecated alias for [`MeshExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `MeshExtractionSystems`.")]
+pub type ExtractMeshesSet = MeshExtractionSystems;
+
 /// Extracts meshes from the main world into the render world, populating the
 /// [`RenderMeshInstances`].
 ///

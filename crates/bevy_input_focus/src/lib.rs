@@ -214,6 +214,10 @@ pub enum InputFocusSystems {
     Dispatch,
 }
 
+/// Deprecated alias for [`InputFocusSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `InputFocusSystems`.")]
+pub type InputFocusSet = InputFocusSystems;
+
 /// Sets the initial focus to the primary window, if any.
 pub fn set_initial_focus(
     mut input_focus: ResMut<InputFocus>,
