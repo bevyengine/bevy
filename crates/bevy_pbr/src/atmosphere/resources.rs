@@ -11,7 +11,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::Image;
-use bevy_math::{Mat4, Quat, Vec3};
+use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     camera::Camera,
     extract_component::{ComponentUniforms, ExtractComponent},
@@ -23,7 +23,7 @@ use bevy_render::{
 };
 
 use crate::{
-    prefilter::{FilteredEnvironmentMapLight}, GpuLights, LightMeta, LightProbe, ShadowSamplers,
+    prefilter::FilteredEnvironmentMapLight, GpuLights, LightMeta, LightProbe, ShadowSamplers,
     ViewShadowBindings,
 };
 
@@ -622,7 +622,14 @@ pub(super) fn prepare_view_textures(
 
 pub(super) fn prepare_probe_textures(
     view_textures: Query<&AtmosphereTextures, With<Atmosphere>>,
-    probes: Query<(Entity, &AtmosphereEnvironmentMap), (With<LightProbe>, With<AtmosphereEnvironmentMap>, Without<AtmosphereProbeTextures>)>,
+    probes: Query<
+        (Entity, &AtmosphereEnvironmentMap),
+        (
+            With<LightProbe>,
+            With<AtmosphereEnvironmentMap>,
+            Without<AtmosphereProbeTextures>,
+        ),
+    >,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
@@ -976,7 +983,14 @@ pub(crate) fn prepare_atmosphere_buffer(
 }
 
 pub fn prepare_atmosphere_probe_components(
-    probes: Query<(Entity, &AtmosphereEnvironmentMapLight), (With<LightProbe>, With<AtmosphereEnvironmentMapLight>, Without<AtmosphereEnvironmentMap>)>,
+    probes: Query<
+        (Entity, &AtmosphereEnvironmentMapLight),
+        (
+            With<LightProbe>,
+            With<AtmosphereEnvironmentMapLight>,
+            Without<AtmosphereEnvironmentMap>,
+        ),
+    >,
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
 ) {
@@ -999,9 +1013,10 @@ pub fn prepare_atmosphere_probe_components(
             ..Default::default()
         });
 
-        environment_image.texture_descriptor.usage =
-            TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING | TextureUsages::COPY_SRC;
-        
+        environment_image.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
+            | TextureUsages::STORAGE_BINDING
+            | TextureUsages::COPY_SRC;
+
         // Add the image to assets to get a handle
         let environment_handle = images.add(environment_image);
 

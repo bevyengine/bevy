@@ -3,11 +3,15 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{auto_exposure::AutoExposure, bloom::Bloom, tonemapping::Tonemapping},
+    core_pipeline::{
+        auto_exposure::{AutoExposure, AutoExposurePlugin},
+        bloom::Bloom,
+        tonemapping::Tonemapping,
+    },
     input::mouse::{MouseMotion, MouseWheel},
     pbr::{
-        light_consts::lux, Atmosphere, AtmosphereSettings, VolumetricFog, VolumetricLight,
-        AtmosphereEnvironmentMapLight,
+        light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings,
+        CascadeShadowConfigBuilder, VolumetricFog, VolumetricLight,
     },
     prelude::*,
     render::camera::Exposure,
@@ -17,6 +21,7 @@ fn main() {
     App::new()
         // .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .add_plugins(DefaultPlugins)
+        .add_plugins(AutoExposurePlugin)
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(
@@ -27,7 +32,7 @@ fn main() {
 }
 
 fn setup_camera_fog(mut commands: Commands) {
-    let initial_distance = 1.0;
+    let initial_distance = 3.0;
     let initial_transform =
         Transform::from_xyz(-initial_distance, 0.1, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
 
@@ -39,7 +44,12 @@ fn setup_camera_fog(mut commands: Commands) {
                 hdr: true,
                 ..default()
             },
-            AutoExposure::default(),
+            Exposure { ev100: 12.0 },
+            // AutoExposure {
+            //     filter: 0.0..=1.0,
+            //     range: -12.0..=12.0,
+            //     ..default()
+            // },
             Msaa::Off,
             initial_transform.clone(),
             CameraOrbit {
@@ -50,23 +60,18 @@ fn setup_camera_fog(mut commands: Commands) {
             // (the one recommended for use with this feature) is
             // quite bright, so raising the exposure compensation helps
             // bring the scene to a nicer brightness range.
-            Exposure { ev100: 14.0 },
+            // Exposure { ev100: 10.0 },
+            AmbientLight {
+                color: Color::WHITE,
+                brightness: 0.0,
+                affects_lightmapped_meshes: true,
+            },
             // Tonemapper chosen just because it looked good with the scene, any
             // tonemapper would be fine :)
             Tonemapping::AcesFitted,
             // Bloom gives the sun a much more natural look.
             Bloom::NATURAL,
-            // EnvironmentMapLight {
-            //     intensity: 5000.0,
-            //     diffuse_map: atmosphere_resources.environment.clone(),
-            //     specular_map: atmosphere_resources.environment.clone(),
-            //     ..default()
-            // },
         ))
-        // .insert(ScreenSpaceAmbientOcclusion {
-        //     constant_object_thickness: 4.0,
-        //     ..default()
-        // })
         .insert((
             // This is the component that enables atmospheric scattering for a camera
             Atmosphere::EARTH,
@@ -74,9 +79,8 @@ fn setup_camera_fog(mut commands: Commands) {
             // aerial view lut distance and set the scene scale accordingly.
             // Most usages of this feature will not need to adjust this.
             AtmosphereSettings {
-                aerial_view_lut_max_distance: 3.2e5,
-                scene_units_to_m: 5e+3,
-                ..Default::default()
+                scene_units_to_m: 100.0,
+                ..default()
             },
         ))
         .insert(VolumetricFog {
@@ -88,10 +92,18 @@ fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         LightProbe,
         AtmosphereEnvironmentMapLight::default(),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(100.0)),
     ));
 
     let sun_transform = Transform::from_xyz(1.0, 1.0, -0.3).looking_at(Vec3::ZERO, Vec3::Y);
+
+    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
+    let cascade_shadow_config = CascadeShadowConfigBuilder {
+        // first_cascade_far_bound: 0.3,
+        maximum_distance: 200.0,
+        ..default()
+    }
+    .build();
 
     commands.spawn((
         DirectionalLight {
@@ -106,6 +118,7 @@ fn setup_camera_fog(mut commands: Commands) {
         },
         VolumetricLight,
         sun_transform.clone(),
+        cascade_shadow_config,
         SunOrbit {
             target_transform: sun_transform,
         },
@@ -135,53 +148,38 @@ fn setup_terrain_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
 
-    // Main mirror sphere at center
-    commands.spawn((
-        Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            metallic: 1.0,
-            perceptual_roughness: 0.0,
-            ..default()
-        })),
-        Transform::from_xyz(0.0, 0.25, 0.0).with_scale(Vec3::splat(0.25)),
-    ));
+    // Add 10 spheres with different roughness levels in a line
+    let roughness_levels = 0..9;
 
-    // Add 5 spheres with different roughness levels in a semicircle
-    let roughness_levels = [0.0, 0.25, 0.5, 0.75, 1.0];
-    let radius = 0.75; // Radius of the semicircle
-
-    for (i, roughness) in roughness_levels.iter().enumerate() {
-        // Calculate position in semicircle
-        let angle = PI * (i as f32) / (roughness_levels.len() - 1) as f32;
-        let x = radius * angle.sin();
-        let z = radius * angle.cos();
-
+    for i in roughness_levels {
+        let z = i as f32 * 0.4 - (0.4 * 9.0 / 2.0) + 0.15;
+        let roughness = i as f32 / 9.0;
         commands.spawn((
             Mesh3d(sphere_mesh.clone()),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: Color::WHITE,
                 metallic: 1.0,
-                perceptual_roughness: *roughness,
+                perceptual_roughness: roughness,
                 ..default()
             })),
-            Transform::from_xyz(x, 0.25, z).with_scale(Vec3::splat(0.15)),
+            Transform::from_xyz(0.0, 0.25, z).with_scale(Vec3::splat(0.15)),
         ));
     }
 
-    // // Terrain
-    // commands.spawn((
-    //     Terrain,
-    //     SceneRoot(
-    //         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
-    //     ),
-    //     Transform::from_xyz(-1.0, 0.0, -0.5)
-    //         .with_scale(Vec3::splat(0.5))
-    //         .with_rotation(Quat::from_rotation_y(PI / 2.0)),
-    // ));
+    // Terrain
+    commands.spawn((
+        Terrain,
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
+        ),
+        Transform::from_xyz(10.0, 0.0, 0.0)
+            .with_scale(Vec3::splat(10.0))
+            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+    ));
 }
 
 fn pan_camera(

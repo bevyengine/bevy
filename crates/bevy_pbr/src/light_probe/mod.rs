@@ -1,6 +1,6 @@
 //! Light probes for baked global illumination.
 
-use bevy_app::{App, Plugin, Startup, Update};
+use bevy_app::{App, Plugin, Update};
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
@@ -21,7 +21,6 @@ use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
     extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
@@ -36,9 +35,9 @@ use bevy_render::{
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use prefilter::{
-    create_environment_map_from_prefilter,
-    extract_prefilter_entities, prepare_prefilter_bind_groups, prepare_prefilter_textures,
-    FilteredEnvironmentMapLight, PrefilterPipelines, SpdFirstNode, SpdSecondNode,
+    create_environment_map_from_prefilter, extract_prefilter_entities,
+    prepare_prefilter_bind_groups, prepare_prefilter_textures, PrefilterPipelines, SpdFirstNode,
+    SpdSecondNode,
 };
 use tracing::error;
 
@@ -49,8 +48,8 @@ use crate::{
     light_probe::{
         environment_map::{EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE},
         prefilter::{
-            RadianceMapNode, IrradianceMapNode, PrefilterBindGroupLayouts, PrefilterNode,
-            PrefilterSamplers, ENVIRONMENT_FILTER_SHADER_HANDLE, SPD_SHADER_HANDLE,
+            IrradianceMapNode, PrefilterBindGroupLayouts, PrefilterNode, PrefilterSamplers,
+            RadianceMapNode, ENVIRONMENT_FILTER_SHADER_HANDLE, SPD_SHADER_HANDLE,
         },
     },
 };

@@ -1,5 +1,4 @@
 use bevy_asset::{weak_handle, Assets, Handle};
-use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -9,20 +8,19 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::Image;
-use bevy_math::{Quat, UVec2, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_math::{Quat, Vec2};
+use bevy_reflect::Reflect;
 use bevy_render::{
-    extract_component::ExtractComponent,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel},
     render_resource::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutEntries, BindingResource, BufferBinding, BufferInitDescriptor, BufferUsages,
-        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
-        FilterMode, PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderDefVal, ShaderStages, ShaderType, StorageTextureAccess, Texture, TextureAspect,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-        TextureView, TextureViewDescriptor, TextureViewDimension, UniformBuffer,
+        BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
+        ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
+        StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
+        TextureViewDimension, UniformBuffer,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -336,12 +334,6 @@ pub fn extract_prefilter_entities(
         let env_map = render_images
             .get(&filtered_env_map.environment_map)
             .expect("Environment map not found");
-        // let diffuse_map = render_images
-        //     .get(&env_map_light.diffuse_map)
-        //     .expect("Diffuse map not found");
-        // let specular_map = render_images
-        //     .get(&env_map_light.specular_map)
-        //     .expect("Specular map not found");
 
         let diffuse_map = render_images.get(&env_map_light.diffuse_map);
         let specular_map = render_images.get(&env_map_light.specular_map);
@@ -367,7 +359,7 @@ pub fn extract_prefilter_entities(
         // This is crucial as we need to preserve the same entity ID
         commands
             .entity(entity)
-            .insert((render_filtered_env_map.clone(), env_map_light.clone()));
+            .insert(render_filtered_env_map.clone());
     }
 }
 
@@ -385,8 +377,6 @@ pub struct RenderEnvironmentMap {
 #[derive(Component)]
 pub struct PrefilterTextures {
     pub environment_map: CachedTexture,
-    pub diffuse_map: CachedTexture,
-    pub specular_map: CachedTexture,
 }
 
 /// Prepares textures needed for prefiltering
@@ -418,51 +408,9 @@ pub fn prepare_prefilter_textures(
             },
         );
 
-        let diffuse_map = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("prefilter_diffuse_map"),
-                size: Extent3d {
-                    width: 32,
-                    height: 32,
-                    depth_or_array_layers: 6,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::TEXTURE_BINDING
-                    | TextureUsages::STORAGE_BINDING
-                    | TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-        );
-
-        let specular_map = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("prefilter_specular_map"),
-                size: Extent3d {
-                    width: 512,
-                    height: 512,
-                    depth_or_array_layers: 6,
-                },
-                mip_level_count: 9,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::TEXTURE_BINDING
-                    | TextureUsages::STORAGE_BINDING
-                    | TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-        );
-
-        commands.entity(entity).insert(PrefilterTextures {
-            environment_map,
-            diffuse_map,
-            specular_map,
-        });
+        commands
+            .entity(entity)
+            .insert(PrefilterTextures { environment_map });
     }
 }
 
@@ -496,22 +444,16 @@ pub struct PrefilterBindGroups {
 /// Prepares bind groups for prefiltering
 pub fn prepare_prefilter_bind_groups(
     light_probes: Query<
-        (
-            Entity,
-            &PrefilterTextures,
-            &RenderEnvironmentMap,
-            &EnvironmentMapLight,
-        ),
+        (Entity, &PrefilterTextures, &RenderEnvironmentMap),
         With<RenderEnvironmentMap>,
     >,
     render_device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
     layouts: Res<PrefilterBindGroupLayouts>,
     samplers: Res<PrefilterSamplers>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
-    for (entity, textures, env_map_light, target_env_map) in &light_probes {
+    for (entity, textures, env_map_light) in &light_probes {
         // Create SPD bind group
         let spd_constants = SpdConstants {
             mips: 8,                                                 // Number of mip levels
@@ -592,15 +534,12 @@ pub fn prepare_prefilter_bind_groups(
         // Create radiance map bind groups for each mip level
         let mut radiance_bind_groups = Vec::with_capacity(9);
 
-        let target_specular = gpu_images.get(&target_env_map.specular_map).unwrap();
-        let target_diffuse = gpu_images.get(&target_env_map.diffuse_map).unwrap();
-
         for mip in 0..9 {
             let roughness = if mip == 0 { 0.0 } else { (mip as f32) / 8.0 };
 
             let radiance_constants = PrefilterConstants {
                 mip_level: mip as f32,
-                sample_count: 32, // Must match SAMPLE_COUNT in the shader
+                sample_count: 32,
                 roughness,
                 _padding: 0,
             };
@@ -610,13 +549,9 @@ pub fn prepare_prefilter_bind_groups(
 
             let mip_storage_view = create_storage_view(
                 &env_map_light.specular_map.texture,
-                // &target_specular.texture,
-                // &textures.specular_map.texture,
                 mip as u32,
                 &render_device,
             );
-            // create_storage_view(&textures.specular_map, mip as u32, &render_device);
-
             let bind_group = render_device.create_bind_group(
                 Some(format!("radiance_bind_group_mip_{}", mip).as_str()),
                 &layouts.radiance,
@@ -643,10 +578,14 @@ pub fn prepare_prefilter_bind_groups(
         irradiance_constants_buffer.write_buffer(&render_device, &queue);
 
         // create a 2d array view
-        let irradiance_map = textures.diffuse_map.texture.create_view(&TextureViewDescriptor {
-            dimension: Some(TextureViewDimension::D2Array),
-            ..Default::default()
-        });
+        let irradiance_map =
+            env_map_light
+                .diffuse_map
+                .texture
+                .create_view(&TextureViewDescriptor {
+                    dimension: Some(TextureViewDimension::D2Array),
+                    ..Default::default()
+                });
 
         let irradiance_bind_group = render_device.create_bind_group(
             "irradiance_bind_group",
@@ -655,8 +594,6 @@ pub fn prepare_prefilter_bind_groups(
                 (0, &textures.environment_map.default_view),
                 (1, &samplers.linear),
                 (2, &irradiance_map),
-                // (2, &target_diffuse.texture_view),
-                // (2, &textures.diffuse_map.default_view),
                 (3, &irradiance_constants_buffer),
             )),
         );
@@ -965,7 +902,7 @@ pub fn create_environment_map_from_prefilter(
         specular.texture_descriptor.usage =
             TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
         specular.texture_descriptor.mip_level_count = 9;
-        
+
         // When setting mip_level_count, we need to allocate appropriate data size
         // For GPU-generated mipmaps, we can set data to None since the GPU will generate the data
         specular.data = None;

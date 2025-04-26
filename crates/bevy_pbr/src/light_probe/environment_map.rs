@@ -52,11 +52,15 @@ use bevy_image::Image;
 use bevy_math::Quat;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::ExtractComponent, extract_instances::ExtractInstance, render_asset::RenderAssets, render_resource::{
+    extract_instances::ExtractInstance,
+    render_asset::RenderAssets,
+    render_resource::{
         binding_types::{self, uniform_buffer},
         BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
         TextureSampleType, TextureView,
-    }, renderer::{RenderAdapter, RenderDevice}, texture::{FallbackImage, GpuImage}
+    },
+    renderer::{RenderAdapter, RenderDevice},
+    texture::{FallbackImage, GpuImage},
 };
 
 use core::{num::NonZero, ops::Deref};

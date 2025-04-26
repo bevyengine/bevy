@@ -215,8 +215,8 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     var irradiance = vec3f(0.0);
     var total_weight = 0.0;
     
-    // For irradiance we need a cosine-weighted hemisphere sampling
-    let sample_count = 64u; // Use IrradianceConstants.sample_count for more flexibility
+    // Use the sample count from constants instead of hardcoded value
+    let sample_count = constants.sample_count;
     
     for (var i = 0u; i < sample_count; i++) {
         // Generate quasi-random sample on hemisphere
