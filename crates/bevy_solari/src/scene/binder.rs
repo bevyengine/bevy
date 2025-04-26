@@ -172,7 +172,7 @@ pub fn prepare_raytracing_scene_bindings(
                 .get_mut()
                 .push(GpuLightSource::new_emissive_mesh_light(
                     instance_id as u32,
-                    index_slice.range.len() as u32,
+                    (index_slice.range.len() / 3) as u32,
                 ));
         }
 

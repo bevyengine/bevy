@@ -16,7 +16,7 @@ fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<
 }
 
 fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
-    let light_count = arrayLength(light_sources);
+    let light_count = arrayLength(&light_sources);
     let light_id = rand_range_u(light_count, rng);
     let light = light_sources[light_id];
 
