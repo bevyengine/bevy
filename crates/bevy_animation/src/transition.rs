@@ -13,7 +13,10 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use core::time::Duration;
 
-use crate::{graph::{AnimationGraph, AnimationGraphNode, AnimationNodeIndex},  AnimationPlayer};
+use crate::{
+    graph::{AnimationGraph, AnimationGraphNode, AnimationNodeIndex},
+    AnimationPlayer,
+};
 
 /// Manages fade-out of animation blend factors, allowing for smooth transitions
 /// between animations.
@@ -22,13 +25,12 @@ use crate::{graph::{AnimationGraph, AnimationGraphNode, AnimationNodeIndex},  An
 /// [`AnimationPlayer`] and [`AnimationGraphHandle`](crate::AnimationGraphHandle). It'll take
 /// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
 /// to fade out animations smoothly.
-#[derive(Component, Default, Reflect,Deref,DerefMut,Clone)]
+#[derive(Component, Default, Reflect, Deref, DerefMut, Clone)]
 #[reflect(Component, Default, Clone)]
-pub struct AnimationTransitions (Vec<AnimationTransition>);
-
+pub struct AnimationTransitions(Vec<AnimationTransition>);
 
 /// An animation that is being faded out as part of a transition
-#[derive(Debug, Clone,  Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub struct AnimationTransition {
     /// The current weight. Starts at 1.0 and goes to 0.0 during the fade-out.
@@ -36,7 +38,7 @@ pub struct AnimationTransition {
     /// How much to decrease `current_weight` per second
     weight_decline_per_sec: f32,
     /// The animation that is beind fade out
-    old_node:AnimationGraphNode,
+    old_node: AnimationGraphNode,
     /// The animation that is gaining weight
     new_node: AnimationGraphNode,
 }
@@ -50,7 +52,7 @@ impl AnimationTransitions {
     /// any transition.
     pub fn transition(
         &mut self,
-        graph: & mut AnimationGraph,
+        graph: &mut AnimationGraph,
         old_animation: AnimationNodeIndex,
         new_animation: AnimationNodeIndex,
         transition_duration: Duration,
@@ -58,9 +60,12 @@ impl AnimationTransitions {
         let old_node = graph.get(old_animation).unwrap().clone();
         let new_node = graph.get(new_animation).unwrap().clone();
 
-        self.push(AnimationTransition { current_weight: old_node.weight, weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(), old_node,new_node });
-
-
+        self.push(AnimationTransition {
+            current_weight: old_node.weight,
+            weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
+            old_node,
+            new_node,
+        });
     }
 }
 
@@ -96,8 +101,6 @@ pub fn expire_completed_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
 ) {
     for (mut animation_transitions, _player) in query.iter_mut() {
-        animation_transitions.retain(|transition| {
-            transition.current_weight > 0.0
-        });
+        animation_transitions.retain(|transition| transition.current_weight > 0.0);
     }
 }
