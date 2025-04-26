@@ -7,7 +7,6 @@ use bevy_ecs::{
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
-use bevy_render::view::surface_target::{SurfaceTargetSource, SurfaceTargetThreadConstraint};
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, VideoMode, Window, WindowClosed, WindowClosing,
     WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
@@ -91,6 +90,10 @@ pub fn create_windows<F: QueryFilter + 'static>(
 
         #[cfg(feature = "bevy_render")]
         {
+            use bevy_render::view::surface_target::{
+                SurfaceTargetSource, SurfaceTargetThreadConstraint,
+            };
+
             #[cfg(any(target_os = "ios", target_os = "macos"))]
             let thread_constraint = SurfaceTargetThreadConstraint::MainThread;
             #[cfg(not(any(target_os = "ios", target_os = "macos")))]
