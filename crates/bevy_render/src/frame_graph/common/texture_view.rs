@@ -4,6 +4,7 @@ use crate::frame_graph::{
     ExtraResource, FrameGraphError, FrameGraphTexture, RenderContext, ResourceRead, ResourceRef,
 };
 
+#[derive(Default)]
 pub struct TextureViewInfo {
     pub label: Option<Cow<'static, str>>,
     pub format: Option<wgpu::TextureFormat>,

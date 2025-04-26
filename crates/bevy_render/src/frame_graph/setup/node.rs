@@ -5,10 +5,20 @@ use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{frame_graph::FrameGraph, render_graph::InternedRenderLabel};
 
-use super::{Edge, SetupGraphContext, SetupGraphError, SlotInfo, SlotInfos};
+use super::{
+    Edge, InputSlotError, OutputSlotError, RunSubGraphError, SetupGraphContext, SetupGraphError,
+    SlotInfo, SlotInfos,
+};
 
 #[derive(Debug, thiserror::Error)]
-pub enum SetupRunError {}
+pub enum SetupRunError {
+    #[error("encountered an input slot error")]
+    InputSlotError(#[from] InputSlotError),
+    #[error("encountered an output slot error")]
+    OutputSlotError(#[from] OutputSlotError),
+    #[error("encountered an error when running a sub-graph")]
+    RunSubGraphError(#[from] RunSubGraphError),
+}
 
 pub trait Setup: Downcast + Send + Sync + 'static {
     fn input(&self) -> Vec<SlotInfo> {

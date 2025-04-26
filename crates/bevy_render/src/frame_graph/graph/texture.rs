@@ -1,8 +1,17 @@
+use alloc::sync::Arc;
+
 use crate::frame_graph::{
-    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, FrameGraphTexture, TextureInfo,
+    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, FrameGraphTexture, ImportedResource,
+    TextureInfo,
 };
 
-use super::{GraphResource, GraphResourceDescriptor};
+use super::{GraphResource, GraphResourceDescriptor, ImportToFrameGraph};
+
+impl ImportToFrameGraph for FrameGraphTexture {
+    fn import(self: Arc<Self>) -> ImportedResource {
+        ImportedResource::Texture(self)
+    }
+}
 
 impl From<TextureInfo> for AnyFrameGraphResourceDescriptor {
     fn from(value: TextureInfo) -> Self {

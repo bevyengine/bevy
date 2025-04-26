@@ -1,6 +1,6 @@
 use super::{
-    FrameGraphError, GraphRawResourceNodeHandle, RenderContext, RenderPassInfo, ResourceNode,
-    TrackedRenderPass, TypeHandle,
+    ColorAttachmentRef, FrameGraphError, GraphRawResourceNodeHandle, RenderContext, RenderPassInfo,
+    ResourceNode, TrackedRenderPass, TypeHandle,
 };
 
 pub struct PassNode {
@@ -39,9 +39,18 @@ impl Pass for EmptyPass {
     }
 }
 
+#[derive(Default)]
 pub struct RenderPass {
     render_pass_info: RenderPassInfo,
     drawers: Vec<Box<dyn RenderPassDrawer>>,
+}
+
+impl RenderPass {
+    pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentRef) {
+        self.render_pass_info
+            .color_attachments
+            .push(color_attachment);
+    }
 }
 
 pub trait RenderPassDrawer: 'static + Send + Sync {

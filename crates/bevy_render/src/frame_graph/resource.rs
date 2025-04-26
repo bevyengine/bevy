@@ -1,6 +1,6 @@
 use alloc::{borrow::Cow, sync::Arc};
 
-use crate::renderer::RenderDevice;
+use crate::{render_resource::SurfaceTexture, renderer::RenderDevice};
 
 pub trait FrameGraphResourceCreator {
     fn create_texture(&self, desc: &TextureInfo) -> FrameGraphTexture;
@@ -80,6 +80,28 @@ impl BufferInfo {
 pub struct FrameGraphTexture {
     pub resource: wgpu::Texture,
     pub desc: TextureInfo,
+}
+
+impl FrameGraphTexture {
+    pub fn new_arc_with_surface(surface: &SurfaceTexture) -> Arc<FrameGraphTexture> {
+        Arc::new(FrameGraphTexture {
+            desc: TextureInfo {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: surface.texture.width(),
+                    height: surface.texture.height(),
+                    depth_or_array_layers: surface.texture.depth_or_array_layers(),
+                },
+                mip_level_count: surface.texture.mip_level_count(),
+                sample_count: surface.texture.sample_count(),
+                dimension: surface.texture.dimension(),
+                format: surface.texture.format(),
+                usage: surface.texture.usage(),
+                view_formats: vec![],
+            },
+            resource: surface.texture.clone()
+        })
+    }
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]

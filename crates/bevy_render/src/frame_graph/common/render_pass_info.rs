@@ -2,9 +2,10 @@ use crate::frame_graph::{ExtraResource, FrameGraphError, RenderContext};
 
 use super::{ColorAttachmentRef, DepthStencilAttachmentRef};
 
+#[derive(Default)]
 pub struct RenderPassInfo {
-    color_attachments: Vec<ColorAttachmentRef>,
-    depth_stencil_attachment: Option<DepthStencilAttachmentRef>,
+    pub color_attachments: Vec<ColorAttachmentRef>,
+    pub depth_stencil_attachment: Option<DepthStencilAttachmentRef>,
 }
 
 impl RenderPassInfo {

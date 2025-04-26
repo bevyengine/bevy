@@ -24,6 +24,10 @@ impl<'a> Drop for PassNodeBuilder<'a> {
 }
 
 impl<'a> PassNodeBuilder<'a> {
+    pub fn set_pass<T: Pass>(&mut self, pass: T) {
+        self.pass = Some(Box::new(pass))
+    }
+
     pub fn import<ResourceType>(
         &mut self,
         name: &str,
@@ -47,7 +51,6 @@ impl<'a> PassNodeBuilder<'a> {
 
     pub fn read<ResourceType>(
         &mut self,
-        _graph: &FrameGraph,
         resource_node_handle: GraphResourceNodeHandle<ResourceType>,
     ) -> ResourceRef<ResourceType, ResourceRead> {
         let handle = resource_node_handle.raw();
@@ -61,10 +64,11 @@ impl<'a> PassNodeBuilder<'a> {
 
     pub fn write<ResourceType>(
         &mut self,
-        graph: &mut FrameGraph,
         resource_node_handle: GraphResourceNodeHandle<ResourceType>,
     ) -> ResourceRef<ResourceType, ResourceWrite> {
-        let resource_node = &mut graph.get_resource_node_mut(&resource_node_handle.handle);
+        let resource_node = &mut self
+            .graph
+            .get_resource_node_mut(&resource_node_handle.handle);
         resource_node.new_version();
 
         let new_resource_node_handle = GraphRawResourceNodeHandle {

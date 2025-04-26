@@ -30,16 +30,13 @@ pub fn setup_frame_graph_system(world: &mut World) {
         graph.update(world);
     });
 
-    let mut frame_graph = match world.remove_resource::<FrameGraph>() {
-        None => {
-            return;
-        }
-        Some(graph) => graph,
+    let Some(mut frame_graph) = world.remove_resource::<FrameGraph>() else {
+        return;
     };
 
     let graph = world.resource::<SetupGraph>();
 
-    let res = SetupGraphRunner::run(graph,&mut frame_graph, world);
+    let res = SetupGraphRunner::run(graph, &mut frame_graph, world);
 
     match res {
         Ok(_) => {
@@ -69,18 +66,12 @@ pub fn compiled_frame_graph_system(mut frame_graph: ResMut<FrameGraph>) {
 
 pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
     let diagnostics_recorder = world.remove_resource::<DiagnosticsRecorder>();
-    let mut graph = match world.remove_resource::<FrameGraph>() {
-        None => {
-            return;
-        }
-        Some(graph) => graph,
+    let Some(mut graph) = world.remove_resource::<FrameGraph>() else {
+        return;
     };
 
-    let mut transient_resource_cache = match world.remove_resource::<TransientResourceCache>() {
-        None => {
-            return;
-        }
-        Some(transient_resource_cache) => transient_resource_cache,
+    let Some(mut transient_resource_cache) = world.remove_resource::<TransientResourceCache>() else {
+        return;
     };
 
     let render_device = world.resource::<RenderDevice>();
