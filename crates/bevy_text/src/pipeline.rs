@@ -266,31 +266,39 @@ impl TextPipeline {
         let box_size = buffer_dimensions(buffer);
 
         let result = buffer.layout_runs().try_for_each(|run| {
-            if let Some((mut current_section, mut start, mut end)) =
-                run.glyphs.first().map(|g| (g.metadata, g.x, g.x + g.w))
-            {
-                for glyph in run.glyphs.iter() {
-                    let section_index = glyph.metadata;
-                    if section_index != current_section {
-                        layout_info.section_rects.push((
-                            computed.entities[current_section].entity,
-                            Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-                        ));
-                        start = end.max(glyph.x);
-                        current_section = section_index;
-                    }
-                    end = glyph.x + glyph.w;
-                }
-                layout_info.section_rects.push((
-                    computed.entities[current_section].entity,
-                    Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-                ));
-            }
+            let mut current_section: Option<usize> = None;
+            let mut start = 0.;
+            let mut end = 0.;
             let result = run
                 .glyphs
                 .iter()
                 .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
                 .try_for_each(|(layout_glyph, line_y, line_i)| {
+                    match current_section {
+                        Some(section) => {
+                            let section = section as usize;
+                            if section != layout_glyph.metadata {
+                                layout_info.section_rects.push((
+                                    computed.entities[section].entity,
+                                    Rect::new(
+                                        start,
+                                        run.line_top,
+                                        end,
+                                        run.line_top + run.line_height,
+                                    ),
+                                ));
+                                start = end.max(layout_glyph.x);
+                                current_section = Some(layout_glyph.metadata);
+                            }
+                            end = layout_glyph.x + layout_glyph.w;
+                        }
+                        None => {
+                            current_section = Some(layout_glyph.metadata);
+                            start = layout_glyph.x;
+                            end = start + layout_glyph.w;
+                        }
+                    }
+
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
                     let font_id = glyph_info[span_index].0;
@@ -360,6 +368,12 @@ impl TextPipeline {
                     layout_info.glyphs.push(pos_glyph);
                     Ok(())
                 });
+            if let Some(section) = current_section {
+                layout_info.section_rects.push((
+                    computed.entities[section].entity,
+                    Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                ));
+            }
 
             result
         });
