@@ -37,6 +37,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
+    frame_graph::EmptySetup,
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
@@ -51,6 +52,7 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
+    frame_graph::SetupGraphApp,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
@@ -125,6 +127,10 @@ impl Plugin for Core2dPlugin {
                     Node2d::Upscaling,
                 ),
             );
+
+        render_app
+            .add_setup_sub_graph(Core2d)
+            .add_setup_graph_node::<EmptySetup>(Core2d, Node2d::StartMainPass);
     }
 }
 

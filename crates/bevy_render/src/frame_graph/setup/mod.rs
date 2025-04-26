@@ -12,6 +12,7 @@ pub use graph::*;
 pub use graph_runner::*;
 pub use node::*;
 pub use node_slot::*;
+pub use app::*;
 
 use thiserror::Error;
 

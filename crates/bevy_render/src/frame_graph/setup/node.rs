@@ -226,3 +226,17 @@ impl NodeState {
         Ok(())
     }
 }
+
+#[derive(Default)]
+pub struct EmptySetup;
+
+impl Setup for EmptySetup {
+    fn run<'w>(
+        &self,
+        _graph: &mut SetupGraphContext,
+        _render_context: &mut FrameGraph,
+        _world: &'w World,
+    ) -> Result<(), SetupRunError> {
+        Ok(())
+    }
+}
