@@ -25,8 +25,8 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSystems,
+    view::{ExtractedView, MainCameraTextures, Msaa, RenderLayers},
+    Render, RenderApp, RenderSet,
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use tracing::error;
@@ -104,7 +104,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
+            MainCameraTextures::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
         };
@@ -203,7 +203,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
+            MainCameraTextures::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
         };

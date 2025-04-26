@@ -24,8 +24,8 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSystems,
+    view::{ExtractedView, MainCameraTextures, Msaa, ViewUniform, ViewUniforms},
+    Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
 use prepass::SkyboxPrepassPipeline;
@@ -225,7 +225,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
+                        MainCameraTextures::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()
                     },

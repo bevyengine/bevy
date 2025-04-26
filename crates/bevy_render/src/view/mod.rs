@@ -10,12 +10,12 @@ use crate::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
     },
-    experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     load_shader_library,
     primitives::Frustum,
     render_asset::RenderAssets,
-    render_phase::ViewRangefinder3d,
+    render_graph::InternedRenderSubGraph,
+    render_phase::Rangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
@@ -31,8 +31,7 @@ use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
-use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
-use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec2, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
@@ -108,12 +107,10 @@ impl Plugin for ViewPlugin {
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
-            .register_type::<OcclusionCulling>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
                 ExtractComponentPlugin::<Hdr>::default(),
                 ExtractComponentPlugin::<Msaa>::default(),
-                ExtractComponentPlugin::<OcclusionCulling>::default(),
                 VisibilityPlugin,
                 VisibilityRangePlugin,
             ));
@@ -184,16 +181,6 @@ impl Msaa {
     #[inline]
     pub fn samples(&self) -> u32 {
         *self as u32
-    }
-
-    pub fn from_samples(samples: u32) -> Self {
-        match samples {
-            1 => Msaa::Off,
-            2 => Msaa::Sample2,
-            4 => Msaa::Sample4,
-            8 => Msaa::Sample8,
-            _ => panic!("Unsupported MSAA sample count: {}", samples),
-        }
     }
 }
 
@@ -270,55 +257,16 @@ impl RetainedViewEntity {
 pub struct ExtractedView {
     /// The entity in the main world corresponding to this render world view.
     pub retained_view_entity: RetainedViewEntity,
-    /// Typically a column-major right-handed projection matrix, one of either:
-    ///
-    /// Perspective (infinite reverse z)
-    /// ```text
-    /// f = 1 / tan(fov_y_radians / 2)
-    ///
-    /// ⎡ f / aspect  0   0     0 ⎤
-    /// ⎢          0  f   0     0 ⎥
-    /// ⎢          0  0   0  near ⎥
-    /// ⎣          0  0  -1     0 ⎦
-    /// ```
-    ///
-    /// Orthographic
-    /// ```text
-    /// w = right - left
-    /// h = top - bottom
-    /// d = far - near
-    /// cw = -right - left
-    /// ch = -top - bottom
-    ///
-    /// ⎡ 2 / w      0      0   cw / w ⎤
-    /// ⎢     0  2 / h      0   ch / h ⎥
-    /// ⎢     0      0  1 / d  far / d ⎥
-    /// ⎣     0      0      0        1 ⎦
-    /// ```
-    ///
-    /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
-    ///
-    /// Glam matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
-    ///
-    /// Custom projections are also possible however.
-    pub clip_from_view: Mat4,
-    pub world_from_view: GlobalTransform,
-    // The view-projection matrix. When provided it is used instead of deriving it from
-    // `projection` and `transform` fields, which can be helpful in cases where numerical
-    // stability matters and there is a more direct way to derive the view-projection matrix.
-    pub clip_from_world: Option<Mat4>,
-    pub hdr: bool,
+    /// The render target entity associated with this View
+    pub target: Option<NormalizedRenderTarget>,
+    pub physical_viewport_size: Option<UVec2>,
+    pub physical_target_size: Option<UVec2>,
     // uvec4(origin.x, origin.y, width, height)
-    pub viewport: UVec4,
-    pub color_grading: ColorGrading,
+    pub viewport: Option<UVec4>,
+    pub render_graph: InternedRenderSubGraph,
 }
 
-impl ExtractedView {
-    /// Creates a 3D rangefinder for a view
-    pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_world_from_view(&self.world_from_view.compute_matrix())
-    }
-}
+impl ExtractedView {}
 
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
@@ -327,7 +275,7 @@ impl ExtractedView {
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default, Debug, Clone)]
+#[reflect(Component, Default, Debug)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
@@ -356,7 +304,7 @@ pub struct ColorGrading {
 /// Filmic color grading values applied to the image as a whole (as opposed to
 /// individual sections, like shadows and highlights).
 #[derive(Clone, Debug, Reflect)]
-#[reflect(Default, Clone)]
+#[reflect(Default)]
 pub struct ColorGradingGlobal {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
@@ -422,7 +370,6 @@ pub struct ColorGradingUniform {
 /// A section of color grading values that can be selectively applied to
 /// shadows, midtones, and highlights.
 #[derive(Reflect, Debug, Copy, Clone, PartialEq)]
-#[reflect(Clone, PartialEq)]
 pub struct ColorGradingSection {
     /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
     /// with luminance defined by ITU-R BT.709.
@@ -582,7 +529,6 @@ pub struct ViewUniform {
     pub frustum: [Vec4; 6],
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
-    pub frame_count: u32,
 }
 
 #[derive(Resource)]
@@ -610,7 +556,7 @@ pub struct ViewUniformOffset {
 }
 
 #[derive(Component)]
-pub struct ViewTarget {
+pub struct MainCameraTextures {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
@@ -628,9 +574,7 @@ pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAtta
 
 pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
-    pub source_texture: &'a Texture,
     pub destination: &'a TextureView,
-    pub destination_texture: &'a Texture,
 }
 
 impl From<ColorGrading> for ColorGradingUniform {
@@ -723,16 +667,13 @@ impl From<ColorGrading> for ColorGradingUniform {
 ///
 /// The vast majority of applications will not need to use this component, as it
 /// generally reduces rendering performance.
-///
-/// Note: This component should only be added when initially spawning a camera. Adding
-/// or removing after spawn can result in unspecified behavior.
 #[derive(Component, Default)]
 pub struct NoIndirectDrawing;
 
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
 
-impl ViewTarget {
+impl MainCameraTextures {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
     /// Retrieve this target's main texture's color attachment.
@@ -861,17 +802,13 @@ impl ViewTarget {
             self.main_textures.b.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.a.texture.default_view,
-                source_texture: &self.main_textures.a.texture.texture,
                 destination: &self.main_textures.b.texture.default_view,
-                destination_texture: &self.main_textures.b.texture.texture,
             }
         } else {
             self.main_textures.a.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.b.texture.default_view,
-                source_texture: &self.main_textures.b.texture.texture,
                 destination: &self.main_textures.a.texture.default_view,
-                destination_texture: &self.main_textures.a.texture.texture,
             }
         }
     }
@@ -913,7 +850,6 @@ pub fn prepare_view_uniforms(
         Option<&TemporalJitter>,
         Option<&MipBias>,
     )>,
-    frame_count: Res<FrameCount>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -967,7 +903,6 @@ pub fn prepare_view_uniforms(
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-                frame_count: frame_count.0,
             }),
         };
 
@@ -1065,7 +1000,7 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
+            .entry((camera.target.clone(), view.hdr, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,

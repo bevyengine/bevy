@@ -5,7 +5,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
-    camera::{Camera, CameraRenderGraph, Exposure, Projection},
+    camera::{Camera, Exposure, Projection, ViewRenderGraph},
     extract_component::ExtractComponent,
     render_resource::{LoadOp, TextureUsages},
     view::ColorGrading,
@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 #[require(
     Camera,
     DebandDither::Enabled,
-    CameraRenderGraph::new(Core3d),
+    ViewRenderGraph::new(Core3d),
     Projection,
     Tonemapping,
     ColorGrading,

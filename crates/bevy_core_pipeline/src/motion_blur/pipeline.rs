@@ -22,7 +22,7 @@ use bevy_render::{
         SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, MainCameraTextures, Msaa},
 };
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
@@ -135,7 +135,7 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
+                        MainCameraTextures::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()
                     },

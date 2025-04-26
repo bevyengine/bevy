@@ -53,8 +53,8 @@ use bevy::{
         },
         renderer::RenderContext,
         sync_world::MainEntity,
-        view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
-        Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
+        view::{ExtractedView, MainCameraTextures, RenderVisibleEntities, RetainedViewEntity},
+        Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
     },
 };
 use nonmax::NonMaxU32;
@@ -581,7 +581,7 @@ impl ViewNode for CustomDrawNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static ExtractedView,
-        &'static ViewTarget,
+        &'static MainCameraTextures,
     );
 
     fn run<'w>(

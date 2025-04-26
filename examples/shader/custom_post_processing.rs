@@ -26,7 +26,7 @@ use bevy::{
             *,
         },
         renderer::{RenderContext, RenderDevice},
-        view::ViewTarget,
+        view::MainCameraTextures,
         RenderApp,
     },
 };
@@ -124,7 +124,7 @@ impl ViewNode for PostProcessNode {
     //
     // This query will only run on the view entity
     type ViewQuery = (
-        &'static ViewTarget,
+        &'static MainCameraTextures,
         // This makes sure the node only runs on cameras with the PostProcessSettings component
         &'static PostProcessSettings,
         // As there could be multiple post processing components sent to the GPU (one per camera),

@@ -4,7 +4,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{BindGroupEntries, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{MainCameraTextures, ViewDepthTexture, ViewUniformOffset},
 };
 
 use super::{OitResolveBindGroup, OitResolvePipeline, OitResolvePipelineId};
@@ -19,7 +19,7 @@ pub struct OitResolveNode;
 impl ViewNode for OitResolveNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static ViewTarget,
+        &'static MainCameraTextures,
         &'static ViewUniformOffset,
         &'static OitResolvePipelineId,
         &'static ViewDepthTexture,

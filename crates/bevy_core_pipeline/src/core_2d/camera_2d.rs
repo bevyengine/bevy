@@ -5,7 +5,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection, Projection},
+    camera::{Camera, CameraProjection, OrthographicProjection, Projection, ViewRenderGraph},
     extract_component::ExtractComponent,
     primitives::Frustum,
 };
@@ -18,7 +18,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[require(
     Camera,
     DebandDither,
-    CameraRenderGraph::new(Core2d),
+    ViewRenderGraph::new(Core2d),
     Projection::Orthographic(OrthographicProjection::default_2d()),
     Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
     Tonemapping::None,

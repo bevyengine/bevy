@@ -2,7 +2,7 @@ use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{
-    Affine3A, CompassOctant, Mat3A, Mat4, URect, UVec2, Vec2, Vec3, Vec3A, Vec4, Vec4Swizzles,
+    Affine3A, CompassOctant, Mat3A, Mat4, Rect, URect, UVec2, Vec2, Vec3, Vec3A, Vec4, Vec4Swizzles,
 };
 use bevy_reflect::prelude::*;
 
@@ -319,6 +319,11 @@ impl SubRect {
             offset: rect.min.as_vec2(),
             size: rect.max - rect.min,
         }
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.full_size.cmpeq(UVec2::ZERO).any() || self.size.cmpeq(UVec2::ZERO).any()
     }
 }
 

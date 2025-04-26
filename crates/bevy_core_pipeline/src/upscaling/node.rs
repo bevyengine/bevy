@@ -7,7 +7,7 @@ use bevy_render::{
         BindGroup, BindGroupEntries, PipelineCache, RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
-    view::ViewTarget,
+    view::MainCameraTextures,
 };
 use std::sync::Mutex;
 
@@ -18,7 +18,7 @@ pub struct UpscalingNode {
 
 impl ViewNode for UpscalingNode {
     type ViewQuery = (
-        &'static ViewTarget,
+        &'static MainCameraTextures,
         &'static ViewUpscalingPipeline,
         Option<&'static ExtractedCamera>,
     );

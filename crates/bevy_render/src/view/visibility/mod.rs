@@ -20,7 +20,7 @@ use smallvec::SmallVec;
 
 use super::NoCpuCulling;
 use crate::{
-    camera::{Camera, CameraProjection, Projection},
+    camera::{Camera, CameraProjection, Projection, View},
     mesh::{Mesh, Mesh3d, MeshAabb},
     primitives::{Aabb, Frustum, Sphere},
     sync_world::MainEntity,
@@ -499,14 +499,17 @@ fn reset_view_visibility(
 /// [`VisibilityClass`] component and that that component is nonempty.
 pub fn check_visibility(
     mut thread_queues: Local<Parallel<TypeIdMap<Vec<Entity>>>>,
-    mut view_query: Query<(
-        Entity,
-        &mut VisibleEntities,
-        &Frustum,
-        Option<&RenderLayers>,
-        &Camera,
-        Has<NoCpuCulling>,
-    )>,
+    mut view_query: Query<
+        (
+            Entity,
+            &View,
+            &mut VisibleEntities,
+            &Frustum,
+            Option<&RenderLayers>,
+            Has<NoCpuCulling>,
+        ),
+        With<Camera>,
+    >,
     mut visible_aabb_query: Query<(
         Entity,
         &InheritedVisibility,
@@ -523,10 +526,10 @@ pub fn check_visibility(
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+    for (view_entity, view, mut visible_entities, frustum, maybe_view_mask, no_cpu_culling) in
         &mut view_query
     {
-        if !camera.is_active {
+        if !view.is_enabled() {
             continue;
         }
 
@@ -561,7 +564,7 @@ pub fn check_visibility(
                 // If outside of the visibility range, cull.
                 if has_visibility_range
                     && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
-                        !visible_entity_ranges.entity_is_in_range_of_view(entity, view)
+                        !visible_entity_ranges.entity_is_in_range_of_view(entity, view_entity)
                     })
                 {
                     return;

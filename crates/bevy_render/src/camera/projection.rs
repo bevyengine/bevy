@@ -255,6 +255,29 @@ impl Projection {
     }
 }
 
+impl Default for Projection {
+    fn default() -> Self {
+        Projection::Perspective(Default::default())
+    }
+}
+
+/// Holds the projection matrix computed from an entity's [`Projection`] component.
+#[derive(Default, Debug, Component, Clone, Reflect)]
+#[reflect(Component, Clone)]
+pub struct ComputedProjection {
+    clip_from_view: Mat4,
+}
+
+//TODO: add observers to handle updating projection on views changing
+// or, since all parts of cameras can be mutated freely, maybe this part is better to keep in a
+// post-update system? still, want to split up camera_system.
+
+impl ComputedProjection {
+    pub fn clip_from_view(&self) -> Mat4 {
+        self.clip_from_view
+    }
+}
+
 impl CameraProjection for Projection {
     fn get_clip_from_view(&self) -> Mat4 {
         match self {
@@ -264,11 +287,11 @@ impl CameraProjection for Projection {
         }
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &SubRect) -> Mat4 {
+    fn get_clip_from_view_for_sub(&self, sub_rect: &SubRect) -> Mat4 {
         match self {
-            Projection::Perspective(projection) => projection.get_clip_from_view_for_sub(sub_view),
-            Projection::Orthographic(projection) => projection.get_clip_from_view_for_sub(sub_view),
-            Projection::Custom(projection) => projection.get_clip_from_view_for_sub(sub_view),
+            Projection::Perspective(projection) => projection.get_clip_from_view_for_sub(sub_rect),
+            Projection::Orthographic(projection) => projection.get_clip_from_view_for_sub(sub_rect),
+            Projection::Custom(projection) => projection.get_clip_from_view_for_sub(sub_rect),
         }
     }
 
@@ -294,12 +317,6 @@ impl CameraProjection for Projection {
             Projection::Orthographic(projection) => projection.get_frustum_corners(z_near, z_far),
             Projection::Custom(projection) => projection.get_frustum_corners(z_near, z_far),
         }
-    }
-}
-
-impl Default for Projection {
-    fn default() -> Self {
-        Projection::Perspective(Default::default())
     }
 }
 

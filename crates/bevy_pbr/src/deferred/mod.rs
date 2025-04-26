@@ -28,8 +28,8 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
-    view::{ExtractedView, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSystems,
+    view::{ExtractedView, MainCameraTextures, ViewUniformOffset},
+    Render, RenderApp, RenderSet,
 };
 
 pub struct DeferredPbrLightingPlugin;
@@ -144,7 +144,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static ViewScreenSpaceReflectionsUniformOffset,
         &'static ViewEnvironmentMapUniformOffset,
         &'static MeshViewBindGroup,
-        &'static ViewTarget,
+        &'static MainCameraTextures,
         &'static DeferredLightingIdDepthTexture,
         &'static DeferredLightingPipeline,
     );
@@ -364,7 +364,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
+                        MainCameraTextures::TEXTURE_FORMAT_HDR
                     } else {
                         TextureFormat::bevy_default()
                     },

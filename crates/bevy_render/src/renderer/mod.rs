@@ -15,7 +15,7 @@ use crate::{
     render_phase::TrackedRenderPass,
     render_resource::RenderPassDescriptor,
     settings::{WgpuSettings, WgpuSettingsPriority},
-    view::{ExtractedWindows, ViewTarget},
+    view::{ExtractedWindows, MainCameraTextures},
 };
 use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
@@ -27,7 +27,10 @@ use wgpu::{
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
-pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
+pub fn render_system(
+    world: &mut World,
+    state: &mut SystemState<Query<Entity, With<MainCameraTextures>>>,
+) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
@@ -83,7 +86,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
         let view_entities = state.get(world).iter().collect::<Vec<_>>();
         for view_entity in view_entities {
-            world.entity_mut(view_entity).remove::<ViewTarget>();
+            world.entity_mut(view_entity).remove::<MainCameraTextures>();
         }
 
         let mut windows = world.resource_mut::<ExtractedWindows>();

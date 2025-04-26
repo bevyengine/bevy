@@ -20,7 +20,7 @@ use tracing::error;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,
-    ui_view_target_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera)>,
+    ui_view_target_query: QueryState<(&'static MainCameraTextures, &'static ExtractedCamera)>,
     ui_camera_view_query: QueryState<&'static UiCameraView>,
 }
 
