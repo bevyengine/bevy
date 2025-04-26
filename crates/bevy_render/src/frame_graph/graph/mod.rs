@@ -11,7 +11,7 @@ use bevy_ecs::resource::Resource;
 use super::{
     AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, DevicePass, FrameGraphError,
     GraphResourceNodeHandle, ImportedResource, PassNode, PassNodeBuilder, RenderContext,
-    ResourceNode, TypeHandle, VirtualResource,
+    ResourceBoard, ResourceNode, TypeHandle, VirtualResource,
 };
 
 pub trait ImportToFrameGraph
@@ -64,6 +64,7 @@ pub struct FrameGraph {
     pub(crate) resource_nodes: Vec<ResourceNode>,
     pub(crate) pass_nodes: Vec<PassNode>,
     pub(crate) compiled_frame_graph: Option<CompiledFrameGraph>,
+    pub(crate) resource_board: ResourceBoard,
 }
 
 impl FrameGraph {
@@ -192,6 +193,10 @@ impl FrameGraph {
     where
         ResourceType: ImportToFrameGraph,
     {
+        if let Some(raw_handle) = self.resource_board.get(name) {
+            return GraphResourceNodeHandle::new(raw_handle.handle, raw_handle.version);
+        }
+
         let resource_node_handle = TypeHandle::new(self.resource_nodes.len());
         let virtual_resource = VirtualResource::Imported(ImportToFrameGraph::import(resource));
         let resource_node = ResourceNode::new(name, resource_node_handle, virtual_resource);
