@@ -9,24 +9,24 @@ use super::{Setup, SetupGraph};
 /// Adds common [`SetupGraph`] operations to [`SubApp`] (and [`App`]).
 pub trait SetupGraphApp {
     // Add a sub graph to the [`SetupGraph`]
-    fn add_render_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self;
+    fn add_setup_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self;
     /// Add a [`Setup`] to the [`SetupGraph`]:
     /// * Create the [`Setup`] using the [`FromWorld`] implementation
     /// * Add it to the graph
-    fn add_render_graph_node<T: Setup + FromWorld>(
+    fn add_setup_graph_node<T: Setup + FromWorld>(
         &mut self,
         sub_graph: impl RenderSubGraph,
         node_label: impl RenderLabel,
     ) -> &mut Self;
     /// Automatically add the required node edges based on the given ordering
-    fn add_render_graph_edges<const N: usize>(
+    fn add_setup_graph_edges<const N: usize>(
         &mut self,
         sub_graph: impl RenderSubGraph,
         edges: impl IntoRenderNodeArray<N>,
     ) -> &mut Self;
 
     /// Add node edge to the specified graph
-    fn add_render_graph_edge(
+    fn add_setup_graph_edge(
         &mut self,
         sub_graph: impl RenderSubGraph,
         output_node: impl RenderLabel,
@@ -35,7 +35,7 @@ pub trait SetupGraphApp {
 }
 
 impl SetupGraphApp for SubApp {
-    fn add_render_graph_node<T: Setup + FromWorld>(
+    fn add_setup_graph_node<T: Setup + FromWorld>(
         &mut self,
         sub_graph: impl RenderSubGraph,
         node_label: impl RenderLabel,
@@ -55,7 +55,7 @@ impl SetupGraphApp for SubApp {
         self
     }
 
-    fn add_render_graph_edges<const N: usize>(
+    fn add_setup_graph_edges<const N: usize>(
         &mut self,
         sub_graph: impl RenderSubGraph,
         edges: impl IntoRenderNodeArray<N>,
@@ -74,7 +74,7 @@ impl SetupGraphApp for SubApp {
         self
     }
 
-    fn add_render_graph_edge(
+    fn add_setup_graph_edge(
         &mut self,
         sub_graph: impl RenderSubGraph,
         output_node: impl RenderLabel,
@@ -94,7 +94,7 @@ impl SetupGraphApp for SubApp {
         self
     }
 
-    fn add_render_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self {
+    fn add_setup_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self {
         let mut setup_graph = self.world_mut().get_resource_mut::<SetupGraph>().expect(
             "SetupGraph not found. Make sure you are using add_render_sub_graph on the RenderApp",
         );
@@ -104,36 +104,36 @@ impl SetupGraphApp for SubApp {
 }
 
 impl SetupGraphApp for App {
-    fn add_render_graph_node<T: Setup + FromWorld>(
+    fn add_setup_graph_node<T: Setup + FromWorld>(
         &mut self,
         sub_graph: impl RenderSubGraph,
         node_label: impl RenderLabel,
     ) -> &mut Self {
-        SubApp::add_render_graph_node::<T>(self.main_mut(), sub_graph, node_label);
+        SubApp::add_setup_graph_node::<T>(self.main_mut(), sub_graph, node_label);
         self
     }
 
-    fn add_render_graph_edge(
+    fn add_setup_graph_edge(
         &mut self,
         sub_graph: impl RenderSubGraph,
         output_node: impl RenderLabel,
         input_node: impl RenderLabel,
     ) -> &mut Self {
-        SubApp::add_render_graph_edge(self.main_mut(), sub_graph, output_node, input_node);
+        SubApp::add_setup_graph_edge(self.main_mut(), sub_graph, output_node, input_node);
         self
     }
 
-    fn add_render_graph_edges<const N: usize>(
+    fn add_setup_graph_edges<const N: usize>(
         &mut self,
         sub_graph: impl RenderSubGraph,
         edges: impl IntoRenderNodeArray<N>,
     ) -> &mut Self {
-        SubApp::add_render_graph_edges(self.main_mut(), sub_graph, edges);
+        SubApp::add_setup_graph_edges(self.main_mut(), sub_graph, edges);
         self
     }
 
-    fn add_render_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self {
-        SubApp::add_render_sub_graph(self.main_mut(), sub_graph);
+    fn add_setup_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self {
+        SubApp::add_setup_sub_graph(self.main_mut(), sub_graph);
         self
     }
 }
