@@ -1,7 +1,7 @@
 mod buffer;
 mod texture;
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use bevy_ecs::resource::Resource;
 
@@ -43,11 +43,19 @@ impl<T: Sized> TypeEquals for T {
 
 #[derive(Resource)]
 pub struct FrameGraph {
-    resource_nodes: Vec<ResourceNode>,
-    pass_nodes: Vec<PassNode>,
+    pub(crate) resource_nodes: Vec<ResourceNode>,
+    pub(crate) pass_nodes: Vec<PassNode>,
 }
 
 impl FrameGraph {
+    pub fn pass_node(&mut self, name: &str) -> &mut PassNode {
+        let handle = TypeHandle::new(self.pass_nodes.len());
+        let pass_node = PassNode::new(name, handle);
+        self.pass_nodes.push(pass_node);
+
+        self.get_pass_node_mut(&handle)
+    }
+
     pub fn get_pass_node_mut(&mut self, handle: &TypeHandle<PassNode>) -> &mut PassNode {
         &mut self.pass_nodes[handle.index]
     }
@@ -56,7 +64,10 @@ impl FrameGraph {
         &self.pass_nodes[handle.index]
     }
 
-    pub fn get_resource_node_mut(&mut self, handle: &TypeHandle<ResourceNode>) -> &mut ResourceNode {
+    pub fn get_resource_node_mut(
+        &mut self,
+        handle: &TypeHandle<ResourceNode>,
+    ) -> &mut ResourceNode {
         &mut self.resource_nodes[handle.index]
     }
 

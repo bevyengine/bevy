@@ -31,6 +31,7 @@ pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
+pub mod frame_graph;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
@@ -49,7 +50,6 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
-pub mod frame_graph;
 
 /// The render prelude.
 ///

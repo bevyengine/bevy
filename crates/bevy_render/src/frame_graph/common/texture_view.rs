@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use alloc::borrow::Cow;
 
 use crate::frame_graph::{
     ExtraResource, FrameGraphError, FrameGraphTexture, RenderContext, ResourceRead, ResourceRef,

@@ -1,4 +1,4 @@
-use std::{hash::Hash, marker::PhantomData};
+use core::{hash::{Hash, Hasher}, marker::PhantomData};
 
 pub struct TypeHandle<T> {
     pub index: usize,
@@ -6,7 +6,7 @@ pub struct TypeHandle<T> {
 }
 
 impl<T> Hash for TypeHandle<T> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.index.hash(state);
     }
 }

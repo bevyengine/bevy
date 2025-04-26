@@ -1,6 +1,5 @@
 use super::{
-    FrameGraph, FrameGraphError, GraphRawResourceNodeHandle, GraphResourceNodeHandle,
-    RenderContext, RenderPassInfo, ResourceNode, ResourceRead, ResourceRef, ResourceWrite,
+    FrameGraphError, GraphRawResourceNodeHandle, RenderContext, RenderPassInfo, ResourceNode,
     TrackedRenderPass, TypeHandle,
 };
 
@@ -15,38 +14,6 @@ pub struct PassNode {
 }
 
 impl PassNode {
-    pub fn read<ResourceType>(
-        &mut self,
-        _graph: &FrameGraph,
-        resource_node_handle: GraphResourceNodeHandle<ResourceType>,
-    ) -> ResourceRef<ResourceType, ResourceRead> {
-        let handle = resource_node_handle.raw();
-
-        if !self.reads.contains(&handle) {
-            self.reads.push(handle);
-        }
-
-        ResourceRef::new(resource_node_handle.handle)
-    }
-
-    pub fn write<ResourceType>(
-        &mut self,
-        graph: &mut FrameGraph,
-        resource_node_handle: GraphResourceNodeHandle<ResourceType>,
-    ) -> ResourceRef<ResourceType, ResourceWrite> {
-        let resource_node = &mut graph.get_resource_node_mut(&resource_node_handle.handle);
-        resource_node.new_version();
-
-        let new_resource_node_handle = GraphRawResourceNodeHandle {
-            handle: resource_node_handle.handle,
-            version: resource_node.version(),
-        };
-
-        self.writes.push(new_resource_node_handle);
-
-        ResourceRef::new(resource_node_handle.handle)
-    }
-
     pub fn new(name: &str, handle: TypeHandle<PassNode>) -> Self {
         Self {
             name: name.to_string(),

@@ -1,5 +1,5 @@
 use crate::frame_graph::{
-    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, FrameGraphBuffer, BufferInfo,
+    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, BufferInfo, FrameGraphBuffer,
 };
 
 use super::{GraphResource, GraphResourceDescriptor};

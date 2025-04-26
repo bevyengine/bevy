@@ -19,8 +19,8 @@ impl ExtraResource for DepthStencilAttachmentRef {
 
         Ok(DepthStencilAttachment {
             view,
-            depth_ops: self.depth_ops.clone(),
-            stencil_ops: self.stencil_ops.clone(),
+            depth_ops: self.depth_ops,
+            stencil_ops: self.stencil_ops,
         })
     }
 }
@@ -37,8 +37,8 @@ impl DepthStencilAttachment {
     ) -> wgpu::RenderPassDepthStencilAttachment {
         wgpu::RenderPassDepthStencilAttachment {
             view: &self.view,
-            depth_ops: self.depth_ops.clone(),
-            stencil_ops: self.stencil_ops.clone(),
+            depth_ops: self.depth_ops,
+            stencil_ops: self.stencil_ops,
         }
     }
 }

@@ -19,7 +19,7 @@ impl ColorAttachment {
         wgpu::RenderPassColorAttachment {
             view: &self.view,
             resolve_target: self.resolve_target.as_ref(),
-            ops: self.ops.clone(),
+            ops: self.ops,
         }
     }
 }
@@ -39,13 +39,13 @@ impl ExtraResource for ColorAttachmentRef {
             Ok(ColorAttachment {
                 view,
                 resolve_target: Some(resolve_target),
-                ops: self.ops.clone(),
+                ops: self.ops,
             })
         } else {
             Ok(ColorAttachment {
                 view,
                 resolve_target: None,
-                ops: self.ops.clone(),
+                ops: self.ops,
             })
         }
     }

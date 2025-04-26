@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use super::{handle::TypeHandle, AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, PassNode};
 
@@ -47,7 +47,7 @@ impl<ResourceType> GraphResourceNodeHandle<ResourceType> {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct GraphRawResourceNodeHandle {
     pub handle: TypeHandle<ResourceNode>,
     pub version: u32,
@@ -86,7 +86,7 @@ impl ResourceNode {
     }
 
     pub fn new_version(&mut self) {
-        self.version += 1
+        self.version += 1;
     }
 
     pub fn update_lifetime(&mut self, handle: TypeHandle<PassNode>) {
@@ -94,6 +94,6 @@ impl ResourceNode {
             self.first_use_pass = Some(handle);
         }
 
-        self.last_user_pass = Some(handle)
+        self.last_user_pass = Some(handle);
     }
 }

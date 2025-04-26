@@ -3,7 +3,7 @@ use super::{
     ResourceTable,
 };
 use crate::renderer::RenderDevice;
-use std::ops::Range;
+use core::ops::Range;
 
 pub trait ExtraResource {
     type Resource;
@@ -28,8 +28,7 @@ impl RenderContext {
             .render_device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-        let render_pass =
-            render_pass_info.create_render_pass(&self, &mut command_encoder)?;
+        let render_pass = render_pass_info.create_render_pass(self, &mut command_encoder)?;
 
         Ok(TrackedRenderPass {
             command_encoder,
@@ -73,7 +72,7 @@ impl<'a> TrackedRenderPass<'a> {
         slot: u32,
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
     ) -> Result<(), FrameGraphError> {
-        let buffer = self.render_context.get_resource(&buffer_ref)?;
+        let buffer = self.render_context.get_resource(buffer_ref)?;
         self.render_pass
             .set_vertex_buffer(slot, buffer.resource.slice(0..));
 
@@ -85,7 +84,7 @@ impl<'a> TrackedRenderPass<'a> {
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         index_format: wgpu::IndexFormat,
     ) -> Result<(), FrameGraphError> {
-        let buffer = self.render_context.get_resource(&buffer_ref)?;
+        let buffer = self.render_context.get_resource(buffer_ref)?;
 
         self.render_pass
             .set_index_buffer(buffer.resource.slice(0..), index_format);
