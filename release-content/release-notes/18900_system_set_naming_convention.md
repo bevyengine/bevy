@@ -39,8 +39,6 @@ its own system sets to follow a consistent `*Systems` naming convention. Renamed
 - `ExtractAssetsSet` → `AssetExtractionSystems`
 - `Update2dText` → `Text2dUpdateSystems`
 - `TimeSystem` → `TimeSystems`
-- `AudioPlaySet` → `AudioPlaybackSystems`
-- `SendEvents` → `EventSenderSystems`
 - `EventUpdates` → `EventUpdateSystems`
 
 The `Systems` suffix was chosen over the other popular suffix `Set`,

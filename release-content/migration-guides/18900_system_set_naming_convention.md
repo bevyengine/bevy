@@ -30,8 +30,6 @@ Renamed types include:
 - `ExtractAssetsSet` → `AssetExtractionSystems`
 - `Update2dText` → `Text2dUpdateSystems`
 - `TimeSystem` → `TimeSystems`
-- `AudioPlaySet` → `AudioPlaybackSystems`
-- `SendEvents` → `EventSenderSystems`
 - `EventUpdates` → `EventUpdateSystems`
 
 To improve consistency within the ecosystem, it is recommended for ecosystem crates
