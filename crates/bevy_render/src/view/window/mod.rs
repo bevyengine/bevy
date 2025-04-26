@@ -409,7 +409,7 @@ pub fn create_send_surfaces(
     let send_windows = windows
         .windows
         .values_mut()
-        .filter(|window| !window.surface_target_source.is_non_send());
+        .filter(|window| !window.surface_target_source.requires_main_thread());
 
     for window in send_windows {
         match window_surfaces.surfaces.entry(window.entity) {
@@ -463,7 +463,7 @@ pub fn create_non_send_surfaces(
     let non_send_windows = windows
         .windows
         .values_mut()
-        .filter(|window| window.surface_target_source.is_non_send());
+        .filter(|window| window.surface_target_source.requires_main_thread());
 
     for window in non_send_windows {
         match window_surfaces.surfaces.entry(window.entity) {

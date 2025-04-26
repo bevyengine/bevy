@@ -15,12 +15,20 @@ use crate::renderer::WgpuWrapper;
 
 pub(crate) type SurfaceTargetSourceHandle = Arc<dyn HasSurfaceTarget + Send + Sync + 'static>;
 
-/// Holds a reference to a window or view that is capabable of returning a surface target.
+/// Defines thread requirements of a [`SurfaceTargetSource`].
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum SurfaceTargetThreadContraint {
+    /// Surfaces must only be created / updated on the main thread (e.g. UIKit, AppKit).
+    MainThread,
+    /// Surfaces can be created / updated on any thread.
+    None,
+}
+
+/// Holds a reference to a window or view that is capable of returning a surface target.
 #[derive(Clone, Component)]
 pub struct SurfaceTargetSource {
     source: SurfaceTargetSourceHandle,
-    /// Set to `true` if surfaces must only be initialized and used on the main thread.
-    non_send: bool,
+    thread_constraint: SurfaceTargetThreadContraint,
 }
 
 /// An error returned by [`SurfaceTargetSource::surface_target()`] when a surface target is unavailable.
@@ -91,7 +99,9 @@ unsafe impl<T: HasSurfaceTarget + 'static> Sync for NonSendHasSurfaceTarget<T> {
 
 impl<T: HasSurfaceTarget + 'static> HasSurfaceTarget for NonSendHasSurfaceTarget<T> {
     unsafe fn surface_target(&self) -> Option<SurfaceTargetWrapper> {
-        self.0.surface_target()
+        // SAFETY: We're just implementing the HasSurfaceTarget trait by calling the inner HasSurfaceTarget
+        // implementation. The caller is still expected to uphold the safety contract.
+        unsafe { self.0.surface_target() }
     }
 }
 
@@ -100,15 +110,16 @@ impl SurfaceTargetSource {
     ///
     /// ## Safety
     ///
-    /// If the surface target source strictly only allows main-thread access (e.g. UIKit, AppKit),
-    /// you *must* set `main_thread_only` or use [`SurfaceTargetSource::new_non_send`] instead.
+    /// If the surface target can only have surfaces created or updated on the main thread only (e.g. UIKit,
+    /// AppKit), you *must* set `thread_constraint` to [`SurfaceTargetThreadContraint::MainThread`] or use
+    /// [`SurfaceTargetSource::new_non_send`] instead.
     pub fn new<T: HasSurfaceTarget + Send + Sync + 'static>(
-        main_thread_only: bool,
+        thread_constraint: SurfaceTargetThreadContraint,
         source: T,
     ) -> Self {
         Self {
             source: Arc::new(source),
-            non_send: main_thread_only,
+            thread_constraint,
         }
     }
 
@@ -116,13 +127,18 @@ impl SurfaceTargetSource {
     pub fn new_non_send<T: HasSurfaceTarget + 'static>(source: T) -> Self {
         Self {
             source: Arc::new(NonSendHasSurfaceTarget(source)),
-            non_send: true,
+            thread_constraint: SurfaceTargetThreadContraint::MainThread,
         }
     }
 
-    /// Returns `true` if this window / view may only be used on the main thread.
-    pub fn is_non_send(&self) -> bool {
-        self.non_send
+    /// Returns the thread contraint of the surface target.
+    pub fn thread_constraint(&self) -> SurfaceTargetThreadContraint {
+        self.thread_constraint
+    }
+
+    /// Returns `true` if surfaces can only be created or updated on the main thread.
+    pub fn requires_main_thread(&self) -> bool {
+        self.thread_constraint == SurfaceTargetThreadContraint::MainThread
     }
 
     /// Returns the surface target for the window or view (if available).
@@ -130,7 +146,12 @@ impl SurfaceTargetSource {
         &self,
         is_main_thread: bool,
     ) -> Result<SurfaceTargetWrapper<'_>, SurfaceTargetError> {
-        if self.non_send && !is_main_thread {
+        let valid_thread = match self.thread_constraint {
+            SurfaceTargetThreadContraint::MainThread => is_main_thread,
+            SurfaceTargetThreadContraint::None => true,
+        };
+
+        if !valid_thread {
             return Err(SurfaceTargetError::InvalidThread);
         }
 
@@ -222,7 +243,7 @@ impl HasDisplayHandle for SurfaceTargetWrapper<'_> {
                     raw_display_handle,
                     raw_window_handle: _,
                 } => {
-                    // SAFETY: TODO
+                    // SAFETY: This is expected to be a valid handle for the lifetime of 'a
                     Ok(unsafe { DisplayHandle::borrow_raw(*raw_display_handle) })
                 }
                 _ => Err(wgpu::rwh::HandleError::NotSupported),
@@ -243,7 +264,7 @@ impl HasWindowHandle for SurfaceTargetWrapper<'_> {
                     raw_display_handle: _,
                     raw_window_handle,
                 } => {
-                    // SAFETY: TODO
+                    // SAFETY: This is expected to be a valid handle for the lifetime of 'a
                     Ok(unsafe { WindowHandle::borrow_raw(*raw_window_handle) })
                 }
                 _ => Err(wgpu::rwh::HandleError::NotSupported),
