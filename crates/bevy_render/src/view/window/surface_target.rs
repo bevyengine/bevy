@@ -167,24 +167,24 @@ impl SurfaceTargetSource {
     ) -> Result<RenderSurface, SurfaceCreationError> {
         let surface_target = self
             .surface_target(is_main_thread)
-            .map_err(|err| SurfaceCreationError::from(err))?;
+            .map_err(SurfaceCreationError::from)?;
 
         let surface = match surface_target {
             SurfaceTargetWrapper::SurfaceTarget(surface_target) => {
                 // SAFETY: The returned surface is returned with window/view handle that ensures it lives at least as long as the surface does.
                 let static_surface_target = unsafe {
-                    std::mem::transmute::<SurfaceTarget<'_>, SurfaceTarget<'static>>(surface_target)
+                    core::mem::transmute::<SurfaceTarget<'_>, SurfaceTarget<'static>>(surface_target)
                 };
                 instance
                     .create_surface(static_surface_target)
-                    .map_err(|err| SurfaceCreationError::from(err))?
+                    .map_err(SurfaceCreationError::from)?
             }
             SurfaceTargetWrapper::SurfaceTargetUnsafe(surface_target_unsafe) => {
                 // SAFETY:
                 // - The returned surface is returned with window/view handle that ensures it lives at least as long as the surface does.
                 // - The surface target source is expected to only return valid surface targets.
                 unsafe { instance.create_surface_unsafe(surface_target_unsafe) }
-                    .map_err(|err| SurfaceCreationError::from(err))?
+                    .map_err(SurfaceCreationError::from)?
             }
         };
 

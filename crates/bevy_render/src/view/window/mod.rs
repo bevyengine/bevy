@@ -320,7 +320,7 @@ fn create_window_surface(
         .surface_target_source
         .create_surface(render_instance, is_main_thread)?;
 
-    let caps = surface.get_capabilities(&render_adapter);
+    let caps = surface.get_capabilities(render_adapter);
     let formats = caps.formats;
     // For future HDR output support, we'll need to request a format that supports HDR,
     // but as of wgpu 0.15 that is not yet supported.
