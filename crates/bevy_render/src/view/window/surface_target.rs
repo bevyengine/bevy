@@ -173,7 +173,9 @@ impl SurfaceTargetSource {
             SurfaceTargetWrapper::SurfaceTarget(surface_target) => {
                 // SAFETY: The returned surface is returned with window/view handle that ensures it lives at least as long as the surface does.
                 let static_surface_target = unsafe {
-                    core::mem::transmute::<SurfaceTarget<'_>, SurfaceTarget<'static>>(surface_target)
+                    core::mem::transmute::<SurfaceTarget<'_>, SurfaceTarget<'static>>(
+                        surface_target,
+                    )
                 };
                 instance
                     .create_surface(static_surface_target)
