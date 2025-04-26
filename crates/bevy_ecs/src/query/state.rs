@@ -551,7 +551,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let potential_archetypes = self
                 .component_access
                 .required
-                .ones()
+                .iter()
                 .filter_map(|idx| {
                     let component_id = ComponentId::get_sparse_set_index(idx);
                     world
@@ -663,11 +663,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         self.component_access.filter_sets.iter().any(|set| {
             set.with
-                .ones()
+                .iter()
                 .all(|index| set_contains_id(ComponentId::get_sparse_set_index(index)))
                 && set
                     .without
-                    .ones()
+                    .iter()
                     .all(|index| !set_contains_id(ComponentId::get_sparse_set_index(index)))
         })
     }
