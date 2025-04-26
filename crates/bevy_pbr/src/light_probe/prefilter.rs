@@ -1,36 +1,42 @@
-use bevy_asset::{weak_handle, Handle};
+use bevy_asset::{weak_handle, Assets, Handle};
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{QueryState, With},
+    query::{QueryState, With, Without},
     resource::Resource,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_math::{UVec2, Vec2};
+use bevy_image::Image;
+use bevy_math::{Quat, UVec2, Vec2};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
+    render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel},
     render_resource::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, BindingResource, BufferBinding, BufferInitDescriptor, BufferUsages,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, Extent3d,
         FilterMode, PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderDefVal, ShaderStages, ShaderType, StorageTextureAccess, TextureAspect,
+        ShaderDefVal, ShaderStages, ShaderType, StorageTextureAccess, Texture, TextureAspect,
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
         TextureView, TextureViewDescriptor, TextureViewDimension, UniformBuffer,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
-    texture::{CachedTexture, TextureCache},
+    texture::{CachedTexture, GpuImage, TextureCache},
     Extract,
 };
+
+use crate::light_probe::environment_map::EnvironmentMapLight;
 
 /// A handle to the SPD (Single Pass Downsampling) shader.
 pub const SPD_SHADER_HANDLE: Handle<Shader> = weak_handle!("5dcf400c-bcb3-49b9-8b7e-80f4117eaf82");
 
-/// A handle to the importance sample shader.
-pub const IMPORTANCE_SAMPLE_SHADER_HANDLE: Handle<Shader> =
+/// A handle to the environment filter shader.
+pub const ENVIRONMENT_FILTER_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
 
 /// Labels for the prefiltering nodes
@@ -38,7 +44,7 @@ pub const IMPORTANCE_SAMPLE_SHADER_HANDLE: Handle<Shader> =
 pub enum PrefilterNode {
     GenerateMipmap,
     GenerateMipmapSecond,
-    ImportanceSample,
+    RadianceMap,
     IrradianceMap,
 }
 
@@ -46,7 +52,7 @@ pub enum PrefilterNode {
 #[derive(Resource)]
 pub struct PrefilterBindGroupLayouts {
     pub spd: BindGroupLayout,
-    pub importance_sample: BindGroupLayout,
+    pub radiance: BindGroupLayout,
     pub irradiance: BindGroupLayout,
 }
 
@@ -154,9 +160,9 @@ impl FromWorld for PrefilterBindGroupLayouts {
             ),
         );
 
-        // Importance sampling bind group layout
-        let importance_sample = render_device.create_bind_group_layout(
-            "importance_sample_bind_group_layout",
+        // Radiance map bind group layout
+        let radiance = render_device.create_bind_group_layout(
+            "radiance_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::COMPUTE,
                 (
@@ -172,7 +178,7 @@ impl FromWorld for PrefilterBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ), // Output specular map
-                    (3, uniform_buffer::<ImportanceSamplingConstants>(false)), // Uniforms
+                    (3, uniform_buffer::<PrefilterConstants>(false)), // Uniforms
                 ),
             ),
         );
@@ -195,14 +201,14 @@ impl FromWorld for PrefilterBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ), // Output irradiance map
-                    (3, uniform_buffer::<IrradianceConstants>(false)), // Uniforms
+                    (3, uniform_buffer::<PrefilterConstants>(false)), // Uniforms
                 ),
             ),
         );
 
         Self {
             spd,
-            importance_sample,
+            radiance,
             irradiance,
         }
     }
@@ -238,7 +244,7 @@ impl FromWorld for PrefilterSamplers {
 pub struct PrefilterPipelines {
     pub spd_first: CachedComputePipelineId,
     pub spd_second: CachedComputePipelineId,
-    pub importance_sample: CachedComputePipelineId,
+    pub radiance: CachedComputePipelineId,
     pub irradiance: CachedComputePipelineId,
 }
 
@@ -250,7 +256,6 @@ impl FromWorld for PrefilterPipelines {
         let render_device = world.resource::<RenderDevice>();
         let features = render_device.features();
         let shader_defs = if features.contains(WgpuFeatures::SUBGROUP) {
-            println!("Subgroup support is enabled");
             vec![ShaderDefVal::Int("SUBGROUP_SUPPORT".into(), 1)]
         } else {
             vec![]
@@ -278,23 +283,23 @@ impl FromWorld for PrefilterPipelines {
             zero_initialize_workgroup_memory: false,
         });
 
-        // Importance Sampling for Specular Environment Maps
-        let importance_sample = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("importance_sample_pipeline".into()),
-            layout: vec![layouts.importance_sample.clone()],
+        // Radiance map for Specular Environment Maps
+        let radiance = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("radiance_pipeline".into()),
+            layout: vec![layouts.radiance.clone()],
             push_constant_ranges: vec![],
-            shader: IMPORTANCE_SAMPLE_SHADER_HANDLE,
+            shader: ENVIRONMENT_FILTER_SHADER_HANDLE,
             shader_defs: vec![],
             entry_point: "generate_radiance_map".into(),
             zero_initialize_workgroup_memory: false,
         });
 
-        // Irradiance Convolution
+        // Irradiance map for Diffuse Environment Maps
         let irradiance = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("irradiance_pipeline".into()),
             layout: vec![layouts.irradiance.clone()],
             push_constant_ranges: vec![],
-            shader: IMPORTANCE_SAMPLE_SHADER_HANDLE,
+            shader: ENVIRONMENT_FILTER_SHADER_HANDLE,
             shader_defs: vec![],
             entry_point: "generate_irradiance_map".into(),
             zero_initialize_workgroup_memory: false,
@@ -303,36 +308,90 @@ impl FromWorld for PrefilterPipelines {
         Self {
             spd_first,
             spd_second,
-            importance_sample,
+            radiance,
             irradiance,
         }
     }
 }
 
-#[derive(Component, Clone, ExtractComponent)]
+#[derive(Component, Clone, Reflect)]
 pub struct FilteredEnvironmentMapLight {
-    pub environment_map: CachedTexture,
+    pub environment_map: Handle<Image>,
+    pub intensity: f32,
+    pub rotation: Quat,
+    pub affects_lightmapped_mesh_diffuse: bool,
 }
 
 pub fn extract_prefilter_entities(
-    prefilter_query: Extract<Query<(Entity, &FilteredEnvironmentMapLight)>>,
+    prefilter_query: Extract<
+        Query<
+            (Entity, &FilteredEnvironmentMapLight, &EnvironmentMapLight),
+            Without<RenderEnvironmentMap>,
+        >,
+    >,
     mut commands: Commands,
+    render_images: Res<RenderAssets<GpuImage>>,
 ) {
-    for (_, prefilter) in prefilter_query.iter() {
-        commands.spawn((prefilter.clone(),));
+    for (entity, filtered_env_map, env_map_light) in prefilter_query.iter() {
+        let env_map = render_images
+            .get(&filtered_env_map.environment_map)
+            .expect("Environment map not found");
+        // let diffuse_map = render_images
+        //     .get(&env_map_light.diffuse_map)
+        //     .expect("Diffuse map not found");
+        // let specular_map = render_images
+        //     .get(&env_map_light.specular_map)
+        //     .expect("Specular map not found");
+
+        let diffuse_map = render_images.get(&env_map_light.diffuse_map);
+        let specular_map = render_images.get(&env_map_light.specular_map);
+
+        // continue if the diffuse map is not found
+        if diffuse_map.is_none() || specular_map.is_none() {
+            continue;
+        }
+
+        let diffuse_map = diffuse_map.unwrap();
+        let specular_map = specular_map.unwrap();
+
+        let render_filtered_env_map = RenderEnvironmentMap {
+            environment_map: env_map.clone(),
+            diffuse_map: diffuse_map.clone(),
+            specular_map: specular_map.clone(),
+            intensity: filtered_env_map.intensity,
+            rotation: filtered_env_map.rotation,
+            affects_lightmapped_mesh_diffuse: filtered_env_map.affects_lightmapped_mesh_diffuse,
+        };
+
+        // Use get_or_spawn to ensure entity exists in render world
+        // This is crucial as we need to preserve the same entity ID
+        commands
+            .entity(entity)
+            .insert((render_filtered_env_map.clone(), env_map_light.clone()));
     }
+}
+
+// A render-world specific version of FilteredEnvironmentMapLight that uses CachedTexture
+#[derive(Component, Clone)]
+pub struct RenderEnvironmentMap {
+    pub environment_map: GpuImage,
+    pub diffuse_map: GpuImage,
+    pub specular_map: GpuImage,
+    pub intensity: f32,
+    pub rotation: Quat,
+    pub affects_lightmapped_mesh_diffuse: bool,
 }
 
 #[derive(Component)]
 pub struct PrefilterTextures {
     pub environment_map: CachedTexture,
+    pub diffuse_map: CachedTexture,
     pub specular_map: CachedTexture,
-    pub irradiance_map: CachedTexture,
 }
 
 /// Prepares textures needed for prefiltering
 pub fn prepare_prefilter_textures(
-    light_probes: Query<Entity, With<FilteredEnvironmentMapLight>>,
+    light_probes: Query<Entity, With<RenderEnvironmentMap>>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     mut commands: Commands,
@@ -352,12 +411,33 @@ pub fn prepare_prefilter_textures(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::COPY_DST,
                 view_formats: &[],
             },
         );
 
-        // Create specular prefiltered maps
+        let diffuse_map = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("prefilter_diffuse_map"),
+                size: Extent3d {
+                    width: 32,
+                    height: 32,
+                    depth_or_array_layers: 6,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+        );
+
         let specular_map = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -365,40 +445,23 @@ pub fn prepare_prefilter_textures(
                 size: Extent3d {
                     width: 512,
                     height: 512,
-                    depth_or_array_layers: 6, // Cubemap faces
+                    depth_or_array_layers: 6,
                 },
-                mip_level_count: 9, // Different roughness values
+                mip_level_count: 9,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
-                view_formats: &[],
-            },
-        );
-
-        // Create irradiance map (32x32 is enough for diffuse)
-        let irradiance_map = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("prefilter_irradiance_map"),
-                size: Extent3d {
-                    width: 32,
-                    height: 32,
-                    depth_or_array_layers: 6, // Cubemap faces
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::COPY_DST,
                 view_formats: &[],
             },
         );
 
         commands.entity(entity).insert(PrefilterTextures {
             environment_map,
+            diffuse_map,
             specular_map,
-            irradiance_map,
         });
     }
 }
@@ -412,47 +475,43 @@ pub struct SpdConstants {
     _padding: u32,
 }
 
-/// Constants for importance sampling
+/// Constants for prefiltering
 #[derive(Clone, Copy, ShaderType)]
 #[repr(C)]
-pub struct ImportanceSamplingConstants {
+pub struct PrefilterConstants {
     mip_level: f32,
     sample_count: u32,
     roughness: f32,
     _padding: u32,
 }
 
-/// Constants for irradiance convolution
-#[derive(Clone, Copy, ShaderType)]
-#[repr(C)]
-pub struct IrradianceConstants {
-    sample_count: u32,
-    _padding1: u32,
-    _padding2: u32,
-    _padding3: u32,
-}
-
 /// Stores bind groups for the prefiltering process
 #[derive(Component)]
 pub struct PrefilterBindGroups {
     pub spd: BindGroup,
-    pub importance_sample: Vec<BindGroup>, // One per mip level
+    pub radiance: Vec<BindGroup>, // One per mip level
     pub irradiance: BindGroup,
 }
 
 /// Prepares bind groups for prefiltering
 pub fn prepare_prefilter_bind_groups(
     light_probes: Query<
-        (Entity, &PrefilterTextures, &FilteredEnvironmentMapLight),
-        With<FilteredEnvironmentMapLight>,
+        (
+            Entity,
+            &PrefilterTextures,
+            &RenderEnvironmentMap,
+            &EnvironmentMapLight,
+        ),
+        With<RenderEnvironmentMap>,
     >,
     render_device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
     layouts: Res<PrefilterBindGroupLayouts>,
     samplers: Res<PrefilterSamplers>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
-    for (entity, textures, prefilter) in &light_probes {
+    for (entity, textures, env_map_light, target_env_map) in &light_probes {
         // Create SPD bind group
         let spd_constants = SpdConstants {
             mips: 8,                                                 // Number of mip levels
@@ -463,115 +522,131 @@ pub fn prepare_prefilter_bind_groups(
         let mut spd_constants_buffer = UniformBuffer::from(spd_constants);
         spd_constants_buffer.write_buffer(&render_device, &queue);
 
-        let storage_view = prefilter
-            .environment_map
-            .texture
-            .create_view(&TextureViewDescriptor {
-                dimension: Some(TextureViewDimension::D2Array),
-                ..Default::default()
-            });
+        let input_env_map =
+            env_map_light
+                .environment_map
+                .texture
+                .create_view(&TextureViewDescriptor {
+                    dimension: Some(TextureViewDimension::D2Array),
+                    ..Default::default()
+                });
 
         let spd_bind_group = render_device.create_bind_group(
             "spd_bind_group",
             &layouts.spd,
             &BindGroupEntries::with_indices((
-                (0, &storage_view),
+                (0, &input_env_map),
                 (
                     1,
-                    &create_storage_view(&textures.specular_map, 1, &render_device),
+                    &create_storage_view(&textures.environment_map.texture, 1, &render_device),
                 ),
                 (
                     2,
-                    &create_storage_view(&textures.specular_map, 2, &render_device),
+                    &create_storage_view(&textures.environment_map.texture, 2, &render_device),
                 ),
                 (
                     3,
-                    &create_storage_view(&textures.specular_map, 3, &render_device),
+                    &create_storage_view(&textures.environment_map.texture, 3, &render_device),
                 ),
                 (
                     4,
-                    &create_storage_view(&textures.specular_map, 4, &render_device),
+                    &create_storage_view(&textures.environment_map.texture, 4, &render_device),
                 ),
                 (
                     5,
-                    &create_storage_view(&textures.specular_map, 5, &render_device),
+                    &create_storage_view(&textures.environment_map.texture, 5, &render_device),
                 ),
                 (
                     6,
-                    &create_storage_view(&textures.specular_map, 6, &render_device),
+                    &create_storage_view(&textures.environment_map.texture, 6, &render_device),
                 ),
                 (
                     7,
-                    &create_storage_view(&textures.specular_map, 7, &render_device),
+                    &create_storage_view(&textures.environment_map.texture, 7, &render_device),
                 ),
                 (
                     8,
-                    &create_storage_view(&textures.specular_map, 8, &render_device),
+                    &create_storage_view(&textures.environment_map.texture, 8, &render_device),
                 ),
                 // (
                 //     9,
-                //     &create_storage_view(&textures.specular_map, 9, &render_device),
+                //     &create_storage_view(&textures.environment_map.texture, 9, &render_device),
                 // ),
                 // (
                 //     10,
-                //     &create_storage_view(&textures.specular_map, 10, &render_device),
+                //     &create_storage_view(&textures.environment_map.texture, 10, &render_device),
                 // ),
                 // (
                 //     11,
-                //     &create_storage_view(&textures.specular_map, 11, &render_device),
+                //     &create_storage_view(&textures.environment_map.texture, 11, &render_device),
                 // ),
                 // (
                 //     12,
-                //     &create_storage_view(&textures.specular_map, 12, &render_device),
+                //     &create_storage_view(&textures.environment_map.texture, 12, &render_device),
                 // ),
                 (13, &samplers.linear),
                 (14, &spd_constants_buffer),
             )),
         );
 
-        // Create importance sampling bind groups for each mip level
-        let mut importance_sample_bind_groups = Vec::with_capacity(9);
+        // Create radiance map bind groups for each mip level
+        let mut radiance_bind_groups = Vec::with_capacity(9);
+
+        let target_specular = gpu_images.get(&target_env_map.specular_map).unwrap();
+        let target_diffuse = gpu_images.get(&target_env_map.diffuse_map).unwrap();
 
         for mip in 0..9 {
             let roughness = if mip == 0 { 0.0 } else { (mip as f32) / 8.0 };
 
-            let importance_constants = ImportanceSamplingConstants {
+            let radiance_constants = PrefilterConstants {
                 mip_level: mip as f32,
                 sample_count: 32, // Must match SAMPLE_COUNT in the shader
                 roughness,
                 _padding: 0,
             };
 
-            let mut importance_constants_buffer = UniformBuffer::from(importance_constants);
-            importance_constants_buffer.write_buffer(&render_device, &queue);
+            let mut radiance_constants_buffer = UniformBuffer::from(radiance_constants);
+            radiance_constants_buffer.write_buffer(&render_device, &queue);
 
-            let mip_storage_view =
-                create_storage_view(&textures.specular_map, mip as u32, &render_device);
+            let mip_storage_view = create_storage_view(
+                &env_map_light.specular_map.texture,
+                // &target_specular.texture,
+                // &textures.specular_map.texture,
+                mip as u32,
+                &render_device,
+            );
+            // create_storage_view(&textures.specular_map, mip as u32, &render_device);
 
             let bind_group = render_device.create_bind_group(
-                Some(format!("importance_sample_bind_group_mip_{}", mip).as_str()),
-                &layouts.importance_sample,
+                Some(format!("radiance_bind_group_mip_{}", mip).as_str()),
+                &layouts.radiance,
                 &BindGroupEntries::with_indices((
                     (0, &textures.environment_map.default_view),
                     (1, &samplers.linear),
                     (2, &mip_storage_view),
-                    (3, &importance_constants_buffer),
+                    (3, &radiance_constants_buffer),
                 )),
             );
 
-            importance_sample_bind_groups.push(bind_group);
+            radiance_bind_groups.push(bind_group);
         }
 
         // Create irradiance bind group
-        let irradiance_constants = IrradianceConstants {
-            sample_count: 64, // Higher for good diffuse approximation
-            _padding1: 0,
-            _padding2: 0,
-            _padding3: 0,
+        let irradiance_constants = PrefilterConstants {
+            mip_level: 0.0,
+            sample_count: 64,
+            roughness: 0.0,
+            _padding: 0,
         };
 
         let mut irradiance_constants_buffer = UniformBuffer::from(irradiance_constants);
         irradiance_constants_buffer.write_buffer(&render_device, &queue);
+
+        // create a 2d array view
+        let irradiance_map = textures.diffuse_map.texture.create_view(&TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        });
 
         let irradiance_bind_group = render_device.create_bind_group(
             "irradiance_bind_group",
@@ -579,44 +654,43 @@ pub fn prepare_prefilter_bind_groups(
             &BindGroupEntries::with_indices((
                 (0, &textures.environment_map.default_view),
                 (1, &samplers.linear),
-                (2, &textures.irradiance_map.default_view),
-                (
-                    3,
-                    &irradiance_constants_buffer,
-                ),
+                (2, &irradiance_map),
+                // (2, &target_diffuse.texture_view),
+                // (2, &textures.diffuse_map.default_view),
+                (3, &irradiance_constants_buffer),
             )),
         );
 
         commands.entity(entity).insert(PrefilterBindGroups {
             spd: spd_bind_group,
-            importance_sample: importance_sample_bind_groups,
+            radiance: radiance_bind_groups,
             irradiance: irradiance_bind_group,
         });
     }
 }
 
 /// Helper function to create a storage texture view for a specific mip level
-fn create_storage_view(
-    texture: &CachedTexture,
-    mip: u32,
-    _render_device: &RenderDevice,
-) -> TextureView {
-    texture.texture.create_view(&TextureViewDescriptor {
+fn create_storage_view(texture: &Texture, mip: u32, _render_device: &RenderDevice) -> TextureView {
+    texture.create_view(&TextureViewDescriptor {
         label: Some(format!("storage_view_mip_{}", mip).as_str()),
-        format: Some(texture.texture.format()),
+        format: Some(texture.format()),
         dimension: Some(TextureViewDimension::D2Array),
         aspect: TextureAspect::All,
         base_mip_level: mip,
         mip_level_count: Some(1),
         base_array_layer: 0,
-        array_layer_count: Some(texture.texture.depth_or_array_layers()),
+        array_layer_count: Some(texture.depth_or_array_layers()),
         usage: Some(TextureUsages::STORAGE_BINDING),
     })
 }
 
 /// SPD Node implementation for the first part (mips 0-5)
 pub struct SpdFirstNode {
-    query: QueryState<(Entity, Read<PrefilterBindGroups>)>,
+    query: QueryState<(
+        Entity,
+        Read<PrefilterBindGroups>,
+        Read<RenderEnvironmentMap>,
+    )>,
 }
 
 impl FromWorld for SpdFirstNode {
@@ -645,7 +719,20 @@ impl Node for SpdFirstNode {
             return Ok(());
         };
 
-        for (_, bind_groups) in self.query.iter_manual(world) {
+        for (entity, bind_groups, env_map_light) in self.query.iter_manual(world) {
+            // Copy original environment map to mip 0 of the intermediate environment map
+            let textures = world.get::<PrefilterTextures>(entity).unwrap();
+
+            render_context.command_encoder().copy_texture_to_texture(
+                env_map_light.environment_map.texture.as_image_copy(),
+                textures.environment_map.texture.as_image_copy(),
+                Extent3d {
+                    width: 512,
+                    height: 512,
+                    depth_or_array_layers: 6,
+                },
+            );
+
             let mut compute_pass =
                 render_context
                     .command_encoder()
@@ -719,12 +806,12 @@ impl Node for SpdSecondNode {
     }
 }
 
-/// Importance Sampling Node for generating specular environment maps
-pub struct ImportanceSampleNode {
+/// Radiance map node for generating specular environment maps
+pub struct RadianceMapNode {
     query: QueryState<(Entity, Read<PrefilterBindGroups>)>,
 }
 
-impl FromWorld for ImportanceSampleNode {
+impl FromWorld for RadianceMapNode {
     fn from_world(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
@@ -732,7 +819,7 @@ impl FromWorld for ImportanceSampleNode {
     }
 }
 
-impl Node for ImportanceSampleNode {
+impl Node for RadianceMapNode {
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -746,8 +833,7 @@ impl Node for ImportanceSampleNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipelines = world.resource::<PrefilterPipelines>();
 
-        let Some(importance_sample_pipeline) =
-            pipeline_cache.get_compute_pipeline(pipelines.importance_sample)
+        let Some(radiance_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.radiance)
         else {
             return Ok(());
         };
@@ -757,14 +843,14 @@ impl Node for ImportanceSampleNode {
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("importance_sample_pass"),
+                        label: Some("radiance_map_pass"),
                         timestamp_writes: None,
                     });
 
-            compute_pass.set_pipeline(importance_sample_pipeline);
+            compute_pass.set_pipeline(radiance_pipeline);
 
             // Process each mip level
-            for (mip, bind_group) in bind_groups.importance_sample.iter().enumerate() {
+            for (mip, bind_group) in bind_groups.radiance.iter().enumerate() {
                 compute_pass.set_bind_group(0, bind_group, &[]);
 
                 // Calculate dispatch size based on mip level
@@ -781,11 +867,11 @@ impl Node for ImportanceSampleNode {
 }
 
 /// Irradiance Convolution Node
-pub struct IrradianceNode {
+pub struct IrradianceMapNode {
     query: QueryState<(Entity, Read<PrefilterBindGroups>)>,
 }
 
-impl FromWorld for IrradianceNode {
+impl FromWorld for IrradianceMapNode {
     fn from_world(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
@@ -793,7 +879,7 @@ impl FromWorld for IrradianceNode {
     }
 }
 
-impl Node for IrradianceNode {
+impl Node for IrradianceMapNode {
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -817,7 +903,7 @@ impl Node for IrradianceNode {
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("irradiance_pass"),
+                        label: Some("irradiance_map_pass"),
                         timestamp_writes: None,
                     });
 
@@ -829,5 +915,76 @@ impl Node for IrradianceNode {
         }
 
         Ok(())
+    }
+}
+
+/// System that creates an EnvironmentMapLight component from the prefiltered textures
+pub fn create_environment_map_from_prefilter(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    query: Query<(Entity, &FilteredEnvironmentMapLight), Without<EnvironmentMapLight>>,
+) {
+    for (entity, filtered_env_map) in &query {
+        // Create a placeholder for the irradiance map
+        let mut diffuse = Image::new_fill(
+            Extent3d {
+                width: 32,
+                height: 32,
+                depth_or_array_layers: 6,
+            },
+            TextureDimension::D2,
+            &[0; 8],
+            TextureFormat::Rgba16Float,
+            RenderAssetUsages::all(),
+        );
+
+        diffuse.texture_descriptor.usage =
+            TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
+
+        diffuse.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::Cube),
+            ..Default::default()
+        });
+
+        let diffuse_handle = images.add(diffuse);
+
+        // Create a placeholder for the specular map
+        let mut specular = Image::new_fill(
+            Extent3d {
+                width: 512,
+                height: 512,
+                depth_or_array_layers: 6,
+            },
+            TextureDimension::D2,
+            &[0; 8],
+            TextureFormat::Rgba16Float,
+            RenderAssetUsages::all(),
+        );
+
+        // Set up for mipmaps
+        specular.texture_descriptor.usage =
+            TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING;
+        specular.texture_descriptor.mip_level_count = 9;
+        
+        // When setting mip_level_count, we need to allocate appropriate data size
+        // For GPU-generated mipmaps, we can set data to None since the GPU will generate the data
+        specular.data = None;
+
+        specular.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::Cube),
+            mip_level_count: Some(9),
+            ..Default::default()
+        });
+
+        let specular_handle = images.add(specular);
+
+        // Add the EnvironmentMapLight component with the placeholder handles
+        commands.entity(entity).insert(EnvironmentMapLight {
+            diffuse_map: diffuse_handle,
+            specular_map: specular_handle,
+            intensity: filtered_env_map.intensity,
+            rotation: filtered_env_map.rotation,
+            affects_lightmapped_mesh_diffuse: filtered_env_map.affects_lightmapped_mesh_diffuse,
+        });
     }
 }

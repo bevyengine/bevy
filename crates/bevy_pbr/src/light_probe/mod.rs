@@ -1,6 +1,6 @@
 //! Light probes for baked global illumination.
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
@@ -36,6 +36,7 @@ use bevy_render::{
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use prefilter::{
+    create_environment_map_from_prefilter,
     extract_prefilter_entities, prepare_prefilter_bind_groups, prepare_prefilter_textures,
     FilteredEnvironmentMapLight, PrefilterPipelines, SpdFirstNode, SpdSecondNode,
 };
@@ -48,8 +49,8 @@ use crate::{
     light_probe::{
         environment_map::{EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE},
         prefilter::{
-            ImportanceSampleNode, IrradianceNode, PrefilterBindGroupLayouts, PrefilterNode,
-            PrefilterSamplers, IMPORTANCE_SAMPLE_SHADER_HANDLE, SPD_SHADER_HANDLE,
+            RadianceMapNode, IrradianceMapNode, PrefilterBindGroupLayouts, PrefilterNode,
+            PrefilterSamplers, ENVIRONMENT_FILTER_SHADER_HANDLE, SPD_SHADER_HANDLE,
         },
     },
 };
@@ -379,14 +380,15 @@ impl Plugin for LightProbePlugin {
         load_internal_asset!(app, SPD_SHADER_HANDLE, "spd.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
-            IMPORTANCE_SAMPLE_SHADER_HANDLE,
-            "importance_sample.wgsl",
+            ENVIRONMENT_FILTER_SHADER_HANDLE,
+            "environment_filter.wgsl",
             Shader::from_wgsl
         );
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>();
+            .register_type::<IrradianceVolume>()
+            .add_systems(Update, create_environment_map_from_prefilter);
     }
 
     fn finish(&self, app: &mut App) {
@@ -396,7 +398,6 @@ impl Plugin for LightProbePlugin {
 
         render_app
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
-            .add_plugins(ExtractComponentPlugin::<FilteredEnvironmentMapLight>::default())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
             .init_resource::<PrefilterBindGroupLayouts>()
@@ -404,15 +405,15 @@ impl Plugin for LightProbePlugin {
             .init_resource::<PrefilterPipelines>()
             .add_render_graph_node::<SpdFirstNode>(Core3d, PrefilterNode::GenerateMipmap)
             .add_render_graph_node::<SpdSecondNode>(Core3d, PrefilterNode::GenerateMipmapSecond)
-            .add_render_graph_node::<ImportanceSampleNode>(Core3d, PrefilterNode::ImportanceSample)
-            .add_render_graph_node::<IrradianceNode>(Core3d, PrefilterNode::IrradianceMap)
+            .add_render_graph_node::<RadianceMapNode>(Core3d, PrefilterNode::RadianceMap)
+            .add_render_graph_node::<IrradianceMapNode>(Core3d, PrefilterNode::IrradianceMap)
             .add_render_graph_edges(
                 Core3d,
                 (
                     Node3d::EndPrepasses,
                     PrefilterNode::GenerateMipmap,
                     PrefilterNode::GenerateMipmapSecond,
-                    PrefilterNode::ImportanceSample,
+                    PrefilterNode::RadianceMap,
                     PrefilterNode::IrradianceMap,
                     Node3d::StartMainPass,
                 ),
@@ -420,6 +421,7 @@ impl Plugin for LightProbePlugin {
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
+            .add_systems(ExtractSchedule, extract_prefilter_entities)
             .add_systems(
                 Render,
                 (
@@ -431,8 +433,7 @@ impl Plugin for LightProbePlugin {
                     )
                         .in_set(RenderSet::PrepareResources),
                 ),
-            )
-            .add_systems(ExtractSchedule, extract_prefilter_entities);
+            );
     }
 }
 

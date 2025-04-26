@@ -87,7 +87,7 @@ fn setup_camera_fog(mut commands: Commands) {
 
     commands.spawn((
         LightProbe,
-        AtmosphereEnvironmentMapLight,
+        AtmosphereEnvironmentMapLight::default(),
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 

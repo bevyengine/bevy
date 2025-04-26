@@ -36,7 +36,7 @@
 mod node;
 pub mod resources;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_asset::{load_internal_asset, load_internal_binary_asset};
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
@@ -46,7 +46,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Query},
 };
 use bevy_image::Image;
-use bevy_math::{UVec2, UVec3, Vec3};
+use bevy_math::{Quat, UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
@@ -64,8 +64,7 @@ use bevy_render::{
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 use resources::{
-    prepare_atmosphere_buffer, prepare_atmosphere_transforms, queue_render_sky_pipelines,
-    AtmosphereBuffer, AtmosphereTransforms, RenderSkyBindGroupLayouts,
+    prepare_atmosphere_buffer, prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereBuffer, AtmosphereEnvironmentMap, AtmosphereTransforms, RenderSkyBindGroupLayouts
 };
 use tracing::warn;
 
@@ -75,7 +74,8 @@ use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, EnvironmentNode, RenderSkyNode},
     resources::{
         prepare_atmosphere_bind_groups, prepare_probe_textures, prepare_view_textures,
-        AtmosphereBindGroupLayouts, AtmospherePipelines, AtmosphereSamplers,
+        prepare_atmosphere_probe_components, AtmosphereBindGroupLayouts, AtmospherePipelines,
+        AtmosphereSamplers,
     },
 };
 
@@ -188,9 +188,11 @@ impl Plugin for AtmospherePlugin {
                 ExtractComponentPlugin::<Atmosphere>::default(),
                 ExtractComponentPlugin::<AtmosphereSettings>::default(),
                 ExtractComponentPlugin::<AtmosphereEnvironmentMapLight>::default(),
+                ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
                 UniformComponentPlugin::<Atmosphere>::default(),
                 UniformComponentPlugin::<AtmosphereSettings>::default(),
-            ));
+            ))
+            .add_systems(Update, prepare_atmosphere_probe_components);
     }
 
     fn finish(&self, app: &mut App) {
@@ -546,7 +548,21 @@ fn configure_camera_depth_usages(
 /// using the atmosphere's environment map shader.
 #[derive(Component, Clone)]
 #[require(LightProbe)]
-pub struct AtmosphereEnvironmentMapLight;
+pub struct AtmosphereEnvironmentMapLight {
+    pub intensity: f32,
+    pub rotation: Quat,
+    pub affects_lightmapped_mesh_diffuse: bool,
+}
+
+impl Default for AtmosphereEnvironmentMapLight {
+    fn default() -> Self {
+        Self {
+            intensity: 5000.0,
+            rotation: Quat::IDENTITY,
+            affects_lightmapped_mesh_diffuse: true,
+        }
+    }
+}
 
 impl ExtractComponent for AtmosphereEnvironmentMapLight {
     type QueryData = Read<AtmosphereEnvironmentMapLight>;

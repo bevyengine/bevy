@@ -1,18 +1,20 @@
+use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::{
     core_3d::Camera3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::With,
+    query::{With, Without},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_math::{Mat4, Vec3};
+use bevy_image::Image;
+use bevy_math::{Mat4, Quat, Vec3};
 use bevy_render::{
     camera::Camera,
-    extract_component::ComponentUniforms,
+    extract_component::{ComponentUniforms, ExtractComponent},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, StorageBuffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -21,7 +23,7 @@ use bevy_render::{
 };
 
 use crate::{
-    prefilter::FilteredEnvironmentMapLight, GpuLights, LightMeta, LightProbe, ShadowSamplers,
+    prefilter::{FilteredEnvironmentMapLight}, GpuLights, LightMeta, LightProbe, ShadowSamplers,
     ViewShadowBindings,
 };
 
@@ -515,10 +517,14 @@ pub struct AtmosphereTextures {
     pub sky_view_lut: CachedTexture,
     pub aerial_view_lut: CachedTexture,
 }
+#[derive(Component, ExtractComponent, Clone)]
+pub struct AtmosphereEnvironmentMap {
+    pub environment_map: Handle<Image>,
+}
 
 #[derive(Component)]
 pub struct AtmosphereProbeTextures {
-    pub environment: CachedTexture,
+    pub environment: TextureView,
     pub transmittance_lut: CachedTexture,
     pub multiscattering_lut: CachedTexture,
     pub sky_view_lut: CachedTexture,
@@ -616,44 +622,25 @@ pub(super) fn prepare_view_textures(
 
 pub(super) fn prepare_probe_textures(
     view_textures: Query<&AtmosphereTextures, With<Atmosphere>>,
-    probes: Query<Entity, (With<LightProbe>, With<AtmosphereEnvironmentMapLight>)>,
-    render_device: Res<RenderDevice>,
-    mut texture_cache: ResMut<TextureCache>,
+    probes: Query<(Entity, &AtmosphereEnvironmentMap), (With<LightProbe>, With<AtmosphereEnvironmentMap>, Without<AtmosphereProbeTextures>)>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
-    for probe in &probes {
-        let environment = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("environment"),
-                size: Extent3d {
-                    width: 512,
-                    height: 512,
-                    depth_or_array_layers: 6,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-        );
-
+    for (probe, render_env_map) in &probes {
+        let environment = gpu_images.get(&render_env_map.environment_map).unwrap();
+        // create a cube view
+        let environment_view = environment.texture.create_view(&TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        });
         // Get the first view entity's textures to borrow
         if let Some(view_textures) = view_textures.iter().next() {
             commands.entity(probe).insert(AtmosphereProbeTextures {
-                environment: environment.clone(),
+                environment: environment_view,
                 transmittance_lut: view_textures.transmittance_lut.clone(),
                 multiscattering_lut: view_textures.multiscattering_lut.clone(),
                 sky_view_lut: view_textures.sky_view_lut.clone(),
             });
-            commands.entity(probe).insert(FilteredEnvironmentMapLight {
-                environment_map: environment,
-            });
-            // commands.entity(probe).insert(EnvironmentMapLight {
-            //     diffuse_map: environment,
-            // });
         }
     }
 }
@@ -926,7 +913,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (8, &samplers.multiscattering_lut),
                 (9, &textures.sky_view_lut.default_view),
                 (10, &samplers.sky_view_lut),
-                (13, &textures.environment.default_view),
+                (13, &textures.environment),
             )),
         );
 
@@ -986,4 +973,47 @@ pub(crate) fn prepare_atmosphere_buffer(
         settings: *settings,
     });
     atmosphere_buffer.buffer.write_buffer(&device, &queue);
+}
+
+pub fn prepare_atmosphere_probe_components(
+    probes: Query<(Entity, &AtmosphereEnvironmentMapLight), (With<LightProbe>, With<AtmosphereEnvironmentMapLight>, Without<AtmosphereEnvironmentMap>)>,
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+) {
+    for (entity, env_map_light) in &probes {
+        // Create a cubemap image in the main world that we can reference
+        let mut environment_image = Image::new_fill(
+            Extent3d {
+                width: 512,
+                height: 512,
+                depth_or_array_layers: 6,
+            },
+            TextureDimension::D2,
+            &[0; 8],
+            TextureFormat::Rgba16Float,
+            RenderAssetUsages::all(),
+        );
+
+        environment_image.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::Cube),
+            ..Default::default()
+        });
+
+        environment_image.texture_descriptor.usage =
+            TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING | TextureUsages::COPY_SRC;
+        
+        // Add the image to assets to get a handle
+        let environment_handle = images.add(environment_image);
+
+        commands.entity(entity).insert(AtmosphereEnvironmentMap {
+            environment_map: environment_handle.clone(),
+        });
+
+        commands.entity(entity).insert(FilteredEnvironmentMapLight {
+            environment_map: environment_handle,
+            intensity: env_map_light.intensity,
+            rotation: env_map_light.rotation,
+            affects_lightmapped_mesh_diffuse: env_map_light.affects_lightmapped_mesh_diffuse,
+        });
+    }
 }
