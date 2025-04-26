@@ -17,7 +17,7 @@ pub(crate) type SurfaceTargetSourceHandle = Arc<dyn HasSurfaceTarget + Send + Sy
 
 /// Defines thread requirements of a [`SurfaceTargetSource`].
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum SurfaceTargetThreadContraint {
+pub enum SurfaceTargetThreadConstraint {
     /// Surfaces must only be created / updated on the main thread (e.g. UIKit, AppKit).
     MainThread,
     /// Surfaces can be created / updated on any thread.
@@ -28,7 +28,7 @@ pub enum SurfaceTargetThreadContraint {
 #[derive(Clone, Component)]
 pub struct SurfaceTargetSource {
     source: SurfaceTargetSourceHandle,
-    thread_constraint: SurfaceTargetThreadContraint,
+    thread_constraint: SurfaceTargetThreadConstraint,
 }
 
 /// An error returned by [`SurfaceTargetSource::surface_target()`] when a surface target is unavailable.
@@ -111,10 +111,10 @@ impl SurfaceTargetSource {
     /// ## Safety
     ///
     /// If the surface target can only have surfaces created or updated on the main thread only (e.g. UIKit,
-    /// AppKit), you *must* set `thread_constraint` to [`SurfaceTargetThreadContraint::MainThread`] or use
+    /// AppKit), you *must* set `thread_constraint` to [`SurfaceTargetThreadConstraint::MainThread`] or use
     /// [`SurfaceTargetSource::new_non_send`] instead.
     pub fn new<T: HasSurfaceTarget + Send + Sync + 'static>(
-        thread_constraint: SurfaceTargetThreadContraint,
+        thread_constraint: SurfaceTargetThreadConstraint,
         source: T,
     ) -> Self {
         Self {
@@ -127,18 +127,18 @@ impl SurfaceTargetSource {
     pub fn new_non_send<T: HasSurfaceTarget + 'static>(source: T) -> Self {
         Self {
             source: Arc::new(NonSendHasSurfaceTarget(source)),
-            thread_constraint: SurfaceTargetThreadContraint::MainThread,
+            thread_constraint: SurfaceTargetThreadConstraint::MainThread,
         }
     }
 
-    /// Returns the thread contraint of the surface target.
-    pub fn thread_constraint(&self) -> SurfaceTargetThreadContraint {
+    /// Returns the thread constraint of the surface target.
+    pub fn thread_constraint(&self) -> SurfaceTargetThreadConstraint {
         self.thread_constraint
     }
 
     /// Returns `true` if surfaces can only be created or updated on the main thread.
     pub fn requires_main_thread(&self) -> bool {
-        self.thread_constraint == SurfaceTargetThreadContraint::MainThread
+        self.thread_constraint == SurfaceTargetThreadConstraint::MainThread
     }
 
     /// Returns the surface target for the window or view (if available).
@@ -147,8 +147,8 @@ impl SurfaceTargetSource {
         is_main_thread: bool,
     ) -> Result<SurfaceTargetWrapper<'_>, SurfaceTargetError> {
         let valid_thread = match self.thread_constraint {
-            SurfaceTargetThreadContraint::MainThread => is_main_thread,
-            SurfaceTargetThreadContraint::None => true,
+            SurfaceTargetThreadConstraint::MainThread => is_main_thread,
+            SurfaceTargetThreadConstraint::None => true,
         };
 
         if !valid_thread {
