@@ -70,10 +70,13 @@ struct DirectionalLight {
 @group(0) @binding(9) var<storage> light_sources: array<LightSource>;
 @group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;
 
+const RAY_T_MIN = 0.001;
+const RAY_T_MAX = 100000.0;
+
 const RAY_NO_CULL = 0xFFu;
 
-fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32) -> RayIntersection {
-    let ray = RayDesc(RAY_FLAG_NONE, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
+fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32, ray_flag: u32) -> RayIntersection {
+    let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, tlas, ray);
     rayQueryProceed(&rq);
@@ -94,6 +97,7 @@ struct ResolvedRayHitFull {
     world_normal: vec3<f32>,
     geometric_world_normal: vec3<f32>,
     uv: vec2<f32>,
+    triangle_area: f32,
     material: ResolvedMaterial,
 }
 
@@ -114,19 +118,23 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
 }
 
 fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
-    let instance_geometry_ids = geometry_ids[ray_hit.instance_id];
-    let material_id = material_ids[ray_hit.instance_id];
+    let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
+    return resolve_triangle_data_full(ray_hit.instance_id, ray_hit.primitive_index, barycentrics);
+}
+
+fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
+    let instance_geometry_ids = geometry_ids[instance_id];
+    let material_id = material_ids[instance_id];
 
     let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
     let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
     let material = materials[material_id];
 
-    let indices_i = (ray_hit.primitive_index * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
+    let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
     let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + instance_geometry_ids.vertex_buffer_offset;
     let vertices = array<Vertex, 3>(unpack_vertex((*vertex_buffer)[indices.x]), unpack_vertex((*vertex_buffer)[indices.y]), unpack_vertex((*vertex_buffer)[indices.z]));
-    let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
 
-    let transform = transforms[ray_hit.instance_id];
+    let transform = transforms[instance_id];
     let local_position = mat3x3(vertices[0].position, vertices[1].position, vertices[2].position) * barycentrics;
     let world_position = (transform * vec4(local_position, 1.0)).xyz;
 
@@ -145,7 +153,11 @@ fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
         world_normal = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
     }
 
+    let triangle_edge0 = vertices[0].position - vertices[1].position;
+    let triangle_edge1 = vertices[0].position - vertices[2].position;
+    let triangle_area = length(cross(triangle_edge0, triangle_edge1)) / 2.0;
+
     let resolved_material = resolve_material(material, uv);
 
-    return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, uv, resolved_material);
+    return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, uv, triangle_area, resolved_material);
 }
