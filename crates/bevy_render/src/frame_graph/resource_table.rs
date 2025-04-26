@@ -8,6 +8,7 @@ use super::{
     TransientResourceCache, TypeHandle, VirtualResource,
 };
 
+#[derive(Default)]
 pub struct ResourceTable {
     resources: HashMap<TypeHandle<ResourceNode>, AnyFrameGraphResource>,
 }

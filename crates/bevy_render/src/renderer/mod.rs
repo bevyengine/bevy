@@ -1,18 +1,16 @@
-mod graph_runner;
 mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
-pub use graph_runner::*;
 pub use render_device::*;
 use tracing::{error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
-    render_graph::RenderGraph,
+    frame_graph::{FrameGraph, FrameGraphRunner, TransientResourceCache},
     render_phase::TrackedRenderPass,
-    render_resource::RenderPassDescriptor,
+    render_resource::{PipelineCache, RenderPassDescriptor},
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
@@ -25,41 +23,53 @@ use wgpu::{
     RequestAdapterOptions,
 };
 
-/// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
-        graph.update(world);
-    });
-
     let diagnostics_recorder = world.remove_resource::<DiagnosticsRecorder>();
+    let mut graph = match world.remove_resource::<FrameGraph>() {
+        None => {
+            return;
+        }
+        Some(graph) => graph,
+    };
 
-    let graph = world.resource::<RenderGraph>();
+    let mut transient_resource_cache = match world.remove_resource::<TransientResourceCache>() {
+        None => {
+            return;
+        }
+        Some(transient_resource_cache) => transient_resource_cache,
+    };
+
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
     let render_adapter = world.resource::<RenderAdapter>();
+    let pipeline_cache = world.resource::<PipelineCache>();
 
-    let res = RenderGraphRunner::run(
-        graph,
+    let res = FrameGraphRunner::run(
+        &mut graph,
         render_device.clone(), // TODO: is this clone really necessary?
+        &mut transient_resource_cache,
+        &pipeline_cache,
         diagnostics_recorder,
         &render_queue.0,
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         &render_adapter.0,
-        world,
+        &world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
             crate::gpu_readback::submit_readback_commands(world, encoder);
         },
     );
 
+    world.insert_resource(graph);
+    world.insert_resource(transient_resource_cache);
+    
     match res {
         Ok(Some(diagnostics_recorder)) => {
             world.insert_resource(diagnostics_recorder);
         }
         Ok(None) => {}
         Err(e) => {
-            error!("Error running render graph:");
+            error!("Error running frame graph:");
             {
                 let mut src: &dyn core::error::Error = &e;
                 loop {

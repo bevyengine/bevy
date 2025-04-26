@@ -22,6 +22,8 @@ pub use resource_node::*;
 pub use resource_table::*;
 pub use transient_resource_cache::*;
 
+#[derive(Debug, thiserror::Error)]
 pub enum FrameGraphError {
+    #[error("ResourceNotFound")]
     ResourceNotFound,
 }
