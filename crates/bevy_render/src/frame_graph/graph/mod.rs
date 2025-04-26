@@ -6,15 +6,16 @@ use alloc::sync::Arc;
 use bevy_ecs::resource::Resource;
 
 use super::{
-    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, GraphResourceNodeHandle, PassNode,
-    ResourceNode, TypeHandle, VirtualResource,
+    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, DevicePass, FrameGraphError,
+    GraphResourceNodeHandle, ImportedResource, PassNode, RenderContext, ResourceNode, TypeHandle,
+    VirtualResource,
 };
 
 pub trait ImportToFrameGraph
 where
     Self: Sized + GraphResource,
 {
-    fn import(self: Arc<Self>) -> AnyFrameGraphResource;
+    fn import(self: Arc<Self>) -> ImportedResource;
 }
 
 pub trait GraphResource: 'static {
@@ -41,10 +42,111 @@ impl<T: Sized> TypeEquals for T {
     }
 }
 
-#[derive(Resource)]
+pub struct CompiledFrameGraph {
+    device_passes: Vec<DevicePass>,
+}
+
+impl CompiledFrameGraph {
+    pub fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+        for device_pass in self.device_passes.iter() {
+            device_pass.execute(render_context)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Resource, Default)]
 pub struct FrameGraph {
     pub(crate) resource_nodes: Vec<ResourceNode>,
     pub(crate) pass_nodes: Vec<PassNode>,
+    pub(crate) compiled_frame_graph: Option<CompiledFrameGraph>,
+}
+
+impl FrameGraph {
+    fn reset(&mut self) {
+        self.pass_nodes = vec![];
+        self.resource_nodes = vec![];
+        self.compiled_frame_graph = None;
+    }
+
+    pub fn execute(&mut self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+        if self.compiled_frame_graph.is_none() {
+            return Ok(());
+        }
+
+        if let Some(compiled_frame_graph) = &mut self.compiled_frame_graph {
+            compiled_frame_graph.execute(render_context)?;
+        }
+
+        self.reset();
+
+        Ok(())
+    }
+
+    pub fn compute_resource_lifetime(&mut self) {
+        for pass_node in self.pass_nodes.iter_mut() {
+            for resource_node_handle in pass_node.reads.iter() {
+                let resource_node = &mut self.resource_nodes[resource_node_handle.handle.index];
+                resource_node.update_lifetime(pass_node.handle);
+            }
+
+            for resource_node_handle in pass_node.writes.iter() {
+                let resource_node = &mut self.resource_nodes[resource_node_handle.handle.index];
+                resource_node.update_lifetime(pass_node.handle);
+            }
+        }
+
+        for resource_index in 0..self.resource_nodes.len() {
+            let resource_node = &self.resource_nodes[resource_index];
+
+            if resource_node.first_use_pass.is_none() || resource_node.last_user_pass.is_none() {
+                continue;
+            }
+
+            let first_pass_node_handle = resource_node.first_use_pass.unwrap();
+            let first_pass_node = &mut self.pass_nodes[first_pass_node_handle.index];
+            first_pass_node
+                .resource_request_array
+                .push(resource_node.handle);
+
+            let last_pass_node_handle = resource_node.last_user_pass.unwrap();
+            let last_pass_node = &mut self.pass_nodes[last_pass_node_handle.index];
+            last_pass_node
+                .resource_release_array
+                .push(resource_node.handle);
+        }
+    }
+
+    pub fn generate_compiled_frame_graph(&mut self) {
+        if self.pass_nodes.is_empty() {
+            return;
+        }
+
+        let mut device_passes = vec![];
+
+        for index in 0..self.pass_nodes.len() {
+            let handle = self.pass_nodes[index].handle;
+
+            let mut device_pass = DevicePass::default();
+            device_pass.extra(self, handle);
+
+            device_passes.push(device_pass);
+        }
+
+        self.compiled_frame_graph = Some(CompiledFrameGraph { device_passes });
+    }
+
+    pub fn compile(&mut self) {
+        if self.pass_nodes.is_empty() {
+            return;
+        }
+
+        //todo cull
+
+        self.compute_resource_lifetime();
+        self.generate_compiled_frame_graph();
+    }
 }
 
 impl FrameGraph {

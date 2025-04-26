@@ -1,4 +1,7 @@
-use core::{hash::{Hash, Hasher}, marker::PhantomData};
+use core::{
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+};
 
 pub struct TypeHandle<T> {
     pub index: usize,

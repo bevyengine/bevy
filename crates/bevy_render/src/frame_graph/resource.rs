@@ -40,6 +40,12 @@ impl FrameGraphResourceCreator for RenderDevice {
     }
 }
 
+#[derive(Clone)]
+pub enum ImportedResource {
+    Buffer(Arc<FrameGraphBuffer>),
+    Texture(Arc<FrameGraphTexture>),
+}
+
 pub enum AnyFrameGraphResource {
     OwnedBuffer(FrameGraphBuffer),
     ImportedBuffer(Arc<FrameGraphBuffer>),
@@ -103,6 +109,7 @@ impl TextureInfo {
     }
 }
 
+#[derive(Clone)]
 pub enum AnyFrameGraphResourceDescriptor {
     Texture(TextureInfo),
     Buffer(BufferInfo),

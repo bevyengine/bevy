@@ -1,4 +1,5 @@
 pub mod common;
+pub mod device_pass;
 pub mod graph;
 pub mod handle;
 pub mod pass_node;
@@ -9,6 +10,7 @@ pub mod resource_node;
 pub mod resource_table;
 
 pub use common::*;
+pub use device_pass::*;
 pub use graph::*;
 pub use handle::*;
 pub use pass_node::*;
