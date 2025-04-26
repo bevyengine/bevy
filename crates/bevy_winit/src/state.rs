@@ -563,11 +563,10 @@ impl<T: Event> WinitAppRunnerState<T> {
             should_update = true;
             self.ran_update_since_last_redraw = false;
 
-
             #[cfg(all(feature = "bevy_render", target_os = "android"))]
             {
-                use bevy_window::PrimaryWindow;
                 use bevy_render::view::surface_target::SurfaceTargetSource;
+                use bevy_window::PrimaryWindow;
                 // Remove the `SurfaceTargetSource` from the primary window.
                 // This will trigger the surface destruction.
                 let mut query = self
@@ -591,7 +590,9 @@ impl<T: Event> WinitAppRunnerState<T> {
             {
                 // Get windows that are cached but without a surface target source. Those windows were already created,
                 // but got their surface target source removed when the app was suspended.
-                use bevy_render::view::surface_target::{SurfaceTargetSource, SurfaceTargetThreadConstraint};
+                use bevy_render::view::surface_target::{
+                    SurfaceTargetSource, SurfaceTargetThreadConstraint,
+                };
                 let mut query = self.world_mut()
                     .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<SurfaceTargetSource>)>();
                 if let Ok((entity, window)) = query.single(&self.world()) {
