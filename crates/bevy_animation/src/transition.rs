@@ -3,6 +3,7 @@
 //! Please note that this is an unstable temporary API. It may be replaced by a
 //! state machine in the future.
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     reflect::ReflectComponent,
@@ -12,7 +13,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use core::time::Duration;
 
-use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
+use crate::{graph::{AnimationGraph, AnimationGraphNode, AnimationNodeIndex},  AnimationPlayer};
 
 /// Manages fade-out of animation blend factors, allowing for smooth transitions
 /// between animations.
@@ -21,89 +22,45 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// [`AnimationPlayer`] and [`AnimationGraphHandle`](crate::AnimationGraphHandle). It'll take
 /// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
 /// to fade out animations smoothly.
-///
-/// When using an [`AnimationTransitions`] component, you should play all
-/// animations through the [`AnimationTransitions::play`] method, rather than by
-/// directly manipulating the [`AnimationPlayer`]. Playing animations through
-/// the [`AnimationPlayer`] directly will cause the [`AnimationTransitions`]
-/// component to get confused about which animation is the "main" animation, and
-/// transitions will usually be incorrect as a result.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect,Deref,DerefMut,Clone)]
 #[reflect(Component, Default, Clone)]
-pub struct AnimationTransitions {
-    main_animation: Option<AnimationNodeIndex>,
-    transitions: Vec<AnimationTransition>,
-}
+pub struct AnimationTransitions (Vec<AnimationTransition>);
 
-// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
-impl Clone for AnimationTransitions {
-    fn clone(&self) -> Self {
-        Self {
-            main_animation: self.main_animation,
-            transitions: self.transitions.clone(),
-        }
-    }
-
-    fn clone_from(&mut self, source: &Self) {
-        self.main_animation = source.main_animation;
-        self.transitions.clone_from(&source.transitions);
-    }
-}
 
 /// An animation that is being faded out as part of a transition
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Debug, Clone,  Reflect)]
 #[reflect(Clone)]
 pub struct AnimationTransition {
     /// The current weight. Starts at 1.0 and goes to 0.0 during the fade-out.
     current_weight: f32,
     /// How much to decrease `current_weight` per second
     weight_decline_per_sec: f32,
-    /// The animation that is being faded out
-    animation: AnimationNodeIndex,
+    /// The animation that is beind fade out
+    old_node:AnimationGraphNode,
+    /// The animation that is gaining weight
+    new_node: AnimationGraphNode,
 }
 
 impl AnimationTransitions {
-    /// Creates a new [`AnimationTransitions`] component, ready to be added to
-    /// an entity with an [`AnimationPlayer`].
-    pub fn new() -> AnimationTransitions {
-        AnimationTransitions::default()
-    }
-
     /// Plays a new animation on the given [`AnimationPlayer`], fading out any
     /// existing animations that were already playing over the
     /// `transition_duration`.
     ///
     /// Pass [`Duration::ZERO`] to instantly switch to a new animation, avoiding
     /// any transition.
-    pub fn play<'p>(
+    pub fn transition(
         &mut self,
-        player: &'p mut AnimationPlayer,
+        graph: & mut AnimationGraph,
+        old_animation: AnimationNodeIndex,
         new_animation: AnimationNodeIndex,
         transition_duration: Duration,
-    ) -> &'p mut ActiveAnimation {
-        if let Some(old_animation_index) = self.main_animation.replace(new_animation) {
-            if let Some(old_animation) = player.animation_mut(old_animation_index) {
-                if !old_animation.is_paused() {
-                    self.transitions.push(AnimationTransition {
-                        current_weight: old_animation.weight,
-                        weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-                        animation: old_animation_index,
-                    });
-                }
-            }
-        }
+    ) {
+        let old_node = graph.get(old_animation).unwrap().clone();
+        let new_node = graph.get(new_animation).unwrap().clone();
 
-        // If already transitioning away from this animation, cancel the transition.
-        // Otherwise the transition ending would incorrectly stop the new animation.
-        self.transitions
-            .retain(|transition| transition.animation != new_animation);
+        self.push(AnimationTransition { current_weight: old_node.weight, weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(), old_node,new_node });
 
-        player.start(new_animation)
-    }
 
-    /// Obtain the currently playing main animation.
-    pub fn get_main_animation(&self) -> Option<AnimationNodeIndex> {
-        self.main_animation
     }
 }
 
@@ -121,24 +78,14 @@ pub fn advance_transitions(
     for (mut animation_transitions, mut player) in query.iter_mut() {
         let mut remaining_weight = 1.0;
 
-        for transition in &mut animation_transitions.transitions.iter_mut().rev() {
+        for transition in &mut animation_transitions.iter_mut().rev() {
             // Decrease weight.
             transition.current_weight = (transition.current_weight
                 - transition.weight_decline_per_sec * time.delta_secs())
             .max(0.0);
 
-            // Update weight.
-            let Some(ref mut animation) = player.animation_mut(transition.animation) else {
-                continue;
-            };
-            animation.weight = transition.current_weight * remaining_weight;
-            remaining_weight -= animation.weight;
-        }
-
-        if let Some(main_animation_index) = animation_transitions.main_animation {
-            if let Some(ref mut animation) = player.animation_mut(main_animation_index) {
-                animation.weight = remaining_weight;
-            }
+            transition.old_node.weight = transition.current_weight * remaining_weight;
+            remaining_weight -= transition.old_node.weight;
         }
     }
 }
@@ -148,13 +95,9 @@ pub fn advance_transitions(
 pub fn expire_completed_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
 ) {
-    for (mut animation_transitions, mut player) in query.iter_mut() {
-        animation_transitions.transitions.retain(|transition| {
-            let expire = transition.current_weight <= 0.0;
-            if expire {
-                player.stop(transition.animation);
-            }
-            !expire
+    for (mut animation_transitions, _player) in query.iter_mut() {
+        animation_transitions.retain(|transition| {
+            transition.current_weight > 0.0
         });
     }
 }
