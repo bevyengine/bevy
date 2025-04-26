@@ -23,6 +23,10 @@ use wgpu::{
     RequestAdapterOptions,
 };
 
+pub fn compiled_frame_graph_system(mut frame_graph: ResMut<FrameGraph>) {
+    frame_graph.compile();
+}
+
 pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
     let diagnostics_recorder = world.remove_resource::<DiagnosticsRecorder>();
     let mut graph = match world.remove_resource::<FrameGraph>() {
@@ -62,7 +66,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
 
     world.insert_resource(graph);
     world.insert_resource(transient_resource_cache);
-    
+
     match res {
         Ok(Some(diagnostics_recorder)) => {
             world.insert_resource(diagnostics_recorder);
