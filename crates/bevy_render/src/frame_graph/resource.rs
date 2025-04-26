@@ -109,7 +109,7 @@ impl TextureInfo {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum AnyFrameGraphResourceDescriptor {
     Texture(TextureInfo),
     Buffer(BufferInfo),

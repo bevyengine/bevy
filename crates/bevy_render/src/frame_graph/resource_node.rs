@@ -62,6 +62,15 @@ pub struct ResourceNode {
     pub resource: VirtualResource,
 }
 
+pub struct ResourceRequese {
+    pub handle: TypeHandle<ResourceNode>,
+    pub resource: VirtualResource,
+}
+
+pub struct ResourceRelease {
+    pub handle: TypeHandle<ResourceNode>,
+}
+
 #[derive(Clone)]
 pub enum VirtualResource {
     Setuped(AnyFrameGraphResourceDescriptor),
@@ -82,6 +91,19 @@ impl ResourceNode {
 }
 
 impl ResourceNode {
+    pub fn request(&self) -> ResourceRequese {
+        ResourceRequese {
+            handle: self.handle,
+            resource: self.resource.clone(),
+        }
+    }
+
+    pub fn release(&self) -> ResourceRelease {
+        ResourceRelease {
+            handle: self.handle,
+        }
+    }
+
     pub fn version(&self) -> u32 {
         self.version
     }

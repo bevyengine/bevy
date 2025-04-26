@@ -1,6 +1,6 @@
 use super::{
     FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo, ResourceRead, ResourceRef,
-    ResourceTable,
+    ResourceTable, TransientResourceCache,
 };
 use crate::{
     render_resource::{CachedRenderPipelineId, PipelineCache, RenderPipeline},
@@ -17,8 +17,9 @@ pub trait ExtraResource {
 }
 
 pub struct RenderContext<'a> {
-    render_device: RenderDevice,
+    pub(crate) render_device: RenderDevice,
     pub(crate) resource_table: ResourceTable,
+    pub(crate) transient_resource_cache: &'a mut TransientResourceCache,
     command_buffer_queue: Vec<wgpu::CommandBuffer>,
     pipeline_cache: &'a PipelineCache,
 }
