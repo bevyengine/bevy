@@ -6,9 +6,6 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 ///
 /// This allows us to extend the lifetime of the window, so it doesn't get eagerly dropped while a
 /// pipelined renderer still has frames in flight that need to draw to it.
-///
-/// This is achieved by storing a shared reference to the window in the [`RawHandleWrapper`],
-/// which gets picked up by the renderer during extraction.
 #[derive(Debug, Deref, Clone)]
 pub struct WinitWindowWrapper {
     pub(crate) window: Arc<winit::window::Window>,

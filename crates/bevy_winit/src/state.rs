@@ -45,8 +45,6 @@ use bevy_window::{
     WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
 };
-#[cfg(target_os = "android")]
-use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 use crate::{
     accessibility::AccessKitAdapters,
@@ -565,9 +563,12 @@ impl<T: Event> WinitAppRunnerState<T> {
             should_update = true;
             self.ran_update_since_last_redraw = false;
 
-            #[cfg(target_os = "android")]
+
+            #[cfg(all(feature = "bevy_render", target_os = "android"))]
             {
-                // Remove the `RawHandleWrapper` from the primary window.
+                use bevy_window::PrimaryWindow;
+                use bevy_render::view::surface_target::SurfaceTargetSource;
+                // Remove the `SurfaceTargetSource` from the primary window.
                 // This will trigger the surface destruction.
                 let mut query = self
                     .world_mut()
@@ -575,7 +576,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                 let entity = query.single(&self.world()).unwrap();
                 self.world_mut()
                     .entity_mut(entity)
-                    .remove::<RawHandleWrapper>();
+                    .remove::<SurfaceTargetSource>();
             }
         }
 
@@ -586,12 +587,13 @@ impl<T: Event> WinitAppRunnerState<T> {
             // Trigger the next redraw to refresh the screen immediately
             self.redraw_requested = true;
 
-            #[cfg(target_os = "android")]
+            #[cfg(all(feature = "bevy_render", target_os = "android"))]
             {
-                // Get windows that are cached but without raw handles. Those window were already created, but got their
-                // handle wrapper removed when the app was suspended.
+                // Get windows that are cached but without a surface target source. Those windows were already created,
+                // but got their surface target source removed when the app was suspended.
+                use bevy_render::view::surface_target::{SurfaceTargetSource, SurfaceTargetThreadConstraint};
                 let mut query = self.world_mut()
-                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<SurfaceTargetSource>)>();
                 if let Ok((entity, window)) = query.single(&self.world()) {
                     let window = window.clone();
 
@@ -617,7 +619,8 @@ impl<T: Event> WinitAppRunnerState<T> {
                         &monitors,
                     );
 
-                    let wrapper = RawHandleWrapper::new(winit_window).unwrap();
+                    let thread_constraint = SurfaceTargetThreadConstraint::None;
+                    let wrapper = SurfaceTargetSource::new(thread_constraint, winit_window.clone());
 
                     self.world_mut().entity_mut(entity).insert(wrapper);
                 }
