@@ -129,7 +129,6 @@ impl<'a> RenderContext<'a> {
         RenderDevice,
         Option<DiagnosticsRecorder>,
     ) {
-
         self.flush_encoder();
 
         let mut command_buffers = self.command_buffer_queue;

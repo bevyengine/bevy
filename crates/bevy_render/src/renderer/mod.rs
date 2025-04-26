@@ -8,7 +8,9 @@ use tracing::{error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
-    frame_graph::{FrameGraph, FrameGraphRunner, TransientResourceCache},
+    frame_graph::{
+        FrameGraph, FrameGraphRunner, SetupGraph, SetupGraphRunner, TransientResourceCache,
+    },
     render_phase::TrackedRenderPass,
     render_resource::{PipelineCache, RenderPassDescriptor},
     settings::{WgpuSettings, WgpuSettingsPriority},
@@ -22,6 +24,44 @@ use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions,
 };
+
+pub fn setup_frame_graph_system(world: &mut World) {
+    world.resource_scope(|world, mut graph: Mut<SetupGraph>| {
+        graph.update(world);
+    });
+
+    let mut frame_graph = match world.remove_resource::<FrameGraph>() {
+        None => {
+            return;
+        }
+        Some(graph) => graph,
+    };
+
+    let graph = world.resource::<SetupGraph>();
+
+    let res = SetupGraphRunner::run(graph,&mut frame_graph, world);
+
+    match res {
+        Ok(_) => {
+            world.insert_resource(frame_graph);
+        }
+        Err(e) => {
+            error!("Error running setup graph:");
+            {
+                let mut src: &dyn core::error::Error = &e;
+                loop {
+                    error!("> {}", src);
+                    match src.source() {
+                        Some(s) => src = s,
+                        None => break,
+                    }
+                }
+            }
+
+            panic!("Error running setup graph: {e}");
+        }
+    }
+}
 
 pub fn compiled_frame_graph_system(mut frame_graph: ResMut<FrameGraph>) {
     frame_graph.compile();
@@ -52,12 +92,12 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         &mut graph,
         render_device.clone(), // TODO: is this clone really necessary?
         &mut transient_resource_cache,
-        &pipeline_cache,
+        pipeline_cache,
         diagnostics_recorder,
         &render_queue.0,
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         &render_adapter.0,
-        &world,
+        world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
             crate::gpu_readback::submit_readback_commands(world, encoder);

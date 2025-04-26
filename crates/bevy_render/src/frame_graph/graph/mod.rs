@@ -1,6 +1,6 @@
 mod buffer;
-mod texture;
 mod graph_runner;
+mod texture;
 
 pub use graph_runner::*;
 

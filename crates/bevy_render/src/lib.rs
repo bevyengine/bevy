@@ -96,7 +96,10 @@ use crate::{
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{compiled_frame_graph_system, render_system, RenderInstance, WgpuWrapper},
+    renderer::{
+        compiled_frame_graph_system, render_system, setup_frame_graph_system, RenderInstance,
+        WgpuWrapper,
+    },
     settings::RenderCreation,
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -524,6 +527,7 @@ unsafe fn initialize_render_app(app: &mut App) {
         .init_resource::<render_graph::RenderGraph>()
         .init_resource::<frame_graph::FrameGraph>()
         .init_resource::<frame_graph::TransientResourceCache>()
+        .init_resource::<frame_graph::SetupGraph>()
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(
@@ -534,6 +538,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                 apply_extract_commands.in_set(RenderSet::ExtractCommands),
                 (
                     PipelineCache::process_pipeline_queue_system,
+                    setup_frame_graph_system,
                     compiled_frame_graph_system,
                     render_system,
                 )

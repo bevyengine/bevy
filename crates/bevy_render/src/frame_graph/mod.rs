@@ -8,6 +8,7 @@ pub mod render_context;
 pub mod resource;
 pub mod resource_node;
 pub mod resource_table;
+pub mod setup;
 pub mod transient_resource_cache;
 
 pub use common::*;
@@ -20,6 +21,7 @@ pub use render_context::*;
 pub use resource::*;
 pub use resource_node::*;
 pub use resource_table::*;
+pub use setup::*;
 pub use transient_resource_cache::*;
 
 #[derive(Debug, thiserror::Error)]
