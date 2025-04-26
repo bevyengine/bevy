@@ -234,6 +234,7 @@ impl TextPipeline {
         swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
+        layout_info.section_rects.clear();
         layout_info.size = Default::default();
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
@@ -265,6 +266,26 @@ impl TextPipeline {
         let box_size = buffer_dimensions(buffer);
 
         let result = buffer.layout_runs().try_for_each(|run| {
+            if let Some((mut current_section, mut start, mut end)) =
+                run.glyphs.first().map(|g| (g.metadata, g.x, g.x + g.w))
+            {
+                for glyph in run.glyphs.iter() {
+                    let section_index = glyph.metadata;
+                    if section_index != current_section {
+                        layout_info.section_rects.push((
+                            computed.entities[current_section].entity,
+                            Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                        ));
+                        start = end.max(glyph.x);
+                        current_section = section_index;
+                    }
+                    end = glyph.x + glyph.w;
+                }
+                layout_info.section_rects.push((
+                    computed.entities[current_section].entity,
+                    Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                ));
+            }
             let result = run
                 .glyphs
                 .iter()
@@ -342,31 +363,6 @@ impl TextPipeline {
 
             result
         });
-
-        layout_info.section_rects.clear();
-        for run in buffer.layout_runs() {
-            let Some((mut current_section, mut start, mut end)) =
-                run.glyphs.first().map(|g| (g.metadata, g.x, g.x + g.w))
-            else {
-                continue;
-            };
-            for glyph in run.glyphs.iter() {
-                let section_index = glyph.metadata;
-                if section_index != current_section {
-                    layout_info.section_rects.push((
-                        computed.entities[current_section].entity,
-                        Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-                    ));
-                    start = end.max(glyph.x);
-                    current_section = section_index;
-                }
-                end = glyph.x + glyph.w;
-            }
-            layout_info.section_rects.push((
-                computed.entities[current_section].entity,
-                Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-            ));
-        }
 
         // Return the scratch vec.
         self.glyph_info = glyph_info;
