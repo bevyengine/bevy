@@ -154,5 +154,5 @@ impl FromReflect for &'static Location<'static> {
     }
 }
 
-#[cfg(all(feature = "functions", feature = "std"))]
+#[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(&'static Location<'static>);
