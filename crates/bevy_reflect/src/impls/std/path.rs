@@ -160,7 +160,7 @@ impl FromReflect for &'static Path {
     }
 }
 
-#[cfg(all(feature = "functions", feature = "std"))]
+#[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(&'static Path);
 
 impl PartialReflect for Cow<'static, Path> {
@@ -302,5 +302,5 @@ impl GetTypeRegistration for Cow<'static, Path> {
     }
 }
 
-#[cfg(all(feature = "functions", feature = "std"))]
+#[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(Cow<'static, Path>);

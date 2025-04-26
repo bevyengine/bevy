@@ -9,11 +9,9 @@ use crate::{
     utility::NonGenericTypeInfoCell,
 };
 use bevy_platform::prelude::*;
-use bevy_reflect_derive::{impl_reflect_opaque, impl_type_path};
+use bevy_reflect_derive::impl_type_path;
 use core::any::Any;
 use core::fmt;
-
-impl_reflect_opaque!(::bevy_platform::sync::Arc<T: Send + Sync + ?Sized>(Clone));
 
 macro_rules! impl_reflect_for_atomic {
     ($ty:ty, $ordering:expr) => {

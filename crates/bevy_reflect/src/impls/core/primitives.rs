@@ -522,3 +522,43 @@ impl<T: TypePath + ?Sized> TypePath for &'static mut T {
         CELL.get_or_insert::<Self, _>(|| format!("&mut {}", T::short_type_path()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_reflect::{FromReflect, PartialReflect};
+    use core::f32::consts::{PI, TAU};
+
+    #[test]
+    fn should_partial_eq_char() {
+        let a: &dyn PartialReflect = &'x';
+        let b: &dyn PartialReflect = &'x';
+        let c: &dyn PartialReflect = &'o';
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_i32() {
+        let a: &dyn PartialReflect = &123_i32;
+        let b: &dyn PartialReflect = &123_i32;
+        let c: &dyn PartialReflect = &321_i32;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn should_partial_eq_f32() {
+        let a: &dyn PartialReflect = &PI;
+        let b: &dyn PartialReflect = &PI;
+        let c: &dyn PartialReflect = &TAU;
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
+    }
+
+    #[test]
+    fn static_str_should_from_reflect() {
+        let expected = "Hello, World!";
+        let output = <&'static str as FromReflect>::from_reflect(&expected).unwrap();
+        assert_eq!(expected, output);
+    }
+}

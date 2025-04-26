@@ -6,10 +6,10 @@ use crate::{from_reflect::FromReflect, type_path::TypePath, type_registry::GetTy
 #[cfg(feature = "functions")]
 use core::hash::{BuildHasher, Hash};
 
-impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
-impl_type_path!(::std::collections::HashSet<V, S>);
+impl_reflect_for_hashset!(::bevy_platform::collections::HashSet<V,S>);
+impl_type_path!(::bevy_platform::collections::HashSet<V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform::collections::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
