@@ -64,7 +64,8 @@ use bevy_render::{
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 use resources::{
-    prepare_atmosphere_buffer, prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereBuffer, AtmosphereEnvironmentMap, AtmosphereTransforms, RenderSkyBindGroupLayouts
+    prepare_atmosphere_buffer, prepare_atmosphere_transforms, queue_render_sky_pipelines,
+    AtmosphereBuffer, AtmosphereEnvironmentMap, AtmosphereTransforms, RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
 
@@ -73,13 +74,13 @@ use crate::LightProbe;
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, EnvironmentNode, RenderSkyNode},
     resources::{
-        prepare_atmosphere_bind_groups, prepare_probe_textures, prepare_view_textures,
-        prepare_atmosphere_probe_components, AtmosphereBindGroupLayouts, AtmospherePipelines,
-        AtmosphereSamplers,
+        prepare_atmosphere_bind_groups, prepare_atmosphere_probe_components,
+        prepare_probe_textures, prepare_view_textures, AtmosphereBindGroupLayouts,
+        AtmospherePipelines, AtmosphereSamplers,
     },
 };
 
-mod shaders {
+pub mod shaders {
     use bevy_asset::{weak_handle, Handle};
     use bevy_image::Image;
     use bevy_render::render_resource::Shader;

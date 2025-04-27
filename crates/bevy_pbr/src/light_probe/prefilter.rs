@@ -28,6 +28,7 @@ use bevy_render::{
     Extract,
 };
 
+use crate::atmosphere;
 use crate::light_probe::environment_map::EnvironmentMapLight;
 
 /// A handle to the SPD (Single Pass Downsampling) shader.
@@ -177,6 +178,7 @@ impl FromWorld for PrefilterBindGroupLayouts {
                         ),
                     ), // Output specular map
                     (3, uniform_buffer::<PrefilterConstants>(false)), // Uniforms
+                    (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
                 ),
             ),
         );
@@ -200,6 +202,7 @@ impl FromWorld for PrefilterBindGroupLayouts {
                         ),
                     ), // Output irradiance map
                     (3, uniform_buffer::<PrefilterConstants>(false)), // Uniforms
+                    (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
                 ),
             ),
         );
@@ -355,10 +358,9 @@ pub fn extract_prefilter_entities(
             affects_lightmapped_mesh_diffuse: filtered_env_map.affects_lightmapped_mesh_diffuse,
         };
 
-        // Use get_or_spawn to ensure entity exists in render world
-        // This is crucial as we need to preserve the same entity ID
         commands
-            .entity(entity)
+            .get_entity(entity)
+            .expect("Entity not found")
             .insert(render_filtered_env_map.clone());
     }
 }
@@ -430,7 +432,7 @@ pub struct PrefilterConstants {
     mip_level: f32,
     sample_count: u32,
     roughness: f32,
-    _padding: u32,
+    blue_noise_size: Vec2,
 }
 
 /// Stores bind groups for the prefiltering process
@@ -451,8 +453,14 @@ pub fn prepare_prefilter_bind_groups(
     queue: Res<RenderQueue>,
     layouts: Res<PrefilterBindGroupLayouts>,
     samplers: Res<PrefilterSamplers>,
+    render_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
+    // Get blue noise texture
+    let blue_noise_texture = render_images
+        .get(&atmosphere::shaders::BLUENOISE_TEXTURE)
+        .expect("Blue noise texture not loaded");
+
     for (entity, textures, env_map_light) in &light_probes {
         // Create SPD bind group
         let spd_constants = SpdConstants {
@@ -541,7 +549,10 @@ pub fn prepare_prefilter_bind_groups(
                 mip_level: mip as f32,
                 sample_count: 32,
                 roughness,
-                _padding: 0,
+                blue_noise_size: Vec2::new(
+                    blue_noise_texture.size.width as f32,
+                    blue_noise_texture.size.height as f32,
+                ),
             };
 
             let mut radiance_constants_buffer = UniformBuffer::from(radiance_constants);
@@ -560,6 +571,7 @@ pub fn prepare_prefilter_bind_groups(
                     (1, &samplers.linear),
                     (2, &mip_storage_view),
                     (3, &radiance_constants_buffer),
+                    (4, &blue_noise_texture.texture_view),
                 )),
             );
 
@@ -571,7 +583,10 @@ pub fn prepare_prefilter_bind_groups(
             mip_level: 0.0,
             sample_count: 64,
             roughness: 0.0,
-            _padding: 0,
+            blue_noise_size: Vec2::new(
+                blue_noise_texture.size.width as f32,
+                blue_noise_texture.size.height as f32,
+            ),
         };
 
         let mut irradiance_constants_buffer = UniformBuffer::from(irradiance_constants);
@@ -595,6 +610,7 @@ pub fn prepare_prefilter_bind_groups(
                 (1, &samplers.linear),
                 (2, &irradiance_map),
                 (3, &irradiance_constants_buffer),
+                (4, &blue_noise_texture.texture_view),
             )),
         );
 

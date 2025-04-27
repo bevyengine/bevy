@@ -509,6 +509,7 @@ fn raymarch_atmosphere(
     }
     
     var prev_t = t_start;
+    var optical_depth = vec3(0.0);
     for (var s = 0.0; s < sample_count; s += 1.0) {
         // Linear distribution from atmosphere entry to exit/ground
         let t_i = t_start + t_total * (s + sample_offset) / sample_count;
@@ -521,6 +522,7 @@ fn raymarch_atmosphere(
         let local_atmosphere = sample_atmosphere(local_r);
 
         let sample_optical_depth = local_atmosphere.extinction * dt_i;
+        optical_depth += sample_optical_depth;
         let sample_transmittance = exp(-sample_optical_depth);
 
         let inscattering = sample_local_inscattering(
@@ -536,6 +538,20 @@ fn raymarch_atmosphere(
         if all(result.transmittance < vec3(0.001)) {
             break;
         }
+    }
+
+    // get the first light direction
+    // TODO: make this dynamic across all lights
+    let light_dir = lights.directional_lights[0].direction_to_light;
+
+    // include reflected luminance from planet ground 
+    if ray_intersects_ground(r, mu) {
+        let transmittance_to_ground = exp(-optical_depth);
+        let local_up = get_local_up(r, t_max, ray_dir);
+        let mu_light = dot(light_dir, local_up);
+        let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
+        let ground_luminance = transmittance_to_light * transmittance_to_ground * max(mu_light, 0.0) * atmosphere.ground_albedo;
+        result.inscattering += ground_luminance;
     }
 
     return result;

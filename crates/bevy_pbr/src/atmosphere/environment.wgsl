@@ -22,10 +22,10 @@ fn face_uv_to_direction(face: u32, uv: vec2<f32>) -> vec3<f32> {
             dir = vec3<f32>(-1.0, -coords.y, -coords.x);
         }
         case 2u: { // +Y
-            dir = vec3<f32>(coords.x, 1.0, coords.y);
+            dir = vec3<f32>(coords.x, 1.0, -coords.y);
         }
         case 3u: { // -Y
-            dir = vec3<f32>(coords.x, -1.0, -coords.y);
+            dir = vec3<f32>(coords.x, -1.0, coords.y);
         }
         case 4u: { // +Z
             dir = vec3<f32>(coords.x, -coords.y, -1.0);
