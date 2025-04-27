@@ -1,8 +1,8 @@
 use wgpu::AdapterInfo;
 
 use super::{
-    FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo, ResourceRead, ResourceRef,
-    ResourceTable, TransientResourceCache,
+    BindGroupRef, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo, ResourceRead,
+    ResourceRef, ResourceTable, TransientResourceCache,
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
@@ -158,6 +158,18 @@ pub struct TrackedRenderPass<'a, 'b> {
 }
 
 impl<'a, 'b> TrackedRenderPass<'a, 'b> {
+    pub fn set_bind_group(
+        &mut self,
+        index: u32,
+        bind_group_ref: &BindGroupRef,
+        offsets: &[u32],
+    ) -> Result<(), FrameGraphError> {
+        let bind_group = bind_group_ref.extra_resource(&self.render_context)?;
+        self.render_pass.set_bind_group(index, &bind_group, offsets);
+
+        Ok(())
+    }
+
     pub fn set_render_pipeline(
         &mut self,
         id: CachedRenderPipelineId,
