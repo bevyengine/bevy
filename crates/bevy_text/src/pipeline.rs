@@ -276,7 +276,6 @@ impl TextPipeline {
                 .try_for_each(|(layout_glyph, line_y, line_i)| {
                     match current_section {
                         Some(section) => {
-                            let section = section as usize;
                             if section != layout_glyph.metadata {
                                 layout_info.section_rects.push((
                                     computed.entities[section].entity,
