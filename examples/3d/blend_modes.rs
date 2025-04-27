@@ -300,8 +300,7 @@ fn example_control_system(
         }
     }
 
-    let (entity, mut camera, mut camera_transform, camera_global_transform, hdr) =
-        camera.into_inner();
+    let (entity, camera, mut camera_transform, camera_global_transform, hdr) = camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
         if hdr {
