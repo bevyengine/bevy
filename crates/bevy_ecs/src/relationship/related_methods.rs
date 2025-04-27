@@ -2,7 +2,7 @@ use crate::{
     bundle::Bundle,
     entity::{hash_set::EntityHashSet, Entity},
     event::Event,
-    prelude::Observer,
+    observer::Observer,
     relationship::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
     },
