@@ -132,72 +132,62 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ))
                 .with_children(|parent| {
                     // Left column of controls
-                    parent
-                        .spawn((
-                            Node {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                padding: UiRect::all(Val::Px(10.0)),
-                                row_gap: Val::Px(10.0),
-                                column_gap: Val::Px(10.0),
-                                ..default()
-                            },
-                            BackgroundColor(Color::BLACK),
-                            GlobalZIndex(1),
-                        ))
-                        .with_children(|parent| {
-                            // Rotate left button
-                            parent
-                                .spawn((
-                                    Button, // inserts ButtonBundle’s internals automatically
-                                    Node {
-                                        width: Val::Px(50.),
-                                        height: Val::Px(50.),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
-                                        ..default()
+                    parent.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            row_gap: Val::Px(10.0),
+                            column_gap: Val::Px(10.0),
+                            padding: UiRect::all(Val::Px(10.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::BLACK),
+                        GlobalZIndex(1),
+                        children![
+                            (
+                                Button,
+                                Node {
+                                    height: Val::Px(50.0),
+                                    width: Val::Px(50.0),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    ..default()
+                                },
+                                BackgroundColor(Color::WHITE),
+                                RotateButton(-std::f32::consts::FRAC_PI_8),
+                                children![(
+                                    Text::new("<--"),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 16.0,
+                                        ..Default::default()
                                     },
-                                    BackgroundColor(Color::WHITE),
-                                    RotateButton(-std::f32::consts::FRAC_PI_8),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("<--"),
-                                        TextFont {
-                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                            font_size: 16.0,
-                                            ..Default::default()
-                                        },
-                                        TextColor(Color::BLACK),
-                                    ));
-                                });
-
-                            // Scale down button
-                            parent
-                                .spawn((
-                                    Button,
-                                    Node {
-                                        width: Val::Px(50.0),
-                                        height: Val::Px(50.0),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
-                                        ..default()
+                                    TextColor(Color::BLACK),
+                                )]
+                            ),
+                            (
+                                Button,
+                                Node {
+                                    height: Val::Px(50.0),
+                                    width: Val::Px(50.0),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    ..default()
+                                },
+                                BackgroundColor(Color::WHITE),
+                                ScaleButton(-0.25),
+                                children![(
+                                    Text::new("-"),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 16.0,
+                                        ..Default::default()
                                     },
-                                    BackgroundColor(Color::WHITE),
-                                    ScaleButton(-0.25),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("-"),
-                                        TextFont {
-                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                            font_size: 16.0,
-                                            ..Default::default()
-                                        },
-                                        TextColor(Color::BLACK),
-                                    ));
-                                });
-                        });
+                                    TextColor(Color::BLACK),
+                                )],
+                            ),
+                        ],
+                    ));
 
                     // Target node with its own set of buttons
                     parent
@@ -239,59 +229,67 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ));
                                 });
 
-                            // Middle row (Left and Right)
-                            parent.spawn(Node::default()).with_children(|parent| {
-                                // Left
-                                parent
-                                    .spawn((
-                                        Button,
-                                        Node {
-                                            width: Val::Px(50.0),
-                                            height: Val::Px(50.0),
-                                            align_items: AlignItems::Center,
-                                            justify_content: JustifyContent::Center,
-                                            ..default()
-                                        },
-                                        BackgroundColor(Color::WHITE),
-                                        UiTransform::from_angle(std::f32::consts::FRAC_PI_2),
-                                    ))
-                                    .with_children(|parent| {
-                                        parent.spawn((
-                                            Text::new("Left"),
-                                            TextFont {
-                                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                                font_size: 16.0,
-                                                ..Default::default()
+                            // // Middle row (Left and Right)
+                            parent
+                                .spawn(Node {
+                                    align_self: AlignSelf::Stretch,
+                                    justify_content: JustifyContent::SpaceBetween,
+                                    ..default()
+                                })
+                                .with_children(|parent| {
+                                    // Left
+                                    parent
+                                        .spawn((
+                                            Button,
+                                            Node {
+                                                width: Val::Px(50.0),
+                                                height: Val::Px(50.0),
+                                                align_items: AlignItems::Center,
+                                                justify_content: JustifyContent::Center,
+                                                ..default()
                                             },
-                                            TextColor(Color::BLACK),
-                                        ));
-                                    });
-                                // Right
-                                parent
-                                    .spawn((
-                                        Button,
-                                        Node {
-                                            width: Val::Px(50.0),
-                                            height: Val::Px(50.0),
-                                            align_items: AlignItems::Center,
-                                            justify_content: JustifyContent::Center,
-                                            ..default()
-                                        },
-                                        BackgroundColor(Color::WHITE),
-                                        UiTransform::from_angle(-std::f32::consts::FRAC_PI_2),
-                                    ))
-                                    .with_children(|parent| {
-                                        parent.spawn((
-                                            Text::new("Right"),
-                                            TextFont {
-                                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                                font_size: 16.0,
-                                                ..Default::default()
+                                            BackgroundColor(Color::WHITE),
+                                            //UiTransform::from_angle(std::f32::consts::FRAC_PI_2),
+                                        ))
+                                        .with_children(|parent| {
+                                            parent.spawn((
+                                                Text::new("Left"),
+                                                TextFont {
+                                                    font: asset_server
+                                                        .load("fonts/FiraSans-Bold.ttf"),
+                                                    font_size: 16.0,
+                                                    ..Default::default()
+                                                },
+                                                TextColor(Color::BLACK),
+                                            ));
+                                        });
+                                    // Right
+                                    parent
+                                        .spawn((
+                                            Button,
+                                            Node {
+                                                width: Val::Px(50.0),
+                                                height: Val::Px(50.0),
+                                                align_items: AlignItems::Center,
+                                                justify_content: JustifyContent::Center,
+                                                ..default()
                                             },
-                                            TextColor(Color::BLACK),
-                                        ));
-                                    });
-                            });
+                                            BackgroundColor(Color::WHITE),
+                                            //UiTransform::from_angle(-std::f32::consts::FRAC_PI_2),
+                                        ))
+                                        .with_children(|parent| {
+                                            parent.spawn((
+                                                Text::new("Right"),
+                                                TextFont {
+                                                    font: asset_server
+                                                        .load("fonts/FiraSans-Bold.ttf"),
+                                                    font_size: 16.0,
+                                                    ..Default::default()
+                                                },
+                                                TextColor(Color::BLACK),
+                                            ));
+                                        });
+                                });
 
                             // Bottom
                             parent
@@ -305,7 +303,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(Color::WHITE),
-                                    UiTransform::from_angle(std::f32::consts::PI),
+                                    //UiTransform::from_angle(std::f32::consts::PI),
                                 ))
                                 .with_children(|parent| {
                                     parent.spawn((
@@ -321,72 +319,62 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         });
 
                     // Right column of controls
-                    parent
-                        .spawn((
-                            Node {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                row_gap: Val::Px(10.0),
-                                column_gap: Val::Px(10.0),
-                                padding: UiRect::all(Val::Px(10.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::BLACK),
-                            GlobalZIndex(1),
-                        ))
-                        .with_children(|parent| {
-                            // Rotate right button
-                            parent
-                                .spawn((
-                                    Button,
-                                    Node {
-                                        height: Val::Px(50.0),
-                                        width: Val::Px(50.0),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
-                                        ..default()
+                    parent.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            row_gap: Val::Px(10.0),
+                            column_gap: Val::Px(10.0),
+                            padding: UiRect::all(Val::Px(10.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::BLACK),
+                        GlobalZIndex(1),
+                        children![
+                            (
+                                Button,
+                                Node {
+                                    height: Val::Px(50.0),
+                                    width: Val::Px(50.0),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    ..default()
+                                },
+                                BackgroundColor(Color::WHITE),
+                                RotateButton(std::f32::consts::FRAC_PI_8),
+                                children![(
+                                    Text::new("-->"),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 16.0,
+                                        ..Default::default()
                                     },
-                                    BackgroundColor(Color::WHITE),
-                                    RotateButton(std::f32::consts::FRAC_PI_8),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("-->"),
-                                        TextFont {
-                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                            font_size: 16.0,
-                                            ..Default::default()
-                                        },
-                                        TextColor(Color::BLACK),
-                                    ));
-                                });
-
-                            // Scale up button
-                            parent
-                                .spawn((
-                                    Button,
-                                    Node {
-                                        height: Val::Px(50.0),
-                                        width: Val::Px(50.0),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
-                                        ..default()
+                                    TextColor(Color::BLACK),
+                                )]
+                            ),
+                            (
+                                Button,
+                                Node {
+                                    height: Val::Px(50.0),
+                                    width: Val::Px(50.0),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    ..default()
+                                },
+                                BackgroundColor(Color::WHITE),
+                                ScaleButton(0.25),
+                                children![(
+                                    Text::new("+"),
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 16.0,
+                                        ..Default::default()
                                     },
-                                    BackgroundColor(Color::WHITE),
-                                    ScaleButton(0.25),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("+"),
-                                        TextFont {
-                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                            font_size: 16.0,
-                                            ..Default::default()
-                                        },
-                                        TextColor(Color::BLACK),
-                                    ));
-                                });
-                        });
+                                    TextColor(Color::BLACK),
+                                )],
+                            ),
+                        ],
+                    ));
                 });
         });
 }
