@@ -188,7 +188,7 @@ impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for SpawnEnti
 ///     )),
 /// ));
 /// ```
-pub struct SpawnEntity(Entity);
+pub struct SpawnEntity(pub Entity);
 
 impl<R: Relationship> SpawnableList<R> for SpawnEntity {
     fn spawn(self, world: &mut World, entity: Entity) {
