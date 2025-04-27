@@ -2,8 +2,8 @@ use alloc::sync::Arc;
 
 use super::{
     FrameGraph, GraphRawResourceNodeHandle, GraphResource, GraphResourceDescriptor,
-    GraphResourceNodeHandle, ImportToFrameGraph, Pass, ResourceRead, ResourceRef, ResourceWrite,
-    TypeEquals,
+    GraphResourceNodeHandle, ImportToFrameGraph, Pass, PassTrait, ResourceRead, ResourceRef,
+    ResourceWrite, TypeEquals,
 };
 
 pub struct PassNodeBuilder<'a> {
@@ -11,7 +11,7 @@ pub struct PassNodeBuilder<'a> {
     name: String,
     writes: Vec<GraphRawResourceNodeHandle>,
     reads: Vec<GraphRawResourceNodeHandle>,
-    pass: Option<Box<dyn Pass>>,
+    pass: Option<Pass>,
 }
 
 impl<'a> Drop for PassNodeBuilder<'a> {
@@ -24,8 +24,8 @@ impl<'a> Drop for PassNodeBuilder<'a> {
 }
 
 impl<'a> PassNodeBuilder<'a> {
-    pub fn set_pass<T: Pass>(&mut self, pass: T) {
-        self.pass = Some(Box::new(pass))
+    pub fn set_pass<T: PassTrait>(&mut self, pass: T) {
+        self.pass = Some(Pass::new(pass))
     }
 
     pub fn import<ResourceType>(

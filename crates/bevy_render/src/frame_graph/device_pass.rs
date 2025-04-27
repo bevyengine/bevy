@@ -5,7 +5,7 @@ use super::{
 
 #[derive(Default)]
 pub struct DevicePass {
-    pub pass: Option<Box<dyn Pass>>,
+    pub pass: Option<Pass>,
     pub resource_release_array: Vec<ResourceRelease>,
     pub resource_request_array: Vec<ResourceRequese>,
     pub name: String,

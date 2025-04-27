@@ -11,6 +11,7 @@ pub mod resource_table;
 pub mod setup;
 pub mod transient_resource_cache;
 pub mod resource_board;
+pub mod pass;
 
 pub use common::*;
 pub use device_pass::*;
@@ -25,6 +26,7 @@ pub use resource_table::*;
 pub use setup::*;
 pub use transient_resource_cache::*;
 pub use resource_board::*;
+pub use pass::*;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FrameGraphError {
