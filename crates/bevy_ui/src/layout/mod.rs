@@ -263,7 +263,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let node_transform = Affine2::from_scale_angle_translation(
                 transform.scale,
-                -transform.rotation,
+                transform.rotation,
                 transform.translation.resolve(
                     inverse_target_scale_factor,
                     layout_size,
