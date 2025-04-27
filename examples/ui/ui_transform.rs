@@ -103,278 +103,197 @@ fn translation_system(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-
     commands.spawn(Camera2d::default());
+
     // Root node filling the whole screen
-    commands
-        .spawn((
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        BackgroundColor(Color::BLACK),
+        children![(
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
                 align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
+                justify_content: JustifyContent::SpaceEvenly,
+                column_gap: Val::Px(25.0),
+                row_gap: Val::Px(25.0),
                 ..default()
             },
             BackgroundColor(Color::BLACK),
-        ))
-        .with_children(|parent| {
-            // Horizontal container for two sections
-            parent
-                .spawn((
+            children![
+                (
                     Node {
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::SpaceEvenly,
-                        column_gap: Val::Px(25.0),
-                        row_gap: Val::Px(25.0),
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        row_gap: Val::Px(10.0),
+                        column_gap: Val::Px(10.0),
+                        padding: UiRect::all(Val::Px(10.0)),
                         ..default()
                     },
                     BackgroundColor(Color::BLACK),
-                ))
-                .with_children(|parent| {
-                    // Left column of controls
-                    parent.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Column,
-                            justify_content: JustifyContent::Center,
-                            row_gap: Val::Px(10.0),
-                            column_gap: Val::Px(10.0),
-                            padding: UiRect::all(Val::Px(10.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::BLACK),
-                        GlobalZIndex(1),
-                        children![
-                            (
-                                Button,
-                                Node {
-                                    height: Val::Px(50.0),
-                                    width: Val::Px(50.0),
-                                    align_items: AlignItems::Center,
-                                    justify_content: JustifyContent::Center,
-                                    ..default()
-                                },
-                                BackgroundColor(Color::WHITE),
-                                RotateButton(-std::f32::consts::FRAC_PI_8),
-                                children![(
-                                    Text::new("<--"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 16.0,
-                                        ..Default::default()
-                                    },
-                                    TextColor(Color::BLACK),
-                                )]
-                            ),
-                            (
-                                Button,
-                                Node {
-                                    height: Val::Px(50.0),
-                                    width: Val::Px(50.0),
-                                    align_items: AlignItems::Center,
-                                    justify_content: JustifyContent::Center,
-                                    ..default()
-                                },
-                                BackgroundColor(Color::WHITE),
-                                ScaleButton(-0.25),
-                                children![(
-                                    Text::new("-"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 16.0,
-                                        ..Default::default()
-                                    },
-                                    TextColor(Color::BLACK),
-                                )],
-                            ),
-                        ],
-                    ));
-
-                    // Target node with its own set of buttons
-                    parent
-                        .spawn((
+                    GlobalZIndex(1),
+                    children![
+                        (
+                            Button,
                             Node {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::SpaceBetween,
+                                height: Val::Px(50.0),
+                                width: Val::Px(50.0),
                                 align_items: AlignItems::Center,
-                                width: Val::Px(300.0),
-                                height: Val::Px(300.0),
+                                justify_content: JustifyContent::Center,
                                 ..default()
                             },
-                            BackgroundColor(DARK_GRAY.into()),
-                            TargetNode,
-                        ))
-                        .with_children(|parent| {
-                            // Top
-                            parent
-                                .spawn((
+                            BackgroundColor(Color::WHITE),
+                            RotateButton(-std::f32::consts::FRAC_PI_8),
+                            children![(Text::new("<--"), TextColor(Color::BLACK),)]
+                        ),
+                        (
+                            Button,
+                            Node {
+                                height: Val::Px(50.0),
+                                width: Val::Px(50.0),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BackgroundColor(Color::WHITE),
+                            ScaleButton(-0.25),
+                            children![(Text::new("-"), TextColor(Color::BLACK),)]
+                        ),
+                    ]
+                ),
+                // Target node with its own set of buttons
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        width: Val::Px(300.0),
+                        height: Val::Px(300.0),
+                        ..default()
+                    },
+                    BackgroundColor(DARK_GRAY.into()),
+                    TargetNode,
+                    children![
+                        (
+                            Button,
+                            Node {
+                                width: Val::Px(80.0),
+                                height: Val::Px(80.0),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BackgroundColor(Color::WHITE),
+                            children![(Text::new("Top"), TextColor(Color::BLACK))]
+                        ),
+                        (
+                            Node {
+                                align_self: AlignSelf::Stretch,
+                                justify_content: JustifyContent::SpaceBetween,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            children![
+                                (
                                     Button,
                                     Node {
-                                        width: Val::Px(50.0),
-                                        height: Val::Px(50.0),
+                                        width: Val::Px(80.0),
+                                        height: Val::Px(80.0),
                                         align_items: AlignItems::Center,
                                         justify_content: JustifyContent::Center,
                                         ..default()
                                     },
                                     BackgroundColor(Color::WHITE),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("Top"),
-                                        TextFont {
-                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                            font_size: 16.0,
-                                            ..Default::default()
-                                        },
-                                        TextColor(Color::BLACK),
-                                    ));
-                                });
-
-                            // // Middle row (Left and Right)
-                            parent
-                                .spawn(Node {
-                                    align_self: AlignSelf::Stretch,
-                                    justify_content: JustifyContent::SpaceBetween,
-                                    ..default()
-                                })
-                                .with_children(|parent| {
-                                    // Left
-                                    parent
-                                        .spawn((
-                                            Button,
-                                            Node {
-                                                width: Val::Px(50.0),
-                                                height: Val::Px(50.0),
-                                                align_items: AlignItems::Center,
-                                                justify_content: JustifyContent::Center,
-                                                ..default()
-                                            },
-                                            BackgroundColor(Color::WHITE),
-                                            //UiTransform::from_angle(std::f32::consts::FRAC_PI_2),
-                                        ))
-                                        .with_children(|parent| {
-                                            parent.spawn((
-                                                Text::new("Left"),
-                                                TextFont {
-                                                    font: asset_server
-                                                        .load("fonts/FiraSans-Bold.ttf"),
-                                                    font_size: 16.0,
-                                                    ..Default::default()
-                                                },
-                                                TextColor(Color::BLACK),
-                                            ));
-                                        });
-                                    // Right
-                                    parent
-                                        .spawn((
-                                            Button,
-                                            Node {
-                                                width: Val::Px(50.0),
-                                                height: Val::Px(50.0),
-                                                align_items: AlignItems::Center,
-                                                justify_content: JustifyContent::Center,
-                                                ..default()
-                                            },
-                                            BackgroundColor(Color::WHITE),
-                                            //UiTransform::from_angle(-std::f32::consts::FRAC_PI_2),
-                                        ))
-                                        .with_children(|parent| {
-                                            parent.spawn((
-                                                Text::new("Right"),
-                                                TextFont {
-                                                    font: asset_server
-                                                        .load("fonts/FiraSans-Bold.ttf"),
-                                                    font_size: 16.0,
-                                                    ..Default::default()
-                                                },
-                                                TextColor(Color::BLACK),
-                                            ));
-                                        });
-                                });
-
-                            // Bottom
-                            parent
-                                .spawn((
+                                    //UiTransform::from_angle(std::f32::consts::FRAC_PI_2),
+                                    children![(Text::new("Left"), TextColor(Color::BLACK),)]
+                                ),
+                                (
+                                    Node {
+                                        width: Val::Px(100.),
+                                        height: Val::Px(100.),
+                                        ..Default::default()
+                                    },
+                                    ImageNode {
+                                        image: asset_server.load("branding/icon.png"),
+                                        image_mode: NodeImageMode::Stretch,
+                                        ..default()
+                                    }
+                                ),
+                                (
                                     Button,
                                     Node {
-                                        width: Val::Px(50.0),
-                                        height: Val::Px(50.0),
+                                        width: Val::Px(80.0),
+                                        height: Val::Px(80.0),
                                         align_items: AlignItems::Center,
                                         justify_content: JustifyContent::Center,
                                         ..default()
                                     },
                                     BackgroundColor(Color::WHITE),
-                                    //UiTransform::from_angle(std::f32::consts::PI),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new("Bottom"),
-                                        TextFont {
-                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                            font_size: 16.0,
-                                            ..Default::default()
-                                        },
-                                        TextColor(Color::BLACK),
-                                    ));
-                                });
-                        });
-
-                    // Right column of controls
-                    parent.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Column,
-                            justify_content: JustifyContent::Center,
-                            row_gap: Val::Px(10.0),
-                            column_gap: Val::Px(10.0),
-                            padding: UiRect::all(Val::Px(10.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::BLACK),
-                        GlobalZIndex(1),
-                        children![
-                            (
-                                Button,
-                                Node {
-                                    height: Val::Px(50.0),
-                                    width: Val::Px(50.0),
-                                    align_items: AlignItems::Center,
-                                    justify_content: JustifyContent::Center,
-                                    ..default()
-                                },
-                                BackgroundColor(Color::WHITE),
-                                RotateButton(std::f32::consts::FRAC_PI_8),
-                                children![(
-                                    Text::new("-->"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 16.0,
-                                        ..Default::default()
-                                    },
-                                    TextColor(Color::BLACK),
-                                )]
-                            ),
-                            (
-                                Button,
-                                Node {
-                                    height: Val::Px(50.0),
-                                    width: Val::Px(50.0),
-                                    align_items: AlignItems::Center,
-                                    justify_content: JustifyContent::Center,
-                                    ..default()
-                                },
-                                BackgroundColor(Color::WHITE),
-                                ScaleButton(0.25),
-                                children![(
-                                    Text::new("+"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 16.0,
-                                        ..Default::default()
-                                    },
-                                    TextColor(Color::BLACK),
-                                )],
-                            ),
-                        ],
-                    ));
-                });
-        });
+                                    //UiTransform::from_angle(std::f32::consts::FRAC_PI_2),
+                                    children![(Text::new("Right"), TextColor(Color::BLACK),)]
+                                ),
+                            ]
+                        ),
+                        (
+                            Button,
+                            Node {
+                                width: Val::Px(80.0),
+                                height: Val::Px(80.0),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BackgroundColor(Color::WHITE),
+                            children![(Text::new("Bottom"), TextColor(Color::BLACK))]
+                        ),
+                    ]
+                ),
+                // Right column of controls
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        row_gap: Val::Px(10.0),
+                        column_gap: Val::Px(10.0),
+                        padding: UiRect::all(Val::Px(10.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::BLACK),
+                    GlobalZIndex(1),
+                    children![
+                        (
+                            Button,
+                            Node {
+                                height: Val::Px(50.0),
+                                width: Val::Px(50.0),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BackgroundColor(Color::WHITE),
+                            RotateButton(std::f32::consts::FRAC_PI_8),
+                            children![(Text::new("-->"), TextColor(Color::BLACK),)]
+                        ),
+                        (
+                            Button,
+                            Node {
+                                height: Val::Px(50.0),
+                                width: Val::Px(50.0),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BackgroundColor(Color::WHITE),
+                            ScaleButton(0.25),
+                            children![(Text::new("+"), TextColor(Color::BLACK),)]
+                        ),
+                    ]
+                )
+            ]
+        )],
+    ));
 }
