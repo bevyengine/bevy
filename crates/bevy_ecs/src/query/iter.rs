@@ -130,7 +130,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     ///  # Safety
     ///  - `range` must be in `[0, storage::entity_count)` or None.
-    #[inline]
+    #[inline(always)]
     pub(super) unsafe fn fold_over_storage_range<B, Func>(
         &mut self,
         mut accum: B,
@@ -194,7 +194,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///  - `table` must match D and F
     ///  - `table_id` must match `table`
     ///  - The query iteration must be dense (i.e. `self.query_state.is_dense` must be true).
-    #[inline]
+    #[inline(always)]
     pub(super) unsafe fn fold_over_table_range<B, Func>(
         &mut self,
         mut accum: B,
@@ -256,7 +256,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
-    #[inline]
+    #[inline(always)]
     pub(super) unsafe fn fold_over_archetype_range<B, Func>(
         &mut self,
         mut accum: B,
@@ -325,7 +325,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///  - `archetype` must match D and F
     ///  - `archetype` must have the same length with it's table.
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
-    #[inline]
+    #[inline(always)]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
         &mut self,
         mut accum: B,
@@ -906,7 +906,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
         (min_size, Some(max_size))
     }
 
-    #[inline]
+    #[inline(always)]
     fn fold<B, Func>(mut self, init: B, mut func: Func) -> B
     where
         Func: FnMut(B, Self::Item) -> B,
