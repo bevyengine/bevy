@@ -142,14 +142,14 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
 /// # use bevy_ecs::world::World;
 /// let mut world = World::new();
 ///
-/// let child2 = world.spawn(Name::new("Child2"));
-/// let child3 = world.spawn(Name::new("Child3"));
+/// let child2 = world.spawn(Name::new("Child2")).id();
+/// let child3 = world.spawn(Name::new("Child3")).id();
 ///
 /// world.spawn((
 ///     Name::new("Root"),
 ///     Children::spawn((
 ///         Spawn(Name::new("Child1")),
-///         SpawnEntities([child2, child3]),
+///         SpawnEntities([child2, child3].into_iter()),
 ///     )),
 /// ));
 /// ```
@@ -179,7 +179,7 @@ impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for SpawnEnti
 /// # use bevy_ecs::world::World;
 /// let mut world = World::new();
 ///
-/// let child1 = world.spawn(Name::new("Child1"));
+/// let child1 = world.spawn(Name::new("Child1")).id();
 ///
 /// world.spawn((
 ///     Name::new("Root"),
