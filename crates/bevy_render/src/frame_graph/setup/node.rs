@@ -1,9 +1,9 @@
 use core::fmt::Debug;
 
-use bevy_ecs::world::World;
+use bevy_ecs::{query::{QueryItem, QueryState, ReadOnlyQueryData}, world::{FromWorld, World}};
 use downcast_rs::{impl_downcast, Downcast};
 
-use crate::{frame_graph::FrameGraph, render_graph::InternedRenderLabel};
+use crate::{frame_graph::FrameGraph, render_graph::{InternedRenderLabel, InternedRenderSubGraph, RenderSubGraph}};
 
 use super::{
     Edge, InputSlotError, OutputSlotError, RunSubGraphError, SetupGraphContext, SetupGraphError,
@@ -234,9 +234,101 @@ impl Setup for EmptySetup {
     fn run<'w>(
         &self,
         _graph: &mut SetupGraphContext,
-        _render_context: &mut FrameGraph,
+        _frame_graph: &mut FrameGraph,
         _world: &'w World,
     ) -> Result<(), SetupRunError> {
+        Ok(())
+    }
+}
+
+pub struct RunGraphOnViewSetup {
+    sub_graph: InternedRenderSubGraph,
+}
+
+impl RunGraphOnViewSetup {
+    pub fn new<T: RenderSubGraph>(sub_graph: T) -> Self {
+        Self {
+            sub_graph: sub_graph.intern(),
+        }
+    }
+}
+
+impl Setup for RunGraphOnViewSetup {
+    fn run(
+        &self,
+        graph: &mut SetupGraphContext,
+        _frame_graph: &mut FrameGraph,
+        _world: &World,
+    ) -> Result<(), SetupRunError> {
+        graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()))?;
+        Ok(())
+    }
+}
+
+pub trait ViewSetup {
+    /// The query that will be used on the view entity.
+    /// It is guaranteed to run on the view entity, so there's no need for a filter
+    type ViewQuery: ReadOnlyQueryData;
+
+    /// Updates internal node state using the current render [`World`] prior to the run method.
+    fn update(&mut self, _world: &mut World) {}
+
+    /// Runs the graph node logic, issues draw calls, updates the output slots and
+    /// optionally queues up subgraphs for execution. The graph data, input and output values are
+    /// passed via the [`RenderGraphContext`].
+    fn run<'w>(
+        &self,
+        graph: &mut SetupGraphContext,
+        frame_graph: &mut FrameGraph,
+        view_query: QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
+    ) -> Result<(), SetupRunError>;
+}
+
+/// This [`Node`] can be used to run any [`ViewNode`].
+/// It will take care of updating the view query in `update()` and running the query in `run()`.
+///
+/// This [`Node`] exists to help reduce boilerplate when making a render node that runs on a view.
+pub struct ViewNodeRunner<N: ViewSetup> {
+    view_query: QueryState<N::ViewQuery>,
+    node: N,
+}
+
+impl<N: ViewSetup> ViewNodeRunner<N> {
+    pub fn new(node: N, world: &mut World) -> Self {
+        Self {
+            view_query: world.query_filtered(),
+            node,
+        }
+    }
+}
+
+impl<N: ViewSetup + FromWorld> FromWorld for ViewNodeRunner<N> {
+    fn from_world(world: &mut World) -> Self {
+        Self::new(N::from_world(world), world)
+    }
+}
+
+impl<T> Setup for ViewNodeRunner<T>
+where
+    T: ViewSetup + Send + Sync + 'static,
+{
+    fn update(&mut self, world: &mut World) {
+        self.view_query.update_archetypes(world);
+        self.node.update(world);
+    }
+
+    fn run<'w>(
+        &self,
+        graph: &mut SetupGraphContext,
+        frame_graph: &mut FrameGraph,
+        world: &'w World,
+    ) -> Result<(), SetupRunError> {
+        let Ok(view) = self.view_query.get_manual(world, graph.view_entity()) else {
+            return Ok(());
+        };
+
+        ViewSetup::run(&self.node, graph, frame_graph, view, world)?;
         Ok(())
     }
 }
