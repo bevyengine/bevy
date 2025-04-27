@@ -188,7 +188,7 @@ impl TextPipeline {
         buffer.set_rich_text(
             font_system,
             spans_iter,
-            Attrs::new(),
+            &Attrs::new(),
             Shaping::Advanced,
             Some(justify.into()),
         );
