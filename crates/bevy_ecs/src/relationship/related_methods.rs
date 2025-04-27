@@ -518,7 +518,7 @@ impl<'w, R: Relationship> RelatedSpawner<'w, R> {
     }
 
     /// Creates an [`Observer`] listening for events of type 'E' targeting the 'target'
-    /// entity this spawner was initialized with. No relationship is created
+    /// entity this spawner was initialized with. No relationship 'R' is created
     /// between the [`Observer`] and the 'target' entity.
     pub fn observe_target<E: Event, B: Bundle, M>(
         &mut self,
