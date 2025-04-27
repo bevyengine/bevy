@@ -133,6 +133,73 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
     }
 }
 
+/// A [`SpawnableList`] that adds entities using an iterator of [`Entity`]:
+///
+/// ```
+/// # use bevy_ecs::hierarchy::Children;
+/// # use bevy_ecs::spawn::{Spawn, SpawnIter, SpawnRelated};
+/// # use bevy_ecs::name::Name;
+/// # use bevy_ecs::world::World;
+/// let mut world = World::new();
+///
+/// let child2 = world.spawn(Name::new("Child2"));
+/// let child3 = world.spawn(Name::new("Child3"));
+///
+/// world.spawn((
+///     Name::new("Root"),
+///     Children::spawn((
+///         Spawn(Name::new("Child1")),
+///         SpawnEntities([child2, child3]),
+///     )),
+/// ));
+/// ```
+pub struct SpawnEntities<I>(pub I);
+
+impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for SpawnEntities<I> {
+    fn spawn(self, world: &mut World, entity: Entity) {
+        world
+            .entity_mut(entity)
+            .add_related::<R>(&self.0.collect::<Vec<_>>());
+    }
+
+    fn size_hint(&self) -> usize {
+        self.0.size_hint().0
+    }
+}
+
+/// A wrapper over an [`Entity`] indicating that an entity should be added.
+/// This is intended to be used for hierarchical spawning via traits like [`SpawnableList`] and [`SpawnRelated`].
+///
+/// Also see the [`children`](crate::children) and [`related`](crate::related) macros that abstract over the [`Spawn`] API.
+///
+/// ```
+/// # use bevy_ecs::hierarchy::Children;
+/// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
+/// # use bevy_ecs::name::Name;
+/// # use bevy_ecs::world::World;
+/// let mut world = World::new();
+///
+/// let child1 = world.spawn(Name::new("Child1"));
+///
+/// world.spawn((
+///     Name::new("Root"),
+///     Children::spawn((
+///         SpawnEntity(child1),
+///     )),
+/// ));
+/// ```
+pub struct SpawnEntity(Entity);
+
+impl<R: Relationship> SpawnableList<R> for SpawnEntity {
+    fn spawn(self, world: &mut World, entity: Entity) {
+        world.entity_mut(entity).add_one_related::<R>(self.0);
+    }
+
+    fn size_hint(&self) -> usize {
+        1
+    }
+}
+
 macro_rules! spawnable_list_impl {
     ($($list: ident),*) => {
         #[expect(
