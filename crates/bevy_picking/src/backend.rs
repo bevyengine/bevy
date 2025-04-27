@@ -131,7 +131,7 @@ pub mod ray {
     use crate::backend::prelude::{PointerId, PointerLocation};
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
-    use bevy_platform_support::collections::{hash_map::Iter, HashMap};
+    use bevy_platform::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::Reflect;
     use bevy_render::camera::Camera;
     use bevy_transform::prelude::GlobalTransform;
@@ -178,18 +178,16 @@ pub mod ray {
     /// ```
     #[derive(Clone, Debug, Default, Resource)]
     pub struct RayMap {
-        map: HashMap<RayId, Ray3d>,
+        /// Cartesian product of all pointers and all cameras
+        /// Add your rays here to support picking through indirections,
+        /// e.g. rendered-to-texture cameras
+        pub map: HashMap<RayId, Ray3d>,
     }
 
     impl RayMap {
         /// Iterates over all world space rays for every picking pointer.
         pub fn iter(&self) -> Iter<'_, RayId, Ray3d> {
             self.map.iter()
-        }
-
-        /// The hash map of all rays cast in the current frame.
-        pub fn map(&self) -> &HashMap<RayId, Ray3d> {
-            &self.map
         }
 
         /// Clears the [`RayMap`] and re-populates it with one ray for each
@@ -231,11 +229,8 @@ pub mod ray {
         if !pointer_loc.is_in_viewport(camera, primary_window_entity) {
             return None;
         }
-        let mut viewport_pos = pointer_loc.position;
-        if let Some(viewport) = &camera.viewport {
-            let viewport_logical = camera.to_logical(viewport.physical_position)?;
-            viewport_pos -= viewport_logical;
-        }
-        camera.viewport_to_world(camera_tfm, viewport_pos).ok()
+        camera
+            .viewport_to_world(camera_tfm, pointer_loc.position)
+            .ok()
     }
 }

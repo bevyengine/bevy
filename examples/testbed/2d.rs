@@ -258,14 +258,30 @@ mod text {
 }
 
 mod sprite {
+    use bevy::color::palettes::css::{BLUE, LIME, RED};
     use bevy::prelude::*;
+    use bevy::sprite::Anchor;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, StateScoped(super::Scene::Sprite)));
-        commands.spawn((
-            Sprite::from_image(asset_server.load("branding/bevy_bird_dark.png")),
-            StateScoped(super::Scene::Sprite),
-        ));
+        for (anchor, flip_x, flip_y, color) in [
+            (Anchor::BOTTOM_LEFT, false, false, Color::WHITE),
+            (Anchor::BOTTOM_RIGHT, true, false, RED.into()),
+            (Anchor::TOP_LEFT, false, true, LIME.into()),
+            (Anchor::TOP_RIGHT, true, true, BLUE.into()),
+        ] {
+            commands.spawn((
+                Sprite {
+                    image: asset_server.load("branding/bevy_logo_dark.png"),
+                    anchor,
+                    flip_x,
+                    flip_y,
+                    color,
+                    ..default()
+                },
+                StateScoped(super::Scene::Sprite),
+            ));
+        }
     }
 }
 

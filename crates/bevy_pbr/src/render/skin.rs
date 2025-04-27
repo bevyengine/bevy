@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use bevy_asset::{prelude::AssetChanged, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
-use bevy_platform_support::collections::hash_map::Entry;
+use bevy_platform::collections::hash_map::Entry;
 use bevy_render::render_resource::{Buffer, BufferDescriptor};
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
@@ -211,7 +211,7 @@ pub fn prepare_skins(
     // Swap current and previous buffers.
     mem::swap(&mut uniform.current_buffer, &mut uniform.prev_buffer);
 
-    // Resize the buffer if necessary. Include extra space equal to `MAX_JOINTS`
+    // Resize the buffers if necessary. Include extra space equal to `MAX_JOINTS`
     // because we need to be able to bind a full uniform buffer's worth of data
     // if skins use uniform buffers on this platform.
     let needed_size = (uniform.current_staging_buffer.len() as u64 + MAX_JOINTS as u64)
@@ -223,7 +223,7 @@ pub fn prepare_skins(
             new_size += new_size / 2;
         }
 
-        // Create a new buffer.
+        // Create the new buffers.
         let buffer_usages = if skins_use_uniform_buffers(&render_device) {
             BufferUsages::UNIFORM
         } else {
@@ -235,6 +235,24 @@ pub fn prepare_skins(
             size: new_size,
             mapped_at_creation: false,
         });
+        uniform.prev_buffer = render_device.create_buffer(&BufferDescriptor {
+            label: Some("skin uniform buffer"),
+            usage: buffer_usages,
+            size: new_size,
+            mapped_at_creation: false,
+        });
+
+        // We've created a new `prev_buffer` but we don't have the previous joint
+        // data needed to fill it out correctly. Use the current joint data
+        // instead.
+        //
+        // TODO: This is a bug - will cause motion blur to ignore joint movement
+        // for one frame.
+        render_queue.write_buffer(
+            &uniform.prev_buffer,
+            0,
+            bytemuck::must_cast_slice(&uniform.current_staging_buffer[..]),
+        );
     }
 
     // Write the data from `uniform.current_staging_buffer` into

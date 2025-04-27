@@ -18,7 +18,7 @@ use variadics_please::all_tuples;
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
-use super::{IntoSystem, ReadOnlySystem, SystemParamBuilder};
+use super::{IntoSystem, ReadOnlySystem, SystemParamBuilder, SystemParamValidationError};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -417,7 +417,10 @@ impl<Param: SystemParam> SystemState<Param> {
     /// - The passed [`UnsafeWorldCell`] must have read-only access to
     ///   world data in `archetype_component_access`.
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    pub unsafe fn validate_param(state: &Self, world: UnsafeWorldCell) -> bool {
+    pub unsafe fn validate_param(
+        state: &Self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         unsafe { Param::validate_param(&state.param_state, &state.meta, world) }
     }
@@ -747,7 +750,10 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         let param_state = &self.state.as_ref().expect(Self::ERROR_UNINITIALIZED).param;
         // SAFETY:
         // - The caller has invoked `update_archetype_component_access`, which will panic
@@ -966,6 +972,7 @@ macro_rules! impl_system_function {
             #[inline]
             fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
+                    _: PhantomData<In>,
                     mut f: impl FnMut(In::Param<'_>, $($param,)*)->Out,
                     input: In::Inner<'_>,
                     $($param: $param,)*
@@ -973,7 +980,7 @@ macro_rules! impl_system_function {
                     f(In::wrap(input), $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, input, $($param),*)
+                call_inner(PhantomData::<In>, self, input, $($param),*)
             }
         }
     };
