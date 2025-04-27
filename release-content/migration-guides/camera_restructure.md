@@ -9,3 +9,4 @@ As part of the rendering crate reorganization, we've been working to simplify Be
   - before: `commands.spawn((Camera3d, Camera { hdr: true, ..default() });`
   - after: `commands.spawn((Camera3d, Hdr));`
   - rendering effects can now `#[require(Hdr)]` if they only function with an HDR camera.
+    This is currently implemented for `Bloom`, `AutoExposure`, and `Atmosphere`
