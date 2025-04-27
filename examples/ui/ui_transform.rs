@@ -208,8 +208,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(Color::WHITE),
-                                    //UiTransform::from_angle(std::f32::consts::FRAC_PI_2),
-                                    children![(Text::new("Left"), TextColor(Color::BLACK),)]
+                                    children![(
+                                        Text::new("Left"),
+                                        TextColor(Color::BLACK),
+                                        UiTransform::from_angle(-std::f32::consts::FRAC_PI_2),
+                                    )]
                                 ),
                                 (
                                     Node {
@@ -233,8 +236,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(Color::WHITE),
-                                    //UiTransform::from_angle(std::f32::consts::FRAC_PI_2),
-                                    children![(Text::new("Right"), TextColor(Color::BLACK),)]
+                                    children![(
+                                        Text::new("Right"),
+                                        TextColor(Color::BLACK),
+                                        UiTransform::from_angle(std::f32::consts::FRAC_PI_2),
+                                    )]
                                 ),
                             ]
                         ),
@@ -248,7 +254,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::WHITE),
-                            children![(Text::new("Bottom"), TextColor(Color::BLACK))]
+                            children![(
+                                Text::new("Bottom"),
+                                TextColor(Color::BLACK),
+                                UiTransform::from_angle(std::f32::consts::PI),
+                            )]
                         ),
                     ]
                 ),

@@ -193,7 +193,7 @@ with UI components as a child of an entity without UI components, your UI layout
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
         root_size: Option<Vec2>,
-        mut propagated_transform: Affine2,
+        mut inherited_transform: Affine2,
         node_update_query: &mut Query<(
             &mut ComputedNode,
             &UiTransform,
@@ -270,10 +270,10 @@ with UI components as a child of an entity without UI components, your UI layout
                     viewport_size,
                 ),
             );
-            propagated_transform *= node_transform * Affine2::from_translation(node_center);
+            inherited_transform *= node_transform * Affine2::from_translation(node_center);
 
-            if propagated_transform != **global_transform {
-                *global_transform = propagated_transform.into();
+            if inherited_transform != **global_transform {
+                *global_transform = inherited_transform.into();
             }
 
             if let Some(border_radius) = maybe_border_radius {
@@ -352,7 +352,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     ui_surface,
                     use_rounding,
                     Some(viewport_size),
-                    propagated_transform,
+                    inherited_transform,
                     node_update_query,
                     ui_children,
                     inverse_target_scale_factor,
