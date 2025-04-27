@@ -4,20 +4,23 @@
 //! to record and resolve archetypes/tables that contain components from an entity in another archetype/table.
 //!
 //! [`InheritFrom`] is the main user-facing component that allows some entity to inherit components from some other entity.
+use alloc::boxed::Box;
 use alloc::collections::vec_deque::VecDeque;
 use alloc::string::ToString;
 use alloc::vec::Vec;
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    sync::Mutex,
+};
 use bumpalo::Bump;
 use core::{
     alloc::Layout,
-    cell::UnsafeCell,
     ops::{Deref, DerefMut},
     panic::Location,
     ptr::NonNull,
 };
 
-use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+use bevy_ptr::OwningPtr;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeEntity, ArchetypeId, ArchetypeRecord, Archetypes},
@@ -182,190 +185,450 @@ pub(crate) struct InheritedTableComponent {
     pub(crate) table_row: TableRow,
 }
 
-#[derive(Debug)]
-pub(crate) struct SharedMutComponentData {
+#[derive(Clone)]
+pub(crate) struct MutComponentSharedData {
     pub(crate) component_info: ComponentInfo,
-    pub(crate) component_ptrs: UnsafeCell<HashMap<usize, NonNull<u8>>>,
-    pub(crate) bump: Bump,
+    pub(crate) bump: NonNull<Mutex<Bump>>,
+    pub(crate) component_ptrs: NonNull<Mutex<HashMap<usize, MutComponentPtrs>>>,
 }
 
-unsafe impl Send for SharedMutComponentData {}
-// SharedMutComponentData is NOT actually Sync, we need either a mutex or a concurrent hashmap + bumpalo-herd here.
-// But this shouldn't affect performance too much since this only matters whenever an inherited mutable component
-// is encountered.
-unsafe impl Sync for SharedMutComponentData {}
-
-impl SharedMutComponentData {
-    #[cold]
-    #[inline(never)]
-    pub unsafe fn get_or_clone<'w, T>(&self, data: &'w mut T, storage_idx: usize) -> &'w mut T {
-        // let data = self.data_ptr.cast::<T>().as_ref();
-        self.component_ptrs
-            .get()
-            .as_mut()
-            .debug_checked_unwrap()
-            .entry(storage_idx)
-            .or_insert_with(|| {
-                let data_ptr = self.bump.alloc_layout(self.component_info.layout());
-                // TODO: use clone function from component_info
-                core::ptr::copy_nonoverlapping(data, data_ptr.as_ptr().cast(), 1);
-                data_ptr
-            })
-            .cast::<T>()
-            .as_mut()
+impl Drop for MutComponentSharedData {
+    fn drop(&mut self) {
+        unsafe { drop(bumpalo::boxed::Box::from_raw(self.component_ptrs.as_ptr())) }
     }
 }
 
-pub struct MutInherited<'w, T> {
-    pub(crate) value: *mut T,
-    pub(crate) added: *mut Tick,
-    pub(crate) changed: *mut Tick,
+impl MutComponentSharedData {
+    fn alloc(
+        bump: &Mutex<Bump>,
+        bump_ptr: NonNull<Mutex<Bump>>,
+        component_info: &ComponentInfo,
+    ) -> NonNull<MutComponentSharedData> {
+        let bump_lock = bump.lock().unwrap();
+        let component_ptrs = unsafe {
+            NonNull::new_unchecked(bumpalo::boxed::Box::into_raw(bumpalo::boxed::Box::new_in(
+                Default::default(),
+                &bump_lock,
+            )))
+        };
+        let shared_data = bumpalo::boxed::Box::new_in(
+            MutComponentSharedData {
+                bump: NonNull::from(bump),
+                component_info: component_info.clone(),
+                component_ptrs,
+            },
+            &bump_lock,
+        );
+        unsafe { NonNull::new_unchecked(bumpalo::boxed::Box::into_raw(shared_data)) }
+    }
+
+    unsafe fn from_ptr<'a>(
+        shared_data: NonNull<MutComponentSharedData>,
+    ) -> bumpalo::boxed::Box<'a, MutComponentSharedData> {
+        unsafe { bumpalo::boxed::Box::from_raw(shared_data.as_ptr()) }
+    }
+
+    fn components(&self) -> &Mutex<HashMap<usize, MutComponentPtrs>> {
+        unsafe { self.component_ptrs.as_ref() }
+    }
+
+    fn get_or_cloned<'w, T: Component>(
+        &self,
+        data: &'w T,
+        table_row: TableRow,
+        this_run: Tick,
+        caller: MaybeLocation,
+    ) -> ComponentMut<'w, T> {
+        unsafe {
+            let mut lock = self.component_ptrs.as_ref().lock().unwrap();
+            let ptrs = lock.entry(table_row.as_usize()).or_insert_with(|| {
+                let bump_lock = self.bump.as_ref().lock().unwrap();
+                let value = bump_lock.alloc_layout(self.component_info.layout());
+                let added = bump_lock.alloc(this_run);
+                let changed = bump_lock.alloc(this_run);
+                let changed_by = caller.map(|l| NonNull::from(bump_lock.alloc(l)));
+                // TODO: use clone function from component_info
+                core::ptr::copy_nonoverlapping(data, value.as_ptr().cast(), 1);
+
+                MutComponentPtrs {
+                    value,
+                    added: NonNull::from(added),
+                    changed: NonNull::from(changed),
+                    changed_by,
+                }
+            });
+            ComponentMut {
+                value: ptrs.value.cast().as_mut(),
+                added: ptrs.added.as_mut(),
+                changed: ptrs.changed.as_mut(),
+                changed_by: ptrs.changed_by.map(|mut l| l.as_mut()),
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn try_get<'w, T: Component>(&self, table_row: TableRow) -> Option<ComponentRef<'w, T>> {
+        unsafe {
+            self.component_ptrs
+                .as_ref()
+                .lock()
+                .unwrap()
+                .get(&table_row.as_usize())
+                .map(|ptrs| ComponentRef {
+                    value: ptrs.value.cast().as_ref(),
+                    added: ptrs.added.as_ref(),
+                    changed: ptrs.changed.as_ref(),
+                    changed_by: ptrs.changed_by.map(|l| l.as_ref()).copied(),
+                })
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct MutComponentPtrs {
+    pub(crate) value: NonNull<u8>,
+    pub(crate) added: NonNull<Tick>,
+    pub(crate) changed: NonNull<Tick>,
+    pub(crate) changed_by: MaybeLocation<NonNull<&'static Location<'static>>>,
+}
+
+pub struct MutComponent<'w, T: Component> {
+    pub(crate) value: NonNull<T>,
+    pub(crate) added: NonNull<Tick>,
+    pub(crate) changed: NonNull<Tick>,
+    pub(crate) changed_by: MaybeLocation<NonNull<&'static Location<'static>>>,
+
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
-    pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
-    pub(crate) is_inherited: bool,
-    pub(crate) shared_data: Option<&'w SharedMutComponentData>,
-    pub(crate) table_row: usize,
+    pub(crate) is_shared: bool,
+    pub(crate) shared_data: Option<&'w MutComponentSharedData>,
+    pub(crate) table_row: TableRow,
 }
 
-impl<'w, T> MutInherited<'w, T> {
-    // pub fn ptr(&mut self) -> &mut Mut<'w, T> {
-    //     &mut self.original_data
-    // }
-
-    // pub fn into_inner(mut self) -> &'w mut T {
-    //     if self.is_inherited {
-    //         unsafe {
-    //             self.shared_data
-    //                 .debug_checked_unwrap()
-    //                 .get_or_clone::<T>(self.value, self.table_row)
-    //         }
-    //     } else {
-    //         self.ticks.
-    //         self.original_data.value
-    //     }
-    // }
-
-    // pub fn map_unchanged<U>(self, f: impl FnOnce(&mut T) -> &mut U) -> MutInherited<'w, U> {
-    //     if self.is_inherited {
-    //         unsafe {
-    //             let new_value = f(self
-    //                 .shared_data
-    //                 .debug_checked_unwrap()
-    //                 .get_or_clone::<T>(self.original_data.value, self.table_row));
-    //             MutInherited {
-    //                 original_data: Mut {
-    //                     value: new_value,
-    //                     ticks: self.original_data.ticks,
-    //                     changed_by: self.original_data.changed_by,
-    //                 },
-    //                 is_inherited: self.is_inherited,
-    //                 shared_data: self.shared_data,
-    //                 table_row: self.table_row,
-    //             }
-    //         }
-    //     } else {
-    //         MutInherited {
-    //             original_data: Mut {
-    //                 value: f(self.original_data.value),
-    //                 ticks: self.original_data.ticks,
-    //                 changed_by: self.original_data.changed_by,
-    //             },
-    //             is_inherited: self.is_inherited,
-    //             shared_data: self.shared_data,
-    //             table_row: self.table_row,
-    //         }
-    //     }
-    // }
+struct ComponentRef<'w, T: Component> {
+    value: &'w T,
+    added: &'w Tick,
+    changed: &'w Tick,
+    changed_by: MaybeLocation,
 }
 
-impl<'w, T> AsRef<T> for MutInherited<'w, T> {
+struct ComponentMut<'w, T: Component> {
+    value: &'w mut T,
+    added: &'w mut Tick,
+    changed: &'w mut Tick,
+    changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
+}
+
+impl<'w, T: Component> MutComponent<'w, T> {
+    #[inline(always)]
+    fn dispatch<R>(&self, func: impl FnOnce(ComponentRef<'w, T>) -> R) -> R {
+        let (value, added, changed, changed_by) = unsafe {
+            (
+                self.value.cast().as_ref(),
+                self.added.as_ref(),
+                self.changed.as_ref(),
+                self.changed_by.map(|l| l.as_ref()).copied(),
+            )
+        };
+
+        if self.is_shared {
+            #[cold]
+            #[inline(never)]
+            fn unlikely<'w, R, T: Component>(
+                func: impl FnOnce(ComponentRef<'w, T>) -> R,
+                shared_data: &'w MutComponentSharedData,
+                value: &'w T,
+                added: &'w Tick,
+                changed: &'w Tick,
+                changed_by: MaybeLocation,
+                table_row: TableRow,
+            ) -> R {
+                func(shared_data.try_get(table_row).unwrap_or(ComponentRef {
+                    value,
+                    added,
+                    changed,
+                    changed_by,
+                }))
+            }
+
+            unlikely(
+                func,
+                unsafe { self.shared_data.debug_checked_unwrap() },
+                value,
+                added,
+                changed,
+                changed_by,
+                self.table_row,
+            )
+        } else {
+            func(ComponentRef {
+                value,
+                added,
+                changed,
+                changed_by,
+            })
+        }
+    }
+
+    #[track_caller]
+    fn dispatch_mut<const CHANGE: bool, R>(
+        &mut self,
+        func: impl FnOnce(ComponentMut<'w, T>) -> R,
+    ) -> R {
+        if self.is_shared {
+            #[cold]
+            #[inline(never)]
+            #[track_caller]
+            fn unlikely<'w, R, T: Component, const CHANGE: bool>(
+                func: impl FnOnce(ComponentMut<'w, T>) -> R,
+                shared_data: &'w MutComponentSharedData,
+                value: &'w T,
+                this_run: Tick,
+                table_row: TableRow,
+                changed_by: MaybeLocation,
+            ) -> R {
+                let mut values = shared_data.get_or_cloned(value, table_row, this_run, changed_by);
+                if CHANGE {
+                    values.changed_by.assign(MaybeLocation::caller());
+                }
+                func(values)
+            }
+            let (shared_data, value, this_run, table_row, changed_by) = unsafe {
+                (
+                    self.shared_data.debug_checked_unwrap(),
+                    self.value.cast().as_ref(),
+                    self.this_run,
+                    self.table_row,
+                    self.changed_by.map(|l| l.as_ref()).copied(),
+                )
+            };
+
+            unlikely::<_, _, CHANGE>(func, shared_data, value, this_run, table_row, changed_by)
+        } else {
+            let (value, added, changed, mut changed_by) = unsafe {
+                (
+                    &mut *self.value.as_ptr(),
+                    &mut *self.added.as_ptr(),
+                    &mut *self.changed.as_ptr(),
+                    self.changed_by.map(|l| &mut *l.as_ptr()),
+                )
+            };
+            if CHANGE {
+                *changed = self.this_run;
+                changed_by.assign(MaybeLocation::caller());
+            }
+
+            func(ComponentMut {
+                value,
+                added,
+                changed,
+                changed_by,
+            })
+        }
+    }
+}
+
+impl<'w, T: Component> MutComponent<'w, T> {
+    #[track_caller]
+    #[inline(always)]
+    pub fn into_inner(mut self) -> &'w mut T {
+        self.dispatch_mut::<true, _>(|args| args.value)
+    }
+
+    #[inline(always)]
+    pub fn map_unchanged<U: ?Sized>(mut self, f: impl FnOnce(&mut T) -> &mut U) -> Mut<'w, U> {
+        let last_run = self.last_run;
+        let this_run = self.this_run;
+        self.dispatch_mut::<false, _>(|args| Mut {
+            value: f(args.value),
+            changed_by: args.changed_by,
+            ticks: TicksMut {
+                added: args.added,
+                changed: args.changed,
+                last_run,
+                this_run,
+            },
+        })
+    }
+
+    #[inline(always)]
+    pub fn reborrow(&mut self) -> MutComponent<'_, T> {
+        MutComponent { ..*self }
+    }
+
+    #[inline(always)]
+    pub fn filter_map_unchanged<U: ?Sized>(
+        mut self,
+        f: impl FnOnce(&mut T) -> Option<&mut U>,
+    ) -> Option<Mut<'w, U>> {
+        let last_run = self.last_run;
+        let this_run = self.this_run;
+        self.dispatch_mut::<false, _>(|args| {
+            f(args.value).map(|value| Mut {
+                value,
+                changed_by: args.changed_by,
+                ticks: TicksMut {
+                    added: args.added,
+                    changed: args.changed,
+                    last_run,
+                    this_run,
+                },
+            })
+        })
+    }
+
+    #[inline(always)]
+    pub fn try_map_unchanged<U: ?Sized, E>(
+        mut self,
+        f: impl FnOnce(&mut T) -> Result<&mut U, E>,
+    ) -> Result<Mut<'w, U>, E> {
+        let last_run = self.last_run;
+        let this_run = self.this_run;
+        self.dispatch_mut::<false, _>(|args| {
+            f(args.value).map(|value| Mut {
+                value,
+                changed_by: args.changed_by,
+                ticks: TicksMut {
+                    added: args.added,
+                    changed: args.changed,
+                    last_run,
+                    this_run,
+                },
+            })
+        })
+    }
+
+    #[inline(always)]
+    pub fn as_deref_mut(&mut self) -> Mut<'_, <T as Deref>::Target>
+    where
+        T: DerefMut,
+    {
+        self.reborrow().map_unchanged(|v| v.deref_mut())
+    }
+
+    #[inline(always)]
+    pub fn as_exclusive(&mut self) -> Mut<'w, T> {
+        let last_run = self.last_run;
+        let this_run = self.this_run;
+        self.dispatch_mut::<false, _>(|args| Mut {
+            value: args.value,
+            changed_by: args.changed_by,
+            ticks: TicksMut {
+                added: args.added,
+                changed: args.changed,
+                last_run,
+                this_run,
+            },
+        })
+    }
+}
+
+impl<'w, T: Component> AsRef<T> for MutComponent<'w, T> {
     #[inline]
     fn as_ref(&self) -> &T {
         self.deref()
     }
 }
 
-impl<'w, T> Deref for MutInherited<'w, T> {
+impl<'w, T: Component> Deref for MutComponent<'w, T> {
     type Target = T;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.value }
+        self.dispatch(|args| args.value)
     }
 }
 
-impl<'w, T> AsMut<T> for MutInherited<'w, T> {
+impl<'w, T: Component> AsMut<T> for MutComponent<'w, T> {
     #[inline]
     fn as_mut(&mut self) -> &mut T {
         self.deref_mut()
     }
 }
 
-impl<'w, T> DerefMut for MutInherited<'w, T> {
+impl<'w, T: Component> DerefMut for MutComponent<'w, T> {
+    #[track_caller]
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        if self.is_inherited {
-            unsafe {
-                self.shared_data
-                    .debug_checked_unwrap()
-                    .get_or_clone::<T>(&mut *self.value, self.table_row)
-            }
-        } else {
-            self.set_changed();
-            unsafe { &mut *self.value }
-        }
+        self.dispatch_mut::<true, _>(|args| args.value)
     }
 }
 
-impl<'w, T> DetectChanges for MutInherited<'w, T> {
+impl<'w, T: Component> DetectChanges for MutComponent<'w, T> {
     #[inline(always)]
     fn is_added(&self) -> bool {
-        false
+        self.dispatch(|args| args.added.is_newer_than(self.last_run, self.this_run))
     }
 
     #[inline(always)]
     fn is_changed(&self) -> bool {
-        false
+        self.dispatch(|args| args.changed.is_newer_than(self.last_run, self.this_run))
     }
 
     #[inline(always)]
     fn last_changed(&self) -> Tick {
-        unsafe { *self.changed }
+        self.dispatch(|args| *args.changed)
     }
 
     #[inline(always)]
     fn changed_by(&self) -> MaybeLocation {
-        self.changed_by.copied()
+        self.dispatch(|args| args.changed_by)
     }
 
+    #[inline(always)]
     fn added(&self) -> Tick {
-        unsafe { *self.added }
+        self.dispatch(|args| *args.added)
     }
 }
 
-impl<'w, T> DetectChangesMut for MutInherited<'w, T> {
+impl<'w, T: Component> DetectChangesMut for MutComponent<'w, T> {
     type Inner = <Mut<'w, T> as DetectChangesMut>::Inner;
 
     #[inline(always)]
+    #[track_caller]
     fn set_changed(&mut self) {
-        unsafe { *self.changed = self.this_run };
+        self.dispatch_mut::<true, _>(|_| {});
     }
 
     #[inline(always)]
-    fn set_last_changed(&mut self, last_changed: Tick) {}
+    #[track_caller]
+    fn set_last_changed(&mut self, last_changed: Tick) {
+        self.dispatch_mut::<true, _>(|args| *args.changed = last_changed);
+    }
 
     #[inline(always)]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
-        self.deref_mut()
+        self.dispatch_mut::<false, _>(|args| args.value)
     }
 
-    fn set_added(&mut self) {}
+    #[inline(always)]
+    #[track_caller]
+    fn set_added(&mut self) {
+        let this_run = self.this_run;
+        self.dispatch_mut::<true, _>(|args| *args.added = this_run);
+    }
 
-    fn set_last_added(&mut self, last_added: Tick) {}
+    #[inline(always)]
+    #[track_caller]
+    fn set_last_added(&mut self, last_added: Tick) {
+        self.dispatch_mut::<true, _>(|args| {
+            *args.added = last_added;
+            *args.changed = last_added;
+        });
+    }
 }
 
-#[derive(Default)]
+impl<'w, T: Component> core::fmt::Debug for MutComponent<'w, T>
+where
+    T: core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple(stringify!(MutComponent))
+            .field(self.dispatch(|original| original.value))
+            .finish()
+    }
+}
+
 /// Contains information about inherited components and entities.
 ///
 /// If an archetype or a table has inherited components, this will contain
@@ -378,14 +641,34 @@ pub struct InheritedComponents {
     /// Must be kept synchronized with `entities_to_ids`
     pub(crate) ids_to_entities: HashMap<ComponentId, Entity>,
 
-    /// These need proper multithreading support.
+    pub(crate) queued_shared_mutations_level: usize,
     pub(crate) shared_table_components:
-        UnsafeCell<HashMap<(ComponentId, TableId), SharedMutComponentData>>,
+        Mutex<HashMap<(ComponentId, TableId), NonNull<MutComponentSharedData>>>,
     pub(crate) shared_sparse_components:
-        UnsafeCell<HashMap<(ComponentId, ArchetypeId), SharedMutComponentData>>,
+        Mutex<HashMap<(ComponentId, ArchetypeId), NonNull<MutComponentSharedData>>>,
+    pub(crate) shared_components_bump: NonNull<Mutex<Bump>>,
+}
+
+impl Default for InheritedComponents {
+    fn default() -> Self {
+        Self {
+            entities_to_ids: Default::default(),
+            ids_to_entities: Default::default(),
+            queued_shared_mutations_level: Default::default(),
+            shared_table_components: Default::default(),
+            shared_sparse_components: Default::default(),
+            shared_components_bump: unsafe {
+                NonNull::new_unchecked(Box::into_raw(Box::default()))
+            },
+        }
+    }
 }
 
 impl InheritedComponents {
+    fn shared_components_bump(&self) -> &Mutex<Bump> {
+        unsafe { self.shared_components_bump.as_ref() }
+    }
+
     /// This method must be called after a new archetype is created to initialized inherited components once.
     pub(crate) fn init_inherited_components(
         &mut self,
@@ -612,6 +895,143 @@ impl InheritedComponents {
                     processed_archetypes.insert(archetype.id());
                 }
             }
+        }
+    }
+
+    pub(crate) fn apply_queued_shared_mutations(world: &mut World) {
+        world.inherited_components.queued_shared_mutations_level += 1;
+
+        let mut queue: EntityHashMap<(Vec<ComponentId>, Vec<MutComponentPtrs>)> =
+            EntityHashMap::default();
+
+        for ((component_id, table_id), shared_data) in world
+            .inherited_components
+            .shared_table_components
+            .lock()
+            .unwrap()
+            .drain()
+        {
+            let shared_data = unsafe { MutComponentSharedData::from_ptr(shared_data) };
+            let components = shared_data.components().lock().unwrap();
+            for (table_row, ptrs) in components.iter() {
+                let entity = world.storages.tables[table_id].entities()[*table_row];
+                let (components_queue, ptrs_queue, ..) = queue
+                    .entry(entity)
+                    .or_insert_with(|| (Vec::default(), Vec::default()));
+                components_queue.push(component_id);
+                ptrs_queue.push(*ptrs);
+            }
+        }
+
+        for ((component_id, archetype_id), shared_data) in world
+            .inherited_components
+            .shared_sparse_components
+            .lock()
+            .unwrap()
+            .drain()
+        {
+            let shared_data = unsafe { MutComponentSharedData::from_ptr(shared_data) };
+            let components = shared_data.components().lock().unwrap();
+            for (table_row, ptrs) in components.iter() {
+                let entity = world.archetypes[archetype_id].entities()[*table_row].id();
+                let (components_queue, ptrs_queue, ..) = queue
+                    .entry(entity)
+                    .or_insert_with(|| (Vec::default(), Vec::default()));
+                components_queue.push(component_id);
+                ptrs_queue.push(*ptrs);
+            }
+        }
+
+        for (entity, (component_ids, component_ptrs)) in queue.drain() {
+            unsafe {
+                world.entity_mut(entity).insert_by_ids(
+                    &component_ids,
+                    component_ptrs.iter().map(|ptrs| OwningPtr::new(ptrs.value)),
+                );
+
+                // Fixup change detection fields after the fact since BundleInserter can't set them on per-component basis.
+                // This means that these fields might be inconsistent when observed inside hooks and observers.
+                for (ptrs, component_id) in component_ptrs.iter().zip(component_ids.iter()) {
+                    let mut entity = world.entity_mut(entity);
+                    let Ok(mut component) = entity.get_mut_by_id(*component_id) else {
+                        continue;
+                    };
+                    *component.ticks.added = ptrs.added.read();
+                    *component.ticks.changed = ptrs.changed.read();
+                    component
+                        .changed_by
+                        .assign(ptrs.changed_by.map(|l| l.read()));
+                }
+            }
+        }
+
+        // entity_mut.insert_by_ids calls flush, which might reenter this function.
+        // To prevent clearing bump before all components are written, we keep track of
+        // recursion level and clear only on the most outer level.
+        world.inherited_components.queued_shared_mutations_level -= 1;
+        if world.inherited_components.queued_shared_mutations_level == 0 {
+            world
+                .inherited_components
+                .shared_components_bump()
+                .lock()
+                .unwrap()
+                .reset();
+        }
+    }
+
+    #[cold]
+    #[inline(always)]
+    pub(crate) fn get_shared_table_component_data<'w>(
+        &'w self,
+        component_info: &ComponentInfo,
+        table_id: TableId,
+    ) -> &'w MutComponentSharedData {
+        let mut lock = self.shared_table_components.lock().unwrap();
+        let ptr = lock
+            .entry((component_info.id(), table_id))
+            .or_insert_with(|| {
+                MutComponentSharedData::alloc(
+                    self.shared_components_bump(),
+                    self.shared_components_bump,
+                    component_info,
+                )
+            });
+        unsafe { ptr.as_ref() }
+    }
+
+    #[cold]
+    #[inline(always)]
+    pub(crate) fn get_shared_sparse_component_data<'w>(
+        &'w self,
+        component_info: &ComponentInfo,
+        archetype_id: ArchetypeId,
+    ) -> &'w MutComponentSharedData {
+        let mut lock = self.shared_sparse_components.lock().unwrap();
+        let ptr = lock
+            .entry((component_info.id(), archetype_id))
+            .or_insert_with(|| {
+                MutComponentSharedData::alloc(
+                    self.shared_components_bump(),
+                    self.shared_components_bump,
+                    component_info,
+                )
+            });
+        unsafe { ptr.as_ref() }
+    }
+}
+
+impl Drop for InheritedComponents {
+    fn drop(&mut self) {
+        self.shared_table_components
+            .lock()
+            .unwrap()
+            .values()
+            .chain(self.shared_sparse_components.lock().unwrap().values())
+            .for_each(|ptr| unsafe {
+                drop(MutComponentSharedData::from_ptr(*ptr));
+            });
+        unsafe {
+            drop(Box::from_raw(self.shared_components_bump.as_ptr()));
         }
     }
 }

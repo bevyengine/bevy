@@ -479,7 +479,7 @@ impl<I: Iterator<Item: EntityEquivalent> + Debug> Debug for UniqueEntityIter<I> 
 mod tests {
     use alloc::{vec, vec::Vec};
 
-    use crate::inheritance::MutInherited;
+    use crate::inheritance::MutComponent;
     use crate::prelude::{Schedule, World};
 
     use crate::component::Component;
@@ -523,7 +523,7 @@ mod tests {
             .cloned();
 
         // With `iter_many_mut` collecting is not possible, because you need to drop each `Mut`/`&mut` before the next is retrieved.
-        let _results: Vec<MutInherited<Thing>> =
+        let _results: Vec<MutComponent<Thing>> =
             query.iter_many_unique_mut(&mut world, entity_set).collect();
     }
 

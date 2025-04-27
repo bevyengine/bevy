@@ -361,14 +361,12 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                     panic!("Cannot call `ReflectComponent::reflect_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
-                unimplemented!("This is not supported in this POC");
-
                 // SAFETY: guard ensures `C` is a mutable component
-                // unsafe {
-                //     entity
-                //         .into_mut_assume_mutable::<C>()
-                //         .map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
-                // }
+                unsafe {
+                    entity
+                        .into_mut_assume_mutable::<C>()
+                        .map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
+                }
             },
             reflect_unchecked_mut: |entity| {
                 if !C::Mutability::MUTABLE {
@@ -376,13 +374,11 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                     panic!("Cannot call `ReflectComponent::reflect_unchecked_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
-                unimplemented!("This is not supported in this POC");
-
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
                 // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
                 // guard ensures `C` is a mutable component
-                // let c = unsafe { entity.get_mut_assume_mutable::<C>() };
-                // c.map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
+                let c = unsafe { entity.get_mut_assume_mutable::<C>() };
+                c.map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
             },
             register_component: |world: &mut World| -> ComponentId {
                 world.register_component::<C>()

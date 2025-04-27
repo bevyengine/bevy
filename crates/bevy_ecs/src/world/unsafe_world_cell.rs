@@ -8,7 +8,7 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     inheritance::{
-        InheritedArchetypeComponent, InheritedComponents, MutInherited, SharedMutComponentData,
+        InheritedArchetypeComponent, InheritedComponents, MutComponent, MutComponentSharedData,
     },
     observer::Observers,
     prelude::Component,
@@ -20,7 +20,14 @@ use crate::{
 };
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
+use core::{
+    any::TypeId,
+    cell::UnsafeCell,
+    fmt::Debug,
+    marker::PhantomData,
+    panic::Location,
+    ptr::{self, NonNull},
+};
 use thiserror::Error;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
@@ -906,7 +913,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutInherited<'w, T>> {
+    pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutComponent<'w, T>> {
         // SAFETY:
         // - trait bound `T: Component<Mutability = Mutable>` ensures component is mutable
         // - same safety requirements
@@ -919,7 +926,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other references to the component exist at the same time
     /// - the component `T` is mutable
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<MutInherited<'w, T>> {
+    pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<MutComponent<'w, T>> {
         // SAFETY: same safety requirements
         unsafe {
             self.get_mut_using_ticks_assume_mutable(
@@ -939,7 +946,7 @@ impl<'w> UnsafeEntityCell<'w> {
         &self,
         last_change_tick: Tick,
         change_tick: Tick,
-    ) -> Option<MutInherited<'w, T>> {
+    ) -> Option<MutComponent<'w, T>> {
         self.world.assert_allows_mutable_access();
 
         let component_id = self.world.components().get_id(TypeId::of::<T>())?;
@@ -958,15 +965,15 @@ impl<'w> UnsafeEntityCell<'w> {
                 true,
             )
             .map(
-                |(value, cells, caller, is_inherited, shared_data)| MutInherited {
-                    value: value.as_ptr().cast(),
+                |(value, cells, caller, is_shared, shared_data)| MutComponent {
+                    value: NonNull::new_unchecked(value.as_ptr().cast()),
+                    added: NonNull::new_unchecked(cells.added.get()),
+                    changed: NonNull::new_unchecked(cells.changed.get()),
+                    changed_by: caller.map(|caller| NonNull::new_unchecked(caller.get())),
                     this_run: change_tick,
                     last_run: last_change_tick,
-                    added: cells.added.get(),
-                    changed: cells.changed.get(),
-                    changed_by: caller.map(|caller| caller.deref_mut()),
-                    is_inherited,
-                    table_row: self.location.table_row.as_usize(),
+                    is_shared,
+                    table_row: self.location.table_row,
                     shared_data,
                 },
             )
@@ -1270,7 +1277,7 @@ unsafe fn get_component_and_ticks(
     TickCells<'_>,
     MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
     bool,
-    Option<&SharedMutComponentData>,
+    Option<&MutComponentSharedData>,
 )> {
     match storage_type {
         StorageType::Table => {
@@ -1320,8 +1327,8 @@ unsafe fn get_component_and_ticks(
                 let table = world.fetch_table(location)?;
                 table
                     .get_component(component_id, location.table_row)
-                    .map(|ptr| {
-                        (
+                    .and_then(|ptr| {
+                        Some((
                             ptr,
                             TickCells {
                                 added: table
@@ -1336,54 +1343,34 @@ unsafe fn get_component_and_ticks(
                                 .map(|changed_by| changed_by.debug_checked_unwrap()),
                             true,
                             Some(
-                                &*world
+                                world
                                     .inherited_components()
-                                    .shared_table_components
-                                    .get()
-                                    .as_mut()
-                                    .debug_checked_unwrap()
-                                    .entry((component_id, original_table_id))
-                                    .or_insert_with(|| SharedMutComponentData {
-                                        component_ptrs: Default::default(),
-                                        bump: Default::default(),
-                                        component_info: world
-                                            .components()
-                                            .get_info(component_id)
-                                            .unwrap()
-                                            .clone(),
-                                    }),
+                                    .get_shared_table_component_data(
+                                        world.components().get_info(component_id)?,
+                                        original_table_id,
+                                    ),
                             ),
-                        )
+                        ))
                     })
             }
             InheritedArchetypeComponent::Sparse { entity, .. } => world
                 .fetch_sparse_set(component_id)?
                 .get_with_ticks(*entity)
-                .map(|(a, b, c)| {
-                    (
+                .and_then(|(a, b, c)| {
+                    Some((
                         a,
                         b,
                         c,
                         true,
                         Some(
-                            &*world
+                            world
                                 .inherited_components()
-                                .shared_sparse_components
-                                .get()
-                                .as_mut()
-                                .debug_checked_unwrap()
-                                .entry((component_id, archetype.id()))
-                                .or_insert_with(|| SharedMutComponentData {
-                                    component_ptrs: Default::default(),
-                                    bump: Default::default(),
-                                    component_info: world
-                                        .components()
-                                        .get_info(component_id)
-                                        .unwrap()
-                                        .clone(),
-                                }),
+                                .get_shared_sparse_component_data(
+                                    world.components().get_info(component_id)?,
+                                    location.archetype_id,
+                                ),
                         ),
-                    )
+                    ))
                 }),
         }
     })

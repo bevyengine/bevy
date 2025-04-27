@@ -22,7 +22,7 @@ use crate::{
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::Event,
-    inheritance::MutInherited,
+    inheritance::MutComponent,
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -2083,7 +2083,7 @@ impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
     /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(
         &mut self,
-        modify: impl FnOnce(MutInherited<T>) + Send + Sync + 'static,
+        modify: impl FnOnce(MutComponent<T>) + Send + Sync + 'static,
     ) -> &mut Self {
         self.entity_commands
             .queue(move |mut entity: EntityWorldMut| {

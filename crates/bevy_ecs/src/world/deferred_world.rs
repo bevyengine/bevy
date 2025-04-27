@@ -6,7 +6,7 @@ use crate::{
     component::{ComponentId, HookContext, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
-    inheritance::MutInherited,
+    inheritance::MutComponent,
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
@@ -79,7 +79,7 @@ impl<'w> DeferredWorld<'w> {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<MutInherited<T>> {
+    ) -> Option<MutComponent<T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
     }
 

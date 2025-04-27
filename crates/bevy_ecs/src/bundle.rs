@@ -1308,10 +1308,9 @@ impl<'w> BundleInserter<'w> {
             }
         };
 
-        let new_archetype = &*new_archetype;
+        let (new_archetype_id, is_inherited) = (new_archetype.id(), new_archetype.is_inherited());
 
-        if new_archetype.is_inherited() {
-            let new_archetype_id = new_location.archetype_id;
+        if is_inherited {
             let old_archetype_id = location.archetype_id;
             let world = self.world.world_mut();
             if new_location.table_id != location.table_id {
@@ -1338,6 +1337,8 @@ impl<'w> BundleInserter<'w> {
                     );
             }
         }
+
+        let new_archetype = &self.world.archetypes()[new_archetype_id];
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
