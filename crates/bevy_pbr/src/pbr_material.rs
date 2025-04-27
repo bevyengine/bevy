@@ -32,7 +32,7 @@ pub enum UvChannel {
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[data(0, StandardMaterialUniform, binding_array(10))]
-#[bindless]
+#[bindless(index_table(range(0..31)))]
 #[reflect(Default, Debug, Clone)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
@@ -437,8 +437,8 @@ pub struct StandardMaterial {
     /// the [`StandardMaterial::specular_tint_texture`] has no alpha value, it
     /// may be desirable to pack the values together and supply the same
     /// texture to both fields.
-    #[texture(27)]
-    #[sampler(28)]
+    #[cfg_attr(feature = "pbr_specular_textures", texture(27))]
+    #[cfg_attr(feature = "pbr_specular_textures", sampler(28))]
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_texture: Option<Handle<Image>>,
 
@@ -458,9 +458,9 @@ pub struct StandardMaterial {
     ///
     /// Like the fixed specular tint value, this texture map isn't supported in
     /// the deferred renderer.
+    #[cfg_attr(feature = "pbr_specular_textures", texture(29))]
+    #[cfg_attr(feature = "pbr_specular_textures", sampler(30))]
     #[cfg(feature = "pbr_specular_textures")]
-    #[texture(29)]
-    #[sampler(30)]
     pub specular_tint_texture: Option<Handle<Image>>,
 
     /// An extra thin translucent layer on top of the main PBR layer. This is

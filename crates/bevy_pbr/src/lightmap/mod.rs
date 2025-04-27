@@ -47,7 +47,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_asset::RenderAssets,

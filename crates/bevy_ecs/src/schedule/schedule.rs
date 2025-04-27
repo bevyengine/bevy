@@ -2,6 +2,7 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
+use alloc::borrow::Cow;
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -10,7 +11,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
@@ -1902,7 +1903,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&'a str>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<Cow<'a, str>>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {

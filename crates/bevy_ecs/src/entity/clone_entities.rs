@@ -1,5 +1,5 @@
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec::Vec};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::any::TypeId;
@@ -1337,9 +1337,9 @@ mod tests {
     fn recursive_clone() {
         let mut world = World::new();
         let root = world.spawn_empty().id();
-        let child1 = world.spawn(ChildOf { parent: root }).id();
-        let grandchild = world.spawn(ChildOf { parent: child1 }).id();
-        let child2 = world.spawn(ChildOf { parent: root }).id();
+        let child1 = world.spawn(ChildOf(root)).id();
+        let grandchild = world.spawn(ChildOf(child1)).id();
+        let child2 = world.spawn(ChildOf(root)).id();
 
         let clone_root = world.spawn_empty().id();
         EntityCloner::build(&mut world)

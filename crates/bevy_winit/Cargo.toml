@@ -19,7 +19,7 @@ serialize = [
   "serde",
   "bevy_input/serialize",
   "bevy_window/serialize",
-  "bevy_platform_support/serialize",
+  "bevy_platform/serialize",
 ]
 android-native-activity = ["winit/android-native-activity"]
 android-game-activity = ["winit/android-game-activity"]
@@ -40,7 +40,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
 ] }
 
@@ -74,7 +74,7 @@ bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = fa
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [

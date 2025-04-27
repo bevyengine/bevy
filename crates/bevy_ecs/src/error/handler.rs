@@ -1,5 +1,5 @@
 #[cfg(feature = "configurable_error_handler")]
-use bevy_platform_support::sync::OnceLock;
+use bevy_platform::sync::OnceLock;
 use core::fmt::Display;
 
 use crate::{component::Tick, error::BevyError};
@@ -127,7 +127,7 @@ pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
 macro_rules! inner {
     ($call:path, $e:ident, $c:ident) => {
         $call!(
-            "Encountered an error in {} `{}`: {:?}",
+            "Encountered an error in {} `{}`: {}",
             $c.kind(),
             $c.name(),
             $e

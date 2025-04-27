@@ -50,3 +50,53 @@ Rust provides a very helpful [`#[deprecated]` attribute](https://doc.rust-lang.o
 This can be a nice a tool to ease migrations, because it downgrades errors to warnings and makes the migration information available right in the user's IDE.
 
 However, it's not always possible to use this attribute, and Bevy does not consider it to be a substitute to a migration guide entry.
+
+```rust
+#[deprecated(since = "0.17.0", note = "This message will appear in the deprecation warning.")]
+struct MyStruct;
+```
+
+## Style Guide
+
+Keep it short and sweet:
+
+- What, then why, then how to migrate.
+- Some helpful standardized phrases:
+  - `OldType` is now `NewType`. Replace all references and imports.
+  - The `Struct::method` method now requires an additional `magnitude: f32` argument.
+  - `Enum` has a new variant, `Enum::NewVariant`, which must be handled during `match` statements.
+  - The `Type::method` method has been removed. Use `Type::other_method` instead.
+  - The `crate::old_module` module is now `crate::new_module`. Update your imports.
+  - `function` now returns `Option<String>` instead of `String`.
+- Make sure it's searchable by directly naming the types and methods involved.
+- Use backticks for types, methods, and modules (e.g. `Vec<T>` or `core::mem::swap`).
+- Use bullet points when listing affected types / functions of a breaking change, or when the listing several complex steps for migrating. Avoid bullets for simple migrations, however.
+- Avoid headings. If you must, use only level-two (`##`) headings.
+- It's often useful to give a code example explaining what a migration may look like.
+
+  ```rust
+  // 0.15
+  fn my_system(world: &mut World) {
+      world.old_method();
+  }
+
+  // 0.16
+  fn my_system(world: &mut World) {
+      // Use `new_method()` instead.
+      world.new_method();
+  }
+  ```
+
+  Often you will want to give two examples of the same piece of code, one for the old version and one for the new. You can designate which is which using comments, such as `// 0.15` and `// 0.16`. Avoid code diffs if possible, as they do not syntax highlight Rust code.
+
+- Make sure to reference the currently published version of a crate when writing a migration guide.
+  See [docs.rs](https://docs.rs/) for a quick reference to the existing public API.
+- When moving items to a new module or crate, consider a simple table listing
+  the moved items and the before and after paths.
+  For example, "`Foo` has been moved from `bar::foo` to `baz`" could be written:
+  
+  **Relocations**
+  
+  |Item|0.15 Path|0.16 Path|
+  |-|-|-|
+  |`Foo`|`bar::foo`|`baz`|
