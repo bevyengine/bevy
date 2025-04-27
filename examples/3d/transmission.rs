@@ -31,13 +31,12 @@ use bevy::{
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
-        view::{ColorGrading, ColorGradingGlobal},
+        view::{ColorGrading, ColorGradingGlobal, Hdr},
     },
 };
 
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 use bevy::anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
-use bevy_render::view::Hdr;
 use rand::random;
 
 fn main() {
