@@ -27,7 +27,9 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
         radiance = sample_emissive_mesh(ray_origin, origin_world_normal, light.id, light.kind >> 1u, rng);
     }
 
-    return radiance / f32(light_count);
+    let inverse_pdf = f32(light_count);
+
+    return radiance * inverse_pdf;
 }
 
 fn sample_emissive_mesh(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, instance_id: u32, triangle_count: u32, rng: ptr<function, u32>) -> vec3<f32> {
@@ -49,7 +51,7 @@ fn sample_emissive_mesh(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, i
 
     let inverse_pdf = f32(triangle_count) * triangle_data.triangle_area;
 
-    return radiance / inverse_pdf;
+    return radiance * inverse_pdf;
 }
 
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297

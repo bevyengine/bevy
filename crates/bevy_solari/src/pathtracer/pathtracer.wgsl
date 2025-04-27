@@ -2,7 +2,7 @@
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
-#import bevy_solari::sampling::sample_cosine_hemisphere
+#import bevy_solari::sampling::{sample_random_light, sample_cosine_hemisphere}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
@@ -37,10 +37,13 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = resolve_ray_hit_full(ray_hit);
 
-            irradiance += ray_hit.material.emissive * throughput;
-
-            let cos_theta = dot(ray_hit.world_normal, -ray_direction);
             let diffuse_brdf = ray_hit.material.base_color / PI;
+
+            if ray_t_min == 0.0 { irradiance = ray_hit.material.emissive; }
+
+            irradiance += throughput * diffuse_brdf * sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
+
+            let cos_theta = dot(-ray_direction, ray_hit.world_normal);
             let cosine_hemisphere_pdf = cos_theta / PI;
             throughput *= (diffuse_brdf * cos_theta) / cosine_hemisphere_pdf;
 
