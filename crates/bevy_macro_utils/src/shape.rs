@@ -15,10 +15,7 @@ pub fn get_struct_fields<'a>(
         Data::Struct(data_struct) => match &data_struct.fields {
             Fields::Named(fields_named) => Ok(&fields_named.named),
             Fields::Unnamed(fields_unnamed) => Ok(&fields_unnamed.unnamed),
-            Fields::Unit => Err(Error::new(
-                data_struct.fields.span(),
-                format!("#[{meta}] only supports structs with more than zero fields"),
-            )),
+            Fields::Unit => Ok(const { &Punctuated::new() }),
         },
         Data::Enum(DataEnum { enum_token, .. }) => Err(Error::new(
             enum_token.span(),
