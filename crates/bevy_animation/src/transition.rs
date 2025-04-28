@@ -11,22 +11,42 @@ use core::time::Duration;
 
 use crate::graph::{AnimationGraph, AnimationNodeIndex};
 
-/// Component responsible for making transitions among two given nodes/states. 
-/// He is also capable of making
+/// Component responsible for managing transitions between N given nodes or states.
+/// It can handle multiple transitions and supports scalable flow-based animation management.
 #[derive(Component, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
-pub struct AnimationTransitions(Vec<AnimationTransition>);
+pub struct AnimationTransitions {
+    #[deref]
+    transitions: Vec<AnimationTransition>,
+    /// Flows represent sequences of animation states.
+    /// For example, in cases such as masked or additive animation scenarios, a user can easily define transitions between previous and new states.
+    /// This concept is similar to "main" animations but is designed to scale across multiple animation layers or parts.
+    flows: Vec<Option<AnimationNodeIndex>>,
+}
 
 /// An animation that is being faded out as part of a transition
-#[derive(Debug, Reflect)]
+#[derive(Debug, Reflect, Default, Clone)]
 pub struct AnimationTransition {
+    /// How much weight we will decrease according to the given user [`Duration`]
     weight_decline_per_sec: f32,
+    /// Node to transition from
     old_node: AnimationNodeIndex,
+    /// Node to transition into
     new_node: AnimationNodeIndex,
+    /// Handle pointer to required component [`AnimationGraph`], needed to grab nodes current weights
     graph: Handle<AnimationGraph>,
+    /// Acts similarly to a local variable, tracks how far into the transition are we, starts from 1. should go to 0
     weight: f32,
 }
 impl AnimationTransitions {
+    /// Potato
+    pub fn new(flow_amount: u8) -> Self {
+        Self {
+            flows: vec![None; flow_amount as usize],
+            transitions: vec![AnimationTransition::default(); flow_amount as usize],
+        }
+    }
+
     /// Transition between one graph node to another according to the given duration
     pub fn transition_nodes(
         &mut self,
@@ -44,37 +64,32 @@ impl AnimationTransitions {
         });
     }
 
-    // /// Plays a new animation on the given [`AnimationPlayer`], fading out any
-    // /// existing animations that were already playing over the
-    // /// `transition_duration`.
-    // ///
-    // /// Pass [`Duration::ZERO`] to instantly switch to a new animation, avoiding
-    // /// any transition.
-    // pub fn play<'p>(
-    //     &mut self,
-    //     player: &'p mut AnimationPlayer,
-    //     new_animation: AnimationNodeIndex,
-    //     transition_duration: Duration,
-    // ) -> &'p mut ActiveAnimation {
-    //     if let Some(old_animation_index) = self.main_animation.replace(new_animation) {
-    //         if let Some(old_animation) = player.animation_mut(old_animation_index) {
-    //             if !old_animation.is_paused() {
-    //                 self.transitions.push(AnimationTransition {
-    //                     current_weight: old_animation.weight,
-    //                     weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-    //                     animation: old_animation_index,
-    //                 });
-    //             }
-    //         }
-    //     }
+    pub fn transition_flows(
+        &mut self,
+        player: &mut AnimationGraph,
+        new_animation: AnimationNodeIndex,
+        transition_duration: Duration,
+    ) {
 
-    //     // If already transitioning away from this animation, cancel the transition.
-    //     // Otherwise the transition ending would incorrectly stop the new animation.
-    //     self.transitions
-    //         .retain(|transition| transition.animation != new_animation);
+        // if let Some(old_animation_index) = self.main_animation.replace(new_animation) {
+        //     if let Some(old_animation) = player.animation_mut(old_animation_index) {
+        //         if !old_animation.is_paused() {
+        //             self.transitions.push(AnimationTransition {
+        //                 current_weight: old_animation.weight,
+        //                 weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
+        //                 animation: old_animation_index,
+        //             });
+        //         }
+        //     }
+        // }
 
-    //     player.start(new_animation)
-    // }
+        // // If already transitioning away from this animation, cancel the transition.
+        // // Otherwise the transition ending would incorrectly stop the new animation.
+        // self.transitions
+        //     .retain(|transition| transition.animation != new_animation);
+
+        // player.start(new_animation)
+    }
 }
 
 /// System responsible for handling [`AnimationTransitions`] transitioning nodes among each other. According to the pacing defined by user.
