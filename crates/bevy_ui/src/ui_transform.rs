@@ -7,6 +7,7 @@ use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use core::f32::consts::PI;
 
+/// A pair of [`Val`]s used to representin a 2-dimensional size or offset.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -14,7 +15,7 @@ use core::f32::consts::PI;
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct UiVec {
+pub struct Val2 {
     /// Translate the node along the x-axis.
     /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
     /// `Val::Auto` is resolved to `0.`.
@@ -25,7 +26,7 @@ pub struct UiVec {
     pub y: Val,
 }
 
-impl UiVec {
+impl Val2 {
     pub const ZERO: Self = Self {
         x: Val::ZERO,
         y: Val::ZERO,
@@ -68,7 +69,7 @@ impl UiVec {
     }
 }
 
-impl Default for UiVec {
+impl Default for Val2 {
     fn default() -> Self {
         Self::ZERO
     }
@@ -87,7 +88,7 @@ impl Default for UiVec {
 #[require(UiGlobalTransform)]
 pub struct UiTransform {
     /// Translate the node.
-    pub translation: UiVec,
+    pub translation: Val2,
     /// Scale the node. A negative value reflects the node in that axis.
     pub scale: Vec2,
     /// Rotate the node clockwise by the given value in radians.
@@ -96,7 +97,7 @@ pub struct UiTransform {
 
 impl UiTransform {
     pub const IDENTITY: Self = Self {
-        translation: UiVec::ZERO,
+        translation: Val2::ZERO,
         scale: Vec2::ONE,
         rotation: 0.,
     };
@@ -118,7 +119,7 @@ impl UiTransform {
     }
 
     /// Creates a UI transform representing a responsive translation.
-    pub fn from_translation(translation: UiVec) -> Self {
+    pub fn from_translation(translation: Val2) -> Self {
         Self {
             translation,
             ..Self::IDENTITY

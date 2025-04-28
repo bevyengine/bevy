@@ -95,7 +95,7 @@ fn translation_system(
                 let x = (x + d.x).clamp(-150., 150.);
                 let y = (y + d.y).clamp(-150., 150.);
 
-                transform.translation = UiVec::px(x, y);
+                transform.translation = Val2::px(x, y);
             }
         }
     }
