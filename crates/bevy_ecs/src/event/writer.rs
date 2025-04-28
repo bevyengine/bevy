@@ -75,8 +75,8 @@ impl<'w, E: Event> EventWriter<'w, E> {
         self.events.send(event)
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than sending each event individually.
+    /// Writes a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
+    /// This is more efficient than writes each event individually.
     /// This method returns the [IDs](`EventId`) of the written `events`.
     ///
     /// See [`Events`] for details.
