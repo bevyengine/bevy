@@ -435,15 +435,15 @@ mod tests {
         test_events.update();
 
         // Sending one event
-        test_events.send(TestEvent);
+        test_events.write(TestEvent);
 
         assert_eq!(test_events.len(), 1);
         assert_eq!(test_events.iter_current_update_events().count(), 1);
         test_events.update();
 
         // Sending two events on the next frame
-        test_events.send(TestEvent);
-        test_events.send(TestEvent);
+        test_events.write(TestEvent);
+        test_events.write(TestEvent);
 
         assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
         assert_eq!(test_events.iter_current_update_events().count(), 2);
