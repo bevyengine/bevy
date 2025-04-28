@@ -526,7 +526,7 @@ impl<'w> DeferredWorld<'w> {
             );
             return None;
         };
-        Some(events_resource.send_batch(events))
+        Some(events_resource.write_batch(events))
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
