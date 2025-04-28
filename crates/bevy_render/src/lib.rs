@@ -322,10 +322,6 @@ impl Plugin for RenderPlugin {
                         .ok()
                         .cloned();
 
-                    if primary_window_surface_target_source.is_none() {
-                        warn!("No PrimaryWindow found with a SurfaceTargetSource to use for render initialization");
-                    }
-
                     let settings = render_creation.clone();
                     let async_renderer = async move {
                         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
