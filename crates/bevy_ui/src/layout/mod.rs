@@ -268,9 +268,9 @@ with UI components as a child of an entity without UI components, your UI layout
                     inverse_target_scale_factor,
                     layout_size,
                     viewport_size,
-                ),
+                ) + node_center,
             );
-            inherited_transform *= node_transform * Affine2::from_translation(node_center);
+            inherited_transform *= node_transform;
 
             if inherited_transform != **global_transform {
                 *global_transform = inherited_transform.into();
