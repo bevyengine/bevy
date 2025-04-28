@@ -563,19 +563,27 @@ impl<T: Event> WinitAppRunnerState<T> {
             should_update = true;
             self.ran_update_since_last_redraw = false;
 
-            #[cfg(all(feature = "bevy_render", target_os = "android"))]
+            #[cfg(target_os = "android")]
             {
-                use bevy_render::view::surface_target::SurfaceTargetSource;
-                use bevy_window::PrimaryWindow;
-                // Remove the `SurfaceTargetSource` from the primary window.
+                use bevy_window::{PrimaryWindow, RawHandleWrapper};
+                // Remove the `RawHandleWrapper` and `SurfaceTargetSource` from the primary window.
                 // This will trigger the surface destruction.
                 let mut query = self
                     .world_mut()
                     .query_filtered::<Entity, With<PrimaryWindow>>();
                 let entity = query.single(&self.world()).unwrap();
+
                 self.world_mut()
                     .entity_mut(entity)
-                    .remove::<SurfaceTargetSource>();
+                    .remove::<RawHandleWrapper>();
+
+                #[cfg(feature = "bevy_render")]
+                {
+                    use bevy_render::view::surface_target::SurfaceTargetSource;
+                    self.world_mut()
+                        .entity_mut(entity)
+                        .remove::<SurfaceTargetSource>();
+                }
             }
         }
 
@@ -586,15 +594,12 @@ impl<T: Event> WinitAppRunnerState<T> {
             // Trigger the next redraw to refresh the screen immediately
             self.redraw_requested = true;
 
-            #[cfg(all(feature = "bevy_render", target_os = "android"))]
+            #[cfg(target_os = "android")]
             {
                 // Get windows that are cached but without a surface target source. Those windows were already created,
                 // but got their surface target source removed when the app was suspended.
-                use bevy_render::view::surface_target::{
-                    SurfaceTargetSource, SurfaceTargetThreadConstraint,
-                };
                 let mut query = self.world_mut()
-                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<SurfaceTargetSource>)>();
+                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<RawHandleWrapper>)>();
                 if let Ok((entity, window)) = query.single(&self.world()) {
                     let window = window.clone();
 
@@ -620,10 +625,22 @@ impl<T: Event> WinitAppRunnerState<T> {
                         &monitors,
                     );
 
-                    let thread_constraint = SurfaceTargetThreadConstraint::None;
-                    let wrapper = SurfaceTargetSource::new(thread_constraint, winit_window.clone());
+                    // Restore RawHandleWrapper (for custom renderers)
+                    self.world_mut()
+                        .entity_mut(entity)
+                        .insert(bevy_window::RawHandleWrapper::new(winit_window.clone()));
 
-                    self.world_mut().entity_mut(entity).insert(wrapper);
+                    // Restore SurfaceTargetSource (for bevy_render)
+                    #[cfg(feature = "bevy_render")]
+                    {
+                        use bevy_render::view::surface_target::{
+                            SurfaceTargetSource, SurfaceTargetThreadConstraint,
+                        };
+                        let thread_constraint = SurfaceTargetThreadConstraint::None;
+                        let wrapper =
+                            SurfaceTargetSource::new(thread_constraint, winit_window.clone());
+                        self.world_mut().entity_mut(entity).insert(wrapper);
+                    }
                 }
             }
         }

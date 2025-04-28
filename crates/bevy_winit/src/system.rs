@@ -8,8 +8,8 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
-    ClosingWindow, Monitor, PrimaryMonitor, VideoMode, Window, WindowClosed, WindowClosing,
-    WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
+    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
+    WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
 };
 use std::collections::HashMap;
 use tracing::{error, info, warn};
@@ -87,6 +87,12 @@ pub fn create_windows<F: QueryFilter + 'static>(
             },
             WinitWindowPressedKeys::default(),
         ));
+
+        // Bevy's renderer (bevy_render) does not use `RawHandleWrapper`, but we expose it for users
+        // who may want to use the display/window handle for their own renderer.
+        commands
+            .entity(entity)
+            .insert(RawHandleWrapper::new(winit_window.clone()).unwrap());
 
         #[cfg(feature = "bevy_render")]
         {
