@@ -60,7 +60,7 @@ mod tests {
 
         let mut reader_a: EventCursor<TestEvent> = events.get_cursor();
 
-        events.send(event_0);
+        events.write(event_0);
 
         assert_eq!(
             get_events(&events, &mut reader_a),
@@ -86,7 +86,7 @@ mod tests {
             "second iteration of reader_b created after event results in zero events"
         );
 
-        events.send(event_1);
+        events.write(event_1);
 
         let mut reader_c = events.get_cursor();
 
@@ -111,7 +111,7 @@ mod tests {
 
         let mut reader_d = events.get_cursor();
 
-        events.send(event_2);
+        events.write(event_2);
 
         assert_eq!(
             get_events(&events, &mut reader_a),
@@ -145,17 +145,17 @@ mod tests {
 
         assert!(reader.read(&events).next().is_none());
 
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         assert_eq!(*reader.read(&events).next().unwrap(), TestEvent { i: 0 });
         assert_eq!(reader.read(&events).next(), None);
 
-        events.send(TestEvent { i: 1 });
+        events.write(TestEvent { i: 1 });
         clear_func(&mut events);
         assert!(reader.read(&events).next().is_none());
 
-        events.send(TestEvent { i: 2 });
+        events.write(TestEvent { i: 2 });
         events.update();
-        events.send(TestEvent { i: 3 });
+        events.write(TestEvent { i: 3 });
 
         assert!(reader
             .read(&events)
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn test_events_send_default() {
         let mut events = Events::<EmptyTestEvent>::default();
-        events.send_default();
+        events.write_default();
 
         let mut reader = events.get_cursor();
         assert_eq!(get_events(&events, &mut reader), vec![EmptyTestEvent]);
@@ -192,7 +192,7 @@ mod tests {
         let event_1 = TestEvent { i: 1 };
         let event_2 = TestEvent { i: 2 };
 
-        let event_0_id = events.send(event_0);
+        let event_0_id = events.write(event_0);
 
         assert_eq!(
             events.get_event(event_0_id.id),
@@ -200,7 +200,7 @@ mod tests {
             "Getting a sent event by ID should return the original event"
         );
 
-        let mut event_ids = events.send_batch([event_1, event_2]);
+        let mut event_ids = events.write_batch([event_1, event_2]);
 
         let event_id = event_ids.next().expect("Event 1 must have been sent");
 
@@ -245,14 +245,14 @@ mod tests {
         let mut events = Events::<TestEvent>::default();
         let mut reader = events.get_cursor();
 
-        events.send(TestEvent { i: 0 });
-        events.send(TestEvent { i: 1 });
+        events.write(TestEvent { i: 0 });
+        events.write(TestEvent { i: 1 });
         assert_eq!(reader.read(&events).count(), 2);
 
         let mut old_events = Vec::from_iter(events.update_drain());
         assert!(old_events.is_empty());
 
-        events.send(TestEvent { i: 2 });
+        events.write(TestEvent { i: 2 });
         assert_eq!(reader.read(&events).count(), 1);
 
         old_events.extend(events.update_drain());
@@ -270,7 +270,7 @@ mod tests {
         let mut events = Events::<TestEvent>::default();
         assert!(events.is_empty());
 
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         assert!(!events.is_empty());
 
         events.update();
@@ -300,12 +300,12 @@ mod tests {
         let mut cursor = events.get_cursor();
         assert!(cursor.read(&events).next().is_none());
 
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         let sent_event = cursor.read(&events).next().unwrap();
         assert_eq!(sent_event, &TestEvent { i: 0 });
         assert!(cursor.read(&events).next().is_none());
 
-        events.send(TestEvent { i: 2 });
+        events.write(TestEvent { i: 2 });
         let sent_event = cursor.read(&events).next().unwrap();
         assert_eq!(sent_event, &TestEvent { i: 2 });
         assert!(cursor.read(&events).next().is_none());
@@ -322,7 +322,7 @@ mod tests {
         assert!(write_cursor.read_mut(&mut events).next().is_none());
         assert!(read_cursor.read(&events).next().is_none());
 
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         let sent_event = write_cursor.read_mut(&mut events).next().unwrap();
         assert_eq!(sent_event, &mut TestEvent { i: 0 });
         *sent_event = TestEvent { i: 1 }; // Mutate whole event
@@ -332,7 +332,7 @@ mod tests {
         );
         assert!(read_cursor.read(&events).next().is_none());
 
-        events.send(TestEvent { i: 2 });
+        events.write(TestEvent { i: 2 });
         let sent_event = write_cursor.read_mut(&mut events).next().unwrap();
         assert_eq!(sent_event, &mut TestEvent { i: 2 });
         sent_event.i = 3; // Mutate sub value
@@ -352,7 +352,7 @@ mod tests {
         let mut events = Events::<TestEvent>::default();
         let mut reader = events.get_cursor();
 
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         assert_eq!(reader.len(&events), 1);
         reader.clear(&events);
         assert_eq!(reader.len(&events), 0);
@@ -361,12 +361,12 @@ mod tests {
     #[test]
     fn test_event_cursor_len_update() {
         let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         let reader = events.get_cursor();
         assert_eq!(reader.len(&events), 2);
         events.update();
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         assert_eq!(reader.len(&events), 3);
         events.update();
         assert_eq!(reader.len(&events), 1);
@@ -377,10 +377,10 @@ mod tests {
     #[test]
     fn test_event_cursor_len_current() {
         let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         let reader = events.get_cursor_current();
         assert!(reader.is_empty(&events));
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         assert_eq!(reader.len(&events), 1);
         assert!(!reader.is_empty(&events));
     }
@@ -388,9 +388,9 @@ mod tests {
     #[test]
     fn test_event_cursor_iter_len_updated() {
         let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
-        events.send(TestEvent { i: 1 });
-        events.send(TestEvent { i: 2 });
+        events.write(TestEvent { i: 0 });
+        events.write(TestEvent { i: 1 });
+        events.write(TestEvent { i: 2 });
         let mut reader = events.get_cursor();
         let mut iter = reader.read(&events);
         assert_eq!(iter.len(), 3);
@@ -412,7 +412,7 @@ mod tests {
     #[test]
     fn test_event_cursor_len_filled() {
         let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
+        events.write(TestEvent { i: 0 });
         assert_eq!(events.get_cursor().len(&events), 1);
         assert!(!events.get_cursor().is_empty(&events));
     }

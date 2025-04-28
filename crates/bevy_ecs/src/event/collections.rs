@@ -165,7 +165,7 @@ impl<E: Event> Events<E> {
     where
         E: Default,
     {
-        self.send(Default::default())
+        self.write(Default::default())
     }
     
     /// "Sends" an `event` by writing it to the current event buffer.
@@ -193,7 +193,7 @@ impl<E: Event> Events<E> {
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
     /// This method returns the [ID](`EventId`) of the sent `event`.
-    #[deprecated(since = "0.16.0", note = "Use `Events<E>::write_default` instead.")]
+    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write_default` instead.")]
     #[track_caller]
     pub fn send_default(&mut self) -> EventId<E>
     where
