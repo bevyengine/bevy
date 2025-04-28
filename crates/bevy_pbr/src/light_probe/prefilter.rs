@@ -24,6 +24,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
+    sync_world::RenderEntity,
     texture::{CachedTexture, GpuImage, TextureCache},
     Extract,
 };
@@ -325,10 +326,11 @@ pub struct FilteredEnvironmentMapLight {
 
 pub fn extract_prefilter_entities(
     prefilter_query: Extract<
-        Query<
-            (Entity, &FilteredEnvironmentMapLight, &EnvironmentMapLight),
-            Without<RenderEnvironmentMap>,
-        >,
+        Query<(
+            RenderEntity,
+            &FilteredEnvironmentMapLight,
+            &EnvironmentMapLight,
+        )>,
     >,
     mut commands: Commands,
     render_images: Res<RenderAssets<GpuImage>>,
@@ -357,11 +359,10 @@ pub fn extract_prefilter_entities(
             rotation: filtered_env_map.rotation,
             affects_lightmapped_mesh_diffuse: filtered_env_map.affects_lightmapped_mesh_diffuse,
         };
-
         commands
             .get_entity(entity)
-            .expect("Entity not found")
-            .insert(render_filtered_env_map.clone());
+            .expect("Entity not synced to render world")
+            .insert(render_filtered_env_map);
     }
 }
 
@@ -540,14 +541,28 @@ pub fn prepare_prefilter_bind_groups(
         );
 
         // Create radiance map bind groups for each mip level
-        let mut radiance_bind_groups = Vec::with_capacity(9);
+        let num_mips = 9;
+        let mut radiance_bind_groups = Vec::with_capacity(num_mips);
 
-        for mip in 0..9 {
-            let roughness = if mip == 0 { 0.0 } else { (mip as f32) / 8.0 };
+        for mip in 0..num_mips {
+            let roughness = mip as f32 / (num_mips - 1) as f32;
+
+            // For higher roughness values, use importance sampling with optimized sample count
+            let sample_count = if roughness < 0.01 {
+                1 // Mirror reflection
+            } else if roughness < 0.25 {
+                16
+            } else if roughness < 0.5 {
+                32
+            } else if roughness < 0.75 {
+                64
+            } else {
+                128
+            };
 
             let radiance_constants = PrefilterConstants {
                 mip_level: mip as f32,
-                sample_count: 32,
+                sample_count,
                 roughness,
                 blue_noise_size: Vec2::new(
                     blue_noise_texture.size.width as f32,
@@ -582,7 +597,7 @@ pub fn prepare_prefilter_bind_groups(
         let irradiance_constants = PrefilterConstants {
             mip_level: 0.0,
             sample_count: 64,
-            roughness: 0.0,
+            roughness: 1.0,
             blue_noise_size: Vec2::new(
                 blue_noise_texture.size.width as f32,
                 blue_noise_texture.size.height as f32,

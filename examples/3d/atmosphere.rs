@@ -26,7 +26,11 @@ fn main() {
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(
             Update,
-            (pan_camera, smooth_camera_movement.after(pan_camera)),
+            (
+                pan_camera,
+                smooth_camera_movement.after(pan_camera),
+                exposure_control,
+            ),
         )
         .run();
 }
@@ -44,7 +48,11 @@ fn setup_camera_fog(mut commands: Commands) {
                 hdr: true,
                 ..default()
             },
-            Exposure { ev100: 12.0 },
+            Exposure { ev100: 14.0 },
+            CameraExposure {
+                current_ev100: 14.0,
+                target_ev100: 14.0,
+            },
             // AutoExposure {
             //     filter: 0.0..=1.0,
             //     range: -12.0..=12.0,
@@ -64,7 +72,7 @@ fn setup_camera_fog(mut commands: Commands) {
             AmbientLight {
                 color: Color::WHITE,
                 brightness: 0.0,
-                affects_lightmapped_meshes: true,
+                affects_lightmapped_meshes: false,
             },
             // Tonemapper chosen just because it looked good with the scene, any
             // tonemapper would be fine :)
@@ -140,6 +148,12 @@ struct CameraOrbit {
 }
 
 #[derive(Component)]
+struct CameraExposure {
+    current_ev100: f32,
+    target_ev100: f32,
+}
+
+#[derive(Component)]
 struct SunOrbit {
     target_transform: Transform,
 }
@@ -171,15 +185,15 @@ fn setup_terrain_scene(
     }
 
     // Terrain
-    commands.spawn((
-        Terrain,
-        SceneRoot(
-            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
-        ),
-        Transform::from_xyz(10.0, 0.0, 0.0)
-            .with_scale(Vec3::splat(10.0))
-            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
-    ));
+    // commands.spawn((
+    //     Terrain,
+    //     SceneRoot(
+    //         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
+    //     ),
+    //     Transform::from_xyz(10.0, 0.0, 0.0)
+    //         .with_scale(Vec3::splat(10.0))
+    //         .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+    // ));
 }
 
 fn pan_camera(
@@ -188,6 +202,7 @@ fn pan_camera(
     mut camera_query: Query<(&Transform, &mut CameraOrbit), With<Camera3d>>,
     mut sun_query: Query<(&Transform, &mut SunOrbit), (With<DirectionalLight>, Without<Camera3d>)>,
     mouse_button: Res<ButtonInput<MouseButton>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     camera_query_view: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     windows: Query<&Window>,
 ) {
@@ -219,7 +234,20 @@ fn pan_camera(
     };
 
     for ev in motion_evr.read() {
-        if mouse_button.pressed(MouseButton::Left) {
+        if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+            // Pan camera when shift is held
+            let pan_speed = camera_orbit.distance * 0.001; // Scale pan speed with distance
+
+            // Get camera right and up vectors for panning in camera's local space
+            let right = camera_transform.right();
+            let up = camera_transform.up();
+
+            // Calculate pan offset based on mouse movement
+            let pan_offset = right * -ev.delta.x * pan_speed + up * ev.delta.y * pan_speed;
+
+            // Translate the camera orbit center
+            camera_orbit.target_transform.translation += pan_offset;
+        } else if mouse_button.pressed(MouseButton::Left) {
             let orbit_speed = 0.005;
 
             // Calculate rotations
@@ -256,10 +284,32 @@ fn pan_camera(
     }
 }
 
+fn exposure_control(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut camera_query: Query<&mut CameraExposure>,
+    time: Res<Time>,
+) {
+    if let Ok(mut camera_exposure) = camera_query.single_mut() {
+        // Adjust exposure by 1 stop (1.0 EV) when up/down arrows are pressed
+        let exposure_change = time.delta_secs() * 1.0; // 1 EV per second
+
+        if keyboard.pressed(KeyCode::ArrowUp) {
+            camera_exposure.target_ev100 += exposure_change;
+        }
+        if keyboard.pressed(KeyCode::ArrowDown) {
+            camera_exposure.target_ev100 -= exposure_change;
+        }
+
+        // Optional: clamp to reasonable exposure values
+        camera_exposure.target_ev100 = camera_exposure.target_ev100.clamp(-10.0, 20.0);
+    }
+}
+
 fn smooth_camera_movement(
     time: Res<Time>,
     mut camera_query: Query<(&mut Transform, &CameraOrbit), With<Camera3d>>,
     mut sun_query: Query<(&mut Transform, &SunOrbit), (With<DirectionalLight>, Without<Camera3d>)>,
+    mut exposure_query: Query<(&mut Exposure, &mut CameraExposure)>,
 ) {
     let damping = 1.0 - (-8.0 * time.delta_secs()).exp();
 
@@ -281,6 +331,14 @@ fn smooth_camera_movement(
         transform.rotation = transform
             .rotation
             .slerp(orbit.target_transform.rotation, damping);
+    }
+
+    // Update exposure with smooth interpolation
+    if let Ok((mut exposure, mut camera_exposure)) = exposure_query.single_mut() {
+        camera_exposure.current_ev100 = camera_exposure
+            .current_ev100
+            .lerp(camera_exposure.target_ev100, damping);
+        exposure.ev100 = camera_exposure.current_ev100;
     }
 }
 

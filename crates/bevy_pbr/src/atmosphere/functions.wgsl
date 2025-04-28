@@ -481,7 +481,8 @@ fn raymarch_atmosphere(
     t_max: f32,
     sample_count: f32,
     uv: vec2<f32>,
-    jitter: bool
+    jitter: bool,
+    ground: bool
 ) -> RaymarchResult {
     let r = length(pos);
     let up = normalize(pos);
@@ -545,7 +546,7 @@ fn raymarch_atmosphere(
     let light_dir = lights.directional_lights[0].direction_to_light;
 
     // include reflected luminance from planet ground 
-    if ray_intersects_ground(r, mu) {
+    if ground && ray_intersects_ground(r, mu) {
         let transmittance_to_ground = exp(-optical_depth);
         let local_up = get_local_up(r, t_max, ray_dir);
         let mu_light = dot(light_dir, local_up);

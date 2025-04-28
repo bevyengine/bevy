@@ -52,7 +52,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         if should_raymarch {
             let t_max = max_atmosphere_distance(r, mu);
             let sample_count = mix(1.0, raymarch_steps, clamp(t_max * 0.01, 0.0, 1.0));
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, in.uv, true);
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, in.uv, true, true);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
@@ -65,11 +65,12 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
 
         if should_raymarch {
             let sample_count = mix(1.0, raymarch_steps, clamp(t * 0.01, 0.0, 1.0));
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, sample_count, in.uv, true);
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, sample_count, in.uv, true, false);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
     }
+    // inscattering = vec3(0.5);
 #ifdef DUAL_SOURCE_BLENDING
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
 #else

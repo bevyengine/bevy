@@ -66,6 +66,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, uv, true);
     // let inscattering = result.inscattering;
     let color = vec4<f32>(inscattering, 1.0);
+    // let color = vec4<f32>(0.5, 0.5, 0.5, 1.0);
 
     // Write to the correct slice of the output texture
     textureStore(output, vec2<i32>(global_id.xy), i32(slice_index), color);
