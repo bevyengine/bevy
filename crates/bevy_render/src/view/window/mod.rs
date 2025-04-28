@@ -118,6 +118,11 @@ fn extract_windows(
     mut removed: Extract<RemovedComponents<SurfaceTargetSource>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
 ) {
+    for removed_window in removed.read() {
+        extracted_windows.remove(&removed_window);
+        window_surfaces.remove(&removed_window);
+    }
+
     for (entity, window, surface_target_source, primary) in windows.iter() {
         if primary.is_some() {
             extracted_windows.primary = Some(entity);
@@ -175,10 +180,6 @@ fn extract_windows(
     for closing_window in closing.read() {
         extracted_windows.remove(&closing_window.window);
         window_surfaces.remove(&closing_window.window);
-    }
-    for removed_window in removed.read() {
-        extracted_windows.remove(&removed_window);
-        window_surfaces.remove(&removed_window);
     }
 }
 
