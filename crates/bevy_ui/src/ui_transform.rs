@@ -32,7 +32,7 @@ impl Val2 {
         y: Val::ZERO,
     };
 
-    /// Creates a new [`UiVec`] where both components are in logical pixels
+    /// Creates a new [`Val2`] where both components are in logical pixels
     pub const fn px(x: f32, y: f32) -> Self {
         Self {
             x: Val::Px(x),
@@ -40,7 +40,7 @@ impl Val2 {
         }
     }
 
-    /// Creates a new [`UiVec`] where both components are percentage values
+    /// Creates a new [`Val2`] where both components are percentage values
     pub const fn percent(x: f32, y: f32) -> Self {
         Self {
             x: Val::Percent(x),
@@ -48,12 +48,12 @@ impl Val2 {
         }
     }
 
-    /// Creates a new [`UiVec`]
+    /// Creates a new [`Val2`]
     pub const fn new(x: Val, y: Val) -> Self {
         Self { x, y }
     }
 
-    /// Resolves this [`UiVec`] from the given `scale_factor`, `parent_size`,
+    /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
     /// and `viewport_size`.
     ///
     /// Component values of [`Val::Auto`] are resolved to 0.
