@@ -177,11 +177,6 @@ impl<E: Event> Events<E> {
         self.write(event)
     }
 
-    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write_with_caller` instead.")]
-    pub(crate) fn send_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
-        self.write_with_caller(event, caller)
-    }
-
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
     /// This is more efficient than sending each event individually.
     /// This method returns the [IDs](`EventId`) of the sent `events`.
