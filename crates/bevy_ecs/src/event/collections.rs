@@ -142,7 +142,7 @@ impl<E: Event> Events<E> {
         event_id
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
+    /// Writes a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
     /// This is more efficient than writing each event individually.
     /// This method returns the [IDs](`EventId`) of the written `events`.
     #[track_caller]
