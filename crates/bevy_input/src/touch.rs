@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_math::Vec2;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 

@@ -1,5 +1,5 @@
 #[cfg(feature = "configurable_error_handler")]
-use bevy_platform_support::sync::OnceLock;
+use bevy_platform::sync::OnceLock;
 use core::fmt::Display;
 
 use crate::{component::Tick, error::BevyError};

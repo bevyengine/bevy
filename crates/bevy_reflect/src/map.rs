@@ -1,6 +1,6 @@
 use core::fmt::{Debug, Formatter};
 
-use bevy_platform_support::collections::HashTable;
+use bevy_platform::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{

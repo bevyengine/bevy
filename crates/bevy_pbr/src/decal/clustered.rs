@@ -30,7 +30,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::Mat4;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},

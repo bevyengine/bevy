@@ -2,7 +2,7 @@ use alloc::borrow::Cow;
 
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::system::SystemParamItem;
-use bevy_platform_support::{collections::HashSet, hash::FixedHasher};
+use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     alpha::AlphaMode,

@@ -38,11 +38,11 @@ use core::time::Duration;
 use bevy::prelude::*;
 
 // While this example doesn't need it, a lot of fundamental types which are exclusively in `std`
-// have alternatives in `bevy::platform_support`.
+// have alternatives in `bevy::platform`.
 // If you find yourself needing a `HashMap`, `RwLock`, or `Instant`, check there first!
 
 #[expect(unused_imports, reason = "demonstrating some available items")]
-use bevy::platform_support::{
+use bevy::platform::{
     collections::{HashMap, HashSet},
     hash::DefaultHasher,
     sync::{
@@ -52,12 +52,12 @@ use bevy::platform_support::{
     time::Instant,
 };
 
-// Note that `bevy::platform_support::sync::Arc` exists, despite `alloc::sync::Arc` being available.
+// Note that `bevy::platform::sync::Arc` exists, despite `alloc::sync::Arc` being available.
 // The reason is not every platform has full support for atomic operations, so `Arc`, `AtomicBool`,
 // etc. aren't always available.
 // You can test for their inclusion with `#[cfg(target_has_atomic = "ptr")]` and other related flags.
 // You can get a more cross-platform alternative from `portable-atomic`, but Bevy handles this for you!
-// Simply use `bevy::platform_support::sync` instead of `core::sync` and `alloc::sync` when possible,
+// Simply use `bevy::platform::sync` instead of `core::sync` and `alloc::sync` when possible,
 // and Bevy will handle selecting the fallback from `portable-atomic` when it is required.
 
 /// Plugin for working with delayed components.

@@ -12,16 +12,16 @@ use crate::{
 use super::{IntoSystem, SystemParamValidationError};
 
 /// A wrapper system to change a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
-pub struct InfallibleSystemWrapper<S: System<In = (), Out = ()>>(S);
+pub struct InfallibleSystemWrapper<S: System<In = ()>>(S);
 
-impl<S: System<In = (), Out = ()>> InfallibleSystemWrapper<S> {
+impl<S: System<In = ()>> InfallibleSystemWrapper<S> {
     /// Create a new `OkWrapperSystem`
     pub fn new(system: S) -> Self {
         Self(IntoSystem::into_system(system))
     }
 }
 
-impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
+impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     type In = ();
     type Out = Result;
 

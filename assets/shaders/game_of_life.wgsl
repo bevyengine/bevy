@@ -12,9 +12,9 @@ fn hash(value: u32) -> u32 {
     var state = value;
     state = state ^ 2747636419u;
     state = state * 2654435769u;
-    state = state ^ state >> 16u;
+    state = state ^ (state >> 16u);
     state = state * 2654435769u;
-    state = state ^ state >> 16u;
+    state = state ^ (state >> 16u);
     state = state * 2654435769u;
     return state;
 }
@@ -27,7 +27,7 @@ fn randomFloat(value: u32) -> f32 {
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
 
-    let randomNumber = randomFloat(invocation_id.y << 16u | invocation_id.x);
+    let randomNumber = randomFloat((invocation_id.y << 16u) | invocation_id.x);
     let alive = randomNumber > 0.9;
     let color = vec4<f32>(f32(alive));
 

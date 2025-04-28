@@ -5,7 +5,7 @@ use crate::{
     view::ExtractedWindows,
 };
 use bevy_ecs::{entity::ContainsEntity, prelude::QueryState, world::World};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
 
 pub struct CameraDriverNode {

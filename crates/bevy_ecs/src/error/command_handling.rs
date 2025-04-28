@@ -2,6 +2,7 @@ use core::{any::type_name, fmt};
 
 use crate::{
     entity::Entity,
+    never::Never,
     system::{entity_command::EntityCommandError, Command, EntityCommand},
     world::{error::EntityMutableFetchError, World},
 };
@@ -38,6 +39,17 @@ where
                     name: type_name::<C>().into(),
                 },
             ),
+        }
+    }
+}
+
+impl<C> HandleError<Never> for C
+where
+    C: Command<Never>,
+{
+    fn handle_error_with(self, _error_handler: fn(BevyError, ErrorContext)) -> impl Command {
+        move |world: &mut World| {
+            self.apply(world);
         }
     }
 }

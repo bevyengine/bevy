@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
 use bevy_math::{UVec2, Vec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
@@ -188,7 +188,7 @@ impl TextPipeline {
         buffer.set_rich_text(
             font_system,
             spans_iter,
-            Attrs::new(),
+            &Attrs::new(),
             Shaping::Advanced,
             Some(justify.into()),
         );

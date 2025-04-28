@@ -4,8 +4,8 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
-use bevy_platform_support::collections::HashSet;
-use bevy_platform_support::time::Instant;
+use bevy_platform::collections::HashSet;
+use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},

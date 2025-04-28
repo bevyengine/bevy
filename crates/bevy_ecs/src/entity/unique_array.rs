@@ -18,7 +18,7 @@ use alloc::{
     vec::Vec,
 };
 
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 
 use super::{
     unique_slice::{self, UniqueEntityEquivalentSlice},

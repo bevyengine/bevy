@@ -1,7 +1,7 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
 use bevy_ecs::reflect::{ReflectComponent, ReflectResource};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     prelude::ReflectDefault, NamedField, OpaqueInfo, ReflectDeserialize, ReflectSerialize,
     TypeInfo, TypeRegistration, VariantInfo,

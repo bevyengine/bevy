@@ -1,5 +1,5 @@
 use super::TaskPool;
-use bevy_platform_support::sync::OnceLock;
+use bevy_platform::sync::OnceLock;
 use core::ops::Deref;
 
 macro_rules! taskpool {

@@ -23,7 +23,7 @@ use bevy::{
         DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
         MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
     },
-    platform_support::collections::HashSet,
+    platform::collections::HashSet,
     prelude::*,
     render::{
         batching::{

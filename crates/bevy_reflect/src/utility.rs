@@ -2,7 +2,7 @@
 
 use crate::TypeInfo;
 use alloc::boxed::Box;
-use bevy_platform_support::{
+use bevy_platform::{
     hash::{DefaultHasher, FixedHasher, NoOpHash},
     sync::{OnceLock, PoisonError, RwLock},
 };

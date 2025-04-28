@@ -19,7 +19,7 @@ use bevy::{
         backend::HitData,
         pointer::{Location, PointerId},
     },
-    platform_support::collections::{HashMap, HashSet},
+    platform::collections::{HashMap, HashSet},
     prelude::*,
     render::camera::NormalizedRenderTarget,
 };

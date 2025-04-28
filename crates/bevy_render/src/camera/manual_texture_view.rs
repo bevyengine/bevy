@@ -2,7 +2,7 @@ use crate::{extract_resource::ExtractResource, render_resource::TextureView};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent, resource::Resource};
 use bevy_image::BevyDefault as _;
 use bevy_math::UVec2;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use wgpu::TextureFormat;
 

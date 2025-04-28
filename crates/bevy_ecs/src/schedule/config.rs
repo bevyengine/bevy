@@ -3,6 +3,7 @@ use variadics_please::all_tuples;
 
 use crate::{
     error::Result,
+    never::Never,
     schedule::{
         auto_insert_apply_deferred::IgnoreDeferred,
         condition::{BoxedCondition, Condition},
@@ -563,6 +564,16 @@ pub struct Infallible;
 impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Infallible, Marker)> for F
 where
     F: IntoSystem<(), (), Marker>,
+{
+    fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
+        let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
+        ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(Box::new(wrapper)))
+    }
+}
+
+impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Never, Marker)> for F
+where
+    F: IntoSystem<(), Never, Marker>,
 {
     fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
         let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));

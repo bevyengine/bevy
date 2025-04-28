@@ -6,7 +6,7 @@
 
 use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
-    platform_support::collections::HashMap,
+    platform::collections::HashMap,
     prelude::*,
     render::pipelined_rendering::RenderExtractApp,
 };

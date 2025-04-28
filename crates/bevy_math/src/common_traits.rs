@@ -80,6 +80,8 @@ impl VectorSpace for f32 {
 ///
 /// [vector spaces]: VectorSpace
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct Sum<V, W>(pub V, pub W);
 
 impl<V, W> Mul<f32> for Sum<V, W>
@@ -424,6 +426,9 @@ pub trait HasTangent {
 }
 
 /// A value with its derivative.
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct WithDerivative<T>
 where
     T: HasTangent,
@@ -436,6 +441,9 @@ where
 }
 
 /// A value together with its first and second derivatives.
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct WithTwoDerivatives<T>
 where
     T: HasTangent,

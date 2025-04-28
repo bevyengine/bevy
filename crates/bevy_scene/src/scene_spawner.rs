@@ -8,7 +8,7 @@ use bevy_ecs::{
     resource::Resource,
     world::{Mut, World},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
 use thiserror::Error;
 use uuid::Uuid;

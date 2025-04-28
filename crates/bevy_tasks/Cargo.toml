@@ -26,23 +26,23 @@ async_executor = ["std", "dep:async-executor"]
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
-std = ["futures-lite/std", "async-task/std", "bevy_platform_support/std"]
+std = ["futures-lite/std", "async-task/std", "bevy_platform/std"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
-critical-section = ["bevy_platform_support/critical-section"]
+critical-section = ["bevy_platform/critical-section"]
 
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
 web = [
-  "bevy_platform_support/web",
+  "bevy_platform/web",
   "dep:wasm-bindgen-futures",
   "dep:pin-project",
   "dep:futures-channel",
 ]
 
 [dependencies]
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
 

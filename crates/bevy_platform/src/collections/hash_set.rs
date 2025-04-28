@@ -282,7 +282,7 @@ impl<T> HashSet<T, FixedHasher> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// #
     /// // Creates a HashSet with zero capacity.
     /// let map = HashSet::new();
@@ -303,7 +303,7 @@ impl<T> HashSet<T, FixedHasher> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// #
     /// // Creates a HashSet with capacity for at least 5 entries.
     /// let map = HashSet::with_capacity(5);
@@ -326,7 +326,7 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let map = HashSet::with_capacity(5);
     ///
     /// # let map: HashSet<()> = map;
@@ -346,7 +346,7 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// #
     /// let mut map = HashSet::new();
     ///
@@ -373,7 +373,7 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// assert_eq!(map.len(), 0);
@@ -394,7 +394,7 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// assert!(map.is_empty());
@@ -415,7 +415,7 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// #
     /// let mut map = HashSet::new();
     ///
@@ -442,7 +442,7 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// #
     /// let mut map = HashSet::new();
     ///
@@ -470,7 +470,7 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// #
     /// let mut map = HashSet::new();
     ///
@@ -500,7 +500,7 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// #
     /// let mut map = HashSet::new();
     ///
@@ -525,8 +525,8 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
-    /// # use bevy_platform_support::hash::FixedHasher as SomeHasher;
+    /// # use bevy_platform::collections::HashSet;
+    /// # use bevy_platform::hash::FixedHasher as SomeHasher;
     /// // Creates a HashSet with the provided hasher.
     /// let map = HashSet::with_hasher(SomeHasher);
     /// #
@@ -547,8 +547,8 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
-    /// # use bevy_platform_support::hash::FixedHasher as SomeHasher;
+    /// # use bevy_platform::collections::HashSet;
+    /// # use bevy_platform::hash::FixedHasher as SomeHasher;
     /// // Creates a HashSet with capacity for 5 entries and the provided hasher.
     /// let map = HashSet::with_capacity_and_hasher(5, SomeHasher);
     /// #
@@ -574,7 +574,7 @@ impl<T, S> HashSet<T, S> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let map: HashSet<&'static str> = HashSet::new();
     /// let map: hashbrown::HashSet<&'static str, _> = map.into_inner();
     /// ```
@@ -598,7 +598,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::with_capacity(5);
     ///
     /// # let mut map: HashSet<()> = map;
@@ -623,7 +623,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::with_capacity(5);
     ///
     /// # let mut map: HashSet<()> = map;
@@ -648,7 +648,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::with_capacity(5);
     ///
     /// map.insert("foo");
@@ -719,7 +719,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// map.insert("foo");
@@ -741,7 +741,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// map.insert("foo");
@@ -764,7 +764,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// assert_eq!(map.get_or_insert("foo"), &"foo");
@@ -782,7 +782,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// assert_eq!(map.get_or_insert_with(&"foo", |_| "foo"), &"foo");
@@ -803,7 +803,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// let value = map.entry("foo").or_insert();
@@ -849,7 +849,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// map.insert("foo");
@@ -869,7 +869,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// map.insert("foo");
@@ -889,7 +889,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// map.insert("foo");
@@ -913,7 +913,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// map.insert("foo");
@@ -938,7 +938,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_platform_support::collections::HashSet;
+    /// # use bevy_platform::collections::HashSet;
     /// let mut map = HashSet::new();
     ///
     /// assert_eq!(map.allocation_size(), 0);

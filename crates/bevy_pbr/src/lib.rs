@@ -466,7 +466,14 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_clusters,
+                    extract_lights,
+                    late_sweep_material_instances,
+                ),
+            )
             .add_systems(
                 Render,
                 (

@@ -15,8 +15,8 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
-use bevy_platform_support::sync::Arc;
-use bevy_platform_support::{
+use bevy_platform::sync::Arc;
+use bevy_platform::{
     collections::{HashMap, HashSet},
     sync::PoisonError,
 };
@@ -675,7 +675,7 @@ pub struct HookContext {
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_platform_support::collections::HashSet;
+/// use bevy_platform::collections::HashSet;
 ///
 /// #[derive(Component)]
 /// struct MyTrackedComponent;
@@ -1305,7 +1305,7 @@ impl Debug for QueuedComponents {
 /// Generates [`ComponentId`]s.
 #[derive(Debug, Default)]
 pub struct ComponentIds {
-    next: bevy_platform_support::sync::atomic::AtomicUsize,
+    next: bevy_platform::sync::atomic::AtomicUsize,
 }
 
 impl ComponentIds {
@@ -1313,7 +1313,7 @@ impl ComponentIds {
     pub fn peek(&self) -> ComponentId {
         ComponentId(
             self.next
-                .load(bevy_platform_support::sync::atomic::Ordering::Relaxed),
+                .load(bevy_platform::sync::atomic::Ordering::Relaxed),
         )
     }
 
@@ -1321,7 +1321,7 @@ impl ComponentIds {
     pub fn next(&self) -> ComponentId {
         ComponentId(
             self.next
-                .fetch_add(1, bevy_platform_support::sync::atomic::Ordering::Relaxed),
+                .fetch_add(1, bevy_platform::sync::atomic::Ordering::Relaxed),
         )
     }
 
@@ -1959,7 +1959,7 @@ pub struct Components {
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occor.
-    queued: bevy_platform_support::sync::RwLock<QueuedComponents>,
+    queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
 
 impl Components {
@@ -2840,7 +2840,7 @@ impl RequiredComponents {
     ) {
         let entry = self.0.entry(component_id);
         match entry {
-            bevy_platform_support::collections::hash_map::Entry::Occupied(mut occupied) => {
+            bevy_platform::collections::hash_map::Entry::Occupied(mut occupied) => {
                 let current = occupied.get_mut();
                 if current.inheritance_depth > inheritance_depth {
                     *current = RequiredComponent {
@@ -2849,7 +2849,7 @@ impl RequiredComponents {
                     }
                 }
             }
-            bevy_platform_support::collections::hash_map::Entry::Vacant(vacant) => {
+            bevy_platform::collections::hash_map::Entry::Vacant(vacant) => {
                 vacant.insert(RequiredComponent {
                     constructor: constructor(),
                     inheritance_depth,

@@ -4,7 +4,7 @@ use crate::{
     MaybeTyped, PartialReflect, Type, TypeInfo, TypePath,
 };
 use alloc::borrow::Cow;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use core::fmt::{Display, Formatter};
 
 /// The named field of a reflected struct.

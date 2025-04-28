@@ -21,11 +21,7 @@ bevy_reflect = [
 ]
 
 ## Adds serialization support through `serde`.
-serialize = [
-  "dep:serde",
-  "bevy_ecs/serialize",
-  "bevy_platform_support/serialize",
-]
+serialize = ["dep:serde", "bevy_ecs/serialize", "bevy_platform/serialize"]
 
 # Platform Compatibility
 
@@ -37,7 +33,7 @@ std = [
   "bevy_reflect?/std",
   "bevy_ecs/std",
   "bevy_app/std",
-  "bevy_platform_support/std",
+  "bevy_platform/std",
   "dep:crossbeam-channel",
 ]
 
@@ -45,7 +41,7 @@ std = [
 ## on all platforms, including `no_std`.
 critical-section = [
   "bevy_ecs/critical-section",
-  "bevy_platform_support/critical-section",
+  "bevy_platform/critical-section",
   "bevy_reflect?/critical-section",
   "bevy_app/critical-section",
 ]
@@ -55,7 +51,7 @@ critical-section = [
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
 
 # other
 crossbeam-channel = { version = "0.5.0", default-features = false, features = [
