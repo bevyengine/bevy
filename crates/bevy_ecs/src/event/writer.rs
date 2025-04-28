@@ -72,7 +72,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
     #[doc(alias = "send")]
     #[track_caller]
     pub fn write(&mut self, event: E) -> EventId<E> {
-        self.events.send(event)
+        self.events.write(event)
     }
 
     /// Writes a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
@@ -83,7 +83,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
     #[doc(alias = "send_batch")]
     #[track_caller]
     pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
-        self.events.send_batch(events)
+        self.events.write_batch(events)
     }
 
     /// Writes the default value of the event. Useful when the event is an empty struct.
@@ -96,7 +96,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
     where
         E: Default,
     {
-        self.events.send_default()
+        self.events.write_default()
     }
 
     /// Sends an `event`, which can later be read by [`EventReader`](super::EventReader)s.
