@@ -8,13 +8,26 @@ use bevy_ecs::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use core::time::Duration;
+use tracing::info;
 
-use crate::graph::{AnimationGraph, AnimationNodeIndex};
+use crate::graph::{AnimationGraph, AnimationGraphHandle, AnimationNodeIndex};
 
-/// Component responsible for managing transitions between N given nodes or states.
-/// It can handle multiple transitions and supports scalable flow-based animation management.
+/// Component responsible for managing transitions between multiple nodes or states.
+///
+/// It supports multiple independent "flows", where each flow represents a distinct active
+/// animation or state machine. A flow tracks the transition between two states over time.
+///
+/// In the simplest case, `flow_amount` should be set to `1`, indicating a single flow.
+/// However, if multiple state machines or simultaneous animations are needed, `flow_amount`
+/// should be increased accordingly.
+///
+/// It is also the user's responsibility to track which flow they are currently operating on
+/// when triggering transitions.
+/// Ex: Flow 0 - Plays idle,walks and so on. Affect whole body
+/// Flow 1 - Plays close hands - Affects only hand bones.
 #[derive(Component, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
+#[require(AnimationGraphHandle)]
 pub struct AnimationTransitions {
     #[deref]
     transitions: Vec<AnimationTransition>,
@@ -24,7 +37,7 @@ pub struct AnimationTransitions {
     flows: Vec<Option<AnimationNodeIndex>>,
 }
 
-/// An animation that is being faded out as part of a transition
+/// An animation node that is being faded out as part of a transition, note this does not control animation playing!
 #[derive(Debug, Reflect, Default, Clone)]
 pub struct AnimationTransition {
     /// How much weight we will decrease according to the given user [`Duration`]
@@ -33,62 +46,67 @@ pub struct AnimationTransition {
     old_node: AnimationNodeIndex,
     /// Node to transition into
     new_node: AnimationNodeIndex,
-    /// Handle pointer to required component [`AnimationGraph`], needed to grab nodes current weights
+    /// Handle pointer to required component [`AnimationGraphHandle`](crate::AnimationGraphHandle). needed to grab nodes current weights
     graph: Handle<AnimationGraph>,
-    /// Acts similarly to a local variable, tracks how far into the transition are we, starts from 1. should go to 0
+    /// Acts similarly to a local variable, tracks how far into the transition are we, should start from 1. and go to 0
     weight: f32,
 }
 impl AnimationTransitions {
-    /// Potato
-    pub fn new(flow_amount: u8) -> Self {
+    /// Define your flow amount and initializes your component!
+    pub fn new(flow_amount: usize) -> Self {
         Self {
-            flows: vec![None; flow_amount as usize],
-            transitions: vec![AnimationTransition::default(); flow_amount as usize],
+            flows: vec![None; flow_amount],
+            // Default transitions are instantaniously cleared
+            transitions: vec![AnimationTransition::default(); flow_amount],
         }
     }
 
-    /// Transition between one graph node to another according to the given duration
+    /// Transitions between two nodes in an animation graph over a given duration.
+    ///
+    /// This is a lower-level method that bypasses flow management.
+    /// It is intended for cases where the user wants direct control over node transitions,
+    /// without tracking flow state or history.
     pub fn transition_nodes(
         &mut self,
         graph: Handle<AnimationGraph>,
         old_node: AnimationNodeIndex,
         new_node: AnimationNodeIndex,
-        transition: Duration,
+        duration: Duration,
     ) {
         self.push(AnimationTransition {
-            weight_decline_per_sec: 1.0 / transition.as_secs_f32(),
+            weight_decline_per_sec: 1.0 / duration.as_secs_f32(),
             old_node,
             new_node,
             graph,
             weight: 1.0,
         });
     }
-
+    /// Transitions the specified flow from its current node to a new node over a given duration.
+    ///
+    /// This method manages transitions within a specific flow, allowing multiple independent
+    /// state machines or animation layers to transition separately. If the flow has no previous node,
+    /// it will treat the `new_node` as both the old and new node during the transition.
     pub fn transition_flows(
         &mut self,
-        player: &mut AnimationGraph,
-        new_animation: AnimationNodeIndex,
-        transition_duration: Duration,
+        graph: Handle<AnimationGraph>,
+        new_node: AnimationNodeIndex,
+        flow_position: usize,
+        duration: Duration,
     ) {
-
-        // if let Some(old_animation_index) = self.main_animation.replace(new_animation) {
-        //     if let Some(old_animation) = player.animation_mut(old_animation_index) {
-        //         if !old_animation.is_paused() {
-        //             self.transitions.push(AnimationTransition {
-        //                 current_weight: old_animation.weight,
-        //                 weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-        //                 animation: old_animation_index,
-        //             });
-        //         }
-        //     }
-        // }
-
-        // // If already transitioning away from this animation, cancel the transition.
-        // // Otherwise the transition ending would incorrectly stop the new animation.
-        // self.transitions
-        //     .retain(|transition| transition.animation != new_animation);
-
-        // player.start(new_animation)
+        // Check if flow exists
+        if let Some(old_node) = self.flows.get_mut(flow_position) {
+            let previous_node = old_node.unwrap_or(new_node);
+            self.transitions.push(AnimationTransition {
+                weight_decline_per_sec: 1.0 / duration.as_secs_f32(),
+                old_node: previous_node,
+                new_node,
+                graph,
+                weight: 1.0,
+            });
+            *old_node = Some(new_node);
+        } else {
+            panic!("Flow position {flow_position} is out of bounds!");
+        }
     }
 }
 
@@ -100,22 +118,24 @@ pub fn handle_node_transition(
 ) {
     for mut animation_transitions in query.iter_mut() {
         for transition in animation_transitions.iter_mut() {
-            let animation_graph = assets_graph.get_mut(&transition.graph).unwrap();
-
-            if let Some(old_node) = animation_graph.get_mut(transition.old_node) {
-                if transition.weight.eq(&1.0) {
-                    old_node.weight = transition.weight;
+            if let Some(animation_graph) = assets_graph.get_mut(&transition.graph) {
+                if let Some(old_node) = animation_graph.get_mut(transition.old_node) {
+                    if transition.weight.eq(&1.0) {
+                        old_node.weight = transition.weight;
+                    }
+                    old_node.weight -=
+                        transition.weight_decline_per_sec * time.delta_secs().max(0.0);
                 }
-                old_node.weight -= transition.weight_decline_per_sec * time.delta_secs().max(0.0);
-            }
-            if let Some(new_node) = animation_graph.get_mut(transition.new_node) {
-                if transition.weight.eq(&1.0) {
-                    new_node.weight = 0.0;
+                if let Some(new_node) = animation_graph.get_mut(transition.new_node) {
+                    if transition.weight.eq(&1.0) {
+                        new_node.weight = 0.0;
+                    }
+                    new_node.weight +=
+                        transition.weight_decline_per_sec * time.delta_secs().min(1.0);
                 }
-                new_node.weight += transition.weight_decline_per_sec * time.delta_secs().min(1.0);
-            }
 
-            transition.weight -= transition.weight_decline_per_sec * time.delta_secs().max(0.0);
+                transition.weight -= transition.weight_decline_per_sec * time.delta_secs().max(0.0);
+            }
         }
     }
 }
@@ -124,6 +144,12 @@ pub fn handle_node_transition(
 /// [`AnimationTransitions`] object.
 pub fn expire_completed_transitions(mut query: Query<&mut AnimationTransitions>) {
     for mut animation_transitions in query.iter_mut() {
-        animation_transitions.retain(|transition| transition.weight <= 0.0);
+        animation_transitions.retain(|transition| {
+            let keep = transition.weight > 0.0;
+            if !keep {
+                println!("Remove");
+            }
+            keep
+        });
     }
 }

@@ -159,6 +159,7 @@ fn setup_scene_once_loaded(
         // Send `OnStep` events once the fox feet hits the ground in the running animation.
 
         let graph = graphs.get(&animations.graph_handle).unwrap();
+        let graph_handle = AnimationGraphHandle(animations.graph_handle.clone());
         let running_animation = get_clip(animations.index, graph, &mut clips);
 
         // You can determine the time an event should trigger if you know witch frame it occurs and
@@ -169,17 +170,21 @@ fn setup_scene_once_loaded(
         running_animation.add_event_to_target(feet.back_left, 0.0, OnStep);
         running_animation.add_event_to_target(feet.back_right, 0.125, OnStep);
 
-        // Start the animation
-
-        let mut transitions = AnimationTransitions::new();
+        // Boot up your transition flows
+        let mut transitions = AnimationTransitions::new(1);
 
         // Make sure to start the animation via the `AnimationTransitions`
         // component. The `AnimationTransitions` component wants to manage all
         // the animations and will get confused if the animations are started
         // directly via the `AnimationPlayer`.
-        transitions
-            .play(&mut player, animations.index, Duration::ZERO)
-            .repeat();
+        transitions.transition_flows(
+            graph_handle.clone_weak(),
+            animations.index,
+            0,
+            Duration::ZERO,
+        );
+
+        player.play(animations.index).repeat();
 
         commands
             .entity(entity)

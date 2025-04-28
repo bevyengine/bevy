@@ -108,15 +108,20 @@ fn setup_scene_once_loaded(
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     for (entity, mut player) in &mut players {
-        let mut transitions = AnimationTransitions::new();
+        let mut transitions = AnimationTransitions::new(1);
+        let graph = animations.graph_handle.clone();
 
         // Make sure to start the animation via the `AnimationTransitions`
         // component. The `AnimationTransitions` component wants to manage all
         // the animations and will get confused if the animations are started
         // directly via the `AnimationPlayer`.
-        transitions
-            .play(&mut player, animations.animations[0], Duration::ZERO)
-            .repeat();
+        transitions.transition_flows(
+            graph.clone(),
+            animations.animations[0],
+            0,
+            Duration::from_secs(200),
+        );
+        player.play(animations.animations[0]).repeat();
 
         commands
             .entity(entity)
@@ -127,11 +132,15 @@ fn setup_scene_once_loaded(
 
 fn keyboard_control(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
+    mut animation_players: Query<(
+        &mut AnimationPlayer,
+        &AnimationGraphHandle,
+        &mut AnimationTransitions,
+    )>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
 ) {
-    for (mut player, mut transitions) in &mut animation_players {
+    for (mut player, graph, mut transitions) in &mut animation_players {
         let Some((&playing_animation_index, _)) = player.playing_animations().next() else {
             continue;
         };
@@ -172,12 +181,15 @@ fn keyboard_control(
         if keyboard_input.just_pressed(KeyCode::Enter) {
             *current_animation = (*current_animation + 1) % animations.animations.len();
 
-            transitions
-                .play(
-                    &mut player,
-                    animations.animations[*current_animation],
-                    Duration::from_millis(250),
-                )
+            transitions.transition_flows(
+                graph.clone_weak(),
+                animations.animations[*current_animation],
+                0,
+                Duration::from_millis(250),
+            );
+
+            player
+                .play(animations.animations[*current_animation])
                 .repeat();
         }
 
