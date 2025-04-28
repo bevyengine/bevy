@@ -99,7 +99,7 @@ impl FrameGraphTexture {
                 usage: surface.texture.usage(),
                 view_formats: vec![],
             },
-            resource: surface.texture.clone()
+            resource: surface.texture.clone(),
         })
     }
 }

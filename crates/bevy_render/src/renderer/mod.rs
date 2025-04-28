@@ -8,9 +8,8 @@ use tracing::{error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
-    frame_graph::{
-        FrameGraph, FrameGraphRunner, SetupGraph, SetupGraphRunner, TransientResourceCache,
-    },
+    frame_graph::{FrameGraph, FrameGraphRunner, TransientResourceCache},
+    render_graph::{RenderGraph, RenderGraphRunner},
     render_phase::TrackedRenderPass,
     render_resource::{PipelineCache, RenderPassDescriptor},
     settings::{WgpuSettings, WgpuSettingsPriority},
@@ -26,7 +25,7 @@ use wgpu::{
 };
 
 pub fn setup_frame_graph_system(world: &mut World) {
-    world.resource_scope(|world, mut graph: Mut<SetupGraph>| {
+    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
 
@@ -34,16 +33,16 @@ pub fn setup_frame_graph_system(world: &mut World) {
         return;
     };
 
-    let graph = world.resource::<SetupGraph>();
+    let graph = world.resource::<RenderGraph>();
 
-    let res = SetupGraphRunner::run(graph, &mut frame_graph, world);
+    let res = RenderGraphRunner::run(graph, &mut frame_graph, world);
 
     match res {
         Ok(_) => {
             world.insert_resource(frame_graph);
         }
         Err(e) => {
-            error!("Error running setup graph:");
+            error!("Error running render graph:");
             {
                 let mut src: &dyn core::error::Error = &e;
                 loop {
@@ -55,7 +54,7 @@ pub fn setup_frame_graph_system(world: &mut World) {
                 }
             }
 
-            panic!("Error running setup graph: {e}");
+            panic!("Error running render graph: {e}");
         }
     }
 }
@@ -70,7 +69,8 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         return;
     };
 
-    let Some(mut transient_resource_cache) = world.remove_resource::<TransientResourceCache>() else {
+    let Some(mut transient_resource_cache) = world.remove_resource::<TransientResourceCache>()
+    else {
         return;
     };
 

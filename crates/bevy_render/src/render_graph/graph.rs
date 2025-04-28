@@ -1,9 +1,9 @@
 use crate::{
+    frame_graph::FrameGraph,
     render_graph::{
         Edge, Node, NodeRunError, NodeState, RenderGraphContext, RenderGraphError, RenderLabel,
         SlotInfo, SlotLabel,
     },
-    renderer::RenderContext,
 };
 use bevy_ecs::{define_label, intern::Interned, prelude::World, resource::Resource};
 use bevy_platform::collections::HashMap;
@@ -659,7 +659,7 @@ impl Node for GraphInputNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        _frame_graph: &mut FrameGraph,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         for i in 0..graph.inputs().len() {
@@ -673,11 +673,11 @@ impl Node for GraphInputNode {
 #[cfg(test)]
 mod tests {
     use crate::{
+        frame_graph::FrameGraph,
         render_graph::{
             node::IntoRenderNodeArray, Edge, InternedRenderLabel, Node, NodeRunError, RenderGraph,
             RenderGraphContext, RenderGraphError, RenderLabel, SlotInfo, SlotType,
         },
-        renderer::RenderContext,
     };
     use bevy_ecs::world::{FromWorld, World};
     use bevy_platform::collections::HashSet;
@@ -721,7 +721,7 @@ mod tests {
         fn run(
             &self,
             _: &mut RenderGraphContext,
-            _: &mut RenderContext,
+            _: &mut FrameGraph,
             _: &World,
         ) -> Result<(), NodeRunError> {
             Ok(())
@@ -808,7 +808,7 @@ mod tests {
             fn run(
                 &self,
                 _: &mut RenderGraphContext,
-                _: &mut RenderContext,
+                _: &mut FrameGraph,
                 _: &World,
             ) -> Result<(), NodeRunError> {
                 Ok(())
@@ -877,7 +877,7 @@ mod tests {
             fn run(
                 &self,
                 _graph: &mut RenderGraphContext,
-                _render_context: &mut RenderContext,
+                _frame_graph: &mut FrameGraph,
                 _world: &World,
             ) -> Result<(), NodeRunError> {
                 Ok(())

@@ -1,12 +1,19 @@
 use crate::{
     camera::{ClearColor, ExtractedCamera, NormalizedRenderTarget, SortedCameras},
+    frame_graph::{
+        ColorAttachmentRef, FrameGraph, FrameGraphTexture, RenderPass, TextureViewInfo,
+        TextureViewRef,
+    },
     render_graph::{Node, NodeRunError, RenderGraphContext},
-    renderer::RenderContext,
     view::ExtractedWindows,
 };
-use bevy_ecs::{entity::ContainsEntity, prelude::QueryState, world::World};
+use bevy_ecs::{
+    entity::{ContainsEntity, Entity},
+    prelude::QueryState,
+    world::World,
+};
 use bevy_platform::collections::HashSet;
-use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
+use wgpu::{LoadOp, Operations, StoreOp};
 
 pub struct CameraDriverNode {
     cameras: QueryState<&'static ExtractedCamera>,
@@ -18,6 +25,10 @@ impl CameraDriverNode {
             cameras: world.query(),
         }
     }
+
+    pub fn get_camera_texure_key(entity: Entity) -> String {
+        format!("camera_texure_{}", entity)
+    }
 }
 
 impl Node for CameraDriverNode {
@@ -27,7 +38,7 @@ impl Node for CameraDriverNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        frame_graph: &mut FrameGraph,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let sorted_cameras = world.resource::<SortedCameras>();
@@ -66,30 +77,36 @@ impl Node for CameraDriverNode {
                 continue;
             }
 
-            let Some(swap_chain_texture) = &window.swap_chain_texture_view else {
+            let Some(surface) = &window.swap_chain_texture else {
                 continue;
             };
 
-            #[cfg(feature = "trace")]
-            let _span = tracing::info_span!("no_camera_clear_pass").entered();
-            let pass_descriptor = RenderPassDescriptor {
-                label: Some("no_camera_clear_pass"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: swap_chain_texture,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(clear_color_global.to_linear().into()),
-                        store: StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            };
+            let swap_chain_texture = FrameGraphTexture::new_arc_with_surface(surface);
 
-            render_context
-                .command_encoder()
-                .begin_render_pass(&pass_descriptor);
+            let mut builder = frame_graph.create_pass_node_bulder("no_camera_clear_pass");
+
+            let swap_chain_texture_key = Self::get_camera_texure_key(*id);
+
+            let swap_chain_texture_handle =
+                builder.import(&swap_chain_texture_key, swap_chain_texture);
+
+            let swap_chain_texture_read = builder.read(swap_chain_texture_handle);
+
+            let mut render_pass = RenderPass::default();
+
+            render_pass.add_color_attachment(ColorAttachmentRef {
+                view_ref: TextureViewRef {
+                    texture_ref: swap_chain_texture_read,
+                    desc: TextureViewInfo::default(),
+                },
+                resolve_target: None,
+                ops: Operations {
+                    load: LoadOp::Clear(clear_color_global.to_linear().into()),
+                    store: StoreOp::Store,
+                },
+            });
+
+            builder.set_pass(render_pass);
         }
 
         Ok(())

@@ -2,6 +2,7 @@ mod app;
 mod context;
 mod edge;
 mod graph;
+mod graph_runner;
 mod node;
 mod node_slot;
 
@@ -9,6 +10,7 @@ pub use app::*;
 pub use context::*;
 pub use edge::*;
 pub use graph::*;
+pub use graph_runner::*;
 pub use node::*;
 pub use node_slot::*;
 

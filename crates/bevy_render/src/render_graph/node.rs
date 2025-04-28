@@ -1,10 +1,10 @@
 use crate::{
+    frame_graph::FrameGraph,
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos,
     },
     render_phase::DrawError,
-    renderer::RenderContext,
 };
 pub use bevy_ecs::label::DynEq;
 use bevy_ecs::{
@@ -94,7 +94,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
+        frame_graph: &mut FrameGraph,
         world: &'w World,
     ) -> Result<(), NodeRunError>;
 }
@@ -315,7 +315,7 @@ impl Node for EmptyNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        _render_context: &mut FrameGraph,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         Ok(())
@@ -340,7 +340,7 @@ impl Node for RunGraphOnViewNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        _render_context: &mut FrameGraph,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()))?;
@@ -365,7 +365,7 @@ pub trait ViewNode {
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
+        frame_graph: &mut FrameGraph,
         view_query: QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError>;
@@ -407,14 +407,14 @@ where
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
+        frame_graph: &mut FrameGraph,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Ok(view) = self.view_query.get_manual(world, graph.view_entity()) else {
             return Ok(());
         };
 
-        ViewNode::run(&self.node, graph, render_context, view, world)?;
+        ViewNode::run(&self.node, graph, frame_graph, view, world)?;
         Ok(())
     }
 }

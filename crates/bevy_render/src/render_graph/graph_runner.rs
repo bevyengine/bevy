@@ -8,12 +8,11 @@ use smallvec::{smallvec, SmallVec};
 use thiserror::Error;
 
 use crate::{
-    diagnostic::internal::{DiagnosticsRecorder, RenderDiagnosticsMutex},
+    frame_graph::FrameGraph,
     render_graph::{
         Edge, InternedRenderLabel, InternedRenderSubGraph, NodeRunError, NodeState, RenderGraph,
         RenderGraphContext, SlotLabel, SlotType, SlotValue,
     },
-    renderer::{RenderContext, RenderDevice},
 };
 
 /// The [`RenderGraphRunner`] is responsible for executing a [`RenderGraph`].
@@ -65,45 +64,12 @@ pub enum RenderGraphRunnerError {
 impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
-        render_device: RenderDevice,
-        mut diagnostics_recorder: Option<DiagnosticsRecorder>,
-        queue: &wgpu::Queue,
-        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        adapter: &wgpu::Adapter,
+        frame_graph: &mut FrameGraph,
         world: &World,
-        finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
-    ) -> Result<Option<DiagnosticsRecorder>, RenderGraphRunnerError> {
-        if let Some(recorder) = &mut diagnostics_recorder {
-            recorder.begin_frame();
-        }
+    ) -> Result<(), RenderGraphRunnerError> {
+        Self::run_graph(graph, None, frame_graph, world, &[], None)?;
 
-        let mut render_context = RenderContext::new(
-            render_device,
-            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-            adapter.get_info(),
-            diagnostics_recorder,
-        );
-        Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
-        finalizer(render_context.command_encoder());
-
-        let (render_device, mut diagnostics_recorder) = {
-            let (commands, render_device, diagnostics_recorder) = render_context.finish();
-
-            #[cfg(feature = "trace")]
-            let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(commands);
-
-            (render_device, diagnostics_recorder)
-        };
-
-        if let Some(recorder) = &mut diagnostics_recorder {
-            let render_diagnostics_mutex = world.resource::<RenderDiagnosticsMutex>().0.clone();
-            recorder.finish_frame(&render_device, move |diagnostics| {
-                *render_diagnostics_mutex.lock().expect("lock poisoned") = Some(diagnostics);
-            });
-        }
-
-        Ok(diagnostics_recorder)
+        Ok(())
     }
 
     /// Runs the [`RenderGraph`] and all its sub-graphs sequentially, making sure that all nodes are
@@ -111,7 +77,7 @@ impl RenderGraphRunner {
     fn run_graph<'w>(
         graph: &RenderGraph,
         sub_graph: Option<InternedRenderSubGraph>,
-        render_context: &mut RenderContext<'w>,
+        frame_graph: &mut FrameGraph,
         world: &'w World,
         inputs: &[SlotValue],
         view_entity: Option<Entity>,
@@ -228,7 +194,7 @@ impl RenderGraphRunner {
                     #[cfg(feature = "trace")]
                     let _span = info_span!("node", name = node_state.type_name).entered();
 
-                    node_state.node.run(&mut context, render_context, world)?;
+                    node_state.node.run(&mut context, frame_graph, world)?;
                 }
 
                 for run_sub_graph in context.finish() {
@@ -238,7 +204,7 @@ impl RenderGraphRunner {
                     Self::run_graph(
                         sub_graph,
                         Some(run_sub_graph.sub_graph),
-                        render_context,
+                        frame_graph,
                         world,
                         &run_sub_graph.inputs,
                         run_sub_graph.view_entity,

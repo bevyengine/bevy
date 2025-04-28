@@ -527,7 +527,6 @@ unsafe fn initialize_render_app(app: &mut App) {
         .init_resource::<render_graph::RenderGraph>()
         .init_resource::<frame_graph::FrameGraph>()
         .init_resource::<frame_graph::TransientResourceCache>()
-        .init_resource::<frame_graph::SetupGraph>()
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(
