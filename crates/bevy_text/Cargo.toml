@@ -33,7 +33,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 ] }
 
 # other
-cosmic-text = { version = "0.13", features = ["shape-run-cache"] }
+cosmic-text = { version = "0.14", features = ["shape-run-cache"] }
 thiserror = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
 smallvec = "1.13"
