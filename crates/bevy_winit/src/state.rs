@@ -596,8 +596,8 @@ impl<T: Event> WinitAppRunnerState<T> {
 
             #[cfg(target_os = "android")]
             {
-                // Get windows that are cached but without a surface target source. Those windows were already created,
-                // but got their surface target source removed when the app was suspended.
+                // Get windows that are cached but without a surface target source / handle. These windows were already
+                // created, but got their surface target source and handle removed when the app was suspended.
                 let mut query = self.world_mut()
                     .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<RawHandleWrapper>)>();
                 if let Ok((entity, window)) = query.single(&self.world()) {
@@ -625,12 +625,12 @@ impl<T: Event> WinitAppRunnerState<T> {
                         &monitors,
                     );
 
-                    // Restore RawHandleWrapper (for custom renderers)
+                    // Restore RawHandleWrapper (used by custom renderers)
                     self.world_mut()
                         .entity_mut(entity)
                         .insert(bevy_window::RawHandleWrapper::new(winit_window.clone()));
 
-                    // Restore SurfaceTargetSource (for bevy_render)
+                    // Restore SurfaceTargetSource (used by bevy_render)
                     #[cfg(feature = "bevy_render")]
                     {
                         use bevy_render::view::surface_target::{

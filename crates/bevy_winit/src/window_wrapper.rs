@@ -4,8 +4,8 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 /// A wrapper over a winit window.
 ///
-/// This allows us to extend the lifetime of the window, so it doesn't get eagerly dropped while a
-/// pipelined renderer still has frames in flight that need to draw to it.
+/// This is cloneable, which allows us to extend the lifetime of the window, so it doesn't get eagerly
+/// dropped while a pipelined renderer still has frames in flight that need to draw to it.
 #[derive(Debug, Deref, Clone)]
 pub struct WinitWindowWrapper {
     pub(crate) window: Arc<winit::window::Window>,
