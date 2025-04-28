@@ -24,7 +24,7 @@ use core::{
     iter, slice,
 };
 use graph::AnimationNodeType;
-use prelude::AnimationCurveEvaluator;
+use prelude::{handle_node_transition, AnimationCurveEvaluator};
 
 use crate::{
     graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
@@ -60,9 +60,52 @@ pub mod prelude {
 use crate::{
     animation_curves::AnimationCurve,
     graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
-    transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
+    transition::{expire_completed_transitions, AnimationTransitions},
 };
 use alloc::sync::Arc;
+
+/// Adds animation support to an app
+#[derive(Default)]
+pub struct AnimationPlugin;
+
+impl Plugin for AnimationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<AnimationClip>()
+            .init_asset::<AnimationGraph>()
+            .init_asset_loader::<AnimationGraphAssetLoader>()
+            .register_asset_reflect::<AnimationClip>()
+            .register_asset_reflect::<AnimationGraph>()
+            .register_type::<AnimationPlayer>()
+            .register_type::<AnimationTarget>()
+            .register_type::<AnimationTransitions>()
+            .register_type::<AnimationGraphHandle>()
+            .register_type::<NodeIndex>()
+            .register_type::<ThreadedAnimationGraphs>()
+            .init_resource::<ThreadedAnimationGraphs>()
+            .add_systems(
+                PostUpdate,
+                (
+                    graph::thread_animation_graphs.before(AssetEvents),
+                    handle_node_transition,
+                    advance_animations,
+                    // TODO: `animate_targets` can animate anything, so
+                    // ambiguity testing currently considers it ambiguous with
+                    // every other system in `PostUpdate`. We may want to move
+                    // it to its own system set after `Update` but before
+                    // `PostUpdate`. For now, we just disable ambiguity testing
+                    // for this system.
+                    animate_targets
+                        .before(bevy_render::mesh::inherit_weights)
+                        .ambiguous_with_all(),
+                    trigger_untargeted_animation_events,
+                    expire_completed_transitions,
+                )
+                    .chain()
+                    .in_set(Animation)
+                    .before(TransformSystem::TransformPropagate),
+            );
+    }
+}
 
 /// The [UUID namespace] of animation targets (e.g. bones).
 ///
@@ -1221,49 +1264,6 @@ pub fn animate_targets(
                 warn!("Animation application failed: {:?}", err);
             }
         });
-}
-
-/// Adds animation support to an app
-#[derive(Default)]
-pub struct AnimationPlugin;
-
-impl Plugin for AnimationPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_asset::<AnimationClip>()
-            .init_asset::<AnimationGraph>()
-            .init_asset_loader::<AnimationGraphAssetLoader>()
-            .register_asset_reflect::<AnimationClip>()
-            .register_asset_reflect::<AnimationGraph>()
-            .register_type::<AnimationPlayer>()
-            .register_type::<AnimationTarget>()
-            .register_type::<AnimationTransitions>()
-            .register_type::<AnimationGraphHandle>()
-            .register_type::<NodeIndex>()
-            .register_type::<ThreadedAnimationGraphs>()
-            .init_resource::<ThreadedAnimationGraphs>()
-            .add_systems(
-                PostUpdate,
-                (
-                    graph::thread_animation_graphs.before(AssetEvents),
-                    advance_transitions,
-                    advance_animations,
-                    // TODO: `animate_targets` can animate anything, so
-                    // ambiguity testing currently considers it ambiguous with
-                    // every other system in `PostUpdate`. We may want to move
-                    // it to its own system set after `Update` but before
-                    // `PostUpdate`. For now, we just disable ambiguity testing
-                    // for this system.
-                    animate_targets
-                        .before(bevy_render::mesh::inherit_weights)
-                        .ambiguous_with_all(),
-                    trigger_untargeted_animation_events,
-                    expire_completed_transitions,
-                )
-                    .chain()
-                    .in_set(Animation)
-                    .before(TransformSystem::TransformPropagate),
-            );
-    }
 }
 
 impl AnimationTargetId {
