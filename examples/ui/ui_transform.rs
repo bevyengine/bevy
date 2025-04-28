@@ -103,7 +103,7 @@ fn translation_system(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     // Root node filling the whole screen
     commands.spawn((
