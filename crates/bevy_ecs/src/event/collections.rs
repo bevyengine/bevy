@@ -117,17 +117,15 @@ impl<E: Event> Events<E> {
         self.events_a.start_event_count
     }
 
-    /// "Sends" an `event` by writing it to the current event buffer.
+    /// Writes an `event` by writing it to the current event buffer.
     /// [`EventReader`](super::EventReader)s can then read the event.
-    /// This method returns the [ID](`EventId`) of the sent `event`.
-    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write` instead.")]
+    /// This method returns the [ID](`EventId`) of the written `event`.
     #[track_caller]
-    pub fn send(&mut self, event: E) -> EventId<E> {
-        self.send_with_caller(event, MaybeLocation::caller())
+    pub fn write(&mut self, event: E) -> EventId<E> {
+        self.write_with_caller(event, MaybeLocation::caller())
     }
 
-    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write_with_caller` instead.")]
-    pub(crate) fn send_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
+    pub(crate) fn write_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
             caller,
@@ -145,11 +143,10 @@ impl<E: Event> Events<E> {
     }
 
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than sending each event individually.
-    /// This method returns the [IDs](`EventId`) of the sent `events`.
-    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write_batch` instead.")]
+    /// This is more efficient than writing each event individually.
+    /// This method returns the [IDs](`EventId`) of the written `events`.
     #[track_caller]
-    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+    pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
         let last_count = self.event_count;
 
         self.extend(events);
@@ -161,6 +158,39 @@ impl<E: Event> Events<E> {
         }
     }
 
+    /// Writes the default value of the event. Useful when the event is an empty struct.
+    /// This method returns the [ID](`EventId`) of the written `event`.
+    #[track_caller]
+    pub fn write_default(&mut self) -> EventId<E>
+    where
+        E: Default,
+    {
+        self.send(Default::default())
+    }
+    
+    /// "Sends" an `event` by writing it to the current event buffer.
+    /// [`EventReader`](super::EventReader)s can then read the event.
+    /// This method returns the [ID](`EventId`) of the sent `event`.
+    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write` instead.")]
+    #[track_caller]
+    pub fn send(&mut self, event: E) -> EventId<E> {
+        self.write(event)
+    }
+
+    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write_with_caller` instead.")]
+    pub(crate) fn send_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
+        self.write_with_caller(event, caller)
+    }
+
+    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
+    /// This is more efficient than sending each event individually.
+    /// This method returns the [IDs](`EventId`) of the sent `events`.
+    #[deprecated(since = "0.16.1", note = "Use `Events<E>::write_batch` instead.")]
+    #[track_caller]
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
+        self.write_batch(events)
+    }
+
     /// Sends the default value of the event. Useful when the event is an empty struct.
     /// This method returns the [ID](`EventId`) of the sent `event`.
     #[deprecated(since = "0.16.0", note = "Use `Events<E>::write_default` instead.")]
@@ -169,7 +199,7 @@ impl<E: Event> Events<E> {
     where
         E: Default,
     {
-        self.send(Default::default())
+        self.write_default()
     }
 
     /// Gets a new [`EventCursor`]. This will include all events already in the event buffers.
