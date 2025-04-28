@@ -76,7 +76,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
     }
 
     /// Writes a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than writes each event individually.
+    /// This is more efficient than writing each event individually.
     /// This method returns the [IDs](`EventId`) of the written `events`.
     ///
     /// See [`Events`] for details.
