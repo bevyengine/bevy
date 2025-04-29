@@ -173,10 +173,7 @@ fn setup_scene_once_loaded(
         // Boot up your transition flows
         let mut transitions = AnimationTransitions::new(1);
 
-        // Make sure to start the animation via the `AnimationTransitions`
-        // component. The `AnimationTransitions` component wants to manage all
-        // the animations and will get confused if the animations are started
-        // directly via the `AnimationPlayer`.
+        // Make sure to play your new animation!
         transitions.transition_flows(
             graph_handle.clone_weak(),
             animations.index,

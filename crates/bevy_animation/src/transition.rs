@@ -12,7 +12,7 @@ use bevy_ecs::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use core::time::Duration;
-use tracing::{info, warn};
+use tracing::warn;
 
 /// Component responsible for managing transitions between multiple nodes or states.
 ///
@@ -107,7 +107,7 @@ impl AnimationTransitions {
             });
             *old_node = Some(new_node);
         } else {
-            panic!("Flow position {flow_position} is out of bounds!");
+            warn!("Flow position {flow_position} is out of bounds!");
         }
     }
 }
@@ -122,15 +122,21 @@ pub fn handle_node_transition(
         let mut remaining_weight = 1.0;
         for transition in animation_transitions.iter_mut() {
             let Some(animation_graph) = assets_graph.get_mut(&transition.graph) else {
-                warn!("No graph and you added an animation transition !");
+                warn!(
+                    "You have no graph yet, added an animation transition! How could you do that?"
+                );
                 continue;
             };
-
             // How much to transition per tick!
             transition.weight =
                 (transition.weight - transition.weight_decline * time.delta_secs()).max(0.0);
 
-            info!(?transition.weight,?transition.weight_decline);
+            if transition.old_node.eq(&transition.new_node) {
+                if let Some(old_node) = animation_graph.get_mut(transition.old_node) {
+                    old_node.weight = remaining_weight;
+                }
+                continue;
+            }
 
             if let Some(old_node) = animation_graph.get_mut(transition.old_node) {
                 old_node.weight = transition.weight * remaining_weight;
@@ -148,12 +154,6 @@ pub fn handle_node_transition(
 /// [`AnimationTransitions`] object.
 pub fn expire_completed_transitions(mut query: Query<&mut AnimationTransitions>) {
     for mut animation_transitions in query.iter_mut() {
-        animation_transitions.retain(|transition| {
-            let keep = transition.weight > 0.0;
-            if !keep {
-                info!("Remove");
-            }
-            keep
-        });
+        animation_transitions.retain(|transition| transition.weight > 0.0);
     }
 }
