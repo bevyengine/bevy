@@ -106,7 +106,7 @@ macro_rules! define_label {
     ) => {
 
         $(#[$label_attr])*
-        pub trait $label_trait_name: 'static + Send + Sync + ::core::fmt::Debug + $crate::label::DynEq {
+        pub trait $label_trait_name: Send + Sync + ::core::fmt::Debug + $crate::label::DynEq + $crate::label::DynHash {
 
             $($trait_extra_methods)*
 
@@ -114,9 +114,6 @@ macro_rules! define_label {
             #[doc = stringify!($label_trait_name)]
             ///`.
             fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name>;
-
-            /// Feeds this value into the given [`Hasher`].
-            fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher);
 
             /// Returns an [`Interned`] value corresponding to `self`.
             fn intern(&self) -> $crate::intern::Interned<dyn $label_trait_name>
@@ -132,10 +129,6 @@ macro_rules! define_label {
 
             fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
-            }
-
-            fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher) {
-                (**self).dyn_hash(state);
             }
 
             fn intern(&self) -> Self {
