@@ -1,6 +1,6 @@
 //! A simple 3D scene to demonstrate parent picking.
 //!
-//! Entity hierachies can be built using a [`ChildOf`] component.  By observing for
+//! Entity hierarchies can be built using a [`ChildOf`] component.  By observing for
 //! [`Trigger<Pointer<E>>`] events on the parent entity, picking events can be collected
 //! for the entire tree, giving both the leaf and root nodes selected.
 
@@ -10,10 +10,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(MeshPickingPlugin)
-        
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, close_on_esc)
-
         .run();
 }
 
@@ -23,14 +21,14 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let parent_id = commands.spawn((
-        Name::new("Parent"),
-        Transform::IDENTITY,
-        Visibility::Visible,
-    ))
-    .observe(on_pointer_over_debug)
-    .id();
-
+    let parent_id = commands
+        .spawn((
+            Name::new("Parent"),
+            Transform::IDENTITY,
+            Visibility::Visible,
+        ))
+        .observe(on_pointer_over_debug)
+        .id();
 
     // circular base
     commands.spawn((
@@ -66,18 +64,14 @@ fn setup(
     ));
 }
 
-fn on_pointer_over_debug(
-    trigger: Trigger<Pointer<Over>>,
-    query2: Query<& Name>,
-) {
-    if let Ok(name) = query2.get(trigger.target()) {
+fn on_pointer_over_debug(trigger: Trigger<Pointer<Over>>, query: Query<&Name>) {
+    if let Ok(name) = query.get(trigger.target()) {
         println!("root = trigger.target() = {:?}", name);
     }
 
     // NOTE: trigger.original_target = trigger.event().original_target
     // this is due to [`impl Deref for Pointer`]
-    if let Ok(name) = query2.get(trigger.original_target) {
-        
+    if let Ok(name) = query.get(trigger.original_target) {
         println!("leaf = trigger.original_target = {:?}", name);
     }
 }
