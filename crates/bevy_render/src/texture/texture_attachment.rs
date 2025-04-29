@@ -165,6 +165,17 @@ impl OutputColorAttachment {
         }
     }
 
+    pub fn get_attachment_operations(&self, clear_color: Option<LinearRgba>) -> Operations<Color> {
+        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+        Operations {
+            load: match (clear_color, first_call) {
+                (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                (None, _) | (Some(_), false) => LoadOp::Load,
+            },
+            store: StoreOp::Store,
+        }
+    }
+
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
     /// the provided `clear_color` if this is the first time calling this function, otherwise it
     /// will be loaded.

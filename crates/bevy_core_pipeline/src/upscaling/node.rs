@@ -1,5 +1,5 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
-use bevy_color::Color;
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraDriverNode, CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
@@ -54,7 +54,7 @@ impl ViewNode for UpscalingNode {
             return Ok(());
         }
 
-        let _converted_clear_color: Option<Color> = clear_color.map(Into::into);
+        let converted_clear_color: Option<LinearRgba> = clear_color.map(|color| color.to_linear());
         let view_entity = graph.view_entity();
 
         let main_texture_key = target.get_main_texture_key(view_entity);
@@ -82,10 +82,7 @@ impl ViewNode for UpscalingNode {
                 desc: TextureViewInfo::default(),
             },
             resolve_target: None,
-            ops: Operations {
-                load: LoadOp::Clear(Color::WHITE.to_linear().into()),
-                store: StoreOp::Store,
-            },
+            ops: target.out_texture_color_attachment_operations(converted_clear_color),
         });
 
         render_pass.set_bind_group(
@@ -120,7 +117,7 @@ impl ViewNode for UpscalingNode {
 
         render_pass.set_render_pipeline(upscaling_target.0);
         render_pass.draw(0..3, 0..1);
-        
+
         builder.set_pass(render_pass);
 
         Ok(())

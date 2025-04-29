@@ -850,6 +850,13 @@ impl ViewTarget {
         &self.out_texture.view
     }
 
+    pub fn out_texture_color_attachment_operations(
+        &self,
+        clear_color: Option<LinearRgba>,
+    ) -> Operations<Color> {
+        self.out_texture.get_attachment_operations(clear_color)
+    }
+
     pub fn out_texture_color_attachment(
         &self,
         clear_color: Option<LinearRgba>,
