@@ -129,11 +129,12 @@ pub fn handle_node_transition(
             };
 
             // How much to transition per tick!
-            transition.weight =
-                (transition.weight - 1./transition.duration.as_secs_f32() * time.delta_secs()).max(0.0);
+            transition.weight = (transition.weight
+                - 1. / transition.duration.as_secs_f32() * time.delta_secs())
+            .max(0.0);
 
             // Handles edge case when duration is zero
-            if transition.duration == Duration::ZERO{
+            if transition.duration == Duration::ZERO {
                 transition.weight = 0.0;
             }
 
