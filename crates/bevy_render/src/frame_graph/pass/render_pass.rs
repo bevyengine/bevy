@@ -1,5 +1,11 @@
-use crate::frame_graph::{
-    ColorAttachmentRef, DepthStencilAttachmentRef, FrameGraphError, RenderContext, RenderPassContext, RenderPassInfo
+use std::ops::Range;
+
+use crate::{
+    frame_graph::{
+        BindGroupRef, ColorAttachmentRef, DepthStencilAttachmentRef, FrameGraphError,
+        RenderContext, RenderPassContext, RenderPassInfo,
+    },
+    render_resource::CachedRenderPipelineId,
 };
 
 use super::PassTrait;
@@ -24,8 +30,40 @@ impl RenderPass {
             .push(color_attachment);
     }
 
-    pub fn add_draw_function<T: RenderDrawFunction>(&mut self, draw_function: T) {
+    pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
+        self.add_draw_function((vertices, instances));
+    }
+
+    pub fn set_render_pipeline(&mut self, id: CachedRenderPipelineId) {
+        self.add_draw_function(id);
+    }
+
+    pub fn set_bind_group(&mut self, index: u32, bind_group_ref: &BindGroupRef, offsets: &[u32]) {
+        self.add_draw_function((index, bind_group_ref.clone(), offsets.to_vec()));
+    }
+
+    pub(crate) fn add_draw_function<T: RenderDrawFunction>(&mut self, draw_function: T) {
         self.render_draw_functions.push(Box::new(draw_function));
+    }
+}
+
+impl RenderDrawFunction for (Range<u32>, Range<u32>) {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.draw(self.0.clone(), self.1.clone());
+
+        Ok(())
+    }
+}
+
+impl RenderDrawFunction for CachedRenderPipelineId {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.set_render_pipeline(*self)
+    }
+}
+
+impl RenderDrawFunction for (u32, BindGroupRef, Vec<u32>) {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.set_bind_group(self.0, &self.1, &self.2)
     }
 }
 

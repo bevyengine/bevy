@@ -1,16 +1,22 @@
 use std::borrow::Cow;
 
 use crate::{
-    frame_graph::{ExtraResource, FrameGraphBuffer, FrameGraphError, ResourceRead, ResourceRef},
+    frame_graph::{
+        ExtraResource, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, RenderContext, ResourceRead, ResourceRef
+    },
     render_resource::{BindGroup, BindGroupLayout},
 };
 
+use super::TextureViewInfo;
+
+#[derive(Clone)]
 pub struct BindGroupRef {
     pub label: Option<Cow<'static, str>>,
     pub layout: BindGroupLayout,
     pub entries: Vec<BindGroupEntryRef>,
 }
 
+#[derive(Clone)]
 pub struct BindGroupEntryRef {
     pub binding: u32,
     pub resource: BindingResourceRef,
@@ -19,6 +25,7 @@ pub struct BindGroupEntryRef {
 pub enum BindingResource<'a> {
     Buffer(&'a FrameGraphBuffer),
     Sampler(wgpu::Sampler),
+    TextureView(wgpu::TextureView),
 }
 
 impl<'a> BindingResource<'a> {
@@ -28,11 +35,12 @@ impl<'a> BindingResource<'a> {
                 wgpu::BindingResource::Buffer(buffer.resource.as_entire_buffer_binding())
             }
             BindingResource::Sampler(sampler) => wgpu::BindingResource::Sampler(sampler),
+            BindingResource::TextureView(texture_view) => wgpu::BindingResource::TextureView(texture_view)
         }
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SampleInfo {
     pub label: Option<Cow<'static, str>>,
     pub address_mode_u: wgpu::AddressMode,
@@ -67,9 +75,14 @@ impl SampleInfo {
     }
 }
 
+#[derive(Clone)]
 pub enum BindingResourceRef {
     Buffer(ResourceRef<FrameGraphBuffer, ResourceRead>),
     Sampler(SampleInfo),
+    TextureView {
+        texture_ref: ResourceRef<FrameGraphTexture, ResourceRead>,
+        texture_view_info: TextureViewInfo,
+    },
 }
 
 impl ExtraResource for BindGroupRef {
@@ -77,7 +90,7 @@ impl ExtraResource for BindGroupRef {
 
     fn extra_resource(
         &self,
-        resource_context: &crate::frame_graph::RenderContext,
+        resource_context: &RenderContext,
     ) -> Result<Self::Resource, FrameGraphError> {
         let mut resources = vec![];
         for entry in self.entries.iter() {
@@ -91,6 +104,17 @@ impl ExtraResource for BindGroupRef {
                         .wgpu_device()
                         .create_sampler(&info.get_sample_desc()),
                 ),
+                BindingResourceRef::TextureView {
+                    texture_ref,
+                    texture_view_info,
+                } => {
+                    let texture = resource_context.get_resource(texture_ref)?;
+                    BindingResource::TextureView(
+                        texture
+                            .resource
+                            .create_view(&texture_view_info.get_texture_view_desc()),
+                    )
+                }
             };
 
             resources.push((entry.binding, resource));

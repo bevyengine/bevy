@@ -2,12 +2,10 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::{
+    frame_graph::SampleInfo, render_resource::{
         binding_types::{sampler, texture_2d},
         *,
-    },
-    renderer::RenderDevice,
-    RenderApp,
+    }, renderer::RenderDevice, RenderApp
 };
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
@@ -39,7 +37,7 @@ impl Plugin for BlitPlugin {
 #[derive(Resource)]
 pub struct BlitPipeline {
     pub texture_bind_group: BindGroupLayout,
-    pub sampler: Sampler,
+    pub sampler: SampleInfo,
 }
 
 impl FromWorld for BlitPipeline {
@@ -57,7 +55,7 @@ impl FromWorld for BlitPipeline {
             ),
         );
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+        let sampler = SampleInfo::default();
 
         BlitPipeline {
             texture_bind_group,
