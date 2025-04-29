@@ -58,7 +58,6 @@ pub fn derive_label(
     input: syn::DeriveInput,
     trait_name: &str,
     trait_path: &syn::Path,
-    dyn_eq_path: &syn::Path,
 ) -> TokenStream {
     if let syn::Data::Union(_) = &input.data {
         let message = format!("Cannot derive {trait_name} for unions.");
@@ -88,10 +87,6 @@ pub fn derive_label(
             impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
                 fn dyn_clone(&self) -> alloc::boxed::Box<dyn #trait_path> {
                     alloc::boxed::Box::new(::core::clone::Clone::clone(self))
-                }
-
-                fn as_dyn_eq(&self) -> &dyn #dyn_eq_path {
-                    self
                 }
 
                 fn dyn_hash(&self, mut state: &mut dyn ::core::hash::Hasher) {

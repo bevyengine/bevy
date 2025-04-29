@@ -106,7 +106,7 @@ macro_rules! define_label {
     ) => {
 
         $(#[$label_attr])*
-        pub trait $label_trait_name: 'static + Send + Sync + ::core::fmt::Debug {
+        pub trait $label_trait_name: 'static + Send + Sync + ::core::fmt::Debug + $crate::label::DynEq {
 
             $($trait_extra_methods)*
 
@@ -114,9 +114,6 @@ macro_rules! define_label {
             #[doc = stringify!($label_trait_name)]
             ///`.
             fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name>;
-
-            /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
 
             /// Feeds this value into the given [`Hasher`].
             fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher);
@@ -137,11 +134,6 @@ macro_rules! define_label {
                 (**self).dyn_clone()
             }
 
-            /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq {
-                (**self).as_dyn_eq()
-            }
-
             fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher) {
                 (**self).dyn_hash(state);
             }
@@ -153,7 +145,7 @@ macro_rules! define_label {
 
         impl PartialEq for dyn $label_trait_name {
             fn eq(&self, other: &Self) -> bool {
-                self.as_dyn_eq().dyn_eq(other.as_dyn_eq())
+                self.dyn_eq(other)
             }
         }
 
@@ -174,7 +166,7 @@ macro_rules! define_label {
                 use ::core::ptr;
 
                 // Test that both the type id and pointer address are equivalent.
-                self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id()
+                self.type_id() == other.type_id()
                     && ptr::addr_eq(ptr::from_ref::<Self>(self), ptr::from_ref::<Self>(other))
             }
 
@@ -182,7 +174,7 @@ macro_rules! define_label {
                 use ::core::{hash::Hash, ptr};
 
                 // Hash the type id...
-                self.as_dyn_eq().type_id().hash(state);
+                self.type_id().hash(state);
 
                 // ...and the pointer address.
                 // Cast to a unit `()` first to discard any pointer metadata.
