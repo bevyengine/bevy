@@ -1,5 +1,5 @@
 //! Animation Transitioning logic goes here!
-//! Acts quite similar to a pseudo state machine and it can actually support multi-state machines
+//! This struct should in the later run be responsible for handling multi-state Animation Graph nodes.
 
 use crate::graph::{AnimationGraph, AnimationGraphHandle, AnimationNodeIndex};
 use bevy_asset::{Assets, Handle};
