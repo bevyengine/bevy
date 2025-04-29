@@ -17,8 +17,12 @@ struct PrefilterConstants {
 // Tonemapping functions to reduce fireflies
 fn rcp(x: f32) -> f32 { return 1.0 / x; }
 fn max3(x: vec3f) -> f32 { return max(x.r, max(x.g, x.b)); }
-fn tonemap(color: vec3f) -> vec3f { return color * rcp(max3(color) + 1.0); }
-fn reverse_tonemap(color: vec3f) -> vec3f { return color * rcp(1.0 - max3(color)); }
+fn tonemap(color: vec3f) -> vec3f {
+    return color / (color + vec3(5000.0));
+}
+fn reverse_tonemap(color: vec3f) -> vec3f {
+    return 5000.0 * color / (vec3(1.0) - color);
+}
 
 // Predefined set of uniform directions
 fn get_uniform_direction(index: u32) -> vec3f {

@@ -57,7 +57,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
             transmittance = result.transmittance;
         }
 
-        inscattering += sun_radiance * transmittance * view.exposure;
+        inscattering += sun_radiance * transmittance;
     } else {
         let t = ndc_to_camera_dist(vec3(uv_to_ndc(in.uv), depth));
         inscattering = sample_aerial_view_lut(in.uv, t);
@@ -70,6 +70,10 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
             transmittance = result.transmittance;
         }
     }
+
+    // exposure compensation
+    inscattering *= view.exposure;
+
     // inscattering = vec3(0.5);
 #ifdef DUAL_SOURCE_BLENDING
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));

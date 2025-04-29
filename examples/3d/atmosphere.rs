@@ -182,17 +182,35 @@ fn setup_terrain_scene(
             })),
             Transform::from_xyz(0.0, 0.25, z).with_scale(Vec3::splat(0.15)),
         ));
+
+        commands.spawn((
+            Mesh3d(sphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::WHITE,
+                metallic: 0.0,
+                perceptual_roughness: roughness,
+                ..default()
+            })),
+            Transform::from_xyz(0.0, 0.75, z).with_scale(Vec3::splat(0.15)),
+        ));
     }
 
-    // Terrain
+    commands.spawn((
+        Terrain,
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
+        ),
+        Transform::from_xyz(10.0, 0.0, 0.0)
+            .with_scale(Vec3::splat(10.0))
+            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+    ));
+
     // commands.spawn((
-    //     Terrain,
     //     SceneRoot(
-    //         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
+    //         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/porsche/scene.gltf")),
     //     ),
-    //     Transform::from_xyz(10.0, 0.0, 0.0)
-    //         .with_scale(Vec3::splat(10.0))
-    //         .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+    //     Transform::from_xyz(0.0, 0.667 * 0.5, 0.0)
+    //         .with_scale(Vec3::splat(0.5)),
     // ));
 }
 
@@ -233,9 +251,11 @@ fn pan_camera(
         return;
     };
 
+    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+
     for ev in motion_evr.read() {
-        if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
-            // Pan camera when shift is held
+        if shift_pressed && mouse_button.pressed(MouseButton::Left) {
+            // Pan camera when shift + left click is held
             let pan_speed = camera_orbit.distance * 0.001; // Scale pan speed with distance
 
             // Get camera right and up vectors for panning in camera's local space
@@ -247,6 +267,29 @@ fn pan_camera(
 
             // Translate the camera orbit center
             camera_orbit.target_transform.translation += pan_offset;
+        } else if shift_pressed && mouse_button.pressed(MouseButton::Right) {
+            // For shift+right click, use the same ray casting but place sun at opposite point
+            let Ok(ray) = camera.viewport_to_world(camera_global_transform, cursor_pos) else {
+                continue;
+            };
+
+            let sphere_radius = 999999.0;
+
+            if let Some(intersection) = ray_sphere_intersection(
+                ray.origin,
+                Vec3::splat(-1.0) * Vec3::from(ray.direction),
+                Vec3::ZERO,
+                sphere_radius,
+            ) {
+                // Calculate the opposite point from the intersection (through the center)
+                let direction_to_center = -intersection.normalize();
+                let opposite_point = direction_to_center * intersection.length();
+                
+                let mut target = sun_orbit.target_transform;
+                target.translation = opposite_point;
+                target.look_at(Vec3::ZERO, Vec3::Y);
+                sun_orbit.target_transform = target;
+            }
         } else if mouse_button.pressed(MouseButton::Left) {
             let orbit_speed = 0.005;
 
@@ -294,10 +337,10 @@ fn exposure_control(
         let exposure_change = time.delta_secs() * 1.0; // 1 EV per second
 
         if keyboard.pressed(KeyCode::ArrowUp) {
-            camera_exposure.target_ev100 += exposure_change;
+            camera_exposure.target_ev100 -= exposure_change;
         }
         if keyboard.pressed(KeyCode::ArrowDown) {
-            camera_exposure.target_ev100 -= exposure_change;
+            camera_exposure.target_ev100 += exposure_change;
         }
 
         // Optional: clamp to reasonable exposure values

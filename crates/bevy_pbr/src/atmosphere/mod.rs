@@ -558,7 +558,7 @@ pub struct AtmosphereEnvironmentMapLight {
 impl Default for AtmosphereEnvironmentMapLight {
     fn default() -> Self {
         Self {
-            intensity: 5000.0,
+            intensity: 1.0,
             rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: true,
         }

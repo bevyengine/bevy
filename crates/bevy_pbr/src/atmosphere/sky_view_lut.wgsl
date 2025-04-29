@@ -1,7 +1,7 @@
 #import bevy_pbr::{
     atmosphere::{
         types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, settings},
+        bindings::{atmosphere, settings, view},
         functions::{
             view_radius, max_atmosphere_distance, direction_atmosphere_to_world,
             sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
