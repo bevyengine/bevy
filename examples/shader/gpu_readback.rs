@@ -12,12 +12,13 @@ use bevy::{
             binding_types::{storage_buffer, texture_storage_2d},
             *,
         },
-        renderer::{RenderContext, RenderDevice},
+        renderer::RenderDevice,
         storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
         texture::GpuImage,
         Render, RenderApp, RenderSet,
     },
 };
+use bevy_render::frame_graph::FrameGraph;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
@@ -197,26 +198,9 @@ impl render_graph::Node for ComputeNode {
     fn run(
         &self,
         _graph: &mut render_graph::RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        _render_context: &mut FrameGraph,
+        _world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline = world.resource::<ComputePipeline>();
-        let bind_group = world.resource::<GpuBufferBindGroup>();
-
-        if let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) {
-            let mut pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("GPU readback compute pass"),
-                        ..default()
-                    });
-
-            pass.set_bind_group(0, &bind_group.0, &[]);
-            pass.set_pipeline(init_pipeline);
-            pass.dispatch_workgroups(BUFFER_LEN as u32, 1, 1);
-        }
         Ok(())
     }
 }

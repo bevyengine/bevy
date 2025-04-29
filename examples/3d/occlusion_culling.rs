@@ -32,11 +32,12 @@ use bevy::{
         experimental::occlusion_culling::OcclusionCulling,
         render_graph::{self, NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel},
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
-        renderer::{RenderAdapter, RenderContext, RenderDevice},
+        renderer::{RenderAdapter, RenderDevice},
         settings::WgpuFeatures,
         Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSet,
     },
 };
+use bevy_render::frame_graph::FrameGraph;
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.
@@ -419,64 +420,9 @@ impl render_graph::Node for ReadbackIndirectParametersNode {
     fn run<'w>(
         &self,
         _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
+        _frame_graph: &mut FrameGraph,
+        _world: &'w World,
     ) -> Result<(), NodeRunError> {
-        // Extract the buffers that hold the GPU indirect draw parameters from
-        // the world resources. We're going to read those buffers to determine
-        // how many meshes were actually drawn.
-        let (Some(indirect_parameters_buffers), Some(indirect_parameters_mapping_buffers)) = (
-            world.get_resource::<IndirectParametersBuffers>(),
-            world.get_resource::<IndirectParametersStagingBuffers>(),
-        ) else {
-            return Ok(());
-        };
-
-        // Get the indirect parameters buffers corresponding to the opaque 3D
-        // phase, since all our meshes are in that phase.
-        let Some(phase_indirect_parameters_buffers) =
-            indirect_parameters_buffers.get(&TypeId::of::<Opaque3d>())
-        else {
-            return Ok(());
-        };
-
-        // Grab both the buffers we're copying from and the staging buffers
-        // we're copying to. Remember that we can't map the indirect parameters
-        // buffers directly, so we have to copy their contents to a staging
-        // buffer.
-        let (
-            Some(indexed_data_buffer),
-            Some(indexed_batch_sets_buffer),
-            Some(indirect_parameters_staging_data_buffer),
-            Some(indirect_parameters_staging_batch_sets_buffer),
-        ) = (
-            phase_indirect_parameters_buffers.indexed.data_buffer(),
-            phase_indirect_parameters_buffers
-                .indexed
-                .batch_sets_buffer(),
-            indirect_parameters_mapping_buffers.data.as_ref(),
-            indirect_parameters_mapping_buffers.batch_sets.as_ref(),
-        )
-        else {
-            return Ok(());
-        };
-
-        // Copy from the indirect parameters buffers to the staging buffers.
-        render_context.command_encoder().copy_buffer_to_buffer(
-            indexed_data_buffer,
-            0,
-            indirect_parameters_staging_data_buffer,
-            0,
-            indexed_data_buffer.size(),
-        );
-        render_context.command_encoder().copy_buffer_to_buffer(
-            indexed_batch_sets_buffer,
-            0,
-            indirect_parameters_staging_batch_sets_buffer,
-            0,
-            indexed_batch_sets_buffer.size(),
-        );
-
         Ok(())
     }
 }

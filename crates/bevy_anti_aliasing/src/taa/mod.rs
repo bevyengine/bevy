@@ -20,25 +20,24 @@ use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
+    frame_graph::FrameGraph,
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
-        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
+        ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState, PipelineCache,
+        PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
+        Shader, ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::RenderDevice,
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
-use tracing::warn;
 
 const TAA_SHADER_HANDLE: Handle<Shader> = weak_handle!("fea20d50-86b6-4069-aa32-374346aec00c");
 
@@ -168,72 +167,12 @@ impl ViewNode for TemporalAntiAliasNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
+        _frame_graph: &mut FrameGraph,
+        (_camera, _view_target, _taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
-        world: &World,
+        _world: &World,
     ) -> Result<(), NodeRunError> {
-        if *msaa != Msaa::Off {
-            warn!("Temporal anti-aliasing requires MSAA to be disabled");
-            return Ok(());
-        }
-
-        let (Some(pipelines), Some(pipeline_cache)) = (
-            world.get_resource::<TaaPipeline>(),
-            world.get_resource::<PipelineCache>(),
-        ) else {
-            return Ok(());
-        };
-        let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
-            pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
-            &prepass_textures.motion_vectors,
-            &prepass_textures.depth,
-        ) else {
-            return Ok(());
-        };
-        let view_target = view_target.post_process_write();
-
-        let taa_bind_group = render_context.render_device().create_bind_group(
-            "taa_bind_group",
-            &pipelines.taa_bind_group_layout,
-            &BindGroupEntries::sequential((
-                view_target.source,
-                &taa_history_textures.read.default_view,
-                &prepass_motion_vectors_texture.texture.default_view,
-                &prepass_depth_texture.texture.default_view,
-                &pipelines.nearest_sampler,
-                &pipelines.linear_sampler,
-            )),
-        );
-
-        {
-            let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("taa_pass"),
-                color_attachments: &[
-                    Some(RenderPassColorAttachment {
-                        view: view_target.destination,
-                        resolve_target: None,
-                        ops: Operations::default(),
-                    }),
-                    Some(RenderPassColorAttachment {
-                        view: &taa_history_textures.write.default_view,
-                        resolve_target: None,
-                        ops: Operations::default(),
-                    }),
-                ],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-            taa_pass.set_render_pipeline(taa_pipeline);
-            taa_pass.set_bind_group(0, &taa_bind_group, &[]);
-            if let Some(viewport) = camera.viewport.as_ref() {
-                taa_pass.set_camera_viewport(viewport);
-            }
-            taa_pass.draw(0..3, 0..1);
-        }
-
         Ok(())
     }
 }

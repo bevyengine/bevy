@@ -14,18 +14,18 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
-        render_asset::{RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssetUsages,
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
-            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
-            TextureUsages,
+            Buffer, BufferDescriptor, BufferUsages, Extent3d, Maintain, MapMode, TextureDimension,
+            TextureFormat, TextureUsages,
         },
-        renderer::{RenderContext, RenderDevice, RenderQueue},
+        renderer::RenderDevice,
         Extract, Render, RenderApp, RenderSet,
     },
     winit::WinitPlugin,
 };
+use bevy_render::frame_graph::FrameGraph;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     ops::{Deref, DerefMut},
@@ -340,57 +340,9 @@ impl render_graph::Node for ImageCopyDriver {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        _frame_graph: &mut FrameGraph,
+        _world: &World,
     ) -> Result<(), NodeRunError> {
-        let image_copiers = world.get_resource::<ImageCopiers>().unwrap();
-        let gpu_images = world
-            .get_resource::<RenderAssets<bevy::render::texture::GpuImage>>()
-            .unwrap();
-
-        for image_copier in image_copiers.iter() {
-            if !image_copier.enabled() {
-                continue;
-            }
-
-            let src_image = gpu_images.get(&image_copier.src_image).unwrap();
-
-            let mut encoder = render_context
-                .render_device()
-                .create_command_encoder(&CommandEncoderDescriptor::default());
-
-            let block_dimensions = src_image.texture_format.block_dimensions();
-            let block_size = src_image.texture_format.block_copy_size(None).unwrap();
-
-            // Calculating correct size of image row because
-            // copy_texture_to_buffer can copy image only by rows aligned wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
-            // That's why image in buffer can be little bit wider
-            // This should be taken into account at copy from buffer stage
-            let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-                (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
-            );
-
-            encoder.copy_texture_to_buffer(
-                src_image.texture.as_image_copy(),
-                TexelCopyBufferInfo {
-                    buffer: &image_copier.buffer,
-                    layout: TexelCopyBufferLayout {
-                        offset: 0,
-                        bytes_per_row: Some(
-                            std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
-                                .unwrap()
-                                .into(),
-                        ),
-                        rows_per_image: None,
-                    },
-                },
-                src_image.size,
-            );
-
-            let render_queue = world.get_resource::<RenderQueue>().unwrap();
-            render_queue.submit(std::iter::once(encoder.finish()));
-        }
-
         Ok(())
     }
 }

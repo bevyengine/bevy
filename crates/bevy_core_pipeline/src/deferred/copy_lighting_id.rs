@@ -8,6 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
+    frame_graph::FrameGraph,
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
@@ -16,10 +17,7 @@ use bevy_render::{
 };
 
 use bevy_ecs::query::QueryItem;
-use bevy_render::{
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    renderer::RenderContext,
-};
+use bevy_render::render_graph::{NodeRunError, RenderGraphContext, ViewNode};
 
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
@@ -69,52 +67,12 @@ impl ViewNode for CopyDeferredLightingIdNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (_view_target, view_prepass_textures, deferred_lighting_id_depth_texture): QueryItem<
+        _frame_graph: &mut FrameGraph,
+        (_view_target, _view_prepass_textures, _deferred_lighting_id_depth_texture): QueryItem<
             Self::ViewQuery,
         >,
-        world: &World,
+        _world: &World,
     ) -> Result<(), NodeRunError> {
-        let copy_deferred_lighting_id_pipeline = world.resource::<CopyDeferredLightingIdPipeline>();
-
-        let pipeline_cache = world.resource::<PipelineCache>();
-
-        let Some(pipeline) =
-            pipeline_cache.get_render_pipeline(copy_deferred_lighting_id_pipeline.pipeline_id)
-        else {
-            return Ok(());
-        };
-        let Some(deferred_lighting_pass_id_texture) =
-            &view_prepass_textures.deferred_lighting_pass_id
-        else {
-            return Ok(());
-        };
-
-        let bind_group = render_context.render_device().create_bind_group(
-            "copy_deferred_lighting_id_bind_group",
-            &copy_deferred_lighting_id_pipeline.layout,
-            &BindGroupEntries::single(&deferred_lighting_pass_id_texture.texture.default_view),
-        );
-
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("copy_deferred_lighting_id_pass"),
-            color_attachments: &[],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &deferred_lighting_id_depth_texture.texture.default_view,
-                depth_ops: Some(Operations {
-                    load: LoadOp::Clear(0.0),
-                    store: StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
-
         Ok(())
     }
 }

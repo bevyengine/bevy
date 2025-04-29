@@ -4,13 +4,12 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
-use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
+    frame_graph::FrameGraph,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
-    renderer::RenderContext,
     view::{Msaa, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -60,58 +59,10 @@ impl ViewNode for MsaaWritebackNode {
     fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (target, blit_pipeline_id, msaa): QueryItem<'w, Self::ViewQuery>,
+        _frame_graph: &mut FrameGraph,
+        (_target, _blit_pipeline_id, _msaa): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        if *msaa == Msaa::Off {
-            return Ok(());
-        }
-
-        let blit_pipeline = world.resource::<BlitPipeline>();
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(blit_pipeline_id.0) else {
-            return Ok(());
-        };
-
-        // The current "main texture" needs to be bound as an input resource, and we need the "other"
-        // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
-        // as a post process write!
-        let post_process = target.post_process_write();
-
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("msaa_writeback"),
-            // The target's "resolve target" is the "destination" in post_process.
-            // We will indirectly write the results to the "destination" using
-            // the MSAA resolve step.
-            color_attachments: &[Some(RenderPassColorAttachment {
-                // If MSAA is enabled, then the sampled texture will always exist
-                view: target.sampled_main_texture_view().unwrap(),
-                resolve_target: Some(post_process.destination),
-                ops: Operations {
-                    load: LoadOp::Clear(LinearRgba::BLACK.into()),
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        };
-
-        let bind_group = render_context.render_device().create_bind_group(
-            None,
-            &blit_pipeline.texture_bind_group,
-            &BindGroupEntries::sequential((post_process.source, &blit_pipeline.sampler)),
-        );
-
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
-
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
-
         Ok(())
     }
 }

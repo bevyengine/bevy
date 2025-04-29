@@ -23,22 +23,21 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::render_graph::RenderGraph;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        binding_types, AddressMode, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
-        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, TextureSampleType,
+        FragmentState, PipelineCache, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
-    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
+use bevy_render::{frame_graph::FrameGraph, render_graph::RenderGraph};
 use bevy_utils::{once, prelude::default};
 use tracing::info;
 
@@ -276,74 +275,20 @@ impl ViewNode for ScreenSpaceReflectionsNode {
     fn run<'w>(
         &self,
         _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
+        _frame_graph: &mut FrameGraph,
         (
-            view_target,
-            view_uniform_offset,
-            view_lights_offset,
-            view_fog_offset,
-            view_light_probes_offset,
-            view_ssr_offset,
-            view_environment_map_offset,
-            view_bind_group,
-            ssr_pipeline_id,
+            _view_target,
+            _view_uniform_offset,
+            _view_lights_offset,
+            _view_fog_offset,
+            _view_light_probes_offset,
+            _view_ssr_offset,
+            _view_environment_map_offset,
+            _view_bind_group,
+            _ssr_pipeline_id,
         ): QueryItem<'w, Self::ViewQuery>,
-        world: &'w World,
+        _world: &'w World,
     ) -> Result<(), NodeRunError> {
-        // Grab the render pipeline.
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let Some(render_pipeline) = pipeline_cache.get_render_pipeline(**ssr_pipeline_id) else {
-            return Ok(());
-        };
-
-        // Set up a standard pair of postprocessing textures.
-        let postprocess = view_target.post_process_write();
-
-        // Create the bind group for this view.
-        let ssr_pipeline = world.resource::<ScreenSpaceReflectionsPipeline>();
-        let ssr_bind_group = render_context.render_device().create_bind_group(
-            "SSR bind group",
-            &ssr_pipeline.bind_group_layout,
-            &BindGroupEntries::sequential((
-                postprocess.source,
-                &ssr_pipeline.color_sampler,
-                &ssr_pipeline.depth_linear_sampler,
-                &ssr_pipeline.depth_nearest_sampler,
-            )),
-        );
-
-        // Build the SSR render pass.
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("SSR pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: postprocess.destination,
-                resolve_target: None,
-                ops: Operations::default(),
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        // Set bind groups.
-        render_pass.set_render_pipeline(render_pipeline);
-        render_pass.set_bind_group(
-            0,
-            &view_bind_group.value,
-            &[
-                view_uniform_offset.offset,
-                view_lights_offset.offset,
-                view_fog_offset.offset,
-                **view_light_probes_offset,
-                **view_ssr_offset,
-                **view_environment_map_offset,
-            ],
-        );
-
-        // Perform the SSR render pass.
-        render_pass.set_bind_group(1, &ssr_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
-
         Ok(())
     }
 }

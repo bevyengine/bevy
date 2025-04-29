@@ -20,21 +20,20 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_asset::{RenderAssetUsages, RenderAssets},
+    frame_graph::FrameGraph,
+    render_asset::RenderAssetUsages,
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState,
-        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
+        BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
+        ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, PipelineCache,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
         TextureDimension, TextureFormat, TextureSampleType,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::GpuImage,
+    renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -363,70 +362,10 @@ impl ViewNode for PostProcessingNode {
     fn run<'w>(
         &self,
         _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
-        world: &'w World,
+        _frame_graph: &mut FrameGraph,
+        (_view_target, _pipeline_id, _chromatic_aberration, _post_processing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
+        _world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let post_processing_pipeline = world.resource::<PostProcessingPipeline>();
-        let post_processing_uniform_buffers = world.resource::<PostProcessingUniformBuffers>();
-        let gpu_image_assets = world.resource::<RenderAssets<GpuImage>>();
-
-        // We need a render pipeline to be prepared.
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
-            return Ok(());
-        };
-
-        // We need the chromatic aberration LUT to be present.
-        let Some(chromatic_aberration_lut) = gpu_image_assets.get(&chromatic_aberration.color_lut)
-        else {
-            return Ok(());
-        };
-
-        // We need the postprocessing settings to be uploaded to the GPU.
-        let Some(chromatic_aberration_uniform_buffer_binding) = post_processing_uniform_buffers
-            .chromatic_aberration
-            .binding()
-        else {
-            return Ok(());
-        };
-
-        // Use the [`PostProcessWrite`] infrastructure, since this is a
-        // full-screen pass.
-        let post_process = view_target.post_process_write();
-
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("postprocessing pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: post_process.destination,
-                resolve_target: None,
-                ops: Operations::default(),
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        };
-
-        let bind_group = render_context.render_device().create_bind_group(
-            Some("postprocessing bind group"),
-            &post_processing_pipeline.bind_group_layout,
-            &BindGroupEntries::sequential((
-                post_process.source,
-                &post_processing_pipeline.source_sampler,
-                &chromatic_aberration_lut.texture_view,
-                &post_processing_pipeline.chromatic_aberration_lut_sampler,
-                chromatic_aberration_uniform_buffer_binding,
-            )),
-        );
-
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
-
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[**post_processing_uniform_buffer_offsets]);
-        render_pass.draw(0..3, 0..1);
-
         Ok(())
     }
 }

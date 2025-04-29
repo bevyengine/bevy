@@ -24,7 +24,6 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::camera::extract_cameras;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::ExtractedCamera,
@@ -45,7 +44,6 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
     },
     render_resource::*,
-    renderer::RenderContext,
     sync_world::{MainEntity, MainEntityHashMap},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
@@ -53,6 +51,7 @@ use bevy_render::{
     },
     Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
+use bevy_render::{camera::extract_cameras, frame_graph::FrameGraph};
 use core::{hash::Hash, ops::Range};
 use tracing::error;
 
@@ -380,37 +379,11 @@ impl ViewNode for Wireframe3dNode {
 
     fn run<'w>(
         &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
-        world: &'w World,
+        _graph: &mut RenderGraphContext,
+        _render_context: &mut FrameGraph,
+        (_camera, _view, _target, _depth): QueryItem<'w, Self::ViewQuery>,
+        _world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()
-        else {
-            return Ok(());
-        };
-
-        let Some(wireframe_phase) = wireframe_phase.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
-
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("wireframe_3d_pass"),
-            color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
-        }
-
-        if let Err(err) = wireframe_phase.render(&mut render_pass, world, graph.view_entity()) {
-            error!("Error encountered while rendering the stencil phase {err:?}");
-            return Err(NodeRunError::DrawError(err));
-        }
-
         Ok(())
     }
 }

@@ -47,16 +47,16 @@ use bevy::{
         },
         render_resource::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, RenderPassDescriptor,
-            RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-            SpecializedMeshPipelines, TextureFormat, VertexState,
+            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, 
+            SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+            TextureFormat, VertexState,
         },
-        renderer::RenderContext,
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
     },
 };
+use bevy_render::{frame_graph::FrameGraph, render_resource::RenderPipelineDescriptor};
 use nonmax::NonMaxU32;
 
 const SHADER_ASSET_PATH: &str = "shaders/custom_stencil.wgsl";
@@ -587,46 +587,10 @@ impl ViewNode for CustomDrawNode {
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
+        render_context: &mut FrameGraph,
         (camera, view, target): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        // First, we need to get our phases resource
-        let Some(stencil_phases) = world.get_resource::<ViewSortedRenderPhases<Stencil3d>>() else {
-            return Ok(());
-        };
-
-        // Get the view entity from the graph
-        let view_entity = graph.view_entity();
-
-        // Get the phase for the current view running our node
-        let Some(stencil_phase) = stencil_phases.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
-
-        // Render pass setup
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("stencil pass"),
-            // For the purpose of the example, we will write directly to the view target. A real
-            // stencil pass would write to a custom texture and that texture would be used in later
-            // passes to render custom effects using it.
-            color_attachments: &[Some(target.get_color_attachment())],
-            // We don't bind any depth buffer for this pass
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
-        }
-
-        // Render the phase
-        // This will execute each draw functions of each phase items queued in this phase
-        if let Err(err) = stencil_phase.render(&mut render_pass, world, view_entity) {
-            error!("Error encountered while rendering the stencil phase {err:?}");
-        }
-
         Ok(())
     }
 }

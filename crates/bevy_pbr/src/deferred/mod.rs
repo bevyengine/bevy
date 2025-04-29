@@ -21,13 +21,12 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
+use bevy_render::frame_graph::FrameGraph;
 use bevy_render::{
-    extract_component::{
-        ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
-    },
+    extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{binding_types::uniform_buffer, *},
-    renderer::{RenderContext, RenderDevice},
+    renderer::RenderDevice,
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
@@ -160,75 +159,21 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
     fn run(
         &self,
         _graph_context: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _frame_graph: &mut FrameGraph,
         (
-            view_uniform_offset,
-            view_lights_offset,
-            view_fog_offset,
-            view_light_probes_offset,
-            view_ssr_offset,
-            view_environment_map_offset,
-            mesh_view_bind_group,
-            target,
-            deferred_lighting_id_depth_texture,
-            deferred_lighting_pipeline,
+            _view_uniform_offset,
+            _view_lights_offset,
+            _view_fog_offset,
+            _view_light_probes_offset,
+            _view_ssr_offset,
+            _view_environment_map_offset,
+            _mesh_view_bind_group,
+            _target,
+            _deferred_lighting_id_depth_texture,
+            _deferred_lighting_pipeline,
         ): QueryItem<Self::ViewQuery>,
-        world: &World,
+        _world: &World,
     ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let deferred_lighting_layout = world.resource::<DeferredLightingLayout>();
-
-        let Some(pipeline) =
-            pipeline_cache.get_render_pipeline(deferred_lighting_pipeline.pipeline_id)
-        else {
-            return Ok(());
-        };
-
-        let deferred_lighting_pass_id =
-            world.resource::<ComponentUniforms<PbrDeferredLightingDepthId>>();
-        let Some(deferred_lighting_pass_id_binding) =
-            deferred_lighting_pass_id.uniforms().binding()
-        else {
-            return Ok(());
-        };
-
-        let bind_group_1 = render_context.render_device().create_bind_group(
-            "deferred_lighting_layout_group_1",
-            &deferred_lighting_layout.bind_group_layout_1,
-            &BindGroupEntries::single(deferred_lighting_pass_id_binding),
-        );
-
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("deferred_lighting_pass"),
-            color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &deferred_lighting_id_depth_texture.texture.default_view,
-                depth_ops: Some(Operations {
-                    load: LoadOp::Load,
-                    store: StoreOp::Discard,
-                }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(
-            0,
-            &mesh_view_bind_group.value,
-            &[
-                view_uniform_offset.offset,
-                view_lights_offset.offset,
-                view_fog_offset.offset,
-                **view_light_probes_offset,
-                **view_ssr_offset,
-                **view_environment_map_offset,
-            ],
-        );
-        render_pass.set_bind_group(1, &bind_group_1, &[]);
-        render_pass.draw(0..3, 0..1);
-
         Ok(())
     }
 }

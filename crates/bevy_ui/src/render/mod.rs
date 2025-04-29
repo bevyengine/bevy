@@ -22,9 +22,9 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_render::frame_graph::FrameGraph;
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::renderer::RenderContext;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::view::RetainedViewEntity;
@@ -305,7 +305,7 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        _: &mut RenderContext<'w>,
+        _: &mut FrameGraph,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // Fetch the UI view.

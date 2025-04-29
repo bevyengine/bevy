@@ -10,11 +10,12 @@ use bevy::{
         render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{binding_types::texture_storage_2d, *},
-        renderer::{RenderContext, RenderDevice},
+        renderer::RenderDevice,
         texture::GpuImage,
         Render, RenderApp, RenderSet,
     },
 };
+use bevy_render::frame_graph::FrameGraph;
 use std::borrow::Cow;
 
 /// This example uses a shader source file from the assets subdirectory
@@ -255,38 +256,9 @@ impl render_graph::Node for GameOfLifeNode {
     fn run(
         &self,
         _graph: &mut render_graph::RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        _render_context: &mut FrameGraph,
+        _world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
-        let bind_groups = &world.resource::<GameOfLifeImageBindGroups>().0;
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline = world.resource::<GameOfLifePipeline>();
-
-        let mut pass = render_context
-            .command_encoder()
-            .begin_compute_pass(&ComputePassDescriptor::default());
-
-        // select the pipeline based on the current state
-        match self.state {
-            GameOfLifeState::Loading => {}
-            GameOfLifeState::Init => {
-                let init_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.init_pipeline)
-                    .unwrap();
-                pass.set_bind_group(0, &bind_groups[0], &[]);
-                pass.set_pipeline(init_pipeline);
-                pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
-            }
-            GameOfLifeState::Update(index) => {
-                let update_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.update_pipeline)
-                    .unwrap();
-                pass.set_bind_group(0, &bind_groups[index], &[]);
-                pass.set_pipeline(update_pipeline);
-                pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
-            }
-        }
-
         Ok(())
     }
 }
