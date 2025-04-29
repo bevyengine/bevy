@@ -1,3 +1,7 @@
+//! Animation Transitioning logic goes here!
+//! Acts quite similar to a pseudo state machine and it can actually support multi-state machines
+
+use crate::graph::{AnimationGraph, AnimationGraphHandle, AnimationNodeIndex};
 use bevy_asset::{Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -9,8 +13,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use core::time::Duration;
 use tracing::info;
-
-use crate::graph::{AnimationGraph, AnimationGraphHandle, AnimationNodeIndex};
 
 /// Component responsible for managing transitions between multiple nodes or states.
 ///
@@ -38,10 +40,10 @@ pub struct AnimationTransitions {
 }
 
 /// An animation node that is being faded out as part of a transition, note this does not control animation playing!
-#[derive(Debug, Reflect, Default, Clone)]
+#[derive(Debug, Reflect, Clone)]
 pub struct AnimationTransition {
-    /// How much weight we will decrease according to the given user [`Duration`]
-    weight_decline_per_sec: f32,
+    /// How much weight we will decrease according to the given user value
+    weight_decline: f32,
     /// Node to transition from
     old_node: AnimationNodeIndex,
     /// Node to transition into
@@ -57,7 +59,7 @@ impl AnimationTransitions {
         Self {
             flows: vec![None; flow_amount],
             // Default transitions are instantaniously cleared
-            transitions: vec![AnimationTransition::default(); flow_amount],
+            transitions: Vec::new(),
         }
     }
 
@@ -74,7 +76,7 @@ impl AnimationTransitions {
         duration: Duration,
     ) {
         self.push(AnimationTransition {
-            weight_decline_per_sec: 1.0 / duration.as_secs_f32(),
+            weight_decline: 1. / duration.as_secs_f32(),
             old_node,
             new_node,
             graph,
@@ -97,7 +99,7 @@ impl AnimationTransitions {
         if let Some(old_node) = self.flows.get_mut(flow_position) {
             let previous_node = old_node.unwrap_or(new_node);
             self.transitions.push(AnimationTransition {
-                weight_decline_per_sec: 1.0 / duration.as_secs_f32(),
+                weight_decline: 1. / duration.as_secs_f32(),
                 old_node: previous_node,
                 new_node,
                 graph,
@@ -117,24 +119,26 @@ pub fn handle_node_transition(
     time: Res<Time>,
 ) {
     for mut animation_transitions in query.iter_mut() {
+        let mut remaining_weight = 1.0;
         for transition in animation_transitions.iter_mut() {
-            if let Some(animation_graph) = assets_graph.get_mut(&transition.graph) {
-                if let Some(old_node) = animation_graph.get_mut(transition.old_node) {
-                    if transition.weight.eq(&1.0) {
-                        old_node.weight = transition.weight;
-                    }
-                    old_node.weight -=
-                        transition.weight_decline_per_sec * time.delta_secs().max(0.0);
-                }
-                if let Some(new_node) = animation_graph.get_mut(transition.new_node) {
-                    if transition.weight.eq(&1.0) {
-                        new_node.weight = 0.0;
-                    }
-                    new_node.weight +=
-                        transition.weight_decline_per_sec * time.delta_secs().min(1.0);
-                }
+            let Some(animation_graph) = assets_graph.get_mut(&transition.graph) else {
+                info!("No graph");
+                continue;
+            };
 
-                transition.weight -= transition.weight_decline_per_sec * time.delta_secs().max(0.0);
+            // How much to transition per tick!
+            transition.weight =
+                (transition.weight - transition.weight_decline * time.delta_secs()).max(0.0);
+
+            info!(?transition.weight,?transition.weight_decline);
+
+            if let Some(old_node) = animation_graph.get_mut(transition.old_node) {
+                old_node.weight = transition.weight * remaining_weight;
+                remaining_weight -= old_node.weight;
+            }
+
+            if let Some(new_node) = animation_graph.get_mut(transition.new_node) {
+                new_node.weight = remaining_weight;
             }
         }
     }
@@ -147,7 +151,7 @@ pub fn expire_completed_transitions(mut query: Query<&mut AnimationTransitions>)
         animation_transitions.retain(|transition| {
             let keep = transition.weight > 0.0;
             if !keep {
-                println!("Remove");
+                info!("Remove");
             }
             keep
         });

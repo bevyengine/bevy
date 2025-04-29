@@ -3,7 +3,6 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
-
 const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
@@ -111,15 +110,12 @@ fn setup_scene_once_loaded(
         let mut transitions = AnimationTransitions::new(1);
         let graph = animations.graph_handle.clone();
 
-        // Make sure to start the animation via the `AnimationTransitions`
-        // component. The `AnimationTransitions` component wants to manage all
-        // the animations and will get confused if the animations are started
-        // directly via the `AnimationPlayer`.
+        // Make sure to still utilize animation player to control your animations
         transitions.transition_flows(
             graph.clone(),
             animations.animations[0],
             0,
-            Duration::from_secs(200),
+            Duration::from_millis(200),
         );
         player.play(animations.animations[0]).repeat();
 
@@ -185,7 +181,7 @@ fn keyboard_control(
                 graph.clone_weak(),
                 animations.animations[*current_animation],
                 0,
-                Duration::from_millis(250),
+                Duration::from_millis(200),
             );
 
             player
