@@ -4130,6 +4130,18 @@ category = "Picking"
 wasm = true
 
 [[example]]
+name = "parent_picking"
+path = "examples/picking/parent_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_mesh_picking_backend"]
+
+[package.metadata.example.parent_picking]
+name = "Parent Picking"
+description = "Demonstrates parent picking meshes"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true
