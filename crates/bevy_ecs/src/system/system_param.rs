@@ -2516,7 +2516,7 @@ impl DynSystemParamState {
 }
 
 /// Allows a [`SystemParam::State`] to be used as a trait object for implementing [`DynSystemParam`].
-trait DynParamState: Sync + Send {
+trait DynParamState: Sync + Send + Any {
     /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).a
     ///
     /// # Safety
@@ -2602,7 +2602,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         // - The caller ensures that the provided world is the same and has the required access.
         unsafe {
             DynSystemParam::new(
-                &mut state.0 as &mut dyn Any,
+                state.0.as_mut() as &mut dyn Any,
                 world,
                 system_meta.clone(),
                 change_tick,
