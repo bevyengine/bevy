@@ -44,6 +44,19 @@ impl Node for CameraDriverNode {
         let sorted_cameras = world.resource::<SortedCameras>();
         let windows = world.resource::<ExtractedWindows>();
         let mut camera_windows = <HashSet<_>>::default();
+
+        for (id, window) in world.resource::<ExtractedWindows>().iter() {
+            let Some(surface) = &window.swap_chain_texture else {
+                continue;
+            };
+
+            let swap_chain_texture = FrameGraphTexture::new_arc_with_surface(surface);
+
+            let swap_chain_texture_key = Self::get_camera_texure_key(*id);
+
+            frame_graph.import(&swap_chain_texture_key, swap_chain_texture);
+        }
+
         for sorted_camera in &sorted_cameras.0 {
             let Ok(camera) = self.cameras.get_manual(world, sorted_camera.entity) else {
                 continue;
@@ -77,18 +90,14 @@ impl Node for CameraDriverNode {
                 continue;
             }
 
-            let Some(surface) = &window.swap_chain_texture else {
-                continue;
-            };
-
-            let swap_chain_texture = FrameGraphTexture::new_arc_with_surface(surface);
-
             let mut builder = frame_graph.create_pass_node_bulder("no_camera_clear_pass");
 
             let swap_chain_texture_key = Self::get_camera_texure_key(*id);
 
-            let swap_chain_texture_handle =
-                builder.import(&swap_chain_texture_key, swap_chain_texture);
+            let Some(swap_chain_texture_handle) = builder.read_from_board(&swap_chain_texture_key)
+            else {
+                continue;
+            };
 
             let swap_chain_texture_read = builder.read(swap_chain_texture_handle);
 

@@ -329,7 +329,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
             return RenderCommandResult::Skip;
         };
 
-        pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
+        pass.set_vertex_buffer(0, &ui_meta.into_inner().vertices.buffer().unwrap(), ..);
         pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success
     }

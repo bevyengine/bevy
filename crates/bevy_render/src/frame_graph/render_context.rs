@@ -6,11 +6,12 @@ use super::{
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
-    render_resource::{CachedRenderPipelineId, PipelineCache, RenderPipeline},
+    render_resource::{BindGroup, CachedRenderPipelineId, PipelineCache, RenderPipeline},
     renderer::RenderDevice,
 };
 use alloc::sync::Arc;
 use core::ops::Range;
+use std::ops::Deref;
 
 pub trait ExtraResource {
     type Resource;
@@ -158,6 +159,17 @@ pub struct RenderPassContext<'a, 'b> {
 }
 
 impl<'a, 'b> RenderPassContext<'a, 'b> {
+    pub fn set_raw_bind_group(
+        &mut self,
+        index: u32,
+        bind_group: Option<&BindGroup>,
+        offsets: &[u32],
+    ) -> Result<(), FrameGraphError> {
+        self.render_pass.set_bind_group(index, bind_group.map(|bind_group| bind_group.deref()), offsets);
+
+        Ok(())
+    }
+
     pub fn set_bind_group(
         &mut self,
         index: u32,

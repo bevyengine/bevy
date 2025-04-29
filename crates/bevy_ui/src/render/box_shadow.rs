@@ -578,9 +578,9 @@ impl<P: PhaseItem> RenderCommand<P> for DrawBoxShadow {
         };
 
         // Store the vertices
-        pass.set_vertex_buffer(0, vertices.slice(..));
+        pass.set_vertex_buffer(0, &vertices, ..);
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint32);
+        pass.set_index_buffer(&indices, .., 0, IndexFormat::Uint32);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success

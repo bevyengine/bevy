@@ -1,6 +1,11 @@
+use std::ops::Deref;
+
 use alloc::{borrow::Cow, sync::Arc};
 
-use crate::{render_resource::SurfaceTexture, renderer::RenderDevice};
+use crate::{
+    render_resource::{Buffer, BufferSlice, SurfaceTexture, Texture},
+    renderer::RenderDevice,
+};
 
 pub trait FrameGraphResourceCreator {
     fn create_texture(&self, desc: &TextureInfo) -> FrameGraphTexture;
@@ -58,6 +63,20 @@ pub struct FrameGraphBuffer {
     pub desc: BufferInfo,
 }
 
+impl FrameGraphBuffer {
+    pub fn new_arc_with_buffer(buffer: &Buffer) -> Arc<FrameGraphBuffer> {
+        Arc::new(FrameGraphBuffer {
+            desc: BufferInfo {
+                label: None,
+                size: buffer.size(),
+                usage: buffer.usage(),
+                mapped_at_creation: false,
+            },
+            resource: buffer.deref().clone(),
+        })
+    }
+}
+
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct BufferInfo {
     pub label: Option<Cow<'static, str>>,
@@ -83,6 +102,26 @@ pub struct FrameGraphTexture {
 }
 
 impl FrameGraphTexture {
+    pub fn new_arc_with_texture(texture: &Texture) -> Arc<FrameGraphTexture> {
+        Arc::new(FrameGraphTexture {
+            desc: TextureInfo {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: texture.width(),
+                    height: texture.height(),
+                    depth_or_array_layers: texture.depth_or_array_layers(),
+                },
+                mip_level_count: texture.mip_level_count(),
+                sample_count: texture.sample_count(),
+                dimension: texture.dimension(),
+                format: texture.format(),
+                usage: texture.usage(),
+                view_formats: vec![],
+            },
+            resource: texture.deref().clone(),
+        })
+    }
+
     pub fn new_arc_with_surface(surface: &SurfaceTexture) -> Arc<FrameGraphTexture> {
         Arc::new(FrameGraphTexture {
             desc: TextureInfo {

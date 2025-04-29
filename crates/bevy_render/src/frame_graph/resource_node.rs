@@ -18,6 +18,23 @@ impl<ResourceType, VieType> ResourceRef<ResourceType, VieType> {
     }
 }
 
+impl<ResourceType, VieType> Clone for ResourceRef<ResourceType, VieType> {
+    fn clone(&self) -> Self {
+        Self {
+            handle: self.handle,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<ResourceType, VieType> PartialEq for ResourceRef<ResourceType, VieType> {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
+    }
+}
+
+impl<ResourceType, VieType> Eq for ResourceRef<ResourceType, VieType> {}
+
 pub struct ResourceRead;
 pub struct ResourceWrite;
 

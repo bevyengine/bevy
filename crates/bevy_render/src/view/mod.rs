@@ -13,6 +13,7 @@ use crate::{
     },
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
+    frame_graph::{FrameGraph, TextureInfo},
     prelude::Shader,
     primitives::Frustum,
     render_asset::RenderAssets,
@@ -42,8 +43,7 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use wgpu::{
-    BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    BufferUsages, Extent3d, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages
 };
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
@@ -723,6 +723,26 @@ pub struct NoCpuCulling;
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
+    pub fn get_main_texture_a(entity: Entity) -> String {
+        format!("main_texture_a_{}", entity)
+    }
+
+    pub fn get_main_texture_b(entity: Entity) -> String {
+        format!("main_texture_b_{}", entity)
+    }
+
+    pub fn get_main_texture_sampled(entity: Entity) -> String {
+        format!("main_texture_sampled_{}", entity)
+    }
+
+    pub fn get_main_texture_key(&self, entity: Entity) -> String {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            Self::get_main_texture_a(entity)
+        } else {
+            Self::get_main_texture_b(entity)
+        }
+    }
+
     /// Retrieve this target's main texture's color attachment.
     pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
@@ -872,6 +892,14 @@ pub struct ViewDepthTexture {
 }
 
 impl ViewDepthTexture {
+    pub fn get_depth_texture_key(entity: Entity) -> String {
+        format!("depth_texture_{}", entity)
+    }
+
+    pub fn get_depth_ops(&self, store: StoreOp) -> Option<Operations<f32>> {
+        self.attachment.get_depth_ops(store)
+    }
+
     pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
         Self {
             texture: texture.texture,
@@ -1022,6 +1050,7 @@ pub fn prepare_view_targets(
         &Msaa,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
+    mut frame_graph: ResMut<FrameGraph>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
@@ -1051,6 +1080,46 @@ pub fn prepare_view_targets(
             ClearColorConfig::None => None,
             _ => Some(clear_color_global.0),
         };
+
+        let descriptor = TextureInfo {
+            label: None,
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: main_texture_format,
+            usage: texture_usage.0,
+            view_formats: match main_texture_format {
+                TextureFormat::Bgra8Unorm => vec![TextureFormat::Bgra8UnormSrgb],
+                TextureFormat::Rgba8Unorm => vec![TextureFormat::Rgba8UnormSrgb],
+                _ => vec![],
+            },
+        };
+
+        let a_key = ViewTarget::get_main_texture_a(entity);
+        let a_handle = frame_graph.create(&a_key, descriptor.clone());
+        frame_graph.put(&a_key, a_handle.raw());
+
+        let b_key = ViewTarget::get_main_texture_a(entity);
+        let b_handle = frame_graph.create(&b_key, descriptor.clone());
+        frame_graph.put(&a_key, b_handle.raw());
+
+        if msaa.samples() > 1 {
+            let sampled_key = ViewTarget::get_main_texture_sampled(entity);
+            let sampled_handle = frame_graph.create(
+                &sampled_key,
+                TextureInfo {
+                    size,
+                    mip_level_count: 1,
+                    sample_count: msaa.samples(),
+                    dimension: TextureDimension::D2,
+                    format: main_texture_format,
+                    usage: TextureUsages::RENDER_ATTACHMENT,
+                    ..descriptor.clone()
+                },
+            );
+            frame_graph.put(&sampled_key, sampled_handle.raw());
+        }
 
         let (a, b, sampled, main_texture) = textures
             .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))

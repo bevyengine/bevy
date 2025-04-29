@@ -96,6 +96,22 @@ impl DepthAttachment {
         }
     }
 
+    pub fn get_depth_ops(&self, store: StoreOp) -> Option<Operations<f32>> {
+        let first_call = self
+            .is_first_call
+            .fetch_and(store != StoreOp::Store, Ordering::SeqCst);
+
+        Some(Operations {
+            load: if first_call {
+                // If first_call is true, then a clear value will always have been provided in the constructor
+                LoadOp::Clear(self.clear_value.unwrap())
+            } else {
+                LoadOp::Load
+            },
+            store,
+        })
+    }
+
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
     /// `clear_value` if this is the first time calling this function with `store` == [`StoreOp::Store`],
     /// and a clear value was provided, otherwise it will be loaded.

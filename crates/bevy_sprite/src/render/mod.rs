@@ -963,18 +963,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
         };
 
         pass.set_index_buffer(
-            sprite_meta.sprite_index_buffer.buffer().unwrap().slice(..),
-            0,
+            &sprite_meta.sprite_index_buffer.buffer().unwrap(),
+            ..,
+            0, 
             IndexFormat::Uint32,
         );
-        pass.set_vertex_buffer(
-            0,
-            sprite_meta
-                .sprite_instance_buffer
-                .buffer()
-                .unwrap()
-                .slice(..),
-        );
+        pass.set_vertex_buffer(0, sprite_meta.sprite_instance_buffer.buffer().unwrap(), ..);
         pass.draw_indexed(0..6, 0, batch.range.clone());
         RenderCommandResult::Success
     }

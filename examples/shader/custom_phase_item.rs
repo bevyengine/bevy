@@ -82,22 +82,12 @@ where
         let custom_phase_item_buffers = custom_phase_item_buffers.into_inner();
 
         // Tell the GPU where the vertices are.
-        pass.set_vertex_buffer(
-            0,
-            custom_phase_item_buffers
-                .vertices
-                .buffer()
-                .unwrap()
-                .slice(..),
-        );
+        pass.set_vertex_buffer(0, custom_phase_item_buffers.vertices.buffer().unwrap(), ..);
 
         // Tell the GPU where the indices are.
         pass.set_index_buffer(
-            custom_phase_item_buffers
-                .indices
-                .buffer()
-                .unwrap()
-                .slice(..),
+            &custom_phase_item_buffers.indices.buffer().unwrap(),
+            ..,
             0,
             IndexFormat::Uint32,
         );

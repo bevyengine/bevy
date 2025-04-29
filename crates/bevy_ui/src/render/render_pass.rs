@@ -196,10 +196,11 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
         };
 
         // Store the vertices
-        pass.set_vertex_buffer(0, vertices.slice(..));
+        pass.set_vertex_buffer(0, &vertices, ..);
         // Define how to "connect" the vertices
         pass.set_index_buffer(
-            indices.slice(..),
+            &indices,
+            ..,
             0,
             bevy_render::render_resource::IndexFormat::Uint32,
         );

@@ -1,6 +1,15 @@
+use std::sync::Arc;
+
 use crate::frame_graph::{
     AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, BufferInfo, FrameGraphBuffer,
+    ImportToFrameGraph, ImportedResource,
 };
+
+impl ImportToFrameGraph for FrameGraphBuffer {
+    fn import(self: Arc<Self>) -> ImportedResource {
+        ImportedResource::Buffer(self)
+    }
+}
 
 use super::{GraphResource, GraphResourceDescriptor};
 

@@ -691,19 +691,19 @@ impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> 
             let item_size = VertexFormat::Float32x3.size();
             let buffer_size = line_gizmo.strip_position_buffer.size() - item_size;
 
-            pass.set_vertex_buffer(0, line_gizmo.strip_position_buffer.slice(..buffer_size));
-            pass.set_vertex_buffer(1, line_gizmo.strip_position_buffer.slice(item_size..));
+            pass.set_vertex_buffer(0, &line_gizmo.strip_position_buffer, ..buffer_size);
+            pass.set_vertex_buffer(1, &line_gizmo.strip_position_buffer, item_size..);
 
             let item_size = VertexFormat::Float32x4.size();
             let buffer_size = line_gizmo.strip_color_buffer.size() - item_size;
 
-            pass.set_vertex_buffer(2, line_gizmo.strip_color_buffer.slice(..buffer_size));
-            pass.set_vertex_buffer(3, line_gizmo.strip_color_buffer.slice(item_size..));
+            pass.set_vertex_buffer(2, &line_gizmo.strip_color_buffer, ..buffer_size);
+            pass.set_vertex_buffer(3, &line_gizmo.strip_color_buffer, ..buffer_size);
 
             vertex_count - 1
         } else {
-            pass.set_vertex_buffer(0, line_gizmo.list_position_buffer.slice(..));
-            pass.set_vertex_buffer(1, line_gizmo.list_color_buffer.slice(..));
+            pass.set_vertex_buffer(0, &line_gizmo.list_position_buffer, ..);
+            pass.set_vertex_buffer(1, &line_gizmo.list_color_buffer, ..);
 
             vertex_count / 2
         };
@@ -752,17 +752,16 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
             let item_size = VertexFormat::Float32x3.size();
             // position_a
             let buffer_size_a = line_gizmo.strip_position_buffer.size() - item_size * 2;
-            pass.set_vertex_buffer(0, line_gizmo.strip_position_buffer.slice(..buffer_size_a));
+            pass.set_vertex_buffer(0, &line_gizmo.strip_position_buffer, ..buffer_size_a);
             // position_b
             let buffer_size_b = line_gizmo.strip_position_buffer.size() - item_size;
             pass.set_vertex_buffer(
                 1,
-                line_gizmo
-                    .strip_position_buffer
-                    .slice(item_size..buffer_size_b),
+                &line_gizmo.strip_position_buffer,
+                item_size..buffer_size_b,
             );
             // position_c
-            pass.set_vertex_buffer(2, line_gizmo.strip_position_buffer.slice(item_size * 2..));
+            pass.set_vertex_buffer(2, &line_gizmo.strip_position_buffer, item_size * 2..);
 
             // color
             let item_size = VertexFormat::Float32x4.size();
@@ -770,7 +769,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
             // This corresponds to the color of position_b, hence starts from `item_size`
             pass.set_vertex_buffer(
                 3,
-                line_gizmo.strip_color_buffer.slice(item_size..buffer_size),
+                &line_gizmo.strip_color_buffer,item_size..buffer_size
             );
 
             line_gizmo.strip_vertex_count - 2

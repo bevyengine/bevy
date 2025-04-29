@@ -28,6 +28,13 @@ impl<'a> PassNodeBuilder<'a> {
         self.pass = Some(Pass::new(pass))
     }
 
+    pub fn read_from_board<ResourceType: GraphResource>(
+        &self,
+        key: &str,
+    ) -> Option<GraphResourceNodeHandle<ResourceType>> {
+        self.graph.read_from_board(key)
+    }
+
     pub fn import<ResourceType>(
         &mut self,
         name: &str,

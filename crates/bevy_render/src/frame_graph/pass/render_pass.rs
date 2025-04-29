@@ -1,5 +1,5 @@
 use crate::frame_graph::{
-    ColorAttachmentRef, FrameGraphError, RenderContext, RenderPassInfo, TrackedRenderPass,
+    ColorAttachmentRef, DepthStencilAttachmentRef, FrameGraphError, RenderContext, RenderPassContext, RenderPassInfo
 };
 
 use super::PassTrait;
@@ -11,6 +11,13 @@ pub struct RenderPass {
 }
 
 impl RenderPass {
+    pub fn set_depth_stencil_attachment(
+        &mut self,
+        depth_stencil_attachment: DepthStencilAttachmentRef,
+    ) {
+        self.render_pass_info.depth_stencil_attachment = Some(depth_stencil_attachment);
+    }
+
     pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentRef) {
         self.render_pass_info
             .color_attachments
@@ -23,7 +30,7 @@ impl RenderPass {
 }
 
 pub trait RenderDrawFunction: 'static + Send + Sync {
-    fn draw(&self, tracked_render_pass: &mut TrackedRenderPass) -> Result<(), FrameGraphError>;
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError>;
 }
 
 impl PassTrait for RenderPass {

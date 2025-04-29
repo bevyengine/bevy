@@ -891,7 +891,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
             return RenderCommandResult::Skip;
         };
 
-        pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
+        pass.set_vertex_buffer(0, vertex_buffer_slice.buffer, ..);
 
         let batch_range = item.batch_range();
         match &gpu_mesh.buffer_info {
@@ -904,7 +904,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
                     return RenderCommandResult::Skip;
                 };
 
-                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+                pass.set_index_buffer(&index_buffer_slice.buffer,.., 0, *index_format);
 
                 pass.draw_indexed(
                     index_buffer_slice.range.start..(index_buffer_slice.range.start + count),

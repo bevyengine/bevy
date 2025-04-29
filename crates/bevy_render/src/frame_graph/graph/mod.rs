@@ -10,8 +10,8 @@ use bevy_ecs::resource::Resource;
 
 use super::{
     AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, DevicePass, FrameGraphError,
-    GraphResourceNodeHandle, ImportedResource, PassNode, PassNodeBuilder, RenderContext,
-    ResourceBoard, ResourceNode, TypeHandle, VirtualResource,
+    GraphRawResourceNodeHandle, GraphResourceNodeHandle, ImportedResource, PassNode,
+    PassNodeBuilder, RenderContext, ResourceBoard, ResourceNode, TypeHandle, VirtualResource,
 };
 
 pub trait ImportToFrameGraph
@@ -72,6 +72,7 @@ impl FrameGraph {
         self.pass_nodes = vec![];
         self.resource_nodes = vec![];
         self.compiled_frame_graph = None;
+        self.resource_board = ResourceBoard::default();
     }
 
     pub fn execute(&mut self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
@@ -145,7 +146,6 @@ impl FrameGraph {
         if self.pass_nodes.is_empty() {
             return;
         }
-
         //todo cull
 
         self.compute_resource_lifetime();
@@ -154,6 +154,19 @@ impl FrameGraph {
 }
 
 impl FrameGraph {
+    pub fn put(&mut self, key: &str, handle: GraphRawResourceNodeHandle) {
+        self.resource_board.put(key, handle);
+    }
+
+    pub fn read_from_board<ResourceType: GraphResource>(
+        &self,
+        key: &str,
+    ) -> Option<GraphResourceNodeHandle<ResourceType>> {
+        self.resource_board
+            .get(key)
+            .map(|raw| GraphResourceNodeHandle::new(raw.handle, raw.version))
+    }
+
     pub fn create_pass_node_bulder(&mut self, name: &str) -> PassNodeBuilder {
         PassNodeBuilder::new(name, self)
     }
@@ -205,7 +218,10 @@ impl FrameGraph {
 
         self.resource_nodes.push(resource_node);
 
-        GraphResourceNodeHandle::new(resource_node_handle, version)
+        let handle = GraphResourceNodeHandle::new(resource_node_handle, version);
+        self.put(name, handle.raw());
+
+        handle
     }
 
     pub fn create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
