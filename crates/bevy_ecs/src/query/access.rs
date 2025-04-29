@@ -952,7 +952,8 @@ impl AccessConflicts {
         }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    /// Returns true if there are no conflicts present
+    pub fn is_empty(&self) -> bool {
         match self {
             Self::All => false,
             Self::Individual(set) => set.is_empty(),
