@@ -532,7 +532,7 @@ macro_rules! impl_tuple_query_filter {
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
-                let ($($name,)*) = &mut fetch.inner;
+                let ($($name,)*) = &mut fetch.0;
                 // SAFETY: The invariants are upheld by the caller.
                 true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
             }

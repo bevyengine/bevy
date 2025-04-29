@@ -5,8 +5,8 @@ use crate::{
     component::{Component, ComponentId, ComponentInfo, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     inheritance::{
-        InheritedArchetypeComponent, InheritedComponents, MutComponent, MutComponentPtrs,
-        MutComponentSharedData,
+        InheritedArchetypeComponent, InheritedBehavior, InheritedComponents, MutComponent,
+        MutComponentPtrs, MutComponentSharedData,
     },
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableId, TableRow, Tables},
@@ -22,7 +22,7 @@ use core::{
 };
 use smallvec::SmallVec;
 use std::boxed::Box;
-use variadics_please::all_tuples;
+use variadics_please::{all_tuples, all_tuples_enumerated};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -316,11 +316,11 @@ pub unsafe trait QueryData: WorldQuery {
         table_row: TableRow,
     ) -> Self::Item<'w>;
 
-    unsafe fn fetch_inherited<'w>(
+    unsafe fn fetch_shared<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-        _is_inherited: bool,
+        _is_shared: bool,
     ) -> Self::Item<'w> {
         Self::fetch(fetch, entity, table_row)
     }
@@ -1229,7 +1229,10 @@ unsafe impl<T: Component> WorldQuery for &T {
             unsafe {
                 Self::set_table(fetch, component_id, table, table_id);
             }
-        } else if archetype.has_inherited_components() && !archetype.contains(*component_id) {
+        } else if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+            && archetype.has_inherited_components()
+            && !archetype.contains(*component_id)
+        {
             match archetype
                 .inherited_components
                 .get(component_id)
@@ -1248,9 +1251,12 @@ unsafe impl<T: Component> WorldQuery for &T {
         fetch: &mut ReadFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
-        table_id: TableId,
+        _table_id: TableId,
     ) {
-        if table.has_inherited_components() && !table.has_column(component_id) {
+        if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+            && table.has_inherited_components()
+            && !table.has_column(component_id)
+        {
             let info = table
                 .inherited_components
                 .get(&component_id)
@@ -1319,12 +1325,13 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 
     #[inline(always)]
-    fn has_inherited_components<'w>(fetch: &Self::Fetch<'w>) -> bool {
-        if Self::IS_DENSE {
-            fetch.is_shared_table_component
-        } else {
-            fetch.shared_sparse_component_entity.is_some()
-        }
+    fn is_shared<'w>(fetch: &Self::Fetch<'w>) -> bool {
+        T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+            && if Self::IS_DENSE {
+                fetch.is_shared_table_component
+            } else {
+                fetch.shared_sparse_component_entity.is_some()
+            }
     }
 }
 
@@ -1344,24 +1351,19 @@ unsafe impl<T: Component> QueryData for &T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        Self::fetch_inherited(
-            fetch,
-            entity,
-            table_row,
-            Self::has_inherited_components(fetch),
-        )
+        Self::fetch_shared(fetch, entity, table_row, Self::is_shared(fetch))
     }
 
     #[inline(always)]
-    unsafe fn fetch_inherited<'w>(
+    unsafe fn fetch_shared<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-        is_inherited: bool,
+        is_shared: bool,
     ) -> Self::Item<'w> {
         fetch.components.extract(
             |table| {
-                let idx = if is_inherited {
+                let idx = if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared && is_shared {
                     0
                 } else {
                     table_row.as_usize()
@@ -1374,7 +1376,7 @@ unsafe impl<T: Component> QueryData for &T {
                 item.deref()
             },
             |sparse_set| {
-                let entity = if is_inherited {
+                let entity = if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared && is_shared {
                     fetch.shared_sparse_component_entity.debug_checked_unwrap()
                 } else {
                     entity
@@ -1485,7 +1487,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             unsafe {
                 Self::set_table(fetch, component_id, table, archetype.table_id());
             }
-        } else if archetype.has_inherited_components() && !archetype.contains(*component_id) {
+        } else if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+            && archetype.has_inherited_components()
+            && !archetype.contains(*component_id)
+        {
             match archetype
                 .inherited_components
                 .get(component_id)
@@ -1504,9 +1509,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         fetch: &mut RefFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
-        table_id: TableId,
+        _table_id: TableId,
     ) {
-        if table.has_inherited_components() && !table.has_column(component_id) {
+        if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+            && table.has_inherited_components()
+            && !table.has_column(component_id)
+        {
             let info = table
                 .inherited_components
                 .get(&component_id)
@@ -1606,12 +1614,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     }
 
     #[inline]
-    fn has_inherited_components<'w>(fetch: &Self::Fetch<'w>) -> bool {
-        if Self::IS_DENSE {
-            fetch.is_shared_table_component
-        } else {
-            fetch.shared_sparse_component_entity.is_some()
-        }
+    fn is_shared<'w>(fetch: &Self::Fetch<'w>) -> bool {
+        T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+            && if Self::IS_DENSE {
+                fetch.is_shared_table_component
+            } else {
+                fetch.shared_sparse_component_entity.is_some()
+            }
     }
 }
 
@@ -1631,28 +1640,19 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        Self::fetch_inherited(
-            fetch,
-            entity,
-            table_row,
-            Self::has_inherited_components(fetch),
-        )
+        Self::fetch_shared(fetch, entity, table_row, Self::is_shared(fetch))
     }
 
     #[inline(always)]
-    unsafe fn fetch_inherited<'w>(
+    unsafe fn fetch_shared<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-        is_inherited: bool,
+        is_shared: bool,
     ) -> Self::Item<'w> {
         fetch.components.extract(
             |table| {
-                let idx = if is_inherited {
-                    0
-                } else {
-                    table_row.as_usize()
-                };
+                let idx = if is_shared { 0 } else { table_row.as_usize() };
 
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, callers) =
@@ -1679,7 +1679,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 }
             },
             |sparse_set| {
-                let entity = if is_inherited {
+                let entity = if is_shared {
                     fetch.shared_sparse_component_entity.debug_checked_unwrap()
                 } else {
                     entity
@@ -1800,7 +1800,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             unsafe {
                 Self::set_table(fetch, component_id, table, archetype.table_id());
             }
-        } else if archetype.has_inherited_components() && !archetype.contains(*component_id) {
+        } else if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+            && archetype.has_inherited_components()
+            && !archetype.contains(*component_id)
+        {
             match archetype
                 .inherited_components
                 .get(component_id)
@@ -1826,7 +1829,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         table: &'w Table,
         table_id: TableId,
     ) {
-        if table.has_inherited_components() && !table.has_column(component_id) {
+        if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+            && table.has_inherited_components()
+            && !table.has_column(component_id)
+        {
             // set_shared_components(fetch, component_id, table, table_id);
 
             // #[cold]
@@ -1942,8 +1948,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 
     #[inline(always)]
-    fn has_inherited_components<'w>(fetch: &Self::Fetch<'w>) -> bool {
-        fetch.shared_component_data.is_some()
+    fn is_shared<'w>(fetch: &Self::Fetch<'w>) -> bool {
+        T::INHERITED_BEHAVIOR == InheritedBehavior::Shared && fetch.shared_component_data.is_some()
     }
 }
 
@@ -1963,24 +1969,19 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        Self::fetch_inherited(
-            fetch,
-            entity,
-            table_row,
-            Self::has_inherited_components(fetch),
-        )
+        Self::fetch_shared(fetch, entity, table_row, Self::is_shared(fetch))
     }
 
     #[inline(always)]
-    unsafe fn fetch_inherited<'w>(
+    unsafe fn fetch_shared<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-        is_inherited: bool,
+        is_shared: bool,
     ) -> Self::Item<'w> {
         fetch.components.extract(
             |table| {
-                let idx = if is_inherited {
+                let idx = if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared && is_shared {
                     0
                 } else {
                     table_row.as_usize()
@@ -2005,13 +2006,13 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     changed_by: caller.map(|caller| NonNull::new_unchecked(caller.get())),
                     this_run: fetch.this_run,
                     last_run: fetch.last_run,
-                    is_shared: is_inherited,
+                    is_shared,
                     shared_data: fetch.shared_component_data,
                     table_row,
                 }
             },
             |sparse_set| {
-                let entity = if is_inherited {
+                let entity = if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared && is_shared {
                     fetch.shared_sparse_component_entity.debug_checked_unwrap()
                 } else {
                     entity
@@ -2032,7 +2033,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     changed_by: caller.map(|caller| NonNull::new_unchecked(caller.get())),
                     last_run: fetch.last_run,
                     this_run: fetch.this_run,
-                    is_shared: is_inherited,
+                    is_shared,
                     shared_data: fetch.shared_component_data,
                     table_row,
                 }
@@ -2126,6 +2127,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     ) -> bool {
         <&mut T as WorldQuery>::matches_component_set(state, set_contains_id)
     }
+
+    #[inline(always)]
+    fn is_shared<'w>(fetch: &Self::Fetch<'w>) -> bool {
+        <&mut T as WorldQuery>::is_shared(fetch)
+    }
 }
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
@@ -2148,7 +2154,17 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        <&mut T as QueryData>::fetch(fetch, entity, table_row)
+        Self::fetch_shared(fetch, entity, table_row, Self::is_shared(fetch))
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_shared<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+        is_shared: bool,
+    ) -> Self::Item<'w> {
+        <&mut T as QueryData>::fetch_shared(fetch, entity, table_row, is_shared)
     }
 }
 
@@ -2259,6 +2275,10 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) -> bool {
         true
     }
+
+    fn is_shared<'w>(fetch: &Self::Fetch<'w>) -> bool {
+        T::is_shared(&fetch.fetch)
+    }
 }
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
@@ -2277,10 +2297,20 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
+        Self::fetch_shared(fetch, entity, table_row, Self::is_shared(fetch))
+    }
+
+    #[inline(always)]
+    unsafe fn fetch_shared<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+        is_shared: bool,
+    ) -> Self::Item<'w> {
         fetch
             .matches
             // SAFETY: The invariants are upheld by the caller.
-            .then(|| unsafe { T::fetch(&mut fetch.fetch, entity, table_row) })
+            .then(|| unsafe { T::fetch_shared(&mut fetch.fetch, entity, table_row, is_shared) })
     }
 }
 
@@ -2393,7 +2423,10 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         archetype: &'w Archetype,
         _table: &Table,
     ) {
-        *fetch = archetype.contains(*state);
+        *fetch = archetype.contains(*state)
+            || (T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+                && archetype.has_inherited_components()
+                && archetype.inherited_components.contains_key(state));
     }
 
     #[inline]
@@ -2403,7 +2436,10 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         table: &'w Table,
         _table_id: TableId,
     ) {
-        *fetch = table.has_column(*state);
+        *fetch = table.has_column(*state)
+            || (T::INHERITED_BEHAVIOR == InheritedBehavior::Shared
+                && table.has_inherited_components()
+                && table.inherited_components.contains_key(state));
     }
 
     fn update_component_access(
@@ -2461,7 +2497,7 @@ unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
-    ($(#[$meta:meta])* $(($name: ident, $state: ident, $mask: ident)),*) => {
+    ($(#[$meta:meta])* $(($n: tt, $name: ident, $state: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such the lints below may not always apply."
@@ -2498,9 +2534,9 @@ macro_rules! impl_tuple_query_data {
                 entity: Entity,
                 table_row: TableRow
             ) -> Self::Item<'w> {
-                let ($($name,)*) = &mut fetch.inner;
+                let ($($name,)*) = &mut fetch.0;
                 // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe { $name::fetch_inherited($name, entity, table_row, fetch.inherited_filter & $mask != 0 ) },)*)
+                ($(unsafe { $name::fetch_shared($name, entity, table_row, fetch.1 & (1 << $n) != 0 ) },)*)
             }
         }
 
@@ -2512,7 +2548,7 @@ macro_rules! impl_tuple_query_data {
 }
 
 macro_rules! impl_anytuple_fetch {
-    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($n:tt, $name: ident, $state: ident)),*) => {
         $(#[$meta])*
         #[expect(
             clippy::allow_attributes,
@@ -2536,21 +2572,21 @@ macro_rules! impl_anytuple_fetch {
         /// `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
-            type Fetch<'w> = ($(($name::Fetch<'w>, bool),)*);
+            type Fetch<'w> = (($(($name::Fetch<'w>, bool),)*), usize);
             type State = ($($name::State,)*);
 
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-                let ($($name,)*) = fetch;
-                ($(
+                let ($($name,)*) = fetch.0;
+                (($(
                     ($name::shrink_fetch($name.0), $name.1),
-                )*)
+                )*), fetch.1)
             }
 
             #[inline]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                ($(( unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) }, false),)*)
+                (($(( unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) }, false),)*), 0)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -2562,26 +2598,28 @@ macro_rules! impl_anytuple_fetch {
                 _archetype: &'w Archetype,
                 _table: &'w Table
             ) {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = &mut _fetch.0;
                 let ($($state,)*) = _state;
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
                     if $name.1 {
                         // SAFETY: The invariants are upheld by the caller.
                         unsafe { $name::set_archetype(&mut $name.0, $state, _archetype, _table); }
+                        _fetch.1 |= ($name::is_shared(&$name.0) as usize & 1) << $n;
                     }
                 )*
             }
 
             #[inline]
             unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table, _table_id: TableId) {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = &mut _fetch.0;
                 let ($($state,)*) = _state;
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
                     if $name.1 {
                         // SAFETY: The invariants are required to be upheld by the caller.
                         unsafe { $name::set_table(&mut $name.0, $state, _table, _table_id); }
+                        _fetch.1 |= ($name::is_shared(&$name.0) as usize & 1) << $n;
                     }
                 )*
             }
@@ -2661,10 +2699,10 @@ macro_rules! impl_anytuple_fetch {
                 _entity: Entity,
                 _table_row: TableRow
             ) -> Self::Item<'w> {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = &mut _fetch.0;
                 ($(
                     // SAFETY: The invariants are required to be upheld by the caller.
-                    $name.1.then(|| unsafe { $name::fetch(&mut $name.0, _entity, _table_row) }),
+                    $name.1.then(|| unsafe { $name::fetch_shared(&mut $name.0, _entity, _table_row, _fetch.1 & (1 << $n) != 0) }),
                 )*)
             }
         }
@@ -2675,33 +2713,15 @@ macro_rules! impl_anytuple_fetch {
     };
 }
 
-const NUMBER: usize = 1 << 0;
-const NUMBER0: usize = 1 << 0;
-const NUMBER1: usize = 1 << 1;
-const NUMBER2: usize = 1 << 2;
-const NUMBER3: usize = 1 << 3;
-const NUMBER4: usize = 1 << 4;
-const NUMBER5: usize = 1 << 5;
-const NUMBER6: usize = 1 << 6;
-const NUMBER7: usize = 1 << 7;
-const NUMBER8: usize = 1 << 8;
-const NUMBER9: usize = 1 << 9;
-const NUMBER10: usize = 1 << 10;
-const NUMBER11: usize = 1 << 11;
-const NUMBER12: usize = 1 << 12;
-const NUMBER13: usize = 1 << 13;
-const NUMBER14: usize = 1 << 14;
-
-all_tuples!(
+all_tuples_enumerated!(
     #[doc(fake_variadic)]
     impl_tuple_query_data,
     0,
     15,
     F,
-    S,
-    NUMBER
+    S
 );
-all_tuples!(
+all_tuples_enumerated!(
     #[doc(fake_variadic)]
     impl_anytuple_fetch,
     0,

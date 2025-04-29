@@ -7,7 +7,7 @@ use crate::{
     storage::{Table, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use variadics_please::all_tuples;
+use variadics_please::all_tuples_enumerated;
 
 /// Types that can be used as parameters in a [`Query`].
 /// Types that implement this should also implement either [`QueryData`] or [`QueryFilter`]
@@ -139,23 +139,14 @@ pub unsafe trait WorldQuery {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool;
 
-    fn has_inherited_components<'w>(_fetch: &Self::Fetch<'w>) -> bool {
+    #[inline(always)]
+    fn is_shared<'w>(_fetch: &Self::Fetch<'w>) -> bool {
         false
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct TupleFetch<'w, S>
-where
-    S: Clone,
-{
-    pub inherited_filter: usize,
-    pub inner: S,
-    pub phantom: PhantomData<&'w ()>,
-}
-
 macro_rules! impl_tuple_world_query {
-    ($(#[$meta:meta])* $(($name: ident, $state: ident, $mask: ident)),*) => {
+    ($(#[$meta:meta])* $(($n:tt, $name: ident, $state: ident)),*) => {
 
         #[expect(
             clippy::allow_attributes,
@@ -180,28 +171,21 @@ macro_rules! impl_tuple_world_query {
         /// `update_component_access` adds all `With` and `Without` filters from the subqueries.
         /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
-            type Fetch<'w> = TupleFetch<'w, ($($name::Fetch<'w>,)*)>;
+            type Fetch<'w> = (($($name::Fetch<'w>,)*), usize);
             type State = ($($name::State,)*);
 
 
             #[inline(always)]
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-                let ($($name,)*) = fetch.inner;
-                TupleFetch {
-                    inner: ($( $name::shrink_fetch($name),)*),
-                    ..fetch
-                }
+                let ($($name,)*) = fetch.0;
+                (($( $name::shrink_fetch($name),)*), fetch.1)
             }
 
             #[inline(always)]
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                TupleFetch {
-                    inherited_filter: 0,
-                    inner: ($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*),
-                    phantom: Default::default(),
-                }
+                (($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*), 0)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -213,22 +197,21 @@ macro_rules! impl_tuple_world_query {
                 archetype: &'w Archetype,
                 table: &'w Table
             ) {
-                let ($($name,)*) = &mut fetch.inner;
+                let ($($name,)*) = &mut fetch.0;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
                 $(unsafe { $name::set_archetype($name, $state, archetype, table); })*
-                $(if $name::has_inherited_components($name) {fetch.inherited_filter &= $mask} )*
+                $(if $name::is_shared($name) {fetch.1 |= 1 << $n;} )*
             }
 
             #[inline(always)]
             unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table, table_id: TableId) {
-                let ($($name,)*) = &mut fetch.inner;
+                let ($($name,)*) = &mut fetch.0;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
                 $(unsafe { $name::set_table($name, $state, table, table_id); })*
-                $(if $name::has_inherited_components($name) {fetch.inherited_filter &= $mask} )*
+                $(if $name::is_shared($name) {fetch.1 |= 1 << $n;} )*
             }
-
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = state;
@@ -249,29 +232,11 @@ macro_rules! impl_tuple_world_query {
     };
 }
 
-const NUMBER: usize = 1 << 0;
-const NUMBER0: usize = 1 << 0;
-const NUMBER1: usize = 1 << 1;
-const NUMBER2: usize = 1 << 2;
-const NUMBER3: usize = 1 << 3;
-const NUMBER4: usize = 1 << 4;
-const NUMBER5: usize = 1 << 5;
-const NUMBER6: usize = 1 << 6;
-const NUMBER7: usize = 1 << 7;
-const NUMBER8: usize = 1 << 8;
-const NUMBER9: usize = 1 << 9;
-const NUMBER10: usize = 1 << 10;
-const NUMBER11: usize = 1 << 11;
-const NUMBER12: usize = 1 << 12;
-const NUMBER13: usize = 1 << 13;
-const NUMBER14: usize = 1 << 14;
-
-all_tuples!(
+all_tuples_enumerated!(
     #[doc(fake_variadic)]
     impl_tuple_world_query,
     0,
     15,
     F,
-    S,
-    NUMBER
+    S
 );

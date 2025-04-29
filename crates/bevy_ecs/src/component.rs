@@ -5,6 +5,7 @@ use crate::{
     bundle::BundleInfo,
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},
     entity::{ComponentCloneCtx, Entity, EntityMapper, SourceComponent},
+    inheritance::InheritedBehavior,
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     resource::Resource,
@@ -485,6 +486,8 @@ use thiserror::Error;
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
+
+    const INHERITED_BEHAVIOR: InheritedBehavior = InheritedBehavior::Shared;
 
     /// A marker type to assist Bevy with determining if this component is
     /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],

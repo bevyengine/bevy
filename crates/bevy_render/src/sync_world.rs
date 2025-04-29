@@ -342,7 +342,7 @@ mod render_entities_world_query_impls {
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             unsafe {
-                <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table, table_id)
+                <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table, table_id);
             }
         }
 

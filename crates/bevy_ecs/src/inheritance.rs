@@ -198,10 +198,16 @@ impl Drop for MutComponentSharedData {
     }
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum InheritedBehavior {
+    Disabled,
+    Shared,
+}
+
 impl MutComponentSharedData {
+    #[inline]
     fn alloc(
         bump: &Mutex<Bump>,
-        bump_ptr: NonNull<Mutex<Bump>>,
         component_info: &ComponentInfo,
     ) -> NonNull<MutComponentSharedData> {
         let bump_lock = bump.lock().unwrap();
@@ -222,16 +228,19 @@ impl MutComponentSharedData {
         unsafe { NonNull::new_unchecked(bumpalo::boxed::Box::into_raw(shared_data)) }
     }
 
+    #[inline]
     unsafe fn from_ptr<'a>(
         shared_data: NonNull<MutComponentSharedData>,
     ) -> bumpalo::boxed::Box<'a, MutComponentSharedData> {
         unsafe { bumpalo::boxed::Box::from_raw(shared_data.as_ptr()) }
     }
 
+    #[inline]
     fn components(&self) -> &Mutex<HashMap<usize, MutComponentPtrs>> {
         unsafe { self.component_ptrs.as_ref() }
     }
 
+    #[inline]
     fn get_or_cloned<'w, T: Component>(
         &self,
         data: &'w T,
@@ -266,7 +275,7 @@ impl MutComponentSharedData {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn try_get<'w, T: Component>(&self, table_row: TableRow) -> Option<ComponentRef<'w, T>> {
         unsafe {
             self.component_ptrs
@@ -331,7 +340,7 @@ impl<'w, T: Component> MutComponent<'w, T> {
             )
         };
 
-        if self.is_shared {
+        if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared && self.is_shared {
             #[cold]
             #[inline(never)]
             fn unlikely<'w, R, T: Component>(
@@ -375,7 +384,7 @@ impl<'w, T: Component> MutComponent<'w, T> {
         &mut self,
         func: impl FnOnce(ComponentMut<'w, T>) -> R,
     ) -> R {
-        if self.is_shared {
+        if T::INHERITED_BEHAVIOR == InheritedBehavior::Shared && self.is_shared {
             #[cold]
             #[inline(never)]
             #[track_caller]
@@ -540,7 +549,8 @@ impl<'w, T: Component> Deref for MutComponent<'w, T> {
 }
 
 impl<'w, T: Component> AsMut<T> for MutComponent<'w, T> {
-    #[inline]
+    #[track_caller]
+    #[inline(always)]
     fn as_mut(&mut self) -> &mut T {
         self.deref_mut()
     }
@@ -990,11 +1000,7 @@ impl InheritedComponents {
         let ptr = lock
             .entry((component_info.id(), table_id))
             .or_insert_with(|| {
-                MutComponentSharedData::alloc(
-                    self.shared_components_bump(),
-                    self.shared_components_bump,
-                    component_info,
-                )
+                MutComponentSharedData::alloc(self.shared_components_bump(), component_info)
             });
         unsafe { ptr.as_ref() }
     }
@@ -1010,11 +1016,7 @@ impl InheritedComponents {
         let ptr = lock
             .entry((component_info.id(), archetype_id))
             .or_insert_with(|| {
-                MutComponentSharedData::alloc(
-                    self.shared_components_bump(),
-                    self.shared_components_bump,
-                    component_info,
-                )
+                MutComponentSharedData::alloc(self.shared_components_bump(), component_info)
             });
         unsafe { ptr.as_ref() }
     }
