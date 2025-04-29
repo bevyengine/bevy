@@ -4,6 +4,7 @@ use bevy::{
     color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     input::mouse::{MouseMotion, MouseWheel},
+    math::ops::exp,
     pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
@@ -320,7 +321,7 @@ fn smooth_camera_movement(
     time: Res<Time>,
     mut camera_query: Query<(&mut Transform, &CameraOrbit), With<Camera3d>>,
 ) {
-    let damping = 1.0 - (-8.0 * time.delta_secs()).exp();
+    let damping = 1.0 - exp(-8.0 * time.delta_secs());
 
     // Update camera
     if let Ok((mut transform, orbit)) = camera_query.single_mut() {

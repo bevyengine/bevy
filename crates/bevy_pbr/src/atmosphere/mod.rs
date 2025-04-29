@@ -394,10 +394,10 @@ impl Atmosphere {
         top_radius: 3_509_500.0,
         ground_albedo: Vec3::splat(0.1),
         rayleigh_density_exp_scale: 1.0 / 10_430.0,
-        rayleigh_scattering: Vec3::new(0.019918e-03, 0.01357e-03, 0.00575e-03),
+        rayleigh_scattering: Vec3::new(0.019918e-3, 0.01357e-3, 0.00575e-3),
         mie_density_exp_scale: 1.0 / 3_095.0,
-        mie_scattering: 5.361771e-05,
-        mie_absorption: 5.530838e-07,
+        mie_scattering: 5.361771e-5,
+        mie_absorption: 5.530838e-7,
         mie_asymmetry: 0.85,
         ozone_layer_altitude: 0.0,
         ozone_layer_width: 0.0,
@@ -427,7 +427,7 @@ impl ExtractComponent for Atmosphere {
     type Out = Atmosphere;
 
     fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(item.clone())
+        Some(*item)
     }
 }
 
@@ -531,7 +531,7 @@ impl ExtractComponent for AtmosphereSettings {
     type Out = AtmosphereSettings;
 
     fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(item.clone())
+        Some(*item)
     }
 }
 

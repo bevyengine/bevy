@@ -5,9 +5,10 @@ use std::f32::consts::PI;
 use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     input::mouse::{MouseMotion, MouseWheel},
+    math::ops::exp,
     pbr::{
         light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings,
-        CascadeShadowConfigBuilder, VolumetricFog, VolumetricLight,
+        VolumetricFog, VolumetricLight,
     },
     prelude::*,
     render::camera::Exposure,
@@ -49,7 +50,7 @@ fn setup_camera_fog(mut commands: Commands) {
                 target_ev100: 14.0,
             },
             Msaa::Off,
-            initial_transform.clone(),
+            initial_transform,
             CameraOrbit {
                 target_transform: initial_transform,
                 distance: initial_distance,
@@ -97,14 +98,6 @@ fn setup_camera_fog(mut commands: Commands) {
 
     let sun_transform = Transform::from_xyz(1.0, 1.0, -0.3).looking_at(Vec3::ZERO, Vec3::Y);
 
-    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
-    let cascade_shadow_config = CascadeShadowConfigBuilder {
-        // first_cascade_far_bound: 0.3,
-        maximum_distance: 200.0,
-        ..default()
-    }
-    .build();
-
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
@@ -117,8 +110,7 @@ fn setup_camera_fog(mut commands: Commands) {
             ..default()
         },
         VolumetricLight,
-        sun_transform.clone(),
-        cascade_shadow_config,
+        sun_transform,
         SunOrbit {
             target_transform: sun_transform,
         },
@@ -338,7 +330,7 @@ fn smooth_camera_movement(
     mut sun_query: Query<(&mut Transform, &SunOrbit), (With<DirectionalLight>, Without<Camera3d>)>,
     mut exposure_query: Query<(&mut Exposure, &mut CameraExposure)>,
 ) {
-    let damping = 1.0 - (-8.0 * time.delta_secs()).exp();
+    let damping = 1.0 - exp(-8.0 * time.delta_secs());
 
     // Update camera
     if let Ok((mut transform, orbit)) = camera_query.single_mut() {

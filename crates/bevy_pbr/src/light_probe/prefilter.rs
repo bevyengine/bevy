@@ -886,7 +886,7 @@ impl Node for IrradianceMapNode {
     }
 }
 
-/// System that creates an EnvironmentMapLight component from the prefiltered textures
+/// System that creates an `EnvironmentMapLight` component from the prefiltered textures
 pub fn create_environment_map_from_prefilter(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
