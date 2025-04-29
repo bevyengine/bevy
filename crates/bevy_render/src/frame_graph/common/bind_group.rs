@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 use crate::{
     frame_graph::{
-        ExtraResource, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, RenderContext, ResourceRead, ResourceRef
+        ExtraResource, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, RenderContext,
+        ResourceRead, ResourceRef,
     },
     render_resource::{BindGroup, BindGroupLayout},
 };
@@ -35,12 +36,14 @@ impl<'a> BindingResource<'a> {
                 wgpu::BindingResource::Buffer(buffer.resource.as_entire_buffer_binding())
             }
             BindingResource::Sampler(sampler) => wgpu::BindingResource::Sampler(sampler),
-            BindingResource::TextureView(texture_view) => wgpu::BindingResource::TextureView(texture_view)
+            BindingResource::TextureView(texture_view) => {
+                wgpu::BindingResource::TextureView(texture_view)
+            }
         }
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct SampleInfo {
     pub label: Option<Cow<'static, str>>,
     pub address_mode_u: wgpu::AddressMode,
@@ -54,6 +57,25 @@ pub struct SampleInfo {
     pub compare: Option<wgpu::CompareFunction>,
     pub anisotropy_clamp: u16,
     pub border_color: Option<wgpu::SamplerBorderColor>,
+}
+
+impl Default for SampleInfo {
+    fn default() -> Self {
+        Self {
+            label: Default::default(),
+            address_mode_u: Default::default(),
+            address_mode_v: Default::default(),
+            address_mode_w: Default::default(),
+            mag_filter: Default::default(),
+            min_filter: Default::default(),
+            mipmap_filter: Default::default(),
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 32.0,
+            compare: None,
+            anisotropy_clamp: 1,
+            border_color: None,
+        }
+    }
 }
 
 impl SampleInfo {

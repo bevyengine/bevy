@@ -7,7 +7,7 @@ use bevy_render::{
     },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
-    render_resource::{LoadOp, Operations, StoreOp},
+    render_resource::StoreOp,
     renderer::RenderDevice,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
@@ -84,10 +84,7 @@ impl ViewNode for MainOpaquePass2dNode {
                 texture_ref: main_texture_read,
                 desc: TextureViewInfo::default(),
             }),
-            ops: Operations {
-                load: LoadOp::Clear(clear_color_global.to_linear().into()),
-                store: StoreOp::Store,
-            },
+            ops: target.get_attachment_operations(),
         });
 
         let depth_texture = FrameGraphTexture::new_arc_with_texture(&depth.texture);

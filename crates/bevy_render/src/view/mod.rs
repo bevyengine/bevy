@@ -43,7 +43,7 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use wgpu::{
-    BufferUsages, Extent3d, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages
+    BufferUsages, Color, Extent3d, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages
 };
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
@@ -740,6 +740,14 @@ impl ViewTarget {
             Self::get_main_texture_a(entity)
         } else {
             Self::get_main_texture_b(entity)
+        }
+    }
+
+    pub fn get_attachment_operations(&self) -> Operations<Color> {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.a.get_attachment_operations()
+        } else {
+            self.main_textures.b.get_attachment_operations()
         }
     }
 

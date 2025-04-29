@@ -159,13 +159,21 @@ pub struct RenderPassContext<'a, 'b> {
 }
 
 impl<'a, 'b> RenderPassContext<'a, 'b> {
+    pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
+        self.render_pass.set_scissor_rect(x, y, width, height);
+    }
+
     pub fn set_raw_bind_group(
         &mut self,
         index: u32,
         bind_group: Option<&BindGroup>,
         offsets: &[u32],
     ) -> Result<(), FrameGraphError> {
-        self.render_pass.set_bind_group(index, bind_group.map(|bind_group| bind_group.deref()), offsets);
+        self.render_pass.set_bind_group(
+            index,
+            bind_group.map(|bind_group| bind_group.deref()),
+            offsets,
+        );
 
         Ok(())
     }

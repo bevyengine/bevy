@@ -4,7 +4,7 @@ use alloc::sync::Arc;
 use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
 use wgpu::{
-    LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    Color, LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
 };
 
 /// A wrapper for a [`CachedTexture`] that is used as a [`RenderPassColorAttachment`].
@@ -27,6 +27,17 @@ impl ColorAttachment {
             resolve_target,
             clear_color,
             is_first_call: Arc::new(AtomicBool::new(true)),
+        }
+    }
+
+    pub fn get_attachment_operations(&self) -> Operations<Color> {
+        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+        Operations {
+            load: match (self.clear_color, first_call) {
+                (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                (None, _) | (Some(_), false) => LoadOp::Load,
+            },
+            store: StoreOp::Store,
         }
     }
 

@@ -17,6 +17,10 @@ pub struct RenderPass {
 }
 
 impl RenderPass {
+    pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
+        self.add_draw_function((x, y, width, height));
+    }
+
     pub fn set_depth_stencil_attachment(
         &mut self,
         depth_stencil_attachment: DepthStencilAttachmentRef,
@@ -51,6 +55,13 @@ impl RenderDrawFunction for (Range<u32>, Range<u32>) {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
         render_pass_context.draw(self.0.clone(), self.1.clone());
 
+        Ok(())
+    }
+}
+
+impl RenderDrawFunction for (u32, u32, u32, u32) {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.set_scissor_rect(self.0, self.1, self.2, self.3);
         Ok(())
     }
 }
