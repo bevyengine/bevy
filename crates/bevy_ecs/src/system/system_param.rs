@@ -1928,9 +1928,9 @@ unsafe impl SystemParam for SystemChangeTick {
 /// fn fails_on_missing_resource(res: Res<SomeResource>) {}
 ///
 /// // This system will skip without error if `SomeResource` is not present.
-/// fn skips_on_missing_resource(res: When<Res<SomeResource>>) {
-///     // The inner parameter is available using `Deref`
-///     let some_resource: &SomeResource = &res;
+/// fn skips_on_missing_resource(When(res): When<Res<SomeResource>>) {
+///     // The inner parameter is available using `Deref`, or can be destructured directly (see above)
+///     let some_resource: SomeResource = res;
 /// }
 /// # bevy_ecs::system::assert_is_system(skips_on_missing_resource);
 /// ```
