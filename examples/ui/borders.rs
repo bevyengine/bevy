@@ -136,13 +136,7 @@ fn setup(mut commands: Commands) {
                                 BackgroundColor(YELLOW.into()),
                             )]
                         ),
-                        (
-                            Text::new(label),
-                            TextFont {
-                                font_size: 9.0,
-                                ..default()
-                            },
-                        )
+                        (Text::new(label), TextFont::from_font_size(9.0))
                     ],
                 )
             },
@@ -212,13 +206,7 @@ fn setup(mut commands: Commands) {
                                 BackgroundColor(YELLOW.into()),
                             )],
                         ),
-                        (
-                            Text::new(label),
-                            TextFont {
-                                font_size: 9.0,
-                                ..default()
-                            },
-                        )
+                        (Text::new(label), TextFont::from_font_size(9.0))
                     ],
                 )
             },
@@ -261,12 +249,6 @@ fn label(text: &str) -> impl Bundle {
             ..default()
         },
         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-        children![(
-            Text::new(text),
-            TextFont {
-                font_size: 20.0,
-                ..default()
-            },
-        )],
+        children![(Text::new(text), TextFont::from_font_size(20.0))],
     )
 }
