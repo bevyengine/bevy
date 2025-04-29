@@ -100,7 +100,6 @@ fn setup(mut commands: Commands) {
             align_content: AlignContent::FlexStart,
             ..default()
         },
-        BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
             |(label, border)| {
                 (
@@ -163,7 +162,6 @@ fn setup(mut commands: Commands) {
             align_content: AlignContent::FlexStart,
             ..default()
         },
-        BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
             move |(label, border)| {
                 (
@@ -240,15 +238,9 @@ fn setup(mut commands: Commands) {
 fn label(text: &str) -> impl Bundle {
     (
         Node {
-            margin: UiRect {
-                left: Val::Px(25.0),
-                right: Val::Px(25.0),
-                top: Val::Px(25.0),
-                bottom: Val::Px(0.0),
-            },
+            margin: UiRect::all(Val::Px(25.0)),
             ..default()
         },
-        BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         children![(Text::new(text), TextFont::from_font_size(20.0))],
     )
 }
