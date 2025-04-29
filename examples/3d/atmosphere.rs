@@ -3,11 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{
-        auto_exposure::{AutoExposure, AutoExposurePlugin},
-        bloom::Bloom,
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     input::mouse::{MouseMotion, MouseWheel},
     pbr::{
         light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings,
@@ -21,7 +17,6 @@ fn main() {
     App::new()
         // .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .add_plugins(DefaultPlugins)
-        .add_plugins(AutoExposurePlugin)
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(
@@ -53,11 +48,6 @@ fn setup_camera_fog(mut commands: Commands) {
                 current_ev100: 14.0,
                 target_ev100: 14.0,
             },
-            // AutoExposure {
-            //     filter: 0.0..=1.0,
-            //     range: -12.0..=12.0,
-            //     ..default()
-            // },
             Msaa::Off,
             initial_transform.clone(),
             CameraOrbit {
@@ -68,7 +58,6 @@ fn setup_camera_fog(mut commands: Commands) {
             // (the one recommended for use with this feature) is
             // quite bright, so raising the exposure compensation helps
             // bring the scene to a nicer brightness range.
-            // Exposure { ev100: 10.0 },
             AmbientLight {
                 color: Color::WHITE,
                 brightness: 0.0,
@@ -97,9 +86,12 @@ fn setup_camera_fog(mut commands: Commands) {
             ..default()
         });
 
+    // Spawn a new light probe to generate an environment map for the atmosphere
     commands.spawn((
         LightProbe,
         AtmosphereEnvironmentMapLight::default(),
+        // The translation controls where the light probe is placed,
+        // and the scale controls the extents of where it will affect objects in the scene.
         Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(100.0)),
     ));
 
@@ -204,14 +196,6 @@ fn setup_terrain_scene(
             .with_scale(Vec3::splat(10.0))
             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
     ));
-
-    // commands.spawn((
-    //     SceneRoot(
-    //         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/porsche/scene.gltf")),
-    //     ),
-    //     Transform::from_xyz(0.0, 0.667 * 0.5, 0.0)
-    //         .with_scale(Vec3::splat(0.5)),
-    // ));
 }
 
 fn pan_camera(
@@ -251,7 +235,8 @@ fn pan_camera(
         return;
     };
 
-    let shift_pressed = keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
+    let shift_pressed =
+        keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
 
     for ev in motion_evr.read() {
         if shift_pressed && mouse_button.pressed(MouseButton::Left) {
@@ -284,7 +269,6 @@ fn pan_camera(
                 // Calculate the opposite point from the intersection (through the center)
                 let direction_to_center = -intersection.normalize();
                 let opposite_point = direction_to_center * intersection.length();
-                
                 let mut target = sun_orbit.target_transform;
                 target.translation = opposite_point;
                 target.look_at(Vec3::ZERO, Vec3::Y);

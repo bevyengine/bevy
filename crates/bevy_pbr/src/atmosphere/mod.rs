@@ -116,8 +116,6 @@ impl Plugin for AtmospherePlugin {
             shaders::BLUENOISE_TEXTURE,
             "bluenoise.ktx2",
             |bytes, _: String| Image::from_buffer(
-                #[cfg(all(debug_assertions, feature = "dds"))]
-                "atmosphere_blue_noise".to_owned(),
                 bytes,
                 bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
                 bevy_image::CompressedImageFormats::NONE,
