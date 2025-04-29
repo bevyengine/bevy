@@ -48,7 +48,7 @@ pub struct AnimationTransition {
     old_node: AnimationNodeIndex,
     /// Node to transition into
     new_node: AnimationNodeIndex,
-    /// Handle pointer to required component [`AnimationGraphHandle]. needed to grab nodes current weights
+    /// Handle pointer to required component [`AnimationGraphHandle`]. needed to grab nodes current weights
     graph: Handle<AnimationGraph>,
     /// Acts similarly to a local variable, tracks how far into the transition are we, should start from 1. and go to 0
     weight: f32,
