@@ -1456,9 +1456,13 @@ impl Default for EnabledButtons {
 #[derive(Component, Default)]
 pub struct ClosingWindow;
 
-/// The [edges] of a screen.
+/// The edges of a screen. Corresponds to [`winit::platform::ios::ScreenEdge`].
 ///
-/// [edges]: https://developer.apple.com/documentation/uikit/uirectedge?language=objc
+/// # Platform-specific
+///
+/// - Only used on iOS.
+///
+/// [`winit::platform::ios::ScreenEdge`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/struct.ScreenEdge.html
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum ScreenEdge {
