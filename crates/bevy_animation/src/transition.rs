@@ -11,7 +11,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
-use core::time::Duration;
+use core::{f32, time::Duration};
 use tracing::warn;
 
 /// Component responsible for managing transitions between multiple nodes or states.
@@ -43,7 +43,7 @@ pub struct AnimationTransitions {
 #[derive(Debug, Reflect, Clone)]
 pub struct AnimationTransition {
     /// How much weight we will decrease according to the given user value
-    weight_decline: f32,
+    duration: Duration,
     /// Node to transition from
     old_node: AnimationNodeIndex,
     /// Node to transition into
@@ -76,7 +76,7 @@ impl AnimationTransitions {
         duration: Duration,
     ) {
         self.push(AnimationTransition {
-            weight_decline: 1. / duration.as_secs_f32(),
+            duration,
             old_node,
             new_node,
             graph,
@@ -99,7 +99,7 @@ impl AnimationTransitions {
         if let Some(old_node) = self.flows.get_mut(flow_position) {
             let previous_node = old_node.unwrap_or(new_node);
             self.transitions.push(AnimationTransition {
-                weight_decline: 1. / duration.as_secs_f32(),
+                duration,
                 old_node: previous_node,
                 new_node,
                 graph,
@@ -123,19 +123,18 @@ pub fn handle_node_transition(
         for transition in animation_transitions.iter_mut() {
             let Some(animation_graph) = assets_graph.get_mut(&transition.graph) else {
                 warn!(
-                    "You have no graph yet, added an animation transition! How could you do that?"
+                    "You have no graph yet added an animation transition! How could you do that?"
                 );
                 continue;
             };
+
             // How much to transition per tick!
             transition.weight =
-                (transition.weight - transition.weight_decline * time.delta_secs()).max(0.0);
+                (transition.weight - 1./transition.duration.as_secs_f32() * time.delta_secs()).max(0.0);
 
-            if transition.old_node.eq(&transition.new_node) {
-                if let Some(old_node) = animation_graph.get_mut(transition.old_node) {
-                    old_node.weight = remaining_weight;
-                }
-                continue;
+            // Handles edge case when duration is zero
+            if transition.duration == Duration::ZERO{
+                transition.weight = 0.0;
             }
 
             if let Some(old_node) = animation_graph.get_mut(transition.old_node) {

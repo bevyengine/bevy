@@ -111,12 +111,7 @@ fn setup_scene_once_loaded(
         let graph = animations.graph_handle.clone();
 
         // Make sure to still utilize animation player to control your animations
-        transitions.transition_flows(
-            graph.clone(),
-            animations.animations[0],
-            0,
-            Duration::from_millis(200),
-        );
+        transitions.transition_flows(graph.clone(), animations.animations[0], 0, Duration::ZERO);
         player.play(animations.animations[0]).repeat();
 
         commands
