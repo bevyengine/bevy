@@ -77,7 +77,7 @@ impl<'a> RenderContext<'a> {
     pub fn begin_render_pass<'b>(
         &'b mut self,
         render_pass_info: &RenderPassInfo,
-    ) -> Result<TrackedRenderPass<'a, 'b>, FrameGraphError> {
+    ) -> Result<RenderPassContext<'a, 'b>, FrameGraphError> {
         self.flush_encoder();
 
         let mut command_encoder = self
@@ -86,7 +86,7 @@ impl<'a> RenderContext<'a> {
 
         let render_pass = render_pass_info.create_render_pass(self, &mut command_encoder)?;
 
-        Ok(TrackedRenderPass {
+        Ok(RenderPassContext {
             command_encoder,
             render_pass,
             render_context: self,
@@ -151,13 +151,13 @@ impl<'a> RenderContext<'a> {
     }
 }
 
-pub struct TrackedRenderPass<'a, 'b> {
+pub struct RenderPassContext<'a, 'b> {
     command_encoder: wgpu::CommandEncoder,
     render_pass: wgpu::RenderPass<'static>,
     render_context: &'b mut RenderContext<'a>,
 }
 
-impl<'a, 'b> TrackedRenderPass<'a, 'b> {
+impl<'a, 'b> RenderPassContext<'a, 'b> {
     pub fn set_bind_group(
         &mut self,
         index: u32,
