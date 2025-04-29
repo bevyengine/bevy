@@ -19,7 +19,9 @@ watch = []
 trace = []
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = ["bevy_reflect"] }
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
+  "bevy_reflect",
+] }
 bevy_asset_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
