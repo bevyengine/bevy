@@ -12,7 +12,7 @@ use bevy_ecs::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use core::time::Duration;
-use tracing::info;
+use tracing::{info, warn};
 
 /// Component responsible for managing transitions between multiple nodes or states.
 ///
@@ -122,7 +122,7 @@ pub fn handle_node_transition(
         let mut remaining_weight = 1.0;
         for transition in animation_transitions.iter_mut() {
             let Some(animation_graph) = assets_graph.get_mut(&transition.graph) else {
-                info!("No graph");
+                warn!("No graph and you added an animation transition !");
                 continue;
             };
 
