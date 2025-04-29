@@ -1265,7 +1265,7 @@ impl Mesh {
             .collect::<Vec<_>>();
 
         // Extending the size of the attributes list to match N
-        // to garantee that there is enough `None`s for the swaps
+        // to guarantee that there is enough `None`s for the swaps
         if attrs.len() < N {
             attrs.resize_with(N, || None);
         }
@@ -1300,7 +1300,7 @@ impl Mesh {
             attrs_slice = &mut attrs_slice[1..];
         }
 
-        // Truncate the attributes list after sorting to prevent accidentaly
+        // Truncate the attributes list after sorting to prevent accidentally
         // removing a valid output
         if attrs.len() > N {
             attrs.truncate(N);
