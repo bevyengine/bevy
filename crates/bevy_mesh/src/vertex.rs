@@ -8,7 +8,7 @@ use core::hash::{Hash, Hasher};
 use thiserror::Error;
 use wgpu_types::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MeshVertexAttribute {
     /// The friendly name of the vertex attribute
     pub name: &'static str,
