@@ -31,8 +31,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
             illuminance: light_consts::lux::FULL_DAYLIGHT,
+            shadows_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, PI * -0.43, PI * -0.08, 0.0)),
