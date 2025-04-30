@@ -1,5 +1,10 @@
-use super::CachedTexture;
-use crate::render_resource::{TextureFormat, TextureView};
+use crate::{
+    frame_graph::{
+        BluePrintProvider, ColorAttachmentRef, FrameGraphError, PassNodeBuilder, ResourceBoardKey,
+        TextureViewInfo, TextureViewRef,
+    },
+    render_resource::{TextureFormat, TextureView},
+};
 use alloc::sync::Arc;
 use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -7,74 +12,47 @@ use wgpu::{
     Color, LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
 };
 
-/// A wrapper for a [`CachedTexture`] that is used as a [`RenderPassColorAttachment`].
 #[derive(Clone)]
-pub struct ColorAttachment {
-    pub texture: CachedTexture,
-    pub resolve_target: Option<CachedTexture>,
+pub struct ColorAttachmentProvider {
+    pub texture: ResourceBoardKey,
+    pub resolve_target: Option<ResourceBoardKey>,
     clear_color: Option<LinearRgba>,
     is_first_call: Arc<AtomicBool>,
 }
 
-impl ColorAttachment {
-    pub fn new(
-        texture: CachedTexture,
-        resolve_target: Option<CachedTexture>,
-        clear_color: Option<LinearRgba>,
-    ) -> Self {
-        Self {
-            texture,
-            resolve_target,
-            clear_color,
-            is_first_call: Arc::new(AtomicBool::new(true)),
-        }
-    }
+impl BluePrintProvider for ColorAttachmentProvider {
+    type BluePrint = ColorAttachmentRef;
+    fn make_blue_print(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> Result<Self::BluePrint, FrameGraphError> {
+        let view_ref;
 
-    pub fn get_attachment_operations(&self) -> Operations<Color> {
-        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
-        Operations {
-            load: match (self.clear_color, first_call) {
-                (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
-                (None, _) | (Some(_), false) => LoadOp::Load,
-            },
-            store: StoreOp::Store,
-        }
-    }
+        let mut resolve_target = None;
 
-    /// Get this texture view as an attachment. The attachment will be cleared with a value of
-    /// `clear_color` if this is the first time calling this function, otherwise it will be loaded.
-    ///
-    /// The returned attachment will always have writing enabled (`store: StoreOp::Load`).
-    pub fn get_attachment(&self) -> RenderPassColorAttachment {
-        if let Some(resolve_target) = self.resolve_target.as_ref() {
-            let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
-
-            RenderPassColorAttachment {
-                view: &resolve_target.default_view,
-                resolve_target: Some(&self.texture.default_view),
-                ops: Operations {
-                    load: match (self.clear_color, first_call) {
-                        (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
-                        (None, _) | (Some(_), false) => LoadOp::Load,
-                    },
-                    store: StoreOp::Store,
-                },
-            }
+        if self.resolve_target.is_none() {
+            view_ref = TextureViewRef {
+                texture_ref: pass_node_builder.read_from_board(&self.texture)?,
+                desc: TextureViewInfo::default(),
+            };
         } else {
-            self.get_unsampled_attachment()
-        }
-    }
+            view_ref = TextureViewRef {
+                texture_ref: pass_node_builder
+                    .read_from_board(self.resolve_target.as_ref().unwrap())?,
+                desc: TextureViewInfo::default(),
+            };
 
-    /// Get this texture view as an attachment, without the resolve target. The attachment will be cleared with
-    /// a value of `clear_color` if this is the first time calling this function, otherwise it will be loaded.
-    ///
-    /// The returned attachment will always have writing enabled (`store: StoreOp::Load`).
-    pub fn get_unsampled_attachment(&self) -> RenderPassColorAttachment {
+            resolve_target = Some(TextureViewRef {
+                texture_ref: pass_node_builder.read_from_board(&self.texture)?,
+                desc: TextureViewInfo::default(),
+            })
+        }
+
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
-        RenderPassColorAttachment {
-            view: &self.texture.default_view,
-            resolve_target: None,
+        Ok(ColorAttachmentRef {
+            view_ref,
+            resolve_target,
             ops: Operations {
                 load: match (self.clear_color, first_call) {
                     (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
@@ -82,6 +60,21 @@ impl ColorAttachment {
                 },
                 store: StoreOp::Store,
             },
+        })
+    }
+}
+
+impl ColorAttachmentProvider {
+    pub fn new(
+        texture: ResourceBoardKey,
+        resolve_target: Option<ResourceBoardKey>,
+        clear_color: Option<LinearRgba>,
+    ) -> Self {
+        Self {
+            texture,
+            resolve_target,
+            clear_color,
+            is_first_call: Arc::new(AtomicBool::new(true)),
         }
     }
 

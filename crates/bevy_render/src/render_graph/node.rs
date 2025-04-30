@@ -1,5 +1,5 @@
 use crate::{
-    frame_graph::FrameGraph,
+    frame_graph::{FrameGraph, FrameGraphError},
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos,
@@ -111,6 +111,8 @@ pub enum NodeRunError {
     RunSubGraphError(#[from] RunSubGraphError),
     #[error("encountered an error when executing draw command")]
     DrawError(#[from] DrawError),
+    #[error(transparent)]
+    FrameGraphError(#[from] FrameGraphError),
 }
 
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].

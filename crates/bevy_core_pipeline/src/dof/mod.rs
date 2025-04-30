@@ -538,9 +538,9 @@ pub fn prepare_auxiliary_depth_of_field_textures(
         // The texture matches the main view target texture.
         let texture_descriptor = TextureDescriptor {
             label: Some("depth of field auxiliary texture"),
-            size: view_target.main_texture().size(),
+            size: view_target.main_texture_info().size,
             mip_level_count: 1,
-            sample_count: view_target.main_texture().sample_count(),
+            sample_count: view_target.main_texture_info().sample_count,
             dimension: TextureDimension::D2,
             format: view_target.main_texture_format(),
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,

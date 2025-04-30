@@ -1,9 +1,9 @@
 use alloc::sync::Arc;
 
 use super::{
-    FrameGraph, GraphRawResourceNodeHandle, GraphResource, GraphResourceDescriptor,
-    GraphResourceNodeHandle, ImportToFrameGraph, Pass, PassTrait, ResourceRead, ResourceRef,
-    ResourceWrite, TypeEquals,
+    FrameGraph, FrameGraphError, GraphRawResourceNodeHandle, GraphResource,
+    GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass, PassTrait,
+    ResourceBoardKey, ResourceRead, ResourceRef, ResourceWrite, TypeEquals,
 };
 
 pub struct PassNodeBuilder<'a> {
@@ -28,11 +28,17 @@ impl<'a> PassNodeBuilder<'a> {
         self.pass = Some(Pass::new(pass))
     }
 
-    pub fn read_from_board<ResourceType: GraphResource>(
-        &self,
-        key: &str,
-    ) -> Option<GraphResourceNodeHandle<ResourceType>> {
-        self.graph.read_from_board(key)
+    pub fn read_from_board<ResourceType: GraphResource, Key: Into<ResourceBoardKey>>(
+        &mut self,
+        key: Key,
+    ) -> Result<ResourceRef<ResourceType, ResourceRead>, FrameGraphError> {
+        let key: ResourceBoardKey = key.into();
+        let handle = self
+            .graph
+            .get(&key)
+            .ok_or(FrameGraphError::ResourceBoardKey { key: key.into() })?;
+        let read = self.read(handle);
+        Ok(read)
     }
 
     pub fn import<ResourceType>(

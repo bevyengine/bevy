@@ -57,22 +57,14 @@ impl ViewNode for UpscalingNode {
         let converted_clear_color: Option<LinearRgba> = clear_color.map(|color| color.to_linear());
         let view_entity = graph.view_entity();
 
-        let main_texture_key = target.get_main_texture_key(view_entity);
-
+        let main_texture_key = target.get_main_texture_key();
         let mut builder = frame_graph.create_pass_node_bulder("upscaling_pass");
 
-        let Some(main_texture_handle) = builder.read_from_board(&main_texture_key) else {
-            return Ok(());
-        };
-        let main_texture_read = builder.read(main_texture_handle);
+        let main_texture_read = builder.read_from_board(main_texture_key)?;
 
         let camera_texure_key = CameraDriverNode::get_camera_texure_key(view_entity);
 
-        let Some(camera_texure_handle) = builder.read_from_board(&camera_texure_key) else {
-            return Ok(());
-        };
-
-        let camera_texure_handle_read = builder.read(camera_texure_handle);
+        let camera_texure_handle_read = builder.read_from_board(&camera_texure_key)?;
 
         let mut render_pass = RenderPass::default();
 

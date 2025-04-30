@@ -585,95 +585,18 @@ struct SsaoBindGroups {
 }
 
 fn prepare_ssao_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    pipelines: Res<SsaoPipelines>,
-    view_uniforms: Res<ViewUniforms>,
-    global_uniforms: Res<GlobalsBuffer>,
-    views: Query<(
+    mut _commands: Commands,
+    _render_device: Res<RenderDevice>,
+    _pipelines: Res<SsaoPipelines>,
+    _view_uniforms: Res<ViewUniforms>,
+    _global_uniforms: Res<GlobalsBuffer>,
+    _views: Query<(
         Entity,
         &ScreenSpaceAmbientOcclusionResources,
         &ViewPrepassTextures,
     )>,
 ) {
-    let (Some(view_uniforms), Some(globals_uniforms)) = (
-        view_uniforms.uniforms.binding(),
-        global_uniforms.buffer.binding(),
-    ) else {
-        return;
-    };
-
-    for (entity, ssao_resources, prepass_textures) in &views {
-        let common_bind_group = render_device.create_bind_group(
-            "ssao_common_bind_group",
-            &pipelines.common_bind_group_layout,
-            &BindGroupEntries::sequential((
-                &pipelines.point_clamp_sampler,
-                &pipelines.linear_clamp_sampler,
-                view_uniforms.clone(),
-            )),
-        );
-
-        let create_depth_view = |mip_level| {
-            ssao_resources
-                .preprocessed_depth_texture
-                .texture
-                .create_view(&TextureViewDescriptor {
-                    label: Some("ssao_preprocessed_depth_texture_mip_view"),
-                    base_mip_level: mip_level,
-                    format: Some(TextureFormat::R16Float),
-                    dimension: Some(TextureViewDimension::D2),
-                    mip_level_count: Some(1),
-                    ..default()
-                })
-        };
-
-        let preprocess_depth_bind_group = render_device.create_bind_group(
-            "ssao_preprocess_depth_bind_group",
-            &pipelines.preprocess_depth_bind_group_layout,
-            &BindGroupEntries::sequential((
-                prepass_textures.depth_view().unwrap(),
-                &create_depth_view(0),
-                &create_depth_view(1),
-                &create_depth_view(2),
-                &create_depth_view(3),
-                &create_depth_view(4),
-            )),
-        );
-
-        let ssao_bind_group = render_device.create_bind_group(
-            "ssao_ssao_bind_group",
-            &pipelines.ssao_bind_group_layout,
-            &BindGroupEntries::sequential((
-                &ssao_resources.preprocessed_depth_texture.default_view,
-                prepass_textures.normal_view().unwrap(),
-                &pipelines.hilbert_index_lut,
-                &ssao_resources.ssao_noisy_texture.default_view,
-                &ssao_resources.depth_differences_texture.default_view,
-                globals_uniforms.clone(),
-                ssao_resources.thickness_buffer.as_entire_binding(),
-            )),
-        );
-
-        let spatial_denoise_bind_group = render_device.create_bind_group(
-            "ssao_spatial_denoise_bind_group",
-            &pipelines.spatial_denoise_bind_group_layout,
-            &BindGroupEntries::sequential((
-                &ssao_resources.ssao_noisy_texture.default_view,
-                &ssao_resources.depth_differences_texture.default_view,
-                &ssao_resources
-                    .screen_space_ambient_occlusion_texture
-                    .default_view,
-            )),
-        );
-
-        commands.entity(entity).insert(SsaoBindGroups {
-            common_bind_group,
-            preprocess_depth_bind_group,
-            ssao_bind_group,
-            spatial_denoise_bind_group,
-        });
-    }
+    //todo
 }
 
 fn generate_hilbert_index_lut() -> [[u16; 64]; 64] {

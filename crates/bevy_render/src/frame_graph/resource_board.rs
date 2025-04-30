@@ -2,12 +2,18 @@ use std::collections::HashMap;
 
 use super::GraphRawResourceNodeHandle;
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct ResourceBoardKey(String);
 
 impl<'a> From<&'a str> for ResourceBoardKey {
     fn from(s: &'a str) -> Self {
         ResourceBoardKey(String::from(s))
+    }
+}
+
+impl<'a> From<&'a ResourceBoardKey> for ResourceBoardKey {
+    fn from(s: &'a ResourceBoardKey) -> Self {
+        s.to_owned()
     }
 }
 

@@ -1,17 +1,14 @@
 mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
-#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-use bevy_tasks::ComputeTaskPool;
 pub use render_device::*;
 use tracing::{error, info, info_span, warn};
 
 use crate::{
-    diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
+    diagnostic::internal::DiagnosticsRecorder,
     frame_graph::{FrameGraph, FrameGraphRunner, TransientResourceCache},
     render_graph::{RenderGraph, RenderGraphRunner},
-    render_phase::TrackedRenderPass,
-    render_resource::{PipelineCache, RenderPassDescriptor},
+    render_resource::PipelineCache,
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
@@ -20,8 +17,7 @@ use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
 use bevy_time::TimeSender;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
-    RequestAdapterOptions,
+    Adapter, AdapterInfo, CommandBuffer, DeviceType, Instance, Queue, RequestAdapterOptions,
 };
 
 pub fn setup_frame_graph_system(world: &mut World) {

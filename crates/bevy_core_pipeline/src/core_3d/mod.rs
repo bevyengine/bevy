@@ -83,7 +83,6 @@ pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
-use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
@@ -104,7 +103,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
-    texture::{ColorAttachment, TextureCache},
+    texture::TextureCache,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -976,14 +975,14 @@ pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<Defer
 
 // Prepares the textures used by the prepass
 pub fn prepare_prepass_textures(
-    mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
-    alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
-    opaque_3d_deferred_phases: Res<ViewBinnedRenderPhases<Opaque3dDeferred>>,
-    alpha_mask_3d_deferred_phases: Res<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    views_3d: Query<(
+    mut _commands: Commands,
+    mut _texture_cache: ResMut<TextureCache>,
+    _render_device: Res<RenderDevice>,
+    _opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
+    _alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
+    _opaque_3d_deferred_phases: Res<ViewBinnedRenderPhases<Opaque3dDeferred>>,
+    _alpha_mask_3d_deferred_phases: Res<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
+    _views_3d: Query<(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
@@ -994,165 +993,5 @@ pub fn prepare_prepass_textures(
         Has<DeferredPrepass>,
     )>,
 ) {
-    let mut depth_textures = <HashMap<_, _>>::default();
-    let mut normal_textures = <HashMap<_, _>>::default();
-    let mut deferred_textures = <HashMap<_, _>>::default();
-    let mut deferred_lighting_id_textures = <HashMap<_, _>>::default();
-    let mut motion_vectors_textures = <HashMap<_, _>>::default();
-    for (
-        entity,
-        camera,
-        view,
-        msaa,
-        depth_prepass,
-        normal_prepass,
-        motion_vector_prepass,
-        deferred_prepass,
-    ) in &views_3d
-    {
-        if !opaque_3d_prepass_phases.contains_key(&view.retained_view_entity)
-            && !alpha_mask_3d_prepass_phases.contains_key(&view.retained_view_entity)
-            && !opaque_3d_deferred_phases.contains_key(&view.retained_view_entity)
-            && !alpha_mask_3d_deferred_phases.contains_key(&view.retained_view_entity)
-        {
-            commands.entity(entity).remove::<ViewPrepassTextures>();
-            continue;
-        };
-
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
-        let size = Extent3d {
-            depth_or_array_layers: 1,
-            width: physical_target_size.x,
-            height: physical_target_size.y,
-        };
-
-        let cached_depth_texture = depth_prepass.then(|| {
-            depth_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    let descriptor = TextureDescriptor {
-                        label: Some("prepass_depth_texture"),
-                        size,
-                        mip_level_count: 1,
-                        sample_count: msaa.samples(),
-                        dimension: TextureDimension::D2,
-                        format: CORE_3D_DEPTH_FORMAT,
-                        usage: TextureUsages::COPY_DST
-                            | TextureUsages::RENDER_ATTACHMENT
-                            | TextureUsages::TEXTURE_BINDING,
-                        view_formats: &[],
-                    };
-                    texture_cache.get(&render_device, descriptor)
-                })
-                .clone()
-        });
-
-        let cached_normals_texture = normal_prepass.then(|| {
-            normal_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("prepass_normal_texture"),
-                            size,
-                            mip_level_count: 1,
-                            sample_count: msaa.samples(),
-                            dimension: TextureDimension::D2,
-                            format: NORMAL_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
-                            view_formats: &[],
-                        },
-                    )
-                })
-                .clone()
-        });
-
-        let cached_motion_vectors_texture = motion_vector_prepass.then(|| {
-            motion_vectors_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("prepass_motion_vectors_textures"),
-                            size,
-                            mip_level_count: 1,
-                            sample_count: msaa.samples(),
-                            dimension: TextureDimension::D2,
-                            format: MOTION_VECTOR_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
-                            view_formats: &[],
-                        },
-                    )
-                })
-                .clone()
-        });
-
-        let cached_deferred_texture = deferred_prepass.then(|| {
-            deferred_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("prepass_deferred_texture"),
-                            size,
-                            mip_level_count: 1,
-                            sample_count: 1,
-                            dimension: TextureDimension::D2,
-                            format: DEFERRED_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
-                            view_formats: &[],
-                        },
-                    )
-                })
-                .clone()
-        });
-
-        let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
-            deferred_lighting_id_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("deferred_lighting_pass_id_texture"),
-                            size,
-                            mip_level_count: 1,
-                            sample_count: 1,
-                            dimension: TextureDimension::D2,
-                            format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
-                            view_formats: &[],
-                        },
-                    )
-                })
-                .clone()
-        });
-
-        commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
-            normal: cached_normals_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
-            // Red and Green channels are X and Y components of the motion vectors
-            // Blue channel doesn't matter, but set to 0.0 for possible faster clear
-            // https://gpuopen.com/performance/#clears
-            motion_vectors: cached_motion_vectors_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
-            deferred: cached_deferred_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
-            deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
-                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
-            size,
-        });
-    }
+   //todo
 }

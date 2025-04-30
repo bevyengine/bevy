@@ -1,8 +1,8 @@
 use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
-    camera::{ClearColor, ExtractedCamera},
+    camera::ExtractedCamera,
     frame_graph::{
-        ColorAttachmentRef, DepthStencilAttachmentRef, FrameGraph, FrameGraphTexture, RenderPass,
+        BluePrintProvider, DepthStencilAttachmentRef, FrameGraph, FrameGraphTexture, RenderPass,
         TextureViewInfo, TextureViewRef,
     },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -55,37 +55,9 @@ impl ViewNode for MainOpaquePass2dNode {
 
         let mut builder = frame_graph.create_pass_node_bulder("main_opaque_pass_2d");
 
-        let clear_color_global = world.resource::<ClearColor>();
-
-        let main_texture_key = target.get_main_texture_key(view_entity);
-
-        let Some(main_texture_handle) = builder.read_from_board(&main_texture_key) else {
-            return Ok(());
-        };
-
-        let main_texture_read = builder.read(main_texture_handle);
-
-        let main_texture_sampled_key = ViewTarget::get_main_texture_sampled(view_entity);
-
-        let Some(main_texture_sampled_handle) = builder.read_from_board(&main_texture_sampled_key)
-        else {
-            return Ok(());
-        };
-
-        let main_texture_sampled_read = builder.read(main_texture_sampled_handle);
-
         let mut render_pass = RenderPass::default();
-        render_pass.add_color_attachment(ColorAttachmentRef {
-            view_ref: TextureViewRef {
-                texture_ref: main_texture_sampled_read,
-                desc: TextureViewInfo::default(),
-            },
-            resolve_target: Some(TextureViewRef {
-                texture_ref: main_texture_read,
-                desc: TextureViewInfo::default(),
-            }),
-            ops: target.get_attachment_operations(),
-        });
+
+        render_pass.add_color_attachment(target.make_blue_print(&mut builder)?);
 
         let depth_texture = FrameGraphTexture::new_arc_with_texture(&depth.texture);
         let depth_texture_key = ViewDepthTexture::get_depth_texture_key(view_entity);

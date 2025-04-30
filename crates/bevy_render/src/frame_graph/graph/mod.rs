@@ -159,7 +159,7 @@ impl FrameGraph {
         self.resource_board.put(key, handle);
     }
 
-    pub fn read_from_board<ResourceType: GraphResource, K: Into<ResourceBoardKey>>(
+    pub fn get<ResourceType: GraphResource, K: Into<ResourceBoardKey>>(
         &self,
         key: K,
     ) -> Option<GraphResourceNodeHandle<ResourceType>> {
@@ -221,6 +221,24 @@ impl FrameGraph {
 
         let handle = GraphResourceNodeHandle::new(resource_node_handle, version);
         self.put(name, handle.raw());
+
+        handle
+    }
+
+    pub fn get_or_create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
+    where
+        DescriptorType: GraphResourceDescriptor
+            + TypeEquals<
+                Other = <<DescriptorType as GraphResourceDescriptor>::Resource as GraphResource>::Descriptor,
+            >,
+    {
+        if let Some(raw_handle) = self.resource_board.get(name) {
+            return GraphResourceNodeHandle::new(raw_handle.handle, raw_handle.version);
+        }
+
+        let handle = self.create(name, desc);
+
+        self.resource_board.put(name, handle.raw());
 
         handle
     }
