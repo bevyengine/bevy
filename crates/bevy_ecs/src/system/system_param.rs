@@ -2600,14 +2600,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         // - The state was obtained from `SystemParamBuilder::build()`, which registers all [`World`] accesses used
         //   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
         // - The caller ensures that the provided world is the same and has the required access.
-        unsafe {
-            DynSystemParam::new(
-                state.0.as_mut() as &mut dyn Any,
-                world,
-                system_meta.clone(),
-                change_tick,
-            )
-        }
+        unsafe { DynSystemParam::new(state.0.as_mut(), world, system_meta.clone(), change_tick) }
     }
 
     unsafe fn new_archetype(
