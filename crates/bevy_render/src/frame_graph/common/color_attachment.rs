@@ -8,6 +8,7 @@ pub struct ColorAttachmentRef {
     pub ops: wgpu::Operations<wgpu::Color>,
 }
 
+#[derive(Clone)]
 pub struct ColorAttachment {
     pub view: wgpu::TextureView,
     pub resolve_target: Option<wgpu::TextureView>,

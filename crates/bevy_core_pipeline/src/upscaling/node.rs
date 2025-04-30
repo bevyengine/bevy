@@ -1,14 +1,14 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
-use bevy_color::{Color, LinearRgba};
+use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    camera::{CameraDriverNode, CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
+    camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
     frame_graph::{
-        BindGroupEntryRef, BindGroupRef, BindingResourceRef, ColorAttachmentRef, FrameGraph,
-        RenderPass, TextureViewInfo, TextureViewRef,
+        BindGroupEntryRef, BindGroupRef, BindingResourceRef, FrameGraph, RenderPass,
+        TextureViewInfo,
     },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{LoadOp, Operations, PipelineCache, StoreOp},
+    render_resource::PipelineCache,
     view::ViewTarget,
 };
 
@@ -24,7 +24,7 @@ impl ViewNode for UpscalingNode {
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext,
         frame_graph: &mut FrameGraph,
         (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
         world: &World,
@@ -55,27 +55,16 @@ impl ViewNode for UpscalingNode {
         }
 
         let converted_clear_color: Option<LinearRgba> = clear_color.map(|color| color.to_linear());
-        let view_entity = graph.view_entity();
 
         let main_texture_key = target.get_main_texture_key();
         let mut builder = frame_graph.create_pass_node_bulder("upscaling_pass");
 
         let main_texture_read = builder.read_from_board(main_texture_key)?;
 
-        let camera_texure_key = CameraDriverNode::get_camera_texure_key(view_entity);
-
-        let camera_texure_handle_read = builder.read_from_board(&camera_texure_key)?;
-
         let mut render_pass = RenderPass::default();
 
-        render_pass.add_color_attachment(ColorAttachmentRef {
-            view_ref: TextureViewRef {
-                texture_ref: camera_texure_handle_read,
-                desc: TextureViewInfo::default(),
-            },
-            resolve_target: None,
-            ops: target.out_texture_color_attachment_operations(converted_clear_color),
-        });
+        render_pass
+            .add_raw_color_attachment(target.out_texture_color_attachment(converted_clear_color));
 
         render_pass.set_bind_group(
             0,

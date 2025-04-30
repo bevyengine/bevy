@@ -14,8 +14,8 @@ use crate::{
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     frame_graph::{
-        BluePrintProvider, ColorAttachmentRef, FrameGraph, FrameGraphError, PassNodeBuilder,
-        ResourceBoardKey, TextureInfo,
+        BluePrintProvider, ColorAttachment, ColorAttachmentRef, FrameGraph, FrameGraphError,
+        PassNodeBuilder, ResourceBoardKey, TextureInfo,
     },
     prelude::Shader,
     primitives::Frustum,
@@ -798,10 +798,7 @@ impl ViewTarget {
         self.out_texture.get_attachment_operations(clear_color)
     }
 
-    pub fn out_texture_color_attachment(
-        &self,
-        clear_color: Option<LinearRgba>,
-    ) -> RenderPassColorAttachment {
+    pub fn out_texture_color_attachment(&self, clear_color: Option<LinearRgba>) -> ColorAttachment {
         self.out_texture.get_attachment(clear_color)
     }
 

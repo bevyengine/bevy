@@ -62,16 +62,6 @@ impl Node for CameraDriverNode {
 
                 if window.is_some_and(|w| w.physical_width > 0 && w.physical_height > 0) {
                     camera_windows.insert(window_entity);
-
-                    let window = window.unwrap();
-
-                    let Some(surface) = &window.swap_chain_texture else {
-                        continue;
-                    };
-
-                    let swap_chain_texture = FrameGraphTexture::new_arc_with_surface(surface);
-                    let swap_chain_texture_key = Self::get_camera_texure_key(sorted_camera.entity);
-                    frame_graph.import(&swap_chain_texture_key, swap_chain_texture);
                 } else {
                     // The window doesn't exist anymore or zero-sized so we don't need to run the graph
                     run_graph = false;

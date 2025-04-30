@@ -1,11 +1,12 @@
 use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 
-use super::{ColorAttachmentRef, DepthStencilAttachmentRef};
+use super::{ColorAttachmentRef, DepthStencilAttachmentRef, ColorAttachment};
 
 #[derive(Default)]
 pub struct RenderPassInfo {
     pub color_attachments: Vec<ColorAttachmentRef>,
     pub depth_stencil_attachment: Option<DepthStencilAttachmentRef>,
+    pub raw_color_attachments: Vec<ColorAttachment>,
 }
 
 impl RenderPassInfo {
@@ -14,7 +15,7 @@ impl RenderPassInfo {
         resource_context: &RenderContext,
         command_encoder: &mut wgpu::CommandEncoder,
     ) -> Result<wgpu::RenderPass<'static>, FrameGraphError> {
-        let mut color_attachments = vec![];
+        let mut color_attachments = self.raw_color_attachments.clone();
 
         for color_attachment in self.color_attachments.iter() {
             color_attachments.push(color_attachment.make(resource_context)?);

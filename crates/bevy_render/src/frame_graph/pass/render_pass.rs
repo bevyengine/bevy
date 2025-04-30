@@ -2,8 +2,8 @@ use std::ops::Range;
 
 use crate::{
     frame_graph::{
-        BindGroupRef, ColorAttachmentRef, DepthStencilAttachmentRef, FrameGraphError,
-        RenderContext, RenderPassContext, RenderPassInfo,
+        BindGroupRef, ColorAttachment, ColorAttachmentRef, DepthStencilAttachmentRef,
+        FrameGraphError, RenderContext, RenderPassContext, RenderPassInfo,
     },
     render_resource::CachedRenderPipelineId,
 };
@@ -26,6 +26,12 @@ impl RenderPass {
         depth_stencil_attachment: DepthStencilAttachmentRef,
     ) {
         self.render_pass_info.depth_stencil_attachment = Some(depth_stencil_attachment);
+    }
+
+    pub fn add_raw_color_attachment(&mut self, color_attachment: ColorAttachment) {
+        self.render_pass_info
+            .raw_color_attachments
+            .push(color_attachment);
     }
 
     pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentRef) {

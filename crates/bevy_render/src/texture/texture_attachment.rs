@@ -1,13 +1,13 @@
 use crate::{
     frame_graph::{
-        BluePrintProvider, ColorAttachmentRef, FrameGraphError, PassNodeBuilder, ResourceBoardKey,
-        TextureViewInfo, TextureViewRef,
+        BluePrintProvider, ColorAttachment, ColorAttachmentRef, FrameGraphError, PassNodeBuilder, ResourceBoardKey, TextureViewInfo, TextureViewRef
     },
     render_resource::{TextureFormat, TextureView},
 };
 use alloc::sync::Arc;
 use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
+use std::ops::Deref;
 use wgpu::{
     Color, LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
 };
@@ -172,11 +172,11 @@ impl OutputColorAttachment {
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
     /// the provided `clear_color` if this is the first time calling this function, otherwise it
     /// will be loaded.
-    pub fn get_attachment(&self, clear_color: Option<LinearRgba>) -> RenderPassColorAttachment {
+    pub fn get_attachment(&self, clear_color: Option<LinearRgba>) -> ColorAttachment {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
-        RenderPassColorAttachment {
-            view: &self.view,
+        ColorAttachment {
+            view: self.view.deref().clone(),
             resolve_target: None,
             ops: Operations {
                 load: match (clear_color, first_call) {

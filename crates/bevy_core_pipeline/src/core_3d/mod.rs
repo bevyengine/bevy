@@ -115,15 +115,13 @@ use crate::{
     deferred::{
         copy_lighting_id::CopyDeferredLightingIdNode,
         node::{EarlyDeferredGBufferPrepassNode, LateDeferredGBufferPrepassNode},
-        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
-        DEFERRED_PREPASS_FORMAT,
+        AlphaMask3dDeferred, Opaque3dDeferred,
     },
     dof::DepthOfFieldNode,
     prepass::{
         node::{EarlyPrepassNode, LatePrepassNode},
         AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
         Opaque3dPrepass, OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
-        ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -993,5 +991,5 @@ pub fn prepare_prepass_textures(
         Has<DeferredPrepass>,
     )>,
 ) {
-   //todo
+    //todo
 }
