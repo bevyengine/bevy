@@ -1,4 +1,4 @@
-use crate::frame_graph::{ExtraResource, FrameGraphError, RenderContext};
+use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 
 use super::TextureViewRef;
 
@@ -24,17 +24,14 @@ impl ColorAttachment {
     }
 }
 
-impl ExtraResource for ColorAttachmentRef {
-    type Resource = ColorAttachment;
+impl BluePrint for ColorAttachmentRef {
+    type Product = ColorAttachment;
 
-    fn extra_resource(
-        &self,
-        resource_context: &RenderContext,
-    ) -> Result<Self::Resource, FrameGraphError> {
-        let view = self.view_ref.extra_resource(resource_context)?;
+    fn make(&self, resource_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
+        let view = self.view_ref.make(resource_context)?;
 
         if let Some(resolve_target) = &self.resolve_target {
-            let resolve_target = resolve_target.extra_resource(resource_context)?;
+            let resolve_target = resolve_target.make(resource_context)?;
 
             Ok(ColorAttachment {
                 view,

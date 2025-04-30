@@ -1,4 +1,4 @@
-use crate::frame_graph::{ExtraResource, FrameGraphError, RenderContext};
+use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 
 use super::TextureViewRef;
 
@@ -8,14 +8,14 @@ pub struct DepthStencilAttachmentRef {
     pub stencil_ops: Option<wgpu::Operations<u32>>,
 }
 
-impl ExtraResource for DepthStencilAttachmentRef {
-    type Resource = DepthStencilAttachment;
+impl BluePrint for DepthStencilAttachmentRef {
+    type Product = DepthStencilAttachment;
 
-    fn extra_resource(
+    fn make(
         &self,
         resource_context: &RenderContext,
-    ) -> Result<Self::Resource, FrameGraphError> {
-        let view = self.view_ref.extra_resource(resource_context)?;
+    ) -> Result<Self::Product, FrameGraphError> {
+        let view = self.view_ref.make(resource_context)?;
 
         Ok(DepthStencilAttachment {
             view,

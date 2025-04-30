@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
     frame_graph::{
-        ExtraResource, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, RenderContext,
+        BluePrint, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, RenderContext,
         ResourceRead, ResourceRef,
     },
     render_resource::{BindGroup, BindGroupLayout},
@@ -107,13 +107,10 @@ pub enum BindingResourceRef {
     },
 }
 
-impl ExtraResource for BindGroupRef {
-    type Resource = BindGroup;
+impl BluePrint for BindGroupRef {
+    type Product = BindGroup;
 
-    fn extra_resource(
-        &self,
-        resource_context: &RenderContext,
-    ) -> Result<Self::Resource, FrameGraphError> {
+    fn make(&self, resource_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
         let mut resources = vec![];
         for entry in self.entries.iter() {
             let resource = match &entry.resource {

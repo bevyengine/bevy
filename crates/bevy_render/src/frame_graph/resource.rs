@@ -3,7 +3,7 @@ use std::ops::Deref;
 use alloc::{borrow::Cow, sync::Arc};
 
 use crate::{
-    render_resource::{Buffer, BufferSlice, SurfaceTexture, Texture},
+    render_resource::{Buffer, SurfaceTexture, Texture},
     renderer::RenderDevice,
 };
 

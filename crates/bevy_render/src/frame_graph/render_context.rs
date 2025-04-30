@@ -1,8 +1,8 @@
 use wgpu::AdapterInfo;
 
 use super::{
-    BindGroupRef, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo, ResourceRead,
-    ResourceRef, ResourceTable, TransientResourceCache,
+    BindGroupRef, BluePrint, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo,
+    ResourceRead, ResourceRef, ResourceTable, TransientResourceCache,
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
@@ -12,14 +12,6 @@ use crate::{
 use alloc::sync::Arc;
 use core::ops::Range;
 use std::ops::Deref;
-
-pub trait ExtraResource {
-    type Resource;
-    fn extra_resource(
-        &self,
-        resource_context: &RenderContext,
-    ) -> Result<Self::Resource, FrameGraphError>;
-}
 
 pub struct RenderContext<'a> {
     pub(crate) render_device: RenderDevice,
@@ -184,7 +176,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         bind_group_ref: &BindGroupRef,
         offsets: &[u32],
     ) -> Result<(), FrameGraphError> {
-        let bind_group = bind_group_ref.extra_resource(&self.render_context)?;
+        let bind_group = bind_group_ref.make(&self.render_context)?;
         self.render_pass.set_bind_group(index, &bind_group, offsets);
 
         Ok(())

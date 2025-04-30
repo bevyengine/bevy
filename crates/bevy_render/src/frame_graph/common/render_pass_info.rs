@@ -1,4 +1,4 @@
-use crate::frame_graph::{ExtraResource, FrameGraphError, RenderContext};
+use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 
 use super::{ColorAttachmentRef, DepthStencilAttachmentRef};
 
@@ -17,14 +17,14 @@ impl RenderPassInfo {
         let mut color_attachments = vec![];
 
         for color_attachment in self.color_attachments.iter() {
-            color_attachments.push(color_attachment.extra_resource(resource_context)?);
+            color_attachments.push(color_attachment.make(resource_context)?);
         }
 
         let mut depth_stencil_attachment = None;
 
         if let Some(depth_stencil_attachment_ref) = &self.depth_stencil_attachment {
             depth_stencil_attachment =
-                Some(depth_stencil_attachment_ref.extra_resource(resource_context)?);
+                Some(depth_stencil_attachment_ref.make(resource_context)?);
         }
 
         let depth_stencil_attachment =
