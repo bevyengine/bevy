@@ -189,7 +189,7 @@ pub fn prepare_raytracing_scene_bindings(
 
         directional_lights.push(GpuDirectionalLight {
             direction_to_light: directional_light.transform.back().into(),
-            color: directional_light.color,
+            color: directional_light.color * directional_light.illuminance,
             ..Default::default()
         });
 
