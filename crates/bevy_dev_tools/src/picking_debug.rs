@@ -1,7 +1,6 @@
 //! Text and on-screen debugging tools
 
 use bevy_app::prelude::*;
-use bevy_asset::prelude::*;
 use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_picking::backend::HitData;
@@ -248,8 +247,7 @@ pub fn debug_draw(
     pointers: Query<(Entity, &PointerId, &PointerDebug)>,
     scale: Res<UiScale>,
 ) {
-    let font_handle: Handle<Font> = Default::default();
-    for (entity, id, debug) in pointers.iter() {
+    for (entity, id, debug) in &pointers {
         let Some(pointer_location) = &debug.location else {
             continue;
         };
@@ -278,24 +276,23 @@ pub fn debug_draw(
 
             commands
                 .entity(entity)
+                .despawn_related::<Children>()
                 .insert((
-                    Text::new(text.clone()),
-                    TextFont {
-                        font: font_handle.clone(),
-                        font_size: 12.0,
-                        ..Default::default()
-                    },
-                    TextColor(Color::WHITE),
                     Node {
                         position_type: PositionType::Absolute,
                         left: Val::Px(pointer_pos.x + 5.0) / scale.0,
                         top: Val::Px(pointer_pos.y + 5.0) / scale.0,
+                        padding: UiRect::px(10.0, 10.0, 8.0, 6.0),
                         ..Default::default()
                     },
                     BackgroundColor(Color::BLACK.with_alpha(0.75)),
                     GlobalZIndex(i32::MAX),
                     Pickable::IGNORE,
                     UiTargetCamera(camera),
+                    children![(
+                        Text::new(text.clone()),
+                        TextFont::from_font_size(12.0),
+                    )],
                 ));
         }
     }
