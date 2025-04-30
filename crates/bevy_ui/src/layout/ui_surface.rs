@@ -140,7 +140,7 @@ impl UiSurface {
                 } else {
                     taffy.new_leaf(convert::from_node(node, layout_context, false))
                 };
-                entry.insert(taffy_node.unwrap().into());
+                entry.insert(taffy_node.unwrap());
             }
         }
     }
