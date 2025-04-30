@@ -292,7 +292,7 @@ impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
 /// to be stored together and compared.
 ///
 /// See [`Handle`] for more information.
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
 pub enum UntypedHandle {
     /// A strong handle, which will keep the referenced [`Asset`] alive until all strong handles are dropped.
     Strong(Arc<StrongHandle>),

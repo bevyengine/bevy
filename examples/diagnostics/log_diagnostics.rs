@@ -21,7 +21,7 @@ fn main() {
             bevy::diagnostic::SystemInformationDiagnosticsPlugin,
             // Forwards various diagnostics from the render app to the main app.
             // These are pretty verbose but can be useful to pinpoint performance issues.
-            bevy_render::diagnostic::RenderDiagnosticsPlugin,
+            bevy::render::diagnostic::RenderDiagnosticsPlugin,
         ))
         // No rendering diagnostics are emitted unless something is drawn to the screen,
         // so we spawn a small scene.
