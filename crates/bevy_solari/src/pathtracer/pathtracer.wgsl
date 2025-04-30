@@ -30,7 +30,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var ray_direction = normalize((primary_ray_target.xyz / primary_ray_target.w) - ray_origin);
     var ray_t_min = 0.0;
 
-    var irradiance = vec3(0.0);
+    var radiance = vec3(0.0);
     var throughput = vec3(1.0);
     loop {
         let ray_hit = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
@@ -39,9 +39,9 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             let diffuse_brdf = ray_hit.material.base_color / PI;
 
-            if ray_t_min == 0.0 { irradiance = ray_hit.material.emissive; }
+            if ray_t_min == 0.0 { radiance = ray_hit.material.emissive; }
 
-            irradiance += throughput * diffuse_brdf * sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
+            radiance += throughput * diffuse_brdf * sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
 
             let cos_theta = dot(-ray_direction, ray_hit.world_normal);
             let cosine_hemisphere_pdf = cos_theta / PI;
@@ -57,9 +57,9 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
         } else { break; }
     }
 
-    irradiance *= view.exposure;
+    radiance *= view.exposure;
 
-    let new_color = (irradiance + old_color.a * old_color.rgb) / (old_color.a + 1.0);
+    let new_color = (radiance + old_color.a * old_color.rgb) / (old_color.a + 1.0);
     textureStore(accumulation_texture, global_id.xy, vec4(new_color, old_color.a + 1.0));
     textureStore(view_output, global_id.xy, vec4(new_color, 1.0));
 }
