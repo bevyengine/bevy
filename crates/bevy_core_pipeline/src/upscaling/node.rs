@@ -3,10 +3,7 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
-    frame_graph::{
-        BindGroupEntryRef, BindGroupRef, BindingResourceRef, FrameGraph, RenderPass,
-        TextureViewInfo,
-    },
+    frame_graph::{render_pass_builder::RenderPassBuilder, FrameGraph},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::PipelineCache,
     view::ViewTarget,
@@ -57,49 +54,28 @@ impl ViewNode for UpscalingNode {
         let converted_clear_color: Option<LinearRgba> = clear_color.map(|color| color.to_linear());
 
         let main_texture_key = target.get_main_texture_key();
-        let mut builder = frame_graph.create_pass_node_bulder("upscaling_pass");
 
-        let main_texture_read = builder.read_from_board(main_texture_key)?;
+        let Some(main_texture_read) = frame_graph.get(main_texture_key) else {
+            return Ok(());
+        };
 
-        let mut render_pass = RenderPass::default();
-
-        render_pass
-            .add_raw_color_attachment(target.out_texture_color_attachment(converted_clear_color));
-
-        render_pass.set_bind_group(
-            0,
-            &BindGroupRef {
-                label: None,
-                layout: blit_pipeline.texture_bind_group.clone(),
-                entries: vec![
-                    BindGroupEntryRef {
-                        binding: 0,
-                        resource: BindingResourceRef::TextureView {
-                            texture_ref: main_texture_read,
-                            texture_view_info: TextureViewInfo::default(),
-                        },
-                    },
-                    BindGroupEntryRef {
-                        binding: 1,
-                        resource: BindingResourceRef::Sampler(blit_pipeline.sampler.clone()),
-                    },
-                ],
-            },
-            &[],
-        );
-
-        if let Some(camera) = camera {
-            if let Some(viewport) = &camera.viewport {
-                let size = viewport.physical_size;
-                let position = viewport.physical_position;
-                render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
-            }
-        }
-
-        render_pass.set_render_pipeline(upscaling_target.0);
-        render_pass.draw(0..3, 0..1);
-
-        builder.set_pass(render_pass);
+        RenderPassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_pass"))
+            .add_raw_color_attachment(target.out_texture_color_attachment(converted_clear_color))
+            .set_render_pipeline(upscaling_target.0)
+            .set_bind_group(
+                0,
+                (
+                    None,
+                    blit_pipeline.texture_bind_group.clone(),
+                    vec![
+                        main_texture_read.into(),
+                        blit_pipeline.sampler.clone().into(),
+                    ],
+                ),
+                &[],
+            )?
+            .set_viewport(camera.and_then(|camera| camera.viewport.clone()))
+            .draw(0..3, 0..1);
 
         Ok(())
     }

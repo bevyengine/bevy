@@ -1,13 +1,9 @@
 use crate::{
     camera::Viewport,
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
-    frame_graph::{
-        FrameGraphBuffer, FrameGraphError, PassNodeBuilder, RenderDrawFunction, RenderPass,
-        RenderPassContext, ResourceRead, ResourceRef,
-    },
+    frame_graph::{FrameGraphBuffer, PassNodeBuilder, RenderPass, ResourceRead, ResourceRef},
     render_resource::{
-        BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, CachedRenderPipelineId,
-        RenderPipeline, RenderPipelineId, ShaderStages,
+        BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, CachedRenderPipelineId, ShaderStages,
     },
     renderer::RenderDevice,
 };
@@ -29,7 +25,6 @@ use tracing::trace;
 struct DrawState {
     pipeline: Option<CachedRenderPipelineId>,
     bind_groups: Vec<(Option<BindGroup>, Vec<u32>)>,
-    /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
     vertex_buffers: Vec<Option<(ResourceRef<FrameGraphBuffer, ResourceRead>, u64, u64)>>,
     index_buffer: Option<(
         ResourceRef<FrameGraphBuffer, ResourceRead>,
@@ -44,40 +39,36 @@ struct DrawState {
     stores_state: bool,
 }
 
-impl RenderDrawFunction for DrawState {
-    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+impl DrawState {
+    fn update_render_pass(self, render_pass: &mut RenderPass) {
         if let Some(pipeline_id) = self.pipeline {
-            render_pass_context.set_render_pipeline(pipeline_id)?;
+            render_pass.set_render_pipeline(pipeline_id);
         }
 
         for (index, params) in self.vertex_buffers.iter().enumerate() {
             if let Some((buffer_ref, _offset, _size)) = params {
-                render_pass_context.set_vertex_buffer(index as u32, buffer_ref)?;
+                render_pass.set_vertex_buffer(index as u32, buffer_ref);
             }
         }
 
         for (index, params) in self.bind_groups.iter().enumerate() {
             let (bind_group, offsets) = params;
-            render_pass_context.set_raw_bind_group(index as u32, bind_group.as_ref(), &offsets)?;
+            render_pass.set_raw_bind_group(index as u32, bind_group.as_ref(), &offsets);
         }
 
         if let Some((buffer_ref, _offset, _size, index_format)) = &self.index_buffer {
-            render_pass_context.set_index_buffer(buffer_ref, *index_format)?;
+            render_pass.set_index_buffer(buffer_ref, *index_format);
         }
 
         if let Some((indices, base_vertex, instances)) = &self.draw_indexed {
-            render_pass_context.draw_indexed(indices.clone(), *base_vertex, instances.clone());
+            render_pass.draw_indexed(indices.clone(), *base_vertex, instances.clone());
         } else {
             if let Some((vertices, instances)) = &self.draw {
-                render_pass_context.draw(vertices.clone(), instances.clone());
+                render_pass.draw(vertices.clone(), instances.clone());
             }
         }
-
-        Ok(())
     }
-}
 
-impl DrawState {
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
         self.draw_indexed = Some((indices, base_vertex, instances));
     }
@@ -217,7 +208,7 @@ pub struct TrackedRenderPass<'a> {
 
 impl<'a> TrackedRenderPass<'a> {
     pub fn finish(mut self, mut render_pass: RenderPass) {
-        render_pass.add_draw_function(self.state);
+        self.state.update_render_pass(&mut render_pass);
 
         self.pass.set_pass(render_pass);
     }

@@ -47,6 +47,16 @@ pub struct GraphResourceNodeHandle<ResourceType> {
     _marker: PhantomData<ResourceType>,
 }
 
+impl<ResourceType> Clone for GraphResourceNodeHandle<ResourceType> {
+    fn clone(&self) -> Self {
+        GraphResourceNodeHandle {
+            handle: self.handle,
+            version: self.version,
+            _marker: PhantomData,
+        }
+    }
+}
+
 impl<ResourceType> GraphResourceNodeHandle<ResourceType> {
     pub fn raw(&self) -> GraphRawResourceNodeHandle {
         GraphRawResourceNodeHandle {

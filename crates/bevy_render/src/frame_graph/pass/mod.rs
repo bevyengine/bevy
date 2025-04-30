@@ -1,4 +1,5 @@
 pub mod render_pass;
+pub mod render_pass_builder;
 
 pub use render_pass::*;
 
