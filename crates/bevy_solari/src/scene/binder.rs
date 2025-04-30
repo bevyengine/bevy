@@ -189,7 +189,7 @@ pub fn prepare_raytracing_scene_bindings(
 
         directional_lights.push(GpuDirectionalLight {
             direction_to_light: directional_light.transform.back().into(),
-            color: directional_light.color * directional_light.illuminance,
+            illuminance: directional_light.color * directional_light.illuminance,
             ..Default::default()
         });
 
@@ -428,7 +428,7 @@ impl GpuLightSource {
 struct GpuDirectionalLight {
     direction_to_light: Vec3,
     _padding: u32,
-    color: LinearRgba,
+    illuminance: LinearRgba,
 }
 
 fn tlas_transform(transform: &Mat4) -> [f32; 12] {

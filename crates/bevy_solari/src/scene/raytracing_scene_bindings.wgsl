@@ -55,7 +55,7 @@ const LIGHT_SOURCE_KIND_DIRECTIONAL = 1u;
 struct DirectionalLight {
     direction_to_light: vec3<f32>,
     _padding: u32,
-    color: vec4<f32>,
+    illuminance: vec4<f32>,
 }
 
 @group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;

@@ -59,7 +59,7 @@ fn sample_directional_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32
     let cos_theta_origin = saturate(dot(ray_direction, origin_world_normal));
 
     // No need to divide by the pdf, because we also need to divide by the solid angle to convert from illuminance to luminance, and they cancel out
-    return light.color.rgb * visibility * cos_theta_origin;
+    return light.illuminance.rgb * visibility * cos_theta_origin;
 }
 
 fn sample_emissive_mesh(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, instance_id: u32, triangle_count: u32, rng: ptr<function, u32>) -> vec3<f32> {
