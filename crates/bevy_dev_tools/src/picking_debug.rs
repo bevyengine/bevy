@@ -283,7 +283,7 @@ pub fn debug_draw(
                     GlobalZIndex(i32::MAX),
                     Pickable::IGNORE,
                     UiTargetCamera(camera),
-                    children![(Text::new(text.clone()), TextFont::from_font_size(12.0),)],
+                    children![(Text::new(text.clone()), TextFont::from_font_size(12.0))],
                 ));
         }
     }
