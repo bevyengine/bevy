@@ -116,7 +116,7 @@ fn on_add_tilemap_chunk(
 
     let mesh = tilemap_chunk_mesh_cache
         .entry(mesh_key)
-        .or_insert_with(|| meshes.add(make_chunk_mesh(&chunk_size, &display_size, &anchor)));
+        .or_insert_with(|| meshes.add(make_chunk_mesh(chunk_size, &display_size, anchor)));
 
     commands.entity(chunk_entity).insert((
         Mesh2d(mesh.clone()),
