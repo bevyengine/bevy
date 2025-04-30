@@ -187,7 +187,7 @@ impl UiSurface {
     }
 
     /// Removes camera association to root node
-    /// Shorthand for calling [`Self::replace_camera_association`](root_node_entity, None)
+    /// Shorthand for calling [`Self::replace_camera_association`](`root_node_entity`, `None`)
     fn mark_root_node_as_orphaned(&mut self, root_node_entity: Entity) {
         self.replace_camera_association(root_node_entity, None);
     }
