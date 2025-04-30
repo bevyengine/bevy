@@ -10,11 +10,10 @@ use crate::io::{
 };
 use alloc::boxed::Box;
 use bevy_ecs::resource::Resource;
-use bevy_platform::sync::PoisonError;
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "embedded_watcher")]
-use alloc::borrow::ToOwned;
+use {alloc::borrow::ToOwned, bevy_platform::sync::PoisonError};
 
 /// The name of the `embedded` [`AssetSource`],
 /// as stored in the [`AssetSourceBuilders`] resource.
