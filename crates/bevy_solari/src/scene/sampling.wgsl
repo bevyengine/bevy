@@ -40,9 +40,6 @@ fn sample_directional_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32
     // cos(0.25)
     let cos_theta_max = 0.99999048072;
 
-    // 2 * PI * (1 - cos_theta_max)
-    let inverse_pdf = 0.00005981139;
-
     // Sample a random direction within a cone whose base is the sun approximated as a disk with radius ~= 0.25 degrees
     // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
     let r = rand_vec2f(rng);
@@ -61,9 +58,8 @@ fn sample_directional_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32
 
     let cos_theta_origin = saturate(dot(ray_direction, origin_world_normal));
 
-    let radiance = light.color.rgb * visibility * cos_theta_origin;
-
-    return radiance * inverse_pdf;
+    // No need to divide by the pdf, because we also need to divide by the solid angle to convert from illuminance to luminance, and they cancel out
+    return light.color.rgb * visibility * cos_theta_origin;
 }
 
 fn sample_emissive_mesh(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, instance_id: u32, triangle_count: u32, rng: ptr<function, u32>) -> vec3<f32> {
