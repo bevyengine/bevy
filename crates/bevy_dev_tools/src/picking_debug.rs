@@ -253,18 +253,12 @@ pub fn debug_draw(
         };
         let text = format!("{id:?}\n{debug}");
 
-        for camera in camera_query
-            .iter()
-            .map(|(entity, camera)| {
-                (
-                    entity,
-                    camera.target.normalize(primary_window.single().ok()),
-                )
-            })
-            .filter_map(|(entity, target)| Some(entity).zip(target))
-            .filter(|(_entity, target)| target == &pointer_location.target)
-            .map(|(cam_entity, _target)| cam_entity)
-        {
+        for (camera, _) in camera_query.iter().filter(|(_, camera)| {
+            camera
+                .target
+                .normalize(primary_window.single().ok())
+                .is_some_and(|target| target == pointer_location.target)
+        }) {
             let mut pointer_pos = pointer_location.position;
             if let Some(viewport) = camera_query
                 .get(camera)
@@ -289,10 +283,7 @@ pub fn debug_draw(
                     GlobalZIndex(i32::MAX),
                     Pickable::IGNORE,
                     UiTargetCamera(camera),
-                    children![(
-                        Text::new(text.clone()),
-                        TextFont::from_font_size(12.0),
-                    )],
+                    children![(Text::new(text.clone()), TextFont::from_font_size(12.0),)],
                 ));
         }
     }
