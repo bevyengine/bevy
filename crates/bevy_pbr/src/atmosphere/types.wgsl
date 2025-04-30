@@ -35,6 +35,7 @@ struct AtmosphereSettings {
     scene_units_to_m: f32,
     jitter_strength: f32,
     environment_size: vec2<u32>,
+    rendering_method: u32,
 }
 
 

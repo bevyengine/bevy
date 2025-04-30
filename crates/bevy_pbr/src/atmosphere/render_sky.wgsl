@@ -5,7 +5,7 @@
         sample_transmittance_lut, sample_transmittance_lut_segment,
         sample_sky_view_lut, direction_world_to_atmosphere,
         uv_to_ray_direction, uv_to_ndc, sample_aerial_view_lut,
-        view_radius, sample_sun_radiance, ndc_to_camera_dist,
+        view_radius, sample_sun_luminance, ndc_to_camera_dist,
         raymarch_atmosphere, max_atmosphere_distance, get_view_position
     },
     bruneton_functions::distance_to_bottom_atmosphere_boundary
@@ -36,14 +36,14 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let up = normalize(world_pos);
     let mu = dot(ray_dir_ws, up);
 
-    let should_raymarch = true;//in.uv.x > 0.5;
+    let should_raymarch = settings.rendering_method == 1u;
 
     let raymarch_steps = 16.0;
 
     var transmittance: vec3<f32>;
     var inscattering: vec3<f32>;
 
-    let sun_radiance = sample_sun_radiance(ray_dir_ws.xyz);
+    let sun_luminance = sample_sun_luminance(ray_dir_ws.xyz);
 
     if depth == 0.0 {
         let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws);
@@ -57,7 +57,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
             transmittance = result.transmittance;
         }
 
-        inscattering += sun_radiance * transmittance;
+        inscattering += sun_luminance * transmittance;
     } else {
         let t = ndc_to_camera_dist(vec3(uv_to_ndc(in.uv), depth));
         inscattering = sample_aerial_view_lut(in.uv, t);

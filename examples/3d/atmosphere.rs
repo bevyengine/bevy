@@ -7,7 +7,7 @@ use bevy::{
     input::mouse::{MouseMotion, MouseWheel},
     math::ops::exp,
     pbr::{
-        light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings,
+        light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings, SunLight,
         VolumetricFog, VolumetricLight,
     },
     prelude::*,
@@ -109,6 +109,8 @@ fn setup_camera_fog(mut commands: Commands) {
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
+        // This component will enable the sun disk rendering and set the sun disk size
+        SunLight::default(),
         VolumetricLight,
         sun_transform,
         SunOrbit {

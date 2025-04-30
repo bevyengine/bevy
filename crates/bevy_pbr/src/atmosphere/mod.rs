@@ -501,6 +501,9 @@ pub struct AtmosphereSettings {
 
     /// The size of the environment map.
     pub environment_size: UVec2,
+
+    /// The rendering method to use for the atmosphere.
+    pub rendering_method: u32,
 }
 
 impl Default for AtmosphereSettings {
@@ -519,6 +522,7 @@ impl Default for AtmosphereSettings {
             scene_units_to_m: 1.0,
             jitter_strength: 0.99,
             environment_size: UVec2::new(512, 512),
+            rendering_method: AtmosphereRenderingMethod::Default as u32,
         }
     }
 }
@@ -541,6 +545,18 @@ fn configure_camera_depth_usages(
     for mut camera in &mut cameras {
         camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
+}
+
+/// The rendering method to use for the atmosphere.
+#[derive(Clone, Default, Reflect, Copy)]
+pub enum AtmosphereRenderingMethod {
+    /// Use the default rendering method which uses a 3D lookup texture
+    /// fitted to the view frustum.
+    #[default]
+    Default,
+    /// Use the raymarching rendering method which uses raymarching to
+    /// compute the atmosphere and supports volumetric shadows.
+    Raymarching,
 }
 
 /// This component marks a light probe entity for generating an environment map
@@ -570,5 +586,24 @@ impl ExtractComponent for AtmosphereEnvironmentMapLight {
 
     fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
+    }
+}
+
+/// This component marks a light entity for changing the size of the sun disk.
+#[derive(Component, Clone)]
+pub struct SunLight {
+    /// The angular size of the sun disk in radians.
+    pub angular_size: f32,
+}
+
+impl SunLight {
+    pub const SUN: SunLight = SunLight {
+        angular_size: 0.0174533,
+    };
+}
+
+impl Default for SunLight {
+    fn default() -> Self {
+        Self::SUN
     }
 }
