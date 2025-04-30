@@ -13,7 +13,7 @@ use bevy_ecs::{
     system::{Commands, Query, ResMut},
     world::Ref,
 };
-use bevy_math::{Vec2};
+use bevy_math::Vec2;
 use bevy_render::prelude::Camera;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
@@ -133,6 +133,16 @@ pub fn ui_layout_system(
             }
         });
 
+    // Sync added root nodes
+    // TODO: re-investigate replaced logic
+    node_query
+        .iter()
+        .for_each(|(entity, node, _, computed_target)| {
+            if node.is_added() && ui_root_node_query.contains(entity) {
+                ui_surface.create_or_update_root_node_data(entity, computed_target.camera);
+            }
+        });
+
     // clean up removed cameras
     ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
 
@@ -179,8 +189,8 @@ with UI components as a child of an entity without UI components, your UI layout
     for ui_root_entity in ui_root_node_query.iter() {
         let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 
-        ui_surface.compute_camera_layout(
-            computed_target.camera,
+        ui_surface.compute_layout(
+            ui_root_entity,
             computed_target.physical_size,
             &mut buffer_query,
             &mut font_system,
@@ -1195,7 +1205,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ui_surface_compute_camera_layout() {
+    fn test_ui_surface_compute_layout() {
         use bevy_ecs::prelude::ResMut;
 
         let (mut world, ..) = setup_ui_test_world();
@@ -1221,8 +1231,11 @@ mod tests {
                 None,
             );
 
-            ui_surface.compute_camera_layout(
-                params.camera_entity,
+            ui_surface
+                .set_camera_children(params.camera_entity, [params.root_node_entity].into_iter());
+
+            ui_surface.compute_layout(
+                params.root_node_entity,
                 UVec2::new(800, 600),
                 &mut computed_text_block_query,
                 &mut font_system,
@@ -1295,8 +1308,6 @@ mod tests {
         world
             .entity_mut(ui_root_entity_1)
             .add_child(ui_root_entity_2);
-
-        println!("reparenting {ui_root_entity_2} to {ui_root_entity_1}");
 
         // Now there is only one root node so the second viewport node is removed by
         // the UI schedule.

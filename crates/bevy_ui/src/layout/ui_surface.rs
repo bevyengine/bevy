@@ -8,6 +8,7 @@ use bevy_ecs::{
     prelude::Resource,
 };
 use bevy_math::{UVec2, Vec2};
+use bevy_platform::collections::hash_map::Entry;
 use bevy_utils::default;
 
 use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
@@ -111,36 +112,36 @@ impl UiSurface {
     ) {
         let taffy = &mut self.taffy;
 
-        let mut added = false;
-        let taffy_node_id = *self.entity_to_taffy.entry(entity).or_insert_with(|| {
-            added = true;
-            if let Some(measure) = new_node_context.take() {
-                taffy
-                    .new_leaf_with_context(convert::from_node(node, layout_context, true), measure)
-                    .unwrap()
-            } else {
-                taffy
-                    .new_leaf(convert::from_node(node, layout_context, false))
-                    .unwrap()
-            }
-        });
+        match self.entity_to_taffy.entry(entity) {
+            Entry::Occupied(entry) => {
+                let taffy_node = *entry.get();
+                let has_measure = if new_node_context.is_some() {
+                    taffy
+                        .set_node_context(taffy_node, new_node_context)
+                        .unwrap();
+                    true
+                } else {
+                    taffy.get_node_context(taffy_node).is_some()
+                };
 
-        if !added {
-            let has_measure = if new_node_context.is_some() {
                 taffy
-                    .set_node_context(taffy_node_id, new_node_context)
+                    .set_style(
+                        taffy_node,
+                        convert::from_node(node, layout_context, has_measure),
+                    )
                     .unwrap();
-                true
-            } else {
-                taffy.get_node_context(taffy_node_id).is_some()
-            };
-
-            taffy
-                .set_style(
-                    taffy_node_id,
-                    convert::from_node(node, layout_context, has_measure),
-                )
-                .unwrap();
+            }
+            Entry::Vacant(entry) => {
+                let taffy_node = if let Some(measure) = new_node_context.take() {
+                    taffy.new_leaf_with_context(
+                        convert::from_node(node, layout_context, true),
+                        measure,
+                    )
+                } else {
+                    taffy.new_leaf(convert::from_node(node, layout_context, false))
+                };
+                entry.insert(taffy_node.unwrap().into());
+            }
         }
     }
 
@@ -152,19 +153,23 @@ impl UiSurface {
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
     pub fn update_children(&mut self, entity: Entity, children: impl Iterator<Item = Entity>) {
-        let children = children
-            .map(|child| {
+        let (lower_bound_estimate, _) = children.size_hint();
+        let mut new_children = Vec::with_capacity(lower_bound_estimate);
+
+        for child in children {
+            self.remove_root_node_viewport(child);
+            new_children.push(
                 self.entity_to_taffy
                     .get(&child)
-                    .cloned()
+                    .copied()
                     .unwrap_or_else(|| {
                         panic!("failed to resolve taffy id for child entity {child} in {entity}")
-                    })
-            })
-            .collect::<Vec<_>>();
+                    }),
+            );
+        }
 
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy.set_children(*taffy_node, &children).unwrap();
+        self.taffy.set_children(*taffy_node, &new_children).unwrap();
     }
 
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
@@ -217,7 +222,7 @@ impl UiSurface {
     }
 
     /// Creates or updates a root node
-    fn create_or_update_root_node_data(
+    pub(super) fn create_or_update_root_node_data(
         &mut self,
         root_node_entity: Entity,
         camera_entity: Entity,
@@ -296,73 +301,68 @@ impl UiSurface {
         }
     }
 
-    /// Compute the layout for each window entity's corresponding root node in the layout.
-    pub fn compute_camera_layout<'a>(
+    /// Compute the layout for the given implicit taffy viewport node
+    pub fn compute_layout<'a>(
         &mut self,
-        camera_entity: Entity,
+        root_node_entity: Entity,
         render_target_resolution: UVec2,
         buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
         font_system: &'a mut CosmicFontSystem,
     ) {
-        let Some(camera_root_nodes) = self.camera_root_nodes.get(&camera_entity) else {
-            return;
-        };
+        let root_node_data = self
+            .root_node_data
+            .get(&root_node_entity)
+            .expect("root_node_data missing");
+
+        if root_node_data.camera_entity.is_none() {
+            panic!("internal map out of sync");
+        }
 
         let available_space = taffy::geometry::Size {
             width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
             height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
         };
 
-        for root_node_entity in camera_root_nodes {
-            let root_node_data = self
-                .root_node_data
-                .get(root_node_entity)
-                .expect("root_node_data missing");
-
-            if root_node_data.camera_entity.is_none() {
-                panic!("internal map out of sync");
-            }
-            self.taffy
-                .compute_layout_with_measure(
-                    root_node_data.implicit_viewport_node,
-                    available_space,
-                    |known_dimensions: taffy::Size<Option<f32>>,
-                     available_space: taffy::Size<taffy::AvailableSpace>,
-                     _node_id: taffy::NodeId,
-                     context: Option<&mut NodeMeasure>,
-                     style: &taffy::Style|
-                     -> taffy::Size<f32> {
-                        context
-                            .map(|ctx| {
-                                let buffer = get_text_buffer(
-                                    crate::widget::TextMeasure::needs_buffer(
-                                        known_dimensions.height,
-                                        available_space.width,
-                                    ),
-                                    ctx,
-                                    buffer_query,
-                                );
-                                let size = ctx.measure(
-                                    MeasureArgs {
-                                        width: known_dimensions.width,
-                                        height: known_dimensions.height,
-                                        available_width: available_space.width,
-                                        available_height: available_space.height,
-                                        font_system,
-                                        buffer,
-                                    },
-                                    style,
-                                );
-                                taffy::Size {
-                                    width: size.x,
-                                    height: size.y,
-                                }
-                            })
-                            .unwrap_or(taffy::Size::ZERO)
-                    },
-                )
-                .unwrap();
-        }
+        self.taffy
+            .compute_layout_with_measure(
+                root_node_data.implicit_viewport_node,
+                available_space,
+                |known_dimensions: taffy::Size<Option<f32>>,
+                 available_space: taffy::Size<taffy::AvailableSpace>,
+                 _node_id: taffy::NodeId,
+                 context: Option<&mut NodeMeasure>,
+                 style: &taffy::Style|
+                 -> taffy::Size<f32> {
+                    context
+                        .map(|ctx| {
+                            let buffer = get_text_buffer(
+                                crate::widget::TextMeasure::needs_buffer(
+                                    known_dimensions.height,
+                                    available_space.width,
+                                ),
+                                ctx,
+                                buffer_query,
+                            );
+                            let size = ctx.measure(
+                                MeasureArgs {
+                                    width: known_dimensions.width,
+                                    height: known_dimensions.height,
+                                    available_width: available_space.width,
+                                    available_height: available_space.height,
+                                    font_system,
+                                    buffer,
+                                },
+                                style,
+                            );
+                            taffy::Size {
+                                width: size.x,
+                                height: size.y,
+                            }
+                        })
+                        .unwrap_or(taffy::Size::ZERO)
+                },
+            )
+            .unwrap();
     }
 
     /// Disassociates the camera from all of its assigned root nodes and removes their viewport nodes
