@@ -292,9 +292,11 @@ pub fn debug_draw(
                         top: Val::Px(pointer_pos.y + 5.0) / scale.0,
                         ..Default::default()
                     },
-                ))
-                .insert(Pickable::IGNORE)
-                .insert(UiTargetCamera(camera));
+                    BackgroundColor(Color::BLACK.with_alpha(0.75)),
+                    GlobalZIndex(i32::MAX),
+                    Pickable::IGNORE,
+                    UiTargetCamera(camera),
+                ));
         }
     }
 }
