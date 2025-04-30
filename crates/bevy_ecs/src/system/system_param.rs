@@ -1928,10 +1928,9 @@ unsafe impl SystemParam for SystemChangeTick {
 /// fn fails_on_missing_resource(res: Res<SomeResource>) {}
 ///
 /// // This system will skip without error if `SomeResource` is not present.
-/// fn skips_on_missing_resource(When(res): When<Res<SomeResource>>) {
-///     // The inner parameter is available using `Deref`,
-///     // or can be destructured directly (see above)
-///     let some_resource: Res<SomeResource> = res;
+/// fn skips_on_missing_resource(res: When<Res<SomeResource>>) {
+///     // The inner parameter is available using `Deref`
+///     let some_resource: &SomeResource = &res;
 /// }
 /// # bevy_ecs::system::assert_is_system(skips_on_missing_resource);
 /// ```
@@ -1940,6 +1939,18 @@ pub struct When<T>(pub T);
 
 impl<T> When<T> {
     /// Returns the inner `T`.
+    ///
+    /// The inner value is `pub`, so you can also obtain it by destructuring the parameter:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct SomeResource;
+    /// fn skips_on_missing_resource(When(res): When<Res<SomeResource>>) {
+    ///     let some_resource: Res<SomeResource> = res;
+    /// }
+    /// # bevy_ecs::system::assert_is_system(skips_on_missing_resource);
+    /// ```
     pub fn into_inner(self) -> T {
         self.0
     }
