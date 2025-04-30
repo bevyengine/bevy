@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    sprite::{TilemapChunk, TilemapChunkIndices},
+    sprite::{Anchor, TilemapChunk, TilemapChunkIndices},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -22,7 +22,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let chunk_size = UVec2::splat(64);
     let tile_display_size = UVec2::splat(8);
-    let indices: Vec<Option<u32>> = (0..chunk_size.x * chunk_size.y)
+    let indices: Vec<Option<u16>> = (0..chunk_size.element_product())
         .map(|_| rng.gen_range(0..5))
         .map(|i| if i == 0 { None } else { Some(i - 1) })
         .collect();
@@ -32,6 +32,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             chunk_size,
             tile_display_size,
             tileset: assets.load("textures/array_texture.png"),
+            ..default()
         },
         TilemapChunkIndices(indices),
         UpdateTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
