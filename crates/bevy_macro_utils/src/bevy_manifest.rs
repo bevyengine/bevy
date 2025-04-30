@@ -1,11 +1,12 @@
 extern crate proc_macro;
 
 use alloc::collections::BTreeMap;
-use parking_lot::{lock_api::RwLockReadGuard, MappedRwLockReadGuard, RwLock, RwLockWriteGuard};
 use proc_macro::TokenStream;
 use std::{
     env,
+    ops::Deref,
     path::{Path, PathBuf},
+    sync::{PoisonError, RwLock, RwLockReadGuard},
     time::SystemTime,
 };
 use toml_edit::{ImDocument, Item};
@@ -21,32 +22,42 @@ const BEVY: &str = "bevy";
 
 impl BevyManifest {
     /// Returns a global shared instance of the [`BevyManifest`] struct.
-    pub fn shared() -> MappedRwLockReadGuard<'static, BevyManifest> {
+    pub fn shared() -> impl Deref<Target = BevyManifest> {
         static MANIFESTS: RwLock<BTreeMap<PathBuf, BevyManifest>> = RwLock::new(BTreeMap::new());
         let manifest_path = Self::get_manifest_path();
         let modified_time = Self::get_manifest_modified_time(&manifest_path)
             .expect("The Cargo.toml should have a modified time");
+        let path = manifest_path.clone();
 
-        if let Ok(manifest) =
-            RwLockReadGuard::try_map(MANIFESTS.read(), |manifests| manifests.get(&manifest_path))
+        let manifests = MANIFESTS.read().unwrap_or_else(PoisonError::into_inner);
+
+        if manifests
+            .get(&manifest_path)
+            .is_some_and(|manifest| manifest.modified_time == modified_time)
         {
-            if manifest.modified_time == modified_time {
-                return manifest;
+            BevyManifestGuard {
+                guard: manifests,
+                path,
+            }
+        } else {
+            drop(manifests);
+
+            let manifest = BevyManifest {
+                manifest: Self::read_manifest(&manifest_path),
+                modified_time,
+            };
+
+            let mut manifests = MANIFESTS.write().unwrap_or_else(PoisonError::into_inner);
+            manifests.insert(path.clone(), manifest);
+
+            drop(manifests);
+            let manifests = MANIFESTS.read().unwrap_or_else(PoisonError::into_inner);
+
+            BevyManifestGuard {
+                guard: manifests,
+                path,
             }
         }
-
-        let manifest = BevyManifest {
-            manifest: Self::read_manifest(&manifest_path),
-            modified_time,
-        };
-
-        let key = manifest_path.clone();
-        let mut manifests = MANIFESTS.write();
-        manifests.insert(key, manifest);
-
-        RwLockReadGuard::map(RwLockWriteGuard::downgrade(manifests), |manifests| {
-            manifests.get(&manifest_path).unwrap()
-        })
     }
 
     fn get_manifest_path() -> PathBuf {
@@ -129,5 +140,18 @@ impl BevyManifest {
     /// [`try_parse_str`]: Self::try_parse_str
     pub fn parse_str<T: syn::parse::Parse>(path: &str) -> T {
         Self::try_parse_str(path).unwrap()
+    }
+}
+
+struct BevyManifestGuard<'a> {
+    guard: RwLockReadGuard<'a, BTreeMap<PathBuf, BevyManifest>>,
+    path: PathBuf,
+}
+
+impl Deref for BevyManifestGuard<'_> {
+    type Target = BevyManifest;
+
+    fn deref(&self) -> &Self::Target {
+        self.guard.get(&self.path).unwrap()
     }
 }

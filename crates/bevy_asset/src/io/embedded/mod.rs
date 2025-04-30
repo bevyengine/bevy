@@ -10,6 +10,7 @@ use crate::io::{
 };
 use alloc::boxed::Box;
 use bevy_ecs::resource::Resource;
+use bevy_platform::sync::PoisonError;
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "embedded_watcher")]
@@ -29,7 +30,7 @@ pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
     root_paths: alloc::sync::Arc<
-        parking_lot::RwLock<bevy_platform::collections::HashMap<Box<Path>, PathBuf>>,
+        bevy_platform::sync::RwLock<bevy_platform::collections::HashMap<Box<Path>, PathBuf>>,
     >,
 }
 
@@ -49,6 +50,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
+            .unwrap_or_else(PoisonError::into_inner)
             .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_asset(asset_path, value);
     }
@@ -68,6 +70,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
+            .unwrap_or_else(PoisonError::into_inner)
             .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_meta(asset_path, value);
     }
