@@ -133,16 +133,6 @@ pub fn ui_layout_system(
             }
         });
 
-    // Sync added root nodes
-    // TODO: re-investigate replaced logic
-    node_query
-        .iter()
-        .for_each(|(entity, node, _, computed_target)| {
-            if node.is_added() && ui_root_node_query.contains(entity) {
-                ui_surface.create_or_update_root_node_data(entity, computed_target.camera);
-            }
-        });
-
     // clean up removed cameras
     ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
 
@@ -188,6 +178,8 @@ with UI components as a child of an entity without UI components, your UI layout
 
     for ui_root_entity in ui_root_node_query.iter() {
         let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
+
+        let _ = ui_surface.create_or_update_root_node_data(ui_root_entity, computed_target.camera);
 
         ui_surface.compute_layout(
             ui_root_entity,
