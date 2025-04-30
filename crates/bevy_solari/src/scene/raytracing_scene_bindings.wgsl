@@ -70,7 +70,7 @@ struct DirectionalLight {
 @group(0) @binding(9) var<storage> light_sources: array<LightSource>;
 @group(0) @binding(10) var<storage> directional_lights: array<DirectionalLight>;
 
-const RAY_T_MIN = 0.001;
+const RAY_T_MIN = 0.0001;
 const RAY_T_MAX = 100000.0;
 
 const RAY_NO_CULL = 0xFFu;
