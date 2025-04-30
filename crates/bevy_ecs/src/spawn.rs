@@ -137,7 +137,7 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;
-/// # use bevy_ecs::spawn::{Spawn, SpawnEntities, SpawnRelated};
+/// # use bevy_ecs::spawn::{Spawn, WithRelated, SpawnRelated};
 /// # use bevy_ecs::name::Name;
 /// # use bevy_ecs::world::World;
 /// let mut world = World::new();
@@ -149,13 +149,13 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
 ///     Name::new("Root"),
 ///     Children::spawn((
 ///         Spawn(Name::new("Child1")),
-///         SpawnEntities([child2, child3].into_iter()),
+///         WithRelated([child2, child3].into_iter()),
 ///     )),
 /// ));
 /// ```
-pub struct SpawnEntities<I>(pub I);
+pub struct WithRelated<I>(pub I);
 
-impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for SpawnEntities<I> {
+impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelated<I> {
     fn spawn(self, world: &mut World, entity: Entity) {
         world
             .entity_mut(entity)
@@ -174,7 +174,7 @@ impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for SpawnEnti
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;
-/// # use bevy_ecs::spawn::{Spawn, SpawnEntity, SpawnRelated};
+/// # use bevy_ecs::spawn::{Spawn, WithOneRelated, SpawnRelated};
 /// # use bevy_ecs::name::Name;
 /// # use bevy_ecs::world::World;
 /// let mut world = World::new();
@@ -184,13 +184,13 @@ impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for SpawnEnti
 /// world.spawn((
 ///     Name::new("Root"),
 ///     Children::spawn((
-///         SpawnEntity(child1),
+///         WithOneRelated(child1),
 ///     )),
 /// ));
 /// ```
-pub struct SpawnEntity(pub Entity);
+pub struct WithOneRelated(pub Entity);
 
-impl<R: Relationship> SpawnableList<R> for SpawnEntity {
+impl<R: Relationship> SpawnableList<R> for WithOneRelated {
     fn spawn(self, world: &mut World, entity: Entity) {
         world.entity_mut(entity).add_one_related::<R>(self.0);
     }
@@ -353,7 +353,7 @@ pub trait SpawnRelated: RelationshipTarget {
     /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a [`SpawnableList`] of entities, each related to the bundle's entity
     /// via [`RelationshipTarget::Relationship`]. The [`RelationshipTarget`] (when possible) will pre-allocate space for the related entities.
     ///
-    /// See [`Spawn`], [`SpawnIter`], and [`SpawnWith`] for usage examples.
+    /// See [`Spawn`], [`SpawnIter`], [`SpawnWith`], [`WithRelated`] and [`WithOneRelated`] for usage examples.
     fn spawn<L: SpawnableList<Self::Relationship>>(
         list: L,
     ) -> SpawnRelatedBundle<Self::Relationship, L>;
