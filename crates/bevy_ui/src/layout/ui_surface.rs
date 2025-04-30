@@ -15,7 +15,7 @@ use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, N
 use bevy_text::CosmicFontSystem;
 
 #[inline(always)]
-/// Style used for `implicit_viewport_node`
+/// Style used for [`RootNodeData::implicit_viewport_node`](field@RootNodeData.implicit_viewport_node)
 fn default_viewport_style() -> taffy::style::Style {
     taffy::style::Style {
         display: taffy::style::Display::Grid,
@@ -33,14 +33,14 @@ fn default_viewport_style() -> taffy::style::Style {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Stores reference data to quickly identify:
-/// - Its associated camera
-/// - Its parent `implicit_viewport_node` taffy node
+/// - Its associated [`RootNodeData::camera_entity`](field@RootNodeData.camera_entity)
+/// - Its parent [`RootNodeData::implicit_viewport_node`](field@RootNodeData.implicit_viewport_node) taffy node
 ///
 /// see: [`super::UiRootNodes`] for explanation on what a "root node" is
 pub struct RootNodeData {
     /// Associated camera `Entity`
     ///
-    /// inferred by components: `TargetCamera`, `IsDefaultUiCamera`
+    /// inferred by components: [`crate::ui_node::UiTargetCamera`], [`crate::ui_node::IsDefaultUiCamera`]
     ///
     /// "Orphans" are root nodes not assigned to a camera.
     /// Root nodes might temporarily enter an orphan state as they transition between cameras
@@ -50,9 +50,9 @@ pub struct RootNodeData {
     /// The implicit "viewport" node created by Bevy
     ///
     /// This forces the root nodes to behave independently to other root nodes.
-    /// Just as if they were set to `PositionType::Absolute`
+    /// Just as if they were set to [`crate::ui_node::PositionType::Absolute`]
     ///
-    /// This must be manually removed on `Entity` despawn
+    /// This must be manually removed on [`Entity`] despawn
     /// or else it will survive in the taffy tree with no references
     pub(super) implicit_viewport_node: taffy::NodeId,
 }
@@ -61,9 +61,9 @@ pub struct RootNodeData {
 /// Manages state and hierarchy for ui entities
 pub struct UiSurface {
     pub(super) entity_to_taffy: EntityHashMap<taffy::NodeId>,
-    /// Maps root ui node `Entity` to its corresponding `RootNodeData`
+    /// Maps root ui node [`Entity`] to its corresponding [`RootNodeData`]
     pub(super) root_node_data: EntityHashMap<RootNodeData>,
-    /// Maps camera `Entity` to an associated `EntityHashSet` of root ui nodes
+    /// Maps camera [`Entity`] to an associated [`EntityHashSet`] of root ui nodes
     pub(super) camera_root_nodes: EntityHashMap<EntityHashSet>,
     /// Manages the UI Node Tree
     pub(super) taffy: TaffyTree<NodeMeasure>,
@@ -145,7 +145,7 @@ impl UiSurface {
         }
     }
 
-    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node exists.
+    /// Update the [`NodeMeasure`] of the taffy node corresponding to the given [`Entity`] if the node exists.
     pub fn update_node_context(&mut self, entity: Entity, context: NodeMeasure) -> Option<()> {
         let taffy_node = self.entity_to_taffy.get(&entity)?;
         self.taffy.set_node_context(*taffy_node, Some(context)).ok()
@@ -187,14 +187,16 @@ impl UiSurface {
     }
 
     /// Removes camera association to root node
-    /// Shorthand for calling `replace_camera_association(root_node_entity, None)`
+    /// Shorthand for calling [`Self::replace_camera_association`](root_node_entity, None)`
     fn mark_root_node_as_orphaned(&mut self, root_node_entity: Entity) {
         self.replace_camera_association(root_node_entity, None);
     }
 
     /// Reassigns or removes a root node's associated camera entity
-    /// `Some(camera_entity)` - Updates camera association to root node
-    /// `None` - Removes camera association to root node
+    ///
+    /// - `Some(camera_entity)` - Updates camera association to root node
+    /// - `None` - Removes camera association to root node
+    ///
     /// Does not check to see if they are the same before performing operations
     fn replace_camera_association(
         &mut self,
@@ -366,7 +368,7 @@ impl UiSurface {
     }
 
     /// Disassociates the camera from all of its assigned root nodes and removes their viewport nodes
-    /// Removes entry in `camera_root_nodes`
+    /// Removes entry in [`Self::camera_root_nodes`](field@Self.camera_root_nodes)
     pub(super) fn remove_camera(&mut self, camera_entity: Entity) {
         if let Some(root_node_entities) = self.camera_root_nodes.remove(&camera_entity) {
             for root_node_entity in root_node_entities {
@@ -376,7 +378,7 @@ impl UiSurface {
     }
 
     /// Disassociates the root node from the assigned camera (if any) and removes the viewport node from taffy
-    /// Removes entry in `root_node_data`
+    /// Removes entry in [`Self::root_node_data`](field@Self.root_node_data)
     fn remove_root_node_viewport(&mut self, root_node_entity: Entity) {
         self.mark_root_node_as_orphaned(root_node_entity);
         if let Some(removed) = self.root_node_data.remove(&root_node_entity) {
@@ -384,7 +386,7 @@ impl UiSurface {
         }
     }
 
-    /// Removes the ui node from the taffy tree, and if it's a root node it also calls `remove_root_node_viewport`
+    /// Removes the ui node from the taffy tree, and if it's a root node it also calls [`Self::remove_root_node_viewport`]
     pub(super) fn remove_ui_node(&mut self, ui_node_entity: Entity) {
         if let Some(taffy_node) = self.entity_to_taffy.remove(&ui_node_entity) {
             self.taffy.remove(taffy_node).unwrap();
@@ -395,8 +397,8 @@ impl UiSurface {
         }
     }
 
-    /// Removes specified camera entities by disassociating them from their associated `implicit_viewport_node`
-    /// in the internal map, and subsequently removes the `implicit_viewport_node`
+    /// Removes specified camera entities by disassociating them from their associated [`RootNodeData::implicit_viewport_node`](field@RootNodeData.implicit_viewport_node)
+    /// in the internal map, and subsequently removes the [`RootNodeData::implicit_viewport_node`](field@RootNodeData.implicit_viewport_node)
     /// from the `taffy` layout engine for each.
     pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
@@ -405,7 +407,7 @@ impl UiSurface {
     }
 
     /// Removes the specified entities from the internal map while
-    /// removing their `implicit_viewport_node` from taffy,
+    /// removing their [`RootNodeData::implicit_viewport_node`](field@RootNodeData.implicit_viewport_node) from taffy,
     /// and then subsequently removes their entry from `entity_to_taffy` and associated node from taffy
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {

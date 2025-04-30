@@ -485,7 +485,7 @@ mod tests {
     }
 
     #[test]
-    fn ui_surface_tracks_ui_entities_despawn() {
+    fn ui_surface_tracks_ui_entities_world_despawn() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
         let (ui_entity, _child_entity) = _track_ui_entity_setup(&mut world, &mut ui_schedule);
 
@@ -503,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn ui_surface_tracks_ui_entities_despawn_recursive() {
+    fn ui_surface_tracks_ui_entities_despawn() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
         let (ui_entity, _child_entity) = _track_ui_entity_setup(&mut world, &mut ui_schedule);
 
