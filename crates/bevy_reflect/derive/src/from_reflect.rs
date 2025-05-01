@@ -28,18 +28,20 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
 
+    let exact_match = quote! {
+        if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect) {
+            return #FQOption::Some(#FQClone::clone(value))
+        }
+    };
+
     let conversions = get_conversions(meta);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect) {
-                    #FQOption::Some(#FQClone::clone(value))
-                }
+                #exact_match
                 #conversions
-                else {
-                    #FQOption::None
-                }
+                #FQOption::None
             }
         }
     }
@@ -77,23 +79,26 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         .where_clause_options()
         .extend_where_clause(where_clause);
 
+    let exact_match = quote! {
+        if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) =
+            #bevy_reflect_path::PartialReflect::reflect_ref(#ref_value)
+        {
+            return match #bevy_reflect_path::Enum::variant_name(#ref_value) {
+                #match_branches
+                name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
+            }
+        };
+    };
+
     let conversions = get_conversions(reflect_enum.meta());
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
+            #[allow(unreachable_code, reason = "enum with no variants will always panic")]
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) =
-                    #bevy_reflect_path::PartialReflect::reflect_ref(#ref_value)
-                {
-                    match #bevy_reflect_path::Enum::variant_name(#ref_value) {
-                        #match_branches
-                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
-                    }
-                }
+                #exact_match
                 #conversions
-                else {
-                    #FQOption::None
-                }
+                #FQOption::None
             }
         }
     }
@@ -161,7 +166,6 @@ fn impl_struct_internal(
                     #__this.#active_members = __field;
                 }
             )*
-            #FQOption::Some(#retval)
         }
     } else {
         let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
@@ -171,7 +175,15 @@ fn impl_struct_internal(
                 #(#active_members: #active_values?,)*
                 #(#ignored_members: #ignored_values,)*
             };
-            #FQOption::Some(#retval)
+        }
+    };
+
+    let exact_type = quote! {
+        if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct)
+                    = #bevy_reflect_path::PartialReflect::reflect_ref(reflect)
+        {
+            #constructor
+            return #FQOption::Some(#retval)
         }
     };
 
@@ -191,15 +203,9 @@ fn impl_struct_internal(
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct)
-                    = #bevy_reflect_path::PartialReflect::reflect_ref(reflect)
-                {
-                    #constructor
-                }
+                #exact_type
                 #conversions
-                else {
-                    #FQOption::None
-                }
+                #FQOption::None
             }
         }
     }
@@ -376,32 +382,27 @@ fn get_field_accessor(field: &Field, index: usize, is_tuple: bool) -> Lit {
 
 fn get_conversions(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
-    let conversions: Vec<_> = meta
-        .attrs()
-        .conversions()
-        .iter()
-        .map(|conversion| {
+    meta.attrs().conversions().iter().fold(
+        proc_macro2::TokenStream::new(),
+        |mut token_stream, conversion| {
             let path = &conversion.path;
-            match &conversion.func {
+            let conversion = match &conversion.func {
                 Some(func) => quote! {
                     if let #FQOption::Some(value) =
                     <#path as #bevy_reflect_path::FromReflect>::from_reflect(reflect) {
-                        #FQOption::Some((#func)(value).into())
+                        return #FQOption::Some((#func)(value).into())
                     }
                 },
                 None => quote! {
                     if let #FQOption::Some(value) =
                     <#path as #bevy_reflect_path::FromReflect>::from_reflect(reflect) {
-                        #FQOption::Some(value.into())
+                        return #FQOption::Some(value.into())
                     }
                 },
-            }
-        })
-        .collect();
+            };
 
-    if conversions.is_empty() {
-        quote! {}
-    } else {
-        quote! { else #(#conversions)else* }
-    }
+            token_stream.extend(conversion);
+            token_stream
+        },
+    )
 }
