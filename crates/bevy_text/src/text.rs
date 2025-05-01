@@ -3,6 +3,7 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use cosmic_text::{Buffer, Metrics};
@@ -266,6 +267,8 @@ pub struct TextFont {
     pub font_size: f32,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
+    /// OpenType features for .otf fonts that support them.
+    pub font_features: FontFeatures,
 }
 
 impl TextFont {
@@ -304,7 +307,72 @@ impl Default for TextFont {
         Self {
             font: Default::default(),
             font_size: 20.0,
+            font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
+        }
+    }
+}
+
+/// OpenType features for .otf fonts that support them.
+///
+/// Examples features include:
+/// "liga": Standard ligatures
+/// "clig": Contextual ligatures
+/// "dlig": Discretionary ligatures
+/// "smcp": Small-caps
+/// "ss01", "ss02", ..., "ss20": Stylistic alternates
+/// "frac": Fractions, formatting numbers like 1/2
+/// "ordn": Ordinals, formatting characters like "1st" or "2nd" properly
+/// For the complete list of OpenType features, see the spec at
+/// `<https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist>`.
+///
+/// The above font features can be enabled via [`FontFeatures::enable`]. Some font features take
+/// numeric values, rather than being on/off switches. For example, for weights of variable
+/// fonts, the font feature "wght" can be any value between 100 and 900, with lower values
+/// corresponding to lighter weights and higher values corresponding to heavier weights. For
+/// these features, use [`FontFeatures::set`] to assign a specific value.
+#[derive(Clone, Debug, Default, Reflect)]
+pub struct FontFeatures {
+    features: HashMap<[u8; 4], u32>,
+}
+
+impl FontFeatures {
+    /// Create a new [`FontFeatures`].
+    pub fn new() -> Self {
+        FontFeatures {
+            features: HashMap::new(),
+        }
+    }
+
+    /// Enable an OpenType feature.
+    ///
+    /// Most OpenType features are on/off switches, so this is a convenience method that sets the
+    /// feature's value to "1" (enabled). For non-boolean features, see [`FontFeatures::set`].
+    pub fn enable(self, feature: &[u8; 4]) -> Self {
+        self.set(feature, 1)
+    }
+
+    /// Set an OpenType feature to a specific value.
+    ///
+    /// For most features, the [`FontFeatures::enable`] method should be used instead. A few
+    /// features, such as "wght", take numeric values, so this method may be used for these cases.
+    pub fn set(mut self, feature: &[u8; 4], value: u32) -> Self {
+        self.features.insert(*feature, value);
+        self
+    }
+}
+
+impl From<&FontFeatures> for cosmic_text::FontFeatures {
+    fn from(font_features: &FontFeatures) -> Self {
+        cosmic_text::FontFeatures {
+            features: font_features
+                .features
+                .iter()
+                .map(|(tag, value)| cosmic_text::Feature {
+                    tag: cosmic_text::FeatureTag::new(tag),
+                    value: *value,
+                })
+                .collect(),
         }
     }
 }

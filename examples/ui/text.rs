@@ -8,6 +8,7 @@ use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     text::Underline,
+    text::FontFeatures,
 };
 
 fn main() {
@@ -89,6 +90,56 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             FpsText,
         ));
+
+    // Text with OpenType features
+    let opentype_font_handle = asset_server.load("fonts/EBGaramond12-Regular.otf");
+    commands
+        .spawn((
+            Node {
+                margin: UiRect::all(Val::Px(12.0)),
+                position_type: PositionType::Absolute,
+                top: Val::Px(5.0),
+                right: Val::Px(5.0),
+                ..default()
+            },
+            Text::new("Opentype features:\n"),
+            TextFont {
+                font: opentype_font_handle.clone(),
+                font_size: 32.0,
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            let text_rows = [
+                ("Smallcaps: ", b"smcp", "Hello World"),
+                ("Ligatures: ", b"liga", "fi fl ff ffi ffl"),
+                ("Fractions: ", b"frac", "12/134"),
+                ("Superscript: ", b"sups", "Up here!"),
+                ("Subscript: ", b"subs", "Down here!"),
+                ("Old-style figures: ", b"onum", "1234567890"),
+                ("Lining figures: ", b"lnum", "1234567890"),
+            ];
+
+            for (title, feature, text) in text_rows {
+                parent.spawn((
+                    TextSpan::new(title),
+                    TextFont {
+                        font: opentype_font_handle.clone(),
+                        font_size: 24.0,
+                        ..default()
+                    },
+                ));
+                parent.spawn((
+                    TextSpan::new(format!("{text}\n")),
+                    TextFont {
+                        font: opentype_font_handle.clone(),
+                        font_size: 24.0,
+                        font_features: FontFeatures::new().enable(feature),
+                        ..default()
+                    },
+                ));
+            }
+        });
 
     #[cfg(feature = "default_font")]
     commands.spawn((
