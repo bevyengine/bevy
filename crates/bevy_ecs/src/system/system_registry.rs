@@ -341,18 +341,21 @@ impl World {
             .get_entity_mut(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
+        if entity.get::<RunningSystem>().is_some() {
+            entity.remove::<RunningSystem>();
+            return Err(RegisteredSystemError::Recursive(id));
+        }
+
         // Take ownership of system trait object
         let Some(RegisteredSystem {
             mut initialized,
             mut system,
         }) = entity.take::<RegisteredSystem<I, O>>()
         else {
-            if entity.get::<RunningSystem>().is_some() {
-                entity.remove::<RunningSystem>();
-                return Err(RegisteredSystemError::Recursive(id));
-            }
             return Err(RegisteredSystemError::MaybeIncorrectType(id));
         };
+
+        entity.insert(RunningSystem);
 
         // Run the system
         if !initialized {
@@ -373,6 +376,7 @@ impl World {
 
         // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
+            entity.remove::<RunningSystem>();
             entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
                 initialized,
                 system,
@@ -543,7 +547,10 @@ mod tests {
 
     use bevy_utils::default;
 
-    use crate::{prelude::*, system::SystemId};
+    use crate::{
+        prelude::*,
+        system::{RegisteredSystemError, SystemId},
+    };
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -921,6 +928,23 @@ mod tests {
         world.run_system(id).unwrap();
 
         assert_eq!(INVOCATIONS_LEFT.get(), 0);
+    }
+
+    #[test]
+    fn world_run_system_recursive() {
+        fn world_recursive(world: &mut World) {
+            match world.run_system_cached(world_recursive) {
+                Ok(_) => panic!("Calling an already running system should fail."),
+                Err(RegisteredSystemError::Recursive(_)) => (),
+                Err(err) => panic!(
+                    "Should've failed with `Recursive`, but failed with `{}`.",
+                    err
+                ),
+            };
+        }
+
+        let mut world = World::new();
+        world.run_system_cached(world_recursive).unwrap();
     }
 
     #[test]
