@@ -972,11 +972,9 @@ mod tests {
     #[should_panic]
     fn removing_system_stack_with_one_shot() {
         let mut world = World::new();
-        world
-            .run_system_cached(|world: &mut World| {
-                world.remove_resource::<RunSystemStack>();
-            })
-            .expect_err("Removing RunSystemStack should error.");
+        let _ = world.run_system_cached(|world: &mut World| {
+            world.remove_resource::<RunSystemStack>();
+        });
     }
 
     #[test]
@@ -988,8 +986,6 @@ mod tests {
                 world.remove_resource::<RunSystemStack>();
             },
         );
-        world
-            .run_system_cached(|_world: &mut World| {})
-            .expect_err("Removing RunSystemStack should error.");
+        let _ = world.run_system_cached(|_world: &mut World| {});
     }
 }
