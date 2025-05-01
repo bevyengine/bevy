@@ -982,8 +982,8 @@ mod tests {
     fn removing_system_stack_with_observer() {
         let mut world = World::new();
         world.add_observer(
-            |_trigger: Trigger<OnRemove, RegisteredSystem<(), ()>>, world: &mut World| {
-                world.remove_resource::<RunSystemStack>();
+            |_trigger: Trigger<OnRemove, RegisteredSystem<(), ()>>, mut commands: Commands| {
+                commands.remove_resource::<RunSystemStack>();
             },
         );
         let _ = world.run_system_cached(|_world: &mut World| {});
