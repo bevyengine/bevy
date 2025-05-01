@@ -255,7 +255,7 @@ fn add_mask_group_control(
                 margin: UiRect::ZERO,
                 ..default()
             },
-            BorderColor(Color::WHITE),
+            BorderColor::all(Color::WHITE),
             BorderRadius::all(Val::Px(3.0)),
             BackgroundColor(Color::BLACK),
         ))
@@ -292,7 +292,7 @@ fn add_mask_group_control(
                         border: UiRect::top(Val::Px(1.0)),
                         ..default()
                     },
-                    BorderColor(Color::WHITE),
+                    BorderColor::all(Color::WHITE),
                 ))
                 .with_children(|builder| {
                     for (index, label) in [
@@ -321,7 +321,7 @@ fn add_mask_group_control(
                                     },
                                     ..default()
                                 },
-                                BorderColor(Color::WHITE),
+                                BorderColor::all(Color::WHITE),
                                 AnimationControl {
                                     group_id: mask_group_id,
                                     label: *label,

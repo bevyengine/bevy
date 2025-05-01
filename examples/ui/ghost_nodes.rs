@@ -83,7 +83,7 @@ fn create_button() -> impl Bundle {
             align_items: AlignItems::Center,
             ..default()
         },
-        BorderColor(Color::BLACK),
+        BorderColor::all(Color::BLACK),
         BorderRadius::MAX,
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
     )
