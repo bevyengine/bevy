@@ -2,7 +2,7 @@
 use crate::reflect::ReflectComponent;
 use crate::{
     change_detection::Mut,
-    entity::Entity,
+    entity::{Entity, EntityHashSet},
     system::{input::SystemInput, BoxedSystem, IntoSystem, SystemParamValidationError},
     world::World,
 };
@@ -11,6 +11,7 @@ use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::marker::PhantomData;
+use derive_more::derive::{Deref, DerefMut};
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
@@ -36,9 +37,9 @@ impl<I, O> RegisteredSystem<I, O> {
 #[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
 pub struct SystemIdMarker;
 
-/// Marks if the system is currently running. Used to prevent recursion.
-#[derive(Component)]
-pub struct RunningSystem;
+/// Set of systems currently running
+#[derive(Default, Resource, Deref, DerefMut)]
+struct RunSystemStack(EntityHashSet);
 
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
@@ -336,15 +337,18 @@ impl World {
         I: SystemInput + 'static,
         O: 'static,
     {
+        if !self.is_resource_added::<RunSystemStack>() {
+            self.init_resource::<RunSystemStack>();
+        }
+
+        if self.resource::<RunSystemStack>().contains(&id.entity) {
+            return Err(RegisteredSystemError::Recursive(id));
+        }
+
         // Lookup
         let mut entity = self
             .get_entity_mut(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
-
-        if entity.get::<RunningSystem>().is_some() {
-            entity.remove::<RunningSystem>();
-            return Err(RegisteredSystemError::Recursive(id));
-        }
 
         // Take ownership of system trait object
         let Some(RegisteredSystem {
@@ -355,13 +359,13 @@ impl World {
             return Err(RegisteredSystemError::MaybeIncorrectType(id));
         };
 
-        entity.insert(RunningSystem);
-
-        // Run the system
+        // Initialize the system
         if !initialized {
             system.initialize(self);
             initialized = true;
         }
+
+        self.resource_mut::<RunSystemStack>().insert(id.entity);
 
         let result = system
             .validate_param(self)
@@ -374,9 +378,10 @@ impl World {
                 ret
             });
 
+        self.resource_mut::<RunSystemStack>().remove(&id.entity);
+
         // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
-            entity.remove::<RunningSystem>();
             entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
                 initialized,
                 system,
