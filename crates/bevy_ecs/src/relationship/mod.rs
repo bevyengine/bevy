@@ -10,6 +10,7 @@ pub use related_methods::*;
 pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
+use crate::entity::ContainsEntity;
 use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
@@ -115,10 +116,14 @@ pub trait Relationship: Component + Sized {
             if let Some(mut relationship_target) =
                 target_entity_mut.get_mut::<Self::RelationshipTarget>()
             {
-                relationship_target.collection_mut_risky().add(entity);
+                relationship_target
+                    .collection_mut_risky()
+                    .add(RelationshipSourceItem::from_entity(entity));
             } else {
                 let mut target = <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-                target.collection_mut_risky().add(entity);
+                target
+                    .collection_mut_risky()
+                    .add(RelationshipSourceItem::from_entity(entity));
                 world.commands().entity(target_entity).insert(target);
             }
         } else {
@@ -156,7 +161,9 @@ pub trait Relationship: Component + Sized {
             if let Some(mut relationship_target) =
                 target_entity_mut.get_mut::<Self::RelationshipTarget>()
             {
-                relationship_target.collection_mut_risky().remove(entity);
+                relationship_target
+                    .collection_mut_risky()
+                    .remove(RelationshipSourceItem::from_entity(entity));
                 if relationship_target.len() == 0 {
                     if let Ok(mut entity) = world.commands().get_entity(target_entity) {
                         // this "remove" operation must check emptiness because in the event that an identical
@@ -224,11 +231,11 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     fn on_replace(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
-        for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
+        for source_item in relationship_target.iter() {
+            if entities.get(source_item.entity()).is_ok() {
                 commands.queue(
                     entity_command::remove::<Self::Relationship>()
-                        .with_entity(source_entity)
+                        .with_entity(source_item.entity())
                         .handle_error_with(ignore),
                 );
             } else {
@@ -237,7 +244,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                     caller
                         .map(|location| format!("{location}: "))
                         .unwrap_or_default(),
-                    source_entity
+                    source_item.entity()
                 );
             }
         }
@@ -249,11 +256,11 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     fn on_despawn(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
-        for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
+        for source_item in relationship_target.iter() {
+            if entities.get(source_item.entity()).is_ok() {
                 commands.queue(
                     entity_command::despawn()
-                        .with_entity(source_entity)
+                        .with_entity(source_item.entity())
                         .handle_error_with(ignore),
                 );
             } else {
@@ -262,7 +269,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                     caller
                         .map(|location| format!("{location}: "))
                         .unwrap_or_default(),
-                    source_entity
+                    source_item.entity()
                 );
             }
         }
@@ -312,7 +319,7 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
             let collection = cloned.collection_mut_risky();
             for entity in component.iter() {
                 collection.add(entity);
-                context.queue_entity_clone(entity);
+                context.queue_entity_clone(entity.entity());
             }
         }
         context.write_target_component(cloned);
@@ -332,6 +339,9 @@ pub enum RelationshipHookMode {
 
 #[cfg(test)]
 mod tests {
+    use crate::entity::{ContainsEntity, EntityEquivalent};
+    use crate::prelude::RelationshipTarget;
+    use crate::relationship::{Relationship, RelationshipSourceItem};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
@@ -423,5 +433,78 @@ mod tests {
         }
 
         // No assert necessary, looking to make sure compilation works with the macros
+    }
+
+    #[test]
+    fn generic_relationship_source_collections() {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+        struct E(Entity);
+
+        impl ContainsEntity for E {
+            fn entity(&self) -> Entity {
+                self.0
+            }
+        }
+
+        // SAFETY:
+        // It's just a test. I promise we'll be ok!
+        unsafe impl EntityEquivalent for E {}
+
+        impl RelationshipSourceItem for E {
+            fn from_entity(entity: Entity) -> Self {
+                E(entity)
+            }
+        }
+
+        #[derive(Component)]
+        #[component(on_insert = <Self as Relationship>::on_insert)]
+        #[component(on_replace = <Self as Relationship>::on_replace)]
+        struct Rel(E);
+
+        impl Relationship for Rel {
+            type RelationshipTarget = RelTarget;
+
+            fn get(&self) -> Entity {
+                self.0.entity()
+            }
+
+            fn from(entity: Entity) -> Self {
+                Rel(E::from_entity(entity))
+            }
+        }
+
+        #[derive(Component)]
+        #[component(on_replace = <Self as RelationshipTarget>::on_replace)]
+        #[component(on_despawn = <Self as RelationshipTarget>::on_despawn)]
+        struct RelTarget(Vec<E>);
+
+        impl RelationshipTarget for RelTarget {
+            const LINKED_SPAWN: bool = false;
+
+            type Relationship = Rel;
+
+            type Collection = Vec<E>;
+
+            fn collection(&self) -> &Self::Collection {
+                &self.0
+            }
+
+            fn collection_mut_risky(&mut self) -> &mut Self::Collection {
+                &mut self.0
+            }
+
+            fn from_collection_risky(collection: Self::Collection) -> Self {
+                RelTarget(collection)
+            }
+        }
+
+        let mut world = World::new();
+        let a = E(world.spawn_empty().id());
+        let b = E(world.spawn(Rel(a)).id());
+        let c = E(world.spawn(Rel(a)).id());
+        assert_eq!(
+            world.entity(a.entity()).get::<RelTarget>().unwrap().0,
+            &[b, c]
+        );
     }
 }

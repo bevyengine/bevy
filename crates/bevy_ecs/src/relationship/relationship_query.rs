@@ -1,3 +1,4 @@
+use crate::entity::ContainsEntity;
 use crate::{
     entity::Entity,
     query::{QueryData, QueryFilter},
@@ -7,7 +8,7 @@ use crate::{
 use alloc::collections::VecDeque;
 use smallvec::SmallVec;
 
-use super::SourceIter;
+use super::{RelationshipSourceCollection, SourceIter};
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// If the given `entity` contains the `R` [`Relationship`] component, returns the
@@ -24,7 +25,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn relationship_sources<S: RelationshipTarget>(
         &'w self,
         entity: Entity,
-    ) -> impl Iterator<Item = Entity> + 'w
+    ) -> impl Iterator<Item = <S::Collection as RelationshipSourceCollection>::Item> + 'w
     where
         <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w S>,
     {
@@ -60,13 +61,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn iter_leaves<S: RelationshipTarget>(
         &'w self,
         entity: Entity,
-    ) -> impl Iterator<Item = Entity> + 'w
+    ) -> impl Iterator<Item = <S::Collection as RelationshipSourceCollection>::Item> + 'w
     where
         <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w S>,
         SourceIter<'w, S>: DoubleEndedIterator,
     {
-        self.iter_descendants_depth_first(entity).filter(|entity| {
-            self.get(*entity)
+        self.iter_descendants_depth_first(entity).filter(|item| {
+            self.get(item.entity())
                 // These are leaf nodes if they have the `Children` component but it's empty
                 .map(|children| children.len() == 0)
                 // Or if they don't have the `Children` component at all
@@ -78,7 +79,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn iter_siblings<R: Relationship>(
         &'w self,
         entity: Entity,
-    ) -> impl Iterator<Item = Entity> + 'w
+    ) -> impl Iterator<Item = <<<R as Relationship>::RelationshipTarget as RelationshipTarget>::Collection as RelationshipSourceCollection>::Item> + 'w
     where
         D::ReadOnly: QueryData<Item<'w> = (Option<&'w R>, Option<&'w R::RelationshipTarget>)>,
     {
@@ -88,7 +89,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             .and_then(|parent| self.get(parent).ok())
             .and_then(|(_, maybe_children)| maybe_children)
             .into_iter()
-            .flat_map(move |children| children.iter().filter(move |child| *child != entity))
+            .flat_map(move |children| {
+                children
+                    .iter()
+                    .filter(move |child| child.entity() != entity)
+            })
     }
 
     /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipTarget`] and their recursive
@@ -151,7 +156,7 @@ where
     D::ReadOnly: QueryData<Item<'w> = &'w S>,
 {
     children_query: &'w Query<'w, 's, D, F>,
-    vecdeque: VecDeque<Entity>,
+    vecdeque: VecDeque<<S::Collection as RelationshipSourceCollection>::Item>,
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> DescendantIter<'w, 's, D, F, S>
@@ -176,16 +181,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> Iterator
 where
     D::ReadOnly: QueryData<Item<'w> = &'w S>,
 {
-    type Item = Entity;
+    type Item = <S::Collection as RelationshipSourceCollection>::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let entity = self.vecdeque.pop_front()?;
+        let item = self.vecdeque.pop_front()?;
 
-        if let Ok(children) = self.children_query.get(entity) {
+        if let Ok(children) = self.children_query.get(item.entity()) {
             self.vecdeque.extend(children.iter());
         }
 
-        Some(entity)
+        Some(item)
     }
 }
 
@@ -197,7 +202,7 @@ where
     D::ReadOnly: QueryData<Item<'w> = &'w S>,
 {
     children_query: &'w Query<'w, 's, D, F>,
-    stack: SmallVec<[Entity; 8]>,
+    stack: SmallVec<[<S::Collection as RelationshipSourceCollection>::Item; 8]>,
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
@@ -223,16 +228,16 @@ where
     D::ReadOnly: QueryData<Item<'w> = &'w S>,
     SourceIter<'w, S>: DoubleEndedIterator,
 {
-    type Item = Entity;
+    type Item = <S::Collection as RelationshipSourceCollection>::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let entity = self.stack.pop()?;
+        let item = self.stack.pop()?;
 
-        if let Ok(children) = self.children_query.get(entity) {
+        if let Ok(children) = self.children_query.get(item.entity()) {
             self.stack.extend(children.iter().rev());
         }
 
-        Some(entity)
+        Some(item)
     }
 }
 
