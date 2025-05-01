@@ -117,14 +117,12 @@ impl RenderPass {
         self.vaild
     }
 
-    pub fn set_viewport(mut self, viewport: Option<Viewport>) -> Self {
+    pub fn set_viewport(&mut self, viewport: Option<Viewport>) {
         if let Some(viewport) = viewport {
             let size = viewport.physical_size;
             let position = viewport.physical_position;
             self.set_scissor_rect(position.x, position.y, size.x, size.y);
         }
-
-        self
     }
 
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {

@@ -33,7 +33,7 @@ impl ViewNode for MainOpaquePass2dNode {
         &self,
         graph: &mut RenderGraphContext,
         frame_graph: &mut FrameGraph,
-        (_camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let (Some(opaque_phases), Some(alpha_mask_phases)) = (
@@ -69,6 +69,8 @@ impl ViewNode for MainOpaquePass2dNode {
             depth_ops: depth.get_depth_ops(StoreOp::Store),
             stencil_ops: None,
         });
+
+        render_pass.set_viewport(camera.viewport.clone());
 
         let mut tracked_render_pass = TrackedRenderPass::new(&render_device, builder);
         if !opaque_phase.is_empty() {
