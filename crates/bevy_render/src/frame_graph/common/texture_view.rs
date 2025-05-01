@@ -33,6 +33,7 @@ impl TextureViewInfo {
     }
 }
 
+#[derive(Clone)]
 pub struct TextureViewRef {
     pub texture_ref: ResourceRef<FrameGraphTexture, ResourceRead>,
     pub desc: TextureViewInfo,

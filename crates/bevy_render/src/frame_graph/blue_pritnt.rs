@@ -15,3 +15,14 @@ pub trait BluePrintProvider {
         pass_node_builder: &mut PassNodeBuilder,
     ) -> Result<Self::BluePrint, FrameGraphError>;
 }
+
+impl<T: Clone + BluePrint> BluePrintProvider for T {
+    type BluePrint = T;
+
+    fn make_blue_print(
+        &self,
+        _pass_node_builder: &mut PassNodeBuilder,
+    ) -> Result<Self::BluePrint, FrameGraphError> {
+        Ok(self.clone())
+    }
+}

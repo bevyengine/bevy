@@ -7,10 +7,10 @@ use crate::{
     frame_graph::{
         BindGroupEntryRef, BindGroupRef, BindingResourceRef, BluePrintProvider, ColorAttachment,
         ColorAttachmentRef, DepthStencilAttachmentRef, FrameGraphBuffer, FrameGraphError,
-        FrameGraphTexture, GraphResourceNodeHandle, PassNodeBuilder, SampleInfo, TextureInfo,
-        TextureViewInfo,
+        FrameGraphTexture, GraphResourceNodeHandle, PassNodeBuilder, ResourceRead, ResourceRef,
+        SampleInfo, TextureViewInfo,
     },
-    render_resource::{BindGroupLayout, CachedRenderPipelineId},
+    render_resource::{BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, Texture},
 };
 
 use super::RenderPass;
@@ -114,17 +114,77 @@ impl BluePrintProvider
 
 impl<'a> RenderPassBuilder<'a> {
     pub fn new(pass_node_builder: PassNodeBuilder<'a>) -> Self {
+        let render_pass = RenderPass::default();
+
         Self {
-            render_pass: RenderPass::default(),
+            render_pass,
             pass_node_builder,
         }
     }
 
-    pub fn draw(mut self, vertices: Range<u32>, instances: Range<u32>) {
-        self.render_pass.draw(vertices, instances);
+    pub fn draw_indexed(
+        &mut self,
+        indices: Range<u32>,
+        base_vertex: i32,
+        instances: Range<u32>,
+    ) -> &mut Self {
+        self.render_pass
+            .draw_indexed(indices, base_vertex, instances);
+
+        self
     }
 
-    pub fn set_viewport(mut self, viewport: Option<Viewport>) -> Self {
+    pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) -> &mut Self {
+        self.render_pass.draw(vertices, instances);
+        self
+    }
+
+    pub fn set_index_buffer(
+        &mut self,
+        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        index_format: wgpu::IndexFormat,
+    ) -> &mut Self {
+        self.render_pass.set_index_buffer(buffer_ref, index_format);
+
+        self
+    }
+
+    pub fn set_vertex_buffer(
+        &mut self,
+        slot: u32,
+        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+    ) -> &mut Self {
+        self.render_pass.set_vertex_buffer(slot, buffer_ref);
+        self
+    }
+
+    pub fn set_raw_bind_group(
+        &mut self,
+        index: u32,
+        bind_group: Option<&BindGroup>,
+        offsets: &[u32],
+    ) -> &mut Self {
+        self.render_pass
+            .set_raw_bind_group(index, bind_group, offsets);
+
+        self
+    }
+
+    pub fn import_and_read_buffer(
+        &mut self,
+        buffer: &Buffer,
+    ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
+        self.pass_node_builder.import_and_read_buffer(buffer)
+    }
+
+    pub fn import_and_read_texture(
+        &mut self,
+        texture: &Texture,
+    ) -> ResourceRef<FrameGraphTexture, ResourceRead> {
+        self.pass_node_builder.import_and_read_texture(texture)
+    }
+
+    pub fn set_viewport(&mut self, viewport: Option<Viewport>) -> &mut Self {
         if let Some(viewport) = viewport {
             let size = viewport.physical_size;
             let position = viewport.physical_position;
@@ -136,11 +196,11 @@ impl<'a> RenderPassBuilder<'a> {
     }
 
     pub fn set_bind_group<T>(
-        mut self,
+        &mut self,
         index: u32,
         bind_group_ref: T,
         offsets: &[u32],
-    ) -> Result<Self, FrameGraphError>
+    ) -> Result<&mut Self, FrameGraphError>
     where
         T: BluePrintProvider<BluePrint = BindGroupRef>,
     {
@@ -151,22 +211,22 @@ impl<'a> RenderPassBuilder<'a> {
         Ok(self)
     }
 
-    pub fn set_render_pipeline(mut self, id: CachedRenderPipelineId) -> Self {
+    pub fn set_render_pipeline(&mut self, id: CachedRenderPipelineId) -> &mut Self {
         self.render_pass.set_render_pipeline(id);
         self
     }
 
-    pub fn set_scissor_rect(mut self, x: u32, y: u32, width: u32, height: u32) -> Self {
+    pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) -> &mut Self {
         self.render_pass.set_scissor_rect(x, y, width, height);
         self
     }
 
-    pub fn add_raw_color_attachment(mut self, color_attachment: ColorAttachment) -> Self {
+    pub fn add_raw_color_attachment(&mut self, color_attachment: ColorAttachment) -> &mut Self {
         self.render_pass.add_raw_color_attachment(color_attachment);
         self
     }
 
-    pub fn add_color_attachment<T>(mut self, provider: &T) -> Result<Self, FrameGraphError>
+    pub fn add_color_attachment<T>(&mut self, provider: &T) -> Result<&mut Self, FrameGraphError>
     where
         T: BluePrintProvider<BluePrint = ColorAttachmentRef>,
     {
@@ -176,7 +236,10 @@ impl<'a> RenderPassBuilder<'a> {
         Ok(self)
     }
 
-    pub fn set_depth_stencil_attachment<T>(mut self, provider: &T) -> Result<Self, FrameGraphError>
+    pub fn set_depth_stencil_attachment<T>(
+        &mut self,
+        provider: &T,
+    ) -> Result<&mut Self, FrameGraphError>
     where
         T: BluePrintProvider<BluePrint = DepthStencilAttachmentRef>,
     {

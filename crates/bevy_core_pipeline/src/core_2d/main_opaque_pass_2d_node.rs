@@ -2,8 +2,8 @@ use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     frame_graph::{
-        BluePrintProvider, DepthStencilAttachmentRef, FrameGraph, RenderPass, TextureViewInfo,
-        TextureViewRef,
+        render_pass_builder::RenderPassBuilder, DepthStencilAttachmentRef, FrameGraph,
+        TextureViewInfo, TextureViewRef,
     },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
@@ -53,24 +53,22 @@ impl ViewNode for MainOpaquePass2dNode {
 
         let render_device = world.resource::<RenderDevice>();
 
-        let mut builder = frame_graph.create_pass_node_bulder("main_opaque_pass_2d");
-
-        let mut render_pass = RenderPass::default();
-
-        render_pass.add_color_attachment(target.make_blue_print(&mut builder)?);
+        let mut builder =
+            RenderPassBuilder::new(frame_graph.create_pass_node_bulder("main_opaque_pass_2d"));
 
         let depth_texture_read = builder.import_and_read_texture(&depth.texture);
 
-        render_pass.set_depth_stencil_attachment(DepthStencilAttachmentRef {
-            view_ref: TextureViewRef {
-                texture_ref: depth_texture_read,
-                desc: TextureViewInfo::default(),
-            },
-            depth_ops: depth.get_depth_ops(StoreOp::Store),
-            stencil_ops: None,
-        });
-
-        render_pass.set_viewport(camera.viewport.clone());
+        builder
+            .add_color_attachment(target)?
+            .set_depth_stencil_attachment(&DepthStencilAttachmentRef {
+                view_ref: TextureViewRef {
+                    texture_ref: depth_texture_read,
+                    desc: TextureViewInfo::default(),
+                },
+                depth_ops: depth.get_depth_ops(StoreOp::Store),
+                stencil_ops: None,
+            })?
+            .set_viewport(camera.viewport.clone());
 
         let mut tracked_render_pass = TrackedRenderPass::new(&render_device, builder);
         if !opaque_phase.is_empty() {
@@ -86,8 +84,6 @@ impl ViewNode for MainOpaquePass2dNode {
                 error!("Error encountered while rendering the 2d alpha mask phase {err:?}");
             }
         }
-
-        tracked_render_pass.finish(render_pass);
 
         Ok(())
     }

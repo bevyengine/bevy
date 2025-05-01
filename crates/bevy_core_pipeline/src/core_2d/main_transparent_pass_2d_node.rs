@@ -2,8 +2,8 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     frame_graph::{
-        BluePrintProvider, DepthStencilAttachmentRef, FrameGraph, RenderPass, TextureViewInfo,
-        TextureViewRef,
+        render_pass_builder::RenderPassBuilder, BluePrintProvider, DepthStencilAttachmentRef,
+        FrameGraph, RenderPass, TextureViewInfo, TextureViewRef,
     },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
@@ -49,26 +49,24 @@ impl ViewNode for MainTransparentPass2dNode {
 
         let render_device = world.resource::<RenderDevice>();
 
-        let mut builder = frame_graph.create_pass_node_bulder("main_transparent_pass_2d");
+        let mut render_pass_builder =
+            RenderPassBuilder::new(frame_graph.create_pass_node_bulder("main_transparent_pass_2d"));
 
-        let mut render_pass = RenderPass::default();
+        let depth_texture_read = render_pass_builder.import_and_read_texture(&depth.texture);
 
-        render_pass.add_color_attachment(target.make_blue_print(&mut builder)?);
+        render_pass_builder
+            .add_color_attachment(target)?
+            .set_depth_stencil_attachment(&DepthStencilAttachmentRef {
+                view_ref: TextureViewRef {
+                    texture_ref: depth_texture_read,
+                    desc: TextureViewInfo::default(),
+                },
+                depth_ops: depth.get_depth_ops(StoreOp::Store),
+                stencil_ops: None,
+            })?
+            .set_viewport(camera.viewport.clone());
 
-        let depth_texture_read = builder.import_and_read_texture(&depth.texture);
-
-        render_pass.set_depth_stencil_attachment(DepthStencilAttachmentRef {
-            view_ref: TextureViewRef {
-                texture_ref: depth_texture_read,
-                desc: TextureViewInfo::default(),
-            },
-            depth_ops: depth.get_depth_ops(StoreOp::Store),
-            stencil_ops: None,
-        });
-
-        render_pass.set_viewport(camera.viewport.clone());
-
-        let mut tracked_render_pass = TrackedRenderPass::new(&render_device, builder);
+        let mut tracked_render_pass = TrackedRenderPass::new(&render_device, render_pass_builder);
 
         if !transparent_phase.items.is_empty() {
             if let Err(err) = transparent_phase.render(&mut tracked_render_pass, world, view_entity)

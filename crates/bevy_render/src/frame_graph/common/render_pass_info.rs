@@ -1,9 +1,12 @@
+use std::borrow::Cow;
+
 use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 
 use super::{ColorAttachmentRef, DepthStencilAttachmentRef, ColorAttachment};
 
 #[derive(Default)]
 pub struct RenderPassInfo {
+    pub label: Option<Cow<'static, str>>,
     pub color_attachments: Vec<ColorAttachmentRef>,
     pub depth_stencil_attachment: Option<DepthStencilAttachmentRef>,
     pub raw_color_attachments: Vec<ColorAttachment>,
@@ -36,7 +39,7 @@ impl RenderPassInfo {
                 });
 
         let render_pass = command_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
+            label: self.label.as_deref(),
             color_attachments: &color_attachments
                 .iter()
                 .map(|color_attachment| Some(color_attachment.get_render_pass_color_attachment()))

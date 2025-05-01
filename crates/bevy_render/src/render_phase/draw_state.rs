@@ -1,9 +1,10 @@
 use crate::{
     camera::Viewport,
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
-    frame_graph::{FrameGraphBuffer, PassNodeBuilder, RenderPass, ResourceRead, ResourceRef},
+    frame_graph::render_pass_builder::RenderPassBuilder,
     render_resource::{
-        BindGroup, BindGroupId, Buffer, BufferSlice, CachedRenderPipelineId, ShaderStages, Texture,
+        BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, CachedRenderPipelineId,
+        ShaderStages, Texture,
     },
     renderer::RenderDevice,
 };
@@ -16,69 +17,25 @@ use wgpu::{IndexFormat, QuerySet};
 #[cfg(feature = "detailed_trace")]
 use tracing::trace;
 
-/// Tracks the state of a [`TrackedRenderPass`].
-///
-/// This is used to skip redundant operations on the [`TrackedRenderPass`] (e.g. setting an already
-/// set pipeline, binding an already bound bind group). These operations can otherwise be fairly
-/// costly due to IO to the GPU, so deduplicating these calls results in a speedup.
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct DrawState {
     pipeline: Option<CachedRenderPipelineId>,
-    bind_groups: Vec<(Option<BindGroup>, Vec<u32>)>,
-    vertex_buffers: Vec<Option<(ResourceRef<FrameGraphBuffer, ResourceRead>, u64, u64)>>,
-    index_buffer: Option<(
-        ResourceRef<FrameGraphBuffer, ResourceRead>,
-        u64,
-        u64,
-        IndexFormat,
-    )>,
-    draw: Option<(Range<u32>, Range<u32>)>,
-    draw_indexed: Option<(Range<u32>, i32, Range<u32>)>,
+    bind_groups: Vec<(Option<BindGroupId>, Vec<u32>)>,
+    /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
+    vertex_buffers: Vec<Option<(BufferId, u64, u64)>>,
+    index_buffer: Option<(BufferId, u64, IndexFormat)>,
 
     /// Stores whether this state is populated or empty for quick state invalidation
     stores_state: bool,
 }
 
 impl DrawState {
-    fn update_render_pass(self, render_pass: &mut RenderPass) {
-        if let Some(pipeline_id) = self.pipeline {
-            render_pass.set_render_pipeline(pipeline_id);
-        }
-
-        for (index, params) in self.vertex_buffers.iter().enumerate() {
-            if let Some((buffer_ref, _offset, _size)) = params {
-                render_pass.set_vertex_buffer(index as u32, buffer_ref);
-            }
-        }
-
-        for (index, params) in self.bind_groups.iter().enumerate() {
-            let (bind_group, offsets) = params;
-            render_pass.set_raw_bind_group(index as u32, bind_group.as_ref(), &offsets);
-        }
-
-        if let Some((buffer_ref, _offset, _size, index_format)) = &self.index_buffer {
-            render_pass.set_index_buffer(buffer_ref, *index_format);
-        }
-
-        if let Some((indices, base_vertex, instances)) = &self.draw_indexed {
-            render_pass.draw_indexed(indices.clone(), *base_vertex, instances.clone());
-        } else {
-            if let Some((vertices, instances)) = &self.draw {
-                render_pass.draw(vertices.clone(), instances.clone());
-            }
-        }
-    }
-
-    fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
-        self.draw_indexed = Some((indices, base_vertex, instances));
-    }
-
-    fn set_draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
-        self.draw = Some((vertices, instances));
-    }
-
     /// Marks the `pipeline` as bound.
     fn set_pipeline(&mut self, pipeline: CachedRenderPipelineId) {
+        // TODO: do these need to be cleared?
+        // self.bind_groups.clear();
+        // self.vertex_buffers.clear();
+        // self.index_buffer = None;
         self.pipeline = Some(pipeline);
         self.stores_state = true;
     }
@@ -89,7 +46,7 @@ impl DrawState {
     }
 
     /// Marks the `bind_group` as bound to the `index`.
-    fn set_bind_group(&mut self, index: usize, bind_group: BindGroup, dynamic_indices: &[u32]) {
+    fn set_bind_group(&mut self, index: usize, bind_group: BindGroupId, dynamic_indices: &[u32]) {
         let group = &mut self.bind_groups[index];
         group.0 = Some(bind_group);
         group.1.clear();
@@ -105,78 +62,50 @@ impl DrawState {
         dynamic_indices: &[u32],
     ) -> bool {
         if let Some(current_bind_group) = self.bind_groups.get(index) {
-            if current_bind_group.0.is_none() {
-                return false;
-            }
-
-            current_bind_group.0.as_ref().map(|group| group.id()) == Some(bind_group)
-                && dynamic_indices == current_bind_group.1
+            current_bind_group.0 == Some(bind_group) && dynamic_indices == current_bind_group.1
         } else {
             false
         }
     }
 
     /// Marks the vertex `buffer` as bound to the `index`.
-    fn set_vertex_buffer(
-        &mut self,
-        index: usize,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
-        buffer_slice: BufferSlice,
-    ) {
-        self.vertex_buffers[index] = Some(self.buffer_slice_key(buffer_ref, &buffer_slice));
+    fn set_vertex_buffer(&mut self, index: usize, buffer_slice: BufferSlice) {
+        self.vertex_buffers[index] = Some(self.buffer_slice_key(&buffer_slice));
         self.stores_state = true;
     }
 
     /// Checks, whether the vertex `buffer` is already bound to the `index`.
-    fn is_vertex_buffer_set(
-        &self,
-        index: usize,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
-        buffer_slice: &BufferSlice,
-    ) -> bool {
+    fn is_vertex_buffer_set(&self, index: usize, buffer_slice: &BufferSlice) -> bool {
         if let Some(current) = self.vertex_buffers.get(index) {
-            *current == Some(self.buffer_slice_key(buffer_ref, buffer_slice))
+            *current == Some(self.buffer_slice_key(buffer_slice))
         } else {
             false
         }
     }
 
     /// Returns the value used for checking whether `BufferSlice`s are equivalent.
-    fn buffer_slice_key(
-        &self,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
-        buffer_slice: &BufferSlice,
-    ) -> (ResourceRef<FrameGraphBuffer, ResourceRead>, u64, u64) {
+    fn buffer_slice_key(&self, buffer_slice: &BufferSlice) -> (BufferId, u64, u64) {
         (
-            buffer_ref.clone(),
+            buffer_slice.id(),
             buffer_slice.offset(),
             buffer_slice.size(),
         )
     }
 
     /// Marks the index `buffer` as bound.
-    fn set_index_buffer(
-        &mut self,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
-        buffer_slice: &BufferSlice,
-        index_format: IndexFormat,
-    ) {
-        let (buffer_ref, offset, size) = self.buffer_slice_key(buffer_ref, buffer_slice);
-
-        self.index_buffer = Some((buffer_ref.clone(), offset, size, index_format));
+    fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
+        self.index_buffer = Some((buffer, offset, index_format));
         self.stores_state = true;
     }
 
     /// Checks, whether the index `buffer` is already bound.
     fn is_index_buffer_set(
         &self,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
-        buffer_slice: &BufferSlice,
+        buffer: BufferId,
+        offset: u64,
         index_format: IndexFormat,
     ) -> bool {
-        let (buffer_ref, offset, size) = self.buffer_slice_key(buffer_ref, buffer_slice);
-
-        self.index_buffer == Some((buffer_ref, offset, size, index_format))
+        self.index_buffer == Some((buffer, offset, index_format))
     }
 
     /// Resets tracking state
@@ -202,17 +131,11 @@ impl DrawState {
 /// It is used to set the current [`RenderPipeline`], [`BindGroup`]s and [`Buffer`]s.
 /// After all requirements are specified, draw calls can be issued.
 pub struct TrackedRenderPass<'a> {
-    pass: PassNodeBuilder<'a>,
+    pass: RenderPassBuilder<'a>,
     state: DrawState,
 }
 
 impl<'a> TrackedRenderPass<'a> {
-    pub fn finish(mut self, mut render_pass: RenderPass) {
-        self.state.update_render_pass(&mut render_pass);
-
-        self.pass.set_pass(render_pass);
-    }
-
     pub fn import_and_read_buffer(&mut self, buffer: &Buffer) {
         self.pass.import_and_read_buffer(buffer);
     }
@@ -222,7 +145,7 @@ impl<'a> TrackedRenderPass<'a> {
     }
 
     /// Tracks the supplied render pass.
-    pub fn new(device: &RenderDevice, pass: PassNodeBuilder<'a>) -> Self {
+    pub fn new(device: &RenderDevice, pass: RenderPassBuilder<'a>) -> Self {
         let limits = device.limits();
         let max_bind_groups = limits.max_bind_groups as usize;
         let max_vertex_buffers = limits.max_vertex_buffers as usize;
@@ -244,15 +167,9 @@ impl<'a> TrackedRenderPass<'a> {
             return;
         }
         self.state.set_pipeline(pipeline);
+        self.pass.set_render_pipeline(pipeline);
     }
 
-    /// Sets the active bind group for a given bind group index. The bind group layout
-    /// in the active pipeline when any `draw()` function is called must match the layout of
-    /// this bind group.
-    ///
-    /// If the bind group have dynamic offsets, provide them in binding order.
-    /// These offsets have to be aligned to [`WgpuLimits::min_uniform_buffer_offset_alignment`](crate::settings::WgpuLimits::min_uniform_buffer_offset_alignment)
-    /// or [`WgpuLimits::min_storage_buffer_offset_alignment`](crate::settings::WgpuLimits::min_storage_buffer_offset_alignment) appropriately.
     pub fn set_bind_group(
         &mut self,
         index: usize,
@@ -273,8 +190,8 @@ impl<'a> TrackedRenderPass<'a> {
             return;
         }
 
-        self.state
-            .set_bind_group(index, bind_group.clone(), dynamic_uniform_indices);
+        self.pass
+            .set_raw_bind_group(index as u32, Some(bind_group), dynamic_uniform_indices);
     }
 
     /// Assign a vertex buffer to a slot.
@@ -297,15 +214,11 @@ impl<'a> TrackedRenderPass<'a> {
 
         let buffer_slice = buffer.slice(bounds);
 
-        if self
-            .state
-            .is_vertex_buffer_set(slot_index, &vertex_read, &buffer_slice)
-        {
+        if self.state.is_vertex_buffer_set(slot_index, &buffer_slice) {
             return;
         }
 
-        self.state
-            .set_vertex_buffer(slot_index, &vertex_read, buffer_slice);
+        self.pass.set_vertex_buffer(slot_index as u32, &vertex_read);
     }
 
     /// Sets the active index buffer.
@@ -316,29 +229,37 @@ impl<'a> TrackedRenderPass<'a> {
         &mut self,
         buffer: &Buffer,
         bounds: impl RangeBounds<wgpu::BufferAddress>,
-        _offset: u64,
+        offset: u64,
         index_format: IndexFormat,
     ) {
         let index_read = self.pass.import_and_read_buffer(buffer);
-
         let buffer_slice = buffer.slice(bounds);
 
         if self
             .state
-            .is_index_buffer_set(&index_read, &buffer_slice, index_format)
+            .is_index_buffer_set(buffer_slice.id(), offset, index_format)
         {
+            #[cfg(feature = "detailed_trace")]
+            trace!(
+                "set index buffer (already set): {:?} ({})",
+                buffer_slice.id(),
+                offset
+            );
             return;
         }
+        #[cfg(feature = "detailed_trace")]
+        trace!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
 
-        self.state
-            .set_index_buffer(&index_read, &buffer_slice, index_format);
+        self.pass.set_index_buffer(&index_read, index_format);
     }
 
     /// Draws primitives from the active vertex buffer(s).
     ///
     /// The active vertex buffer(s) can be set with [`TrackedRenderPass::set_vertex_buffer`].
     pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
-        self.state.set_draw(vertices, instances);
+        #[cfg(feature = "detailed_trace")]
+        trace!("draw: {:?} {:?}", vertices, instances);
+        self.pass.draw(vertices, instances);
     }
 
     /// Draws indexed primitives using the active index buffer and the active vertex buffer(s).
@@ -346,7 +267,14 @@ impl<'a> TrackedRenderPass<'a> {
     /// The active index buffer can be set with [`TrackedRenderPass::set_index_buffer`], while the
     /// active vertex buffer(s) can be set with [`TrackedRenderPass::set_vertex_buffer`].
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
-        self.state.draw_indexed(indices, base_vertex, instances);
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "draw indexed: {:?} {} {:?}",
+            indices,
+            base_vertex,
+            instances
+        );
+        self.pass.draw_indexed(indices, base_vertex, instances);
     }
 
     /// Draws primitives from the active vertex buffer(s) based on the contents of the

@@ -26,7 +26,9 @@ impl<'a> Drop for PassNodeBuilder<'a> {
 }
 
 impl<'a> PassNodeBuilder<'a> {
-    pub fn set_pass<T: PassTrait>(&mut self, pass: T) {
+    pub fn set_pass<T: PassTrait>(&mut self, mut pass: T) {
+        pass.set_pass_name(&self.name);
+
         self.pass = Some(Pass::new(pass))
     }
 

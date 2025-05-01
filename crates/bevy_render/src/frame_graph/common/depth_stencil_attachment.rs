@@ -2,6 +2,7 @@ use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 
 use super::TextureViewRef;
 
+#[derive(Clone)]
 pub struct DepthStencilAttachmentRef {
     pub view_ref: TextureViewRef,
     pub depth_ops: Option<wgpu::Operations<f32>>,

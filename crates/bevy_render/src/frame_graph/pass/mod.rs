@@ -25,6 +25,8 @@ impl Pass {
 
 pub trait PassTrait: 'static + Send + Sync {
     fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError>;
+    
+    fn set_pass_name(&mut self, _name: &str) {}
 }
 
 pub struct EmptyPass;

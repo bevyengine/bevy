@@ -231,4 +231,8 @@ impl PassTrait for RenderPass {
         tracked_render_pass.end();
         Ok(())
     }
+
+    fn set_pass_name(&mut self, name: &str) {
+        self.render_pass_info.label = Some(name.to_string().into());
+    }
 }
