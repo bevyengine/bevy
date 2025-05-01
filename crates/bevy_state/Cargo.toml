@@ -33,7 +33,7 @@ std = [
   "bevy_utils/std",
   "bevy_reflect?/std",
   "bevy_app?/std",
-  "bevy_platform_support/std",
+  "bevy_platform/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -43,7 +43,7 @@ critical-section = [
   "bevy_utils/critical-section",
   "bevy_app?/critical-section",
   "bevy_reflect?/critical-section",
-  "bevy_platform_support/critical-section",
+  "bevy_platform/critical-section",
 ]
 
 [dependencies]
@@ -53,7 +53,7 @@ bevy_state_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
 variadics_please = "1.1"
 
 # other

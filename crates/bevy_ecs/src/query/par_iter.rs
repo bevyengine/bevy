@@ -1,7 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::{EntityEquivalent, UniqueEntityVec},
+    entity::{EntityEquivalent, UniqueEntityEquivalentVec},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -205,7 +205,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     /// use bevy_utils::Parallel;
     /// use crate::{bevy_ecs::prelude::{Component, Res, Resource, Entity}, bevy_ecs::system::Query};
     /// # use core::slice;
-    /// use bevy_platform_support::prelude::Vec;
+    /// use bevy_platform::prelude::Vec;
     /// # fn some_expensive_operation(_item: &T) -> usize {
     /// #     0
     /// # }
@@ -318,7 +318,7 @@ pub struct QueryParManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, E: Entit
 {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
-    pub(crate) entity_list: UniqueEntityVec<E>,
+    pub(crate) entity_list: UniqueEntityEquivalentVec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
@@ -369,7 +369,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     /// struct T;
     ///
     /// #[derive(Resource)]
-    /// struct V(UniqueEntityVec<Entity>);
+    /// struct V(UniqueEntityVec);
     ///
     /// impl<'a> IntoIterator for &'a V {
     /// // ...

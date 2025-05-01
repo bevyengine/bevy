@@ -42,8 +42,8 @@ use core::{fmt::Debug, time::Duration};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::time::Instant;
+use bevy_platform::collections::HashMap;
+use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::NormalizedRenderTarget;
 use bevy_window::Window;
@@ -152,7 +152,7 @@ pub struct Cancel {
     pub hit: HitData,
 }
 
-/// Fires when a the pointer crosses into the bounds of the `target` entity.
+/// Fires when a pointer crosses into the bounds of the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Over {
@@ -160,7 +160,7 @@ pub struct Over {
     pub hit: HitData,
 }
 
-/// Fires when a the pointer crosses out of the bounds of the `target` entity.
+/// Fires when a pointer crosses out of the bounds of the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Out {

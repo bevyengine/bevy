@@ -578,6 +578,16 @@ pub(crate) fn changed_windows(
                 if window.prefers_status_bar_hidden != cache.window.prefers_status_bar_hidden {
                     winit_window.set_prefers_status_bar_hidden(window.prefers_status_bar_hidden);
                 }
+                if window.preferred_screen_edges_deferring_system_gestures
+                    != cache
+                        .window
+                        .preferred_screen_edges_deferring_system_gestures
+                {
+                    use crate::converters::convert_screen_edge;
+                    let preferred_edge =
+                        convert_screen_edge(window.preferred_screen_edges_deferring_system_gestures);
+                    winit_window.set_preferred_screen_edges_deferring_system_gestures(preferred_edge);
+                }
             }
             cache.window = window.clone();
         }
