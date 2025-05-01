@@ -816,10 +816,6 @@ pub struct ViewDepthTexture {
 }
 
 impl ViewDepthTexture {
-    pub fn get_depth_texture_key(entity: Entity) -> String {
-        format!("depth_texture_{}", entity)
-    }
-
     pub fn get_depth_ops(&self, store: StoreOp) -> Option<Operations<f32>> {
         self.attachment.get_depth_ops(store)
     }

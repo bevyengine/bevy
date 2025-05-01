@@ -624,7 +624,7 @@ impl<'a> TrackedRenderPass<'a> {
             min_depth,
             max_depth
         );
-        // self.pass
+        // self.state
         //     .set_viewport(x, y, width, height, min_depth, max_depth);
     }
 

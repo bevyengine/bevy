@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use crate::{
+    camera::Viewport,
     frame_graph::{
         BindGroupRef, ColorAttachment, ColorAttachmentRef, DepthStencilAttachmentRef,
         FrameGraphBuffer, FrameGraphError, RenderContext, RenderPassContext, RenderPassInfo,
@@ -114,6 +115,16 @@ impl RenderPassCommand {
 impl RenderPass {
     pub fn is_vaild(&self) -> bool {
         self.vaild
+    }
+
+    pub fn set_viewport(mut self, viewport: Option<Viewport>) -> Self {
+        if let Some(viewport) = viewport {
+            let size = viewport.physical_size;
+            let position = viewport.physical_position;
+            self.set_scissor_rect(position.x, position.y, size.x, size.y);
+        }
+
+        self
     }
 
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {

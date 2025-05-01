@@ -2,8 +2,8 @@ use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     frame_graph::{
-        BluePrintProvider, DepthStencilAttachmentRef, FrameGraph, FrameGraphTexture, RenderPass,
-        TextureViewInfo, TextureViewRef,
+        BluePrintProvider, DepthStencilAttachmentRef, FrameGraph, RenderPass, TextureViewInfo,
+        TextureViewRef,
     },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
@@ -59,10 +59,7 @@ impl ViewNode for MainOpaquePass2dNode {
 
         render_pass.add_color_attachment(target.make_blue_print(&mut builder)?);
 
-        let depth_texture = FrameGraphTexture::new_arc_with_texture(&depth.texture);
-        let depth_texture_key = ViewDepthTexture::get_depth_texture_key(view_entity);
-        let depth_texture_handle = builder.import(&depth_texture_key, depth_texture);
-        let depth_texture_read = builder.read(depth_texture_handle);
+        let depth_texture_read = builder.import_and_read_texture(&depth.texture);
 
         render_pass.set_depth_stencil_attachment(DepthStencilAttachmentRef {
             view_ref: TextureViewRef {
