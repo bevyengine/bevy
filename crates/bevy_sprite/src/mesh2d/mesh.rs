@@ -810,7 +810,7 @@ pub fn prepare_mesh2d_view_bind_groups(
 
 pub struct SetMesh2dViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
-    type Param = ();
+    type Param = (SRes<ViewUniforms>, SRes<GlobalsBuffer>);
     type ViewQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
     type ItemQuery = ();
 
@@ -819,9 +819,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
         _item: &P,
         (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
         _view: Option<()>,
-        _param: SystemParamItem<'w, '_, Self::Param>,
+        (view_uniforms, global): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        pass.import_and_read_buffer(view_uniforms.into_inner().uniforms.buffer().unwrap());
+        pass.import_and_read_buffer(global.buffer.buffer().unwrap());
+
         pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
         RenderCommandResult::Success
@@ -904,7 +907,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
                     return RenderCommandResult::Skip;
                 };
 
-                pass.set_index_buffer(&index_buffer_slice.buffer,.., 0, *index_format);
+                pass.set_index_buffer(&index_buffer_slice.buffer, .., 0, *index_format);
 
                 pass.draw_indexed(
                     index_buffer_slice.range.start..(index_buffer_slice.range.start + count),

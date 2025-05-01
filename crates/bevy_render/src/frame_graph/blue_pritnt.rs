@@ -1,4 +1,6 @@
-use super::{FrameGraphError, PassNodeBuilder, RenderContext};
+use super::{
+    FrameGraphBuffer, FrameGraphError, PassNodeBuilder, RenderContext, ResourceRead, ResourceRef,
+};
 
 pub trait BluePrint {
     type Product;

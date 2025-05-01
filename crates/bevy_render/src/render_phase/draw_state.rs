@@ -3,7 +3,7 @@ use crate::{
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     frame_graph::{FrameGraphBuffer, PassNodeBuilder, RenderPass, ResourceRead, ResourceRef},
     render_resource::{
-        BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, CachedRenderPipelineId, ShaderStages,
+        BindGroup, BindGroupId, Buffer, BufferSlice, CachedRenderPipelineId, ShaderStages, Texture,
     },
     renderer::RenderDevice,
 };
@@ -213,12 +213,12 @@ impl<'a> TrackedRenderPass<'a> {
         self.pass.set_pass(render_pass);
     }
 
-    pub fn get_vertex_key(buffer_id: &BufferId) -> String {
-        format!("render_pass_vertex_buffer_{:?}", buffer_id)
+    pub fn import_and_read_buffer(&mut self, buffer: &Buffer) {
+        self.pass.import_and_read_buffer(buffer);
     }
 
-    pub fn get_index_key(buffer_id: &BufferId) -> String {
-        format!("render_pass_index_buffer_{:?}", buffer_id)
+    pub fn import_and_read_texture(&mut self, texture: &Texture) {
+        self.pass.import_and_read_texture(texture);
     }
 
     /// Tracks the supplied render pass.
@@ -293,10 +293,7 @@ impl<'a> TrackedRenderPass<'a> {
         buffer: &Buffer,
         bounds: impl RangeBounds<wgpu::BufferAddress>,
     ) {
-        let vertex_key = Self::get_vertex_key(&buffer.id());
-        let vertex_buffer = FrameGraphBuffer::new_arc_with_buffer(buffer);
-        let vertex_handle = self.pass.import(&vertex_key, vertex_buffer);
-        let vertex_read = self.pass.read(vertex_handle);
+        let vertex_read = self.pass.import_and_read_buffer(buffer);
 
         let buffer_slice = buffer.slice(bounds);
 
@@ -322,10 +319,7 @@ impl<'a> TrackedRenderPass<'a> {
         _offset: u64,
         index_format: IndexFormat,
     ) {
-        let index_key = Self::get_index_key(&buffer.id());
-        let index_buffer = FrameGraphBuffer::new_arc_with_buffer(buffer);
-        let index_handle = self.pass.import(&index_key, index_buffer);
-        let index_read = self.pass.read(index_handle);
+        let index_read = self.pass.import_and_read_buffer(buffer);
 
         let buffer_slice = buffer.slice(bounds);
 

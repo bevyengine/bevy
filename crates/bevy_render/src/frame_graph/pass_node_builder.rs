@@ -1,9 +1,11 @@
 use alloc::sync::Arc;
 
+use crate::render_resource::{Buffer, Texture};
+
 use super::{
-    FrameGraph, FrameGraphError, GraphRawResourceNodeHandle, GraphResource,
-    GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass, PassTrait,
-    ResourceBoardKey, ResourceRead, ResourceRef, ResourceWrite, TypeEquals,
+    FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphRawResourceNodeHandle,
+    GraphResource, GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass,
+    PassTrait, ResourceBoardKey, ResourceRead, ResourceRef, ResourceWrite, TypeEquals,
 };
 
 pub struct PassNodeBuilder<'a> {
@@ -39,6 +41,28 @@ impl<'a> PassNodeBuilder<'a> {
             .ok_or(FrameGraphError::ResourceBoardKey { key: key.into() })?;
         let read = self.read(handle);
         Ok(read)
+    }
+
+    pub fn import_and_read_buffer(
+        &mut self,
+        buffer: &Buffer,
+    ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
+        let key = format!("buffer_{:?}", buffer.id());
+        let buffer = FrameGraphBuffer::new_arc_with_buffer(buffer);
+        let handle = self.import(&key, buffer);
+        let read = self.read(handle);
+        read
+    }
+
+    pub fn import_and_read_texture(
+        &mut self,
+        texture: &Texture,
+    ) -> ResourceRef<FrameGraphTexture, ResourceRead> {
+        let key = format!("texture_{:?}", texture.id());
+        let texture = FrameGraphTexture::new_arc_with_texture(texture);
+        let handle = self.import(&key, texture);
+        let read = self.read(handle);
+        read
     }
 
     pub fn import<ResourceType>(
