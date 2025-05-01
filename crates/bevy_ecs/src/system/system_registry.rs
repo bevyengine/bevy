@@ -523,8 +523,9 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
         /// The returned parameter validation error.
         err: SystemParamValidationError,
     },
-    /// System could not be run due to parameters that failed validation.
-    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
+    /// Failed to retrieve system from a [`SystemId`] either because [`World::run_system`],
+    /// [`World::run_system_with`], or other variants were called with the wrong type, or because
+    /// of another error
     #[error("System {:?} was not found on entity {:?}. Maybe it has wrong type", core::any::type_name::<SystemId<I, O>>(), core::convert::identity(.0))]
     MaybeIncorrectType(SystemId<I, O>),
 }
