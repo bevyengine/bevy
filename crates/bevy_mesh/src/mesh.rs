@@ -2,7 +2,7 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    face_area_normal, face_normal, generate_tangents_for_mesh, scale_normal, FourIterators,
+    generate_tangents_for_mesh, scale_normal, triangle_area_normal, triangle_normal, FourIterators,
     GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
     MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
     MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
@@ -623,11 +623,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
-    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
-    ///
-    /// FIXME: This should handle more cases since this is called as a part of gltf
-    /// mesh loading where we can't really blame users for loading meshes that might
-    /// not conform to the limitations here!
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].=
     pub fn compute_normals(&mut self) {
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
@@ -669,7 +665,7 @@ impl Mesh {
 
         let normals: Vec<_> = positions
             .chunks_exact(3)
-            .map(|p| face_normal(p[0], p[1], p[2]))
+            .map(|p| triangle_normal(p[0], p[1], p[2]))
             .flat_map(|normal| [normal; 3])
             .collect();
 
@@ -681,11 +677,11 @@ impl Mesh {
     ///
     /// This method weights normals by the angles of the corners of connected triangles, thus
     /// eliminating triangle area and count as factors in the final normal. This does make it
-    /// somewhat slower than [`Mesh::compute_face_weighted_normals`] which does not need to
+    /// somewhat slower than [`Mesh::compute_area_weighted_normals`] which does not need to
     /// greedily normalize each triangle's normal or calculate corner angles.
     ///
     /// If you would rather have the computed normals be weighted by triangle area, see
-    /// [`Mesh::compute_face_weighted_normals`] instead. If you need to weight them in some other
+    /// [`Mesh::compute_area_weighted_normals`] instead. If you need to weight them in some other
     /// way, see [`Mesh::compute_custom_smooth_normals`].
     ///
     /// # Panics
@@ -697,11 +693,32 @@ impl Mesh {
             let pa = Vec3::from(positions[a]);
             let pb = Vec3::from(positions[b]);
             let pc = Vec3::from(positions[c]);
-            let weight_a = (pb - pa).angle_between(pc - pa);
-            let weight_b = (pa - pb).angle_between(pc - pb);
-            let weight_c = (pa - pc).angle_between(pb - pc);
 
-            let normal = Vec3::from(face_normal(positions[a], positions[b], positions[c]));
+            let ab = pb - pa;
+            let ba = pa - pb;
+            let bc = pc - pb;
+            let cb = pb - pc;
+            let ca = pa - pc;
+            let ac = pc - pa;
+
+            const EPS: f32 = f32::EPSILON;
+            let weight_a = if ab.length_squared() * ac.length_squared() > EPS {
+                ab.angle_between(ac)
+            } else {
+                0.0
+            };
+            let weight_b = if ba.length_squared() * bc.length_squared() > EPS {
+                ba.angle_between(bc)
+            } else {
+                0.0
+            };
+            let weight_c = if ca.length_squared() * cb.length_squared() > EPS {
+                ca.angle_between(cb)
+            } else {
+                0.0
+            };
+
+            let normal = Vec3::from(triangle_normal(positions[a], positions[b], positions[c]));
 
             normals[a] += normal * weight_a;
             normals[b] += normal * weight_b;
@@ -727,9 +744,13 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
-    pub fn compute_face_weighted_normals(&mut self) {
+    pub fn compute_area_weighted_normals(&mut self) {
         self.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
-            let normal = Vec3::from(face_area_normal(positions[a], positions[b], positions[c]));
+            let normal = Vec3::from(triangle_area_normal(
+                positions[a],
+                positions[b],
+                positions[c],
+            ));
             [a, b, c].into_iter().for_each(|pos| {
                 normals[pos] += normal;
             });
@@ -739,7 +760,7 @@ impl Mesh {
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
     /// vertices.
     ///
-    /// This method allows you to customize how normals are weighted via the `per_face` parameter,
+    /// This method allows you to customize how normals are weighted via the `per_triangle` parameter,
     /// which must be a function or closure that accepts 3 parameters:
     /// - The indices of the three vertices of the triangle as a `[usize; 3]`.
     /// - A reference to the values of the [`Mesh::ATTRIBUTE_POSITION`] of the mesh (`&[[f32; 3]]`).
@@ -747,9 +768,9 @@ impl Mesh {
     ///
     /// See also the standard methods included in Bevy for calculating smooth normals:
     /// - [`Mesh::compute_smooth_normals`]
-    /// - [`Mesh::compute_face_weighted_normals`]
+    /// - [`Mesh::compute_area_weighted_normals`]
     ///
-    /// An example that would weigh each connected triangle's normal equally, thus skewing normals
+    /// An example that would weight each connected triangle's normal equally, thus skewing normals
     /// towards the planes divided into the most triangles:
     /// ```
     /// # use bevy_asset::RenderAssetUsages;
@@ -757,7 +778,7 @@ impl Mesh {
     /// # use bevy_math::{Vec3, primitives::Cuboid};
     /// # let mut mesh = Cuboid::default().mesh().build();
     /// mesh.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
-    ///     let normal = Vec3::from(bevy_mesh::face_normal(positions[a], positions[b], positions[c]));
+    ///     let normal = Vec3::from(bevy_mesh::triangle_normal(positions[a], positions[b], positions[c]));
     ///     for idx in [a, b, c] {
     ///         normals[idx] += normal;
     ///     }
@@ -776,11 +797,11 @@ impl Mesh {
     // When fixed, also update "Panics" sections of
     // - [Mesh::compute_smooth_normals]
     // - [Mesh::with_computed_smooth_normals]
-    // - [Mesh::compute_face_weighted_normals]
-    // - [Mesh::with_computed_face_weighted_normals]
+    // - [Mesh::compute_area_weighted_normals]
+    // - [Mesh::with_computed_area_weighted_normals]
     pub fn compute_custom_smooth_normals(
         &mut self,
-        mut per_face: impl FnMut([usize; 3], &[[f32; 3]], &mut [Vec3]),
+        mut per_triangle: impl FnMut([usize; 3], &[[f32; 3]], &mut [Vec3]),
     ) {
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
@@ -804,7 +825,7 @@ impl Mesh {
             .iter()
             .collect::<Vec<usize>>()
             .chunks_exact(3)
-            .for_each(|face| per_face([face[0], face[1], face[2]], positions, &mut normals));
+            .for_each(|face| per_triangle([face[0], face[1], face[2]], positions, &mut normals));
 
         for normal in &mut normals {
             *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
@@ -848,7 +869,7 @@ impl Mesh {
     ///
     /// This method weights normals by the angles of triangle corners connected to each vertex. If
     /// you would rather have the computed normals be weighted by triangle area, see
-    /// [`Mesh::with_computed_face_weighted_normals`] instead.
+    /// [`Mesh::with_computed_area_weighted_normals`] instead.
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
@@ -862,7 +883,7 @@ impl Mesh {
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
     ///
-    /// (Alternatively, you can use [`Mesh::compute_smooth_normals`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::compute_area_weighted_normals`] to mutate an existing mesh in-place)
     ///
     /// This method weights normals by the area of each triangle containing the vertex. Thus,
     /// larger triangles will skew the normals of their vertices towards their own normal more
@@ -874,8 +895,8 @@ impl Mesh {
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
     #[must_use]
-    pub fn with_computed_face_weighted_normals(mut self) -> Self {
-        self.compute_face_weighted_normals();
+    pub fn with_computed_area_weighted_normals(mut self) -> Self {
+        self.compute_area_weighted_normals();
         self
     }
 
@@ -1515,7 +1536,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_face_weighted_normals() {
+    fn compute_area_weighted_normals() {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -1532,7 +1553,7 @@ mod tests {
             vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
         );
         mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
-        mesh.compute_face_weighted_normals();
+        mesh.compute_area_weighted_normals();
         let normals = mesh
             .attribute(Mesh::ATTRIBUTE_NORMAL)
             .unwrap()
@@ -1550,7 +1571,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_face_weighted_normals_proportionate() {
+    fn compute_area_weighted_normals_proportionate() {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -1567,7 +1588,7 @@ mod tests {
             vec![[0., 0., 0.], [2., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
         );
         mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
-        mesh.compute_face_weighted_normals();
+        mesh.compute_area_weighted_normals();
         let normals = mesh
             .attribute(Mesh::ATTRIBUTE_NORMAL)
             .unwrap()

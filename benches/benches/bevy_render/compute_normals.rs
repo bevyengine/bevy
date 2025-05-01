@@ -77,7 +77,7 @@ fn compute_normals(c: &mut Criterion) {
                 let mut mesh = new_mesh();
                 black_box(mesh.attribute(Mesh::ATTRIBUTE_NORMAL));
                 let start = Instant::now();
-                mesh.compute_face_weighted_normals();
+                mesh.compute_area_weighted_normals();
                 let end = Instant::now();
                 black_box(mesh.attribute(Mesh::ATTRIBUTE_NORMAL));
                 total += end.duration_since(start);
