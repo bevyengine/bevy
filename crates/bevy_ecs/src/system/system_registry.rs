@@ -349,13 +349,12 @@ impl World {
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
         // Take ownership of system trait object
-        let Some(RegisteredSystem {
+        let RegisteredSystem {
             mut initialized,
             mut system,
-        }) = entity.take::<RegisteredSystem<I, O>>()
-        else {
-            return Err(RegisteredSystemError::MaybeIncorrectType(id));
-        };
+        } = entity
+            .take::<RegisteredSystem<I, O>>()
+            .ok_or(RegisteredSystemError::MaybeIncorrectType(id))?;
 
         // Initialize the system
         if !initialized {
@@ -363,10 +362,9 @@ impl World {
             initialized = true;
         }
 
-        let Some(mut sys_stack) = self.get_resource_mut::<RunSystemStack>() else {
-            panic!("`RunSystemStack` should never be removed during the execution of a one-shot system.");
-        };
-        sys_stack.insert(id.entity);
+        self.get_resource_mut::<RunSystemStack>().expect(
+            "`RunSystemStack` should never be removed during the execution of a one-shot system.",
+        ).insert(id.entity);
 
         let result = system
             .validate_param(self)
@@ -379,10 +377,9 @@ impl World {
                 ret
             });
 
-        let Some(mut sys_stack) = self.get_resource_mut::<RunSystemStack>() else {
-            panic!("`RunSystemStack` should never be removed during the execution of a one-shot system.");
-        };
-        sys_stack.remove(&id.entity);
+        self.get_resource_mut::<RunSystemStack>().expect(
+            "`RunSystemStack` should never be removed during the execution of a one-shot system.",
+        ).remove(&id.entity);
 
         // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
