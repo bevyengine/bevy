@@ -36,6 +36,10 @@ impl<I, O> RegisteredSystem<I, O> {
 #[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
 pub struct SystemIdMarker;
 
+/// Marks if the system is currently running. Used to prevent recursion.
+#[derive(Component)]
+pub struct RunningSystem;
+
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
 ///
@@ -338,12 +342,17 @@ impl World {
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
         // Take ownership of system trait object
-        let RegisteredSystem {
+        let Some(RegisteredSystem {
             mut initialized,
             mut system,
-        } = entity
-            .take::<RegisteredSystem<I, O>>()
-            .ok_or(RegisteredSystemError::Recursive(id))?;
+        }) = entity.take::<RegisteredSystem<I, O>>()
+        else {
+            if entity.get::<RunningSystem>().is_some() {
+                entity.remove::<RunningSystem>();
+                return Err(RegisteredSystemError::Recursive(id));
+            }
+            return Err(RegisteredSystemError::MaybeIncorrectType(id));
+        };
 
         // Run the system
         if !initialized {
@@ -501,6 +510,10 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
         /// The returned parameter validation error.
         err: SystemParamValidationError,
     },
+    /// System could not be run due to parameters that failed validation.
+    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
+    #[error("System {:?} was not found on entity {:?}. Maybe it has wrong type", core::any::type_name::<SystemId<I, O>>(), core::convert::identity(.0))]
+    MaybeIncorrectType(SystemId<I, O>),
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -517,6 +530,9 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
                 .field("system", system)
                 .field("err", err)
                 .finish(),
+            Self::MaybeIncorrectType(arg0) => {
+                f.debug_tuple("MaybeIncorrectType").field(arg0).finish()
+            }
         }
     }
 }
