@@ -337,9 +337,7 @@ impl World {
         I: SystemInput + 'static,
         O: 'static,
     {
-        if !self.is_resource_added::<RunSystemStack>() {
-            self.init_resource::<RunSystemStack>();
-        }
+        self.init_resource::<RunSystemStack>();
 
         if self.resource::<RunSystemStack>().contains(&id.entity) {
             return Err(RegisteredSystemError::Recursive(id));
@@ -365,7 +363,10 @@ impl World {
             initialized = true;
         }
 
-        self.resource_mut::<RunSystemStack>().insert(id.entity);
+        let Some(mut sys_stack) = self.get_resource_mut::<RunSystemStack>() else {
+            panic!("`RunSystemStack` should never be removed during the execution of a one-shot system.");
+        };
+        sys_stack.insert(id.entity);
 
         let result = system
             .validate_param(self)
@@ -378,7 +379,10 @@ impl World {
                 ret
             });
 
-        self.resource_mut::<RunSystemStack>().remove(&id.entity);
+        let Some(mut sys_stack) = self.get_resource_mut::<RunSystemStack>() else {
+            panic!("`RunSystemStack` should never be removed during the execution of a one-shot system.");
+        };
+        sys_stack.remove(&id.entity);
 
         // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
@@ -556,6 +560,8 @@ mod tests {
         prelude::*,
         system::{RegisteredSystemError, SystemId},
     };
+
+    use super::{RegisteredSystem, RunSystemStack};
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -959,5 +965,30 @@ mod tests {
         world.run_system_cached(system).unwrap();
         world.run_system_cached(system.pipe(system)).unwrap();
         world.run_system_cached(system.map(|()| {})).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn removing_system_stack_with_one_shot() {
+        let mut world = World::new();
+        world
+            .run_system_cached(|world: &mut World| {
+                world.remove_resource::<RunSystemStack>();
+            })
+            .expect_err("Removing RunSystemStack should error.");
+    }
+
+    #[test]
+    #[should_panic]
+    fn removing_system_stack_with_observer() {
+        let mut world = World::new();
+        world.add_observer(
+            |_trigger: Trigger<OnRemove, RegisteredSystem<(), ()>>, world: &mut World| {
+                world.remove_resource::<RunSystemStack>();
+            },
+        );
+        world
+            .run_system_cached(|_world: &mut World| {})
+            .expect_err("Removing RunSystemStack should error.");
     }
 }
