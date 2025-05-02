@@ -142,14 +142,6 @@ impl TableRow {
 pub struct TableColumn(u32);
 
 impl TableColumn {
-    pub(crate) const INVALID: TableColumn = TableColumn(u32::MAX);
-
-    /// Creates a `TableRow`.
-    #[inline]
-    pub(crate) const fn from_u32(index: u32) -> Self {
-        Self(index)
-    }
-
     /// Gets the index of the row as a [`usize`].
     #[inline]
     pub const fn as_usize(self) -> usize {
@@ -262,7 +254,7 @@ impl Table {
         if row.as_usize() != last_element_index {
             // Instead of checking this condition on every `swap_remove` call, we
             // check it here and use `swap_remove_nonoverlapping`.
-            for col in self.columns.values_mut() {
+            for col in self.data.iter_mut() {
                 // SAFETY:
                 // - `row` < `len`
                 // - `last_element_index` = `len` - 1
@@ -275,7 +267,7 @@ impl Table {
         } else {
             // If `row.as_usize()` == `last_element_index` than there's no point in removing the component
             // at `row`, but we still need to drop it.
-            for col in self.columns.values_mut() {
+            for col in self.data.iter_mut() {
                 col.drop_last_component(last_element_index);
             }
         }
@@ -306,6 +298,8 @@ impl Table {
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
+            // SAFETY: The map is immutable so it must be correct.
+            let column = unsafe { self.data.get_unchecked_mut(column.as_usize()) };
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
@@ -339,6 +333,8 @@ impl Table {
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
+            // SAFETY: The map is immutable so it must be correct.
+            let column = unsafe { self.data.get_unchecked_mut(column.as_usize()) };
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
@@ -372,6 +368,8 @@ impl Table {
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
+            // SAFETY: The map is immutable so it must be correct.
+            let column = unsafe { self.data.get_unchecked_mut(column.as_usize()) };
             new_table
                 .get_column_mut(*component_id)
                 .debug_checked_unwrap()
@@ -505,7 +503,8 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn get_column(&self, component_id: ComponentId) -> Option<&ThinColumn> {
-        self.columns.get(component_id)
+        // SAFETY: The column id is from this table.
+        unsafe { Some(self.get_column_by_id(self.get_column_id(component_id)?)) }
     }
 
     /// Fetches a mutable reference to the [`ThinColumn`] for a given [`Component`] within the
@@ -516,7 +515,40 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
-        self.columns.get_mut(component_id)
+        // SAFETY: The column id is from this table.
+        unsafe { Some(self.get_column_mut_by_id(self.get_column_id(component_id)?)) }
+    }
+
+    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the table.
+    ///
+    /// # Safety
+    ///
+    /// The `column` must be for *this* table.
+    #[inline]
+    pub(crate) unsafe fn get_column_by_id(&self, column: TableColumn) -> &ThinColumn {
+        // SAFETY: The column map is immutable and the key came from this table.
+        unsafe { self.data.get_unchecked(column.as_usize()) }
+    }
+
+    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`TableColumn`] within the table.
+    ///
+    /// # Safety
+    ///
+    /// The `column` must be for *this* table.
+    #[inline]
+    pub(crate) unsafe fn get_column_mut_by_id(&mut self, column: TableColumn) -> &mut ThinColumn {
+        // SAFETY: The column map is immutable and the key came from this table.
+        unsafe { self.data.get_unchecked_mut(column.as_usize()) }
+    }
+
+    /// Fetches [`TableColumn`] for a given [`Component`] within the table.
+    ///
+    /// Returns `None` if the corresponding component does not belong to the table.
+    ///
+    /// [`Component`]: crate::component::Component
+    #[inline]
+    pub(crate) fn get_column_id(&self, component_id: ComponentId) -> Option<TableColumn> {
+        self.columns.get(component_id).copied()
     }
 
     /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
@@ -562,7 +594,7 @@ impl Table {
         // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
         // called, and abort the program.
         let _guard = AbortOnPanic;
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             col.alloc(new_capacity);
         }
         core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
@@ -586,7 +618,7 @@ impl Table {
         // - There's no overflow
         // - `current_capacity` is indeed the capacity - safety requirement
         // - current capacity > 0
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             col.realloc(current_column_capacity, new_capacity);
         }
         core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
@@ -600,7 +632,7 @@ impl Table {
         self.reserve(1);
         let len = self.entity_count();
         self.entities.push(entity);
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             col.added_ticks
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             col.changed_ticks
@@ -651,7 +683,7 @@ impl Table {
     /// Call [`Tick::check_tick`] on all of the ticks in the [`Table`]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         let len = self.entity_count();
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             // SAFETY: `len` is the actual length of the column
             unsafe { col.check_change_ticks(len, change_tick) };
         }
@@ -659,7 +691,7 @@ impl Table {
 
     /// Iterates over the [`ThinColumn`]s of the [`Table`].
     pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn> {
-        self.columns.values()
+        self.data.iter()
     }
 
     /// Clears all of the stored components in the [`Table`].
@@ -667,7 +699,7 @@ impl Table {
         let len = self.entity_count();
         // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
         self.entities.clear();
-        for column in self.columns.values_mut() {
+        for column in self.data.iter_mut() {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
             // so `self.len()` should match the columns' len
             unsafe { column.clear(len) };
@@ -841,7 +873,7 @@ impl Drop for Table {
         let len = self.entity_count();
         let cap = self.capacity();
         self.entities.clear();
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             // SAFETY: `cap` and `len` are correct
             unsafe {
                 col.drop(cap, len);
