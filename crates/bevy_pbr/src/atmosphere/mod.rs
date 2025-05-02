@@ -70,7 +70,7 @@ use resources::{
 };
 use tracing::warn;
 
-use crate::LightProbe;
+use crate::{DirectionalLight, LightProbe};
 
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, EnvironmentNode, RenderSkyNode},
@@ -591,16 +591,19 @@ impl ExtractComponent for AtmosphereEnvironmentMapLight {
     }
 }
 
-/// This component marks a light entity for changing the size of the sun disk.
+/// This component marks a directional light entity for changing the size of the sun disk.
 #[derive(Component, Clone)]
+#[require(DirectionalLight)]
 pub struct SunLight {
-    /// The angular size of the sun disk in radians.
+    /// The angular size of the sun disk in radians as observed from Earth.
     pub angular_size: f32,
 }
 
 impl SunLight {
     pub const SUN: SunLight = SunLight {
-        angular_size: 0.0174533,
+        // 32 arc minutes is the mean size of the sun disk when the Earth is
+        // exactly 1 astronomical unit from the sun.
+        angular_size: 0.00930842,
     };
 }
 
