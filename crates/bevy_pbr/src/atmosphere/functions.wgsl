@@ -318,8 +318,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 }
 
 fn get_view_position() -> vec3<f32> {
-    let origin = vec3(0.0, atmosphere.bottom_radius, 0.0);
-    let world_pos = view.world_position * settings.scene_units_to_m + origin;
+    let world_pos = view.world_position * settings.scene_units_to_m + atmosphere.origin;
     return world_pos;
 }
 

@@ -1024,8 +1024,8 @@ pub fn prepare_atmosphere_probe_components(
         // Create a cubemap image in the main world that we can reference
         let mut environment_image = Image::new_fill(
             Extent3d {
-                width: 512,
-                height: 512,
+                width: env_map_light.size.x,
+                height: env_map_light.size.y,
                 depth_or_array_layers: 6,
             },
             TextureDimension::D2,

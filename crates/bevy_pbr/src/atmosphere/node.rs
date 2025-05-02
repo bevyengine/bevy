@@ -19,7 +19,7 @@ use super::{
         AtmosphereBindGroups, AtmospherePipelines, AtmosphereProbeBindGroups,
         AtmosphereTransformsOffset, RenderSkyPipelineId,
     },
-    Atmosphere, AtmosphereSettings,
+    Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings,
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
@@ -228,14 +228,16 @@ impl ViewNode for RenderSkyNode {
 
 pub(super) struct EnvironmentNode {
     main_view_query: QueryState<(
-        Read<AtmosphereSettings>,
         Read<DynamicUniformIndex<Atmosphere>>,
         Read<DynamicUniformIndex<AtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
     )>,
-    probe_query: QueryState<(Read<AtmosphereProbeBindGroups>,)>,
+    probe_query: QueryState<(
+        Read<AtmosphereProbeBindGroups>,
+        Read<AtmosphereEnvironmentMapLight>,
+    )>,
 }
 
 impl FromWorld for EnvironmentNode {
@@ -269,7 +271,6 @@ impl Node for EnvironmentNode {
         };
 
         let (Ok((
-            settings,
             atmosphere_uniforms_offset,
             settings_uniforms_offset,
             atmosphere_transforms_offset,
@@ -280,7 +281,7 @@ impl Node for EnvironmentNode {
             return Ok(());
         };
 
-        for (bind_groups,) in self.probe_query.iter_manual(world) {
+        for (bind_groups, env_map_light) in self.probe_query.iter_manual(world) {
             let mut pass =
                 render_context
                     .command_encoder()
@@ -303,8 +304,8 @@ impl Node for EnvironmentNode {
             );
 
             pass.dispatch_workgroups(
-                settings.environment_size.x / 8,
-                settings.environment_size.y / 8,
+                env_map_light.size.x / 8,
+                env_map_light.size.y / 8,
                 6, // 6 cubemap faces
             );
         }

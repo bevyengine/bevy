@@ -245,6 +245,14 @@ fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
     return 0.5 * log2(omega_s / omega_p);
 }
 
+// Smith geometric shadowing function
+fn G_Smith(NoV: f32, NoL: f32, roughness: f32) -> f32 {
+    let k = (roughness * roughness) / 2.0;
+    let GGXL = NoL / (NoL * (1.0 - k) + k);
+    let GGXV = NoV / (NoV * (1.0 - k) + k);
+    return GGXL * GGXV;
+}
+
 @compute
 @workgroup_size(8, 8, 1)
 fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
@@ -302,6 +310,10 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
             // Calculate values needed for PDF
             let NoH = dot(normal, half_vector);
             let VoH = dot(view, half_vector);
+            let NoV = dot(normal, view);
+            
+            // Get the geometric shadowing term
+            let G = G_Smith(NoV, NoL, roughness);
             
             // Probability Distribution Function
             let pdf = D_GGX(roughness, NoH) * NoH / (4.0 * VoH);
@@ -318,9 +330,9 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
             var sample_color = sample_environment(light_dir, source_mip).rgb;
             sample_color = tonemap(sample_color);
             
-            // Accumulate weighted sample
-            radiance += sample_color * NoL;
-            total_weight += NoL;
+            // Accumulate weighted sample, including geometric term
+            radiance += sample_color * NoL * G;
+            total_weight += NoL * G;
         }
     }
     

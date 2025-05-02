@@ -43,7 +43,6 @@ pub const ENVIRONMENT_FILTER_SHADER_HANDLE: Handle<Shader> =
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
 pub enum PrefilterNode {
     GenerateMipmap,
-    GenerateMipmapSecond,
     RadianceMap,
     IrradianceMap,
 }
@@ -652,8 +651,8 @@ fn create_storage_view(texture: &Texture, mip: u32, _render_device: &RenderDevic
     })
 }
 
-/// SPD Node implementation for the first part (mips 0-5)
-pub struct SpdFirstNode {
+/// SPD Node implementation that handles both parts of the downsampling (mips 0-12)
+pub struct SpdNode {
     query: QueryState<(
         Entity,
         Read<PrefilterBindGroups>,
@@ -661,7 +660,7 @@ pub struct SpdFirstNode {
     )>,
 }
 
-impl FromWorld for SpdFirstNode {
+impl FromWorld for SpdNode {
     fn from_world(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
@@ -669,7 +668,7 @@ impl FromWorld for SpdFirstNode {
     }
 }
 
-impl Node for SpdFirstNode {
+impl Node for SpdNode {
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -683,7 +682,15 @@ impl Node for SpdFirstNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipelines = world.resource::<PrefilterPipelines>();
 
-        let Some(spd_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.spd_first) else {
+        // First pass (mips 0-5)
+        let Some(spd_first_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.spd_first)
+        else {
+            return Ok(());
+        };
+
+        // Second pass (mips 6-12)
+        let Some(spd_second_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.spd_second)
+        else {
             return Ok(());
         };
 
@@ -701,73 +708,42 @@ impl Node for SpdFirstNode {
                 },
             );
 
-            let mut compute_pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("spd_first_pass"),
-                        timestamp_writes: None,
-                    });
+            // First pass - process mips 0-5
+            {
+                let mut compute_pass =
+                    render_context
+                        .command_encoder()
+                        .begin_compute_pass(&ComputePassDescriptor {
+                            label: Some("spd_first_pass"),
+                            timestamp_writes: None,
+                        });
 
-            compute_pass.set_pipeline(spd_pipeline);
-            compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
+                compute_pass.set_pipeline(spd_first_pipeline);
+                compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
-            // Calculate the optimal dispatch size based on our shader's workgroup size and thread mapping
-            // The workgroup size is 256x1x1, and our remap_for_wave_reduction maps these threads to a 8x8 block
-            // For a 512x512 texture, we need 512/64 = 8 workgroups in X and 512/64 = 8 workgroups in Y
-            // Each workgroup processes 64x64 pixels (256 threads each handling 16 pixels)
-            compute_pass.dispatch_workgroups(8, 8, 6); // 6 faces of cubemap
-        }
+                // Calculate the optimal dispatch size based on our shader's workgroup size and thread mapping
+                // The workgroup size is 256x1x1, and our remap_for_wave_reduction maps these threads to a 8x8 block
+                // For a 512x512 texture, we need 512/64 = 8 workgroups in X and 512/64 = 8 workgroups in Y
+                // Each workgroup processes 64x64 pixels (256 threads each handling 16 pixels)
+                compute_pass.dispatch_workgroups(8, 8, 6); // 6 faces of cubemap
+            }
 
-        Ok(())
-    }
-}
+            // Second pass - process mips 6-12
+            {
+                let mut compute_pass =
+                    render_context
+                        .command_encoder()
+                        .begin_compute_pass(&ComputePassDescriptor {
+                            label: Some("spd_second_pass"),
+                            timestamp_writes: None,
+                        });
 
-/// SPD Node implementation for the second part (mips 6-12)
-pub struct SpdSecondNode {
-    query: QueryState<(Entity, Read<PrefilterBindGroups>)>,
-}
+                compute_pass.set_pipeline(spd_second_pipeline);
+                compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
 
-impl FromWorld for SpdSecondNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for SpdSecondNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
-
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<PrefilterPipelines>();
-
-        let Some(spd_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.spd_second) else {
-            return Ok(());
-        };
-
-        for (_, bind_groups) in self.query.iter_manual(world) {
-            let mut compute_pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("spd_second_pass"),
-                        timestamp_writes: None,
-                    });
-
-            compute_pass.set_pipeline(spd_pipeline);
-            compute_pass.set_bind_group(0, &bind_groups.spd, &[]);
-
-            // Dispatch workgroups - for each face
-            compute_pass.dispatch_workgroups(2, 2, 6);
+                // Dispatch workgroups - for each face
+                compute_pass.dispatch_workgroups(2, 2, 6);
+            }
         }
 
         Ok(())

@@ -2,7 +2,7 @@
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
     bindings::{atmosphere, settings, probe_transform_buffer},
-    functions::{sample_sky_view_lut, direction_world_to_atmosphere, max_atmosphere_distance, raymarch_atmosphere}
+    functions::{max_atmosphere_distance, raymarch_atmosphere}
 }
 
 @group(0) @binding(13) var output: texture_storage_2d_array<rgba16float, write>;
@@ -56,13 +56,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var world_pos = probe_transform_buffer[3].xyz;
 
     // offset by the origin point of the atmosphere scene
-    world_pos += vec3<f32>(0.0, atmosphere.bottom_radius, 0.0);
+    world_pos += atmosphere.origin;
 
     let r = length(world_pos);
 
     let ray_dir_ws = face_uv_to_direction(slice_index, uv);
-    // let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws);
-    // let inscattering = sample_sky_view_lut(r, ray_dir_as);
     let up = normalize(world_pos);
     let mu = dot(ray_dir_ws, up);
     let raymarch_steps = 16.0;
@@ -71,8 +69,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, uv, false, true, false);
     let inscattering = result.inscattering;
     let color = vec4<f32>(inscattering, 1.0);
-    // let color = vec4<f32>(0.5, 0.5, 0.5, 1.0);
 
-    // Write to the correct slice of the output texture
     textureStore(output, vec2<i32>(global_id.xy), i32(slice_index), color);
 }

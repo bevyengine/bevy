@@ -36,8 +36,7 @@ use bevy_render::{
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use prefilter::{
     create_environment_map_from_prefilter, extract_prefilter_entities,
-    prepare_prefilter_bind_groups, prepare_prefilter_textures, PrefilterPipelines, SpdFirstNode,
-    SpdSecondNode,
+    prepare_prefilter_bind_groups, prepare_prefilter_textures, PrefilterPipelines, SpdNode,
 };
 use tracing::error;
 
@@ -402,8 +401,7 @@ impl Plugin for LightProbePlugin {
             .init_resource::<PrefilterBindGroupLayouts>()
             .init_resource::<PrefilterSamplers>()
             .init_resource::<PrefilterPipelines>()
-            .add_render_graph_node::<SpdFirstNode>(Core3d, PrefilterNode::GenerateMipmap)
-            .add_render_graph_node::<SpdSecondNode>(Core3d, PrefilterNode::GenerateMipmapSecond)
+            .add_render_graph_node::<SpdNode>(Core3d, PrefilterNode::GenerateMipmap)
             .add_render_graph_node::<RadianceMapNode>(Core3d, PrefilterNode::RadianceMap)
             .add_render_graph_node::<IrradianceMapNode>(Core3d, PrefilterNode::IrradianceMap)
             .add_render_graph_edges(
@@ -411,7 +409,6 @@ impl Plugin for LightProbePlugin {
                 (
                     Node3d::EndPrepasses,
                     PrefilterNode::GenerateMipmap,
-                    PrefilterNode::GenerateMipmapSecond,
                     PrefilterNode::RadianceMap,
                     PrefilterNode::IrradianceMap,
                     Node3d::StartMainPass,
