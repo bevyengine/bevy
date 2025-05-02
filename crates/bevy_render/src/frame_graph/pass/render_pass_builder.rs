@@ -5,8 +5,8 @@ use tracing::warn;
 use crate::{
     camera::Viewport,
     frame_graph::{
-        BindGroupEntryRef, BindGroupRef, BindingResourceRef, BluePrintProvider, ColorAttachment,
-        ColorAttachmentRef, DepthStencilAttachmentRef, FrameGraphBuffer, FrameGraphError,
+        BindGroupEntryRef, BindGroupBluePrint, BindingResourceRef, BluePrintProvider, ColorAttachment,
+        ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint, FrameGraphBuffer, FrameGraphError,
         FrameGraphTexture, GraphResourceNodeHandle, PassNodeBuilder, ResourceRead, ResourceRef,
         SampleInfo, TextureViewInfo,
     },
@@ -63,7 +63,7 @@ impl BluePrintProvider
         Vec<BindingResourceHandle>,
     )
 {
-    type BluePrint = BindGroupRef;
+    type BluePrint = BindGroupBluePrint;
 
     fn make_blue_print(
         &self,
@@ -104,7 +104,7 @@ impl BluePrintProvider
             }
         }
 
-        Ok(BindGroupRef {
+        Ok(BindGroupBluePrint {
             label: self.0.clone(),
             layout: self.1.clone(),
             entries,
@@ -202,7 +202,7 @@ impl<'a> RenderPassBuilder<'a> {
         offsets: &[u32],
     ) -> Result<&mut Self, FrameGraphError>
     where
-        T: BluePrintProvider<BluePrint = BindGroupRef>,
+        T: BluePrintProvider<BluePrint = BindGroupBluePrint>,
     {
         let bind_group_ref = bind_group_ref.make_blue_print(&mut self.pass_node_builder)?;
 
@@ -228,7 +228,7 @@ impl<'a> RenderPassBuilder<'a> {
 
     pub fn add_color_attachment<T>(&mut self, provider: &T) -> Result<&mut Self, FrameGraphError>
     where
-        T: BluePrintProvider<BluePrint = ColorAttachmentRef>,
+        T: BluePrintProvider<BluePrint = ColorAttachmentBluePrint>,
     {
         let color_attachment = provider.make_blue_print(&mut self.pass_node_builder)?;
 
@@ -241,7 +241,7 @@ impl<'a> RenderPassBuilder<'a> {
         provider: &T,
     ) -> Result<&mut Self, FrameGraphError>
     where
-        T: BluePrintProvider<BluePrint = DepthStencilAttachmentRef>,
+        T: BluePrintProvider<BluePrint = DepthStencilAttachmentBluePrint>,
     {
         let color_attachment = provider.make_blue_print(&mut self.pass_node_builder)?;
 

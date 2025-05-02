@@ -11,7 +11,7 @@ use crate::{
 use super::TextureViewInfo;
 
 #[derive(Clone)]
-pub struct BindGroupRef {
+pub struct BindGroupBluePrint {
     pub label: Option<Cow<'static, str>>,
     pub layout: BindGroupLayout,
     pub entries: Vec<BindGroupEntryRef>,
@@ -107,7 +107,7 @@ pub enum BindingResourceRef {
     },
 }
 
-impl BluePrint for BindGroupRef {
+impl BluePrint for BindGroupBluePrint {
     type Product = BindGroup;
 
     fn make(&self, resource_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {

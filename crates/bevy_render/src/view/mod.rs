@@ -14,7 +14,7 @@ use crate::{
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     frame_graph::{
-        BluePrintProvider, ColorAttachment, ColorAttachmentRef, FrameGraph, FrameGraphError,
+        BluePrintProvider, ColorAttachment, ColorAttachmentBluePrint, FrameGraph, FrameGraphError,
         PassNodeBuilder, ResourceBoardKey, TextureInfo,
     },
     prelude::Shader,
@@ -725,7 +725,7 @@ pub struct NoIndirectDrawing;
 pub struct NoCpuCulling;
 
 impl BluePrintProvider for ViewTarget {
-    type BluePrint = ColorAttachmentRef;
+    type BluePrint = ColorAttachmentBluePrint;
 
     fn make_blue_print(
         &self,

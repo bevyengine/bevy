@@ -1,6 +1,7 @@
 use crate::{
     frame_graph::{
-        BluePrintProvider, ColorAttachment, ColorAttachmentRef, FrameGraphError, PassNodeBuilder, ResourceBoardKey, TextureViewInfo, TextureViewRef
+        BluePrintProvider, ColorAttachment, ColorAttachmentBluePrint, FrameGraphError,
+        PassNodeBuilder, ResourceBoardKey, TextureViewBluePrint, TextureViewInfo,
     },
     render_resource::{TextureFormat, TextureView},
 };
@@ -8,9 +9,7 @@ use alloc::sync::Arc;
 use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
 use std::ops::Deref;
-use wgpu::{
-    Color, LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
-};
+use wgpu::{Color, LoadOp, Operations, RenderPassDepthStencilAttachment, StoreOp};
 
 #[derive(Clone)]
 pub struct ColorAttachmentProvider {
@@ -21,7 +20,7 @@ pub struct ColorAttachmentProvider {
 }
 
 impl BluePrintProvider for ColorAttachmentProvider {
-    type BluePrint = ColorAttachmentRef;
+    type BluePrint = ColorAttachmentBluePrint;
     fn make_blue_print(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
@@ -31,18 +30,18 @@ impl BluePrintProvider for ColorAttachmentProvider {
         let mut resolve_target = None;
 
         if self.resolve_target.is_none() {
-            view_ref = TextureViewRef {
+            view_ref = TextureViewBluePrint {
                 texture_ref: pass_node_builder.read_from_board(&self.texture)?,
                 desc: TextureViewInfo::default(),
             };
         } else {
-            view_ref = TextureViewRef {
+            view_ref = TextureViewBluePrint {
                 texture_ref: pass_node_builder
                     .read_from_board(self.resolve_target.as_ref().unwrap())?,
                 desc: TextureViewInfo::default(),
             };
 
-            resolve_target = Some(TextureViewRef {
+            resolve_target = Some(TextureViewBluePrint {
                 texture_ref: pass_node_builder.read_from_board(&self.texture)?,
                 desc: TextureViewInfo::default(),
             })
@@ -50,7 +49,7 @@ impl BluePrintProvider for ColorAttachmentProvider {
 
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
-        Ok(ColorAttachmentRef {
+        Ok(ColorAttachmentBluePrint {
             view_ref,
             resolve_target,
             ops: Operations {

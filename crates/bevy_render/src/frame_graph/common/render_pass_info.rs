@@ -2,37 +2,57 @@ use std::borrow::Cow;
 
 use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 
-use super::{ColorAttachmentRef, DepthStencilAttachmentRef, ColorAttachment};
+use super::{
+    ColorAttachment, ColorAttachmentBluePrint, DepthStencilAttachment,
+    DepthStencilAttachmentBluePrint,
+};
 
 #[derive(Default)]
+pub struct RenderPassBlutPrint {
+    pub label: Option<Cow<'static, str>>,
+    pub color_attachments: Vec<ColorAttachmentBluePrint>,
+    pub depth_stencil_attachment: Option<DepthStencilAttachmentBluePrint>,
+    pub raw_color_attachments: Vec<ColorAttachment>,
+}
+
 pub struct RenderPassInfo {
     pub label: Option<Cow<'static, str>>,
-    pub color_attachments: Vec<ColorAttachmentRef>,
-    pub depth_stencil_attachment: Option<DepthStencilAttachmentRef>,
-    pub raw_color_attachments: Vec<ColorAttachment>,
+    pub color_attachments: Vec<ColorAttachment>,
+    pub depth_stencil_attachment: Option<DepthStencilAttachment>,
+}
+
+impl BluePrint for RenderPassBlutPrint {
+    type Product = RenderPassInfo;
+
+    fn make(&self, render_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
+        let mut color_attachments = self.raw_color_attachments.clone();
+
+        for color_attachment in self.color_attachments.iter() {
+            color_attachments.push(color_attachment.make(render_context)?);
+        }
+
+        let mut depth_stencil_attachment = None;
+
+        if let Some(depth_stencil_attachment_blue_print) = &self.depth_stencil_attachment {
+            depth_stencil_attachment =
+                Some(depth_stencil_attachment_blue_print.make(render_context)?);
+        }
+
+        Ok(RenderPassInfo {
+            label: self.label.clone(),
+            color_attachments,
+            depth_stencil_attachment,
+        })
+    }
 }
 
 impl RenderPassInfo {
     pub fn create_render_pass(
         &self,
-        resource_context: &RenderContext,
         command_encoder: &mut wgpu::CommandEncoder,
     ) -> Result<wgpu::RenderPass<'static>, FrameGraphError> {
-        let mut color_attachments = self.raw_color_attachments.clone();
-
-        for color_attachment in self.color_attachments.iter() {
-            color_attachments.push(color_attachment.make(resource_context)?);
-        }
-
-        let mut depth_stencil_attachment = None;
-
-        if let Some(depth_stencil_attachment_ref) = &self.depth_stencil_attachment {
-            depth_stencil_attachment =
-                Some(depth_stencil_attachment_ref.make(resource_context)?);
-        }
-
         let depth_stencil_attachment =
-            depth_stencil_attachment
+            self.depth_stencil_attachment
                 .as_ref()
                 .map(|depth_stencil_attachment| {
                     depth_stencil_attachment.get_render_pass_depth_stencil_attachment()
@@ -40,7 +60,8 @@ impl RenderPassInfo {
 
         let render_pass = command_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: self.label.as_deref(),
-            color_attachments: &color_attachments
+            color_attachments: &self
+                .color_attachments
                 .iter()
                 .map(|color_attachment| Some(color_attachment.get_render_pass_color_attachment()))
                 .collect::<Vec<_>>(),

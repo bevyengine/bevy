@@ -1,10 +1,10 @@
 use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 
-use super::TextureViewRef;
+use super::TextureViewBluePrint;
 
-pub struct ColorAttachmentRef {
-    pub view_ref: TextureViewRef,
-    pub resolve_target: Option<TextureViewRef>,
+pub struct ColorAttachmentBluePrint {
+    pub view_ref: TextureViewBluePrint,
+    pub resolve_target: Option<TextureViewBluePrint>,
     pub ops: wgpu::Operations<wgpu::Color>,
 }
 
@@ -25,14 +25,14 @@ impl ColorAttachment {
     }
 }
 
-impl BluePrint for ColorAttachmentRef {
+impl BluePrint for ColorAttachmentBluePrint {
     type Product = ColorAttachment;
 
-    fn make(&self, resource_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
-        let view = self.view_ref.make(resource_context)?;
+    fn make(&self, render_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
+        let view = self.view_ref.make(render_context)?;
 
         if let Some(resolve_target) = &self.resolve_target {
-            let resolve_target = resolve_target.make(resource_context)?;
+            let resolve_target = resolve_target.make(render_context)?;
 
             Ok(ColorAttachment {
                 view,

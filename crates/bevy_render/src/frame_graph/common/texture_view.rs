@@ -34,15 +34,15 @@ impl TextureViewInfo {
 }
 
 #[derive(Clone)]
-pub struct TextureViewRef {
+pub struct TextureViewBluePrint {
     pub texture_ref: ResourceRef<FrameGraphTexture, ResourceRead>,
     pub desc: TextureViewInfo,
 }
 
-impl BluePrint for TextureViewRef {
+impl BluePrint for TextureViewBluePrint {
     type Product = wgpu::TextureView;
-    fn make(&self, resource_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
-        resource_context
+    fn make(&self, render_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
+        render_context
             .resource_table
             .get_resource::<FrameGraphTexture>(&self.texture_ref)
             .map(|texture| {

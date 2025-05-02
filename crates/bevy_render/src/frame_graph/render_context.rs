@@ -1,8 +1,8 @@
 use wgpu::AdapterInfo;
 
 use super::{
-    BindGroupRef, BluePrint, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo,
-    ResourceRead, ResourceRef, ResourceTable, TransientResourceCache,
+    BindGroupBluePrint, BluePrint, FrameGraphBuffer, FrameGraphError, GraphResource,
+    RenderPassInfo, ResourceRead, ResourceRef, ResourceTable, TransientResourceCache,
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
@@ -77,7 +77,7 @@ impl<'a> RenderContext<'a> {
             .render_device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-        let render_pass = render_pass_info.create_render_pass(self, &mut command_encoder)?;
+        let render_pass = render_pass_info.create_render_pass(&mut command_encoder)?;
 
         Ok(RenderPassContext {
             command_encoder,
@@ -173,7 +173,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
     pub fn set_bind_group(
         &mut self,
         index: u32,
-        bind_group_ref: &BindGroupRef,
+        bind_group_ref: &BindGroupBluePrint,
         offsets: &[u32],
     ) -> Result<(), FrameGraphError> {
         let bind_group = bind_group_ref.make(&self.render_context)?;

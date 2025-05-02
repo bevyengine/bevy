@@ -2,8 +2,8 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     frame_graph::{
-        render_pass_builder::RenderPassBuilder, BluePrintProvider, DepthStencilAttachmentRef,
-        FrameGraph, RenderPass, TextureViewInfo, TextureViewRef,
+        render_pass_builder::RenderPassBuilder, DepthStencilAttachmentBluePrint, FrameGraph,
+        TextureViewBluePrint, TextureViewInfo,
     },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
@@ -56,8 +56,8 @@ impl ViewNode for MainTransparentPass2dNode {
 
         render_pass_builder
             .add_color_attachment(target)?
-            .set_depth_stencil_attachment(&DepthStencilAttachmentRef {
-                view_ref: TextureViewRef {
+            .set_depth_stencil_attachment(&DepthStencilAttachmentBluePrint {
+                view_ref: TextureViewBluePrint {
                     texture_ref: depth_texture_read,
                     desc: TextureViewInfo::default(),
                 },

@@ -3,9 +3,9 @@ use std::ops::Range;
 use crate::{
     camera::Viewport,
     frame_graph::{
-        BindGroupRef, ColorAttachment, ColorAttachmentRef, DepthStencilAttachmentRef,
-        FrameGraphBuffer, FrameGraphError, RenderContext, RenderPassContext, RenderPassInfo,
-        ResourceRead, ResourceRef,
+        BindGroupBluePrint, BluePrint, ColorAttachment, ColorAttachmentBluePrint,
+        DepthStencilAttachmentBluePrint, FrameGraphBuffer, FrameGraphError, RenderContext,
+        RenderPassBlutPrint, RenderPassContext, ResourceRead, ResourceRef,
     },
     render_resource::{BindGroup, CachedRenderPipelineId},
 };
@@ -14,7 +14,7 @@ use super::PassTrait;
 
 #[derive(Default)]
 pub struct RenderPass {
-    render_pass_info: RenderPassInfo,
+    render_pass: RenderPassBlutPrint,
     commands: Vec<RenderPassCommand>,
     vaild: bool,
 }
@@ -33,7 +33,7 @@ pub enum RenderPassCommand {
     SetRenderPipeline(CachedRenderPipelineId),
     SetBindGroup {
         index: u32,
-        bind_group_ref: BindGroupRef,
+        bind_group_ref: BindGroupBluePrint,
         offsets: Vec<u32>,
     },
     SetVertexBuffer {
@@ -157,23 +157,21 @@ impl RenderPass {
 
     pub fn set_depth_stencil_attachment(
         &mut self,
-        depth_stencil_attachment: DepthStencilAttachmentRef,
+        depth_stencil_attachment: DepthStencilAttachmentBluePrint,
     ) {
-        self.render_pass_info.depth_stencil_attachment = Some(depth_stencil_attachment);
+        self.render_pass.depth_stencil_attachment = Some(depth_stencil_attachment);
     }
 
     pub fn add_raw_color_attachment(&mut self, color_attachment: ColorAttachment) {
-        self.render_pass_info
+        self.render_pass
             .raw_color_attachments
             .push(color_attachment);
 
         self.vaild = true;
     }
 
-    pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentRef) {
-        self.render_pass_info
-            .color_attachments
-            .push(color_attachment);
+    pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentBluePrint) {
+        self.render_pass.color_attachments.push(color_attachment);
 
         self.vaild = true;
     }
@@ -211,7 +209,7 @@ impl RenderPass {
         self.commands.push(RenderPassCommand::SetRenderPipeline(id));
     }
 
-    pub fn set_bind_group(&mut self, index: u32, bind_group_ref: &BindGroupRef, offsets: &[u32]) {
+    pub fn set_bind_group(&mut self, index: u32, bind_group_ref: &BindGroupBluePrint, offsets: &[u32]) {
         self.commands.push(RenderPassCommand::SetBindGroup {
             index,
             bind_group_ref: bind_group_ref.clone(),
@@ -222,7 +220,9 @@ impl RenderPass {
 
 impl PassTrait for RenderPass {
     fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
-        let mut tracked_render_pass = render_context.begin_render_pass(&self.render_pass_info)?;
+        let render_pass_info = self.render_pass.make(render_context)?;
+
+        let mut tracked_render_pass = render_context.begin_render_pass(&render_pass_info)?;
 
         for command in self.commands.iter() {
             command.draw(&mut tracked_render_pass)?;
@@ -233,6 +233,6 @@ impl PassTrait for RenderPass {
     }
 
     fn set_pass_name(&mut self, name: &str) {
-        self.render_pass_info.label = Some(name.to_string().into());
+        self.render_pass.label = Some(name.to_string().into());
     }
 }

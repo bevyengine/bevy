@@ -1,10 +1,8 @@
-use super::{
-    FrameGraphBuffer, FrameGraphError, PassNodeBuilder, RenderContext, ResourceRead, ResourceRef,
-};
+use super::{FrameGraphError, PassNodeBuilder, RenderContext};
 
 pub trait BluePrint {
     type Product;
-    fn make(&self, resource_context: &RenderContext) -> Result<Self::Product, FrameGraphError>;
+    fn make(&self, render_context: &RenderContext) -> Result<Self::Product, FrameGraphError>;
 }
 
 pub trait BluePrintProvider {
