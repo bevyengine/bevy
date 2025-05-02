@@ -3,8 +3,7 @@
 use bevy::{
     color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
-    input::mouse::{MouseMotion, MouseWheel},
-    math::ops::exp,
+    math::vec3,
     pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
@@ -52,17 +51,7 @@ fn main() {
         .add_systems(Update, tweak_scene)
         .add_systems(Update, (move_directional_light, move_point_light))
         .add_systems(Update, adjust_app_settings)
-        .add_systems(
-            Update,
-            (pan_camera, smooth_camera_movement.after(pan_camera)),
-        )
         .run();
-}
-
-#[derive(Component)]
-struct CameraOrbit {
-    target_transform: Transform,
-    distance: f32,
 }
 
 /// Initializes the scene.
@@ -72,10 +61,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         GltfAssetLabel::Scene(0).from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
     )));
 
-    let target = Vec3::new(-1.5, 1.7, 3.5);
-    let initial_transform = Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(target, Vec3::Y);
-    let initial_distance = 7.0;
-
     // Spawn the camera.
     commands
         .spawn((
@@ -84,11 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
                 hdr: true,
                 ..default()
             },
-            initial_transform,
-            CameraOrbit {
-                target_transform: initial_transform,
-                distance: initial_distance,
-            },
+            Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
             Tonemapping::TonyMcMapface,
             Bloom::default(),
         ))
@@ -284,52 +265,5 @@ fn adjust_app_settings(
     // Update the help text.
     for mut text in text.iter_mut() {
         *text = create_text(&app_settings);
-    }
-}
-
-fn pan_camera(
-    mut motion_evr: EventReader<MouseMotion>,
-    mut scroll_evr: EventReader<MouseWheel>,
-    mut camera_query: Query<(&Transform, &mut CameraOrbit), With<Camera3d>>,
-    mouse_button: Res<ButtonInput<MouseButton>>,
-) {
-    let Ok((camera_transform, mut camera_orbit)) = camera_query.single_mut() else {
-        return;
-    };
-    for ev in scroll_evr.read() {
-        let zoom_factor = camera_orbit.distance * 0.01;
-        camera_orbit.distance = (camera_orbit.distance - ev.y * zoom_factor).clamp(0.5, 400.0);
-        let direction = camera_orbit.target_transform.translation.normalize();
-        camera_orbit.target_transform.translation = direction * camera_orbit.distance;
-    }
-
-    for ev in motion_evr.read() {
-        if mouse_button.pressed(MouseButton::Left) {
-            let orbit_speed = 0.005;
-            let yaw_rotation = Quat::from_axis_angle(Vec3::Y, -ev.delta.x * orbit_speed);
-            let pitch_rotation =
-                Quat::from_axis_angle(camera_transform.local_x().into(), -ev.delta.y * orbit_speed);
-            let current_pos = camera_orbit.target_transform.translation;
-            let rotated_pos = yaw_rotation * pitch_rotation * current_pos;
-            camera_orbit.target_transform.translation = rotated_pos;
-            camera_orbit.target_transform.look_at(Vec3::ZERO, Vec3::Y);
-        }
-    }
-}
-
-fn smooth_camera_movement(
-    time: Res<Time>,
-    mut camera_query: Query<(&mut Transform, &CameraOrbit), With<Camera3d>>,
-) {
-    let damping = 1.0 - exp(-8.0 * time.delta_secs());
-
-    // Update camera
-    if let Ok((mut transform, orbit)) = camera_query.single_mut() {
-        transform.translation = transform
-            .translation
-            .lerp(orbit.target_transform.translation, damping);
-        transform.rotation = transform
-            .rotation
-            .slerp(orbit.target_transform.rotation, damping);
     }
 }

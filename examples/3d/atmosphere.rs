@@ -4,11 +4,9 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    input::mouse::{MouseMotion, MouseWheel},
-    math::ops::exp,
     pbr::{
-        light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings, SunLight,
-        VolumetricFog, VolumetricLight,
+        light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings,
+        CascadeShadowConfigBuilder, SunLight,
     },
     prelude::*,
     render::camera::Exposure,
@@ -16,88 +14,62 @@ use bevy::{
 
 fn main() {
     App::new()
-        // .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
-        .add_systems(
-            Update,
-            (
-                pan_camera,
-                smooth_camera_movement.after(pan_camera),
-                exposure_control,
-            ),
-        )
+        .add_systems(Update, dynamic_scene)
         .run();
 }
 
 fn setup_camera_fog(mut commands: Commands) {
-    let initial_distance = 3.0;
-    let initial_transform =
-        Transform::from_xyz(-initial_distance, 0.1, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
-
-    commands
-        .spawn((
-            Camera3d::default(),
-            // HDR is required for atmospheric scattering to be properly applied to the scene
-            Camera {
-                hdr: true,
-                ..default()
-            },
-            Exposure { ev100: 14.0 },
-            CameraExposure {
-                current_ev100: 14.0,
-                target_ev100: 14.0,
-            },
-            Msaa::Off,
-            initial_transform,
-            CameraOrbit {
-                target_transform: initial_transform,
-                distance: initial_distance,
-            },
-            // The directional light illuminance  used in this scene
-            // (the one recommended for use with this feature) is
-            // quite bright, so raising the exposure compensation helps
-            // bring the scene to a nicer brightness range.
-            AmbientLight {
-                color: Color::WHITE,
-                brightness: 0.0,
-                affects_lightmapped_meshes: false,
-            },
-            // Tonemapper chosen just because it looked good with the scene, any
-            // tonemapper would be fine :)
-            Tonemapping::AcesFitted,
-            // Bloom gives the sun a much more natural look.
-            Bloom::NATURAL,
-        ))
-        .insert((
-            // This is the component that enables atmospheric scattering for a camera
-            Atmosphere::EARTH,
-            // The scene is in units of 10km, so we need to scale up the
-            // aerial view lut distance and set the scene scale accordingly.
-            // Most usages of this feature will not need to adjust this.
-            AtmosphereSettings {
-                scene_units_to_m: 100.0,
-                ..default()
-            },
-        ))
-        .insert(VolumetricFog {
-            // This value is explicitly set to 0 since we have no environment map light
-            ambient_intensity: 0.0,
-            ..default()
-        });
-
-    // Spawn a new light probe to generate an environment map for the atmosphere
     commands.spawn((
-        LightProbe,
-        AtmosphereEnvironmentMapLight::default(),
-        // The translation controls where the light probe is placed,
-        // and the scale controls the extents of where it will affect objects in the scene.
-        Transform::from_xyz(0.0, 1.0, 0.0).with_scale(Vec3::splat(1000.0)),
+        Camera3d::default(),
+        // HDR is required for atmospheric scattering to be properly applied to the scene
+        Camera {
+            hdr: true,
+            ..default()
+        },
+        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+        // This is the component that enables atmospheric scattering for a camera
+        Atmosphere::EARTH,
+        // The scene is in units of 10km, so we need to scale up the
+        // aerial view lut distance and set the scene scale accordingly.
+        // Most usages of this feature will not need to adjust this.
+        AtmosphereSettings {
+            aerial_view_lut_max_distance: 3.2e5,
+            scene_units_to_m: 1e+4,
+            ..Default::default()
+        },
+        // The directional light illuminance  used in this scene
+        // (the one recommended for use with this feature) is
+        // quite bright, so raising the exposure compensation helps
+        // bring the scene to a nicer brightness range.
+        Exposure::SUNLIGHT,
+        // Tonemapper chosen just because it looked good with the scene, any
+        // tonemapper would be fine :)
+        Tonemapping::AcesFitted,
+        // Bloom gives the sun a much more natural look.
+        Bloom::NATURAL,
     ));
+}
 
-    let sun_transform = Transform::from_xyz(1.0, 1.0, -0.3).looking_at(Vec3::ZERO, Vec3::Y);
+#[derive(Component)]
+struct Terrain;
 
+fn setup_terrain_scene(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
+    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
+    let cascade_shadow_config = CascadeShadowConfigBuilder {
+        first_cascade_far_bound: 0.3,
+        maximum_distance: 3.0,
+        ..default()
+    }
+    .build();
+
+    // Sun
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
@@ -109,277 +81,58 @@ fn setup_camera_fog(mut commands: Commands) {
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
-        // This component will enable the sun disk rendering and set the sun disk size
         SunLight::default(),
-        VolumetricLight,
-        sun_transform,
-        SunOrbit {
-            target_transform: sun_transform,
-        },
+        Transform::from_xyz(1.0, -0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        cascade_shadow_config,
     ));
 
-    // commands.spawn((
-    //     FogVolume::default(),
-    //     Transform::from_scale(Vec3::splat(35.0)),
-    // ));
-}
+    // Spawn a new light probe to generate an environment map for the atmosphere
+    commands.spawn((
+        LightProbe,
+        AtmosphereEnvironmentMapLight::default(),
+        // The translation controls where the light probe is placed,
+        // and the scale controls the extents of where it will affect objects in the scene.
+        Transform::from_xyz(0.0, 1.0, 0.0).with_scale(Vec3::splat(1000.0)),
+    ));
 
-#[derive(Component)]
-struct Terrain;
-
-#[derive(Component)]
-struct CameraOrbit {
-    target_transform: Transform,
-    distance: f32,
-}
-
-#[derive(Component)]
-struct CameraExposure {
-    current_ev100: f32,
-    target_ev100: f32,
-}
-
-#[derive(Component)]
-struct SunOrbit {
-    target_transform: Transform,
-}
-
-fn setup_terrain_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
     let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
 
-    // Add 10 spheres with different roughness levels in a line
-    let roughness_levels = 0..9;
+    // light probe spheres
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            metallic: 1.0,
+            perceptual_roughness: 0.0,
+            ..default()
+        })),
+        Transform::from_xyz(-0.3, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
+    ));
 
-    for i in roughness_levels {
-        let z = i as f32 * 0.4 - (0.4 * 9.0 / 2.0) + 0.15;
-        let roughness = i as f32 / 9.0;
-        commands.spawn((
-            Mesh3d(sphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                metallic: 1.0,
-                perceptual_roughness: roughness,
-                ..default()
-            })),
-            Transform::from_xyz(0.0, 0.25, z).with_scale(Vec3::splat(0.15)),
-        ));
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            metallic: 0.0,
+            perceptual_roughness: 1.0,
+            ..default()
+        })),
+        Transform::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
+    ));
 
-        commands.spawn((
-            Mesh3d(sphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                metallic: 0.0,
-                perceptual_roughness: roughness,
-                ..default()
-            })),
-            Transform::from_xyz(0.0, 0.75, z).with_scale(Vec3::splat(0.15)),
-        ));
-    }
-
+    // Terrain
     commands.spawn((
         Terrain,
         SceneRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
         ),
-        Transform::from_xyz(10.0, 0.0, 0.0)
-            .with_scale(Vec3::splat(10.0))
+        Transform::from_xyz(-1.0, 0.0, -0.5)
+            .with_scale(Vec3::splat(0.5))
             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
     ));
 }
 
-fn pan_camera(
-    mut motion_evr: EventReader<MouseMotion>,
-    mut scroll_evr: EventReader<MouseWheel>,
-    mut camera_query: Query<(&Transform, &mut CameraOrbit), With<Camera3d>>,
-    mut sun_query: Query<(&Transform, &mut SunOrbit), (With<DirectionalLight>, Without<Camera3d>)>,
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    camera_query_view: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
-    windows: Query<&Window>,
-) {
-    let Ok((camera_transform, mut camera_orbit)) = camera_query.single_mut() else {
-        return;
-    };
-    let Ok((_, mut sun_orbit)) = sun_query.single_mut() else {
-        return;
-    };
-    let Ok((camera, camera_global_transform)) = camera_query_view.single() else {
-        return;
-    };
-    let Ok(window) = windows.single() else {
-        return;
-    };
-
-    // Handle zoom with mouse wheel
-    for ev in scroll_evr.read() {
-        let zoom_factor = camera_orbit.distance * 0.001; // Scale zoom speed with distance
-        camera_orbit.distance = (camera_orbit.distance - ev.y * zoom_factor).clamp(0.5, 400.0);
-
-        // Update target transform to maintain direction but change distance
-        let direction = camera_orbit.target_transform.translation.normalize();
-        camera_orbit.target_transform.translation = direction * camera_orbit.distance;
-    }
-
-    let Some(cursor_pos) = window.cursor_position() else {
-        return;
-    };
-
-    let shift_pressed =
-        keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight);
-
-    for ev in motion_evr.read() {
-        if shift_pressed && mouse_button.pressed(MouseButton::Left) {
-            // Pan camera when shift + left click is held
-            let pan_speed = camera_orbit.distance * 0.001; // Scale pan speed with distance
-
-            // Get camera right and up vectors for panning in camera's local space
-            let right = camera_transform.right();
-            let up = camera_transform.up();
-
-            // Calculate pan offset based on mouse movement
-            let pan_offset = right * -ev.delta.x * pan_speed + up * ev.delta.y * pan_speed;
-
-            // Translate the camera orbit center
-            camera_orbit.target_transform.translation += pan_offset;
-        } else if shift_pressed && mouse_button.pressed(MouseButton::Right) {
-            // For shift+right click, use the same ray casting but place sun at opposite point
-            let Ok(ray) = camera.viewport_to_world(camera_global_transform, cursor_pos) else {
-                continue;
-            };
-
-            let sphere_radius = 999999.0;
-
-            if let Some(intersection) = ray_sphere_intersection(
-                ray.origin,
-                Vec3::splat(-1.0) * Vec3::from(ray.direction),
-                Vec3::ZERO,
-                sphere_radius,
-            ) {
-                // Calculate the opposite point from the intersection (through the center)
-                let direction_to_center = -intersection.normalize();
-                let opposite_point = direction_to_center * intersection.length();
-                let mut target = sun_orbit.target_transform;
-                target.translation = opposite_point;
-                target.look_at(Vec3::ZERO, Vec3::Y);
-                sun_orbit.target_transform = target;
-            }
-        } else if mouse_button.pressed(MouseButton::Left) {
-            let orbit_speed = 0.005;
-
-            // Calculate rotations
-            let yaw_rotation = Quat::from_axis_angle(Vec3::Y, -ev.delta.x * orbit_speed);
-            let pitch_rotation =
-                Quat::from_axis_angle(camera_transform.local_x().into(), -ev.delta.y * orbit_speed);
-
-            // Get current position and apply rotations
-            let current_pos = camera_orbit.target_transform.translation;
-            let rotated_pos = yaw_rotation * pitch_rotation * current_pos;
-
-            // Update target transform
-            camera_orbit.target_transform.translation = rotated_pos;
-            camera_orbit.target_transform.look_at(Vec3::ZERO, Vec3::Y);
-        } else if mouse_button.pressed(MouseButton::Right) {
-            let Ok(ray) = camera.viewport_to_world(camera_global_transform, cursor_pos) else {
-                continue;
-            };
-
-            let sphere_radius = 999999.0;
-
-            if let Some(intersection) = ray_sphere_intersection(
-                ray.origin,
-                Vec3::splat(-1.0) * Vec3::from(ray.direction),
-                Vec3::ZERO,
-                sphere_radius,
-            ) {
-                let mut target = sun_orbit.target_transform;
-                target.translation = intersection;
-                target.look_at(Vec3::ZERO, Vec3::Y);
-                sun_orbit.target_transform = target;
-            }
-        }
-    }
-}
-
-fn exposure_control(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut camera_query: Query<&mut CameraExposure>,
-    time: Res<Time>,
-) {
-    if let Ok(mut camera_exposure) = camera_query.single_mut() {
-        // Adjust exposure by 1 stop (1.0 EV) when up/down arrows are pressed
-        let exposure_change = time.delta_secs() * 1.0; // 1 EV per second
-
-        if keyboard.pressed(KeyCode::ArrowUp) {
-            camera_exposure.target_ev100 -= exposure_change;
-        }
-        if keyboard.pressed(KeyCode::ArrowDown) {
-            camera_exposure.target_ev100 += exposure_change;
-        }
-
-        // Optional: clamp to reasonable exposure values
-        camera_exposure.target_ev100 = camera_exposure.target_ev100.clamp(-10.0, 20.0);
-    }
-}
-
-fn smooth_camera_movement(
-    time: Res<Time>,
-    mut camera_query: Query<(&mut Transform, &CameraOrbit), With<Camera3d>>,
-    mut sun_query: Query<(&mut Transform, &SunOrbit), (With<DirectionalLight>, Without<Camera3d>)>,
-    mut exposure_query: Query<(&mut Exposure, &mut CameraExposure)>,
-) {
-    let damping = 1.0 - exp(-8.0 * time.delta_secs());
-
-    // Update camera
-    if let Ok((mut transform, orbit)) = camera_query.single_mut() {
-        transform.translation = transform
-            .translation
-            .lerp(orbit.target_transform.translation, damping);
-        transform.rotation = transform
-            .rotation
-            .slerp(orbit.target_transform.rotation, damping);
-    }
-
-    // Update sun
-    if let Ok((mut transform, orbit)) = sun_query.single_mut() {
-        transform.translation = transform
-            .translation
-            .lerp(orbit.target_transform.translation, damping);
-        transform.rotation = transform
-            .rotation
-            .slerp(orbit.target_transform.rotation, damping);
-    }
-
-    // Update exposure with smooth interpolation
-    if let Ok((mut exposure, mut camera_exposure)) = exposure_query.single_mut() {
-        camera_exposure.current_ev100 = camera_exposure
-            .current_ev100
-            .lerp(camera_exposure.target_ev100, damping);
-        exposure.ev100 = camera_exposure.current_ev100;
-    }
-}
-
-// Helper function to calculate ray-sphere intersection
-fn ray_sphere_intersection(
-    ray_origin: Vec3,
-    ray_direction: Vec3,
-    sphere_center: Vec3,
-    sphere_radius: f32,
-) -> Option<Vec3> {
-    let oc = ray_origin - sphere_center;
-    let a = ray_direction.dot(ray_direction);
-    let b = 2.0 * oc.dot(ray_direction);
-    let c = oc.dot(oc) - sphere_radius * sphere_radius;
-    let discriminant = b * b - 4.0 * a * c;
-
-    if discriminant < 0.0 {
-        None
-    } else {
-        let t = (-b - discriminant.sqrt()) / (2.0 * a);
-        Some(ray_origin + ray_direction * t)
-    }
+fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
+    suns.iter_mut()
+        .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * PI / 10.0));
 }
