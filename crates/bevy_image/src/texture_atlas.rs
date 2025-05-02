@@ -222,6 +222,12 @@ impl TextureAtlas {
         let atlas = texture_atlases.get(&self.layout)?;
         atlas.textures.get(self.index).copied()
     }
+
+    /// Returns this [`TextureAtlas`] with the specified index.
+    pub fn with_index(mut self, index: usize) -> Self {
+        self.index = index;
+        self
+    }
 }
 
 impl From<Handle<TextureAtlasLayout>> for TextureAtlas {
