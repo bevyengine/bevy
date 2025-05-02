@@ -2,7 +2,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    frame_graph::SampleInfo, render_resource::{
+    frame_graph::SamplerInfo, render_resource::{
         binding_types::{sampler, texture_2d},
         *,
     }, renderer::RenderDevice, RenderApp
@@ -37,7 +37,7 @@ impl Plugin for BlitPlugin {
 #[derive(Resource)]
 pub struct BlitPipeline {
     pub texture_bind_group: BindGroupLayout,
-    pub sampler: SampleInfo,
+    pub sampler_info: SamplerInfo,
 }
 
 impl FromWorld for BlitPipeline {
@@ -55,11 +55,11 @@ impl FromWorld for BlitPipeline {
             ),
         );
 
-        let sampler = SampleInfo::default();
+        let sampler_info = SamplerInfo::default();
 
         BlitPipeline {
             texture_bind_group,
-            sampler,
+            sampler_info,
         }
     }
 }

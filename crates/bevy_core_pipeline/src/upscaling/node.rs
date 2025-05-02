@@ -3,7 +3,10 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
-    frame_graph::{render_pass_builder::RenderPassBuilder, FrameGraph},
+    frame_graph::{
+        render_pass_builder::RenderPassBuilder, FrameGraph, FrameGraphTexture, ResourceRead,
+        ResourceRef,
+    },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::PipelineCache,
     view::ViewTarget,
@@ -55,11 +58,13 @@ impl ViewNode for UpscalingNode {
 
         let main_texture_key = target.get_main_texture_key();
 
-        let Some(main_texture_read) = frame_graph.get(main_texture_key) else {
-            return Ok(());
-        };
+        let mut builder =
+            RenderPassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_pass"));
 
-        RenderPassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_pass"))
+        let main_texture_read: ResourceRef<FrameGraphTexture, ResourceRead> =
+            builder.read_from_board(main_texture_key)?;
+
+        builder
             .add_raw_color_attachment(target.out_texture_color_attachment(converted_clear_color))
             .set_render_pipeline(upscaling_target.0)
             .set_bind_group(
@@ -69,7 +74,7 @@ impl ViewNode for UpscalingNode {
                     blit_pipeline.texture_bind_group.clone(),
                     vec![
                         main_texture_read.into(),
-                        blit_pipeline.sampler.clone().into(),
+                        blit_pipeline.sampler_info.clone().into(),
                     ],
                 ),
                 &[],

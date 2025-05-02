@@ -1,4 +1,5 @@
 use crate::{
+    frame_graph::SamplerInfo,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
@@ -19,6 +20,7 @@ pub struct GpuImage {
     pub sampler: Sampler,
     pub size: Extent3d,
     pub mip_level_count: u32,
+    pub sampler_info: SamplerInfo,
 }
 
 impl RenderAsset for GpuImage {
@@ -64,6 +66,12 @@ impl RenderAsset for GpuImage {
                 .as_ref()
                 .unwrap(),
         );
+
+        let sampler_info = match &image.sampler {
+            ImageSampler::Default => SamplerInfo::default(),
+            ImageSampler::Descriptor(descriptor) => SamplerInfo::new_image_sampler_descriptor(descriptor),
+        };
+
         let sampler = match image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
@@ -78,6 +86,7 @@ impl RenderAsset for GpuImage {
             sampler,
             size: image.texture_descriptor.size,
             mip_level_count: image.texture_descriptor.mip_level_count,
+            sampler_info,
         })
     }
 }

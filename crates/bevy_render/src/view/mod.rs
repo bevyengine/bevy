@@ -617,10 +617,8 @@ pub struct ViewTarget {
 pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAttachment>);
 
 pub struct PostProcessWrite<'a> {
-    pub source: &'a TextureView,
-    pub source_texture: &'a Texture,
-    pub destination: &'a TextureView,
-    pub destination_texture: &'a Texture,
+    pub source: &'a ResourceBoardKey,
+    pub destination: &'a ResourceBoardKey,
 }
 
 impl From<ColorGrading> for ColorGradingUniform {
@@ -804,6 +802,26 @@ impl ViewTarget {
     #[inline]
     pub fn out_texture_format(&self) -> TextureFormat {
         self.out_texture.format
+    }
+
+    pub fn post_process_write(&self) -> PostProcessWrite {
+        let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
+
+        if old_is_a_main_texture == 0 {
+            self.main_textures.b.mark_as_cleared();
+
+            PostProcessWrite {
+                source: &self.main_textures.a.texture,
+                destination: &self.main_textures.b.texture,
+            }
+        } else {
+            self.main_textures.a.mark_as_cleared();
+
+            PostProcessWrite {
+                source: &self.main_textures.b.texture,
+                destination: &self.main_textures.b.texture,
+            }
+        }
     }
 }
 

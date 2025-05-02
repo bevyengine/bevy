@@ -8,9 +8,9 @@ use crate::{
     frame_graph::{
         BindGroupBluePrint, BindGroupEntryRef, BindingResourceRef, BluePrintProvider,
         ColorAttachment, ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint,
-        FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource,
-        GraphResourceNodeHandle, PassNodeBuilder, ResourceBoardKey, ResourceRead, ResourceRef,
-        SampleInfo, TextureViewBluePrint, TextureViewInfo,
+        FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource, PassNodeBuilder,
+        ResourceBoardKey, ResourceRead, ResourceRef, SamplerInfo, TextureViewBluePrint,
+        TextureViewInfo,
     },
     render_resource::{BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, Texture},
     view::ViewDepthTexture,
@@ -36,22 +36,28 @@ impl<'a> Drop for RenderPassBuilder<'a> {
 }
 
 pub enum BindingResourceHandle {
-    Buffer(GraphResourceNodeHandle<FrameGraphBuffer>),
-    Sampler(SampleInfo),
+    Buffer(ResourceRef<FrameGraphBuffer, ResourceRead>),
+    Sampler(SamplerInfo),
     TextureView {
-        texture_ref: GraphResourceNodeHandle<FrameGraphTexture>,
+        texture_ref: ResourceRef<FrameGraphTexture, ResourceRead>,
         texture_view_info: TextureViewInfo,
     },
 }
 
-impl From<SampleInfo> for BindingResourceHandle {
-    fn from(value: SampleInfo) -> Self {
+impl From<SamplerInfo> for BindingResourceHandle {
+    fn from(value: SamplerInfo) -> Self {
         BindingResourceHandle::Sampler(value)
     }
 }
 
-impl From<GraphResourceNodeHandle<FrameGraphTexture>> for BindingResourceHandle {
-    fn from(value: GraphResourceNodeHandle<FrameGraphTexture>) -> Self {
+impl From<ResourceRef<FrameGraphBuffer, ResourceRead>> for BindingResourceHandle {
+    fn from(value: ResourceRef<FrameGraphBuffer, ResourceRead>) -> Self {
+        BindingResourceHandle::Buffer(value)
+    }
+}
+
+impl From<ResourceRef<FrameGraphTexture, ResourceRead>> for BindingResourceHandle {
+    fn from(value: ResourceRef<FrameGraphTexture, ResourceRead>) -> Self {
         BindingResourceHandle::TextureView {
             texture_ref: value,
             texture_view_info: TextureViewInfo::default(),
@@ -91,7 +97,7 @@ impl BluePrintProvider
 
     fn make_blue_print(
         &self,
-        pass_node_builder: &mut PassNodeBuilder,
+        _pass_node_builder: &mut PassNodeBuilder,
     ) -> Result<Self::BluePrint, FrameGraphError> {
         let mut entries = vec![];
 
@@ -104,11 +110,10 @@ impl BluePrintProvider
                     });
                 }
 
-                BindingResourceHandle::Buffer(buffer_handle) => {
-                    let buffer_read = pass_node_builder.read(buffer_handle.clone());
+                BindingResourceHandle::Buffer(buffer_read) => {
                     entries.push(BindGroupEntryRef {
                         binding: index as u32,
-                        resource: BindingResourceRef::Buffer(buffer_read),
+                        resource: BindingResourceRef::Buffer(buffer_read.clone()),
                     });
                 }
 
@@ -116,11 +121,10 @@ impl BluePrintProvider
                     texture_ref,
                     texture_view_info,
                 } => {
-                    let texture_read = pass_node_builder.read(texture_ref.clone());
                     entries.push(BindGroupEntryRef {
                         binding: index as u32,
                         resource: BindingResourceRef::TextureView {
-                            texture_ref: texture_read,
+                            texture_ref: texture_ref.clone(),
                             texture_view_info: texture_view_info.clone(),
                         },
                     });

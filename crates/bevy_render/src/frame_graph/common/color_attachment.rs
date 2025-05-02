@@ -2,6 +2,7 @@ use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 
 use super::TextureViewBluePrint;
 
+#[derive(Clone)]
 pub struct ColorAttachmentBluePrint {
     pub view: TextureViewBluePrint,
     pub resolve_target: Option<TextureViewBluePrint>,

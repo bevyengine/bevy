@@ -19,7 +19,7 @@ use bevy_ecs::{
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_platform::collections::HashMap;
-use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
+use bevy_render::{frame_graph::SamplerInfo, view::{RenderVisibleEntities, RetainedViewEntity}};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -91,6 +91,14 @@ impl FromWorld for SpritePipeline {
         let dummy_white_gpu_image = {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
+
+            let sampler_info = match &image.sampler {
+                ImageSampler::Default => SamplerInfo::default(),
+                ImageSampler::Descriptor(descriptor) => {
+                    SamplerInfo::new_image_sampler_descriptor(descriptor)
+                }
+            };
+
             let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
@@ -117,6 +125,7 @@ impl FromWorld for SpritePipeline {
                 sampler,
                 size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
+                sampler_info
             }
         };
 
@@ -965,7 +974,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
         pass.set_index_buffer(
             &sprite_meta.sprite_index_buffer.buffer().unwrap(),
             ..,
-            0, 
+            0,
             IndexFormat::Uint32,
         );
         pass.set_vertex_buffer(0, sprite_meta.sprite_instance_buffer.buffer().unwrap(), ..);

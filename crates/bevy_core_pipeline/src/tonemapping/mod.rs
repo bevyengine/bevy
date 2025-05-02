@@ -8,6 +8,7 @@ use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
+    frame_graph::SamplerInfo,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
@@ -133,7 +134,7 @@ impl Plugin for TonemappingPlugin {
 #[derive(Resource)]
 pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
-    sampler: Sampler,
+    sampler_info: SamplerInfo,
 }
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
@@ -335,11 +336,9 @@ impl FromWorld for TonemappingPipeline {
         let tonemap_texture_bind_group = render_device
             .create_bind_group_layout("tonemapping_hdr_texture_bind_group_layout", &entries);
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
-
         TonemappingPipeline {
             texture_bind_group: tonemap_texture_bind_group,
-            sampler,
+            sampler_info: SamplerInfo::default(),
         }
     }
 }
@@ -423,6 +422,27 @@ pub fn get_lut_bindings<'a>(
     };
     let lut_image = images.get(image).unwrap_or(&fallback_image.d3);
     (&lut_image.texture_view, &lut_image.sampler)
+}
+
+pub fn get_lut_bindings_temp<'a>(
+    images: &'a RenderAssets<GpuImage>,
+    tonemapping_luts: &'a TonemappingLuts,
+    tonemapping: &Tonemapping,
+    fallback_image: &'a FallbackImage,
+) -> (&'a Texture, &'a SamplerInfo) {
+    let image = match tonemapping {
+        // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
+        Tonemapping::None
+        | Tonemapping::Reinhard
+        | Tonemapping::ReinhardLuminance
+        | Tonemapping::AcesFitted
+        | Tonemapping::AgX
+        | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
+        Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
+        Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
+    };
+    let lut_image = images.get(image).unwrap_or(&fallback_image.d3);
+    (&lut_image.texture, &lut_image.sampler_info)
 }
 
 pub fn get_lut_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 2] {

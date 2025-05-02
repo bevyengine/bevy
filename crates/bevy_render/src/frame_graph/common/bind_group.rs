@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use bevy_image::ImageSamplerDescriptor;
+
 use crate::{
     frame_graph::{
         BluePrint, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, RenderContext,
@@ -43,8 +45,8 @@ impl<'a> BindingResource<'a> {
     }
 }
 
-#[derive(Clone)]
-pub struct SampleInfo {
+#[derive(Debug, Clone)]
+pub struct SamplerInfo {
     pub label: Option<Cow<'static, str>>,
     pub address_mode_u: wgpu::AddressMode,
     pub address_mode_v: wgpu::AddressMode,
@@ -59,7 +61,7 @@ pub struct SampleInfo {
     pub border_color: Option<wgpu::SamplerBorderColor>,
 }
 
-impl Default for SampleInfo {
+impl Default for SamplerInfo {
     fn default() -> Self {
         Self {
             label: Default::default(),
@@ -78,7 +80,24 @@ impl Default for SampleInfo {
     }
 }
 
-impl SampleInfo {
+impl SamplerInfo {
+    pub fn new_image_sampler_descriptor(desc: &ImageSamplerDescriptor) -> Self {
+        SamplerInfo {
+            label: desc.label.as_ref().map(|label| label.clone().into()),
+            address_mode_u: desc.address_mode_u.into(),
+            address_mode_v: desc.address_mode_v.into(),
+            address_mode_w: desc.address_mode_w.into(),
+            mag_filter: desc.mag_filter.into(),
+            min_filter: desc.min_filter.into(),
+            mipmap_filter: desc.mipmap_filter.into(),
+            lod_min_clamp: desc.lod_min_clamp,
+            lod_max_clamp: desc.lod_max_clamp,
+            compare: desc.compare.map(Into::into),
+            anisotropy_clamp: desc.anisotropy_clamp,
+            border_color: desc.border_color.map(Into::into),
+        }
+    }
+
     pub fn get_sample_desc(&self) -> wgpu::SamplerDescriptor {
         wgpu::SamplerDescriptor {
             label: self.label.as_deref(),
@@ -100,7 +119,7 @@ impl SampleInfo {
 #[derive(Clone)]
 pub enum BindingResourceRef {
     Buffer(ResourceRef<FrameGraphBuffer, ResourceRead>),
-    Sampler(SampleInfo),
+    Sampler(SamplerInfo),
     TextureView {
         texture_ref: ResourceRef<FrameGraphTexture, ResourceRead>,
         texture_view_info: TextureViewInfo,
