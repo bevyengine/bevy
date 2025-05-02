@@ -1,7 +1,7 @@
 use core::ops::DerefMut;
 
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
+    entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
@@ -91,9 +91,20 @@ pub mod light_consts {
     }
 }
 
+/// Controls the resolution of [`PointLight`] shadow maps.
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::PointLightShadowMap;
+/// App::new()
+///     .insert_resource(PointLightShadowMap { size: 2048 });
+/// ```
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct PointLightShadowMap {
+    /// The width and height of each of the 6 faces of the cubemap.
+    ///
+    /// Defaults to `1024`.
     pub size: usize,
 }
 
@@ -108,9 +119,19 @@ impl Default for PointLightShadowMap {
 pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::DirectionalLightShadowMap;
+/// App::new()
+///     .insert_resource(DirectionalLightShadowMap { size: 4096 });
+/// ```
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct DirectionalLightShadowMap {
+    // The width and height of each cascade.
+    ///
+    /// Defaults to `2048`.
     pub size: usize,
 }
 
@@ -563,9 +584,13 @@ pub fn update_directional_light_frusta(
 // NOTE: Run this after assign_lights_to_clusters!
 pub fn update_point_light_frusta(
     global_lights: Res<GlobalVisibleClusterableObjects>,
-    mut views: Query<
-        (Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta),
-        Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
+    mut views: Query<(Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta)>,
+    changed_lights: Query<
+        Entity,
+        (
+            With<PointLight>,
+            Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
+        ),
     >,
 ) {
     let view_rotations = CUBE_MAP_FACES
@@ -574,6 +599,12 @@ pub fn update_point_light_frusta(
         .collect::<Vec<_>>();
 
     for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
+        // If this light hasn't changed, and neither has the set of global_lights,
+        // then we can skip this calculation.
+        if !global_lights.is_changed() && !changed_lights.contains(entity) {
+            continue;
+        }
+
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.

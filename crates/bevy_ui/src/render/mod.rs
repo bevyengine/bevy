@@ -50,7 +50,7 @@ use bevy_sprite::{BorderRect, SpriteAssetEvents};
 pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -946,26 +946,34 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
+    render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
+    let mut current_camera_entity = Entity::PLACEHOLDER;
+    let mut current_phase = None;
+
     for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
-        let entity = extracted_uinode.render_entity;
-        let Ok((default_camera_view, ui_anti_alias)) =
-            render_views.get_mut(extracted_uinode.extracted_camera_entity)
-        else {
-            continue;
-        };
+        if current_camera_entity != extracted_uinode.extracted_camera_entity {
+            current_phase = render_views
+                .get(extracted_uinode.extracted_camera_entity)
+                .ok()
+                .and_then(|(default_camera_view, ui_anti_alias)| {
+                    camera_views
+                        .get(default_camera_view.0)
+                        .ok()
+                        .and_then(|view| {
+                            transparent_render_phases
+                                .get_mut(&view.retained_view_entity)
+                                .map(|transparent_phase| (view, ui_anti_alias, transparent_phase))
+                        })
+                });
+            current_camera_entity = extracted_uinode.extracted_camera_entity;
+        }
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
-            continue;
-        };
-
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
+        let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
             continue;
         };
 
@@ -977,10 +985,11 @@ pub fn queue_uinodes(
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },
         );
+
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: (entity, extracted_uinode.main_entity),
+            entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
             sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::NODE),
             index,
             // batch_range will be calculated in prepare_uinodes

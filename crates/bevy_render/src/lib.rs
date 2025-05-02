@@ -190,7 +190,7 @@ pub enum RenderSet {
 }
 
 /// The main render schedule.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
 
 impl Render {
@@ -246,7 +246,7 @@ impl Render {
 ///
 /// This schedule is run on the main world, but its buffers are not applied
 /// until it is returned to the render world.
-#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
+#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
 
 /// The simulation [`World`] of the application, stored as a resource.
@@ -285,8 +285,6 @@ struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
-pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("475c76aa-4afd-4a6b-9878-1fc1e2f41216");
 pub const MATHS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("d94d70d4-746d-49c4-bfc3-27d63f2acda0");
 pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
@@ -408,6 +406,8 @@ impl Plugin for RenderPlugin {
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
+            #[cfg(feature = "tracing-tracy")]
+            diagnostic::RenderDiagnosticsPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>();
@@ -583,4 +583,27 @@ pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
             .map_while(|c| c.to_digit(10))
             .fold(0, |acc, digit| acc * 10 + digit),
     )
+}
+
+/// Get the Mali driver version if the adapter is a Mali GPU.
+pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
+    if !cfg!(target_os = "android") {
+        return None;
+    }
+
+    let driver_name = adapter.get_info().name;
+    if !driver_name.contains("Mali") {
+        return None;
+    }
+    let driver_info = adapter.get_info().driver_info;
+    if let Some(start_pos) = driver_info.find("v1.r") {
+        if let Some(end_pos) = driver_info[start_pos..].find('p') {
+            let start_idx = start_pos + 4; // Skip "v1.r"
+            let end_idx = start_pos + end_pos;
+
+            return driver_info[start_idx..end_idx].parse::<u32>().ok();
+        }
+    }
+
+    None
 }

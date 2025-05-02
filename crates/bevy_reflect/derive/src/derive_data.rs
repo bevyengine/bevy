@@ -1100,7 +1100,7 @@ pub(crate) enum ReflectTypePath<'a> {
         reason = "Not currently used but may be useful in the future due to its generality."
     )]
     Anonymous {
-        qualified_type: Type,
+        qualified_type: Box<Type>,
         long_type_path: StringExpr,
         short_type_path: StringExpr,
     },

@@ -1,7 +1,9 @@
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
 use bevy_math::{Rect, URect, UVec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
+#[cfg(not(feature = "bevy_reflect"))]
+use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
@@ -97,6 +99,7 @@ impl TextureAtlasSources {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub struct TextureAtlasLayout {
     /// Total size of texture atlas.
     pub size: UVec2,

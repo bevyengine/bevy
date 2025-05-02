@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::{ComponentId, Tick},
-    entity::{unique_array::UniqueEntityArray, Entity, EntityBorrow, EntitySet},
+    entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::entity::{unique_slice::UniqueEntitySlice, TrustedEntityBorrow};
+use crate::entity::UniqueEntityEquivalentSlice;
 
 use alloc::vec::Vec;
 use core::{fmt, ptr};
@@ -1005,7 +1005,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -1100,7 +1100,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// returned instead.
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -1273,7 +1273,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s mut self,
         world: &'w World,
         entities: EntityList,
@@ -1296,7 +1296,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - [`iter_many`](Self::iter_many) to update archetypes.
     /// - [`iter_manual`](Self::iter_manual) to iterate over all query items.
     #[inline]
-    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s self,
         world: &'w World,
         entities: EntityList,
@@ -1309,7 +1309,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
     #[inline]
-    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s mut self,
         world: &'w mut World,
         entities: EntityList,
@@ -1606,7 +1606,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
-        entity_list: &UniqueEntitySlice<E>,
+        entity_list: &UniqueEntityEquivalentSlice<E>,
         batch_size: usize,
         mut func: FN,
         last_run: Tick,
@@ -1614,7 +1614,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) where
         FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
-        E: TrustedEntityBorrow + Sync,
+        E: EntityEquivalent + Sync,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
@@ -1677,7 +1677,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
     ) where
         FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
-        E: EntityBorrow + Sync,
+        E: EntityEquivalent + Sync,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual

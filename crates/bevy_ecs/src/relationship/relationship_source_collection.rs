@@ -74,6 +74,58 @@ pub trait RelationshipSourceCollection {
     }
 }
 
+/// This trait signals that a [`RelationshipSourceCollection`] is ordered.
+pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
+    /// Inserts the entity at a specific index.
+    /// If the index is too large, the entity will be added to the end of the collection.
+    fn insert(&mut self, index: usize, entity: Entity);
+    /// Removes the entity at the specified idnex if it exists.
+    fn remove_at(&mut self, index: usize) -> Option<Entity>;
+    /// Inserts the entity at a specific index.
+    /// This will never reorder other entities.
+    /// If the index is too large, the entity will be added to the end of the collection.
+    fn insert_stable(&mut self, index: usize, entity: Entity);
+    /// Removes the entity at the specified idnex if it exists.
+    /// This will never reorder other entities.
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity>;
+    /// Sorts the source collection.
+    fn sort(&mut self);
+    /// Inserts the entity at the proper place to maintain sorting.
+    fn insert_sorted(&mut self, entity: Entity);
+
+    /// This places the most recently added entity at the particular index.
+    fn place_most_recent(&mut self, index: usize);
+
+    /// This places the given entity at the particular index.
+    /// This will do nothing if the entity is not in the collection.
+    /// If the index is out of bounds, this will put the entity at the end.
+    fn place(&mut self, entity: Entity, index: usize);
+
+    /// Adds the entity at index 0.
+    fn push_front(&mut self, entity: Entity) {
+        self.insert(0, entity);
+    }
+
+    /// Adds the entity to the back of the collection.
+    fn push_back(&mut self, entity: Entity) {
+        self.insert(usize::MAX, entity);
+    }
+
+    /// Removes the first entity.
+    fn pop_front(&mut self) -> Option<Entity> {
+        self.remove_at(0)
+    }
+
+    /// Removes the last entity.
+    fn pop_back(&mut self) -> Option<Entity> {
+        if self.is_empty() {
+            None
+        } else {
+            self.remove_at(self.len() - 1)
+        }
+    }
+}
+
 impl RelationshipSourceCollection for Vec<Entity> {
     type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
@@ -98,7 +150,6 @@ impl RelationshipSourceCollection for Vec<Entity> {
     fn remove(&mut self, entity: Entity) -> bool {
         if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
             Vec::remove(self, index);
-
             return true;
         }
 
@@ -123,6 +174,57 @@ impl RelationshipSourceCollection for Vec<Entity> {
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         self.extend(entities);
+    }
+}
+
+impl OrderedRelationshipSourceCollection for Vec<Entity> {
+    fn insert(&mut self, index: usize, entity: Entity) {
+        self.push(entity);
+        let len = self.len();
+        if index < len {
+            self.swap(index, len - 1);
+        }
+    }
+
+    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.swap_remove(index))
+    }
+
+    fn insert_stable(&mut self, index: usize, entity: Entity) {
+        if index < self.len() {
+            Vec::insert(self, index, entity);
+        } else {
+            self.push(entity);
+        }
+    }
+
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.remove(index))
+    }
+
+    fn sort(&mut self) {
+        self.sort_unstable();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self.partition_point(|e| e <= &entity);
+        self.insert_stable(index, entity);
+    }
+
+    fn place_most_recent(&mut self, index: usize) {
+        if let Some(entity) = self.pop() {
+            let index = index.min(self.len().saturating_sub(1));
+            self.insert(index, entity);
+        }
+    }
+
+    fn place(&mut self, entity: Entity, index: usize) {
+        if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
+            // The len is at least 1, so the subtraction is safe.
+            let index = index.min(self.len().saturating_sub(1));
+            Vec::remove(self, current);
+            self.insert(index, entity);
+        };
     }
 }
 
@@ -196,7 +298,6 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     fn remove(&mut self, entity: Entity) -> bool {
         if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
             SmallVec::remove(self, index);
-
             return true;
         }
 
@@ -225,7 +326,7 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
 }
 
 impl RelationshipSourceCollection for Entity {
-    type SourceIter<'a> = core::iter::Once<Entity>;
+    type SourceIter<'a> = core::option::IntoIter<Entity>;
 
     fn new() -> Self {
         Entity::PLACEHOLDER
@@ -238,6 +339,12 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
+        assert_eq!(
+            *self,
+            Entity::PLACEHOLDER,
+            "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
+            *self
+        );
         *self = entity;
 
         true
@@ -254,7 +361,11 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
-        core::iter::once(*self)
+        if *self == Entity::PLACEHOLDER {
+            None.into_iter()
+        } else {
+            Some(*self).into_iter()
+        }
     }
 
     fn len(&self) -> usize {
@@ -271,9 +382,66 @@ impl RelationshipSourceCollection for Entity {
     fn shrink_to_fit(&mut self) {}
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        if let Some(entity) = entities.into_iter().last() {
+        for entity in entities {
+            assert_eq!(
+                *self,
+                Entity::PLACEHOLDER,
+                "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
+                *self
+            );
             *self = entity;
         }
+    }
+}
+
+impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N]> {
+    fn insert(&mut self, index: usize, entity: Entity) {
+        self.push(entity);
+        let len = self.len();
+        if index < len {
+            self.swap(index, len - 1);
+        }
+    }
+
+    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.swap_remove(index))
+    }
+
+    fn insert_stable(&mut self, index: usize, entity: Entity) {
+        if index < self.len() {
+            SmallVec::<[Entity; N]>::insert(self, index, entity);
+        } else {
+            self.push(entity);
+        }
+    }
+
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+        (index < self.len()).then(|| self.remove(index))
+    }
+
+    fn sort(&mut self) {
+        self.sort_unstable();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self.partition_point(|e| e <= &entity);
+        self.insert_stable(index, entity);
+    }
+
+    fn place_most_recent(&mut self, index: usize) {
+        if let Some(entity) = self.pop() {
+            let index = index.min(self.len() - 1);
+            self.insert(index, entity);
+        }
+    }
+
+    fn place(&mut self, entity: Entity, index: usize) {
+        if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
+            // The len is at least 1, so the subtraction is safe.
+            let index = index.min(self.len() - 1);
+            SmallVec::<[Entity; N]>::remove(self, current);
+            self.insert(index, entity);
+        };
     }
 }
 
@@ -377,5 +545,43 @@ mod tests {
         world.entity_mut(a).insert(Above(c));
         assert!(world.get::<Below>(b).is_none());
         assert_eq!(a, world.get::<Below>(c).unwrap().0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn one_to_one_relationship_shared_target() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Below)]
+        struct Above(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Above)]
+        struct Below(Entity);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Above(c));
+        world.entity_mut(b).insert(Above(c));
+    }
+
+    #[test]
+    fn one_to_one_relationship_reinsert() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Below)]
+        struct Above(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Above)]
+        struct Below(Entity);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Above(b));
+        world.entity_mut(a).insert(Above(b));
     }
 }

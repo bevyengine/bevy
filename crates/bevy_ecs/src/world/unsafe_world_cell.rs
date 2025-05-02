@@ -6,7 +6,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{Entities, Entity, EntityBorrow, EntityDoesNotExistError, EntityLocation},
+    entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -15,7 +15,7 @@ use crate::{
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
 use thiserror::Error;
@@ -1081,6 +1081,54 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    /// This method assumes the [`Component`] is mutable, skipping that check.
+    ///
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_mut_assume_mutable`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
+    /// - the component `T` is mutable
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable_by_id(
+        self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'w>, GetEntityMutByIdError> {
+        self.world.assert_allows_mutable_access();
+
+        let info = self
+            .world
+            .components()
+            .get_info(component_id)
+            .ok_or(GetEntityMutByIdError::InfoNotFound)?;
+
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        unsafe {
+            get_component_and_ticks(
+                self.world,
+                component_id,
+                info.storage_type(),
+                self.entity,
+                self.location,
+            )
+            .map(|(value, cells, caller)| MutUntyped {
+                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                value: value.assert_unique(),
+                ticks: TicksMut::from_tick_cells(
+                    cells,
+                    self.world.last_change_tick(),
+                    self.world.change_tick(),
+                ),
+                changed_by: caller.map(|caller| caller.deref_mut()),
+            })
+            .ok_or(GetEntityMutByIdError::ComponentNotFound)
+        }
+    }
+
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(self) -> MaybeLocation {
         self.world()
@@ -1225,7 +1273,7 @@ unsafe fn get_ticks(
     }
 }
 
-impl EntityBorrow for UnsafeEntityCell<'_> {
+impl ContainsEntity for UnsafeEntityCell<'_> {
     fn entity(&self) -> Entity {
         self.id()
     }

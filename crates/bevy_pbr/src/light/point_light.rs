@@ -19,6 +19,12 @@ use super::*;
 /// | 4000 | 300 |    | 75-100 | 40.5  |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
+///
+/// ## Shadows
+///
+/// To enable shadows, set the `shadows_enabled` property to `true`.
+///
+/// To control the resolution of the shadow maps, use the [`PointLightShadowMap`] resource.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
