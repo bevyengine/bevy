@@ -27,7 +27,10 @@ use crate::{
     ViewShadowBindings,
 };
 
-use super::{shaders, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings};
+use super::{
+    shaders, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereGlobalTransform,
+    AtmosphereSettings,
+};
 
 #[derive(Resource)]
 pub(crate) struct AtmosphereBindGroupLayouts {
@@ -175,6 +178,14 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ),
+                    (14, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
+                    (15, sampler(SamplerBindingType::Comparison)),
+                    (
+                        16,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ), // blue noise texture and sampler
+                    (17, sampler(SamplerBindingType::Filtering)),
+                    (18, uniform_buffer::<Mat4>(false)),
                 ),
             ),
         );
@@ -246,20 +257,14 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         texture_3d(TextureSampleType::Float { filterable: true }),
                     ), // aerial view lut and sampler
                     (12, sampler(SamplerBindingType::Filtering)),
+                    (13, texture_2d(TextureSampleType::Depth)), //view depth texture
+                    (14, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
+                    (15, sampler(SamplerBindingType::Comparison)),
                     (
-                        // sky view lut array for cubemap faces
-                        13,
-                        texture_2d_array(TextureSampleType::Float { filterable: true }),
-                    ),
-                    (14, sampler(SamplerBindingType::Filtering)),
-                    (15, texture_2d_multisampled(TextureSampleType::Depth)), //view depth texture
-                    (16, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
-                    (17, sampler(SamplerBindingType::Comparison)),
-                    (
-                        18,
+                        16,
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ), // blue noise texture and sampler
-                    (19, sampler(SamplerBindingType::Filtering)),
+                    (17, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
         );
@@ -756,8 +761,12 @@ pub(super) fn prepare_atmosphere_bind_groups(
         ),
         (With<Camera3d>, With<Atmosphere>),
     >,
-    probes: Query<(Entity, &AtmosphereProbeTextures), With<AtmosphereEnvironmentMapLight>>,
+    probes: Query<
+        (Entity, &AtmosphereProbeTextures, &AtmosphereGlobalTransform),
+        With<AtmosphereEnvironmentMapLight>,
+    >,
     render_device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
     layouts: Res<AtmosphereBindGroupLayouts>,
     render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
     samplers: Res<AtmosphereSamplers>,
@@ -800,6 +809,9 @@ pub(super) fn prepare_atmosphere_bind_groups(
     let blue_noise_texture = images
         .get(&shaders::BLUENOISE_TEXTURE)
         .expect("Blue noise texture not loaded");
+
+    // Get shadow bindings from first view
+    let shadow_bindings = views.iter().next().map(|(_, _, _, bindings, _)| bindings);
 
     for (entity, textures, view_depth_texture, shadow_bindings, msaa) in &views {
         let transmittance_lut = render_device.create_bind_group(
@@ -904,7 +916,16 @@ pub(super) fn prepare_atmosphere_bind_groups(
         });
     }
 
-    for (entity, textures) in &probes {
+    for (entity, textures, transform) in &probes {
+        // Skip if no shadow bindings are available
+        let Some(shadow_bindings) = shadow_bindings else {
+            continue;
+        };
+
+        let transform_matrix = transform.0.compute_matrix();
+        let mut probe_transform_data = UniformBuffer::from(transform_matrix);
+        probe_transform_data.write_buffer(&render_device, &queue);
+
         let environment = render_device.create_bind_group(
             "environment_bind_group",
             &layouts.environment,
@@ -921,6 +942,11 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (9, &textures.sky_view_lut.default_view),
                 (10, &samplers.sky_view_lut),
                 (13, &textures.environment),
+                (14, &shadow_bindings.directional_light_depth_texture_view),
+                (15, &shadow_samplers.directional_light_comparison_sampler),
+                (16, &blue_noise_texture.texture_view),
+                (17, &samplers.blue_noise),
+                (18, &probe_transform_data),
             )),
         );
 

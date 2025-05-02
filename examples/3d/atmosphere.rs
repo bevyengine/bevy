@@ -93,7 +93,7 @@ fn setup_camera_fog(mut commands: Commands) {
         AtmosphereEnvironmentMapLight::default(),
         // The translation controls where the light probe is placed,
         // and the scale controls the extents of where it will affect objects in the scene.
-        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(100.0)),
+        Transform::from_xyz(0.0, 1.0, 0.0).with_scale(Vec3::splat(1000.0)),
     ));
 
     let sun_transform = Transform::from_xyz(1.0, 1.0, -0.3).looking_at(Vec3::ZERO, Vec3::Y);

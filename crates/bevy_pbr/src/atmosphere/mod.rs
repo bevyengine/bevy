@@ -63,6 +63,7 @@ use bevy_render::{
 };
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
+use bevy_transform::components::Transform;
 use resources::{
     prepare_atmosphere_buffer, prepare_atmosphere_transforms, queue_render_sky_pipelines,
     AtmosphereBuffer, AtmosphereEnvironmentMap, AtmosphereTransforms, RenderSkyBindGroupLayouts,
@@ -190,6 +191,7 @@ impl Plugin for AtmospherePlugin {
                 ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
                 UniformComponentPlugin::<Atmosphere>::default(),
                 UniformComponentPlugin::<AtmosphereSettings>::default(),
+                ExtractComponentPlugin::<AtmosphereGlobalTransform>::default(),
             ))
             .add_systems(Update, prepare_atmosphere_probe_components);
     }
@@ -605,5 +607,19 @@ impl SunLight {
 impl Default for SunLight {
     fn default() -> Self {
         Self::SUN
+    }
+}
+
+// Define a custom extraction component
+#[derive(Component, Clone)]
+struct AtmosphereGlobalTransform(Transform);
+
+impl ExtractComponent for AtmosphereGlobalTransform {
+    type QueryData = &'static Transform;
+    type QueryFilter = With<AtmosphereEnvironmentMapLight>;
+    type Out = AtmosphereGlobalTransform;
+
+    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        Some(AtmosphereGlobalTransform(*item))
     }
 }

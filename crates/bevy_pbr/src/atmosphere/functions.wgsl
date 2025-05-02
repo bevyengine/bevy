@@ -486,7 +486,8 @@ fn raymarch_atmosphere(
     sample_count: f32,
     uv: vec2<f32>,
     jitter: bool,
-    ground: bool
+    ground: bool,
+    shadow: bool
 ) -> RaymarchResult {
     let r = length(pos);
     let up = normalize(pos);
@@ -534,7 +535,7 @@ fn raymarch_atmosphere(
             local_atmosphere,
             ray_dir,
             sample_pos,
-            true
+            shadow
         );
 
         let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
