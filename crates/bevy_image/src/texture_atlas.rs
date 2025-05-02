@@ -228,6 +228,12 @@ impl TextureAtlas {
         self.index = index;
         self
     }
+
+    /// Returns this [`TextureAtlas`] with the specified [`TextureAtlasLayout`] handle.
+    pub fn with_layout(mut self, layout: Handle<TextureAtlasLayout>) -> Self {
+        self.layout = layout;
+        self
+    }
 }
 
 impl From<Handle<TextureAtlasLayout>> for TextureAtlas {
