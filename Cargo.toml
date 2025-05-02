@@ -138,6 +138,7 @@ default = [
   "bevy_gizmos",
   "bevy_gltf",
   "bevy_input_focus",
+  "bevy_log",
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
@@ -159,7 +160,6 @@ default = [
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
-  "tracing",
   "vorbis",
   "webgl2",
   "x11",
@@ -285,6 +285,9 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
+# Enable integration with `tracing` and `log`
+bevy_log = ["bevy_internal/bevy_log"]
+
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
@@ -311,10 +314,7 @@ trace_tracy_memory = [
 ]
 
 # Tracing support
-tracing = ["bevy_internal/tracing", "dep:tracing"]
-
-# Enables traces within Bevy using tracing
-trace = ["bevy_internal/trace", "tracing"]
+trace = ["bevy_internal/trace", "dep:tracing"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
@@ -1592,7 +1592,7 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
-required-features = []
+required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"

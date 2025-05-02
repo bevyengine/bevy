@@ -19,7 +19,7 @@ use bevy_ecs::{
     query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
-use bevy_platform_support::{
+use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
@@ -771,6 +771,9 @@ pub fn specialize_wireframes(
             if !render_wireframe_instances.contains_key(visible_entity) {
                 continue;
             };
+            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -782,9 +785,6 @@ pub fn specialize_wireframes(
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
-                continue;
-            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };

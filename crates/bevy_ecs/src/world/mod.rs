@@ -67,7 +67,7 @@ use crate::{
     },
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform_support::sync::atomic::{AtomicU32, Ordering};
+use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use core::{any::TypeId, fmt};
 use log::warn;
@@ -3781,7 +3781,7 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::Component;
-    use bevy_platform_support::collections::{HashMap, HashSet};
+    use bevy_platform::collections::{HashMap, HashSet};
     use core::{
         any::TypeId,
         panic,

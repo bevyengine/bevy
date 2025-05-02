@@ -19,7 +19,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use bevy_platform_support::sync::Mutex;
+use bevy_platform::sync::Mutex;
 
 mod event;
 mod monitor;
