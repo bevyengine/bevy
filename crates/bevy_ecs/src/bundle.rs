@@ -1377,8 +1377,11 @@ impl<'w> BundleRemover<'w> {
     /// Creates a new [`BundleRemover`], if such a remover would do anything.
     ///
     /// If `require_all` is true, the [`BundleRemover`] is only created if the entire bundle is present on the archetype.
+    ///
+    /// # Safety
+    /// Caller must ensure that `archetype_id` is valid
     #[inline]
-    pub(crate) fn new<T: Bundle>(
+    pub(crate) unsafe fn new<T: Bundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         require_all: bool,
@@ -1389,7 +1392,7 @@ impl<'w> BundleRemover<'w> {
         let bundle_id = world
             .bundles
             .register_info::<T>(&mut registrator, &mut world.storages);
-        // SAFETY: we initialized this bundle_id in `init_info`
+        // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
     }
 

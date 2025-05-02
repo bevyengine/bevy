@@ -1982,7 +1982,9 @@ impl<'w> EntityWorldMut<'w> {
         let entity = self.entity;
         let location = self.location;
 
-        let mut remover = BundleRemover::new::<T>(self.world, self.location.archetype_id, true)?;
+        let mut remover =
+            // SAFETY: The archetype id must be valid since this entity is in it.
+            unsafe { BundleRemover::new::<T>(self.world, self.location.archetype_id, true) }?;
         // SAFETY: The passed location has the sane archetype as the remover, since they came from the same location.
         let (new_location, result) = unsafe {
             remover.remove(
@@ -2041,7 +2043,8 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
 
         let Some(mut remover) =
-            BundleRemover::new::<T>(self.world, self.location.archetype_id, false)
+            // SAFETY: The archetype id must be valid since this entity is in it.
+            (unsafe { BundleRemover::new::<T>(self.world, self.location.archetype_id, false) })
         else {
             return self;
         };
