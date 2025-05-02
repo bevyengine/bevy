@@ -190,6 +190,7 @@ impl<'a> TrackedRenderPass<'a> {
             return;
         }
 
+        self.state.set_bind_group(index, bind_group.id(), dynamic_uniform_indices);
         self.pass
             .set_raw_bind_group(index as u32, Some(bind_group), dynamic_uniform_indices);
     }
@@ -218,6 +219,7 @@ impl<'a> TrackedRenderPass<'a> {
             return;
         }
 
+        self.state.set_vertex_buffer(slot_index, buffer_slice);
         self.pass.set_vertex_buffer(slot_index as u32, &vertex_read);
     }
 
@@ -250,6 +252,7 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
 
+        self.state.set_index_buffer(buffer.id(), offset, index_format);
         self.pass.set_index_buffer(&index_read, index_format);
     }
 
