@@ -136,6 +136,34 @@ impl TableRow {
     }
 }
 
+/// An opaque for components in [`Table`]s. Specifies a single column in a specific table.
+/// Think of this as a more localized [`ComponentId`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TableColumn(u32);
+
+impl TableColumn {
+    pub(crate) const INVALID: TableColumn = TableColumn(u32::MAX);
+
+    /// Creates a `TableRow`.
+    #[inline]
+    pub(crate) const fn from_u32(index: u32) -> Self {
+        Self(index)
+    }
+
+    /// Gets the index of the row as a [`usize`].
+    #[inline]
+    pub const fn as_usize(self) -> usize {
+        // usize is at least u32 in Bevy
+        self.0 as usize
+    }
+
+    /// Gets the index of the row as a [`usize`].
+    #[inline]
+    pub const fn as_u32(self) -> u32 {
+        self.0
+    }
+}
+
 /// A builder type for constructing [`Table`]s.
 ///
 ///  - Use [`with_capacity`] to initialize the builder.
@@ -146,7 +174,8 @@ impl TableRow {
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, ThinColumn>,
+    data: Vec<ThinColumn>,
+    columns: SparseSet<ComponentId, TableColumn>,
     capacity: usize,
 }
 
@@ -156,16 +185,17 @@ impl TableBuilder {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
             capacity,
+            data: Vec::with_capacity(column_capacity),
         }
     }
 
     /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        self.columns.insert(
-            component_info.id(),
-            ThinColumn::with_capacity(component_info, self.capacity),
-        );
+        let column_id = TableColumn(self.data.len() as u32);
+        self.data
+            .push(ThinColumn::with_capacity(component_info, self.capacity));
+        self.columns.insert(component_info.id(), column_id);
         self
     }
 
@@ -175,6 +205,7 @@ impl TableBuilder {
         Table {
             columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
+            data: self.data.into_boxed_slice(),
         }
     }
 }
@@ -192,7 +223,8 @@ impl TableBuilder {
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, ThinColumn>,
+    data: Box<[ThinColumn]>,
+    columns: ImmutableSparseSet<ComponentId, TableColumn>,
     entities: Vec<Entity>,
 }
 
