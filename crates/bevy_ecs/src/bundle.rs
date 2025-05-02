@@ -1410,7 +1410,7 @@ impl<'w> BundleRemover<'w> {
         require_all: bool,
     ) -> Option<Self> {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
-        // SAFETY: Ensured by caller and that intersections are never `None`.
+        // SAFETY: Caller ensures archetype and bundle ids are correct.
         let new_archetype_id = unsafe {
             bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
