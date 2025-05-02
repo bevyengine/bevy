@@ -1457,9 +1457,6 @@ impl<'w> BundleRemover<'w> {
     ///
     /// `pre_remove` should return a bool for if the components still need to be dropped.
     ///
-    /// If `intersection` is true, the removal will go through with all overlapping components.
-    /// Otherwise, returns `None` if not all components are available for removal.
-    ///
     /// # Safety
     /// The `location` must have the same archetype as the remover.
     #[inline]
@@ -1474,7 +1471,7 @@ impl<'w> BundleRemover<'w> {
             &Components,
             &[ComponentId],
         ) -> (bool, T),
-    ) -> Option<(EntityLocation, T)> {
+    ) -> (EntityLocation, T) {
         // Hooks
         // SAFETY: all bundle components exist in World
         unsafe {
@@ -1530,7 +1527,7 @@ impl<'w> BundleRemover<'w> {
             self.bundle_info.as_ref().explicit_components(),
         );
 
-        // Handle basic removes
+        // Handle sparse set removes
         for component_id in self.bundle_info.as_ref().iter_explicit_components() {
             if self.old_archetype.as_ref().contains(component_id) {
                 world.removed_components.send(component_id, entity);
@@ -1628,7 +1625,7 @@ impl<'w> BundleRemover<'w> {
             world.entities.set(entity.index(), new_location);
         }
 
-        Some((new_location, pre_remove_result))
+        (new_location, pre_remove_result)
     }
 }
 

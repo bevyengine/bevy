@@ -2015,7 +2015,7 @@ impl<'w> EntityWorldMut<'w> {
                         }),
                     )
                 },
-            )?
+            )
         };
         self.location = new_location;
 
@@ -2047,14 +2047,12 @@ impl<'w> EntityWorldMut<'w> {
         };
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
-            remover
-                .remove(
-                    self.entity,
-                    self.location,
-                    caller,
-                    BundleRemover::empty_pre_remove,
-                )
-                .debug_checked_unwrap()
+            remover.remove(
+                self.entity,
+                self.location,
+                caller,
+                BundleRemover::empty_pre_remove,
+            )
         }
         .0;
 
@@ -2095,14 +2093,12 @@ impl<'w> EntityWorldMut<'w> {
         };
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
-            remover
-                .remove(
-                    self.entity,
-                    self.location,
-                    caller,
-                    BundleRemover::empty_pre_remove,
-                )
-                .debug_checked_unwrap()
+            remover.remove(
+                self.entity,
+                self.location,
+                caller,
+                BundleRemover::empty_pre_remove,
+            )
         }
         .0;
 
@@ -2161,14 +2157,12 @@ impl<'w> EntityWorldMut<'w> {
         };
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
-            remover
-                .remove(
-                    self.entity,
-                    self.location,
-                    caller,
-                    BundleRemover::empty_pre_remove,
-                )
-                .debug_checked_unwrap()
+            remover.remove(
+                self.entity,
+                self.location,
+                caller,
+                BundleRemover::empty_pre_remove,
+            )
         }
         .0;
 
@@ -2214,14 +2208,12 @@ impl<'w> EntityWorldMut<'w> {
         };
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
-            remover
-                .remove(
-                    self.entity,
-                    self.location,
-                    caller,
-                    BundleRemover::empty_pre_remove,
-                )
-                .debug_checked_unwrap()
+            remover.remove(
+                self.entity,
+                self.location,
+                caller,
+                BundleRemover::empty_pre_remove,
+            )
         }
         .0;
 
@@ -2258,14 +2250,12 @@ impl<'w> EntityWorldMut<'w> {
         };
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
-            remover
-                .remove(
-                    self.entity,
-                    self.location,
-                    MaybeLocation::caller(),
-                    BundleRemover::empty_pre_remove,
-                )
-                .debug_checked_unwrap()
+            remover.remove(
+                self.entity,
+                self.location,
+                MaybeLocation::caller(),
+                BundleRemover::empty_pre_remove,
+            )
         }
         .0;
 
@@ -2305,14 +2295,12 @@ impl<'w> EntityWorldMut<'w> {
         };
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
         let new_location = unsafe {
-            remover
-                .remove(
-                    self.entity,
-                    self.location,
-                    caller,
-                    BundleRemover::empty_pre_remove,
-                )
-                .debug_checked_unwrap()
+            remover.remove(
+                self.entity,
+                self.location,
+                caller,
+                BundleRemover::empty_pre_remove,
+            )
         }
         .0;
 
