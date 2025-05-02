@@ -37,6 +37,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
+    frame_graph::{FrameGraph, TextureInfo},
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
@@ -58,12 +59,10 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        BindGroupId, CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages,
+        BindGroupId, CachedRenderPipelineId, Extent3d, TextureDimension, TextureFormat,
+        TextureUsages,
     },
-    renderer::RenderDevice,
     sync_world::MainEntity,
-    texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -453,13 +452,11 @@ pub fn extract_core_2d_camera_phases(
 
 pub fn prepare_core_2d_depth_textures(
     mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa), (With<Camera2d>,)>,
+    mut frame_graph: ResMut<FrameGraph>,
 ) {
-    let mut textures = <HashMap<_, _>>::default();
     for (view, camera, extracted_view, msaa) in &views_2d {
         if !opaque_2d_phases.contains_key(&extracted_view.retained_view_entity)
             || !transparent_2d_phases.contains_key(&extracted_view.retained_view_entity)
@@ -471,33 +468,28 @@ pub fn prepare_core_2d_depth_textures(
             continue;
         };
 
-        let cached_texture = textures
-            .entry(camera.target.clone())
-            .or_insert_with(|| {
-                // The size of the depth texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
+        let key = ViewDepthTexture::get_depth_texture(view);
 
-                let descriptor = TextureDescriptor {
-                    label: Some("view_depth_texture"),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: msaa.samples(),
-                    dimension: TextureDimension::D2,
-                    format: CORE_2D_DEPTH_FORMAT,
-                    usage: TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
-                };
+        let size = Extent3d {
+            depth_or_array_layers: 1,
+            width: physical_target_size.x,
+            height: physical_target_size.y,
+        };
+        let texture_info = TextureInfo {
+            label: Some(key.clone().into()),
+            size,
+            mip_level_count: 1,
+            sample_count: msaa.samples(),
+            dimension: TextureDimension::D2,
+            format: CORE_2D_DEPTH_FORMAT,
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            view_formats: vec![],
+        };
 
-                texture_cache.get(&render_device, descriptor)
-            })
-            .clone();
+        frame_graph.get_or_create(&key, texture_info.clone());
 
         commands
             .entity(view)
-            .insert(ViewDepthTexture::new(cached_texture, Some(0.0)));
+            .insert(ViewDepthTexture::new(texture_info, key.into(), Some(0.0)));
     }
 }

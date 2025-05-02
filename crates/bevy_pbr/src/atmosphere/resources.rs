@@ -603,130 +603,21 @@ pub(super) fn prepare_atmosphere_bind_groups(
         (Entity, &AtmosphereTextures, &ViewDepthTexture, &Msaa),
         (With<Camera3d>, With<Atmosphere>),
     >,
-    render_device: Res<RenderDevice>,
-    layouts: Res<AtmosphereBindGroupLayouts>,
-    render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
-    samplers: Res<AtmosphereSamplers>,
-    view_uniforms: Res<ViewUniforms>,
-    lights_uniforms: Res<LightMeta>,
-    atmosphere_transforms: Res<AtmosphereTransforms>,
-    atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
-    settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
+    _render_device: Res<RenderDevice>,
+    _layouts: Res<AtmosphereBindGroupLayouts>,
+    _render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
+    _samplers: Res<AtmosphereSamplers>,
+    _view_uniforms: Res<ViewUniforms>,
+    _lights_uniforms: Res<LightMeta>,
+    _atmosphere_transforms: Res<AtmosphereTransforms>,
+    _atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
+    _settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
 
-    mut commands: Commands,
+    mut _commands: Commands,
 ) {
     if views.iter().len() == 0 {
         return;
     }
 
-    let atmosphere_binding = atmosphere_uniforms
-        .binding()
-        .expect("Failed to prepare atmosphere bind groups. Atmosphere uniform buffer missing");
-
-    let transforms_binding = atmosphere_transforms
-        .uniforms()
-        .binding()
-        .expect("Failed to prepare atmosphere bind groups. Atmosphere transforms buffer missing");
-
-    let settings_binding = settings_uniforms.binding().expect(
-        "Failed to prepare atmosphere bind groups. AtmosphereSettings uniform buffer missing",
-    );
-
-    let view_binding = view_uniforms
-        .uniforms
-        .binding()
-        .expect("Failed to prepare atmosphere bind groups. View uniform buffer missing");
-
-    let lights_binding = lights_uniforms
-        .view_gpu_lights
-        .binding()
-        .expect("Failed to prepare atmosphere bind groups. Lights uniform buffer missing");
-
-    for (entity, textures, view_depth_texture, msaa) in &views {
-        let transmittance_lut = render_device.create_bind_group(
-            "transmittance_lut_bind_group",
-            &layouts.transmittance_lut,
-            &BindGroupEntries::with_indices((
-                (0, atmosphere_binding.clone()),
-                (1, settings_binding.clone()),
-                (13, &textures.transmittance_lut.default_view),
-            )),
-        );
-
-        let multiscattering_lut = render_device.create_bind_group(
-            "multiscattering_lut_bind_group",
-            &layouts.multiscattering_lut,
-            &BindGroupEntries::with_indices((
-                (0, atmosphere_binding.clone()),
-                (1, settings_binding.clone()),
-                (5, &textures.transmittance_lut.default_view),
-                (6, &samplers.transmittance_lut),
-                (13, &textures.multiscattering_lut.default_view),
-            )),
-        );
-
-        let sky_view_lut = render_device.create_bind_group(
-            "sky_view_lut_bind_group",
-            &layouts.sky_view_lut,
-            &BindGroupEntries::with_indices((
-                (0, atmosphere_binding.clone()),
-                (1, settings_binding.clone()),
-                (2, transforms_binding.clone()),
-                (3, view_binding.clone()),
-                (4, lights_binding.clone()),
-                (5, &textures.transmittance_lut.default_view),
-                (6, &samplers.transmittance_lut),
-                (7, &textures.multiscattering_lut.default_view),
-                (8, &samplers.multiscattering_lut),
-                (13, &textures.sky_view_lut.default_view),
-            )),
-        );
-
-        let aerial_view_lut = render_device.create_bind_group(
-            "sky_view_lut_bind_group",
-            &layouts.aerial_view_lut,
-            &BindGroupEntries::with_indices((
-                (0, atmosphere_binding.clone()),
-                (1, settings_binding.clone()),
-                (3, view_binding.clone()),
-                (4, lights_binding.clone()),
-                (5, &textures.transmittance_lut.default_view),
-                (6, &samplers.transmittance_lut),
-                (7, &textures.multiscattering_lut.default_view),
-                (8, &samplers.multiscattering_lut),
-                (13, &textures.aerial_view_lut.default_view),
-            )),
-        );
-
-        let render_sky = render_device.create_bind_group(
-            "render_sky_bind_group",
-            if *msaa == Msaa::Off {
-                &render_sky_layouts.render_sky
-            } else {
-                &render_sky_layouts.render_sky_msaa
-            },
-            &BindGroupEntries::with_indices((
-                (0, atmosphere_binding.clone()),
-                (1, settings_binding.clone()),
-                (2, transforms_binding.clone()),
-                (3, view_binding.clone()),
-                (4, lights_binding.clone()),
-                (5, &textures.transmittance_lut.default_view),
-                (6, &samplers.transmittance_lut),
-                (9, &textures.sky_view_lut.default_view),
-                (10, &samplers.sky_view_lut),
-                (11, &textures.aerial_view_lut.default_view),
-                (12, &samplers.aerial_view_lut),
-                (13, view_depth_texture.view()),
-            )),
-        );
-
-        commands.entity(entity).insert(AtmosphereBindGroups {
-            transmittance_lut,
-            multiscattering_lut,
-            sky_view_lut,
-            aerial_view_lut,
-            render_sky,
-        });
-    }
+    //todo
 }

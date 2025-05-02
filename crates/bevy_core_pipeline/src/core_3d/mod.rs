@@ -73,6 +73,7 @@ use core::ops::Range;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     experimental::occlusion_culling::OcclusionCulling,
+    frame_graph::TextureInfo,
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
@@ -799,43 +800,35 @@ pub fn prepare_core_3d_depth_textures(
             .or_insert_with(|| usage);
     }
 
-    let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, _, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
+        let key = ViewDepthTexture::get_depth_texture(entity);
+        let size = Extent3d {
+            depth_or_array_layers: 1,
+            width: physical_target_size.x,
+            height: physical_target_size.y,
+        };
 
-        let cached_texture = textures
-            .entry((camera.target.clone(), msaa))
-            .or_insert_with(|| {
-                // The size of the depth texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
+        let usage = *render_target_usage
+            .get(&camera.target.clone())
+            .expect("The depth texture usage should already exist for this target");
 
-                let usage = *render_target_usage
-                    .get(&camera.target.clone())
-                    .expect("The depth texture usage should already exist for this target");
-
-                let descriptor = TextureDescriptor {
-                    label: Some("view_depth_texture"),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: msaa.samples(),
-                    dimension: TextureDimension::D2,
-                    format: CORE_3D_DEPTH_FORMAT,
-                    usage,
-                    view_formats: &[],
-                };
-
-                texture_cache.get(&render_device, descriptor)
-            })
-            .clone();
+        let texture_info = TextureInfo {
+            label: Some(key.clone().into()),
+            size,
+            mip_level_count: 1,
+            sample_count: msaa.samples(),
+            dimension: TextureDimension::D2,
+            format: CORE_3D_DEPTH_FORMAT,
+            usage,
+            view_formats: vec![],
+        };
 
         commands.entity(entity).insert(ViewDepthTexture::new(
-            cached_texture,
+            texture_info,
+            key.into(),
             match camera_3d.depth_load_op {
                 Camera3dDepthLoadOp::Clear(v) => Some(v),
                 Camera3dDepthLoadOp::Load => None,

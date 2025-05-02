@@ -516,7 +516,7 @@ impl<'a> TrackedRenderPass<'a> {
     pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
         #[cfg(feature = "detailed_trace")]
         trace!("set_scissor_rect: {} {} {} {}", x, y, width, height);
-        // self.pass.set_scissor_rect(x, y, width, height);
+        self.pass.set_scissor_rect(x, y, width, height);
     }
 
     /// Set push constant data.

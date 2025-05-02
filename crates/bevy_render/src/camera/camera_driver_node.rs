@@ -99,8 +99,8 @@ impl Node for CameraDriverNode {
             let mut render_pass = RenderPass::default();
 
             render_pass.add_color_attachment(ColorAttachmentBluePrint {
-                view_ref: TextureViewBluePrint {
-                    texture_ref: swap_chain_texture_read,
+                view: TextureViewBluePrint {
+                    texture: swap_chain_texture_read,
                     desc: TextureViewInfo::default(),
                 },
                 resolve_target: None,

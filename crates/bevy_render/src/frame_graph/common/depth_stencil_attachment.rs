@@ -4,7 +4,7 @@ use super::TextureViewBluePrint;
 
 #[derive(Clone)]
 pub struct DepthStencilAttachmentBluePrint {
-    pub view_ref: TextureViewBluePrint,
+    pub view: TextureViewBluePrint,
     pub depth_ops: Option<wgpu::Operations<f32>>,
     pub stencil_ops: Option<wgpu::Operations<u32>>,
 }
@@ -16,7 +16,7 @@ impl BluePrint for DepthStencilAttachmentBluePrint {
         &self,
         render_context: &RenderContext,
     ) -> Result<Self::Product, FrameGraphError> {
-        let view = self.view_ref.make(render_context)?;
+        let view = self.view.make(render_context)?;
 
         Ok(DepthStencilAttachment {
             view,

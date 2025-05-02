@@ -35,7 +35,7 @@ impl TextureViewInfo {
 
 #[derive(Clone)]
 pub struct TextureViewBluePrint {
-    pub texture_ref: ResourceRef<FrameGraphTexture, ResourceRead>,
+    pub texture: ResourceRef<FrameGraphTexture, ResourceRead>,
     pub desc: TextureViewInfo,
 }
 
@@ -44,7 +44,7 @@ impl BluePrint for TextureViewBluePrint {
     fn make(&self, render_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
         render_context
             .resource_table
-            .get_resource::<FrameGraphTexture>(&self.texture_ref)
+            .get_resource::<FrameGraphTexture>(&self.texture)
             .map(|texture| {
                 texture
                     .resource

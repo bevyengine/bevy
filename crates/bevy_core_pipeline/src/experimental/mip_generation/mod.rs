@@ -598,10 +598,10 @@ pub struct ViewDownsampleDepthBindGroup(BindGroup);
 /// Creates the [`ViewDownsampleDepthBindGroup`]s for all views with occlusion
 /// culling enabled.
 fn prepare_downsample_depth_view_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    downsample_depth_pipelines: Res<DownsampleDepthPipelines>,
-    view_depth_textures: Query<
+    mut _commands: Commands,
+    _render_device: Res<RenderDevice>,
+    _downsample_depth_pipelines: Res<DownsampleDepthPipelines>,
+    _view_depth_textures: Query<
         (
             Entity,
             &ViewDepthPyramid,
@@ -611,37 +611,4 @@ fn prepare_downsample_depth_view_bind_groups(
         Or<(With<ViewDepthTexture>, With<OcclusionCullingSubview>)>,
     >,
 ) {
-    for (view_entity, view_depth_pyramid, view_depth_texture, shadow_occlusion_culling) in
-        &view_depth_textures
-    {
-        let is_multisampled = view_depth_texture
-            .is_some_and(|view_depth_texture| view_depth_texture.texture.sample_count() > 1);
-        commands
-            .entity(view_entity)
-            .insert(ViewDownsampleDepthBindGroup(
-                view_depth_pyramid.create_bind_group(
-                    &render_device,
-                    if is_multisampled {
-                        "downsample multisample depth bind group"
-                    } else {
-                        "downsample depth bind group"
-                    },
-                    if is_multisampled {
-                        &downsample_depth_pipelines
-                            .first_multisample
-                            .bind_group_layout
-                    } else {
-                        &downsample_depth_pipelines.first.bind_group_layout
-                    },
-                    match (view_depth_texture, shadow_occlusion_culling) {
-                        (Some(view_depth_texture), _) => view_depth_texture.view(),
-                        (None, Some(shadow_occlusion_culling)) => {
-                            &shadow_occlusion_culling.depth_texture_view
-                        }
-                        (None, None) => panic!("Should never happen"),
-                    },
-                    &downsample_depth_pipelines.sampler,
-                ),
-            ));
-    }
 }

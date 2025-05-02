@@ -1,16 +1,19 @@
 use std::{borrow::Cow, mem::take, ops::Range};
 
 use tracing::warn;
+use wgpu::StoreOp;
 
 use crate::{
     camera::Viewport,
     frame_graph::{
-        BindGroupEntryRef, BindGroupBluePrint, BindingResourceRef, BluePrintProvider, ColorAttachment,
-        ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint, FrameGraphBuffer, FrameGraphError,
-        FrameGraphTexture, GraphResourceNodeHandle, PassNodeBuilder, ResourceRead, ResourceRef,
-        SampleInfo, TextureViewInfo,
+        BindGroupBluePrint, BindGroupEntryRef, BindingResourceRef, BluePrintProvider,
+        ColorAttachment, ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint,
+        FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource,
+        GraphResourceNodeHandle, PassNodeBuilder, ResourceBoardKey, ResourceRead, ResourceRef,
+        SampleInfo, TextureViewBluePrint, TextureViewInfo,
     },
     render_resource::{BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, Texture},
+    view::ViewDepthTexture,
 };
 
 use super::RenderPass;
@@ -53,6 +56,27 @@ impl From<GraphResourceNodeHandle<FrameGraphTexture>> for BindingResourceHandle 
             texture_ref: value,
             texture_view_info: TextureViewInfo::default(),
         }
+    }
+}
+
+impl BluePrintProvider for (&ViewDepthTexture, StoreOp) {
+    type BluePrint = DepthStencilAttachmentBluePrint;
+
+    fn make_blue_print(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> Result<Self::BluePrint, FrameGraphError> {
+        let depth_texture_read =
+            pass_node_builder.read_from_board(self.0.get_depth_texture_key())?;
+
+        Ok(DepthStencilAttachmentBluePrint {
+            view: TextureViewBluePrint {
+                texture: depth_texture_read,
+                desc: TextureViewInfo::default(),
+            },
+            depth_ops: self.0.get_depth_ops(StoreOp::Store),
+            stencil_ops: None,
+        })
     }
 }
 
@@ -168,6 +192,13 @@ impl<'a> RenderPassBuilder<'a> {
             .set_raw_bind_group(index, bind_group, offsets);
 
         self
+    }
+
+    pub fn read_from_board<ResourceType: GraphResource, Key: Into<ResourceBoardKey>>(
+        &mut self,
+        key: Key,
+    ) -> Result<ResourceRef<ResourceType, ResourceRead>, FrameGraphError> {
+        self.pass_node_builder.read_from_board(key)
     }
 
     pub fn import_and_read_buffer(

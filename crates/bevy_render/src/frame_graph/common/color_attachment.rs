@@ -3,7 +3,7 @@ use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
 use super::TextureViewBluePrint;
 
 pub struct ColorAttachmentBluePrint {
-    pub view_ref: TextureViewBluePrint,
+    pub view: TextureViewBluePrint,
     pub resolve_target: Option<TextureViewBluePrint>,
     pub ops: wgpu::Operations<wgpu::Color>,
 }
@@ -29,7 +29,7 @@ impl BluePrint for ColorAttachmentBluePrint {
     type Product = ColorAttachment;
 
     fn make(&self, render_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
-        let view = self.view_ref.make(render_context)?;
+        let view = self.view.make(render_context)?;
 
         if let Some(resolve_target) = &self.resolve_target {
             let resolve_target = resolve_target.make(render_context)?;

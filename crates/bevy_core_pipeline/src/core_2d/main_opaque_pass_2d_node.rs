@@ -1,10 +1,7 @@
 use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::{
-        render_pass_builder::RenderPassBuilder, DepthStencilAttachmentBluePrint, FrameGraph,
-        TextureViewInfo, TextureViewBluePrint,
-    },
+    frame_graph::{render_pass_builder::RenderPassBuilder, FrameGraph},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::StoreOp,
@@ -56,18 +53,9 @@ impl ViewNode for MainOpaquePass2dNode {
         let mut builder =
             RenderPassBuilder::new(frame_graph.create_pass_node_bulder("main_opaque_pass_2d"));
 
-        let depth_texture_read = builder.import_and_read_texture(&depth.texture);
-
         builder
             .add_color_attachment(target)?
-            .set_depth_stencil_attachment(&DepthStencilAttachmentBluePrint {
-                view_ref: TextureViewBluePrint {
-                    texture_ref: depth_texture_read,
-                    desc: TextureViewInfo::default(),
-                },
-                depth_ops: depth.get_depth_ops(StoreOp::Store),
-                stencil_ops: None,
-            })?
+            .set_depth_stencil_attachment(&(depth, StoreOp::Store))?
             .set_viewport(camera.viewport.clone());
 
         let mut tracked_render_pass = TrackedRenderPass::new(&render_device, builder);

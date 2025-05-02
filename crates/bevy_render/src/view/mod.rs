@@ -24,9 +24,7 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
-    texture::{
-        CachedTexture, ColorAttachmentProvider, DepthAttachment, GpuImage, OutputColorAttachment,
-    },
+    texture::{ColorAttachmentProvider, GpuImage, OutputColorAttachment},
     Render, RenderApp, RenderSet,
 };
 use alloc::sync::Arc;
@@ -44,9 +42,9 @@ use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use std::sync::atomic::AtomicBool;
 use wgpu::{
-    BufferUsages, Color, Extent3d, Operations, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, StoreOp, TextureDescriptor, TextureDimension, TextureFormat,
+    BufferUsages, Color, Extent3d, LoadOp, Operations, StoreOp, TextureDimension, TextureFormat,
     TextureUsages,
 };
 
@@ -811,28 +809,48 @@ impl ViewTarget {
 
 #[derive(Component)]
 pub struct ViewDepthTexture {
-    pub texture: Texture,
-    attachment: DepthAttachment,
+    texture: ResourceBoardKey,
+    clear_value: Option<f32>,
+    is_first_call: Arc<AtomicBool>,
+    pub texture_info: TextureInfo,
 }
 
 impl ViewDepthTexture {
-    pub fn get_depth_ops(&self, store: StoreOp) -> Option<Operations<f32>> {
-        self.attachment.get_depth_ops(store)
+    pub fn get_depth_texture(entity: Entity) -> String {
+        format!("depth_texture_{}", entity)
     }
 
-    pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
+    pub fn new(
+        texture_info: TextureInfo,
+        texture: ResourceBoardKey,
+        clear_value: Option<f32>,
+    ) -> Self {
         Self {
-            texture: texture.texture,
-            attachment: DepthAttachment::new(texture.default_view, clear_value),
+            texture_info,
+            texture,
+            clear_value,
+            is_first_call: Arc::new(AtomicBool::new(true)),
         }
     }
 
-    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
-        self.attachment.get_attachment(store)
+    pub fn get_depth_ops(&self, store: StoreOp) -> Option<Operations<f32>> {
+        let first_call = self
+            .is_first_call
+            .fetch_and(store != StoreOp::Store, Ordering::SeqCst);
+
+        Some(Operations {
+            load: if first_call {
+                // If first_call is true, then a clear value will always have been provided in the constructor
+                LoadOp::Clear(self.clear_value.unwrap())
+            } else {
+                LoadOp::Load
+            },
+            store,
+        })
     }
 
-    pub fn view(&self) -> &TextureView {
-        &self.attachment.view
+    pub fn get_depth_texture_key(&self) -> &ResourceBoardKey {
+        &self.texture
     }
 }
 

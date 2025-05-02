@@ -25,24 +25,24 @@ impl BluePrintProvider for ColorAttachmentProvider {
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> Result<Self::BluePrint, FrameGraphError> {
-        let view_ref;
+        let view;
 
         let mut resolve_target = None;
 
         if self.resolve_target.is_none() {
-            view_ref = TextureViewBluePrint {
-                texture_ref: pass_node_builder.read_from_board(&self.texture)?,
+            view = TextureViewBluePrint {
+                texture: pass_node_builder.read_from_board(&self.texture)?,
                 desc: TextureViewInfo::default(),
             };
         } else {
-            view_ref = TextureViewBluePrint {
-                texture_ref: pass_node_builder
+            view = TextureViewBluePrint {
+                texture: pass_node_builder
                     .read_from_board(self.resolve_target.as_ref().unwrap())?,
                 desc: TextureViewInfo::default(),
             };
 
             resolve_target = Some(TextureViewBluePrint {
-                texture_ref: pass_node_builder.read_from_board(&self.texture)?,
+                texture: pass_node_builder.read_from_board(&self.texture)?,
                 desc: TextureViewInfo::default(),
             })
         }
@@ -50,7 +50,7 @@ impl BluePrintProvider for ColorAttachmentProvider {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
         Ok(ColorAttachmentBluePrint {
-            view_ref,
+            view,
             resolve_target,
             ops: Operations {
                 load: match (self.clear_color, first_call) {
