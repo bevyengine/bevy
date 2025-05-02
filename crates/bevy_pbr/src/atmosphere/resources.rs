@@ -219,12 +219,18 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (8, sampler(SamplerBindingType::Filtering)),
                     (9, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
                     (10, sampler(SamplerBindingType::Filtering)),
-                    (11, texture_3d(TextureSampleType::Float { filterable: true })), // aerial view lut and sampler
+                    (
+                        11,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ), // aerial view lut and sampler
                     (12, sampler(SamplerBindingType::Filtering)),
                     (13, texture_2d(TextureSampleType::Depth)), //view depth texture
                     (14, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
                     (15, sampler(SamplerBindingType::Comparison)),
-                    (16, texture_2d(TextureSampleType::Float { filterable: true })), // blue noise texture and sampler
+                    (
+                        16,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ), // blue noise texture and sampler
                     (17, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
@@ -246,12 +252,18 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (8, sampler(SamplerBindingType::Filtering)),
                     (9, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
                     (10, sampler(SamplerBindingType::Filtering)),
-                    (11, texture_3d(TextureSampleType::Float { filterable: true })), // aerial view lut and sampler
+                    (
+                        11,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ), // aerial view lut and sampler
                     (12, sampler(SamplerBindingType::Filtering)),
                     (13, texture_2d_multisampled(TextureSampleType::Depth)), //view depth texture
                     (14, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
                     (15, sampler(SamplerBindingType::Comparison)),
-                    (16, texture_2d(TextureSampleType::Float { filterable: true })), // blue noise texture and sampler
+                    (
+                        16,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ), // blue noise texture and sampler
                     (17, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
