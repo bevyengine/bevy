@@ -2968,8 +2968,8 @@ impl<'w> EntityWorldMut<'w> {
     pub fn spawned_at(&self) -> Tick {
         self.assert_not_despawned();
 
+        // SAFETY: entity being alive was asserted
         unsafe {
-            // SAFETY: entity being alive was asserted
             self.world()
                 .entities()
                 .entity_get_spawned_or_despawned_at_unchecked(self.entity)
