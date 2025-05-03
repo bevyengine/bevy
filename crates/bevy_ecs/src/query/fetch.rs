@@ -497,7 +497,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 ///         if spawned.is_newer_than(system_ticks.last_run(), system_ticks.this_run()) {
 ///             print!("new ");
 ///         }
-///         println!("entity {entity:?} spawned at {spawned}");        
+///         println!("entity {entity:?} spawned at {spawned:?}");        
 ///     }
 /// }
 ///
