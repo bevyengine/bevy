@@ -1037,6 +1037,20 @@ impl Entities {
             .map(|spawned_or_despawned| spawned_or_despawned.at)
     }
 
+    /// Returns the [`Tick`] at which this entity has last been spawned or despawned.
+    ///
+    /// # Safety
+    ///
+    /// The given entity must be alive or must have been alive without being reused.
+    pub unsafe fn entity_get_spawned_or_despawned_at_unchecked(&self, entity: Entity) -> Tick {
+        let meta = self.meta.get(entity.index() as usize);
+        // SAFETY: user ensured entity is allocated and generation is valid
+        let meta = unsafe { meta.unwrap_unchecked() };
+        // SAFETY: user ensured entity is either spawned or despawned
+        let spawned_or_despawned = unsafe { meta.spawned_or_despawned.unwrap_unchecked() };
+        spawned_or_despawned.at
+    }
+
     /// Returns the [`SpawnedOrDespawned`] related to the entity's las spawn or
     /// respawn. Returns `None` if its index has been reused by another entity or if
     /// this entity has never existed.

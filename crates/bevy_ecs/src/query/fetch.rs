@@ -575,9 +575,8 @@ unsafe impl QueryData for SpawnedTick {
         entity: Entity,
         _table_row: TableRow,
     ) -> Self::Item<'w> {
-        let spawned = fetch.entity_get_spawned_or_despawned_at(entity);
-        // SAFETY: queried entity must have a spawned tick
-        unsafe { spawned.debug_checked_unwrap() }
+        // SAFETY: only living entities are queried
+        unsafe { fetch.entity_get_spawned_or_despawned_at_unchecked(entity) }
     }
 }
 

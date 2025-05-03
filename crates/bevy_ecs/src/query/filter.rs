@@ -1139,9 +1139,12 @@ unsafe impl QueryFilter for Spawned {
         entity: Entity,
         _table_row: TableRow,
     ) -> bool {
-        let spawned = fetch.entities.entity_get_spawned_or_despawned_at(entity);
-        // SAFETY: queried entity must have a spawned tick
-        let spawned = unsafe { spawned.debug_checked_unwrap() };
+        let spawned = unsafe {
+            // SAFETY: only living entities are queried
+            fetch
+                .entities
+                .entity_get_spawned_or_despawned_at_unchecked(entity)
+        };
         spawned.is_newer_than(fetch.last_run, fetch.this_run)
     }
 }
