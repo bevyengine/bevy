@@ -429,15 +429,10 @@ macro_rules! related {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        string::ToString,
-        vec::{self, Vec},
-    };
 
     use crate::{
         name::Name,
-        prelude::{ChildOf, Children, Component, RelationshipTarget},
-        query::With,
+        prelude::{ChildOf, Children, RelationshipTarget},
         relationship::RelatedSpawner,
         world::World,
     };
