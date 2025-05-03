@@ -58,7 +58,7 @@ pub trait AudioSinkPlayback {
     /// It will return an error if an implementation ran
     /// into one during the seek.
     ///
-    /// When seeking beyond the end of a source this
+    /// When seeking beyond the end of a source, this
     /// function might return an error if the duration of the source is not known.
     fn try_seek(&self, pos: Duration) -> Result<(), SeekError>;
 
