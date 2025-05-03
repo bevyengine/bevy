@@ -85,14 +85,15 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
             world.entity_mut(view_entity).remove::<ViewTarget>();
         }
 
-        let mut windows = world.resource_mut::<ExtractedWindows>();
-        for window in windows.values_mut() {
-            if let Some(surface_texture) = window.swap_chain_texture.take() {
-                // TODO(clean): winit docs recommends calling pre_present_notify before this.
-                // though `present()` doesn't present the frame, it schedules it to be presented
-                // by wgpu.
-                // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
-                surface_texture.present();
+        if let Some(mut windows) = world.get_resource_mut::<ExtractedWindows>() {
+            for window in windows.values_mut() {
+                if let Some(surface_texture) = window.swap_chain_texture.take() {
+                    // TODO(clean): winit docs recommends calling pre_present_notify before this.
+                    // though `present()` doesn't present the frame, it schedules it to be presented
+                    // by wgpu.
+                    // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
+                    surface_texture.present();
+                }
             }
         }
 
