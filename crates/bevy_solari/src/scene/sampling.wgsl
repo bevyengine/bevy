@@ -35,15 +35,10 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
 fn sample_directional_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, directional_light_id: u32, rng: ptr<function, u32>) -> vec3<f32> {
     let light = directional_lights[directional_light_id];
 
-    // Angular diameter of the sun projected onto a disk as viewed from earth = ~0.5 degrees
-    // https://en.wikipedia.org/wiki/Angular_diameter#Use_in_astronomy
-    // cos(0.25)
-    let cos_theta_max = 0.99999048072;
-
-    // Sample a random direction within a cone whose base is the sun approximated as a disk with radius ~= 0.25 degrees
+    // Sample a random direction within a cone whose base is the sun approximated as a disk
     // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
     let r = rand_vec2f(rng);
-    let cos_theta = (1.0 - r.x) + r.x * cos_theta_max;
+    let cos_theta = (1.0 - r.x) + r.x * light.cos_theta_max;
     let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
     let phi = r.y * 2.0 * PI;
     let x = cos(phi) * sin_theta;

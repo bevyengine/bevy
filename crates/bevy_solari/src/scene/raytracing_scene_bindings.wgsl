@@ -54,7 +54,7 @@ const LIGHT_SOURCE_KIND_DIRECTIONAL = 1u;
 
 struct DirectionalLight {
     direction_to_light: vec3<f32>,
-    _padding: u32,
+    cos_theta_max: f32,
     illuminance: vec4<f32>,
 }
 

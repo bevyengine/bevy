@@ -22,6 +22,10 @@ use std::{hash::Hash, num::NonZeroU32, ops::Deref};
 const MAX_MESH_COUNT: Option<NonZeroU32> = NonZeroU32::new(5_000);
 const MAX_TEXTURE_COUNT: Option<NonZeroU32> = NonZeroU32::new(5_000);
 
+/// Average angular diameter of the sun as seen from earth.
+/// https://en.wikipedia.org/wiki/Angular_diameter#Use_in_astronomy
+const SUN_ANGULAR_DIAMETER_RADIANS: f32 = 0.00930842;
+
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
@@ -189,8 +193,8 @@ pub fn prepare_raytracing_scene_bindings(
 
         directional_lights.push(GpuDirectionalLight {
             direction_to_light: directional_light.transform.back().into(),
+            cos_theta_max: (SUN_ANGULAR_DIAMETER_RADIANS / 2.0).cos(),
             illuminance: directional_light.color * directional_light.illuminance,
-            ..Default::default()
         });
 
         light_sources
@@ -427,7 +431,7 @@ impl GpuLightSource {
 #[derive(ShaderType, Default)]
 struct GpuDirectionalLight {
     direction_to_light: Vec3,
-    _padding: u32,
+    cos_theta_max: f32,
     illuminance: LinearRgba,
 }
 
