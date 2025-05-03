@@ -1,3 +1,11 @@
+
+pub mod parameter;
+
+pub mod render_pass_context;
+
+pub use render_pass_context::*;
+pub use parameter::*;
+
 use wgpu::AdapterInfo;
 
 use super::{
@@ -6,12 +14,10 @@ use super::{
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
-    render_resource::{BindGroup, CachedRenderPipelineId, PipelineCache, RenderPipeline},
+    render_resource::{CachedRenderPipelineId, PipelineCache, RenderPipeline},
     renderer::RenderDevice,
 };
 use alloc::sync::Arc;
-use core::ops::Range;
-use std::ops::Deref;
 
 pub struct RenderContext<'a> {
     pub(crate) render_device: RenderDevice,
@@ -79,11 +85,7 @@ impl<'a> RenderContext<'a> {
 
         let render_pass = render_pass_info.create_render_pass(&mut command_encoder)?;
 
-        Ok(RenderPassContext {
-            command_encoder,
-            render_pass,
-            render_context: self,
-        })
+        Ok(RenderPassContext::new(command_encoder, render_pass, self))
     }
 
     pub fn get_render_pipeline(
@@ -141,94 +143,5 @@ impl<'a> RenderContext<'a> {
         }
 
         (command_buffers, self.render_device, diagnostics_recorder)
-    }
-}
-
-pub struct RenderPassContext<'a, 'b> {
-    command_encoder: wgpu::CommandEncoder,
-    render_pass: wgpu::RenderPass<'static>,
-    render_context: &'b mut RenderContext<'a>,
-}
-
-impl<'a, 'b> RenderPassContext<'a, 'b> {
-    pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
-        self.render_pass.set_scissor_rect(x, y, width, height);
-    }
-
-    pub fn set_raw_bind_group(
-        &mut self,
-        index: u32,
-        bind_group: Option<&BindGroup>,
-        offsets: &[u32],
-    ) -> Result<(), FrameGraphError> {
-        self.render_pass.set_bind_group(
-            index,
-            bind_group.map(|bind_group| bind_group.deref()),
-            offsets,
-        );
-
-        Ok(())
-    }
-
-    pub fn set_bind_group(
-        &mut self,
-        index: u32,
-        bind_group_ref: &BindGroupBluePrint,
-        offsets: &[u32],
-    ) -> Result<(), FrameGraphError> {
-        let bind_group = bind_group_ref.make(&self.render_context)?;
-        self.render_pass.set_bind_group(index, &bind_group, offsets);
-
-        Ok(())
-    }
-
-    pub fn set_render_pipeline(
-        &mut self,
-        id: CachedRenderPipelineId,
-    ) -> Result<(), FrameGraphError> {
-        let pipeline = self.render_context.get_render_pipeline(id)?;
-        self.render_pass.set_pipeline(pipeline);
-
-        Ok(())
-    }
-
-    pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
-        self.render_pass
-            .draw_indexed(indices, base_vertex, instances);
-    }
-
-    pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
-        self.render_pass.draw(vertices, instances);
-    }
-
-    pub fn set_vertex_buffer(
-        &mut self,
-        slot: u32,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
-    ) -> Result<(), FrameGraphError> {
-        let buffer = self.render_context.get_resource(buffer_ref)?;
-        self.render_pass
-            .set_vertex_buffer(slot, buffer.resource.slice(0..));
-
-        Ok(())
-    }
-
-    pub fn set_index_buffer(
-        &mut self,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
-        index_format: wgpu::IndexFormat,
-    ) -> Result<(), FrameGraphError> {
-        let buffer = self.render_context.get_resource(buffer_ref)?;
-
-        self.render_pass
-            .set_index_buffer(buffer.resource.slice(0..), index_format);
-
-        Ok(())
-    }
-
-    pub fn end(self) {
-        drop(self.render_pass);
-        let command_buffer = self.command_encoder.finish();
-        self.render_context.add_command_buffer(command_buffer);
     }
 }
