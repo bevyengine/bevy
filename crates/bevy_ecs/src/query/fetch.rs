@@ -505,7 +505,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 /// # bevy_ecs::system::assert_is_system(print_spawn_ticks);
 /// ```
 #[derive(Clone, Copy)]
-pub struct SpawnedTick(());
+pub struct SpawnedTick;
 
 // SAFETY:
 // No components are accessed.
