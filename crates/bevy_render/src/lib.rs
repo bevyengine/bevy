@@ -76,7 +76,7 @@ use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
-use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use bevy_window::{PrimaryWindow, RawHandleWrapperHolder, WindowPlugin};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
 use globals::GlobalsPlugin;
 use render_asset::{
@@ -392,8 +392,10 @@ impl Plugin for RenderPlugin {
             }
         };
 
+        if app.is_plugin_added::<WindowPlugin>() {
+            app.add_plugins(WindowRenderPlugin);
+        }
         app.add_plugins((
-            WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
             MeshPlugin,
