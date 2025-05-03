@@ -1078,6 +1078,7 @@ pub struct SpawnedFetch<'w> {
     this_run: Tick,
 }
 
+// SAFETY: WorldQuery impl accesses no components
 unsafe impl WorldQuery for Spawned {
     type Fetch<'w> = SpawnedFetch<'w>;
     type State = ();
@@ -1117,7 +1118,7 @@ unsafe impl WorldQuery for Spawned {
     #[inline]
     fn update_component_access(_state: &(), _access: &mut FilteredAccess<ComponentId>) {}
 
-    fn init_state(_world: &mut World) -> () {}
+    fn init_state(_world: &mut World) {}
 
     fn get_state(_components: &Components) -> Option<()> {
         Some(())
