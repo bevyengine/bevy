@@ -8,7 +8,7 @@ use crate::{
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     resource::Resource,
-    storage::{SparseSetIndex, SparseSets, Table, TableRow},
+    storage::{HybridMap, SparseSetIndex, SparseSets, Table, TableRow},
     system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
@@ -1953,7 +1953,7 @@ impl<'w> ComponentsRegistrator<'w> {
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
 pub struct Components {
-    components: HashMap<ComponentId, ComponentInfo>,
+    components: HybridMap<ComponentId, ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occor.
