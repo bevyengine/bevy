@@ -1037,7 +1037,7 @@ impl Entities {
             .map(|spawned_or_despawned| spawned_or_despawned.at)
     }
 
-    /// Returns the [`SpawnedOrdDespawnedMeta`] related to the entity's las spawn or
+    /// Returns the [`SpawnedOrDespawned`] related to the entity's las spawn or
     /// respawn. Returns `None` if its index has been reused by another entity or if
     /// this entity has never existed.
     #[inline]
