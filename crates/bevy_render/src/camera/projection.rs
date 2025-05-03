@@ -8,6 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_window::WindowPlugin;
 use derive_more::derive::From;
 use serde::{Deserialize, Serialize};
 
@@ -24,21 +25,25 @@ impl Plugin for CameraProjectionPlugin {
             .register_type::<OrthographicProjection>()
             .register_type::<CustomProjection>()
             .add_systems(
+                PostUpdate,
+                crate::view::update_frusta
+                    .in_set(VisibilitySystems::UpdateFrusta)
+                    .after(crate::camera::camera_system)
+                    .after(TransformSystem::TransformPropagate),
+            );
+
+        if app.is_plugin_added::<WindowPlugin>() {
+            app.add_systems(
                 PostStartup,
                 crate::camera::camera_system.in_set(CameraUpdateSystem),
             )
             .add_systems(
                 PostUpdate,
-                (
-                    crate::camera::camera_system
-                        .in_set(CameraUpdateSystem)
-                        .before(AssetEvents),
-                    crate::view::update_frusta
-                        .in_set(VisibilitySystems::UpdateFrusta)
-                        .after(crate::camera::camera_system)
-                        .after(TransformSystem::TransformPropagate),
-                ),
+                (crate::camera::camera_system
+                    .in_set(CameraUpdateSystem)
+                    .before(AssetEvents),),
             );
+        }
     }
 }
 
