@@ -138,6 +138,15 @@ pub fn handle_node_transition(
                 transition.weight = 0.0;
             }
 
+            // Handles edge case first flow
+            if transition.old_node.eq(&transition.new_node) {
+                if let Some(old_node) = animation_graph.get_mut(transition.old_node) {
+                    remaining_weight -= transition.weight * remaining_weight;
+                    old_node.weight = remaining_weight;
+                }
+                continue;
+            }
+
             if let Some(old_node) = animation_graph.get_mut(transition.old_node) {
                 old_node.weight = transition.weight * remaining_weight;
                 remaining_weight -= old_node.weight;
