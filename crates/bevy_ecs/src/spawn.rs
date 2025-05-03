@@ -456,6 +456,10 @@ mod tests {
             .expect("An entity with Children should exist");
 
         assert_eq!(children.iter().count(), 1);
+
+        for ChildOf(child) in world.query::<&ChildOf>().iter(&world) {
+            assert_eq!(child, &parent);
+        }
     }
 
     #[test]
@@ -475,6 +479,10 @@ mod tests {
             .expect("An entity with Children should exist");
 
         assert_eq!(children.iter().count(), 2);
+
+        for ChildOf(child) in world.query::<&ChildOf>().iter(&world) {
+            assert_eq!(child, &parent);
+        }
     }
 
     #[test]
@@ -486,7 +494,6 @@ mod tests {
                 Name::new("Parent"),
                 Children::spawn(SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
                     parent.spawn(Name::new("Child1"));
-                    parent.spawn(Name::new("Child2"));
                 })),
             ))
             .id();
@@ -496,7 +503,11 @@ mod tests {
             .get(&world, parent)
             .expect("An entity with Children should exist");
 
-        assert_eq!(children.iter().count(), 2);
+        assert_eq!(children.iter().count(), 1);
+
+        for ChildOf(child) in world.query::<&ChildOf>().iter(&world) {
+            assert_eq!(child, &parent);
+        }
     }
 
     #[test]
@@ -519,6 +530,15 @@ mod tests {
             .expect("An entity with Children should exist");
 
         assert_eq!(children.iter().count(), 2);
+
+        assert_eq!(
+            world.entity(child1).get::<ChildOf>(),
+            Some(&ChildOf(parent))
+        );
+        assert_eq!(
+            world.entity(child2).get::<ChildOf>(),
+            Some(&ChildOf(parent))
+        );
     }
 
     #[test]
@@ -537,5 +557,10 @@ mod tests {
             .expect("An entity with Children should exist");
 
         assert_eq!(children.iter().count(), 1);
+
+        assert_eq!(
+            world.entity(child1).get::<ChildOf>(),
+            Some(&ChildOf(parent))
+        );
     }
 }
