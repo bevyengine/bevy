@@ -8,6 +8,9 @@ ignore = [
   # See: https://rustsec.org/advisories/RUSTSEC-2024-0436
   # Bevy relies on this in multiple indirect ways, so ignoring it is the only feasible current solution
   "RUSTSEC-2024-0436",
+  # unmainatined: postcard -> heapless -> atomic-polyfill
+  # See https://github.com/jamesmunns/postcard/issues/223
+  "RUSTSEC-2023-0089",
 ]
 
 [licenses]
