@@ -2966,10 +2966,14 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Returns the [`Tick`] at which this entity has last been spawned.
     pub fn spawned_at(&self) -> Tick {
-        self.world()
-            .entities()
-            .entity_get_spawned_or_despawned_at(self.entity)
-            .unwrap()
+        self.assert_not_despawned();
+
+        unsafe {
+            // SAFETY: entity being alive was asserted
+            self.world()
+                .entities()
+                .entity_get_spawned_or_despawned_at_unchecked(self.entity)
+        }
     }
 }
 
@@ -3525,6 +3529,11 @@ impl<'w> FilteredEntityRef<'w> {
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
     }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.entity.spawned_at()
+    }
 }
 
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
@@ -3906,6 +3915,11 @@ impl<'w> FilteredEntityMut<'w> {
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
     }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.entity.spawned_at()
+    }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
@@ -4102,6 +4116,11 @@ where
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
+    }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.entity.spawned_at()
     }
 
     /// Gets the component of the given [`ComponentId`] from the entity.
@@ -4346,6 +4365,11 @@ where
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
+    }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.entity.spawned_at()
     }
 
     /// Returns `true` if the current entity has a component of type `T`.

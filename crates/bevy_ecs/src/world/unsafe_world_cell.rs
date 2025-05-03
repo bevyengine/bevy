@@ -1139,10 +1139,12 @@ impl<'w> UnsafeEntityCell<'w> {
 
     /// Returns the [`Tick`] at which this entity has been spawned.
     pub fn spawned_at(self) -> Tick {
-        self.world()
-            .entities()
-            .entity_get_spawned_or_despawned_at(self.entity)
-            .unwrap()
+        unsafe {
+            // SAFETY: UnsafeEntityCell is only constructed for living entities and offers no despawn method
+            self.world()
+                .entities()
+                .entity_get_spawned_or_despawned_at_unchecked(self.entity)
+        }
     }
 }
 
