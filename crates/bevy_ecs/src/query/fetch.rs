@@ -493,7 +493,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 /// # struct Name {};
 ///
 /// fn print_spawn_ticks(query: Query<(Entity, SpawnedTick)>, system_ticks: SystemChangeTick) {
-///     for (entity, spawned) in &q {
+///     for (entity, spawned) in &query {
 ///         if spawned.is_newer_than(system_ticks.last_run(), system_ticks.this_run()) {
 ///             print!("new ");
 ///         }
