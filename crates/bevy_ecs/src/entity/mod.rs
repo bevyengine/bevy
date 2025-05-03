@@ -77,6 +77,7 @@ pub use unique_array::UniqueEntityArray;
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
+    component::Tick,
     identifier::{
         error::IdentifierError,
         kinds::IdKind,
@@ -1000,14 +1001,12 @@ impl Entities {
     /// Sets the source code location from which this entity has last been spawned
     /// or despawned.
     #[inline]
-    pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: MaybeLocation) {
-        caller.map(|caller| {
-            let meta = self
-                .meta
-                .get_mut(index as usize)
-                .expect("Entity index invalid");
-            meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
-        });
+    pub(crate) fn set_spawned_or_despawned(&mut self, index: u32, by: MaybeLocation, at: Tick) {
+        let meta = self
+            .meta
+            .get_mut(index as usize)
+            .expect("Entity index invalid");
+        meta.spawned_or_despawned = Some(SpawnedOrdDespawnedMeta { by, at });
     }
 
     /// Returns the source code location from which this entity has last been spawned
@@ -1018,16 +1017,41 @@ impl Entities {
         entity: Entity,
     ) -> MaybeLocation<Option<&'static Location<'static>>> {
         MaybeLocation::new_with_flattened(|| {
-            self.meta
-                .get(entity.index() as usize)
-                .filter(|meta|
-                // Generation is incremented immediately upon despawn
-                (meta.generation == entity.generation)
-                || (meta.location.archetype_id == ArchetypeId::INVALID)
-                && (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1)))
-                .map(|meta| meta.spawned_or_despawned_by)
+            self.entity_get_spawned_or_despawned(entity)
+                .map(|spawned_or_despawned| spawned_or_despawned.by)
         })
-        .map(Option::flatten)
+    }
+
+    /// Returns the [`Tick`] at which this entity has last been spawned or despawned.
+    /// Returns `None` if its index has been reused by another entity or if this entity
+    /// has never existed.
+    pub fn entity_get_spawned_or_despawned_at(&self, entity: Entity) -> Option<Tick> {
+        self.entity_get_spawned_or_despawned(entity)
+            .map(|spawned_or_despawned| spawned_or_despawned.at)
+    }
+
+    /// Returns the [`SpawnedOrdDespawnedMeta`] related to the entity's las spawn or
+    /// respawn. Returns `None` if its index has been reused by another entity or if
+    /// this entity has never existed.
+    #[inline]
+    fn entity_get_spawned_or_despawned(&self, entity: Entity) -> Option<SpawnedOrdDespawnedMeta> {
+        self.meta
+            .get(entity.index() as usize)
+            .filter(|meta|
+            // Generation is incremented immediately upon despawn
+            (meta.generation == entity.generation)
+            || (meta.location.archetype_id == ArchetypeId::INVALID)
+            && (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1)))
+            .and_then(|meta| meta.spawned_or_despawned)
+    }
+
+    #[inline]
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+        for meta in &mut self.meta {
+            if let Some(spawned_or_despawned) = &mut meta.spawned_or_despawned {
+                spawned_or_despawned.at.check_tick(change_tick);
+            }
+        }
     }
 
     /// Constructs a message explaining why an entity does not exist, if known.
@@ -1090,7 +1114,13 @@ struct EntityMeta {
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
-    spawned_or_despawned_by: MaybeLocation<Option<&'static Location<'static>>>,
+    spawned_or_despawned: Option<SpawnedOrdDespawnedMeta>,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct SpawnedOrdDespawnedMeta {
+    by: MaybeLocation,
+    at: Tick,
 }
 
 impl EntityMeta {
@@ -1098,7 +1128,7 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
-        spawned_or_despawned_by: MaybeLocation::new(None),
+        spawned_or_despawned: None,
     };
 }
 
