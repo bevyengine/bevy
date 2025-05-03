@@ -1068,7 +1068,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 ///
 /// # bevy_ecs::system::assert_is_system(print_spawning_entities);
 /// ```
-pub struct Spawned(());
+pub struct Spawned;
 
 #[doc(hidden)]
 #[derive(Clone)]
