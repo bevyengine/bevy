@@ -494,84 +494,85 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
 }
 
 pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEncoder) {
-    let targets = world.resource::<RenderScreenshotTargets>();
-    let prepared = world.resource::<RenderScreenshotsPrepared>();
-    let pipelines = world.resource::<PipelineCache>();
-    let gpu_images = world.resource::<RenderAssets<GpuImage>>();
-    let windows = world.resource::<ExtractedWindows>();
-    let manual_texture_views = world.resource::<ManualTextureViews>();
+    if let Some(targets) = world.get_resource::<RenderScreenshotTargets>() {
+        let prepared = world.resource::<RenderScreenshotsPrepared>();
+        let pipelines = world.resource::<PipelineCache>();
+        let gpu_images = world.resource::<RenderAssets<GpuImage>>();
+        let windows = world.resource::<ExtractedWindows>();
+        let manual_texture_views = world.resource::<ManualTextureViews>();
 
-    for (entity, render_target) in targets.iter() {
-        match render_target {
-            NormalizedRenderTarget::Window(window) => {
-                let window = window.entity();
-                let Some(window) = windows.get(&window) else {
-                    continue;
-                };
-                let width = window.physical_width;
-                let height = window.physical_height;
-                let Some(texture_format) = window.swap_chain_texture_format else {
-                    continue;
-                };
-                let Some(swap_chain_texture) = window.swap_chain_texture.as_ref() else {
-                    continue;
-                };
-                let texture_view = swap_chain_texture.texture.create_view(&Default::default());
-                render_screenshot(
-                    encoder,
-                    prepared,
-                    pipelines,
-                    entity,
-                    width,
-                    height,
-                    texture_format,
-                    &texture_view,
-                );
-            }
-            NormalizedRenderTarget::Image(image) => {
-                let Some(gpu_image) = gpu_images.get(&image.handle) else {
-                    warn!("Unknown image for screenshot, skipping: {:?}", image);
-                    continue;
-                };
-                let width = gpu_image.size.width;
-                let height = gpu_image.size.height;
-                let texture_format = gpu_image.texture_format;
-                let texture_view = gpu_image.texture_view.deref();
-                render_screenshot(
-                    encoder,
-                    prepared,
-                    pipelines,
-                    entity,
-                    width,
-                    height,
-                    texture_format,
-                    texture_view,
-                );
-            }
-            NormalizedRenderTarget::TextureView(texture_view) => {
-                let Some(texture_view) = manual_texture_views.get(texture_view) else {
-                    warn!(
-                        "Unknown manual texture view for screenshot, skipping: {:?}",
-                        texture_view
+        for (entity, render_target) in targets.iter() {
+            match render_target {
+                NormalizedRenderTarget::Window(window) => {
+                    let window = window.entity();
+                    let Some(window) = windows.get(&window) else {
+                        continue;
+                    };
+                    let width = window.physical_width;
+                    let height = window.physical_height;
+                    let Some(texture_format) = window.swap_chain_texture_format else {
+                        continue;
+                    };
+                    let Some(swap_chain_texture) = window.swap_chain_texture.as_ref() else {
+                        continue;
+                    };
+                    let texture_view = swap_chain_texture.texture.create_view(&Default::default());
+                    render_screenshot(
+                        encoder,
+                        prepared,
+                        pipelines,
+                        entity,
+                        width,
+                        height,
+                        texture_format,
+                        &texture_view,
                     );
-                    continue;
-                };
-                let width = texture_view.size.x;
-                let height = texture_view.size.y;
-                let texture_format = texture_view.format;
-                let texture_view = texture_view.texture_view.deref();
-                render_screenshot(
-                    encoder,
-                    prepared,
-                    pipelines,
-                    entity,
-                    width,
-                    height,
-                    texture_format,
-                    texture_view,
-                );
-            }
-        };
+                }
+                NormalizedRenderTarget::Image(image) => {
+                    let Some(gpu_image) = gpu_images.get(&image.handle) else {
+                        warn!("Unknown image for screenshot, skipping: {:?}", image);
+                        continue;
+                    };
+                    let width = gpu_image.size.width;
+                    let height = gpu_image.size.height;
+                    let texture_format = gpu_image.texture_format;
+                    let texture_view = gpu_image.texture_view.deref();
+                    render_screenshot(
+                        encoder,
+                        prepared,
+                        pipelines,
+                        entity,
+                        width,
+                        height,
+                        texture_format,
+                        texture_view,
+                    );
+                }
+                NormalizedRenderTarget::TextureView(texture_view) => {
+                    let Some(texture_view) = manual_texture_views.get(texture_view) else {
+                        warn!(
+                            "Unknown manual texture view for screenshot, skipping: {:?}",
+                            texture_view
+                        );
+                        continue;
+                    };
+                    let width = texture_view.size.x;
+                    let height = texture_view.size.y;
+                    let texture_format = texture_view.format;
+                    let texture_view = texture_view.texture_view.deref();
+                    render_screenshot(
+                        encoder,
+                        prepared,
+                        pipelines,
+                        entity,
+                        width,
+                        height,
+                        texture_format,
+                        texture_view,
+                    );
+                }
+            };
+        }
     }
 }
 
@@ -626,70 +627,74 @@ pub(crate) fn collect_screenshots(world: &mut World) {
     #[cfg(feature = "trace")]
     let _span = tracing::info_span!("collect_screenshots").entered();
 
-    let sender = world.resource::<RenderScreenshotsSender>().deref().clone();
-    let prepared = world.resource::<RenderScreenshotsPrepared>();
+    if let Some(prepared) = world.get_resource::<RenderScreenshotsPrepared>() {
+        let sender = world.resource::<RenderScreenshotsSender>().deref().clone();
 
-    for (entity, prepared) in prepared.iter() {
-        let entity = *entity;
-        let sender = sender.clone();
-        let width = prepared.size.width;
-        let height = prepared.size.height;
-        let texture_format = prepared.texture.format();
-        let pixel_size = texture_format.pixel_size();
-        let buffer = prepared.buffer.clone();
+        for (entity, prepared) in prepared.iter() {
+            let entity = *entity;
+            let sender = sender.clone();
+            let width = prepared.size.width;
+            let height = prepared.size.height;
+            let texture_format = prepared.texture.format();
+            let pixel_size = texture_format.pixel_size();
+            let buffer = prepared.buffer.clone();
 
-        let finish = async move {
-            let (tx, rx) = async_channel::bounded(1);
-            let buffer_slice = buffer.slice(..);
-            // The polling for this map call is done every frame when the command queue is submitted.
-            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                let err = result.err();
-                if err.is_some() {
-                    panic!("{}", err.unwrap().to_string());
+            let finish = async move {
+                let (tx, rx) = async_channel::bounded(1);
+                let buffer_slice = buffer.slice(..);
+                // The polling for this map call is done every frame when the command queue is submitted.
+                buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                    let err = result.err();
+                    if err.is_some() {
+                        panic!("{}", err.unwrap().to_string());
+                    }
+                    tx.try_send(()).unwrap();
+                });
+                rx.recv().await.unwrap();
+                let data = buffer_slice.get_mapped_range();
+                // we immediately move the data to CPU memory to avoid holding the mapped view for long
+                let mut result = Vec::from(&*data);
+                drop(data);
+
+                if result.len() != ((width * height) as usize * pixel_size) {
+                    // Our buffer has been padded because we needed to align to a multiple of 256.
+                    // We remove this padding here
+                    let initial_row_bytes = width as usize * pixel_size;
+                    let buffered_row_bytes =
+                        gpu_readback::align_byte_size(width * pixel_size as u32) as usize;
+
+                    let mut take_offset = buffered_row_bytes;
+                    let mut place_offset = initial_row_bytes;
+                    for _ in 1..height {
+                        result.copy_within(
+                            take_offset..take_offset + buffered_row_bytes,
+                            place_offset,
+                        );
+                        take_offset += buffered_row_bytes;
+                        place_offset += initial_row_bytes;
+                    }
+                    result.truncate(initial_row_bytes * height as usize);
                 }
-                tx.try_send(()).unwrap();
-            });
-            rx.recv().await.unwrap();
-            let data = buffer_slice.get_mapped_range();
-            // we immediately move the data to CPU memory to avoid holding the mapped view for long
-            let mut result = Vec::from(&*data);
-            drop(data);
 
-            if result.len() != ((width * height) as usize * pixel_size) {
-                // Our buffer has been padded because we needed to align to a multiple of 256.
-                // We remove this padding here
-                let initial_row_bytes = width as usize * pixel_size;
-                let buffered_row_bytes =
-                    gpu_readback::align_byte_size(width * pixel_size as u32) as usize;
-
-                let mut take_offset = buffered_row_bytes;
-                let mut place_offset = initial_row_bytes;
-                for _ in 1..height {
-                    result.copy_within(take_offset..take_offset + buffered_row_bytes, place_offset);
-                    take_offset += buffered_row_bytes;
-                    place_offset += initial_row_bytes;
+                if let Err(e) = sender.send((
+                    entity,
+                    Image::new(
+                        Extent3d {
+                            width,
+                            height,
+                            depth_or_array_layers: 1,
+                        },
+                        wgpu::TextureDimension::D2,
+                        result,
+                        texture_format,
+                        RenderAssetUsages::RENDER_WORLD,
+                    ),
+                )) {
+                    error!("Failed to send screenshot: {}", e);
                 }
-                result.truncate(initial_row_bytes * height as usize);
-            }
+            };
 
-            if let Err(e) = sender.send((
-                entity,
-                Image::new(
-                    Extent3d {
-                        width,
-                        height,
-                        depth_or_array_layers: 1,
-                    },
-                    wgpu::TextureDimension::D2,
-                    result,
-                    texture_format,
-                    RenderAssetUsages::RENDER_WORLD,
-                ),
-            )) {
-                error!("Failed to send screenshot: {}", e);
-            }
-        };
-
-        AsyncComputeTaskPool::get().spawn(finish).detach();
+            AsyncComputeTaskPool::get().spawn(finish).detach();
+        }
     }
 }
