@@ -23,7 +23,7 @@ use bevy_math::Vec2;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render::camera::RenderTarget;
-use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
+use bevy_window::{PrimaryWindow, WindowEvent, WindowPlugin, WindowRef};
 use tracing::debug;
 
 use crate::pointer::{
@@ -80,6 +80,14 @@ impl Plugin for PointerInputPlugin {
         app.insert_resource(*self)
             .add_systems(Startup, spawn_mouse_pointer)
             .add_systems(
+                Last,
+                deactivate_touch_pointers.run_if(PointerInputPlugin::is_touch_enabled),
+            )
+            .register_type::<Self>()
+            .register_type::<PointerInputPlugin>();
+
+        if app.is_plugin_added::<WindowPlugin>() {
+            app.add_systems(
                 First,
                 (
                     mouse_pick_events.run_if(PointerInputPlugin::is_mouse_enabled),
@@ -87,13 +95,8 @@ impl Plugin for PointerInputPlugin {
                 )
                     .chain()
                     .in_set(PickSet::Input),
-            )
-            .add_systems(
-                Last,
-                deactivate_touch_pointers.run_if(PointerInputPlugin::is_touch_enabled),
-            )
-            .register_type::<Self>()
-            .register_type::<PointerInputPlugin>();
+            );
+        }
     }
 }
 
