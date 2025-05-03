@@ -478,6 +478,8 @@ use core::{
 /// #
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
+///
+/// [autovectorization]: https://en.wikipedia.org/wiki/Automatic_vectorization
 pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'world>,

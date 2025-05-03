@@ -473,6 +473,36 @@ unsafe impl QueryData for EntityLocation {
 unsafe impl ReadOnlyQueryData for EntityLocation {}
 
 /// The `SpawnedTick` query parameter fetches the [`Tick`] the entity was spawned at.
+///
+/// To evaluate whether the spawn happened since the last time the system ran, the system
+/// param [`SystemChangeTick`](bevy_ecs::system::SystemChangeTick) needs to be used.
+///
+/// If the query should filter for spawned entities instead, use the
+/// [`Spawned`](bevy_ecs::query::Spawned) query filter instead.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::system::SystemChangeTick;
+/// # use bevy_ecs::query::Spawned;
+/// # use bevy_ecs::query::SpawnedTick;
+/// #
+/// # #[derive(Component, Debug)]
+/// # struct Name {};
+///
+/// fn print_spawn_ticks(query: Query<(Entity, SpawnedTick)>, system_ticks: SystemChangeTick) {
+///     for (entity, spawned) in &q {
+///         if spawned.is_newer_than(system_ticks.last_run(), system_ticks.this_run()) {
+///             print!("new ");
+///         }
+///         println!("entity {entity:?} spawned at {spawned}");        
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(print_spawning_entities);
+/// ```
 #[derive(Clone, Copy)]
 pub struct SpawnedTick(());
 

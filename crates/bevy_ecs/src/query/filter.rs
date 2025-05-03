@@ -1012,7 +1012,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 /// A common use for this filter is one-time initialization.
 ///
 /// To retain all results without filtering but still check whether they were spawned after the
-/// system last ran, use [`todo`].
+/// system last ran, use [`SpawnedTick`](crate::query::SpawnedTick) instead.
 ///
 /// **Note** that this includes entities that spawned before the first time this Query was run.
 ///
@@ -1078,7 +1078,7 @@ pub struct SpawnedFetch<'w> {
     this_run: Tick,
 }
 
-// SAFETY: WorldQuery impl accesses no components
+// SAFETY: WorldQuery impl accesses no components or component ticks
 unsafe impl WorldQuery for Spawned {
     type Fetch<'w> = SpawnedFetch<'w>;
     type State = ();
@@ -1129,7 +1129,7 @@ unsafe impl WorldQuery for Spawned {
     }
 }
 
-// SAFETY: WorldQuery impl performs only read access on ticks
+// SAFETY: WorldQuery impl accesses no components or component ticks
 unsafe impl QueryFilter for Spawned {
     const IS_ARCHETYPAL: bool = false;
 
