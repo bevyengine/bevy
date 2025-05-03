@@ -12,7 +12,26 @@
 
 // https://github.com/zeux/meshoptimizer/blob/1e48e96c7e8059321de492865165e9ef071bffba/demo/nanite.cpp#L115
 fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, instance_id: u32) -> bool {
-    return simplification_error == 0.0;
+    let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
+    let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
+    let camera_pos = view.world_position;
+
+    // TODO: this currently treats orthographic projections as perspective
+    let projection = view.clip_from_view;
+    let col2 = projection[2];
+    var near: f32;
+    if projection[3][3] == 1.0 {
+        near = col2.w / col2.z;
+    } else {
+        near = col2.w;
+    }
+
+    let world_sphere_center = (world_from_local * vec4<f32>(lod_sphere.xyz, 1.0)).xyz;
+    let world_sphere_radius = lod_sphere.w * world_scale;
+    let d_pos = world_sphere_center - camera_pos;
+    let d = sqrt(dot(d_pos, d_pos)) - world_sphere_radius;
+    let norm_error = simplification_error / max(d, near) * projection[1][1] * 0.5;
+    return norm_error * view.viewport.w < 1.0;
 }
 
 fn normalize_plane(p: vec4<f32>) -> vec4<f32> {

@@ -164,7 +164,7 @@ impl MeshletMesh {
                     return Err(group);
                 };
 
-                // Force the group error to be atleast as large as all of it's constituent meshlet's
+                // Force the group error to be atleast as large as all of its constituent meshlet's
                 // individual errors.
                 for &id in group.meshlets.iter() {
                     group_error = group_error.max(temp_cull_data[id as usize].error);

@@ -45,7 +45,7 @@ fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     let parent_is_imperceptible = lod_error_is_imperceptible(lod_sphere, parent_error, instance_id);
     // Error and frustum cull, in both passes
-    // if parent_is_imperceptible || !aabb_in_frustum(aabb, instance_id) { return; }
+    if parent_is_imperceptible || !aabb_in_frustum(aabb, instance_id) { return; }
 
     let child_offset = get_aabb_child_offset(&aabb_error_offset);
     let index = subnode >> 2u;

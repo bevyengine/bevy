@@ -22,19 +22,13 @@
 
 @compute
 @workgroup_size(128, 1, 1) // 1 cluster per thread
-fn cull_clusters(
-    @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>,
-    @builtin(local_invocation_index) local_invocation_index: u32,
-) {
-    // Calculate the queue ID for this thread
-    let dispatch_id = local_invocation_index + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
-    if dispatch_id >= meshlet_meshlet_cull_count_read { return; }
+fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+    if global_invocation_id.x >= meshlet_meshlet_cull_count_read { return; }
 
 #ifdef MESHLET_FIRST_CULLING_PASS
-    let meshlet_id = dispatch_id;
+    let meshlet_id = global_invocation_id.x;
 #else
-    let meshlet_id = constants.rightmost_slot - dispatch_id;
+    let meshlet_id = constants.rightmost_slot - global_invocation_id.x;
 #endif
     let instanced_offset = meshlet_meshlet_cull_queue[meshlet_id];
     let instance_id = instanced_offset.instance_id;
