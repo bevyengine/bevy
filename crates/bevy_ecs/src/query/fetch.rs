@@ -31,6 +31,8 @@ use variadics_please::all_tuples;
 ///   Gets the identifier of the queried entity.
 /// - **[`EntityLocation`].**
 ///   Gets the location metadata of the queried entity.
+/// - **[`SpawnedTick`].**
+///   Gets the tick the entity was spawned at.
 /// - **[`EntityRef`].**
 ///   Read-only access to arbitrary components on the queried entity.
 /// - **[`EntityMut`].**
@@ -469,6 +471,87 @@ unsafe impl QueryData for EntityLocation {
 
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityLocation {}
+
+/// The `SpawnedTick` query parameter fetches the [`Tick`] the entity was spawned at.
+#[derive(Clone, Copy)]
+pub struct SpawnedTick(());
+
+// SAFETY:
+// No components are accessed.
+unsafe impl WorldQuery for SpawnedTick {
+    type Fetch<'w> = &'w Entities;
+    type State = ();
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _state: &Self::State,
+        _last_run: Tick,
+        _this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        world.entities()
+    }
+
+    const IS_DENSE: bool = true;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &'w Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn init_state(_world: &mut World) {}
+
+    fn get_state(_components: &Components) -> Option<()> {
+        Some(())
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+// SAFETY:
+// No components are accessed.
+// Is its own ReadOnlyQueryData.
+unsafe impl QueryData for SpawnedTick {
+    const IS_READ_ONLY: bool = true;
+    type ReadOnly = Self;
+    type Item<'w> = Tick;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        let spawned = fetch.entity_get_spawned_or_despawned_at(entity);
+        // SAFETY: queried entity must have a spawned tick
+        unsafe { spawned.debug_checked_unwrap() }
+    }
+}
+
+/// SAFETY: access is read only
+unsafe impl ReadOnlyQueryData for SpawnedTick {}
 
 /// SAFETY:
 /// `fetch` accesses all components in a readonly way.
