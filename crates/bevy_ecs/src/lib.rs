@@ -43,6 +43,7 @@ pub mod identifier;
 pub mod intern;
 pub mod label;
 pub mod name;
+pub mod never;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
@@ -73,7 +74,7 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
         component::Component,
-        entity::{Entity, EntityBorrow, EntityMapper},
+        entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
@@ -85,15 +86,15 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
-            IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
+            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs,
+            IntoSystemSet, Schedule, Schedules, SystemSet,
         },
         spawn::{Spawn, SpawnRelated},
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction, WithParamWarnPolicy,
+            SystemParamFunction,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
@@ -133,7 +134,7 @@ mod tests {
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
-        entity::Entity,
+        entity::{Entity, EntityMapper},
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
@@ -146,8 +147,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
-    use bevy_platform_support::collections::HashSet;
+    use bevy_platform::collections::HashSet;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use core::{
         any::TypeId,
@@ -229,7 +229,7 @@ mod tests {
             y: SparseStored,
         }
         let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
             ids.push(id);
         });
 
@@ -279,7 +279,7 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
             ids.push(id);
         });
 
@@ -331,9 +331,12 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(&mut world.components, &mut |id| {
-            ids.push(id);
-        });
+        <BundleWithIgnored as Bundle>::component_ids(
+            &mut world.components_registrator(),
+            &mut |id| {
+                ids.push(id);
+            },
+        );
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 
@@ -1924,7 +1927,7 @@ mod tests {
         struct X;
 
         #[derive(Component)]
-        #[require(Z(new_z))]
+        #[require(Z = new_z())]
         struct Y {
             value: String,
         }
@@ -2644,6 +2647,37 @@ mod tests {
     }
 
     #[test]
+    fn required_components_inheritance_depth_bias() {
+        #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
+        struct MyRequired(bool);
+
+        #[derive(Component, Default)]
+        #[require(MyRequired(false))]
+        struct MiddleMan;
+
+        #[derive(Component, Default)]
+        #[require(MiddleMan)]
+        struct ConflictingRequire;
+
+        #[derive(Component, Default)]
+        #[require(MyRequired(true))]
+        struct MyComponent;
+
+        let mut world = World::new();
+        let order_a = world
+            .spawn((ConflictingRequire, MyComponent))
+            .get::<MyRequired>()
+            .cloned();
+        let order_b = world
+            .spawn((MyComponent, ConflictingRequire))
+            .get::<MyRequired>()
+            .cloned();
+
+        assert_eq!(order_a, Some(MyRequired(true)));
+        assert_eq!(order_b, Some(MyRequired(true)));
+    }
+
+    #[test]
     #[should_panic = "Recursive required components detected: A → B → C → B\nhelp: If this is intentional, consider merging the components."]
     fn required_components_recursion_errors() {
         #[derive(Component, Default)]
@@ -2671,8 +2705,19 @@ mod tests {
         World::new().register_component::<A>();
     }
 
+    #[derive(Default)]
+    struct CaptureMapper(Vec<Entity>);
+    impl EntityMapper for CaptureMapper {
+        fn get_mapped(&mut self, source: Entity) -> Entity {
+            self.0.push(source);
+            source
+        }
+
+        fn set_mapped(&mut self, _source: Entity, _target: Entity) {}
+    }
+
     #[test]
-    fn visit_struct_entities() {
+    fn map_struct_entities() {
         #[derive(Component)]
         #[expect(
             unused,
@@ -2699,30 +2744,22 @@ mod tests {
         let e3 = world.spawn_empty().id();
 
         let mut foo = Foo(1, e1);
-        let mut entities = Vec::new();
-        Component::visit_entities(&foo, |e| entities.push(e));
-        assert_eq!(&entities, &[e1]);
-
-        let mut entities = Vec::new();
-        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
-        assert_eq!(&entities, &[e1]);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut foo, &mut mapper);
+        assert_eq!(&mapper.0, &[e1]);
 
         let mut bar = Bar {
             a: e1,
             b: 1,
             c: vec![e2, e3],
         };
-        let mut entities = Vec::new();
-        Component::visit_entities(&bar, |e| entities.push(e));
-        assert_eq!(&entities, &[e1, e2, e3]);
-
-        let mut entities = Vec::new();
-        Component::visit_entities_mut(&mut bar, |e| entities.push(*e));
-        assert_eq!(&entities, &[e1, e2, e3]);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut bar, &mut mapper);
+        assert_eq!(&mapper.0, &[e1, e2, e3]);
     }
 
     #[test]
-    fn visit_enum_entities() {
+    fn map_enum_entities() {
         #[derive(Component)]
         #[expect(
             unused,
@@ -2745,26 +2782,18 @@ mod tests {
         let e3 = world.spawn_empty().id();
 
         let mut foo = Foo::Bar(1, e1);
-        let mut entities = Vec::new();
-        Component::visit_entities(&foo, |e| entities.push(e));
-        assert_eq!(&entities, &[e1]);
-
-        let mut entities = Vec::new();
-        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
-        assert_eq!(&entities, &[e1]);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut foo, &mut mapper);
+        assert_eq!(&mapper.0, &[e1]);
 
         let mut foo = Foo::Baz {
             a: e1,
             b: 1,
             c: vec![e2, e3],
         };
-        let mut entities = Vec::new();
-        Component::visit_entities(&foo, |e| entities.push(e));
-        assert_eq!(&entities, &[e1, e2, e3]);
-
-        let mut entities = Vec::new();
-        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
-        assert_eq!(&entities, &[e1, e2, e3]);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut foo, &mut mapper);
+        assert_eq!(&mapper.0, &[e1, e2, e3]);
     }
 
     #[expect(
@@ -2793,16 +2822,18 @@ mod tests {
         field1: ComponentB,
     }
 
-    #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    #[derive(Component)]
     struct MyEntities {
+        #[entities]
         entities: Vec<Entity>,
+        #[entities]
         another_one: Entity,
+        #[entities]
         maybe_entity: Option<Entity>,
         #[expect(
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
         )]
-        #[visit_entities(ignore)]
         something_else: String,
     }
 
@@ -2810,6 +2841,6 @@ mod tests {
         dead_code,
         reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
     )]
-    #[derive(Component, VisitEntities, VisitEntitiesMut)]
-    struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
+    #[derive(Component)]
+    struct MyEntitiesTuple(#[entities] Vec<Entity>, #[entities] Entity, usize);
 }

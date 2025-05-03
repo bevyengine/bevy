@@ -9,10 +9,8 @@ plugin_group! {
         bevy_app:::TaskPoolPlugin,
         bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
-        #[custom(cfg(any(feature = "libm", feature = "std")))]
         bevy_transform:::TransformPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
-        #[custom(cfg(any(feature = "libm", feature = "std")))]
         bevy_input:::InputPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,
@@ -40,6 +38,8 @@ plugin_group! {
         bevy_render::pipelined_rendering:::PipelinedRenderingPlugin,
         #[cfg(feature = "bevy_core_pipeline")]
         bevy_core_pipeline:::CorePipelinePlugin,
+        #[cfg(feature = "bevy_anti_aliasing")]
+        bevy_anti_aliasing:::AntiAliasingPlugin,
         #[cfg(feature = "bevy_sprite")]
         bevy_sprite:::SpritePlugin,
         #[cfg(feature = "bevy_text")]

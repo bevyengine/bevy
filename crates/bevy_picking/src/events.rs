@@ -42,8 +42,8 @@ use core::{fmt::Debug, time::Duration};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::time::Instant;
+use bevy_platform::collections::HashMap;
+use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::NormalizedRenderTarget;
 use bevy_window::Window;
@@ -60,7 +60,7 @@ use crate::{
 /// The documentation for the [`pointer_events`] explains the events this module exposes and
 /// the order in which they fire.
 #[derive(Clone, PartialEq, Debug, Reflect, Component)]
-#[reflect(Component, Debug)]
+#[reflect(Component, Debug, Clone)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
     /// The original target of this picking event, before bubbling
     pub target: Entity,
@@ -92,7 +92,7 @@ where
 
         // Send event to parent, if it has one.
         if let Some(child_of) = child_of {
-            return Some(child_of.parent);
+            return Some(child_of.parent());
         };
 
         // Otherwise, send it to the window entity (unless this is a window entity).
@@ -146,20 +146,23 @@ impl<E: Debug + Clone + Reflect> Pointer<E> {
 
 /// Fires when a pointer is canceled, and its current interaction state is dropped.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct Cancel {
     /// Information about the picking intersection.
     pub hit: HitData,
 }
 
-/// Fires when a the pointer crosses into the bounds of the `target` entity.
+/// Fires when a pointer crosses into the bounds of the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct Over {
     /// Information about the picking intersection.
     pub hit: HitData,
 }
 
-/// Fires when a the pointer crosses out of the bounds of the `target` entity.
+/// Fires when a pointer crosses out of the bounds of the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct Out {
     /// Information about the latest prior picking intersection.
     pub hit: HitData,
@@ -167,6 +170,7 @@ pub struct Out {
 
 /// Fires when a pointer button is pressed over the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct Pressed {
     /// Pointer button pressed to trigger this event.
     pub button: PointerButton,
@@ -176,6 +180,7 @@ pub struct Pressed {
 
 /// Fires when a pointer button is released over the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct Released {
     /// Pointer button lifted to trigger this event.
     pub button: PointerButton,
@@ -186,6 +191,7 @@ pub struct Released {
 /// Fires when a pointer sends a pointer pressed event followed by a pointer released event, with the same
 /// `target` entity for both events.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct Click {
     /// Pointer button pressed and lifted to trigger this event.
     pub button: PointerButton,
@@ -197,6 +203,7 @@ pub struct Click {
 
 /// Fires while a pointer is moving over the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct Move {
     /// Information about the picking intersection.
     pub hit: HitData,
@@ -206,6 +213,7 @@ pub struct Move {
 
 /// Fires when the `target` entity receives a pointer pressed event followed by a pointer move event.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct DragStart {
     /// Pointer button pressed and moved to trigger this event.
     pub button: PointerButton,
@@ -215,6 +223,7 @@ pub struct DragStart {
 
 /// Fires while the `target` entity is being dragged.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct Drag {
     /// Pointer button pressed and moved to trigger this event.
     pub button: PointerButton,
@@ -226,6 +235,7 @@ pub struct Drag {
 
 /// Fires when a pointer is dragging the `target` entity and a pointer released event is received.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct DragEnd {
     /// Pointer button pressed, moved, and released to trigger this event.
     pub button: PointerButton,
@@ -235,6 +245,7 @@ pub struct DragEnd {
 
 /// Fires when a pointer dragging the `dragged` entity enters the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct DragEnter {
     /// Pointer button pressed to enter drag.
     pub button: PointerButton,
@@ -246,6 +257,7 @@ pub struct DragEnter {
 
 /// Fires while the `dragged` entity is being dragged over the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct DragOver {
     /// Pointer button pressed while dragging over.
     pub button: PointerButton,
@@ -257,6 +269,7 @@ pub struct DragOver {
 
 /// Fires when a pointer dragging the `dragged` entity leaves the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct DragLeave {
     /// Pointer button pressed while leaving drag.
     pub button: PointerButton,
@@ -268,6 +281,7 @@ pub struct DragLeave {
 
 /// Fires when a pointer drops the `dropped` entity onto the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct DragDrop {
     /// Pointer button released to drop.
     pub button: PointerButton,
@@ -278,7 +292,8 @@ pub struct DragDrop {
 }
 
 /// Dragging state.
-#[derive(Debug, Clone)]
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct DragEntry {
     /// The position of the pointer at drag start.
     pub start_pos: Vec2,
@@ -288,6 +303,7 @@ pub struct DragEntry {
 
 /// Fires while a pointer is scrolling over the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct Scroll {
     /// The mouse scroll unit.
     pub unit: MouseScrollUnit,

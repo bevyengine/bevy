@@ -11,11 +11,14 @@ use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
     resource::Resource,
-    system::{Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam},
+    system::{
+        Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
+        SystemParamValidationError,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -222,7 +225,7 @@ where
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
     }
@@ -274,6 +277,7 @@ where
 
 /// Buffer for gizmo vertex data.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default)]
 pub struct GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -284,7 +288,7 @@ where
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }
 

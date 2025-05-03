@@ -41,7 +41,7 @@ use bevy_ecs::{
     event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
     prelude::*,
 };
-use bevy_platform_support::time::Instant;
+use bevy_platform::time::Instant;
 use core::time::Duration;
 
 #[cfg(feature = "std")]
@@ -160,12 +160,13 @@ pub fn time_system(
         None => None,
     };
 
-    #[cfg(not(feature = "std"))]
-    let sent_time = None;
-
     match update_strategy.as_ref() {
         TimeUpdateStrategy::Automatic => {
+            #[cfg(feature = "std")]
             real_time.update_with_instant(sent_time.unwrap_or_else(Instant::now));
+
+            #[cfg(not(feature = "std"))]
+            real_time.update_with_instant(Instant::now());
         }
         TimeUpdateStrategy::ManualInstant(instant) => real_time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => real_time.update_with_duration(*duration),
@@ -175,6 +176,7 @@ pub fn time_system(
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};

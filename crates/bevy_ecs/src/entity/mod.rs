@@ -39,7 +39,6 @@
 mod clone_entities;
 mod entity_set;
 mod map_entities;
-mod visit_entities;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
@@ -48,11 +47,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 pub use clone_entities::*;
 pub use entity_set::*;
 pub use map_entities::*;
-pub use visit_entities::*;
-
-mod unique_vec;
-
-pub use unique_vec::*;
 
 mod hash;
 pub use hash::*;
@@ -60,19 +54,22 @@ pub use hash::*;
 pub mod hash_map;
 pub mod hash_set;
 
-mod index_map;
-mod index_set;
+pub use hash_map::EntityHashMap;
+pub use hash_set::EntityHashSet;
+
+pub mod index_map;
+pub mod index_set;
 
 pub use index_map::EntityIndexMap;
 pub use index_set::EntityIndexSet;
 
-mod unique_slice;
+pub mod unique_array;
+pub mod unique_slice;
+pub mod unique_vec;
 
-pub use unique_slice::*;
-
-mod unique_array;
-
-pub use unique_array::UniqueEntityArray;
+pub use unique_array::{UniqueEntityArray, UniqueEntityEquivalentArray};
+pub use unique_slice::{UniqueEntityEquivalentSlice, UniqueEntitySlice};
+pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
@@ -87,7 +84,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform::sync::atomic::Ordering;
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -95,7 +92,7 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_has_atomic = "64")]
-use bevy_platform_support::sync::atomic::AtomicI64 as AtomicIdCursor;
+use bevy_platform::sync::atomic::AtomicI64 as AtomicIdCursor;
 #[cfg(target_has_atomic = "64")]
 type IdCursor = i64;
 
@@ -103,7 +100,7 @@ type IdCursor = i64;
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
 #[cfg(not(target_has_atomic = "64"))]
-use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
+use bevy_platform::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
 
@@ -178,7 +175,7 @@ type IdCursor = isize;
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)
@@ -248,6 +245,7 @@ impl Hash for Entity {
 }
 
 #[deprecated(
+    since = "0.16.0",
     note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
 )]
 pub(crate) enum AllocAtWithoutReplacement {
@@ -583,8 +581,6 @@ pub struct Entities {
     /// [`flush`]: Entities::flush
     pending: Vec<u32>,
     free_cursor: AtomicIdCursor,
-    /// Stores the number of free entities for [`len`](Entities::len)
-    len: u32,
 }
 
 impl Entities {
@@ -593,7 +589,6 @@ impl Entities {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
-            len: 0,
         }
     }
 
@@ -685,7 +680,6 @@ impl Entities {
     /// Allocate an entity ID directly.
     pub fn alloc(&mut self) -> Entity {
         self.verify_flushed();
-        self.len += 1;
         if let Some(index) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
@@ -702,6 +696,7 @@ impl Entities {
     /// Returns the location of the entity currently using the given ID, if any. Location should be
     /// written immediately.
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
@@ -714,13 +709,11 @@ impl Entities {
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            self.len += 1;
             None
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
             self.pending.swap_remove(index);
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.len += 1;
             None
         } else {
             Some(mem::replace(
@@ -738,6 +731,7 @@ impl Entities {
     ///
     /// Returns the location of the entity currently using the given ID, if any.
     #[deprecated(
+        since = "0.16.0",
         note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
     )]
     #[expect(
@@ -757,13 +751,11 @@ impl Entities {
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta
                 .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
             self.pending.swap_remove(index);
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else {
             let current_meta = &self.meta[entity.index() as usize];
@@ -806,7 +798,6 @@ impl Entities {
 
         let new_free_cursor = self.pending.len() as IdCursor;
         *self.free_cursor.get_mut() = new_free_cursor;
-        self.len -= 1;
         Some(loc)
     }
 
@@ -844,7 +835,6 @@ impl Entities {
         self.meta.clear();
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
-        self.len = 0;
     }
 
     /// Returns the location of an [`Entity`].
@@ -940,7 +930,6 @@ impl Entities {
             let old_meta_len = self.meta.len();
             let new_meta_len = old_meta_len + -current_free_cursor as usize;
             self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            self.len += -current_free_cursor as u32;
             for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
                 init(
                     Entity::from_raw_and_generation(index as u32, meta.generation),
@@ -952,7 +941,6 @@ impl Entities {
             0
         };
 
-        self.len += (self.pending.len() - new_free_cursor) as u32;
         for index in self.pending.drain(new_free_cursor..) {
             let meta = &mut self.meta[index as usize];
             init(
@@ -986,16 +974,35 @@ impl Entities {
         self.meta.len()
     }
 
+    /// The count of all entities in the [`World`] that are used,
+    /// including both those allocated and those reserved, but not those freed.
+    ///
+    /// [`World`]: crate::world::World
+    #[inline]
+    pub fn used_count(&self) -> usize {
+        (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
+    }
+
+    /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
+    /// This is the value that [`Self::total_count()`] would return if [`Self::flush()`] were called right now.
+    ///
+    /// [`World`]: crate::world::World
+    #[inline]
+    pub fn total_prospective_count(&self) -> usize {
+        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
+    }
+
     /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u32 {
-        self.len
+        // `pending`, by definition, can't be bigger than `meta`.
+        (self.meta.len() - self.pending.len()) as u32
     }
 
     /// Checks if any entity is currently active.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.len() == 0
     }
 
     /// Sets the source code location from which this entity has last been spawned

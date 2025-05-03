@@ -323,6 +323,7 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use alloc::{vec, vec::Vec};
     use bevy_utils::default;
@@ -336,20 +337,23 @@ mod tests {
         component::{Component, Components},
         entity::{Entities, Entity},
         error::Result,
-        prelude::{AnyOf, EntityRef},
+        name::Name,
+        prelude::{AnyOf, EntityRef, Trigger},
         query::{Added, Changed, Or, Spawned, SpawnedTick, With, Without},
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
+            common_conditions::resource_exists, ApplyDeferred, Condition, IntoScheduleConfigs,
             Schedule,
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
             Single, StaticSystemParam, System, SystemState,
         },
-        world::{DeferredWorld, EntityMut, FromWorld, World},
+        world::{DeferredWorld, EntityMut, FromWorld, OnAdd, World},
     };
+
+    use super::ScheduleSystem;
 
     #[derive(Resource, PartialEq, Debug)]
     enum SystemRan {
@@ -389,7 +393,10 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Marker, S: IntoSystemConfigs<Marker>>(world: &mut World, system: S) {
+    fn run_system<Marker, S: IntoScheduleConfigs<ScheduleSystem, Marker>>(
+        world: &mut World,
+        system: S,
+    ) {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         schedule.run(world);
@@ -1850,5 +1857,60 @@ mod tests {
 
         let mut world = World::new();
         run_system(&mut world, sys);
+    }
+
+    // Regression test for
+    // https://github.com/bevyengine/bevy/issues/18778
+    //
+    // Dear rustc team, please reach out if you encounter this
+    // in a crater run and we can work something out!
+    //
+    // These todo! macro calls should never be removed;
+    // they're intended to demonstrate real-world usage
+    // in a way that's clearer than simply calling `panic!`
+    //
+    // Because type inference behaves differently for functions and closures,
+    // we need to test both, in addition to explicitly annotating the return type
+    // to ensure that there are no upstream regressions there.
+    #[test]
+    fn nondiverging_never_trait_impls() {
+        // This test is a compilation test:
+        // no meaningful logic is ever actually evaluated.
+        // It is simply intended to check that the correct traits are implemented
+        // when todo! or similar nondiverging panics are used.
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        fn sys(_query: Query<&Name>) {
+            todo!()
+        }
+
+        schedule.add_systems(sys);
+        schedule.add_systems(|_query: Query<&Name>| {});
+        schedule.add_systems(|_query: Query<&Name>| todo!());
+        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
+        schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
+
+        fn obs(_trigger: Trigger<OnAdd, Name>) {
+            todo!()
+        }
+
+        world.add_observer(obs);
+        world.add_observer(|_trigger: Trigger<OnAdd, Name>| {});
+        world.add_observer(|_trigger: Trigger<OnAdd, Name>| todo!());
+        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
+        world.add_observer(|_trigger: Trigger<OnAdd, Name>| -> () { todo!() });
+
+        fn my_command(_world: &mut World) {
+            todo!()
+        }
+
+        world.commands().queue(my_command);
+        world.commands().queue(|_world: &mut World| {});
+        world.commands().queue(|_world: &mut World| todo!());
+        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
+        world
+            .commands()
+            .queue(|_world: &mut World| -> () { todo!() });
     }
 }

@@ -59,7 +59,7 @@ bevy_reflect = [
 
 ## Uses `async-executor` as a task execution backend.
 ## This backend is incompatible with `no_std` targets.
-async_executor = ["std", "dep:bevy_utils", "bevy_tasks/async_executor"]
+async_executor = ["std", "bevy_tasks/async_executor"]
 
 # Platform Compatibility
 
@@ -74,7 +74,7 @@ std = [
   "bevy_math/std",
   "bevy_reflect?/std",
   "bevy_tasks/std",
-  "bevy_utils?/std",
+  "bevy_utils/std",
   "serde?/std",
 ]
 

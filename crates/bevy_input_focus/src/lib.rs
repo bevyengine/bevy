@@ -80,7 +80,7 @@ use bevy_reflect::{prelude::*, Reflect};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Default, Resource)
+    reflect(Debug, Default, Resource, Clone)
 )]
 pub struct InputFocus(pub Option<Entity>);
 
@@ -123,7 +123,11 @@ impl InputFocus {
 ///
 /// By default, this resource is set to `false`.
 #[derive(Clone, Debug, Resource, Default)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Resource))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Resource, Clone)
+)]
 pub struct InputFocusVisible(pub bool);
 
 /// A bubble-able user input event that starts at the currently focused entity.
@@ -134,7 +138,7 @@ pub struct InputFocusVisible(pub bool);
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSet::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct FocusedInput<E: Event + Clone> {
     /// The underlying input event.
     pub input: E,
@@ -161,7 +165,7 @@ impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
 
         // Send event to parent, if it has one.
         if let Some(child_of) = child_of {
-            return Some(child_of.parent);
+            return Some(child_of.parent());
         };
 
         // Otherwise, send it to the window entity (unless this is a window entity).
@@ -334,7 +338,7 @@ impl IsFocused for World {
             if e == entity {
                 return true;
             }
-            if let Some(parent) = self.entity(e).get::<ChildOf>().map(|c| c.parent) {
+            if let Some(parent) = self.entity(e).get::<ChildOf>().map(ChildOf::parent) {
                 e = parent;
             } else {
                 return false;
