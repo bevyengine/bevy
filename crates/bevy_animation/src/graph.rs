@@ -81,6 +81,7 @@ use crate::{AnimationClip, AnimationTargetId};
 /// mask corresponds to a *mask group*, which is a set of animation targets
 /// (bones). An animation target can belong to any number of mask groups within
 /// the context of an animation graph.
+/// Note - Avoid using 0 as a *mask* as that is the default mask for non masked nodes.
 ///
 /// When the appropriate bit is set in a node's mask, neither the node nor its
 /// descendants will animate any animation targets belonging to that mask group.
