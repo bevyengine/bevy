@@ -299,6 +299,11 @@ impl<'w> EntityRef<'w> {
     pub fn spawned_by(&self) -> MaybeLocation {
         self.cell.spawned_by()
     }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.cell.spawned_at()
+    }
 }
 
 impl<'w> From<EntityWorldMut<'w>> for EntityRef<'w> {
