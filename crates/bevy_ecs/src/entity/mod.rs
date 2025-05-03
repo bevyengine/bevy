@@ -1013,7 +1013,7 @@ impl Entities {
             .meta
             .get_mut(index as usize)
             .expect("Entity index invalid");
-        meta.spawned_or_despawned = Some(SpawnedOrdDespawnedMeta { by, at });
+        meta.spawned_or_despawned = Some(SpawnedOrDespawned { by, at });
     }
 
     /// Returns the source code location from which this entity has last been spawned
@@ -1041,7 +1041,7 @@ impl Entities {
     /// respawn. Returns `None` if its index has been reused by another entity or if
     /// this entity has never existed.
     #[inline]
-    fn entity_get_spawned_or_despawned(&self, entity: Entity) -> Option<SpawnedOrdDespawnedMeta> {
+    fn entity_get_spawned_or_despawned(&self, entity: Entity) -> Option<SpawnedOrDespawned> {
         self.meta
             .get(entity.index() as usize)
             .filter(|meta|
@@ -1121,11 +1121,11 @@ struct EntityMeta {
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
-    spawned_or_despawned: Option<SpawnedOrdDespawnedMeta>,
+    spawned_or_despawned: Option<SpawnedOrDespawned>,
 }
 
 #[derive(Copy, Clone, Debug)]
-struct SpawnedOrdDespawnedMeta {
+struct SpawnedOrDespawned {
     by: MaybeLocation,
     at: Tick,
 }
