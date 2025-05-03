@@ -18,7 +18,7 @@ use bevy_input::{
 };
 #[cfg(any(not(target_arch = "wasm32"), feature = "custom_cursor"))]
 use bevy_log::error;
-use bevy_log::{trace, warn};
+use bevy_log::{once, trace, warn};
 #[cfg(feature = "custom_cursor")]
 use bevy_math::URect;
 use bevy_math::{ivec2, DVec2, Vec2};
@@ -41,7 +41,7 @@ use winit::{
 
 use bevy_window::{
     AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
-    Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
+    Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
     WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
 };
@@ -493,8 +493,14 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.world_mut());
         create_monitors(event_loop, create_monitor.get_mut(self.world_mut()));
         create_monitor.apply(self.world_mut());
-        create_windows(event_loop, create_window.get_mut(self.world_mut()));
-        create_window.apply(self.world_mut());
+        if self
+            .world_mut()
+            .get_resource::<Events<WindowCreated>>()
+            .is_some()
+        {
+            create_windows(event_loop, create_window.get_mut(self.world_mut()));
+            create_window.apply(self.world_mut());
+        }
 
         // TODO: This is a workaround for https://github.com/bevyengine/bevy/issues/17488
         //       while preserving the iOS fix in https://github.com/bevyengine/bevy/pull/11245
@@ -862,9 +868,13 @@ impl<T: Event> WinitAppRunnerState<T> {
         }
 
         if !buffered_events.is_empty() {
-            world
-                .resource_mut::<Events<BevyWindowEvent>>()
-                .send_batch(buffered_events);
+            if let Some(mut events) = world.get_resource_mut::<Events<BevyWindowEvent>>() {
+                events.send_batch(buffered_events);
+            } else {
+                once!(warn!(
+                    "Lost windows events because `Events<WindowEvents>` is not available."
+                ));
+            }
         }
     }
 

@@ -17,7 +17,7 @@ extern crate alloc;
 use bevy_derive::Deref;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use bevy_window::{RawHandleWrapperHolder, WindowEvent, WindowPlugin};
 use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};
 
@@ -129,8 +129,12 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
             .add_event::<RawWinitWindowEvent>()
-            .set_runner(|app| winit_runner(app, event_loop))
-            .add_systems(
+            .set_runner(|app| winit_runner(app, event_loop));
+
+        app.add_plugins(cursor::CursorPlugin);
+
+        if app.is_plugin_added::<WindowPlugin>() {
+            app.add_systems(
                 Last,
                 (
                     // `exit_on_all_closed` only checks if windows exist but doesn't access data,
@@ -141,9 +145,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
                 )
                     .chain(),
             );
-
-        app.add_plugins(AccessKitPlugin);
-        app.add_plugins(cursor::CursorPlugin);
+            app.add_plugins(AccessKitPlugin);
+        }
     }
 }
 
