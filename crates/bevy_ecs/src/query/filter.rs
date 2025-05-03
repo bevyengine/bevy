@@ -1036,12 +1036,12 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 /// # use bevy_ecs::query::Spawned;
 /// # use bevy_ecs::query::SpawnedTick;
 ///
-/// fn system1(q: Query<Entity, Spawned>) {
-///     for entity in &q { /* entity spawned */ }
+/// fn system1(query: Query<Entity, Spawned>) {
+///     for entity in &query { /* entity spawned */ }
 /// }
 ///
-/// fn system2(q: Query<(Entity, SpawnedTick)>, system_ticks: SystemChangeTick) {
-///     for (entity, spawned) in &q {
+/// fn system2(query: Query<(Entity, SpawnedTick)>, system_ticks: SystemChangeTick) {
+///     for (entity, spawned) in &query {
 ///         if spawned.is_newer_than(system_ticks.last_run(), system_ticks.this_run()) {
 ///             /* entity spawned */
 ///         }

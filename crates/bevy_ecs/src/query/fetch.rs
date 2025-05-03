@@ -501,7 +501,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 ///     }
 /// }
 ///
-/// # bevy_ecs::system::assert_is_system(print_spawning_entities);
+/// # bevy_ecs::system::assert_is_system(print_spawn_ticks);
 /// ```
 #[derive(Clone, Copy)]
 pub struct SpawnedTick(());
