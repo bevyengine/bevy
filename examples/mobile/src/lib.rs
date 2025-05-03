@@ -5,7 +5,7 @@ use bevy::{
     input::{gestures::RotationGesture, touch::TouchPhase},
     log::{Level, LogPlugin},
     prelude::*,
-    window::{AppLifecycle, WindowMode},
+    window::{AppLifecycle, ScreenEdge, WindowMode},
     winit::WinitSettings,
 };
 
@@ -34,6 +34,8 @@ pub fn main() {
                     prefers_home_indicator_hidden: true,
                     // Only has an effect on iOS
                     prefers_status_bar_hidden: true,
+                    // Only has an effect on iOS
+                    preferred_screen_edges_deferring_system_gestures: ScreenEdge::Bottom,
                     ..default()
                 }),
                 ..default()
