@@ -550,7 +550,7 @@ pub struct Entities {
     /// Has the same length as [`Self::meta`].
     ///
     /// Value is init if the entity of this index had a valid archetype at some point.
-    /// 
+    ///
     /// Value is uninit if entity was merely allocated yet.
     spawned_or_despawned_at: Vec<MaybeUninit<Tick>>,
 
@@ -1104,7 +1104,8 @@ impl Entities {
         }
     }
 
-    /// todo
+    /// Returns the [`EntityMeta`] for the given entity if the entity is alive or if
+    /// it was despawned without being overwritten.
     #[inline]
     fn get_entity_meta(&self, entity: Entity) -> Option<EntityMeta> {
         self.meta
