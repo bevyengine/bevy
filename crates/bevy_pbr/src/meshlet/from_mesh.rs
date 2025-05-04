@@ -229,7 +229,7 @@ impl MeshletMesh {
             bvh.add_lod(first_group, &all_groups);
         }
 
-        let (bvh, aabb, depth) = bvh.build(&mut meshlets, &mut all_groups);
+        let (bvh, aabb, depth) = bvh.build(&mut meshlets, &mut all_groups, &temp_cull_data);
 
         // Copy vertex attributes per meshlet and compress
         let mut vertex_positions = BitVec::<u32, Lsb0>::new();
@@ -957,14 +957,45 @@ impl BvhBuilder {
         onode as _
     }
 
-    fn mark_reachable(&self, out: &[BvhNode], reachable: &mut [bool], node: u32) {
+    fn verify_bvh(
+        &self,
+        out: &[BvhNode],
+        cull_data: &[TempMeshletCullData],
+        reachable: &mut [bool],
+        node: u32,
+    ) {
         let node = &out[node as usize];
         for i in 0..8 {
+            let sphere = node.lod_bounds[i];
+            let error = node.aabbs[i].error;
             if node.child_counts[i] == u8::MAX {
-                self.mark_reachable(out, reachable, node.aabbs[i].child_offset);
+                let child = &out[node.aabbs[i].child_offset as usize];
+                for i in 0..8 {
+                    if child.child_counts[i] == 0 {
+                        break;
+                    }
+                    assert!(child.aabbs[i].error <= error, "errors are not monotonic");
+                    let sphere_error = (sphere.center - child.lod_bounds[i].center).length()
+                        - (sphere.radius - child.lod_bounds[i].radius);
+                    assert!(
+                        sphere_error <= 0.000001,
+                        "lod spheres are not monotonic ({sphere_error})"
+                    );
+                }
+                self.verify_bvh(out, cull_data, reachable, node.aabbs[i].child_offset);
             } else {
                 for m in 0..node.child_counts[i] as u32 {
-                    reachable[(m + node.aabbs[i].child_offset) as usize] = true;
+                    let mid = (m + node.aabbs[i].child_offset) as usize;
+                    let meshlet = &cull_data[mid];
+                    assert!(meshlet.error <= error, "meshlet errors are not monotonic");
+                    let sphere_error =
+                        (Vec3A::from(sphere.center) - meshlet.lod_group_sphere.center).length()
+                            - (sphere.radius - meshlet.lod_group_sphere.radius());
+                    assert!(
+                        sphere_error <= 0.000001,
+                        "meshlet lod spheres are not monotonic ({sphere_error})"
+                    );
+                    reachable[mid] = true;
                 }
             }
         }
@@ -974,6 +1005,7 @@ impl BvhBuilder {
         mut self,
         meshlets: &mut Meshlets,
         groups: &mut Vec<TempMeshletGroup>,
+        cull_data: &[TempMeshletCullData],
     ) -> (Vec<BvhNode>, MeshletAabb, u32) {
         // The BVH requires group meshlets to be contiguous, so remap them first.
         let mut remap = Vec::with_capacity(meshlets.meshlets.len());
@@ -1021,7 +1053,7 @@ impl BvhBuilder {
         }
 
         let mut reachable = vec![false; meshlets.meshlets.len()];
-        self.mark_reachable(&out, &mut reachable, 0);
+        self.verify_bvh(&out, cull_data, &mut reachable, 0);
         debug_assert!(
             reachable.iter().all(|&x| x),
             "all meshlets must be reachable"
