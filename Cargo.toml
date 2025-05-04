@@ -3345,6 +3345,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_background_colors"
+path = "examples/ui/text_background_colors.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_background_colors]
+name = "Text Background Colors"
+description = "Demonstrates text background colors"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
 doc-scrape-examples = true
