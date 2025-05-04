@@ -2584,7 +2584,7 @@ impl<'w> EntityWorldMut<'w> {
                             table_row: swapped_location.table_row,
                         },
                         caller,
-                        change_tick
+                        change_tick,
                     );
                 }
             }
@@ -2615,7 +2615,7 @@ impl<'w> EntityWorldMut<'w> {
                         table_row,
                     },
                     caller,
-                    change_tick
+                    change_tick,
                 );
             }
             world.archetypes[moved_location.archetype_id]

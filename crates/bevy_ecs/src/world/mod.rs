@@ -1201,7 +1201,8 @@ impl World {
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
         let change_tick = self.change_tick();
-        self.entities.set_spawn_despawn(entity.index(), location, caller, change_tick);
+        self.entities
+            .set_spawn_despawn(entity.index(), location, caller, change_tick);
 
         EntityWorldMut::new(self, entity, location)
     }

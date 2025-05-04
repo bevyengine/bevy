@@ -855,7 +855,7 @@ impl Entities {
 
     /// Updates the location of an [`Entity`]. This must be called when moving the components of
     /// the existing entity around in storage.
-    /// 
+    ///
     /// For spawning and despawning entities, [`set_spawn_despawn`](Self::set_spawn_despawn) must
     /// be used instead.
     ///
@@ -878,7 +878,13 @@ impl Entities {
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn set_spawn_despawn(&mut self, index: u32, location: EntityLocation, by: MaybeLocation, at: Tick) {
+    pub(crate) unsafe fn set_spawn_despawn(
+        &mut self,
+        index: u32,
+        location: EntityLocation,
+        by: MaybeLocation,
+        at: Tick,
+    ) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
