@@ -724,8 +724,10 @@ impl Entities {
                 .extend((self.meta.len() as u32)..entity.index());
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
+            let new_len = entity.index() as usize + 1;
+            self.meta.resize(new_len, EntityMeta::EMPTY);
+            self.spawned_or_despawned_at
+                .resize(new_len, MaybeUninit::uninit());
             None
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
             self.pending.swap_remove(index);
@@ -766,8 +768,10 @@ impl Entities {
                 .extend((self.meta.len() as u32)..entity.index());
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
+            let new_len = entity.index() as usize + 1;
+            self.meta.resize(new_len, EntityMeta::EMPTY);
+            self.spawned_or_despawned_at
+                .resize(new_len, MaybeUninit::uninit());
             AllocAtWithoutReplacement::DidNotExist
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
             self.pending.swap_remove(index);
@@ -1116,7 +1120,7 @@ impl Entities {
 
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for (index, meta) in self.meta.iter_mut().enumerate() {
+        for (index, meta) in self.meta.iter().enumerate() {
             if meta.generation > NonZero::<u32>::MIN
                 || meta.location.archetype_id != ArchetypeId::INVALID
             {
