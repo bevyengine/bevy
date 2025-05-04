@@ -289,12 +289,15 @@ mod animation {
         for child in children.iter_descendants(trigger.target()) {
             if let Ok((entity, mut player)) = players.get_mut(child) {
                 let mut transitions = AnimationTransitions::new(1);
-                transitions.transition_flows(
-                    &mut player,
-                    animation.animation,
-                    0,
-                    Duration::from_millis(200),
-                ).seek_to(0.5).pause();
+                transitions
+                    .transition_flows(
+                        &mut player,
+                        animation.animation,
+                        0,
+                        Duration::from_millis(200),
+                    )
+                    .seek_to(0.5)
+                    .pause();
 
                 commands
                     .entity(entity)

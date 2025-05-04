@@ -26,6 +26,7 @@ use core::{f32, time::Duration};
 ///
 /// Is worth mentioning, that when using AnimationTransitions, you should avoid messing around with player!
 /// As he will do the heavy lifting for you! All you need to worry about is transitioning your flows!
+/// If you do play an additional animation directly via player  this WILL BREAK!
 ///
 /// It is also the user's responsibility to track which flow they are currently operating on
 /// when triggering transitions.
@@ -39,11 +40,11 @@ pub struct AnimationTransitions {
     transitions: Vec<AnimationTransition>,
     /// Flows represent sequences of animation states.
     /// For example, in cases such as masked or additive animation scenarios, a user can easily define transitions between previous and new states.
-    /// This concept is similar to "main" animations but is designed to scale across multiple animation layers or parts.
+    /// This concept is similar to "main" animations, but instead of one sole ActiveAnimation, we might have multiple active animation nodes being controlled!
     flows: Vec<Option<AnimationNodeIndex>>,
 }
 
-/// An animation node that is being faded out as part of a transition, note this does not control animation playing!
+/// An animation node that is being faded out as part of a transition, note this controls the animations being played!
 #[derive(Debug, Reflect, Clone)]
 pub struct AnimationTransition {
     /// How much weight we will decrease according to the given user value
