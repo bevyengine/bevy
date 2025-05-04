@@ -1181,9 +1181,6 @@ impl World {
                 .unwrap_or(EntityLocation::INVALID);
         }
 
-        self.entities
-            .set_spawned_or_despawned(entity.index(), caller, change_tick);
-
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
         after_effect.apply(&mut entity);
@@ -1203,11 +1200,8 @@ impl World {
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
-        self.entities.set(entity.index(), location);
-
         let change_tick = self.change_tick();
-        self.entities
-            .set_spawned_or_despawned(entity.index(), caller, change_tick);
+        self.entities.set_spawn_despawn(entity.index(), location, caller, change_tick);
 
         EntityWorldMut::new(self, entity, location)
     }

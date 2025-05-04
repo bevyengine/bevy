@@ -2565,6 +2565,7 @@ impl<'w> EntityWorldMut<'w> {
             .expect("entity should exist at this point.");
         let table_row;
         let moved_entity;
+        let change_tick = world.change_tick();
 
         {
             let archetype = &mut world.archetypes[self.location.archetype_id];
@@ -2574,7 +2575,7 @@ impl<'w> EntityWorldMut<'w> {
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
-                    world.entities.set(
+                    world.entities.set_spawn_despawn(
                         swapped_entity.index(),
                         EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -2582,6 +2583,8 @@ impl<'w> EntityWorldMut<'w> {
                             table_id: swapped_location.table_id,
                             table_row: swapped_location.table_row,
                         },
+                        caller,
+                        change_tick
                     );
                 }
             }
@@ -2603,7 +2606,7 @@ impl<'w> EntityWorldMut<'w> {
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
-                world.entities.set(
+                world.entities.set_spawn_despawn(
                     moved_entity.index(),
                     EntityLocation {
                         archetype_id: moved_location.archetype_id,
@@ -2611,20 +2614,14 @@ impl<'w> EntityWorldMut<'w> {
                         table_id: moved_location.table_id,
                         table_row,
                     },
+                    caller,
+                    change_tick
                 );
             }
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
         world.flush();
-        let change_tick = world.change_tick();
-
-        // SAFETY: No structural changes
-        unsafe {
-            world
-                .entities_mut()
-                .set_spawned_or_despawned(self.entity.index(), caller, change_tick);
-        }
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]

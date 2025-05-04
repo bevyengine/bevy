@@ -854,7 +854,10 @@ impl Entities {
     }
 
     /// Updates the location of an [`Entity`]. This must be called when moving the components of
-    /// the entity around in storage.
+    /// the existing entity around in storage.
+    /// 
+    /// For spawning and despawning entities, [`set_spawn_despawn`](Self::set_spawn_despawn) must
+    /// be used instead.
     ///
     /// # Safety
     ///  - `index` must be a valid entity index.
@@ -865,6 +868,21 @@ impl Entities {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
+    }
+
+    /// Updates the location of an [`Entity`]. This must be called when moving the components of
+    /// the spawned or despawned entity around in storage.
+    ///
+    /// # Safety
+    ///  - `index` must be a valid entity index.
+    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
+    ///    before handing control to unknown code.
+    #[inline]
+    pub(crate) unsafe fn set_spawn_despawn(&mut self, index: u32, location: EntityLocation, by: MaybeLocation, at: Tick) {
+        // SAFETY: Caller guarantees that `index` a valid entity index
+        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+        meta.location = location;
+        meta.spawned_or_despawned = Some(SpawnedOrDespawned { by, at });
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
@@ -1003,17 +1021,6 @@ impl Entities {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
-    }
-
-    /// Sets the source code location from which this entity has last been spawned
-    /// or despawned.
-    #[inline]
-    pub(crate) fn set_spawned_or_despawned(&mut self, index: u32, by: MaybeLocation, at: Tick) {
-        let meta = self
-            .meta
-            .get_mut(index as usize)
-            .expect("Entity index invalid");
-        meta.spawned_or_despawned = Some(SpawnedOrDespawned { by, at });
     }
 
     /// Returns the source code location from which this entity has last been spawned
