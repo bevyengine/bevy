@@ -219,7 +219,7 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
 
     fn place_most_recent(&mut self, index: usize) {
         if let Some(entity) = self.pop() {
-            let index = index.min(self.len() - 1);
+            let index = index.min(self.len().saturating_sub(1));
             self.insert(index, entity);
         }
     }
@@ -227,7 +227,7 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
             // The len is at least 1, so the subtraction is safe.
-            let index = index.min(self.len() - 1);
+            let index = index.min(self.len().saturating_sub(1));
             Vec::remove(self, current);
             self.insert(index, entity);
         };
@@ -332,7 +332,7 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
 }
 
 impl RelationshipSourceCollection for Entity {
-    type SourceIter<'a> = core::iter::Once<Entity>;
+    type SourceIter<'a> = core::option::IntoIter<Entity>;
 
     fn new() -> Self {
         Entity::PLACEHOLDER
@@ -345,6 +345,12 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
+        assert_eq!(
+            *self,
+            Entity::PLACEHOLDER,
+            "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
+            *self
+        );
         *self = entity;
 
         true
@@ -361,7 +367,11 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
-        core::iter::once(*self)
+        if *self == Entity::PLACEHOLDER {
+            None.into_iter()
+        } else {
+            Some(*self).into_iter()
+        }
     }
 
     fn len(&self) -> usize {
@@ -378,7 +388,13 @@ impl RelationshipSourceCollection for Entity {
     fn shrink_to_fit(&mut self) {}
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        if let Some(entity) = entities.into_iter().last() {
+        for entity in entities {
+            assert_eq!(
+                *self,
+                Entity::PLACEHOLDER,
+                "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
+                *self
+            );
             *self = entity;
         }
     }
@@ -642,6 +658,7 @@ mod tests {
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
         let c = world.spawn_empty().id();
+
         let d = world.spawn_empty().id();
 
         world.entity_mut(a).add_related::<Rel>(&[b, c, d]);
@@ -659,5 +676,43 @@ mod tests {
 
         // Removals should maintain ordering
         assert!(collection.iter().eq(&[b, d]));
+    }
+
+    #[test]    
+    #[should_panic]
+    fn one_to_one_relationship_shared_target() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Below)]
+        struct Above(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Above)]
+        struct Below(Entity);
+      
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Above(c));
+        world.entity_mut(b).insert(Above(c));
+    }
+
+    #[test]
+    fn one_to_one_relationship_reinsert() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Below)]
+        struct Above(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Above)]
+        struct Below(Entity);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Above(b));
+        world.entity_mut(a).insert(Above(b));
     }
 }

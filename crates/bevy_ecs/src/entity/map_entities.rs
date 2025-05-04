@@ -8,7 +8,7 @@ use crate::{
 };
 
 use alloc::{collections::VecDeque, vec::Vec};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use core::hash::BuildHasher;
 use smallvec::SmallVec;
 
@@ -27,7 +27,7 @@ use super::EntityIndexSet;
 /// entities in the context of scenes and entity cloning, which generally uses [`MapEntities`] internally
 /// to map each field (see those docs for usage).
 ///
-/// [`HashSet<Entity>`]: bevy_platform_support::collections::HashSet
+/// [`HashSet<Entity>`]: bevy_platform::collections::HashSet
 ///
 /// ## Example
 ///
