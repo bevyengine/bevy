@@ -72,7 +72,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     radiance *= view.exposure;
 
     // Accumulation over time via running average
-    let new_color = (radiance + old_color.a * old_color.rgb) / (old_color.a + 1.0);
+    let new_color = mix(old_color.rgb, radiance, 1.0 / (old_color.a + 1.0));
     textureStore(accumulation_texture, global_id.xy, vec4(new_color, old_color.a + 1.0));
     textureStore(view_output, global_id.xy, vec4(new_color, 1.0));
 }
