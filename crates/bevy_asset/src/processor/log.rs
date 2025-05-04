@@ -5,7 +5,7 @@ use alloc::{
     vec::Vec,
 };
 use async_fs::File;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use std::path::PathBuf;
 use thiserror::Error;

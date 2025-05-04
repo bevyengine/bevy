@@ -1576,6 +1576,9 @@ impl<'a> EntityCommands<'a> {
 
     /// Removes a [`Bundle`] of components from the entity.
     ///
+    /// This will remove all components that intersect with the provided bundle;
+    /// the entity does not need to have all the components in the bundle.
+    ///
     /// This will emit a warning if the entity does not exist.
     ///
     /// # Example
@@ -1615,7 +1618,67 @@ impl<'a> EntityCommands<'a> {
         self.queue_handled(entity_command::remove::<B>(), warn)
     }
 
+    /// Removes a [`Bundle`] of components from the entity if the predicate returns true.
+    ///
+    /// This is useful for chaining method calls.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// # impl PlayerEntity { fn is_spectator(&self) -> bool { true } }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         .remove_if::<(Defense, CombatBundle)>(|| !player.is_spectator());
+    /// }
+    /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
+    /// ```
+    #[track_caller]
+    pub fn remove_if<B: Bundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
+        if condition() {
+            self.remove::<B>()
+        } else {
+            self
+        }
+    }
+
+    /// Removes a [`Bundle`] of components from the entity if the predicate returns true.
+    ///
+    /// This is useful for chaining method calls.
+    ///
+    /// # Note
+    ///
+    /// If the entity does not exist when this command is executed,
+    /// the resulting error will be ignored.
+    #[track_caller]
+    pub fn try_remove_if<B: Bundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
+        if condition() {
+            self.try_remove::<B>()
+        } else {
+            self
+        }
+    }
+
     /// Removes a [`Bundle`] of components from the entity.
+    ///
+    /// This will remove all components that intersect with the provided bundle;
+    /// the entity does not need to have all the components in the bundle.
     ///
     /// Unlike [`Self::remove`],
     /// this will not emit a warning if the entity does not exist.
@@ -1658,6 +1721,9 @@ impl<'a> EntityCommands<'a> {
 
     /// Removes a [`Bundle`] of components from the entity,
     /// and also removes any components required by the components in the bundle.
+    ///
+    /// This will remove all components that intersect with the provided bundle;
+    /// the entity does not need to have all the components in the bundle.
     ///
     /// # Example
     ///

@@ -1,7 +1,7 @@
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
 use bevy_math::{Rect, URect, UVec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 #[cfg(not(feature = "bevy_reflect"))]
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
@@ -221,6 +221,18 @@ impl TextureAtlas {
     pub fn texture_rect(&self, texture_atlases: &Assets<TextureAtlasLayout>) -> Option<URect> {
         let atlas = texture_atlases.get(&self.layout)?;
         atlas.textures.get(self.index).copied()
+    }
+
+    /// Returns this [`TextureAtlas`] with the specified index.
+    pub fn with_index(mut self, index: usize) -> Self {
+        self.index = index;
+        self
+    }
+
+    /// Returns this [`TextureAtlas`] with the specified [`TextureAtlasLayout`] handle.
+    pub fn with_layout(mut self, layout: Handle<TextureAtlasLayout>) -> Self {
+        self.layout = layout;
+        self
     }
 }
 

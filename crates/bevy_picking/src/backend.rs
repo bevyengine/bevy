@@ -131,7 +131,7 @@ pub mod ray {
     use crate::backend::prelude::{PointerId, PointerLocation};
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
-    use bevy_platform_support::collections::{hash_map::Iter, HashMap};
+    use bevy_platform::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::Reflect;
     use bevy_render::camera::Camera;
     use bevy_transform::prelude::GlobalTransform;
@@ -229,11 +229,8 @@ pub mod ray {
         if !pointer_loc.is_in_viewport(camera, primary_window_entity) {
             return None;
         }
-        let mut viewport_pos = pointer_loc.position;
-        if let Some(viewport) = &camera.viewport {
-            let viewport_logical = camera.to_logical(viewport.physical_position)?;
-            viewport_pos -= viewport_logical;
-        }
-        camera.viewport_to_world(camera_tfm, viewport_pos).ok()
+        camera
+            .viewport_to_world(camera_tfm, pointer_loc.position)
+            .ok()
     }
 }
