@@ -27,13 +27,13 @@ bevy_sprite = { path = "../bevy_sprite", version = "0.16.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
   "serialize",
 ] }
 
 # other
-cosmic-text = { version = "0.13", features = ["shape-run-cache"] }
+cosmic-text = { version = "0.14", features = ["shape-run-cache"] }
 thiserror = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
 smallvec = "1.13"
