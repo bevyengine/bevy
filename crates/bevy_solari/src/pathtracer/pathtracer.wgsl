@@ -62,7 +62,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             throughput *= (diffuse_brdf * cos_theta) / cosine_hemisphere_pdf;
 
             // Russian roulette for early termination
-            let p = min(0.95, tonemapping_luminance(throughput));
+            let p = tonemapping_luminance(throughput);
             if rand_f(&rng) > p { break; }
             throughput /= p;
         } else { break; }
