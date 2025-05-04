@@ -761,7 +761,7 @@ impl TablesComponentMeta {
     pub fn column_in(&self, table: TableId) -> Option<TableColumnId> {
         self.columns
             .get(table.0 as usize)
-            .and_then(|column| (*column == TableColumnId::INVALID).then_some(*column))
+            .and_then(|column| (*column != TableColumnId::INVALID).then_some(*column))
     }
 }
 
