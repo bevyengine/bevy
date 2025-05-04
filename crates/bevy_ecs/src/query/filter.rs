@@ -93,7 +93,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
     ///
-    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
+    /// Implementers of this method will generally either have a trivial `true` body (required for archetypal filters),
     /// or access the necessary data within this function to make the final decision on filter inclusion.
     ///
     /// # Safety

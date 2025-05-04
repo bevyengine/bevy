@@ -526,7 +526,7 @@ impl Table {
         unsafe { Some(self.get_column_mut_by_id(self.get_column_id(component_id)?)) }
     }
 
-    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the table.
+    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`](crate::component::Component) within the table.
     ///
     /// # Safety
     ///
@@ -537,7 +537,7 @@ impl Table {
         unsafe { self.data.get_unchecked(column.as_usize()) }
     }
 
-    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`TableColumn`] within the table.
+    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`TableColumnId`] within the table.
     ///
     /// # Safety
     ///
@@ -548,7 +548,7 @@ impl Table {
         unsafe { self.data.get_unchecked_mut(column.as_usize()) }
     }
 
-    /// Fetches [`TableColumn`] for a given [`Component`] within the table.
+    /// Fetches [`TableColumnId`] for a given [`Component`] within the table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
