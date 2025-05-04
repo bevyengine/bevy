@@ -899,6 +899,20 @@ impl Tables {
         }
     }
 
+    /// Gets the [`TablesComponentId`] for this component if it has been in any table.
+    pub fn get_tables_component_id(&self, component: ComponentId) -> Option<TablesComponentId> {
+        self.components.get(&component).copied()
+    }
+
+    /// Gets the [`TablesComponentMeta`] for this component if it has been in any table.
+    /// These are never removed and do not correspond to any component data access.
+    pub fn get_component_storage_meta(
+        &self,
+        component: TablesComponentId,
+    ) -> Option<&TablesComponentMeta> {
+        self.component_meta.get(component.0)
+    }
+
     /// Iterates through all of the tables stored within in [`TableId`] order.
     pub fn iter(&self) -> core::slice::Iter<'_, Table> {
         self.tables.iter()
