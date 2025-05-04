@@ -398,7 +398,6 @@ impl Table {
     /// Get the data of the column matching `component_id` as a slice.
     ///
     /// # Safety
-    /// `row.as_usize()` < `self.len()`
     /// - `T` must match the `TableColumnId`
     /// - The column must be for this table.
     pub unsafe fn get_data_slice_for<T>(&self, column: TableColumnId) -> &[UnsafeCell<T>] {
@@ -407,23 +406,23 @@ impl Table {
     }
 
     /// Get the added ticks of the column matching `component_id` as a slice.
-    pub fn get_added_ticks_slice_for(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<Tick>]> {
-        self.get_column(component_id)
-            // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_added_ticks_slice(self.entity_count()) })
+    ///
+    /// # Safety
+    /// - The column must be for this table.
+    pub unsafe fn get_added_ticks_slice_for(&self, column: TableColumnId) -> &[UnsafeCell<Tick>] {
+        let column = self.get_column_by_id(column);
+        // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
+        unsafe { column.get_added_ticks_slice(self.entity_count()) }
     }
 
     /// Get the changed ticks of the column matching `component_id` as a slice.
-    pub fn get_changed_ticks_slice_for(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<Tick>]> {
-        self.get_column(component_id)
-            // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_changed_ticks_slice(self.entity_count()) })
+    ///
+    /// # Safety
+    /// - The column must be for this table.
+    pub unsafe fn get_changed_ticks_slice_for(&self, column: TableColumnId) -> &[UnsafeCell<Tick>] {
+        let column = self.get_column_by_id(column);
+        // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
+        unsafe { column.get_changed_ticks_slice(self.entity_count()) }
     }
 
     /// Fetches the calling locations that last changed the each component

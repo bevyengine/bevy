@@ -2484,9 +2484,9 @@ unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
 /// [`StorageType`] of a given component.
 pub(super) union StorageSwitch<C: Component, T: Copy, S: Copy> {
     /// The table variant. Requires the component to be a table component.
-    table: T,
+    pub(super) table: T,
     /// The sparse set variant. Requires the component to be a sparse set component.
-    sparse_set: S,
+    pub(super) sparse_set: S,
     _marker: PhantomData<C>,
 }
 
@@ -2499,28 +2499,6 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
             StorageType::SparseSet => Self {
                 sparse_set: sparse_set(),
             },
-        }
-    }
-
-    /// Creates a new [`StorageSwitch`] using a table variant.
-    ///
-    /// # Panics
-    ///
-    /// This will panic on debug builds if `C` is not a table component.
-    ///
-    /// # Safety
-    ///
-    /// `C` must be a table component.
-    #[inline]
-    pub unsafe fn set_table(&mut self, table: T) {
-        match C::STORAGE_TYPE {
-            StorageType::Table => self.table = table,
-            _ => {
-                #[cfg(debug_assertions)]
-                unreachable!();
-                #[cfg(not(debug_assertions))]
-                core::hint::unreachable_unchecked()
-            }
         }
     }
 
