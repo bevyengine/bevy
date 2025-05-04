@@ -24,7 +24,7 @@ use core::{f32, time::Duration};
 /// However, if multiple state machines or simultaneous animations are needed, `flow_amount`
 /// should be increased accordingly.
 ///
-/// Is worth mentioning, that when using AnimationTransitions, you should avoid messing around with player!
+/// Is worth mentioning, that when using `AnimationTransitions`, you should avoid messing around with player!
 /// As he will do the heavy lifting for you! All you need to worry about is transitioning your flows!
 /// If you do play an additional animation directly via player  this WILL BREAK!
 ///
@@ -40,7 +40,7 @@ pub struct AnimationTransitions {
     transitions: Vec<AnimationTransition>,
     /// Flows represent sequences of animation states.
     /// For example, in cases such as masked or additive animation scenarios, a user can easily define transitions between previous and new states.
-    /// This concept is similar to "main" animations, but instead of one sole  `ActiveAnimation`, we might have multiple active animation being controlled!
+    /// This concept is similar to "main" animations, but instead of one sole `ActiveAnimation`, we might have multiple active animation being controlled!
     flows: Vec<Option<AnimationNodeIndex>>,
 }
 
@@ -71,11 +71,6 @@ impl AnimationTransitions {
     /// This method manages transitions within a specific flow, allowing multiple independent
     /// state machines or animation layers to transition separately. If the flow has no previous node,
     /// it will treat the `new_node` as both the old and new node during the transition.
-    ///
-    /// The logic here goes as follows: Check if you have a history,
-    /// if not old_node eq new_node.
-    /// Queues a transition, make old_node eq new_node, after queuing transition
-    /// Put in active animation new_node
     pub fn transition_flows<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
@@ -155,10 +150,8 @@ pub fn expire_completed_transitions(
             if should_expire && !first_init {
                 animation_player.stop(transition.old_node);
                 false
-            } else if should_expire && first_init {
-                false
             } else {
-                true
+                !(should_expire && first_init)
             }
         });
     }
