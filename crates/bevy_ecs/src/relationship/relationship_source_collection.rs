@@ -1,7 +1,12 @@
 use alloc::collections::{btree_set, BTreeSet};
+use core::{
+    hash::BuildHasher,
+    ops::{Deref, DerefMut},
+};
 
-use crate::entity::{hash_set::EntityHashSet, Entity};
+use crate::entity::{Entity, EntityHashSet, EntityIndexSet};
 use alloc::vec::Vec;
+use indexmap::IndexSet;
 use smallvec::SmallVec;
 
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
@@ -447,6 +452,97 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
     }
 }
 
+impl<S: BuildHasher + Default> RelationshipSourceCollection for IndexSet<Entity, S> {
+    type SourceIter<'a>
+        = core::iter::Copied<indexmap::set::Iter<'a, Entity>>
+    where
+        S: 'a;
+
+    fn new() -> Self {
+        IndexSet::default()
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        self.reserve(additional);
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        IndexSet::with_capacity_and_hasher(capacity, S::default())
+    }
+
+    fn add(&mut self, entity: Entity) -> bool {
+        self.insert(entity)
+    }
+
+    fn remove(&mut self, entity: Entity) -> bool {
+        self.shift_remove(&entity)
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        self.iter().copied()
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+
+    fn shrink_to_fit(&mut self) {
+        self.shrink_to_fit();
+    }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
+}
+
+impl RelationshipSourceCollection for EntityIndexSet {
+    type SourceIter<'a> = core::iter::Copied<crate::entity::index_set::Iter<'a>>;
+
+    fn new() -> Self {
+        EntityIndexSet::new()
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        self.deref_mut().reserve(additional);
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        EntityIndexSet::with_capacity(capacity)
+    }
+
+    fn add(&mut self, entity: Entity) -> bool {
+        self.insert(entity)
+    }
+
+    fn remove(&mut self, entity: Entity) -> bool {
+        self.deref_mut().shift_remove(&entity)
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        self.iter().copied()
+    }
+
+    fn len(&self) -> usize {
+        self.deref().len()
+    }
+
+    fn clear(&mut self) {
+        self.deref_mut().clear();
+    }
+
+    fn shrink_to_fit(&mut self) {
+        self.deref_mut().shrink_to_fit();
+    }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
+}
+
 impl RelationshipSourceCollection for BTreeSet<Entity> {
     type SourceIter<'a> = core::iter::Copied<btree_set::Iter<'a, Entity>>;
 
@@ -591,6 +687,40 @@ mod tests {
     }
 
     #[test]
+    fn entity_index_map() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
+        struct RelTarget(EntityHashSet);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        let d = world.spawn_empty().id();
+
+        world.entity_mut(a).add_related::<Rel>(&[b, c, d]);
+
+        let rel_target = world.get::<RelTarget>(a).unwrap();
+        let collection = rel_target.collection();
+
+        // Insertions should maintain ordering
+        assert!(collection.iter().eq(&[b, c, d]));
+
+        world.entity_mut(c).despawn();
+
+        let rel_target = world.get::<RelTarget>(a).unwrap();
+        let collection = rel_target.collection();
+
+        // Removals should maintain ordering
+        assert!(collection.iter().eq(&[b, d]));
+    }
+
+    #[test]
     #[should_panic]
     fn one_to_one_relationship_shared_target() {
         #[derive(Component)]
@@ -600,7 +730,6 @@ mod tests {
         #[derive(Component)]
         #[relationship_target(relationship = Above)]
         struct Below(Entity);
-
         let mut world = World::new();
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
