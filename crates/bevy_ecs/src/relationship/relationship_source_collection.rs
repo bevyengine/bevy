@@ -1,8 +1,8 @@
+use alloc::collections::{btree_set, BTreeSet};
 use core::{
     hash::BuildHasher,
     ops::{Deref, DerefMut},
 };
-use alloc::collections::{btree_set, BTreeSet};
 
 use crate::entity::{Entity, EntityHashSet, EntityIndexSet};
 use alloc::vec::Vec;
