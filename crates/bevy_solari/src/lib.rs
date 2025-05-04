@@ -1,7 +1,8 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 
 //! Provides raytraced lighting.
-
+//!
+//! ![bevy_solari logo](https://raw.githubusercontent.com/bevyengine/bevy/assets/branding/bevy_solari.svg)
 pub mod pathtracer;
 pub mod scene;
 
