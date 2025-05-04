@@ -44,7 +44,6 @@ either = "1.13"
 futures-io = "0.3"
 futures-lite = "2.0.1"
 blake3 = "1.5"
-parking_lot = { version = "0.12", features = ["arc_lock", "send_guard"] }
 ron = "0.8"
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "2", default-features = false }

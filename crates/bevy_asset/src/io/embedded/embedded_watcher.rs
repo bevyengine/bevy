@@ -4,10 +4,12 @@ use crate::io::{
     AssetSourceEvent, AssetWatcher,
 };
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use bevy_platform::collections::HashMap;
+use bevy_platform::{
+    collections::HashMap,
+    sync::{PoisonError, RwLock},
+};
 use core::time::Duration;
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
-use parking_lot::RwLock;
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -63,7 +65,12 @@ impl FilesystemEventHandler for EmbeddedEventHandler {
 
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
         let (local_path, is_meta) = get_asset_path(&self.root, absolute_path);
-        let final_path = self.root_paths.read().get(local_path.as_path())?.clone();
+        let final_path = self
+            .root_paths
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(local_path.as_path())?
+            .clone();
         if is_meta {
             warn!("Meta file asset hot-reloading is not supported yet: {final_path:?}");
         }

@@ -26,7 +26,10 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashSet;
+use bevy_platform::{
+    collections::HashSet,
+    sync::{PoisonError, RwLock, RwLockWriteGuard},
+};
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
@@ -34,7 +37,6 @@ use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
-use parking_lot::{RwLock, RwLockWriteGuard};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{error, info};
@@ -153,12 +155,20 @@ impl AssetServer {
 
     /// Returns true if the [`AssetServer`] watches for changes.
     pub fn watching_for_changes(&self) -> bool {
-        self.data.infos.read().watching_for_changes
+        self.data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .watching_for_changes
     }
 
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub fn register_loader<L: AssetLoader>(&self, loader: L) {
-        self.data.loaders.write().push(loader);
+        self.data
+            .loaders
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(loader);
     }
 
     /// Registers a new [`Asset`] type. [`Asset`] types must be registered before assets of that type can be loaded.
@@ -184,7 +194,11 @@ impl AssetServer {
                 });
         }
 
-        let mut infos = self.data.infos.write();
+        let mut infos = self
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
 
         infos
             .dependency_loaded_event_sender
@@ -196,7 +210,11 @@ impl AssetServer {
     }
 
     pub(crate) fn register_handle_provider(&self, handle_provider: AssetHandleProvider) {
-        let mut infos = self.data.infos.write();
+        let mut infos = self
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         infos
             .handle_providers
             .insert(handle_provider.type_id, handle_provider);
@@ -211,7 +229,13 @@ impl AssetServer {
             extensions: vec![extension.to_string()],
         };
 
-        let loader = { self.data.loaders.read().get_by_extension(extension) };
+        let loader = {
+            self.data
+                .loaders
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .get_by_extension(extension)
+        };
 
         loader.ok_or_else(error)?.get().await.map_err(|_| error())
     }
@@ -225,7 +249,13 @@ impl AssetServer {
             type_name: type_name.to_string(),
         };
 
-        let loader = { self.data.loaders.read().get_by_name(type_name) };
+        let loader = {
+            self.data
+                .loaders
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .get_by_name(type_name)
+        };
 
         loader.ok_or_else(error)?.get().await.map_err(|_| error())
     }
@@ -252,7 +282,13 @@ impl AssetServer {
             MissingAssetLoaderForExtensionError { extensions }
         };
 
-        let loader = { self.data.loaders.read().get_by_path(&path) };
+        let loader = {
+            self.data
+                .loaders
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .get_by_path(&path)
+        };
 
         loader.ok_or_else(error)?.get().await.map_err(|_| error())
     }
@@ -264,7 +300,13 @@ impl AssetServer {
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
         let error = || MissingAssetLoaderForTypeIdError { type_id };
 
-        let loader = { self.data.loaders.read().get_by_type(type_id) };
+        let loader = {
+            self.data
+                .loaders
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .get_by_type(type_id)
+        };
 
         loader.ok_or_else(error)?.get().await.map_err(|_| error())
     }
@@ -473,7 +515,11 @@ impl AssetServer {
             }
         }
 
-        let mut infos = self.data.infos.write();
+        let mut infos = self
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         let (handle, should_load) = infos.get_or_create_path_handle::<A>(
             path.clone(),
             HandleLoadingMode::Request,
@@ -495,7 +541,11 @@ impl AssetServer {
         guard: G,
     ) -> UntypedHandle {
         let path = path.into().into_owned();
-        let mut infos = self.data.infos.write();
+        let mut infos = self
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         let (handle, should_load) = infos.get_or_create_path_handle_erased(
             path.clone(),
             type_id,
@@ -568,7 +618,11 @@ impl AssetServer {
                 CowArc::Owned(format!("{source}--{UNTYPED_SOURCE_SUFFIX}").into())
             }
         });
-        let mut infos = self.data.infos.write();
+        let mut infos = self
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         let (handle, should_load) = infos.get_or_create_path_handle::<LoadedUntypedAsset>(
             path.clone().with_source(untyped_source),
             HandleLoadingMode::Request,
@@ -697,7 +751,11 @@ impl AssetServer {
                 Some((handle, true))
             }
             None => {
-                let mut infos = self.data.infos.write();
+                let mut infos = self
+                    .data
+                    .infos
+                    .write()
+                    .unwrap_or_else(PoisonError::into_inner);
                 let result = infos.get_or_create_path_handle_internal(
                     path.clone(),
                     path.label().is_none().then(|| loader.asset_type_id()),
@@ -732,7 +790,11 @@ impl AssetServer {
         // if the handle result is None, we definitely need to load the asset
 
         let (base_handle, base_path) = if path.label().is_some() {
-            let mut infos = self.data.infos.write();
+            let mut infos = self
+                .data
+                .infos
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
             let base_path = path.without_label().into_owned();
             let (base_handle, _) = infos.get_or_create_path_handle_erased(
                 base_path.clone(),
@@ -816,6 +878,7 @@ impl AssetServer {
                     .data
                     .infos
                     .read()
+                    .unwrap_or_else(PoisonError::into_inner)
                     .get_path_handles(&path)
                     .map(|handle| server.load_internal(Some(handle), path.clone(), true, None))
                     .collect::<Vec<_>>();
@@ -827,7 +890,14 @@ impl AssetServer {
                     }
                 }
 
-                if !reloaded && server.data.infos.read().should_reload(&path) {
+                if !reloaded
+                    && server
+                        .data
+                        .infos
+                        .read()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .should_reload(&path)
+                {
                     if let Err(err) = server.load_internal(None, path, true, None).await {
                         error!("{}", err);
                     }
@@ -860,19 +930,28 @@ impl AssetServer {
     ) -> UntypedHandle {
         let loaded_asset = asset.into();
         let handle = if let Some(path) = path {
-            let (handle, _) = self.data.infos.write().get_or_create_path_handle_erased(
-                path,
-                loaded_asset.asset_type_id(),
-                Some(loaded_asset.asset_type_name()),
-                HandleLoadingMode::NotLoading,
-                None,
-            );
+            let (handle, _) = self
+                .data
+                .infos
+                .write()
+                .unwrap_or_else(PoisonError::into_inner)
+                .get_or_create_path_handle_erased(
+                    path,
+                    loaded_asset.asset_type_id(),
+                    Some(loaded_asset.asset_type_name()),
+                    HandleLoadingMode::NotLoading,
+                    None,
+                );
             handle
         } else {
-            self.data.infos.write().create_loading_handle_untyped(
-                loaded_asset.asset_type_id(),
-                loaded_asset.asset_type_name(),
-            )
+            self.data
+                .infos
+                .write()
+                .unwrap_or_else(PoisonError::into_inner)
+                .create_loading_handle_untyped(
+                    loaded_asset.asset_type_id(),
+                    loaded_asset.asset_type_name(),
+                )
         };
         self.send_asset_event(InternalAssetEvent::Loaded {
             id: handle.id(),
@@ -890,7 +969,11 @@ impl AssetServer {
         &self,
         future: impl Future<Output = Result<A, E>> + Send + 'static,
     ) -> Handle<A> {
-        let mut infos = self.data.infos.write();
+        let mut infos = self
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         let handle =
             infos.create_loading_handle_untyped(TypeId::of::<A>(), core::any::type_name::<A>());
 
@@ -950,6 +1033,7 @@ impl AssetServer {
             .data
             .infos
             .write()
+            .unwrap_or_else(PoisonError::into_inner)
             .get_or_create_path_handle::<LoadedFolder>(
                 path.clone(),
                 HandleLoadingMode::Request,
@@ -1056,13 +1140,18 @@ impl AssetServer {
         &self,
         id: impl Into<UntypedAssetId>,
     ) -> Option<(LoadState, DependencyLoadState, RecursiveDependencyLoadState)> {
-        self.data.infos.read().get(id.into()).map(|i| {
-            (
-                i.load_state.clone(),
-                i.dep_load_state.clone(),
-                i.rec_dep_load_state.clone(),
-            )
-        })
+        self.data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(id.into())
+            .map(|i| {
+                (
+                    i.load_state.clone(),
+                    i.dep_load_state.clone(),
+                    i.rec_dep_load_state.clone(),
+                )
+            })
     }
 
     /// Retrieves the main [`LoadState`] of a given asset `id`.
@@ -1074,6 +1163,7 @@ impl AssetServer {
         self.data
             .infos
             .read()
+            .unwrap_or_else(PoisonError::into_inner)
             .get(id.into())
             .map(|i| i.load_state.clone())
     }
@@ -1090,6 +1180,7 @@ impl AssetServer {
         self.data
             .infos
             .read()
+            .unwrap_or_else(PoisonError::into_inner)
             .get(id.into())
             .map(|i| i.dep_load_state.clone())
     }
@@ -1106,6 +1197,7 @@ impl AssetServer {
         self.data
             .infos
             .read()
+            .unwrap_or_else(PoisonError::into_inner)
             .get(id.into())
             .map(|i| i.rec_dep_load_state.clone())
     }
@@ -1187,13 +1279,21 @@ impl AssetServer {
     /// Get an `UntypedHandle` from an `UntypedAssetId`.
     /// See [`AssetServer::get_id_handle`] for details.
     pub fn get_id_handle_untyped(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
-        self.data.infos.read().get_id_handle(id)
+        self.data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get_id_handle(id)
     }
 
     /// Returns `true` if the given `id` corresponds to an asset that is managed by this [`AssetServer`].
     /// Otherwise, returns `false`.
     pub fn is_managed(&self, id: impl Into<UntypedAssetId>) -> bool {
-        self.data.infos.read().contains_key(id.into())
+        self.data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains_key(id.into())
     }
 
     /// Returns an active untyped asset id for the given path, if the asset at the given path has already started loading,
@@ -1203,7 +1303,11 @@ impl AssetServer {
     /// # See also
     /// [`get_path_ids`][Self::get_path_ids] for all handles.
     pub fn get_path_id<'a>(&self, path: impl Into<AssetPath<'a>>) -> Option<UntypedAssetId> {
-        let infos = self.data.infos.read();
+        let infos = self
+            .data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         let path = path.into();
         let mut ids = infos.get_path_ids(&path);
         ids.next()
@@ -1213,7 +1317,11 @@ impl AssetServer {
     /// or are still "alive".
     /// Multiple IDs will be returned in the event that a single path is used by multiple [`AssetLoader`]'s.
     pub fn get_path_ids<'a>(&self, path: impl Into<AssetPath<'a>>) -> Vec<UntypedAssetId> {
-        let infos = self.data.infos.read();
+        let infos = self
+            .data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         let path = path.into();
         infos.get_path_ids(&path).collect()
     }
@@ -1225,7 +1333,11 @@ impl AssetServer {
     /// # See also
     /// [`get_handles_untyped`][Self::get_handles_untyped] for all handles.
     pub fn get_handle_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Option<UntypedHandle> {
-        let infos = self.data.infos.read();
+        let infos = self
+            .data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         let path = path.into();
         let mut handles = infos.get_path_handles(&path);
         handles.next()
@@ -1235,7 +1347,11 @@ impl AssetServer {
     /// or are still "alive".
     /// Multiple handles will be returned in the event that a single path is used by multiple [`AssetLoader`]'s.
     pub fn get_handles_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Vec<UntypedHandle> {
-        let infos = self.data.infos.read();
+        let infos = self
+            .data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         let path = path.into();
         infos.get_path_handles(&path).collect()
     }
@@ -1247,14 +1363,22 @@ impl AssetServer {
         path: &AssetPath,
         type_id: TypeId,
     ) -> Option<UntypedHandle> {
-        let infos = self.data.infos.read();
+        let infos = self
+            .data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         let path = path.into();
         infos.get_path_and_type_id_handle(&path, type_id)
     }
 
     /// Returns the path for the given `id`, if it has one.
     pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath> {
-        let infos = self.data.infos.read();
+        let infos = self
+            .data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         let info = infos.get(id.into())?;
         Some(info.path.as_ref()?.clone())
     }
@@ -1269,7 +1393,11 @@ impl AssetServer {
     /// Assets loaded with matching extensions will be blocked until the
     /// real loader is added.
     pub fn preregister_loader<L: AssetLoader>(&self, extensions: &[&str]) {
-        self.data.loaders.write().reserve::<L>(extensions);
+        self.data
+            .loaders
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .reserve::<L>(extensions);
     }
 
     /// Retrieve a handle for the given path. This will create a handle (and [`AssetInfo`]) if it does not exist
@@ -1278,7 +1406,11 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
     ) -> Handle<A> {
-        let mut infos = self.data.infos.write();
+        let mut infos = self
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         infos
             .get_or_create_path_handle::<A>(
                 path.into().into_owned(),
@@ -1298,7 +1430,11 @@ impl AssetServer {
         type_id: TypeId,
         meta_transform: Option<MetaTransform>,
     ) -> UntypedHandle {
-        let mut infos = self.data.infos.write();
+        let mut infos = self
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         infos
             .get_or_create_path_handle_erased(
                 path.into().into_owned(),
@@ -1378,6 +1514,7 @@ impl AssetServer {
                         self.data
                             .loaders
                             .read()
+                            .unwrap_or_else(PoisonError::into_inner)
                             .find(None, asset_type_id, None, Some(asset_path))
                     };
 
@@ -1400,6 +1537,7 @@ impl AssetServer {
                 self.data
                     .loaders
                     .read()
+                    .unwrap_or_else(PoisonError::into_inner)
                     .find(None, asset_type_id, None, Some(asset_path))
             };
 
@@ -1511,7 +1649,11 @@ impl AssetServer {
         cx: &mut core::task::Context<'_>,
         id: UntypedAssetId,
     ) -> Poll<Result<(), WaitForAssetError>> {
-        let infos = self.data.infos.read();
+        let infos = self
+            .data
+            .infos
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
 
         let Some(info) = infos.get(id) else {
             return Poll::Ready(Err(WaitForAssetError::NotLoaded));
@@ -1538,7 +1680,10 @@ impl AssetServer {
                 let mut infos = {
                     // Must drop read-only guard to acquire write guard
                     drop(infos);
-                    self.data.infos.write()
+                    self.data
+                        .infos
+                        .write()
+                        .unwrap_or_else(PoisonError::into_inner)
                 };
 
                 let Some(info) = infos.get_mut(id) else {
@@ -1620,7 +1765,11 @@ impl AssetServer {
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
 pub fn handle_internal_asset_events(world: &mut World) {
     world.resource_scope(|world, server: Mut<AssetServer>| {
-        let mut infos = server.data.infos.write();
+        let mut infos = server
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         let var_name = vec![];
         let mut untyped_failures = var_name;
         for event in server.data.asset_event_receiver.try_iter() {

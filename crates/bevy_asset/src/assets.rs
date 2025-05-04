@@ -6,7 +6,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut, SystemChangeTick},
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::{collections::HashMap, sync::PoisonError};
 use bevy_reflect::{Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
@@ -545,7 +545,11 @@ impl<A: Asset> Assets<A> {
         // that `asset_server.load` calls that occur during it block, which ensures that
         // re-loads are kicked off appropriately. This function must be "transactional" relative
         // to other asset info operations
-        let mut infos = asset_server.data.infos.write();
+        let mut infos = asset_server
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
 

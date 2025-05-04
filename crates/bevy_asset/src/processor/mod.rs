@@ -58,11 +58,13 @@ use crate::{
 };
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    sync::{PoisonError, RwLock},
+};
 use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
-use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{debug, error, trace, warn};
@@ -533,7 +535,12 @@ impl AssetProcessor {
     async fn finish_processing_assets(&self) {
         self.try_reprocessing_queued().await;
         // clean up metadata in asset server
-        self.server.data.infos.write().consume_handle_drop_events();
+        self.server
+            .data
+            .infos
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .consume_handle_drop_events();
         self.set_state(ProcessorState::Finished).await;
     }
 
@@ -581,7 +588,11 @@ impl AssetProcessor {
 
     /// Register a new asset processor.
     pub fn register_processor<P: Process>(&self, processor: P) {
-        let mut process_plans = self.data.processors.write();
+        let mut process_plans = self
+            .data
+            .processors
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         #[cfg(feature = "trace")]
         let processor = InstrumentedAssetProcessor(processor);
         process_plans.insert(core::any::type_name::<P>(), Arc::new(processor));
@@ -589,20 +600,37 @@ impl AssetProcessor {
 
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
-        let mut default_processors = self.data.default_processors.write();
+        let mut default_processors = self
+            .data
+            .default_processors
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         default_processors.insert(extension.into(), core::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
     pub fn get_default_processor(&self, extension: &str) -> Option<Arc<dyn ErasedProcessor>> {
-        let default_processors = self.data.default_processors.read();
+        let default_processors = self
+            .data
+            .default_processors
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         let key = default_processors.get(extension)?;
-        self.data.processors.read().get(key).cloned()
+        self.data
+            .processors
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(key)
+            .cloned()
     }
 
     /// Returns the processor with the given `processor_type_name`, if it exists.
     pub fn get_processor(&self, processor_type_name: &str) -> Option<Arc<dyn ErasedProcessor>> {
-        let processors = self.data.processors.read();
+        let processors = self
+            .data
+            .processors
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         processors.get(processor_type_name).cloned()
     }
 
