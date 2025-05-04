@@ -1,7 +1,8 @@
 use std::{borrow::Cow, mem::take, ops::Range};
 
+use bevy_color::LinearRgba;
 use tracing::warn;
-use wgpu::StoreOp;
+use wgpu::{QuerySet, ShaderStages, StoreOp};
 
 use crate::{
     camera::Viewport,
@@ -9,7 +10,7 @@ use crate::{
         BindGroupBluePrint, BindGroupEntryRef, BindingResourceRef, BluePrintProvider,
         ColorAttachment, ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint,
         FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource, PassNodeBuilder,
-        RenderPassContextExecutor, ResourceBoardKey, ResourceRead, ResourceRef, SamplerInfo,
+        RenderPassCommandBuilder, ResourceBoardKey, ResourceRead, ResourceRef, SamplerInfo,
         TextureViewBluePrint, TextureViewInfo,
     },
     render_resource::{BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, Texture},
@@ -150,6 +151,167 @@ impl<'a> RenderPassBuilder<'a> {
         }
     }
 
+    pub fn end_pipeline_statistics_query(&mut self) -> &mut Self {
+        self.render_pass.end_pipeline_statistics_query();
+
+        self
+    }
+
+    pub fn begin_pipeline_statistics_query(
+        &mut self,
+        query_set: &QuerySet,
+        index: u32,
+    ) -> &mut Self {
+        self.render_pass
+            .begin_pipeline_statistics_query(query_set, index);
+
+        self
+    }
+
+    pub fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) -> &mut Self {
+        self.render_pass.write_timestamp(query_set, index);
+
+        self
+    }
+
+    pub fn set_blend_constant(&mut self, color: LinearRgba) -> &mut Self {
+        self.render_pass.set_blend_constant(color);
+
+        self
+    }
+
+    pub fn pop_debug_group(&mut self) -> &mut Self {
+        self.render_pass.pop_debug_group();
+
+        self
+    }
+
+    pub fn push_debug_group(&mut self, label: &str) -> &mut Self {
+        self.render_pass.push_debug_group(label);
+
+        self
+    }
+
+    pub fn insert_debug_marker(&mut self, label: &str) -> &mut Self {
+        self.render_pass.insert_debug_marker(label);
+
+        self
+    }
+
+    pub fn set_viewport(
+        &mut self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        min_depth: f32,
+        max_depth: f32,
+    ) -> &mut Self {
+        self.render_pass
+            .set_viewport(x, y, width, height, min_depth, max_depth);
+
+        self
+    }
+
+    pub fn set_push_constants(
+        &mut self,
+        stages: ShaderStages,
+        offset: u32,
+        data: &[u8],
+    ) -> &mut Self {
+        self.render_pass.set_push_constants(stages, offset, data);
+
+        self
+    }
+
+    pub fn set_stencil_reference(&mut self, reference: u32) -> &mut Self {
+        self.render_pass.set_stencil_reference(reference);
+
+        self
+    }
+
+    pub fn multi_draw_indexed_indirect_count(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        count_offset: u64,
+        max_count: u32,
+    ) -> &mut Self {
+        self.render_pass.multi_draw_indexed_indirect_count(
+            indirect_buffer_ref,
+            indirect_offset,
+            count_buffer_ref,
+            count_offset,
+            max_count,
+        );
+
+        self
+    }
+
+    pub fn multi_draw_indexed_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count: u32,
+    ) -> &mut Self {
+        self.render_pass
+            .multi_draw_indexed_indirect(indirect_buffer_ref, indirect_offset, count);
+
+        self
+    }
+
+    pub fn multi_draw_indirect_count(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        count_offset: u64,
+        max_count: u32,
+    ) -> &mut Self {
+        self.render_pass.multi_draw_indexed_indirect_count(
+            indirect_buffer_ref,
+            indirect_offset,
+            count_buffer_ref,
+            count_offset,
+            max_count,
+        );
+
+        self
+    }
+
+    pub fn multi_draw_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count: u32,
+    ) -> &mut Self {
+        self.render_pass
+            .multi_draw_indirect(indirect_buffer_ref, indirect_offset, count);
+
+        self
+    }
+
+    pub fn draw_indexed_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+    ) -> &mut Self {
+        self.render_pass
+            .draw_indexed_indirect(indirect_buffer_ref, indirect_offset);
+        self
+    }
+
+    pub fn draw_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+    ) -> &mut Self {
+        self.render_pass
+            .draw_indirect(indirect_buffer_ref, indirect_offset);
+        self
+    }
+
     pub fn draw_indexed(
         &mut self,
         indices: Range<u32>,
@@ -171,8 +333,11 @@ impl<'a> RenderPassBuilder<'a> {
         &mut self,
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         index_format: wgpu::IndexFormat,
+        offset: u64,
+        size: u64,
     ) -> &mut Self {
-        self.render_pass.set_index_buffer(buffer_ref, index_format);
+        self.render_pass
+            .set_index_buffer(buffer_ref, index_format, offset, size);
 
         self
     }
@@ -181,8 +346,11 @@ impl<'a> RenderPassBuilder<'a> {
         &mut self,
         slot: u32,
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        offset: u64,
+        szie: u64,
     ) -> &mut Self {
-        self.render_pass.set_vertex_buffer(slot, buffer_ref);
+        self.render_pass
+            .set_vertex_buffer(slot, buffer_ref, offset, szie);
         self
     }
 
@@ -219,13 +387,8 @@ impl<'a> RenderPassBuilder<'a> {
         self.pass_node_builder.import_and_read_texture(texture)
     }
 
-    pub fn set_viewport(&mut self, viewport: Option<Viewport>) -> &mut Self {
-        if let Some(viewport) = viewport {
-            let size = viewport.physical_size;
-            let position = viewport.physical_position;
-            self.render_pass
-                .set_scissor_rect(position.x, position.y, size.x, size.y);
-        }
+    pub fn set_camera_viewport(&mut self, viewport: Option<Viewport>) -> &mut Self {
+        self.render_pass.set_camera_viewport(viewport);
 
         self
     }

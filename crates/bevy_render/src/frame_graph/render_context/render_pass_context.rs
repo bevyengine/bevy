@@ -1,23 +1,182 @@
+use bevy_color::LinearRgba;
+use wgpu::{QuerySet, ShaderStages};
+
 use super::{
-    BindGroupBluePrint, BluePrint, DrawIndexedParameter, DrawParameter, FrameGraphBuffer, FrameGraphError, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter, SetIndexBufferParameter, SetRawBindGroupParameter, SetRenderPipelineParameter, SetScissorRectParameter, SetVertexBufferParameter
+    BeginPipelineStatisticsQueryParameter, BindGroupBluePrint, BluePrint,
+    DrawIndexedIndirectParameter, DrawIndexedParameter, DrawIndirectParameter, DrawParameter,
+    EndPipelineStatisticsQueryParameter, FrameGraphBuffer, FrameGraphError,
+    InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
+    MultiDrawIndexedIndirectParameter, MultiDrawIndirectParameter, PopDebugGroupParameter,
+    PushDebugGroupParameter, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter,
+    SetBlendConstantParameter, SetIndexBufferParameter, SetPushConstantsParameter,
+    SetRawBindGroupParameter, SetRenderPipelineParameter, SetScissorRectParameter,
+    SetStencilReferenceParameter, SetVertexBufferParameter, SetViewportParameter,
+    WriteTimestampParameter,
 };
 use crate::render_resource::{BindGroup, CachedRenderPipelineId};
 use core::ops::Range;
 use std::ops::Deref;
 
-pub trait RenderPassContextExecutor {
+pub trait RenderPassCommandBuilder {
     fn add_render_pass_command(&mut self, value: RenderPassCommand);
 
-    fn get_render_pass_commands(&self) -> &[RenderPassCommand];
+    fn draw_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(DrawIndirectParameter {
+            indirect_buffer_ref: indirect_buffer_ref.clone(),
+            indirect_offset,
+        }));
+    }
 
-    fn execute(&self, mut render_pass_context: RenderPassContext) -> Result<(), FrameGraphError> {
-        for command in self.get_render_pass_commands() {
-            command.draw(&mut render_pass_context)?;
-        }
+    fn draw_indexed_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(DrawIndexedIndirectParameter {
+            indirect_buffer_ref: indirect_buffer_ref.clone(),
+            indirect_offset,
+        }));
+    }
 
-        render_pass_context.end();
+    fn multi_draw_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count: u32,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(MultiDrawIndirectParameter {
+            indirect_buffer_ref: indirect_buffer_ref.clone(),
+            indirect_offset,
+            count,
+        }));
+    }
 
-        Ok(())
+    fn multi_draw_indirect_count(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        count_offset: u64,
+        max_count: u32,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(
+            MultiDrawIndexedIndirectCountParameter {
+                indirect_buffer_ref: indirect_buffer_ref.clone(),
+                indirect_offset,
+                count_buffer_ref: count_buffer_ref.clone(),
+                count_offset,
+                max_count,
+            },
+        ));
+    }
+
+    fn multi_draw_indexed_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count: u32,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(MultiDrawIndexedIndirectParameter {
+            indirect_buffer_ref: indirect_buffer_ref.clone(),
+            indirect_offset,
+            count,
+        }));
+    }
+
+    fn multi_draw_indexed_indirect_count(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        count_offset: u64,
+        max_count: u32,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(
+            MultiDrawIndexedIndirectCountParameter {
+                indirect_buffer_ref: indirect_buffer_ref.clone(),
+                indirect_offset,
+                count_buffer_ref: count_buffer_ref.clone(),
+                count_offset,
+                max_count,
+            },
+        ));
+    }
+
+    fn set_stencil_reference(&mut self, reference: u32) {
+        self.add_render_pass_command(RenderPassCommand::new(SetStencilReferenceParameter {
+            reference,
+        }));
+    }
+
+    fn set_push_constants(&mut self, stages: ShaderStages, offset: u32, data: &[u8]) {
+        self.add_render_pass_command(RenderPassCommand::new(SetPushConstantsParameter {
+            stages,
+            offset,
+            data: data.to_vec(),
+        }));
+    }
+
+    fn set_viewport(
+        &mut self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        min_depth: f32,
+        max_depth: f32,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(SetViewportParameter {
+            x,
+            y,
+            width,
+            height,
+            min_depth,
+            max_depth,
+        }));
+    }
+
+    fn insert_debug_marker(&mut self, label: &str) {
+        self.add_render_pass_command(RenderPassCommand::new(InsertDebugMarkerParameter {
+            label: label.to_string(),
+        }));
+    }
+
+    fn push_debug_group(&mut self, label: &str) {
+        self.add_render_pass_command(RenderPassCommand::new(PushDebugGroupParameter {
+            label: label.to_string(),
+        }));
+    }
+
+    fn pop_debug_group(&mut self) {
+        self.add_render_pass_command(RenderPassCommand::new(PopDebugGroupParameter));
+    }
+
+    fn set_blend_constant(&mut self, color: LinearRgba) {
+        self.add_render_pass_command(RenderPassCommand::new(SetBlendConstantParameter { color }));
+    }
+
+    fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
+        self.add_render_pass_command(RenderPassCommand::new(WriteTimestampParameter {
+            query_set: query_set.clone(),
+            index,
+        }));
+    }
+
+    fn begin_pipeline_statistics_query(&mut self, query_set: &QuerySet, index: u32) {
+        self.add_render_pass_command(RenderPassCommand::new(
+            BeginPipelineStatisticsQueryParameter {
+                query_set: query_set.clone(),
+                index,
+            },
+        ));
+    }
+
+    fn end_pipeline_statistics_query(&mut self) {
+        self.add_render_pass_command(RenderPassCommand::new(EndPipelineStatisticsQueryParameter));
     }
 
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
@@ -56,10 +215,14 @@ pub trait RenderPassContextExecutor {
         &mut self,
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         index_format: wgpu::IndexFormat,
+        offset: u64,
+        size: u64,
     ) {
         self.add_render_pass_command(RenderPassCommand::new(SetIndexBufferParameter {
             buffer_ref: buffer_ref.clone(),
             index_format,
+            offset,
+            size,
         }));
     }
 
@@ -79,10 +242,14 @@ pub trait RenderPassContextExecutor {
         &mut self,
         slot: u32,
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        offset: u64,
+        size: u64,
     ) {
         self.add_render_pass_command(RenderPassCommand::new(SetVertexBufferParameter {
             slot,
             buffer_ref: buffer_ref.clone(),
+            offset,
+            size,
         }));
     }
 }
@@ -122,6 +289,154 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         }
     }
 
+    pub fn end_pipeline_statistics_query(&mut self) {
+        self.render_pass.end_pipeline_statistics_query();
+    }
+
+    pub fn begin_pipeline_statistics_query(&mut self, query_set: &QuerySet, index: u32) {
+        self.render_pass
+            .begin_pipeline_statistics_query(query_set, index);
+    }
+
+    pub fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
+        self.render_pass.write_timestamp(query_set, index);
+    }
+
+    pub fn set_blend_constant(&mut self, color: LinearRgba) {
+        self.render_pass
+            .set_blend_constant(wgpu::Color::from(color));
+    }
+
+    pub fn pop_debug_group(&mut self) {
+        self.render_pass.pop_debug_group();
+    }
+
+    pub fn push_debug_group(&mut self, label: &str) {
+        self.render_pass.push_debug_group(label);
+    }
+
+    pub fn insert_debug_marker(&mut self, label: &str) {
+        self.render_pass.insert_debug_marker(label);
+    }
+
+    pub fn set_viewport(
+        &mut self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        min_depth: f32,
+        max_depth: f32,
+    ) {
+        self.render_pass
+            .set_viewport(x, y, width, height, min_depth, max_depth);
+    }
+    pub fn set_push_constants(&mut self, stages: ShaderStages, offset: u32, data: &[u8]) {
+        self.render_pass.set_push_constants(stages, offset, data);
+    }
+
+    pub fn set_stencil_reference(&mut self, reference: u32) {
+        self.render_pass.set_stencil_reference(reference);
+    }
+
+    pub fn multi_draw_indexed_indirect_count(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        count_offset: u64,
+        max_count: u32,
+    ) -> Result<(), FrameGraphError> {
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+        let count_buffer = self.render_context.get_resource(count_buffer_ref)?;
+
+        self.render_pass.multi_draw_indexed_indirect_count(
+            &indirect_buffer.resource,
+            indirect_offset,
+            &count_buffer.resource,
+            count_offset,
+            max_count,
+        );
+        Ok(())
+    }
+
+    pub fn multi_draw_indexed_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count: u32,
+    ) -> Result<(), FrameGraphError> {
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+
+        self.render_pass.multi_draw_indexed_indirect(
+            &indirect_buffer.resource,
+            indirect_offset,
+            count,
+        );
+        Ok(())
+    }
+
+    pub fn multi_draw_indirect_count(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        count_offset: u64,
+        max_count: u32,
+    ) -> Result<(), FrameGraphError> {
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+        let count_buffer = self.render_context.get_resource(count_buffer_ref)?;
+
+        self.render_pass.multi_draw_indirect_count(
+            &indirect_buffer.resource,
+            indirect_offset,
+            &count_buffer.resource,
+            count_offset,
+            max_count,
+        );
+        Ok(())
+    }
+
+    pub fn multi_draw_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+        count: u32,
+    ) -> Result<(), FrameGraphError> {
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+
+        self.render_pass
+            .multi_draw_indirect(&indirect_buffer.resource, indirect_offset, count);
+
+        Ok(())
+    }
+
+    pub fn draw_indexed_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+    ) -> Result<(), FrameGraphError> {
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+
+        self.render_pass
+            .draw_indexed_indirect(&indirect_buffer.resource, indirect_offset);
+
+        Ok(())
+    }
+
+    pub fn draw_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+    ) -> Result<(), FrameGraphError> {
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+
+        self.render_pass
+            .draw_indirect(&indirect_buffer.resource, indirect_offset);
+
+        Ok(())
+    }
+
     pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
         self.render_pass.set_scissor_rect(x, y, width, height);
     }
@@ -144,10 +459,10 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
     pub fn set_bind_group(
         &mut self,
         index: u32,
-        bind_group_ref: &BindGroupBluePrint,
+        bind_group: &BindGroupBluePrint,
         offsets: &[u32],
     ) -> Result<(), FrameGraphError> {
-        let bind_group = bind_group_ref.make(&self.render_context)?;
+        let bind_group = bind_group.make(&self.render_context)?;
         self.render_pass.set_bind_group(index, &bind_group, offsets);
 
         Ok(())
@@ -176,10 +491,12 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         &mut self,
         slot: u32,
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        offset: u64,
+        size: u64,
     ) -> Result<(), FrameGraphError> {
         let buffer = self.render_context.get_resource(buffer_ref)?;
         self.render_pass
-            .set_vertex_buffer(slot, buffer.resource.slice(0..));
+            .set_vertex_buffer(slot, buffer.resource.slice(offset..(offset + size)));
 
         Ok(())
     }
@@ -188,11 +505,23 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         &mut self,
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         index_format: wgpu::IndexFormat,
+        offset: u64,
+        size: u64,
     ) -> Result<(), FrameGraphError> {
         let buffer = self.render_context.get_resource(buffer_ref)?;
 
         self.render_pass
-            .set_index_buffer(buffer.resource.slice(0..), index_format);
+            .set_index_buffer(buffer.resource.slice(offset..(offset + size)), index_format);
+
+        Ok(())
+    }
+
+    pub fn execute(mut self, commands: &Vec<RenderPassCommand>) -> Result<(), FrameGraphError> {
+        for command in commands {
+            command.draw(&mut self)?;
+        }
+
+        self.end();
 
         Ok(())
     }

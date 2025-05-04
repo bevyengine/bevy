@@ -79,7 +79,7 @@ impl ViewNode for UpscalingNode {
                 ),
                 &[],
             )?
-            .set_viewport(camera.and_then(|camera| camera.viewport.clone()))
+            .set_camera_viewport(camera.and_then(|camera| camera.viewport.clone()))
             .draw(0..3, 0..1);
 
         Ok(())

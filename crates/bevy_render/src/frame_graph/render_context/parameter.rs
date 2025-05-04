@@ -1,5 +1,8 @@
 use std::ops::Range;
 
+use bevy_color::LinearRgba;
+use wgpu::{QuerySet, ShaderStages};
+
 use crate::{
     frame_graph::{
         BindGroupBluePrint, FrameGraphBuffer, FrameGraphError, RenderPassContext, ResourceRead,
@@ -9,6 +12,229 @@ use crate::{
 };
 
 use super::ErasedRenderPassCommand;
+
+pub struct DrawIndexedIndirectParameter {
+    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_offset: u64,
+}
+
+impl ErasedRenderPassCommand for DrawIndexedIndirectParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context
+            .draw_indexed_indirect(&self.indirect_buffer_ref, self.indirect_offset)?;
+        Ok(())
+    }
+}
+
+pub struct MultiDrawIndirectParameter {
+    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_offset: u64,
+    pub count: u32,
+}
+
+impl ErasedRenderPassCommand for MultiDrawIndirectParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.multi_draw_indirect(
+            &self.indirect_buffer_ref,
+            self.indirect_offset,
+            self.count,
+        )?;
+        Ok(())
+    }
+}
+
+pub struct MultiDrawIndirectCountParameter {
+    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_offset: u64,
+    pub count_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub count_offset: u64,
+    pub max_count: u32,
+}
+
+impl ErasedRenderPassCommand for MultiDrawIndirectCountParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.multi_draw_indexed_indirect_count(
+            &self.indirect_buffer_ref,
+            self.indirect_offset,
+            &self.count_buffer_ref,
+            self.count_offset,
+            self.max_count,
+        )?;
+        Ok(())
+    }
+}
+
+pub struct MultiDrawIndexedIndirectParameter {
+    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_offset: u64,
+    pub count: u32,
+}
+
+impl ErasedRenderPassCommand for MultiDrawIndexedIndirectParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.multi_draw_indexed_indirect(
+            &self.indirect_buffer_ref,
+            self.indirect_offset,
+            self.count,
+        )?;
+        Ok(())
+    }
+}
+
+pub struct MultiDrawIndexedIndirectCountParameter {
+    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_offset: u64,
+    pub count_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub count_offset: u64,
+    pub max_count: u32,
+}
+
+impl ErasedRenderPassCommand for MultiDrawIndexedIndirectCountParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.multi_draw_indexed_indirect_count(
+            &self.indirect_buffer_ref,
+            self.indirect_offset,
+            &self.count_buffer_ref,
+            self.count_offset,
+            self.max_count,
+        )?;
+        Ok(())
+    }
+}
+
+pub struct SetStencilReferenceParameter {
+   pub reference: u32,
+}
+
+impl ErasedRenderPassCommand for SetStencilReferenceParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.set_stencil_reference(self.reference);
+        Ok(())
+    }
+}
+
+pub struct SetPushConstantsParameter {
+    pub stages: ShaderStages,
+    pub offset: u32,
+    pub data: Vec<u8>,
+}
+
+impl ErasedRenderPassCommand for SetPushConstantsParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.set_push_constants(self.stages.clone(), self.offset, &self.data);
+        Ok(())
+    }
+}
+
+pub struct SetViewportParameter {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub min_depth: f32,
+    pub max_depth: f32,
+}
+
+impl ErasedRenderPassCommand for SetViewportParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.set_viewport(
+            self.x,
+            self.y,
+            self.width,
+            self.height,
+            self.min_depth,
+            self.max_depth,
+        );
+        Ok(())
+    }
+}
+
+pub struct InsertDebugMarkerParameter {
+    pub label: String,
+}
+
+impl ErasedRenderPassCommand for InsertDebugMarkerParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.insert_debug_marker(&self.label);
+        Ok(())
+    }
+}
+
+pub struct PushDebugGroupParameter {
+    pub label: String,
+}
+
+impl ErasedRenderPassCommand for PushDebugGroupParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.push_debug_group(&self.label);
+        Ok(())
+    }
+}
+
+pub struct PopDebugGroupParameter;
+
+impl ErasedRenderPassCommand for PopDebugGroupParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.pop_debug_group();
+        Ok(())
+    }
+}
+
+pub struct SetBlendConstantParameter {
+    pub color: LinearRgba,
+}
+
+impl ErasedRenderPassCommand for SetBlendConstantParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.set_blend_constant(self.color.clone());
+        Ok(())
+    }
+}
+
+pub struct WriteTimestampParameter {
+    pub query_set: QuerySet,
+    pub index: u32,
+}
+
+impl ErasedRenderPassCommand for WriteTimestampParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.write_timestamp(&self.query_set, self.index);
+        Ok(())
+    }
+}
+
+pub struct BeginPipelineStatisticsQueryParameter {
+    pub query_set: QuerySet,
+    pub index: u32,
+}
+
+impl ErasedRenderPassCommand for BeginPipelineStatisticsQueryParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.begin_pipeline_statistics_query(&self.query_set, self.index);
+        Ok(())
+    }
+}
+
+pub struct EndPipelineStatisticsQueryParameter;
+
+impl ErasedRenderPassCommand for EndPipelineStatisticsQueryParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.end_pipeline_statistics_query();
+        Ok(())
+    }
+}
+
+pub struct DrawIndirectParameter {
+    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_offset: u64,
+}
+
+impl ErasedRenderPassCommand for DrawIndirectParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.draw_indirect(&self.indirect_buffer_ref, self.indirect_offset)?;
+        Ok(())
+    }
+}
 
 pub struct DrawIndexedParameter {
     pub indices: Range<u32>,
@@ -73,11 +299,18 @@ impl ErasedRenderPassCommand for DrawParameter {
 pub struct SetIndexBufferParameter {
     pub buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
     pub index_format: wgpu::IndexFormat,
+    pub offset: u64,
+    pub size: u64,
 }
 
 impl ErasedRenderPassCommand for SetIndexBufferParameter {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
-        render_pass_context.set_index_buffer(&self.buffer_ref, self.index_format)?;
+        render_pass_context.set_index_buffer(
+            &self.buffer_ref,
+            self.index_format,
+            self.offset,
+            self.size,
+        )?;
         Ok(())
     }
 }
@@ -85,11 +318,18 @@ impl ErasedRenderPassCommand for SetIndexBufferParameter {
 pub struct SetVertexBufferParameter {
     pub slot: u32,
     pub buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub offset: u64,
+    pub size: u64,
 }
 
 impl ErasedRenderPassCommand for SetVertexBufferParameter {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
-        render_pass_context.set_vertex_buffer(self.slot, &self.buffer_ref)?;
+        render_pass_context.set_vertex_buffer(
+            self.slot,
+            &self.buffer_ref,
+            self.offset,
+            self.size,
+        )?;
         Ok(())
     }
 }

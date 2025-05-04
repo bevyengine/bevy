@@ -56,7 +56,7 @@ impl ViewNode for MainOpaquePass2dNode {
         builder
             .add_color_attachment(target)?
             .set_depth_stencil_attachment(&(depth, StoreOp::Store))?
-            .set_viewport(camera.viewport.clone());
+            .set_camera_viewport(camera.viewport.clone());
 
         let mut tracked_render_pass = TrackedRenderPass::new(&render_device, builder);
         if !opaque_phase.is_empty() {

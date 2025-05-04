@@ -2,7 +2,8 @@ use crate::{
     camera::Viewport,
     frame_graph::{
         BluePrint, ColorAttachment, ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint,
-        FrameGraphError, RenderContext, RenderPassBlutPrint, RenderPassCommand, RenderPassContextExecutor,
+        FrameGraphError, RenderContext, RenderPassBlutPrint, RenderPassCommand,
+        RenderPassCommandBuilder,
     },
 };
 
@@ -20,11 +21,16 @@ impl RenderPass {
         self.vaild
     }
 
-    pub fn set_viewport(&mut self, viewport: Option<Viewport>) {
+    pub fn set_camera_viewport(&mut self, viewport: Option<Viewport>) {
         if let Some(viewport) = viewport {
-            let size = viewport.physical_size;
-            let position = viewport.physical_position;
-            self.set_scissor_rect(position.x, position.y, size.x, size.y);
+            self.set_viewport(
+                viewport.physical_position.x as f32,
+                viewport.physical_position.y as f32,
+                viewport.physical_size.x as f32,
+                viewport.physical_size.y as f32,
+                viewport.depth.start,
+                viewport.depth.end,
+            );
         }
     }
 
@@ -50,13 +56,9 @@ impl RenderPass {
     }
 }
 
-impl RenderPassContextExecutor for RenderPass {
+impl RenderPassCommandBuilder for RenderPass {
     fn add_render_pass_command(&mut self, value: RenderPassCommand) {
         self.commands.push(value);
-    }
-
-    fn get_render_pass_commands(&self) -> &[RenderPassCommand] {
-        &self.commands
     }
 }
 
@@ -65,7 +67,7 @@ impl PassTrait for RenderPass {
         let render_pass_info = self.render_pass.make(render_context)?;
         let render_pass_context = render_context.begin_render_pass(&render_pass_info)?;
 
-        RenderPassContextExecutor::execute(self, render_pass_context)?;
+        render_pass_context.execute(&self.commands)?;
 
         Ok(())
     }
