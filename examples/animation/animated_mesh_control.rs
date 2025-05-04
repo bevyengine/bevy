@@ -108,11 +108,11 @@ fn setup_scene_once_loaded(
 ) {
     for (entity, mut player) in &mut players {
         let mut transitions = AnimationTransitions::new(1);
-        let graph = animations.graph_handle.clone();
 
-        // Make sure to still utilize animation player to control your animations
-        transitions.transition_flows(graph.clone(), animations.animations[0], 0, Duration::ZERO);
-        player.play(animations.animations[0]).repeat();
+        // Use only transitions to control your animation player!
+        transitions
+            .transition_flows(&mut player, animations.animations[0], 0, Duration::ZERO)
+            .repeat();
 
         commands
             .entity(entity)
@@ -123,15 +123,11 @@ fn setup_scene_once_loaded(
 
 fn keyboard_control(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animation_players: Query<(
-        &mut AnimationPlayer,
-        &AnimationGraphHandle,
-        &mut AnimationTransitions,
-    )>,
+    mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
 ) {
-    for (mut player, graph, mut transitions) in &mut animation_players {
+    for (mut player, mut transitions) in &mut animation_players {
         let Some((&playing_animation_index, _)) = player.playing_animations().next() else {
             continue;
         };
@@ -172,15 +168,13 @@ fn keyboard_control(
         if keyboard_input.just_pressed(KeyCode::Enter) {
             *current_animation = (*current_animation + 1) % animations.animations.len();
 
-            transitions.transition_flows(
-                graph.clone_weak(),
-                animations.animations[*current_animation],
-                0,
-                Duration::from_millis(200),
-            );
-
-            player
-                .play(animations.animations[*current_animation])
+            transitions
+                .transition_flows(
+                    &mut player,
+                    animations.animations[*current_animation],
+                    0,
+                    Duration::from_millis(200),
+                )
                 .repeat();
         }
 

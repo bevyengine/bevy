@@ -270,11 +270,7 @@ fn update_fox_rings(
 
 fn keyboard_animation_control(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animation_player: Query<(
-        &mut AnimationPlayer,
-        &mut AnimationTransitions,
-        &AnimationGraphHandle,
-    )>,
+    mut animation_player: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
     mut foxes: ResMut<Foxes>,
@@ -295,7 +291,7 @@ fn keyboard_animation_control(
         *current_animation = (*current_animation + 1) % animations.node_indices.len();
     }
 
-    for (mut player, mut transitions, graph_handle) in &mut animation_player {
+    for (mut player, mut transitions) in &mut animation_player {
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.all_paused() {
                 player.resume_all();
@@ -321,14 +317,13 @@ fn keyboard_animation_control(
         }
 
         if keyboard_input.just_pressed(KeyCode::Enter) {
-            transitions.transition_flows(
-                graph_handle.clone_weak(),
-                animations.node_indices[*current_animation],
-                0,
-                Duration::from_millis(250),
-            );
-            player
-                .play(animations.node_indices[*current_animation])
+            transitions
+                .transition_flows(
+                    &mut player,
+                    animations.node_indices[*current_animation],
+                    0,
+                    Duration::from_millis(250),
+                )
                 .repeat();
         }
     }
