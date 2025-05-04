@@ -40,7 +40,7 @@ pub struct AnimationTransitions {
     transitions: Vec<AnimationTransition>,
     /// Flows represent sequences of animation states.
     /// For example, in cases such as masked or additive animation scenarios, a user can easily define transitions between previous and new states.
-    /// This concept is similar to "main" animations, but instead of one sole ActiveAnimation, we might have multiple active animation nodes being controlled!
+    /// This concept is similar to "main" animations, but instead of one sole  `ActiveAnimation`, we might have multiple active animation being controlled!
     flows: Vec<Option<AnimationNodeIndex>>,
 }
 
