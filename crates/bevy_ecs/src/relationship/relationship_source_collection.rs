@@ -678,7 +678,7 @@ mod tests {
         assert!(collection.iter().eq(&[b, d]));
     }
 
-    #[test]    
+    #[test]
     #[should_panic]
     fn one_to_one_relationship_shared_target() {
         #[derive(Component)]
