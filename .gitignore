@@ -1,6 +1,6 @@
 # If your IDE needs additional project specific files, configure git to ignore them:
 # https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files#configuring-ignored-files-for-all-repositories-on-your-computer
-
+.vscode
 # Rust build artifacts
 target
 crates/**/target
@@ -22,6 +22,7 @@ Cargo.lock
 assets/**/*.meta
 crates/bevy_asset/imported_assets
 imported_assets
+.http-asset-cache
 
 # Bevy Examples
 example_showcase_config.ron
