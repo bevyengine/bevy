@@ -1079,9 +1079,7 @@ impl Entities {
             // SAFETY:
             // self.meta and self.spawned_or_despawned_at have the same length
             // get_entity_meta returning Some: index is in range, spawn/despawn tick is init
-            unsafe {
-                self.entity_get_spawned_or_despawned_at_unchecked(entity)
-            }
+            unsafe { self.entity_get_spawned_or_despawned_at_unchecked(entity) }
         })
     }
 
@@ -1099,9 +1097,7 @@ impl Entities {
         };
         // SAFETY:
         // user ensured the entity is alive or despawned while not being overridden
-        unsafe {
-            MaybeUninit::assume_init(*spawned_or_despawned_at)
-        }
+        unsafe { MaybeUninit::assume_init(*spawned_or_despawned_at) }
     }
 
     /// Returns the [`EntityMeta`] for the given entity if the entity is alive or if
@@ -1126,15 +1122,13 @@ impl Entities {
             {
                 // SAFETY:
                 // self.spawned_or_despawned_at has the same length as self.meta
-                let spawned_or_despawned_at = unsafe {
-                    self.spawned_or_despawned_at.get_unchecked_mut(index)
-                };
+                let spawned_or_despawned_at =
+                    unsafe { self.spawned_or_despawned_at.get_unchecked_mut(index) };
                 // SAFETY:
                 // increased generation indicates the entity was once spawned OR
                 // valid archetype means the entity was spawned
-                let spawned_or_despawned_at = unsafe {
-                    MaybeUninit::assume_init_mut(spawned_or_despawned_at)
-                };
+                let spawned_or_despawned_at =
+                    unsafe { MaybeUninit::assume_init_mut(spawned_or_despawned_at) };
                 spawned_or_despawned_at.check_tick(change_tick);
             }
         }
