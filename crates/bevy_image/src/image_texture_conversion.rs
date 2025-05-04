@@ -197,6 +197,22 @@ impl Image {
                 })
                 .map(DynamicImage::ImageRgba8)
             }
+            TextureFormat::Rgba16Float => {
+                use half::f16;
+                let pixel_count = (width * height) as usize;
+                let mut rgba32f_data = Vec::<f32>::with_capacity(pixel_count * 4);
+                for rgba16f in data.chunks_exact(8) {
+                    let r = f16::from_bits(u16::from_le_bytes([rgba16f[0], rgba16f[1]])).to_f32();
+                    let g = f16::from_bits(u16::from_le_bytes([rgba16f[2], rgba16f[3]])).to_f32();
+                    let b = f16::from_bits(u16::from_le_bytes([rgba16f[4], rgba16f[5]])).to_f32();
+                    let a = f16::from_bits(u16::from_le_bytes([rgba16f[6], rgba16f[7]])).to_f32();
+                    rgba32f_data.push(r);
+                    rgba32f_data.push(g);
+                    rgba32f_data.push(b);
+                    rgba32f_data.push(a);
+                }
+                ImageBuffer::from_raw(width, height, rgba32f_data).map(DynamicImage::ImageRgba32F)
+            }
             // Throw and error if conversion isn't supported
             texture_format => return Err(IntoDynamicImageError::UnsupportedFormat(texture_format)),
         }

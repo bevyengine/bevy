@@ -37,7 +37,7 @@ mod node;
 pub mod resources;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::load_internal_asset;
+use bevy_asset::{load_internal_asset, load_internal_binary_asset};
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
@@ -45,6 +45,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{lifetimeless::Read, Query},
 };
+use bevy_image::Image;
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -74,8 +75,9 @@ use self::{
     },
 };
 
-mod shaders {
+pub mod shaders {
     use bevy_asset::{weak_handle, Handle};
+    use bevy_image::Image;
     use bevy_render::render_resource::Shader;
 
     pub const TYPES: Handle<Shader> = weak_handle!("ef7e147e-30a0-4513-bae3-ddde2a6c20c5");
@@ -92,6 +94,8 @@ mod shaders {
     pub const AERIAL_VIEW_LUT: Handle<Shader> =
         weak_handle!("a3daf030-4b64-49ae-a6a7-354489597cbe");
     pub const RENDER_SKY: Handle<Shader> = weak_handle!("09422f46-d0f7-41c1-be24-121c17d6e834");
+    pub const BLUENOISE_TEXTURE: Handle<Image> =
+        weak_handle!("dd03ae89-fc4b-4b33-b19e-9b6b302a44cc");
 }
 
 #[doc(hidden)]
@@ -99,6 +103,22 @@ pub struct AtmospherePlugin;
 
 impl Plugin for AtmospherePlugin {
     fn build(&self, app: &mut App) {
+        // Load the blue noise texture
+        load_internal_binary_asset!(
+            app,
+            shaders::BLUENOISE_TEXTURE,
+            "bluenoise.ktx2",
+            |bytes, _: String| Image::from_buffer(
+                bytes,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
+                bevy_image::CompressedImageFormats::NONE,
+                false,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
+            )
+            .expect("Failed to load atmosphere blue noise texture")
+        );
+
         load_internal_asset!(app, shaders::TYPES, "types.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, shaders::FUNCTIONS, "functions.wgsl", Shader::from_wgsl);
         load_internal_asset!(
