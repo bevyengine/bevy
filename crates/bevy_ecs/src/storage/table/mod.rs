@@ -136,12 +136,14 @@ impl TableRow {
     }
 }
 
-/// An opaque for components in [`Table`]s. Specifies a single column in a specific table.
+/// An opaque id for components in [`Table`]s. Specifies a single column in a specific table.
 /// Think of this as a more localized [`ComponentId`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TableColumn(u32);
+pub struct TableColumnId(u32);
 
-impl TableColumn {
+impl TableColumnId {
+    pub(crate) const INVALID: TableColumnId = TableColumnId(u32::MAX);
+
     /// Gets the index of the row as a [`usize`].
     #[inline]
     pub const fn as_usize(self) -> usize {
@@ -167,7 +169,7 @@ impl TableColumn {
 /// [`build`]: Self::build
 pub(crate) struct TableBuilder {
     data: Vec<ThinColumn>,
-    columns: SparseSet<ComponentId, TableColumn>,
+    columns: SparseSet<ComponentId, TableColumnId>,
     capacity: usize,
 }
 
@@ -183,12 +185,12 @@ impl TableBuilder {
 
     /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
     #[must_use]
-    pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        let column_id = TableColumn(self.data.len() as u32);
+    pub fn add_column(&mut self, component_info: &ComponentInfo) -> TableColumnId {
+        let column_id = TableColumnId(self.data.len() as u32);
         self.data
             .push(ThinColumn::with_capacity(component_info, self.capacity));
         self.columns.insert(component_info.id(), column_id);
-        self
+        column_id
     }
 
     /// Build the [`Table`], after this operation the caller wouldn't be able to add more columns. The [`Table`] will be ready to use.
@@ -216,7 +218,7 @@ impl TableBuilder {
 /// [`World`]: crate::world::World
 pub struct Table {
     data: Box<[ThinColumn]>,
-    columns: ImmutableSparseSet<ComponentId, TableColumn>,
+    columns: ImmutableSparseSet<ComponentId, TableColumnId>,
     entities: Vec<Entity>,
 }
 
@@ -525,7 +527,7 @@ impl Table {
     ///
     /// The `column` must be for *this* table.
     #[inline]
-    pub(crate) unsafe fn get_column_by_id(&self, column: TableColumn) -> &ThinColumn {
+    pub(crate) unsafe fn get_column_by_id(&self, column: TableColumnId) -> &ThinColumn {
         // SAFETY: The column map is immutable and the key came from this table.
         unsafe { self.data.get_unchecked(column.as_usize()) }
     }
@@ -536,7 +538,7 @@ impl Table {
     ///
     /// The `column` must be for *this* table.
     #[inline]
-    pub(crate) unsafe fn get_column_mut_by_id(&mut self, column: TableColumn) -> &mut ThinColumn {
+    pub(crate) unsafe fn get_column_mut_by_id(&mut self, column: TableColumnId) -> &mut ThinColumn {
         // SAFETY: The column map is immutable and the key came from this table.
         unsafe { self.data.get_unchecked_mut(column.as_usize()) }
     }
@@ -547,7 +549,7 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_id(&self, component_id: ComponentId) -> Option<TableColumn> {
+    pub(crate) fn get_column_id(&self, component_id: ComponentId) -> Option<TableColumnId> {
         self.columns.get(component_id).copied()
     }
 
@@ -742,12 +744,35 @@ impl Table {
     }
 }
 
+/// Stores information about a component with table storage.
+pub struct TablesComponentMeta {
+    /// Maps [`TableId`]s to [`TableColumnId`]s (or invalid).
+    columns: Vec<TableColumnId>,
+}
+
+impl TablesComponentMeta {
+    /// Returns this component's column in this table, if it exists.
+    pub fn column_in(&self, table: TableId) -> Option<TableColumnId> {
+        self.columns
+            .get(table.0 as usize)
+            .and_then(|column| (*column == TableColumnId::INVALID).then_some(*column))
+    }
+}
+
+/// Identifies a [`ComponentId`] that has table storage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TablesComponentId(usize);
+
 /// A collection of [`Table`] storages, indexed by [`TableId`]
 ///
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
     table_ids: HashMap<Box<[ComponentId]>, TableId>,
+    /// Maps [`TablesComponentId`]s to [`TablesComponentMeta`]s.
+    component_meta: Vec<TablesComponentMeta>,
+    // SAFETY: These [`TablesComponentId`]s must be valid indices into [`component_meta`](Self::component_meta).
+    components: HashMap<ComponentId, TablesComponentId>,
 }
 
 impl Default for Tables {
@@ -756,6 +781,8 @@ impl Default for Tables {
         Tables {
             tables: vec![empty_table],
             table_ids: HashMap::default(),
+            component_meta: Vec::new(),
+            components: HashMap::new(),
         }
     }
 }
@@ -816,21 +843,60 @@ impl Tables {
             return TableId::empty();
         }
 
-        let tables = &mut self.tables;
-        let (_key, value) = self
-            .table_ids
+        let Self {
+            tables,
+            table_ids,
+            component_meta,
+            components: tables_components,
+        } = self;
+
+        let (_key, value) = table_ids
             .raw_entry_mut()
             .from_key(component_ids)
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
+                let id = TableId::from_usize(tables.len());
                 for component_id in component_ids {
-                    table = table.add_column(components.get_info_unchecked(*component_id));
+                    let column_id = table.add_column(components.get_info_unchecked(*component_id));
+                    Self::set_component_column(
+                        component_meta,
+                        tables_components,
+                        *component_id,
+                        id,
+                        column_id,
+                    );
                 }
                 tables.push(table.build());
-                (component_ids.into(), TableId::from_usize(tables.len() - 1))
+                (component_ids.into(), id)
             });
 
         *value
+    }
+
+    fn set_component_column(
+        component_meta: &mut Vec<TablesComponentMeta>,
+        components: &mut HashMap<ComponentId, TablesComponentId>,
+        component: ComponentId,
+        table: TableId,
+        column: TableColumnId,
+    ) {
+        let id = *components.entry(component).or_insert_with(|| {
+            let id = TablesComponentId(component_meta.len());
+            component_meta.push(TablesComponentMeta {
+                columns: Vec::new(),
+            });
+            id
+        });
+        // SAFETY: The id must be a valid index.
+        let meta = unsafe { component_meta.get_mut(id.0).debug_checked_unwrap() };
+        meta.columns.resize(
+            meta.columns.len().max(table.as_usize() + 1),
+            TableColumnId::INVALID,
+        );
+        // SAFETY: We just ensured the index is valid
+        unsafe {
+            *meta.columns.get_unchecked_mut(table.as_usize()) = column;
+        }
     }
 
     /// Iterates through all of the tables stored within in [`TableId`] order.
@@ -917,9 +983,9 @@ mod tests {
             unsafe { ComponentsRegistrator::new(&mut components, &mut componentids) };
         let component_id = registrator.register_component::<W<TableRow>>();
         let columns = &[component_id];
-        let mut table = TableBuilder::with_capacity(0, columns.len())
-            .add_column(components.get_info(component_id).unwrap())
-            .build();
+        let mut table_builder = TableBuilder::with_capacity(0, columns.len());
+        let _column_id = table_builder.add_column(components.get_info(component_id).unwrap());
+        let mut table = table_builder.build();
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards
