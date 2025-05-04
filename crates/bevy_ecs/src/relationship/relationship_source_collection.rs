@@ -2,6 +2,7 @@ use core::{
     hash::BuildHasher,
     ops::{Deref, DerefMut},
 };
+use alloc::collections::{btree_set, BTreeSet};
 
 use crate::entity::{Entity, EntityHashSet, EntityIndexSet};
 use alloc::vec::Vec;
@@ -539,6 +540,47 @@ impl RelationshipSourceCollection for EntityIndexSet {
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         self.extend(entities);
+    }
+}
+
+impl RelationshipSourceCollection for BTreeSet<Entity> {
+    type SourceIter<'a> = core::iter::Copied<btree_set::Iter<'a, Entity>>;
+
+    fn new() -> Self {
+        BTreeSet::new()
+    }
+
+    fn with_capacity(_: usize) -> Self {
+        // BTreeSet doesn't have a capacity
+        Self::new()
+    }
+
+    fn reserve(&mut self, _: usize) {
+        // BTreeSet doesn't have a capacity
+    }
+
+    fn add(&mut self, entity: Entity) -> bool {
+        self.insert(entity)
+    }
+
+    fn remove(&mut self, entity: Entity) -> bool {
+        self.remove(&entity)
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        self.iter().copied()
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+
+    fn shrink_to_fit(&mut self) {
+        // BTreeSet doesn't have a capacity
     }
 }
 

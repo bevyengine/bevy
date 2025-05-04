@@ -7,9 +7,12 @@ use crate::{
     world::World,
 };
 
-use alloc::{collections::VecDeque, vec::Vec};
+use alloc::{
+    collections::{BTreeSet, VecDeque},
+    vec::Vec,
+};
 use bevy_platform::collections::HashSet;
-use core::hash::BuildHasher;
+use core::{hash::BuildHasher, mem};
 use smallvec::SmallVec;
 
 use super::EntityIndexSet;
@@ -89,6 +92,15 @@ impl MapEntities for EntityIndexSet {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
         *self = self
             .drain(..)
+            .map(|e| entity_mapper.get_mapped(e))
+            .collect();
+    }
+}
+
+impl MapEntities for BTreeSet<Entity> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = mem::take(self)
+            .into_iter()
             .map(|e| entity_mapper.get_mapped(e))
             .collect();
     }
