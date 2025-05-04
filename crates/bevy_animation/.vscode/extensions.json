@@ -1,9 +1,0 @@
-{
-    "recommendations": [
-        "rust-lang.rust-analyzer",
-        "tamasfe.even-better-toml",
-        "usernamehw.errorlens",
-        "pixl-garden.bongocat",
-        "wilfriedago.vscode-symbols-icon-theme"
-    ]
-}
