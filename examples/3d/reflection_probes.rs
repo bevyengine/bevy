@@ -37,6 +37,8 @@ enum ReflectionMode {
     // Both a world environment map and a reflection probe are present. The
     // reflection probe is shown in the sphere.
     ReflectionProbe = 2,
+    // A prefiltered environment map is shown.
+    PrefilteredEnvironmentMap = 3,
 }
 
 // The various reflection maps.
@@ -52,6 +54,9 @@ struct Cubemaps {
 
     // The specular cubemap that reflects both the world and the cubes.
     specular_reflection_probe: Handle<Image>,
+
+    // Unfiltered environment map
+    unfiltered_environment_map: Handle<Image>,
 
     // The skybox cubemap image. This is almost the same as
     // `specular_environment_map`.
@@ -146,6 +151,21 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     ));
 }
 
+fn spawn_prefiltered_environment_map(commands: &mut Commands, cubemaps: &Cubemaps) {
+    println!("spawn_prefiltered_environment_map");
+    commands.spawn((
+        LightProbe,
+        FilteredEnvironmentMapLight {
+            environment_map: cubemaps.unfiltered_environment_map.clone(),
+            intensity: 5000.0,
+            ..default()
+        },
+        // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
+        Transform::from_scale(Vec3::splat(2.0)),
+    ));
+}
+
+
 // Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     // Create the text.
@@ -196,7 +216,7 @@ fn change_reflection_type(
 
     // Switch reflection mode.
     app_status.reflection_mode =
-        ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 3).unwrap();
+        ReflectionMode::try_from((app_status.reflection_mode as u32 + 1) % 4).unwrap();
 
     // Add or remove the light probe.
     for light_probe in light_probe_query.iter() {
@@ -205,6 +225,7 @@ fn change_reflection_type(
     match app_status.reflection_mode {
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
         ReflectionMode::ReflectionProbe => spawn_reflection_probe(&mut commands, &cubemaps),
+        ReflectionMode::PrefilteredEnvironmentMap => spawn_prefiltered_environment_map(&mut commands, &cubemaps),
     }
 
     // Add or remove the environment map from the camera.
@@ -213,7 +234,7 @@ fn change_reflection_type(
             ReflectionMode::None => {
                 commands.entity(camera).remove::<EnvironmentMapLight>();
             }
-            ReflectionMode::EnvironmentMap | ReflectionMode::ReflectionProbe => {
+            ReflectionMode::EnvironmentMap | ReflectionMode::ReflectionProbe | ReflectionMode::PrefilteredEnvironmentMap => {
                 commands
                     .entity(camera)
                     .insert(create_camera_environment_map_light(&cubemaps));
@@ -244,6 +265,7 @@ impl TryFrom<u32> for ReflectionMode {
             0 => Ok(ReflectionMode::None),
             1 => Ok(ReflectionMode::EnvironmentMap),
             2 => Ok(ReflectionMode::ReflectionProbe),
+            3 => Ok(ReflectionMode::PrefilteredEnvironmentMap),
             _ => Err(()),
         }
     }
@@ -255,6 +277,7 @@ impl Display for ReflectionMode {
             ReflectionMode::None => "No reflections",
             ReflectionMode::EnvironmentMap => "Environment map",
             ReflectionMode::ReflectionProbe => "Reflection probe",
+            ReflectionMode::PrefilteredEnvironmentMap => "Prefiltered environment map",
         };
         formatter.write_str(text)
     }
@@ -321,6 +344,7 @@ impl FromWorld for Cubemaps {
             specular_reflection_probe: world
                 .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
             specular_environment_map: specular_map.clone(),
+            unfiltered_environment_map: world.load_asset("environment_maps/ballawley_park_1k.ktx2"),
             skybox: specular_map,
         }
     }
@@ -329,8 +353,8 @@ impl FromWorld for Cubemaps {
 impl Default for AppStatus {
     fn default() -> Self {
         Self {
-            reflection_mode: ReflectionMode::ReflectionProbe,
-            rotating: true,
+            reflection_mode: ReflectionMode::PrefilteredEnvironmentMap,
+            rotating: false,
         }
     }
 }
