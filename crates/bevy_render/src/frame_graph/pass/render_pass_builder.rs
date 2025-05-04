@@ -1,4 +1,8 @@
-use std::{borrow::Cow, mem::take, ops::Range};
+use std::{
+    borrow::Cow,
+    mem::take,
+    ops::{Deref, Range},
+};
 
 use bevy_color::LinearRgba;
 use tracing::warn;
@@ -7,9 +11,9 @@ use wgpu::{QuerySet, ShaderStages, StoreOp};
 use crate::{
     camera::Viewport,
     frame_graph::{
-        BindGroupBluePrint, BindGroupEntryRef, BindingResourceRef, BluePrintProvider,
-        ColorAttachment, ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint,
-        FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource, PassNodeBuilder,
+        BindGroupBluePrint, BindGroupEntryRef, BluePrintProvider, ColorAttachment,
+        ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint, FrameGraphBuffer,
+        FrameGraphError, FrameGraphTexture, GraphResource, PassNodeBuilder,
         RenderPassCommandBuilder, ResourceBoardKey, ResourceRead, ResourceRef, SamplerInfo,
         TextureViewBluePrint, TextureViewInfo,
     },
@@ -36,36 +40,6 @@ impl<'a> Drop for RenderPassBuilder<'a> {
     }
 }
 
-pub enum BindingResourceHandle {
-    Buffer(ResourceRef<FrameGraphBuffer, ResourceRead>),
-    Sampler(SamplerInfo),
-    TextureView {
-        texture_ref: ResourceRef<FrameGraphTexture, ResourceRead>,
-        texture_view_info: TextureViewInfo,
-    },
-}
-
-impl From<SamplerInfo> for BindingResourceHandle {
-    fn from(value: SamplerInfo) -> Self {
-        BindingResourceHandle::Sampler(value)
-    }
-}
-
-impl From<ResourceRef<FrameGraphBuffer, ResourceRead>> for BindingResourceHandle {
-    fn from(value: ResourceRef<FrameGraphBuffer, ResourceRead>) -> Self {
-        BindingResourceHandle::Buffer(value)
-    }
-}
-
-impl From<ResourceRef<FrameGraphTexture, ResourceRead>> for BindingResourceHandle {
-    fn from(value: ResourceRef<FrameGraphTexture, ResourceRead>) -> Self {
-        BindingResourceHandle::TextureView {
-            texture_ref: value,
-            texture_view_info: TextureViewInfo::default(),
-        }
-    }
-}
-
 impl BluePrintProvider for (&ViewDepthTexture, StoreOp) {
     type BluePrint = DepthStencilAttachmentBluePrint;
 
@@ -87,12 +61,9 @@ impl BluePrintProvider for (&ViewDepthTexture, StoreOp) {
     }
 }
 
-impl BluePrintProvider
-    for (
-        Option<Cow<'static, str>>,
-        BindGroupLayout,
-        Vec<BindingResourceHandle>,
-    )
+impl<T> BluePrintProvider for (Option<Cow<'static, str>>, &BindGroupLayout, &T)
+where
+    T: Deref<Target = [BindGroupEntryRef]>,
 {
     type BluePrint = BindGroupBluePrint;
 
@@ -100,43 +71,10 @@ impl BluePrintProvider
         &self,
         _pass_node_builder: &mut PassNodeBuilder,
     ) -> Result<Self::BluePrint, FrameGraphError> {
-        let mut entries = vec![];
-
-        for (index, handle) in self.2.iter().enumerate() {
-            match handle {
-                BindingResourceHandle::Sampler(info) => {
-                    entries.push(BindGroupEntryRef {
-                        binding: index as u32,
-                        resource: BindingResourceRef::Sampler(info.clone()),
-                    });
-                }
-
-                BindingResourceHandle::Buffer(buffer_read) => {
-                    entries.push(BindGroupEntryRef {
-                        binding: index as u32,
-                        resource: BindingResourceRef::Buffer(buffer_read.clone()),
-                    });
-                }
-
-                BindingResourceHandle::TextureView {
-                    texture_ref,
-                    texture_view_info,
-                } => {
-                    entries.push(BindGroupEntryRef {
-                        binding: index as u32,
-                        resource: BindingResourceRef::TextureView {
-                            texture_ref: texture_ref.clone(),
-                            texture_view_info: texture_view_info.clone(),
-                        },
-                    });
-                }
-            }
-        }
-
         Ok(BindGroupBluePrint {
             label: self.0.clone(),
             layout: self.1.clone(),
-            entries,
+            entries: self.2.to_vec(),
         })
     }
 }
@@ -396,13 +334,13 @@ impl<'a> RenderPassBuilder<'a> {
     pub fn set_bind_group<T>(
         &mut self,
         index: u32,
-        bind_group_ref: T,
+        bind_group: T,
         offsets: &[u32],
     ) -> Result<&mut Self, FrameGraphError>
     where
         T: BluePrintProvider<BluePrint = BindGroupBluePrint>,
     {
-        let bind_group_ref = bind_group_ref.make_blue_print(&mut self.pass_node_builder)?;
+        let bind_group_ref = bind_group.make_blue_print(&mut self.pass_node_builder)?;
 
         self.render_pass
             .set_bind_group(index, &bind_group_ref, offsets);

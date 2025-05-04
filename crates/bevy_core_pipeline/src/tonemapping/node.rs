@@ -5,8 +5,9 @@ use crate::tonemapping::ViewTonemappingPipeline;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     frame_graph::{
-        render_pass_builder::RenderPassBuilder, ColorAttachmentBluePrint, FrameGraph,
-        FrameGraphTexture, ResourceRead, ResourceRef, TextureViewBluePrint, TextureViewInfo,
+        render_pass_builder::RenderPassBuilder, BindGroupEntryRefs, ColorAttachmentBluePrint,
+        FrameGraph, FrameGraphTexture, ResourceRead, ResourceRef, TextureViewBluePrint,
+        TextureViewInfo,
     },
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -107,14 +108,14 @@ impl ViewNode for TonemappingNode {
                 0,
                 (
                     None,
-                    tonemapping_pipeline.texture_bind_group.clone(),
-                    vec![
-                        view_uniforms_read.into(),
-                        source_read.into(),
-                        tonemapping_pipeline.sampler_info.clone().into(),
-                        lut_texture_read.into(),
-                        lut_bindings.1.clone().into(),
-                    ],
+                    &tonemapping_pipeline.texture_bind_group,
+                    &BindGroupEntryRefs::sequential((
+                        &view_uniforms_read,
+                        &source_read,
+                        &tonemapping_pipeline.sampler_info,
+                        &lut_texture_read,
+                        lut_bindings.1,
+                    )),
                 ),
                 &[view_uniform_offset.offset],
             )?

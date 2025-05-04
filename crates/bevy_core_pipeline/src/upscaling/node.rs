@@ -4,8 +4,8 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
     frame_graph::{
-        render_pass_builder::RenderPassBuilder, FrameGraph, FrameGraphTexture, ResourceRead,
-        ResourceRef,
+        render_pass_builder::RenderPassBuilder, BindGroupEntryRefs, FrameGraph, FrameGraphTexture,
+        ResourceRead, ResourceRef,
     },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::PipelineCache,
@@ -71,11 +71,11 @@ impl ViewNode for UpscalingNode {
                 0,
                 (
                     None,
-                    blit_pipeline.texture_bind_group.clone(),
-                    vec![
-                        main_texture_read.into(),
-                        blit_pipeline.sampler_info.clone().into(),
-                    ],
+                    &blit_pipeline.texture_bind_group,
+                    &BindGroupEntryRefs::sequential((
+                        &main_texture_read,
+                        &blit_pipeline.sampler_info,
+                    )),
                 ),
                 &[],
             )?
