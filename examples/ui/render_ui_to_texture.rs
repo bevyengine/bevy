@@ -91,28 +91,23 @@ fn setup(
             UiTargetCamera(texture_camera),
         ))
         .with_children(|parent| {
-            parent.spawn((
-                Text::new("This is a cube"),
-                TextFont {
-                    font_size: 40.0,
-                    ..default()
-                },
-                TextColor::BLACK,
-            ));
             parent
                 .spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        width: Val::Px(100.),
-                        height: Val::Px(100.),
+                        width: Val::Auto,
+                        height: Val::Auto,
+                        align_items: AlignItems::Center,
+                        padding: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
+                    BorderRadius::all(Val::Px(10.)),
                     BackgroundColor(BLUE.into()),
                 ))
                 .observe(
-                    |pointer: Trigger<Pointer<Drag>>, mut nodes: Query<&mut Node>| {
-                        let mut node = nodes.get_mut(pointer.target()).unwrap();
-                        node.left = Val::Px(pointer.pointer_location.position.x - 50.0);
+                    |pointer: Trigger<Pointer<Drag>>, mut nodes: Query<(&mut Node,&ComputedNode)>| {
+                        let (mut node, computed) = nodes.get_mut(pointer.target()).unwrap();
+                        node.left = Val::Px(pointer.pointer_location.position.x - computed.size.x / 2.0);
                         node.top = Val::Px(pointer.pointer_location.position.y - 50.0);
                     },
                 )
@@ -125,11 +120,21 @@ fn setup(
                     |pointer: Trigger<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
                         colors.get_mut(pointer.target()).unwrap().0 = BLUE.into();
                     },
-                );
+                )
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Drag Me!"),
+                        TextFont {
+                            font_size: 40.0,
+                            ..default()
+                        },
+                        TextColor::BLACK,
+                    ));
+                });
         });
 
     let cube_size = 4.0;
-    let cube_handle = meshes.add(Torus::new(cube_size / 2.0, cube_size));
+    let cube_handle = meshes.add(Cuboid::new(cube_size, cube_size, cube_size));
 
     // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
