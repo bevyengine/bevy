@@ -5,7 +5,7 @@ use crate::{
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, Table, TableRow, TablesComponentMeta},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
@@ -1102,7 +1102,10 @@ pub struct ReadFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
         // T::STORAGE_TYPE = StorageType::Table
-        Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+        (
+            Option<&'w TablesComponentMeta>,
+            Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+        ),
         // T::STORAGE_TYPE = StorageType::SparseSet
         Option<&'w ComponentSparseSet>,
     >,
@@ -1137,7 +1140,15 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             components: StorageSwitch::new(
-                || None,
+                || {
+                    let tables = &world.storages().tables;
+                    (
+                        tables
+                            .get_tables_component_id(component_id)
+                            .map(|id| tables.get_component_storage_meta(id).debug_checked_unwrap()),
+                        None,
+                    )
+                },
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
@@ -1174,17 +1185,23 @@ unsafe impl<T: Component> WorldQuery for &T {
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut ReadFetch<'w, T>,
-        &component_id: &ComponentId,
+        _component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let table_data = Some(
+        let column = fetch
+            .components
+            .table
+            .0
+            // SAFETY: If this table didn't have this component, this would not be being called.
+            .map(|meta| meta.column_in(table.id()).debug_checked_unwrap());
+        let table_data = column.map(|column| {
             table
-                .get_data_slice_for(component_id)
-                .debug_checked_unwrap()
-                .into(),
-        );
+                // SAFETY: We just got the column from this table for this component.
+                .get_data_slice_for(column)
+                .into()
+        });
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.components.set_table(table_data) };
+        fetch.components.table.1 = table_data;
     }
 
     fn update_component_access(
@@ -1233,8 +1250,8 @@ unsafe impl<T: Component> QueryData for &T {
     ) -> Self::Item<'w> {
         fetch.components.extract(
             |table| {
-                // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                // SAFETY: set_table was previously called and this entity must have this component, so it must not be none.
+                let table = unsafe { table.1.debug_checked_unwrap() };
                 // SAFETY: Caller ensures `table_row` is in range.
                 let item = unsafe { table.get(table_row.as_usize()) };
                 item.deref()

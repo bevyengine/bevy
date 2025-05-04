@@ -195,11 +195,12 @@ impl TableBuilder {
 
     /// Build the [`Table`], after this operation the caller wouldn't be able to add more columns. The [`Table`] will be ready to use.
     #[must_use]
-    pub fn build(self) -> Table {
+    pub fn build(self, id: TableId) -> Table {
         Table {
             columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
             data: self.data.into_boxed_slice(),
+            id,
         }
     }
 }
@@ -220,6 +221,7 @@ pub struct Table {
     data: Box<[ThinColumn]>,
     columns: ImmutableSparseSet<ComponentId, TableColumnId>,
     entities: Vec<Entity>,
+    id: TableId,
 }
 
 struct AbortOnPanic;
@@ -243,6 +245,12 @@ impl Table {
     #[inline]
     pub fn capacity(&self) -> usize {
         self.entities.capacity()
+    }
+
+    /// Get the id of this table.
+    #[inline]
+    pub fn id(&self) -> TableId {
+        self.id
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
@@ -391,13 +399,11 @@ impl Table {
     ///
     /// # Safety
     /// `row.as_usize()` < `self.len()`
-    /// - `T` must match the `component_id`
-    pub unsafe fn get_data_slice_for<T>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<T>]> {
-        self.get_column(component_id)
-            .map(|col| col.get_data_slice(self.entity_count()))
+    /// - `T` must match the `TableColumnId`
+    /// - The column must be for this table.
+    pub unsafe fn get_data_slice_for<T>(&self, column: TableColumnId) -> &[UnsafeCell<T>] {
+        self.get_column_by_id(column)
+            .get_data_slice(self.entity_count())
     }
 
     /// Get the added ticks of the column matching `component_id` as a slice.
@@ -777,7 +783,7 @@ pub struct Tables {
 
 impl Default for Tables {
     fn default() -> Self {
-        let empty_table = TableBuilder::with_capacity(0, 0).build();
+        let empty_table = TableBuilder::with_capacity(0, 0).build(TableId::empty());
         Tables {
             tables: vec![empty_table],
             table_ids: HashMap::default(),
@@ -866,7 +872,7 @@ impl Tables {
                         column_id,
                     );
                 }
-                tables.push(table.build());
+                tables.push(table.build(id));
                 (component_ids.into(), id)
             });
 
@@ -904,7 +910,7 @@ impl Tables {
         self.components.get(&component).copied()
     }
 
-    /// Gets the [`TablesComponentMeta`] for this component if it has been in any table.
+    /// Gets the [`TablesComponentMeta`] for this component if the id is for this [`Tables`].
     /// These are never removed and do not correspond to any component data access.
     pub fn get_component_storage_meta(
         &self,
@@ -999,7 +1005,7 @@ mod tests {
         let columns = &[component_id];
         let mut table_builder = TableBuilder::with_capacity(0, columns.len());
         let _column_id = table_builder.add_column(components.get_info(component_id).unwrap());
-        let mut table = table_builder.build();
+        let mut table = table_builder.build(TableId::from_u32(0));
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards
