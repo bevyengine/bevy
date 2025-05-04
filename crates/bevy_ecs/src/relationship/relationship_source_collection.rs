@@ -688,7 +688,6 @@ mod tests {
         #[derive(Component)]
         #[relationship_target(relationship = Above)]
         struct Below(Entity);
-      
         let mut world = World::new();
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
