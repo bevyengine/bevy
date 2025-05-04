@@ -29,15 +29,3 @@ While Bevy 0.17 adds the bevy_solari crate, it's intended as a long-term project
 (TODO: Embed bevy_solari logo here, or somewhere else that looks good)
 
 Special thanks to @Vecvec for adding raytracing support to wgpu.
-
-## Goals
-
-Answer the following:
-
-- What has been changed or added?
-- Why is this a big deal for users?
-- How can they use it?
-
-## Style Guide
-
-You may use markdown headings levels two and three, and must not start with a heading. Prose is appreciated, but bullet points are acceptable. Copying the introduction from your PR is often a good place to start.
