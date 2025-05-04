@@ -4351,4 +4351,4 @@ category = "Shaders"
 wasm = false
 
 [patch.crates-io]
-naga_oil = { git = "https://github.com/JMS55/naga_oil", branch = "solari6" }
+naga_oil = { git = "https://github.com/JMS55/naga_oil", rev = "82476f83023da017be4963eaafc0f7b30e811bc3" }
