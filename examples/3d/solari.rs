@@ -42,6 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Camera3d::default(),
         Camera {
             hdr: true,
+            clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
         CameraController::default(),
