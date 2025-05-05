@@ -73,11 +73,15 @@ impl Default for PointerInputSettings {
 ///
 /// Toggling mouse input or touch input can be done at runtime by modifying
 /// [`PointerInputSettings`] resource.
+///
+/// [`PointerInputSettings`] can be initialized with custom values, but will be
+/// initialized with default values if it is not present at the moment this is
+/// added to the app.
 pub struct PointerInputPlugin;
 
 impl Plugin for PointerInputPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(PointerInputSettings::default())
+        app.init_resource::<PointerInputSettings>()
             .register_type::<PointerInputSettings>()
             .add_systems(Startup, spawn_mouse_pointer)
             .add_systems(
