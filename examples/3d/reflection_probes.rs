@@ -6,12 +6,8 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
-use bevy::{
-    core_pipeline::{tonemapping::Tonemapping, Skybox},
-    pbr::prefilter::FilteredEnvironmentMapLight,
-    prelude::*,
-};
-use bevy_render::{camera::Exposure, render_resource::TextureUsages};
+use bevy::{core_pipeline::Skybox, pbr::prefilter::FilteredEnvironmentMapLight, prelude::*};
+use bevy_render::render_resource::TextureUsages;
 
 use std::{
     f32::consts::PI,
