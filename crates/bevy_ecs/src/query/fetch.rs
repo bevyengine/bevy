@@ -8,7 +8,7 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
+        Except, FilteredEntityMut, FilteredEntityRef, Full, Mut, Partial, Ref, World,
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -563,7 +563,7 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: Read-only access to every component has been registered.
-        unsafe { EntityRef::new(cell) }
+        unsafe { EntityRef::new(cell, Full) }
     }
 }
 
@@ -644,7 +644,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: mutable access to every component has been registered.
-        unsafe { EntityMut::new(cell) }
+        unsafe { EntityMut::new(cell, Full) }
     }
 }
 
@@ -750,7 +750,7 @@ unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: mutable access to every component has been registered.
-        unsafe { FilteredEntityRef::new(cell, access.clone()) }
+        unsafe { FilteredEntityRef::new(cell, Partial(access.clone())) }
     }
 }
 
@@ -857,7 +857,7 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
         // SAFETY: mutable access to every component has been registered.
-        unsafe { FilteredEntityMut::new(cell, access.clone()) }
+        unsafe { FilteredEntityMut::new(cell, Partial(access.clone())) }
     }
 }
 
@@ -953,7 +953,7 @@ where
         _: TableRow,
     ) -> Self::Item<'w> {
         let cell = world.get_entity(entity).unwrap();
-        EntityRefExcept::new(cell)
+        EntityRefExcept::new(cell, Except::<B>::default())
     }
 }
 
@@ -1054,7 +1054,7 @@ where
         _: TableRow,
     ) -> Self::Item<'w> {
         let cell = world.get_entity(entity).unwrap();
-        EntityMutExcept::new(cell)
+        EntityMutExcept::new(cell, Except::<B>::default())
     }
 }
 
