@@ -36,7 +36,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::GpuImage,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::prelude::default;
 
@@ -234,7 +234,7 @@ impl Plugin for PostProcessingPlugin {
                     prepare_post_processing_pipelines,
                     prepare_post_processing_uniforms,
                 )
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderSystems::Prepare),
             )
             .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
                 Core3d,

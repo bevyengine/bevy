@@ -106,13 +106,6 @@ impl ChildOf {
     pub fn parent(&self) -> Entity {
         self.0
     }
-
-    /// The parent entity of this child entity.
-    #[deprecated(since = "0.16.0", note = "Use child_of.parent() instead")]
-    #[inline]
-    pub fn get(&self) -> Entity {
-        self.0
-    }
 }
 
 // TODO: We need to impl either FromWorld or Default so ChildOf can be registered as Reflect.
@@ -344,20 +337,6 @@ impl<'w> EntityWorldMut<'w> {
         });
         self
     }
-
-    /// Removes the [`ChildOf`] component, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.remove::<ChildOf>()")]
-    pub fn remove_parent(&mut self) -> &mut Self {
-        self.remove::<ChildOf>();
-        self
-    }
-
-    /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(ChildOf(entity))")]
-    pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
-        self
-    }
 }
 
 impl<'a> EntityCommands<'a> {
@@ -434,20 +413,6 @@ impl<'a> EntityCommands<'a> {
         self.with_related::<ChildOf>(bundle);
         self
     }
-
-    /// Removes the [`ChildOf`] component, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.remove::<ChildOf>()")]
-    pub fn remove_parent(&mut self) -> &mut Self {
-        self.remove::<ChildOf>();
-        self
-    }
-
-    /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(ChildOf(entity))")]
-    pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
-        self
-    }
 }
 
 /// An `on_insert` component hook that when run, will validate that the parent of a given entity
@@ -511,7 +476,7 @@ pub fn validate_parent_has_component<C: Component>(
 #[macro_export]
 macro_rules! children {
     [$($child:expr),*$(,)?] => {
-       $crate::hierarchy::Children::spawn(($($crate::spawn::Spawn($child)),*))
+       $crate::hierarchy::Children::spawn($crate::recursive_spawn!($($child),*))
     };
 }
 
@@ -729,6 +694,39 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
         assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
+    }
+
+    #[test]
+    fn spawn_many_children() {
+        let mut world = World::new();
+
+        // 12 children should result in a flat tuple
+        let id = world
+            .spawn(children![(), (), (), (), (), (), (), (), (), (), (), ()])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 12,);
+
+        // 13 will start nesting, but should nonetheless produce a flat hierarchy
+        let id = world
+            .spawn(children![
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+            ])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 13,);
     }
 
     #[test]

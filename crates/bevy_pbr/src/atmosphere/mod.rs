@@ -57,7 +57,7 @@ use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureFormat, TextureUsages},
     renderer::RenderAdapter,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
@@ -191,11 +191,11 @@ impl Plugin for AtmospherePlugin {
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSet::ManageViews),
-                    queue_render_sky_pipelines.in_set(RenderSet::Queue),
-                    prepare_atmosphere_textures.in_set(RenderSet::PrepareResources),
-                    prepare_atmosphere_transforms.in_set(RenderSet::PrepareResources),
-                    prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    queue_render_sky_pipelines.in_set(RenderSystems::Queue),
+                    prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
+                    prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(

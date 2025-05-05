@@ -50,7 +50,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::TypeIdMap;
 use bitflags::bitflags;
@@ -471,14 +471,14 @@ impl Plugin for GpuMeshPreprocessPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_preprocess_pipelines.in_set(RenderSet::Prepare),
+                    prepare_preprocess_pipelines.in_set(RenderSystems::Prepare),
                     prepare_preprocess_bind_groups
                         .run_if(resource_exists::<BatchedInstanceBuffers<
                             MeshUniform,
                             MeshInputUniform
                         >>)
-                        .in_set(RenderSet::PrepareBindGroups),
-                    write_mesh_culling_data_buffer.in_set(RenderSet::PrepareResourcesFlush),
+                        .in_set(RenderSystems::PrepareBindGroups),
+                    write_mesh_culling_data_buffer.in_set(RenderSystems::PrepareResourcesFlush),
                 ),
             )
             .add_render_graph_node::<ClearIndirectParametersMetadataNode>(

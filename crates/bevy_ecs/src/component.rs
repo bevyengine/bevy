@@ -418,6 +418,21 @@ use thiserror::Error;
 ///         println!("{message}");
 ///     }
 /// }
+///
+/// ```
+/// # Setting the clone behavior
+///
+/// You can specify how the [`Component`] is cloned when deriving it.
+///
+/// Your options are the functions and variants of [`ComponentCloneBehavior`]
+/// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Component)]
+/// #[component(clone_behavior = Ignore)]
+/// struct MyComponent;
+///
 /// ```
 ///
 /// # Implementing the trait for foreign types
@@ -494,15 +509,6 @@ pub trait Component: Send + Sync + 'static {
     /// * For a component to be immutable, this type must be [`Immutable`].
     type Mutability: ComponentMutability;
 
-    /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use the individual hook methods instead (e.g., `Component::on_add`, etc.)"
-    )]
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.update_from_component::<Self>();
-    }
-
     /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
     fn on_add() -> Option<ComponentHook> {
         None
@@ -559,6 +565,17 @@ pub trait Component: Send + Sync + 'static {
     /// ```
     ///
     /// Fields with `#[entities]` must implement [`MapEntities`](crate::entity::MapEntities).
+    ///
+    /// Bevy provides various implementations of [`MapEntities`](crate::entity::MapEntities), so that arbitrary combinations like these are supported with `#[entities]`:
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{component::Component, entity::Entity};
+    /// #[derive(Component)]
+    /// struct Inventory {
+    ///     #[entities]
+    ///     items: Vec<Option<Entity>>
+    /// }
+    /// ```
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
@@ -668,7 +685,7 @@ pub struct HookContext {
 /// This information is stored in the [`ComponentInfo`] of the associated component.
 ///
 /// There is two ways of configuring hooks for a component:
-/// 1. Defining the [`Component::register_component_hooks`] method (see [`Component`])
+/// 1. Defining the relevant hooks on the [`Component`] implementation
 /// 2. Using the [`World::register_component_hooks`] method
 ///
 /// # Example 2
@@ -1784,12 +1801,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 .debug_checked_unwrap()
         };
 
-        #[expect(
-            deprecated,
-            reason = "need to use this method until it is removed to ensure user defined components register hooks correctly"
-        )]
-        // TODO: Replace with `info.hooks.update_from_component::<T>();` once `Component::register_component_hooks` is removed
-        T::register_component_hooks(&mut info.hooks);
+        info.hooks.update_from_component::<T>();
 
         info.required_components = required_components;
     }
