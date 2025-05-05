@@ -17,7 +17,7 @@ extern crate alloc;
 use bevy_derive::Deref;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use bevy_window::WindowEvent;
 use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};
 
@@ -27,6 +27,7 @@ use bevy_ecs::prelude::*;
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
 use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
+pub use window_wrapper::*;
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
 pub use winit::platform::web::CustomCursorExtWebSys;
 pub use winit::{
@@ -49,6 +50,7 @@ pub mod cursor;
 mod custom_cursor;
 mod state;
 mod system;
+mod window_wrapper;
 mod winit_config;
 mod winit_monitors;
 mod winit_windows;
@@ -199,16 +201,7 @@ impl AppSendEvent for Vec<WindowEvent> {
 /// The parameters of the [`create_windows`] system.
 pub type CreateWindowParams<'w, 's, F = ()> = (
     Commands<'w, 's>,
-    Query<
-        'w,
-        's,
-        (
-            Entity,
-            &'static mut Window,
-            Option<&'static RawHandleWrapperHolder>,
-        ),
-        F,
-    >,
+    Query<'w, 's, (Entity, &'static mut Window), F>,
     EventWriter<'w, WindowCreated>,
     NonSendMut<'w, WinitWindows>,
     NonSendMut<'w, AccessKitAdapters>,

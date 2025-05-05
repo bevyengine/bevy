@@ -76,7 +76,7 @@ use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
-use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use bevy_window::PrimaryWindow;
 use experimental::occlusion_culling::OcclusionCullingPlugin;
 use globals::GlobalsPlugin;
 use render_asset::{
@@ -88,6 +88,7 @@ use settings::RenderResources;
 use sync_world::{
     despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
 };
+use view::surface_target::SurfaceTargetSource;
 
 use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
@@ -107,7 +108,7 @@ use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -314,12 +315,13 @@ impl Plugin for RenderPlugin {
                         future_render_resources_wrapper.clone(),
                     ));
 
-                    let primary_window = app
+                    let primary_window_surface_target_source = app
                         .world_mut()
-                        .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
+                        .query_filtered::<&SurfaceTargetSource, With<PrimaryWindow>>()
                         .single(app.world())
                         .ok()
                         .cloned();
+
                     let settings = render_creation.clone();
                     let async_renderer = async move {
                         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -335,26 +337,30 @@ impl Plugin for RenderPlugin {
                             },
                         });
 
-                        let surface = primary_window.and_then(|wrapper| {
-                            let maybe_handle = wrapper.0.lock().expect(
-                                "Couldn't get the window handle in time for renderer initialization",
-                            );
-                            if let Some(wrapper) = maybe_handle.as_ref() {
-                                // SAFETY: Plugins should be set up on the main thread.
-                                let handle = unsafe { wrapper.get_handle() };
-                                Some(
-                                    instance
-                                        .create_surface(handle)
-                                        .expect("Failed to create wgpu surface"),
-                                )
-                            } else {
-                                None
-                            }
-                        });
+                        let is_main_thread = true; // Plugins are set up on the main thread.
+                        let compatible_surface = primary_window_surface_target_source
+                            .and_then(|source| {
+                                match source.create_surface(&instance, is_main_thread) {
+                                    Ok(surface) => Some(surface),
+                                    Err(err) => {
+                                        warn!(
+                                            "Unable to create surface for adapter init: {:?}",
+                                            err
+                                        );
+                                        None
+                                    }
+                                }
+                            })
+                            .map(|render_surface| {
+                                // SAFETY:
+                                // - This surface is just used for compatibility checks when creating the adapter. It's not configured.
+                                // - The surface is dropped at the end of this function; guaranteeing it does not outlive the window.
+                                unsafe { render_surface.into_inner() }
+                            });
 
                         let request_adapter_options = wgpu::RequestAdapterOptions {
                             power_preference: settings.power_preference,
-                            compatible_surface: surface.as_ref(),
+                            compatible_surface: compatible_surface.as_ref(),
                             ..Default::default()
                         };
 

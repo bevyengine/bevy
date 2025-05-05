@@ -127,7 +127,8 @@ impl Plugin for ViewPlugin {
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
                         .in_set(RenderSet::ManageViews)
-                        .before(create_surfaces),
+                        .before(create_send_surfaces)
+                        .before(create_non_send_surfaces),
                     prepare_view_attachments
                         .in_set(RenderSet::ManageViews)
                         .before(prepare_view_targets)

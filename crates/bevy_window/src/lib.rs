@@ -17,10 +17,6 @@ extern crate std;
 
 extern crate alloc;
 
-use alloc::sync::Arc;
-
-use bevy_platform::sync::Mutex;
-
 mod event;
 mod monitor;
 mod raw_handle;
@@ -28,13 +24,12 @@ mod system;
 mod system_cursor;
 mod window;
 
-pub use crate::raw_handle::*;
-
 #[cfg(target_os = "android")]
 pub use android_activity;
 
 pub use event::*;
 pub use monitor::*;
+pub use raw_handle::*;
 pub use system::*;
 pub use system_cursor::*;
 pub use window::*;
@@ -122,10 +117,9 @@ impl Plugin for WindowPlugin {
             .add_event::<AppLifecycle>();
 
         if let Some(primary_window) = &self.primary_window {
-            app.world_mut().spawn(primary_window.clone()).insert((
-                PrimaryWindow,
-                RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
-            ));
+            app.world_mut()
+                .spawn(primary_window.clone())
+                .insert(PrimaryWindow);
         }
 
         match self.exit_condition {
