@@ -16,7 +16,7 @@ use bevy_ecs::{
 use bevy_platform::collections::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
-use tracing::error;
+use log::error;
 
 /// A resource that stores the last tick an asset was changed. This is used by
 /// the [`AssetChanged`] filter to determine if an asset has changed since the last time
@@ -37,6 +37,7 @@ impl<A: Asset> AssetChanges<A> {
         self.last_change_tick = tick;
         self.change_ticks.insert(asset_id, tick);
     }
+
     pub(crate) fn remove(&mut self, asset_id: &AssetId<A>) {
         self.change_ticks.remove(asset_id);
     }

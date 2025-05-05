@@ -5,6 +5,7 @@ use crate::{
 use alloc::borrow::ToOwned;
 use core::time::Duration;
 use crossbeam_channel::Sender;
+use log::error;
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
@@ -15,7 +16,6 @@ use notify_debouncer_full::{
     DebounceEventResult, Debouncer, RecommendedCache,
 };
 use std::path::{Path, PathBuf};
-use tracing::error;
 
 /// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
 /// for each relevant change.

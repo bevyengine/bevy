@@ -1,6 +1,6 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use alloc::{boxed::Box, sync::Arc};
-use bevy_platform::collections::HashMap;
+use alloc::boxed::Box;
+use bevy_platform::{collections::HashMap, sync::Arc};
 use crossbeam_channel::{Receiver, Sender};
 use parking_lot::RwLock;
 use std::path::Path;

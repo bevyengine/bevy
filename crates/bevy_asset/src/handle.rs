@@ -1,42 +1,50 @@
-use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
-    UntypedAssetId,
-};
-use alloc::sync::Arc;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
 };
-use crossbeam_channel::{Receiver, Sender};
+
+use bevy_platform::sync::{Arc, Weak};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use concurrent_queue::ConcurrentQueue;
 use disqualified::ShortName;
 use thiserror::Error;
 use uuid::Uuid;
+
+use crate::{
+    meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
+    UntypedAssetId,
+};
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
 /// This should _only_ be used for one specific asset type.
 #[derive(Clone)]
 pub struct AssetHandleProvider {
     pub(crate) allocator: Arc<AssetIndexAllocator>,
-    pub(crate) drop_sender: Sender<DropEvent>,
-    pub(crate) drop_receiver: Receiver<DropEvent>,
+    pub(crate) drop: Arc<ConcurrentQueue<DropEvent>>,
     pub(crate) type_id: TypeId,
 }
 
 #[derive(Debug)]
 pub(crate) struct DropEvent {
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "only used with `std` currently")
+    )]
     pub(crate) id: InternalAssetId,
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "only used with `std` currently")
+    )]
     pub(crate) asset_server_managed: bool,
 }
 
 impl AssetHandleProvider {
     pub(crate) fn new(type_id: TypeId, allocator: Arc<AssetIndexAllocator>) -> Self {
-        let (drop_sender, drop_receiver) = crossbeam_channel::unbounded();
+        let drop = Arc::new(ConcurrentQueue::unbounded());
         Self {
             type_id,
             allocator,
-            drop_sender,
-            drop_receiver,
+            drop,
         }
     }
 
@@ -56,13 +64,17 @@ impl AssetHandleProvider {
     ) -> Arc<StrongHandle> {
         Arc::new(StrongHandle {
             id: id.untyped(self.type_id),
-            drop_sender: self.drop_sender.clone(),
+            drop_sender: Arc::downgrade(&self.drop),
             meta_transform,
             path,
             asset_server_managed,
         })
     }
 
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "only used with `std` currently")
+    )]
     pub(crate) fn reserve_handle_internal(
         &self,
         asset_server_managed: bool,
@@ -90,15 +102,17 @@ pub struct StrongHandle {
     /// 1. configuration tied to the lifetime of a specific asset load
     /// 2. configuration that must be repeatable when the asset is hot-reloaded
     pub(crate) meta_transform: Option<MetaTransform>,
-    pub(crate) drop_sender: Sender<DropEvent>,
+    pub(crate) drop_sender: Weak<ConcurrentQueue<DropEvent>>,
 }
 
 impl Drop for StrongHandle {
     fn drop(&mut self) {
-        let _ = self.drop_sender.send(DropEvent {
-            id: self.id.internal(),
-            asset_server_managed: self.asset_server_managed,
-        });
+        if let Some(sender) = Weak::upgrade(&self.drop_sender) {
+            let _ = sender.push(DropEvent {
+                id: self.id.internal(),
+                asset_server_managed: self.asset_server_managed,
+            });
+        }
     }
 }
 

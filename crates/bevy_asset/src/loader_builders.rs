@@ -7,7 +7,8 @@ use crate::{
     Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
     LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
 };
-use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
+use alloc::{borrow::ToOwned, boxed::Box};
+use bevy_platform::sync::Arc;
 use core::any::TypeId;
 
 // Utility type for handling the sources of reader references

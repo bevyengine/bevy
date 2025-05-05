@@ -4,8 +4,8 @@ mod loaders;
 use crate::{
     folder::LoadedFolder,
     io::{
-        AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
+        AssetReaderError, AssetSource, AssetSourceEvent, AssetSources, AssetWriterError,
+        ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
         MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
@@ -14,19 +14,21 @@ use crate::{
         MetaTransform, Settings,
     },
     path::AssetPath,
-    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
-    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
-    UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck,
+    AssetSourceId, Assets, DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset,
+    UnapprovedPathMode, UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
 };
-use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
     format,
     string::{String, ToString},
-    sync::Arc,
+    vec,
+    vec::Vec,
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashSet;
+use bevy_platform::{collections::HashSet, sync::Arc};
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
@@ -34,10 +36,10 @@ use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
+use log::{error, info};
 use parking_lot::{RwLock, RwLockWriteGuard};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use tracing::{error, info};
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader).
 /// This can be used to kick off new asset loads and retrieve their current load states.
