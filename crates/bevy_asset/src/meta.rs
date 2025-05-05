@@ -5,10 +5,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Asset, AssetPath, VisitAssetDependencies};
 
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use alloc::string::ToString;
+
 #[cfg(feature = "std")]
 use {
     crate::{loader::AssetLoader, processor::Process, DeserializeMetaError},
-    alloc::string::ToString,
     ron::ser::PrettyConfig,
 };
 

@@ -5,8 +5,14 @@ use bevy_ecs::world::World;
 
 use crate::{Asset, Assets, Handle};
 
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use crate::{meta::Settings, AssetPath};
+
 #[cfg(feature = "std")]
-use crate::{meta::Settings, AssetPath, AssetServer};
+use crate::AssetServer;
 
 /// An extension trait for methods for working with assets directly from a [`World`].
 pub trait DirectAssetAccessExt {

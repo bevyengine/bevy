@@ -1,8 +1,4 @@
-use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
 use alloc::boxed::Box;
-use atomicow::CowArc;
-use bevy_platform::collections::HashMap;
-use bevy_tasks::ConditionalSendFuture;
 use core::{
     borrow::Borrow,
     convert::Infallible,
@@ -10,7 +6,13 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+
+use atomicow::CowArc;
+use bevy_platform::collections::HashMap;
+use bevy_tasks::ConditionalSendFuture;
 use serde::{Deserialize, Serialize};
+
+use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
 
 /// Transforms an [`Asset`] of a given [`AssetTransformer::AssetInput`] type to an [`Asset`] of [`AssetTransformer::AssetOutput`] type.
 ///

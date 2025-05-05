@@ -3,7 +3,8 @@
 //! Like [`Changed`](bevy_ecs::prelude::Changed), but for [`Asset`]s,
 //! and triggers whenever the handle or the underlying asset changes.
 
-use crate::{AsAssetId, Asset, AssetId};
+use core::marker::PhantomData;
+
 use bevy_ecs::component::Components;
 use bevy_ecs::{
     archetype::Archetype,
@@ -14,9 +15,10 @@ use bevy_ecs::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_platform::collections::HashMap;
-use core::marker::PhantomData;
 use disqualified::ShortName;
 use log::error;
+
+use crate::{AsAssetId, Asset, AssetId};
 
 /// A resource that stores the last tick an asset was changed. This is used by
 /// the [`AssetChanged`] filter to determine if an asset has changed since the last time

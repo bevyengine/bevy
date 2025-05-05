@@ -5,8 +5,14 @@ use bevy_reflect::Reflect;
 
 use crate::{Asset, AssetId};
 
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use crate::{AssetPath, UntypedAssetId};
+
 #[cfg(feature = "std")]
-use crate::{AssetLoadError, AssetPath, UntypedAssetId};
+use crate::AssetLoadError;
 
 /// An event emitted when a specific [`Asset`] fails to load.
 ///

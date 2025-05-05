@@ -580,10 +580,6 @@ impl<A: Asset> Assets<A> {
     /// A system that applies accumulated asset change events to the [`Events`] resource.
     ///
     /// [`Events`]: bevy_ecs::event::Events
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "only used with `std` currently")
-    )]
     pub(crate) fn asset_events(
         mut assets: ResMut<Self>,
         mut events: EventWriter<AssetEvent<A>>,
@@ -609,10 +605,6 @@ impl<A: Asset> Assets<A> {
     /// flush.
     ///
     /// [`asset_events`]: Self::asset_events
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "only used with `std` currently")
-    )]
     pub(crate) fn asset_events_condition(assets: Res<Self>) -> bool {
         !assets.queued_events.is_empty()
     }

@@ -9,12 +9,14 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{de::Visitor, Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use {alloc::borrow::ToOwned, core::ops::Deref};
+
 #[cfg(feature = "std")]
-use {
-    alloc::borrow::ToOwned,
-    core::ops::Deref,
-    std::path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[cfg(feature = "std")]
 type PathInner = Path;
