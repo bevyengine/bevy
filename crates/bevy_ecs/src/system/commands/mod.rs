@@ -1123,6 +1123,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// **Calling [`observe`](EntityCommands::observe) on the returned
     /// [`EntityCommands`] will observe the observer itself, which you very
     /// likely do not want.**
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given system is an exclusive system.
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
