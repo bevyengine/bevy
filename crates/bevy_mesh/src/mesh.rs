@@ -2,10 +2,10 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    face_area_normal, face_normal, generate_tangents_for_mesh, scale_normal, FourIterators,
-    GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
-    MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
-    MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
+    face_area_normal, face_normal, gramschmidt, mikktspace, scale_normal, FourIterators, Indices,
+    MeshAttributeData, MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId,
+    MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts,
+    MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
@@ -163,9 +163,10 @@ impl Mesh {
     pub const ATTRIBUTE_UV_1: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv_1", 3, VertexFormat::Float32x2);
 
-    /// The direction of the vertex tangent. Used for normal mapping.
-    /// Usually generated with [`generate_tangents`](Mesh::generate_tangents) or
-    /// [`with_generated_tangents`](Mesh::with_generated_tangents).
+    /// The direction of the vertex tangent, with the "handedness" (`1` or `-1`) in the `w` column.
+    /// Used for normal mapping. Usually generated with
+    /// [`compute_tangents`](Mesh::generate_tangents) or
+    /// [`with_computed_tangents`](Mesh::with_computed_tangents).
     ///
     /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
@@ -774,8 +775,25 @@ impl Mesh {
     ///
     /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    #[deprecated(since = "0.16.0", note = "use compute_tangents")]
     pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
-        let tangents = generate_tangents_for_mesh(self)?;
+        self.compute_tangents(TangentAlgorithm::Mikktspace)?;
+        Ok(())
+    }
+
+    /// Generate tangents for the mesh using the given algorithm.
+    ///
+    /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    ///
+    /// See [`TangentAlgorithm`] for mesh topology and attribute requirements.
+    pub fn compute_tangents(
+        &mut self,
+        algorithm: TangentAlgorithm,
+    ) -> Result<(), GenerateTangentsError> {
+        let tangents = match algorithm {
+            TangentAlgorithm::Mikktspace => mikktspace::generate_tangents_for_mesh(self)?,
+            TangentAlgorithm::GramSchmidt => gramschmidt::generate_tangents_for_mesh(self)?,
+        };
         self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
         Ok(())
     }
@@ -787,8 +805,25 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    #[expect(deprecated, reason = "preserve old behavior until removal")]
+    #[deprecated(since = "0.16.0", note = "use with_computed_tangents")]
     pub fn with_generated_tangents(mut self) -> Result<Mesh, GenerateTangentsError> {
         self.generate_tangents()?;
+        Ok(self)
+    }
+
+    /// Consumes the mesh and returns a mesh with tangents generated using the given algorithm.
+    ///
+    /// The resulting mesh will have the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_tangents`] to mutate an existing mesh in-place)
+    ///
+    /// See [`TangentAlgorithm`] for mesh topology and attribute requirements.
+    pub fn with_computed_tangents(
+        mut self,
+        algorithm: TangentAlgorithm,
+    ) -> Result<Mesh, GenerateTangentsError> {
+        self.compute_tangents(algorithm)?;
         Ok(self)
     }
 
@@ -1234,6 +1269,35 @@ impl core::ops::Mul<Mesh> for Transform {
     fn mul(self, rhs: Mesh) -> Self::Output {
         rhs.transformed_by(self)
     }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+/// The algorithm to use when computing mesh tangents. Defaults to `Mikktspace`.
+pub enum TangentAlgorithm {
+    /// Uses the Morten S. Mikkelsen "mikktspace" algorithm. Produces potentially higher quality tangents, but much slower.
+    ///
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    #[default]
+    Mikktspace,
+    /// Uses the Gram-Schmidt fast approximation algorithm. Produces potentially lower quality tangents, but very fast.
+    ///
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    GramSchmidt,
+}
+
+#[derive(Error, Debug)]
+/// Failed to generate tangents for the mesh.
+pub enum GenerateTangentsError {
+    #[error("cannot generate tangents for {0:?}")]
+    UnsupportedTopology(PrimitiveTopology),
+    #[error("missing indices")]
+    MissingIndices,
+    #[error("missing vertex attributes '{0}'")]
+    MissingVertexAttribute(&'static str),
+    #[error("the '{0}' vertex attribute should have {1:?} format")]
+    InvalidVertexAttributeFormat(&'static str, VertexFormat),
+    #[error("mesh not suitable for tangent generation")]
+    AlgorithmError,
 }
 
 /// Error that can occur when calling [`Mesh::merge`].

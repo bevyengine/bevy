@@ -1,6 +1,5 @@
-use super::{Indices, Mesh, VertexAttributeValues};
+use super::{GenerateTangentsError, Indices, Mesh, VertexAttributeValues};
 use bevy_math::Vec3;
-use thiserror::Error;
 use wgpu_types::{PrimitiveTopology, VertexFormat};
 
 struct MikktspaceGeometryHelper<'a> {
@@ -53,21 +52,6 @@ impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
     }
 }
 
-#[derive(Error, Debug)]
-/// Failed to generate tangents for the mesh.
-pub enum GenerateTangentsError {
-    #[error("cannot generate tangents for {0:?}")]
-    UnsupportedTopology(PrimitiveTopology),
-    #[error("missing indices")]
-    MissingIndices,
-    #[error("missing vertex attributes '{0}'")]
-    MissingVertexAttribute(&'static str),
-    #[error("the '{0}' vertex attribute should have {1:?} format")]
-    InvalidVertexAttributeFormat(&'static str, VertexFormat),
-    #[error("mesh not suitable for tangent generation")]
-    MikktspaceError,
-}
-
 pub(crate) fn generate_tangents_for_mesh(
     mesh: &Mesh,
 ) -> Result<Vec<[f32; 4]>, GenerateTangentsError> {
@@ -115,7 +99,7 @@ pub(crate) fn generate_tangents_for_mesh(
     };
     let success = bevy_mikktspace::generate_tangents(&mut mikktspace_mesh);
     if !success {
-        return Err(GenerateTangentsError::MikktspaceError);
+        return Err(GenerateTangentsError::AlgorithmError);
     }
 
     // mikktspace seems to assume left-handedness so we can flip the sign to correct for this
