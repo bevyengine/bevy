@@ -2,12 +2,14 @@ use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::Entity,
-    storage::{Column, TableRow},
+    storage::TableRow,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, panic::Location};
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZeroUsize, panic::Location};
 use nonmax::NonMaxUsize;
+
+use super::{abort_on_panic, ThinColumn};
 
 type EntityIndex = u32;
 
@@ -116,7 +118,8 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 /// Designed for relatively fast insertions and deletions.
 #[derive(Debug)]
 pub struct ComponentSparseSet {
-    dense: Column,
+    /// SAFETY: Equal in length & capacity to `self.entities`
+    dense: ThinColumn,
     // Internally this only relies on the Entity index to keep track of where the component data is
     // stored for entities that are alive. The generation is not required, but is stored
     // in debug builds to validate that access is correct.
@@ -132,7 +135,7 @@ impl ComponentSparseSet {
     /// initial `capacity`.
     pub(crate) fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
-            dense: Column::with_capacity(component_info, capacity),
+            dense: ThinColumn::with_capacity(component_info, capacity),
             entities: Vec::with_capacity(capacity),
             sparse: Default::default(),
         }
@@ -140,7 +143,10 @@ impl ComponentSparseSet {
 
     /// Removes all of the values stored within.
     pub(crate) fn clear(&mut self) {
-        self.dense.clear();
+        // SAFETY: `self.len()` is the length of the column
+        unsafe {
+            self.dense.clear(self.len());
+        }
         self.entities.clear();
         self.sparse.clear();
     }
@@ -148,13 +154,18 @@ impl ComponentSparseSet {
     /// Returns the number of component values in the sparse set.
     #[inline]
     pub fn len(&self) -> usize {
-        self.dense.len()
+        self.entities.len()
     }
 
     /// Returns `true` if the sparse set contains no component values.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.dense.len() == 0
+        self.len() == 0
+    }
+
+    #[inline]
+    fn capacity(&self) -> usize {
+        self.entities.capacity()
     }
 
     /// Inserts the `entity` key and component `value` pair into this sparse
@@ -175,13 +186,16 @@ impl ComponentSparseSet {
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
             self.dense.replace(dense_index, value, change_tick, caller);
         } else {
-            let dense_index = self.dense.len();
-            self.dense
-                .push(value, ComponentTicks::new(change_tick), caller);
-            self.sparse
-                .insert(entity.index(), TableRow::from_usize(dense_index));
+            let dense_index = TableRow::from_usize(self.len());
+            self.reserve(1);
+            // SAFETY: `dense_index` is the last element in the column after the call to `reserve`
+            unsafe {
+                self.dense
+                    .initialize(dense_index, value, change_tick, caller);
+            }
+            self.sparse.insert(entity.index(), dense_index);
             #[cfg(debug_assertions)]
-            assert_eq!(self.entities.len(), dense_index);
+            assert_eq!(self.len(), dense_index.as_usize());
             #[cfg(not(debug_assertions))]
             self.entities.push(entity.index());
             #[cfg(debug_assertions)]
@@ -307,10 +321,14 @@ impl ComponentSparseSet {
         self.sparse.remove(entity.index()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
+            let last_index = self.len() - 1;
+            let is_last = dense_index.as_usize() == last_index;
             self.entities.swap_remove(dense_index.as_usize());
-            let is_last = dense_index.as_usize() == self.dense.len() - 1;
             // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
-            let (value, _, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
+            let value = unsafe {
+                self.dense
+                    .swap_remove_and_forget_unchecked(last_index, dense_index)
+            };
             if !is_last {
                 let swapped_entity = self.entities[dense_index.as_usize()];
                 #[cfg(not(debug_assertions))]
@@ -330,11 +348,13 @@ impl ComponentSparseSet {
         if let Some(dense_index) = self.sparse.remove(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
+            let last_index = self.len() - 1;
+            let is_last = dense_index.as_usize() == last_index;
             self.entities.swap_remove(dense_index.as_usize());
-            let is_last = dense_index.as_usize() == self.dense.len() - 1;
             // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe {
-                self.dense.swap_remove_unchecked(dense_index);
+                self.dense
+                    .swap_remove_and_drop_unchecked(last_index, dense_index);
             }
             if !is_last {
                 let swapped_entity = self.entities[dense_index.as_usize()];
@@ -351,7 +371,56 @@ impl ComponentSparseSet {
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        self.dense.check_change_ticks(change_tick);
+        // SAFETY: `self.len()` is equal to the length of the column
+        unsafe {
+            self.dense.check_change_ticks(self.len(), change_tick);
+        }
+    }
+
+    /// Reserves `additional` elements worth of capacity within the table.
+    pub(crate) fn reserve(&mut self, additional: usize) {
+        if self.capacity() - self.len() < additional {
+            let column_cap = self.capacity();
+            self.entities.reserve(additional);
+
+            // use entities vector capacity as driving capacity for all related allocations
+            //
+            // SAFETY: `additional` must be > 0 for the branch above to succeed, so `new_capacity`
+            // must be nonzero
+            let new_capacity = unsafe { NonZeroUsize::new_unchecked(self.capacity()) };
+
+            match NonZeroUsize::new(column_cap) {
+                Some(column_cap) => {
+                    // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
+                    // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
+                    // abort the program.
+
+                    // SAFETY: `column_cap` is indeed the column's capacity
+                    abort_on_panic(|| unsafe {
+                        self.dense.realloc(column_cap, new_capacity);
+                    });
+                }
+                None => {
+                    // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
+                    // To avoid this, we use `abort_on_panic`. If the allocation triggered a panic, the guard will be triggered, and
+                    // abort the program.
+                    abort_on_panic(|| {
+                        self.dense.alloc(new_capacity);
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl Drop for ComponentSparseSet {
+    fn drop(&mut self) {
+        // SAFETY:
+        // - self.capacity() is the capacity of the column
+        // - self.len() is the length of the column
+        unsafe {
+            self.dense.drop(self.capacity(), self.len());
+        }
     }
 }
 
