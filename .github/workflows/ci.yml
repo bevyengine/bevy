@@ -200,7 +200,7 @@ jobs:
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
-        run: cd examples/no_std/library && cargo check --no-default-features --features libm,critical-section --target x86_64-unknown-none
+        run: cd examples/no_std/library && RUSTFLAGS='--cfg getrandom_backend="rdrand"' cargo check --no-default-features --features libm,critical-section --target x86_64-unknown-none
 
   build-wasm:
     runs-on: ubuntu-latest

@@ -1,2 +1,0 @@
-[target.x86_64-unknown-none]
-rustflags = ['--cfg', 'getrandom_backend="rdrand"']
