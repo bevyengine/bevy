@@ -23,7 +23,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REPLACE},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};

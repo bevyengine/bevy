@@ -5,7 +5,7 @@ use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 
 /// Component storing texture slices for tiled or sliced sprite entities
 ///

@@ -43,6 +43,7 @@ pub mod identifier;
 pub mod intern;
 pub mod label;
 pub mod name;
+pub mod never;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
@@ -93,7 +94,7 @@ pub mod prelude {
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction,
+            SystemParamFunction, When,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
@@ -146,7 +147,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_platform_support::collections::HashSet;
+    use bevy_platform::collections::HashSet;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use core::{
         any::TypeId,

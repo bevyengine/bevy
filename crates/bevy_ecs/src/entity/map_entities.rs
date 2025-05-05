@@ -1,4 +1,5 @@
 pub use bevy_ecs_macros::MapEntities;
+use indexmap::IndexSet;
 
 use crate::{
     entity::{hash_map::EntityHashMap, Entity},
@@ -6,10 +7,15 @@ use crate::{
     world::World,
 };
 
-use alloc::{collections::VecDeque, vec::Vec};
-use bevy_platform_support::collections::HashSet;
-use core::hash::BuildHasher;
+use alloc::{
+    collections::{BTreeSet, VecDeque},
+    vec::Vec,
+};
+use bevy_platform::collections::HashSet;
+use core::{hash::BuildHasher, mem};
 use smallvec::SmallVec;
+
+use super::EntityIndexSet;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -24,7 +30,7 @@ use smallvec::SmallVec;
 /// entities in the context of scenes and entity cloning, which generally uses [`MapEntities`] internally
 /// to map each field (see those docs for usage).
 ///
-/// [`HashSet<Entity>`]: bevy_platform_support::collections::HashSet
+/// [`HashSet<Entity>`]: bevy_platform::collections::HashSet
 ///
 /// ## Example
 ///
@@ -72,6 +78,34 @@ impl<S: BuildHasher + Default> MapEntities for HashSet<Entity, S> {
         *self = self.drain().map(|e| entity_mapper.get_mapped(e)).collect();
     }
 }
+
+impl<S: BuildHasher + Default> MapEntities for IndexSet<Entity, S> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = self
+            .drain(..)
+            .map(|e| entity_mapper.get_mapped(e))
+            .collect();
+    }
+}
+
+impl MapEntities for EntityIndexSet {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = self
+            .drain(..)
+            .map(|e| entity_mapper.get_mapped(e))
+            .collect();
+    }
+}
+
+impl MapEntities for BTreeSet<Entity> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = mem::take(self)
+            .into_iter()
+            .map(|e| entity_mapper.get_mapped(e))
+            .collect();
+    }
+}
+
 impl MapEntities for Vec<Entity> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
         for entity in self.iter_mut() {
@@ -95,6 +129,7 @@ impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
         }
     }
 }
+
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
 /// Usually this is done by using an [`EntityHashMap<Entity>`] to map source entities
