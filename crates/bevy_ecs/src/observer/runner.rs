@@ -279,9 +279,22 @@ pub struct Observer {
 impl Observer {
     /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
     /// for _any_ entity (or no entity).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given system is an exclusive system.
     pub fn new<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
+        let system = Box::new(IntoObserverSystem::into_system(system));
+        assert!(
+            !system.is_exclusive(),
+            concat!(
+                "Exclusive system `{}` may not be used as observer.\n",
+                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
+            ),
+            system.name()
+        );
         Self {
-            system: Box::new(IntoObserverSystem::into_system(system)),
+            system,
             descriptor: Default::default(),
             hook_on_add: hook_on_add::<E, B, I::System>,
             error_handler: None,
@@ -528,5 +541,15 @@ mod tests {
         Schedule::default().run(&mut world);
         world.trigger(TriggerEvent);
         assert!(world.resource::<Ran>().0);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Exclusive system `bevy_ecs::observer::runner::tests::exclusive_system_cannot_be_observer::system` may not be used as observer.\nInstead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
+    )]
+    fn exclusive_system_cannot_be_observer() {
+        fn system(_: Trigger<TriggerEvent>, _world: &mut World) {}
+        let mut world = World::default();
+        world.add_observer(system);
     }
 }
