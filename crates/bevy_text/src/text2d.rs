@@ -218,7 +218,7 @@ pub fn extract_text2d_sprite(
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
             extracted_slices.slices.push(ExtractedSlice {
-                offset: *position * Vec2::new(1., -1.),
+                offset: Vec2::new(position.x, -position.y),
                 rect,
                 size: rect.size(),
             });
