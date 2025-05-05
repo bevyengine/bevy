@@ -183,7 +183,7 @@ pub fn extract_text2d_sprite(
             text_bounds.height.unwrap_or(text_layout_info.size.y),
         );
 
-        let top_left = (anchor.as_vec() + Vec2::new(-0.5, 0.5)) * size;
+        let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
         let transform =
             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
         let mut color = LinearRgba::WHITE;
