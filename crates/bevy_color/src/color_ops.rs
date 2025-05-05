@@ -1,4 +1,4 @@
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{ops, Interpolate, Vec3, Vec4};
 
 /// Methods for changing the luminance of a color. Note that these methods are not
 /// guaranteed to produce consistent results across color spaces,
@@ -29,21 +29,8 @@ pub trait Luminance: Sized {
     fn lighter(&self, amount: f32) -> Self;
 }
 
-/// Linear interpolation of two colors within a given color space.
-pub trait Mix: Sized {
-    /// Linearly interpolate between this and another color, by factor.
-    /// Factor should be between 0.0 and 1.0.
-    fn mix(&self, other: &Self, factor: f32) -> Self;
-
-    /// Linearly interpolate between this and another color, by factor, storing the result
-    /// in this color. Factor should be between 0.0 and 1.0.
-    fn mix_assign(&mut self, other: Self, factor: f32) {
-        *self = self.mix(&other, factor);
-    }
-}
-
 /// Trait for returning a grayscale color of a provided lightness.
-pub trait Gray: Mix + Sized {
+pub trait Gray: Interpolate {
     /// A pure black color.
     const BLACK: Self;
     /// A pure white color.
@@ -51,7 +38,7 @@ pub trait Gray: Mix + Sized {
 
     /// Returns a grey color with the provided lightness from (0.0 - 1.0). 0 is black, 1 is white.
     fn gray(lightness: f32) -> Self {
-        Self::BLACK.mix(&Self::WHITE, lightness)
+        Self::BLACK.interp(&Self::WHITE, lightness)
     }
 }
 

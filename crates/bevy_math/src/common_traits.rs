@@ -1,11 +1,136 @@
 //! This module contains abstract mathematical traits shared by types used in `bevy_math`.
 
-use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
+use crate::{ops, Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
 use variadics_please::all_tuples_enumerated;
+
+/// A type with a natural method of smooth interpolation. This is intended to be the "nicest" or form of
+/// interpolation available for a given type, and defines the interpolation method used by the animation
+/// system. It may not necessarily be the fastest form of interpolation available.
+///
+/// Interpolation is a fairly fluid concept, so to make things a little more predictable we require the
+/// following rules to hold:
+///
+/// 1. The notion of interpolation should follow naturally from the semantics of the type, so
+///    that inferring the interpolation mode from the type alone is sensible.
+///
+/// 2. The path traced by interpolating between two points should be continuous and smooth,
+///    as far as the limits of floating-point arithmetic permit. This trait should not be
+///    implemented for types that don't have an apparent notion of continuity (like `bool`).
+///
+/// 3. Interpolation should recover something equivalent to the starting value at `t = 0.0`
+///    and likewise with the ending value at `t = 1.0`. They do not have to be data-identical, but
+///    they should be semantically identical. For example, [`Quat::slerp`] doesn't always yield its
+///    second rotation input exactly at `t = 1.0`, but it always returns an equivalent rotation
+///    (this trait is implemented for `Quat` using `slerp`).
+///
+/// 4. Interpolation should be the same forward and backwards. That is, `interp(a, b, t)` should
+///    be equivalent to `interp(b, a, t - 1)`.
+///
+/// 5. Interpolating from a value to itself `interp(a, a, t)` should always return values equivalent
+///    to the original value `a`.
+///
+///
+/// We make no guarantees about the behavior of `interp` for values outside of the interval `[0, 1]`.
+/// Other sub-traits (such as [`InterpolateStable`] or [`VectorSpace`]) may add additional guarantees,
+/// such as linearity.
+pub trait Interpolate: Sized {
+    /// Smoothly interpolates between two values. There are often many ways to interpolate for a given
+    /// type, but this method always represents a sane default interpolation method.
+    ///
+    /// Other sub-traits may add stronger properties to this method:
+    /// - For types that implement `VectorSpace`, this is linear interpolation.
+    /// - For types that implement `InterpolateStable`, the interpolation is stable under resampling.
+    fn interp(&self, other: &Self, param: f32) -> Self;
+
+    /// Performs interpolation in place. See the documentation on the [`interp`] method for more info.
+    ///
+    /// [`interp`]: Interpolate::interp
+    #[inline]
+    fn interp_assign(&mut self, other: &Self, param: f32) {
+        *self = self.interp(other, param);
+    }
+}
+
+macro_rules! impl_interpolate_tuple {
+    ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {
+        $(#[$meta])*
+        impl<$($T: Interpolate),*> Interpolate for ($($T,)*) {
+            #[inline]
+            fn interp(&self, other: &Self, param: f32) -> Self {
+                (
+                    $(
+                        <$T as Interpolate>::interp(&self.$n, &other.$n, param),
+                    )*
+                )
+            }
+        }
+    };
+}
+
+all_tuples_enumerated!(
+    #[doc(fake_variadic)]
+    impl_interpolate_tuple,
+    1,
+    11,
+    T
+);
+
+impl Interpolate for Rot2 {
+    #[inline]
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Quat {
+    #[inline]
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Dir2 {
+    #[inline]
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Dir3 {
+    #[inline]
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Dir3A {
+    #[inline]
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        self.slerp(*other, param)
+    }
+}
+
+impl Interpolate for Isometry2d {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        Isometry2d {
+            rotation: self.rotation.interp(&other.rotation, param),
+            translation: self.translation.interp(&other.translation, param),
+        }
+    }
+}
+
+impl Interpolate for Isometry3d {
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        Isometry3d {
+            rotation: self.rotation.interp(&other.rotation, param),
+            translation: self.translation.interp(&other.translation, param),
+        }
+    }
+}
 
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
 /// In particular, this means that the implementing type supports:
@@ -26,8 +151,11 @@ use variadics_please::all_tuples_enumerated;
 ///
 /// Note that, because implementing types use floating point arithmetic, they are not required to actually
 /// implement `PartialEq` or `Eq`.
+///
+/// Also note that all vector spaces implement [`Interpolate`] with linear interpolation via a blanket-impl.
 pub trait VectorSpace:
-    Mul<f32, Output = Self>
+    Interpolate
+    + Mul<f32, Output = Self>
     + Div<f32, Output = Self>
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
@@ -39,16 +167,18 @@ pub trait VectorSpace:
 {
     /// The zero vector, which is the identity of addition for the vector space type.
     const ZERO: Self;
+}
 
-    /// Perform vector space linear interpolation between this element and another, based
-    /// on the parameter `t`. When `t` is `0`, `self` is recovered. When `t` is `1`, `rhs`
-    /// is recovered.
-    ///
-    /// Note that the value of `t` is not clamped by this function, so extrapolating outside
-    /// of the interval `[0,1]` is allowed.
+// Equip all vector spaces with linear interpolation. This will conflict with other implementations of
+// interpolation for vector spaces; that's intentional, linear interpolation is the only sane default
+// for a vector-space.
+impl<V> Interpolate for V
+where
+    V: VectorSpace,
+{
     #[inline]
-    fn lerp(self, rhs: Self, t: f32) -> Self {
-        self * (1. - t) + rhs * t
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        *self * (1. - param) + *other * param
     }
 }
 
@@ -158,7 +288,7 @@ where
 }
 
 /// A type that supports the operations of a normed vector space; i.e. a norm operation in addition
-/// to those of [`VectorSpace`]. Specifically, the implementor must guarantee that the following
+/// to those of [`VectorSpace`]. Specifically, the implementer must guarantee that the following
 /// relationships hold, within the limitations of floating point arithmetic:
 /// - (Nonnegativity) For all `v: Self`, `v.norm() >= 0.0`.
 /// - (Positive definiteness) For all `v: Self`, `v.norm() == 0.0` implies `v == Self::ZERO`.
@@ -252,30 +382,20 @@ impl NormedVectorSpace for f32 {
     }
 }
 
-/// A type with a natural interpolation that provides strong subdivision guarantees.
+/// This trait extends [`Interpolate`] with strong subdivision guarantees.
 ///
-/// Although the only required method is `interpolate_stable`, many things are expected of it:
+/// The interpolation (`Interpolate::interp`) must be *subdivision-stable*: for any interpolation curve
+/// between two (unnamed) values and any parameter-value pairs `(t0, p)` and `(t1, q)`, the
+/// interpolation curve between `p` and `q` must be the *linear* reparameterization of the original
+/// interpolation curve restricted to the interval `[t0, t1]`.
 ///
-/// 1. The notion of interpolation should follow naturally from the semantics of the type, so
-///    that inferring the interpolation mode from the type alone is sensible.
-///
-/// 2. The interpolation recovers something equivalent to the starting value at `t = 0.0`
-///    and likewise with the ending value at `t = 1.0`. They do not have to be data-identical, but
-///    they should be semantically identical. For example, [`Quat::slerp`] doesn't always yield its
-///    second rotation input exactly at `t = 1.0`, but it always returns an equivalent rotation.
-///
-/// 3. Importantly, the interpolation must be *subdivision-stable*: for any interpolation curve
-///    between two (unnamed) values and any parameter-value pairs `(t0, p)` and `(t1, q)`, the
-///    interpolation curve between `p` and `q` must be the *linear* reparameterization of the original
-///    interpolation curve restricted to the interval `[t0, t1]`.
-///
-/// The last of these conditions is very strong and indicates something like constant speed. It
-/// is called "subdivision stability" because it guarantees that breaking up the interpolation
-/// into segments and joining them back together has no effect.
+/// This condition is very strong, and indicates something like constant speed. It  is called
+/// "subdivision stability" because it guarantees that breaking up the interpolation into segments and
+/// joining them back together has no effect.
 ///
 /// Here is a diagram depicting it:
 /// ```text
-/// top curve = u.interpolate_stable(v, t)
+/// top curve = T::interp(u, v, t)
 ///
 ///              t0 => p   t1 => q    
 ///   |-------------|---------|-------------|
@@ -289,35 +409,16 @@ impl NormedVectorSpace for f32 {
 ///   |-------------------------------------|
 /// 0 => p                                1 => q
 ///
-/// bottom curve = p.interpolate_stable(q, s)
+/// bottom curve = T::interp(p, q, s)
 /// ```
 ///
 /// Note that some common forms of interpolation do not satisfy this criterion. For example,
 /// [`Quat::lerp`] and [`Rot2::nlerp`] are not subdivision-stable.
 ///
-/// Furthermore, this is not to be used as a general trait for abstract interpolation.
-/// Consumers rely on the strong guarantees in order for behavior based on this trait to be
-/// well-behaved.
-///
 /// [`Quat::slerp`]: crate::Quat::slerp
 /// [`Quat::lerp`]: crate::Quat::lerp
 /// [`Rot2::nlerp`]: crate::Rot2::nlerp
-pub trait StableInterpolate: Clone {
-    /// Interpolate between this value and the `other` given value using the parameter `t`. At
-    /// `t = 0.0`, a value equivalent to `self` is recovered, while `t = 1.0` recovers a value
-    /// equivalent to `other`, with intermediate values interpolating between the two.
-    /// See the [trait-level documentation] for details.
-    ///
-    /// [trait-level documentation]: StableInterpolate
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self;
-
-    /// A version of [`interpolate_stable`] that assigns the result to `self` for convenience.
-    ///
-    /// [`interpolate_stable`]: StableInterpolate::interpolate_stable
-    fn interpolate_stable_assign(&mut self, other: &Self, t: f32) {
-        *self = self.interpolate_stable(other, t);
-    }
-
+pub trait InterpolateStable: Interpolate {
     /// Smoothly nudge this value towards the `target` at a given decay rate. The `decay_rate`
     /// parameter controls how fast the distance between `self` and `target` decays relative to
     /// the units of `delta`; the intended usage is for `decay_rate` to generally remain fixed,
@@ -334,7 +435,7 @@ pub trait StableInterpolate: Clone {
     ///
     /// # Example
     /// ```
-    /// # use bevy_math::{Vec3, StableInterpolate};
+    /// # use bevy_math::{Vec3, InterpolateStable};
     /// # let delta_time: f32 = 1.0 / 60.0;
     /// let mut object_position: Vec3 = Vec3::ZERO;
     /// let target_position: Vec3 = Vec3::new(2.0, 3.0, 5.0);
@@ -343,71 +444,35 @@ pub trait StableInterpolate: Clone {
     /// // Calling this repeatedly will move `object_position` towards `target_position`:
     /// object_position.smooth_nudge(&target_position, decay_rate, delta_time);
     /// ```
+    #[inline]
     fn smooth_nudge(&mut self, target: &Self, decay_rate: f32, delta: f32) {
-        self.interpolate_stable_assign(target, 1.0 - ops::exp(-decay_rate * delta));
+        self.interp_assign(target, 1.0 - ops::exp(-decay_rate * delta));
     }
 }
 
 // Conservatively, we presently only apply this for normed vector spaces, where the notion
 // of being constant-speed is literally true. The technical axioms are satisfied for any
 // VectorSpace type, but the "natural from the semantics" part is less clear in general.
-impl<V> StableInterpolate for V
-where
-    V: NormedVectorSpace,
-{
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.lerp(*other, t)
-    }
-}
+impl<V> InterpolateStable for V where V: NormedVectorSpace {}
 
-impl StableInterpolate for Rot2 {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl InterpolateStable for Rot2 {}
 
-impl StableInterpolate for Quat {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl InterpolateStable for Quat {}
 
-impl StableInterpolate for Dir2 {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl InterpolateStable for Dir2 {}
 
-impl StableInterpolate for Dir3 {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl InterpolateStable for Dir3 {}
 
-impl StableInterpolate for Dir3A {
-    #[inline]
-    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
+impl InterpolateStable for Dir3A {}
+
+impl InterpolateStable for Isometry2d {}
+
+impl InterpolateStable for Isometry3d {}
 
 macro_rules! impl_stable_interpolate_tuple {
     ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {
         $(#[$meta])*
-        impl<$($T: StableInterpolate),*> StableInterpolate for ($($T,)*) {
-            fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
-                (
-                    $(
-                        <$T as StableInterpolate>::interpolate_stable(&self.$n, &other.$n, t),
-                    )*
-                )
-            }
-        }
+        impl<$($T: InterpolateStable),*> InterpolateStable for ($($T,)*) {}
     };
 }
 

@@ -1,7 +1,8 @@
 use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
-    Luminance, Mix, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
+    Luminance, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{curve::InterpolateCurve, Interpolate, InterpolateStable};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use derive_more::derive::From;
@@ -17,7 +18,7 @@ use derive_more::derive::From;
 ///
 /// # Operations
 ///
-/// [`Color`] supports all the standard color operations, such as [mixing](Mix),
+/// [`Color`] supports all the standard color operations, such as [interpolating](bevy_math::Interpolate),
 /// [luminance](Luminance) and [hue](Hue) adjustment,
 /// and [diffing](EuclideanDistance). These operations delegate to the concrete color space contained
 /// by [`Color`], but will convert to [`Oklch`](Oklcha) for operations which aren't supported in the
@@ -476,6 +477,16 @@ impl Default for Color {
     }
 }
 
+impl Interpolate for Color {
+    #[inline]
+    fn interp(&self, other: &Self, param: f32) -> Self {
+        Oklaba::interp(&(*self).into(), &(*other).into(), param).into()
+    }
+}
+
+impl InterpolateStable for Color {}
+impl InterpolateCurve for Color {}
+
 impl Alpha for Color {
     fn with_alpha(&self, alpha: f32) -> Self {
         let mut new = *self;
@@ -849,27 +860,6 @@ impl Saturation for Color {
 
     fn set_saturation(&mut self, saturation: f32) {
         *self = self.with_saturation(saturation);
-    }
-}
-
-impl Mix for Color {
-    fn mix(&self, other: &Self, factor: f32) -> Self {
-        let mut new = *self;
-
-        match &mut new {
-            Color::Srgba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::LinearRgba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Hsla(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Hsva(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Hwba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Laba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Lcha(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Oklaba(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Oklcha(x) => *x = x.mix(&(*other).into(), factor),
-            Color::Xyza(x) => *x = x.mix(&(*other).into(), factor),
-        }
-
-        new
     }
 }
 

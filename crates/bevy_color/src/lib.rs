@@ -76,7 +76,7 @@
 //! allowing you to use them with splines.
 //!
 //! Please note that most often adding or subtracting colors is not what you may want.
-//! Please have a look at other operations like blending, lightening or mixing colors using e.g. [`Mix`] or [`Luminance`] instead.
+//! Please have a look at other operations like blending, lightening or mixing colors using e.g. [`bevy_math::Interpolate`] or [`Luminance`] instead.
 //!
 //! # Example
 //!
@@ -173,99 +173,3 @@ where
     Self: Alpha,
 {
 }
-
-macro_rules! impl_componentwise_vector_space {
-    ($ty: ident, [$($element: ident),+]) => {
-        impl core::ops::Add<Self> for $ty {
-            type Output = Self;
-
-            fn add(self, rhs: Self) -> Self::Output {
-                Self::Output {
-                    $($element: self.$element + rhs.$element,)+
-                }
-            }
-        }
-
-        impl core::ops::AddAssign<Self> for $ty {
-            fn add_assign(&mut self, rhs: Self) {
-                *self = *self + rhs;
-            }
-        }
-
-        impl core::ops::Neg for $ty {
-            type Output = Self;
-
-            fn neg(self) -> Self::Output {
-                Self::Output {
-                    $($element: -self.$element,)+
-                }
-            }
-        }
-
-        impl core::ops::Sub<Self> for $ty {
-            type Output = Self;
-
-            fn sub(self, rhs: Self) -> Self::Output {
-                Self::Output {
-                    $($element: self.$element - rhs.$element,)+
-                }
-            }
-        }
-
-        impl core::ops::SubAssign<Self> for $ty {
-            fn sub_assign(&mut self, rhs: Self) {
-                *self = *self - rhs;
-            }
-        }
-
-        impl core::ops::Mul<f32> for $ty {
-            type Output = Self;
-
-            fn mul(self, rhs: f32) -> Self::Output {
-                Self::Output {
-                    $($element: self.$element * rhs,)+
-                }
-            }
-        }
-
-        impl core::ops::Mul<$ty> for f32 {
-            type Output = $ty;
-
-            fn mul(self, rhs: $ty) -> Self::Output {
-                Self::Output {
-                    $($element: self * rhs.$element,)+
-                }
-            }
-        }
-
-        impl core::ops::MulAssign<f32> for $ty {
-            fn mul_assign(&mut self, rhs: f32) {
-                *self = *self * rhs;
-            }
-        }
-
-        impl core::ops::Div<f32> for $ty {
-            type Output = Self;
-
-            fn div(self, rhs: f32) -> Self::Output {
-                Self::Output {
-                    $($element: self.$element / rhs,)+
-                }
-            }
-        }
-
-        impl core::ops::DivAssign<f32> for $ty {
-            fn div_assign(&mut self, rhs: f32) {
-                *self = *self / rhs;
-            }
-        }
-
-        impl bevy_math::VectorSpace for $ty {
-            const ZERO: Self = Self {
-                $($element: 0.0,)+
-            };
-        }
-    };
-}
-
-pub(crate) use impl_componentwise_vector_space;

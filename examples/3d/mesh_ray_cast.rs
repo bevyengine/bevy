@@ -6,7 +6,7 @@ use std::f32::consts::{FRAC_PI_2, PI};
 use bevy::{
     color::palettes::css,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    math::vec3,
+    math::{vec3, Interpolate},
     picking::backend::ray::RayMap,
     prelude::*,
 };
@@ -60,8 +60,12 @@ fn bounce_ray(mut ray: Ray3d, ray_cast: &mut MeshRayCast, gizmos: &mut Gizmos, c
 
         // Draw the point of intersection and add it to the list
         let brightness = 1.0 + 10.0 * (1.0 - i as f32 / MAX_BOUNCES as f32);
-        intersections.push((hit.point, Color::BLACK.mix(&color, brightness)));
-        gizmos.sphere(hit.point, 0.005, Color::BLACK.mix(&color, brightness * 2.0));
+        intersections.push((hit.point, Color::BLACK.interp(&color, brightness)));
+        gizmos.sphere(
+            hit.point,
+            0.005,
+            Color::BLACK.interp(&color, brightness * 2.0),
+        );
 
         // Reflect the ray off of the surface
         ray.direction = Dir3::new(ray.direction.reflect(hit.normal)).unwrap();

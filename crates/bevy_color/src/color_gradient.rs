@@ -1,8 +1,10 @@
-use crate::Mix;
 use alloc::vec::Vec;
-use bevy_math::curve::{
-    cores::{EvenCore, EvenCoreError},
-    Curve, Interval,
+use bevy_math::{
+    curve::{
+        cores::{EvenCore, EvenCoreError},
+        Curve, Interval,
+    },
+    Interpolate,
 };
 
 /// A curve whose samples are defined by a collection of colors.
@@ -15,21 +17,18 @@ pub struct ColorCurve<T> {
 
 impl<T> ColorCurve<T>
 where
-    T: Mix + Clone,
+    T: Clone + Interpolate,
 {
-    /// Create a new [`ColorCurve`] from a collection of [mixable] types. The domain of this curve
+    /// Create a new [`ColorCurve`] from a collection of colors. The domain of this curve
     /// will always be `[0.0, len - 1]` where `len` is the amount of mixable objects in the
     /// collection.
     ///
-    /// This fails if there's not at least two mixable things in the collection.
-    ///
-    /// [mixable]: `Mix`
+    /// This fails if less than two colors are provided.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_color::palettes::basic::*;
-    /// # use bevy_color::Mix;
     /// # use bevy_color::Srgba;
     /// # use bevy_color::ColorCurve;
     /// # use bevy_math::curve::Interval;
@@ -53,7 +52,7 @@ where
 
 impl<T> Curve<T> for ColorCurve<T>
 where
-    T: Mix + Clone,
+    T: Clone + Interpolate,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -63,7 +62,7 @@ where
     #[inline]
     fn sample_clamped(&self, t: f32) -> T {
         // `EvenCore::sample_with` clamps the input implicitly.
-        self.core.sample_with(t, T::mix)
+        self.core.sample_with(t, T::interp)
     }
 
     #[inline]
@@ -88,7 +87,7 @@ mod tests {
 
         assert_eq!(curve.domain(), Interval::new(0.0, 2.0).unwrap());
 
-        let brighter_curve = curve.map(|c: Srgba| c.mix(&basic::WHITE, 0.5));
+        let brighter_curve = curve.map(|c: Srgba| c.interp(&basic::WHITE, 0.5));
 
         [
             (-0.1, None),

@@ -1,8 +1,8 @@
 use crate::{
-    Alpha, ColorToComponents, Gray, Hue, Hwba, Lcha, LinearRgba, Mix, Saturation, Srgba,
-    StandardColor, Xyza,
+    Alpha, ColorToComponents, Gray, Hue, Hwba, Lcha, LinearRgba, Saturation, Srgba, StandardColor,
+    Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{curve::InterpolateCurve, Interpolate, InterpolateStable, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -82,9 +82,9 @@ impl Default for Hsva {
     }
 }
 
-impl Mix for Hsva {
+impl Interpolate for Hsva {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
@@ -94,6 +94,9 @@ impl Mix for Hsva {
         }
     }
 }
+
+impl InterpolateStable for Hsva {}
+impl InterpolateCurve for Hsva {}
 
 impl Gray for Hsva {
     const BLACK: Self = Self::new(0., 0., 0., 1.);

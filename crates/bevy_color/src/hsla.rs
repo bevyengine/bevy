@@ -1,8 +1,8 @@
 use crate::{
-    Alpha, ColorToComponents, Gray, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Saturation,
+    Alpha, ColorToComponents, Gray, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Saturation,
     Srgba, StandardColor, Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{Interpolate, InterpolateStable, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -111,9 +111,9 @@ impl Default for Hsla {
     }
 }
 
-impl Mix for Hsla {
+impl Interpolate for Hsla {
     #[inline]
-    fn mix(&self, other: &Self, factor: f32) -> Self {
+    fn interp(&self, other: &Self, factor: f32) -> Self {
         let n_factor = 1.0 - factor;
         Self {
             hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
@@ -123,6 +123,9 @@ impl Mix for Hsla {
         }
     }
 }
+
+impl InterpolateStable for Hsla {}
+impl InterpolateCurve for Hsla {}
 
 impl Gray for Hsla {
     const BLACK: Self = Self::new(0., 0., 0., 1.);
@@ -415,25 +418,25 @@ mod tests {
     }
 
     #[test]
-    fn test_mix_wrap() {
+    fn test_interp_wrap() {
         let hsla0 = Hsla::new(10., 0.5, 0.5, 1.0);
         let hsla1 = Hsla::new(20., 0.5, 0.5, 1.0);
         let hsla2 = Hsla::new(350., 0.5, 0.5, 1.0);
-        assert_approx_eq!(hsla0.mix(&hsla1, 0.25).hue, 12.5, 0.001);
-        assert_approx_eq!(hsla0.mix(&hsla1, 0.5).hue, 15., 0.001);
-        assert_approx_eq!(hsla0.mix(&hsla1, 0.75).hue, 17.5, 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla1, 0.25).hue, 12.5, 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla1, 0.5).hue, 15., 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla1, 0.75).hue, 17.5, 0.001);
 
-        assert_approx_eq!(hsla1.mix(&hsla0, 0.25).hue, 17.5, 0.001);
-        assert_approx_eq!(hsla1.mix(&hsla0, 0.5).hue, 15., 0.001);
-        assert_approx_eq!(hsla1.mix(&hsla0, 0.75).hue, 12.5, 0.001);
+        assert_approx_eq!(hsla1.interp(&hsla0, 0.25).hue, 17.5, 0.001);
+        assert_approx_eq!(hsla1.interp(&hsla0, 0.5).hue, 15., 0.001);
+        assert_approx_eq!(hsla1.interp(&hsla0, 0.75).hue, 12.5, 0.001);
 
-        assert_approx_eq!(hsla0.mix(&hsla2, 0.25).hue, 5., 0.001);
-        assert_approx_eq!(hsla0.mix(&hsla2, 0.5).hue, 0., 0.001);
-        assert_approx_eq!(hsla0.mix(&hsla2, 0.75).hue, 355., 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla2, 0.25).hue, 5., 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla2, 0.5).hue, 0., 0.001);
+        assert_approx_eq!(hsla0.interp(&hsla2, 0.75).hue, 355., 0.001);
 
-        assert_approx_eq!(hsla2.mix(&hsla0, 0.25).hue, 355., 0.001);
-        assert_approx_eq!(hsla2.mix(&hsla0, 0.5).hue, 0., 0.001);
-        assert_approx_eq!(hsla2.mix(&hsla0, 0.75).hue, 5., 0.001);
+        assert_approx_eq!(hsla2.interp(&hsla0, 0.25).hue, 355., 0.001);
+        assert_approx_eq!(hsla2.interp(&hsla0, 0.5).hue, 0., 0.001);
+        assert_approx_eq!(hsla2.interp(&hsla0, 0.75).hue, 5., 0.001);
     }
 
     #[test]
