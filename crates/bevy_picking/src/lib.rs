@@ -288,7 +288,7 @@ pub struct DefaultPickingPlugins;
 impl PluginGroup for DefaultPickingPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(input::PointerInputPlugin::default())
+            .add(input::PointerInputPlugin)
             .add(PickingPlugin::default())
             .add(InteractionPlugin)
     }
