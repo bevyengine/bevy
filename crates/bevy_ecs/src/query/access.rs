@@ -257,9 +257,10 @@ impl<T: SparseSetIndex> Access<T> {
     /// This is for components whose values are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     ///
-    /// Currently, this is only used for [`Has<T>`].
+    /// Currently, this is only used for [`Has<T>`] and [`Allows<T>`].
     ///
     /// [`Has<T>`]: crate::query::Has
+    /// [`Allows<T>`]: crate::query::filter::Allows
     pub fn add_archetypal(&mut self, index: T) {
         self.archetypal.grow_and_insert(index.sparse_set_index());
     }
@@ -499,6 +500,7 @@ impl<T: SparseSetIndex> Access<T> {
         self.resource_read_and_writes
             .union_with(&other.resource_read_and_writes);
         self.resource_writes.union_with(&other.resource_writes);
+        self.archetypal.union_with(&other.archetypal);
     }
 
     /// Returns `true` if the access and `other` can be active at the same time,

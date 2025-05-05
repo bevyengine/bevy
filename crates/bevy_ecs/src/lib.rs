@@ -80,7 +80,7 @@ pub mod prelude {
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
         observer::{Observer, Trigger},
-        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
         removal_detection::RemovedComponents,
