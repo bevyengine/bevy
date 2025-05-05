@@ -153,7 +153,7 @@ pub use system_name::*;
 pub use system_param::*;
 pub use system_registry::*;
 
-use crate::world::World;
+use crate::world::{FromWorld, World};
 
 /// Conversion trait to turn something into a [`System`].
 ///
@@ -226,6 +226,77 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
         F: Send + Sync + 'static + FnMut(Out) -> T,
     {
         IntoAdapterSystem::new(f, self)
+    }
+
+    /// Passes a mutable reference to `value` as input to the system each run,
+    /// turning it into a system that takes no input.
+    ///
+    /// `Self` can have any [`SystemInput`] type that takes a mutable reference
+    /// to `T`, such as [`InMut`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// fn my_system(InMut(value): InMut<usize>) {
+    ///     *value += 1;
+    ///     if *value > 10 {
+    ///        println!("Value is greater than 10!");
+    ///     }
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_systems(my_system.with_input(0));
+    /// # bevy_ecs::system::assert_is_system(my_system.with_input(0));
+    /// ```
+    fn with_input<T>(self, value: T) -> WithInputWrapper<Self::System, T>
+    where
+        for<'i> In: SystemInput<Inner<'i> = &'i mut T>,
+        T: Send + Sync + 'static,
+    {
+        WithInputWrapper::new(self, value)
+    }
+
+    /// Passes a mutable reference to a value of type `T` created via
+    /// [`FromWorld`] as input to the system each run, turning it into a system
+    /// that takes no input.
+    ///
+    /// `Self` can have any [`SystemInput`] type that takes a mutable reference
+    /// to `T`, such as [`InMut`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct MyData {
+    ///     value: usize,
+    /// }
+    ///
+    /// impl FromWorld for MyData {
+    ///     fn from_world(world: &mut World) -> Self {
+    ///         // Fetch from the world the data needed to create `MyData`
+    /// #       MyData { value: 0 }
+    ///     }
+    /// }
+    ///
+    /// fn my_system(InMut(data): InMut<MyData>) {
+    ///     data.value += 1;
+    ///     if data.value > 10 {
+    ///         println!("Value is greater than 10!");
+    ///     }
+    /// }
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_systems(my_system.with_input_from::<MyData>());
+    /// # bevy_ecs::system::assert_is_system(my_system.with_input_from::<MyData>());
+    /// ```
+    fn with_input_from<T>(self) -> WithInputFromWrapper<Self::System, T>
+    where
+        for<'i> In: SystemInput<Inner<'i> = &'i mut T>,
+        T: FromWorld + Send + Sync + 'static,
+    {
+        WithInputFromWrapper::new(self)
     }
 
     /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
@@ -347,8 +418,8 @@ mod tests {
             Schedule,
         },
         system::{
-            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Single, StaticSystemParam, System, SystemState,
+            Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
+            ResMut, Single, StaticSystemParam, System, SystemState,
         },
         world::{DeferredWorld, EntityMut, FromWorld, OnAdd, World},
     };
@@ -1878,5 +1949,41 @@ mod tests {
         world
             .commands()
             .queue(|_world: &mut World| -> () { todo!() });
+    }
+
+    #[test]
+    fn with_input() {
+        fn sys(InMut(v): InMut<usize>) {
+            *v += 1;
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_input(42));
+        system.initialize(&mut world);
+        system.run((), &mut world);
+        assert_eq!(*system.value(), 43);
+    }
+
+    #[test]
+    fn with_input_from() {
+        struct TestData(usize);
+
+        impl FromWorld for TestData {
+            fn from_world(_world: &mut World) -> Self {
+                Self(5)
+            }
+        }
+
+        fn sys(InMut(v): InMut<TestData>) {
+            v.0 += 1;
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_input_from::<TestData>());
+        assert!(system.value().is_none());
+        system.initialize(&mut world);
+        assert!(system.value().is_some());
+        system.run((), &mut world);
+        assert_eq!(system.value().unwrap().0, 6);
     }
 }
