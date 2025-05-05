@@ -80,6 +80,7 @@ fn main() {
                 .after(change_reflection_type),
         )
         .add_systems(Update, update_text.after(rotate_camera))
+        .add_systems(Update, setup_environment_map_usage)
         .run();
 }
 
@@ -152,7 +153,6 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
 }
 
 fn spawn_prefiltered_environment_map(commands: &mut Commands, cubemaps: &Cubemaps) {
-    println!("spawn_prefiltered_environment_map");
     commands.spawn((
         LightProbe,
         FilteredEnvironmentMapLight {
@@ -160,11 +160,9 @@ fn spawn_prefiltered_environment_map(commands: &mut Commands, cubemaps: &Cubemap
             intensity: 5000.0,
             ..default()
         },
-        // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
         Transform::from_scale(Vec3::splat(2.0)),
     ));
 }
-
 
 // Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
@@ -187,13 +185,21 @@ fn add_environment_map_to_camera(
     mut commands: Commands,
     query: Query<Entity, Added<Camera3d>>,
     cubemaps: Res<Cubemaps>,
+    app_status: Res<AppStatus>,
 ) {
     for camera_entity in query.iter() {
+        let image = match app_status.reflection_mode {
+            ReflectionMode::PrefilteredEnvironmentMap => {
+                cubemaps.unfiltered_environment_map.clone()
+            }
+            _ => cubemaps.skybox.clone(),
+        };
+
         commands
             .entity(camera_entity)
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
-                image: cubemaps.skybox.clone(),
+                image,
                 brightness: 5000.0,
                 ..default()
             });
@@ -204,6 +210,7 @@ fn add_environment_map_to_camera(
 fn change_reflection_type(
     mut commands: Commands,
     light_probe_query: Query<Entity, With<LightProbe>>,
+    sky_box_query: Query<Entity, With<Skybox>>,
     camera_query: Query<Entity, With<Camera3d>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
@@ -222,10 +229,15 @@ fn change_reflection_type(
     for light_probe in light_probe_query.iter() {
         commands.entity(light_probe).despawn();
     }
+    for skybox in sky_box_query.iter() {
+        commands.entity(skybox).remove::<Skybox>();
+    }
     match app_status.reflection_mode {
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
         ReflectionMode::ReflectionProbe => spawn_reflection_probe(&mut commands, &cubemaps),
-        ReflectionMode::PrefilteredEnvironmentMap => spawn_prefiltered_environment_map(&mut commands, &cubemaps),
+        ReflectionMode::PrefilteredEnvironmentMap => {
+            spawn_prefiltered_environment_map(&mut commands, &cubemaps)
+        }
     }
 
     // Add or remove the environment map from the camera.
@@ -234,10 +246,23 @@ fn change_reflection_type(
             ReflectionMode::None => {
                 commands.entity(camera).remove::<EnvironmentMapLight>();
             }
-            ReflectionMode::EnvironmentMap | ReflectionMode::ReflectionProbe | ReflectionMode::PrefilteredEnvironmentMap => {
+            ReflectionMode::EnvironmentMap
+            | ReflectionMode::ReflectionProbe
+            | ReflectionMode::PrefilteredEnvironmentMap => {
+                let image = match app_status.reflection_mode {
+                    ReflectionMode::PrefilteredEnvironmentMap => {
+                        cubemaps.unfiltered_environment_map.clone()
+                    }
+                    _ => cubemaps.skybox.clone(),
+                };
                 commands
                     .entity(camera)
-                    .insert(create_camera_environment_map_light(&cubemaps));
+                    .insert(create_camera_environment_map_light(&cubemaps))
+                    .insert(Skybox {
+                        image,
+                        brightness: 5000.0,
+                        ..default()
+                    });
             }
         }
     }
@@ -344,8 +369,20 @@ impl FromWorld for Cubemaps {
             specular_reflection_probe: world
                 .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
             specular_environment_map: specular_map.clone(),
-            unfiltered_environment_map: world.load_asset("environment_maps/ballawley_park_1k.ktx2"),
+            unfiltered_environment_map: world.load_asset("environment_maps/goegap_road_2k.ktx2"),
             skybox: specular_map,
+        }
+    }
+}
+
+fn setup_environment_map_usage(cubemaps: Res<Cubemaps>, mut images: ResMut<Assets<Image>>) {
+    if let Some(image) = images.get_mut(&cubemaps.unfiltered_environment_map) {
+        if !image
+            .texture_descriptor
+            .usage
+            .contains(TextureUsages::COPY_SRC)
+        {
+            image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
         }
     }
 }
@@ -353,8 +390,8 @@ impl FromWorld for Cubemaps {
 impl Default for AppStatus {
     fn default() -> Self {
         Self {
-            reflection_mode: ReflectionMode::PrefilteredEnvironmentMap,
-            rotating: false,
+            reflection_mode: ReflectionMode::ReflectionProbe,
+            rotating: true,
         }
     }
 }

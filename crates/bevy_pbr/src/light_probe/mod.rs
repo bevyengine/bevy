@@ -32,7 +32,9 @@ use bevy_render::{
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use prefilter::{
-    create_environment_map_from_prefilter, extract_prefilter_entities, prepare_prefilter_bind_groups, prepare_prefilter_textures, FilteredEnvironmentMapLight, PrefilterPipelines, SpdNode
+    create_environment_map_from_prefilter, extract_prefilter_entities,
+    prepare_prefilter_bind_groups, prepare_prefilter_textures, FilteredEnvironmentMapLight,
+    PrefilterPipelines, SpdNode,
 };
 use tracing::error;
 
@@ -380,7 +382,10 @@ impl Plugin for LightProbePlugin {
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
-            .add_systems(ExtractSchedule, extract_prefilter_entities.after(create_environment_map_from_prefilter),)
+            .add_systems(
+                ExtractSchedule,
+                extract_prefilter_entities.after(create_environment_map_from_prefilter),
+            )
             .add_systems(
                 Render,
                 (upload_light_probes, prepare_environment_uniform_buffer)
