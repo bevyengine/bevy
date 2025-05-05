@@ -44,7 +44,7 @@ pub struct TilemapChunkMaterial {
     pub tileset: Handle<Image>,
 
     #[texture(2, sample_type = "u_int")]
-    pub indices: Handle<Image>,
+    pub tile_data: Handle<Image>,
 }
 
 impl Material2d for TilemapChunkMaterial {
