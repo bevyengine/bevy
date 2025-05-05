@@ -300,6 +300,13 @@ impl ComponentSparseSet {
         })
     }
 
+    /// Returns the drop function for the component type stored in the sparse set,
+    /// or `None` if it doesn't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.dense.get_drop()
+    }
+
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).
     #[must_use = "The returned pointer must be used to drop the removed component."]
