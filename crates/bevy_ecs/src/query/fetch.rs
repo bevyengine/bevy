@@ -492,7 +492,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 /// # #[derive(Component, Debug)]
 /// # struct Name {};
 ///
-/// fn print_spawn_ticks(query: Query<(Entity, SpawnDetails)>) {
+/// fn print_spawn_details(query: Query<(Entity, SpawnDetails)>) {
 ///     for (entity, spawn_details) in &query {
 ///         if spawn_details.is_spawned() {
 ///             print!("new ");
@@ -506,7 +506,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 ///     }
 /// }
 ///
-/// # bevy_ecs::system::assert_is_system(print_spawn_ticks);
+/// # bevy_ecs::system::assert_is_system(print_spawn_details);
 /// ```
 #[derive(Clone, Copy)]
 pub struct SpawnDetails {
