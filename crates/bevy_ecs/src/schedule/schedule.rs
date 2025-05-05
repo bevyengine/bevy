@@ -1376,7 +1376,7 @@ impl ScheduleGraph {
                     match access_a.get_conflicts(access_b) {
                         AccessConflicts::Individual(conflicts) => {
                             let conflicts: Vec<_> = conflicts
-                                .ones()
+                                .iter()
                                 .map(ComponentId::get_sparse_set_index)
                                 .filter(|id| !ignored_ambiguities.contains(id))
                                 .collect();
