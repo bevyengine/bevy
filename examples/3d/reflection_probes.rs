@@ -25,6 +25,8 @@ struct AppStatus {
     reflection_mode: ReflectionMode,
     // Whether the user has requested the scene to rotate.
     rotating: bool,
+    // The current roughness of the central sphere
+    sphere_roughness: f32,
 }
 
 // Which environment maps the user has requested to display.
@@ -73,6 +75,7 @@ fn main() {
         .add_systems(PreUpdate, add_environment_map_to_camera)
         .add_systems(Update, change_reflection_type)
         .add_systems(Update, toggle_rotation)
+        .add_systems(Update, change_sphere_roughness)
         .add_systems(
             Update,
             rotate_camera
@@ -95,7 +98,7 @@ fn setup(
 ) {
     spawn_scene(&mut commands, &asset_server);
     spawn_camera(&mut commands);
-    spawn_sphere(&mut commands, &mut meshes, &mut materials);
+    spawn_sphere(&mut commands, &mut meshes, &mut materials, &app_status);
     spawn_reflection_probe(&mut commands, &cubemaps);
     spawn_text(&mut commands, &app_status);
 }
@@ -121,6 +124,7 @@ fn spawn_sphere(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    app_status: &AppStatus,
 ) {
     // Create a sphere mesh.
     let sphere_mesh = meshes.add(Sphere::new(1.0).mesh().ico(7).unwrap());
@@ -131,9 +135,10 @@ fn spawn_sphere(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             metallic: 1.0,
-            perceptual_roughness: 0.0,
+            perceptual_roughness: app_status.sphere_roughness,
             ..StandardMaterial::default()
         })),
+        SphereMaterial,
     ));
 }
 
@@ -185,21 +190,13 @@ fn add_environment_map_to_camera(
     mut commands: Commands,
     query: Query<Entity, Added<Camera3d>>,
     cubemaps: Res<Cubemaps>,
-    app_status: Res<AppStatus>,
 ) {
     for camera_entity in query.iter() {
-        let image = match app_status.reflection_mode {
-            ReflectionMode::PrefilteredEnvironmentMap => {
-                cubemaps.unfiltered_environment_map.clone()
-            }
-            _ => cubemaps.skybox.clone(),
-        };
-
         commands
             .entity(camera_entity)
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
-                image,
+                image: cubemaps.skybox.clone(),
                 brightness: 5000.0,
                 ..default()
             });
@@ -236,7 +233,7 @@ fn change_reflection_type(
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
         ReflectionMode::ReflectionProbe => spawn_reflection_probe(&mut commands, &cubemaps),
         ReflectionMode::PrefilteredEnvironmentMap => {
-            spawn_prefiltered_environment_map(&mut commands, &cubemaps)
+            spawn_prefiltered_environment_map(&mut commands, &cubemaps);
         }
     }
 
@@ -319,8 +316,11 @@ impl AppStatus {
         };
 
         format!(
-            "{}\n{}\n{}",
-            self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT
+            "{}\n{}\nRoughness: {:.2}\n{}\nUp/Down arrows to change roughness",
+            self.reflection_mode,
+            rotation_help_text,
+            self.sphere_roughness,
+            REFLECTION_MODE_HELP_TEXT
         )
         .into()
     }
@@ -392,6 +392,39 @@ impl Default for AppStatus {
         Self {
             reflection_mode: ReflectionMode::ReflectionProbe,
             rotating: true,
+            sphere_roughness: 0.0,
+        }
+    }
+}
+
+#[derive(Component)]
+struct SphereMaterial;
+
+// A system that changes the sphere's roughness with up/down arrow keys
+fn change_sphere_roughness(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut app_status: ResMut<AppStatus>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    sphere_query: Query<&MeshMaterial3d<StandardMaterial>, With<SphereMaterial>>,
+) {
+    let roughness_delta = if keyboard.pressed(KeyCode::ArrowUp) {
+        0.01 // Decrease roughness
+    } else if keyboard.pressed(KeyCode::ArrowDown) {
+        -0.01 // Increase roughness
+    } else {
+        0.0 // No change
+    };
+
+    if roughness_delta != 0.0 {
+        // Update the app status
+        app_status.sphere_roughness =
+            (app_status.sphere_roughness + roughness_delta).clamp(0.0, 1.0);
+
+        // Update the sphere material
+        for material_handle in sphere_query.iter() {
+            if let Some(material) = materials.get_mut(&material_handle.0) {
+                material.perceptual_roughness = app_status.sphere_roughness;
+            }
         }
     }
 }
