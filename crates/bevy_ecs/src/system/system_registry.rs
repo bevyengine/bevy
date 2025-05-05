@@ -35,7 +35,6 @@ impl<I, O> RegisteredSystem<I, O> {
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Default, Clone))]
-// FIXME: disqualified::ShortName required `Reflect` to be used here
 struct TypeIdAndName(TypeId, &'static str);
 
 impl TypeIdAndName {
@@ -544,7 +543,7 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
         err: SystemParamValidationError,
     },
     /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
-    #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", ShortName::of::<SystemId<I, O>>(), core::convert::identity(.1.input_type_id.1), core::convert::identity(.1.output_type_id.1))]
+    #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", ShortName::of::<SystemId<I, O>>(), ShortName(.1.input_type_id.1), ShortName(.1.output_type_id.1))]
     IncorrectType(SystemId<I, O>, SystemIdMarker),
 }
 
