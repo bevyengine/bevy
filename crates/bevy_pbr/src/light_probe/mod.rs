@@ -21,11 +21,24 @@ use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::ExtractComponentPlugin, extract_instances::ExtractInstancesPlugin, primitives::{Aabb, Frustum}, render_asset::RenderAssets, render_graph::RenderGraphApp, render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView}, renderer::{RenderAdapter, RenderDevice, RenderQueue}, settings::WgpuFeatures, sync_world::RenderEntity, texture::{FallbackImage, GpuImage}, view::{ExtractedView, Visibility}, Extract, ExtractSchedule, Render, RenderApp, RenderSet
+    extract_component::ExtractComponentPlugin,
+    extract_instances::ExtractInstancesPlugin,
+    primitives::{Aabb, Frustum},
+    render_asset::RenderAssets,
+    render_graph::RenderGraphApp,
+    render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
+    sync_world::RenderEntity,
+    texture::{FallbackImage, GpuImage},
+    view::{ExtractedView, Visibility},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use prefilter::{
-    create_environment_map_from_prefilter, extract_prefilter_entities, prepare_prefilter_bind_groups, prepare_prefilter_textures, FilteredEnvironmentMapLight, PrefilterPipelines, SpdNode
+    create_environment_map_from_prefilter, extract_prefilter_entities,
+    prepare_prefilter_bind_groups, prepare_prefilter_textures, FilteredEnvironmentMapLight,
+    PrefilterPipelines, SpdNode,
 };
 use tracing::error;
 
@@ -407,7 +420,10 @@ impl Plugin for LightProbePlugin {
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
-            .add_systems(ExtractSchedule, extract_prefilter_entities.after(create_environment_map_from_prefilter),)
+            .add_systems(
+                ExtractSchedule,
+                extract_prefilter_entities.after(create_environment_map_from_prefilter),
+            )
             .add_systems(
                 Render,
                 (

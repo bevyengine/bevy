@@ -11,7 +11,10 @@ use bevy_image::Image;
 use bevy_math::{Quat, Vec2};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    extract_component::ExtractComponent, render_asset::{RenderAssetUsages, RenderAssets}, render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel}, render_resource::{
+    extract_component::ExtractComponent,
+    render_asset::{RenderAssetUsages, RenderAssets},
+    render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel},
+    render_resource::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
@@ -19,7 +22,12 @@ use bevy_render::{
         StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
         TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
         TextureViewDimension, UniformBuffer,
-    }, renderer::{RenderContext, RenderDevice, RenderQueue}, settings::WgpuFeatures, sync_world::RenderEntity, texture::{CachedTexture, GpuImage, TextureCache}, Extract
+    },
+    renderer::{RenderContext, RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
+    sync_world::RenderEntity,
+    texture::{CachedTexture, GpuImage, TextureCache},
+    Extract,
 };
 
 use crate::atmosphere;

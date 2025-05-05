@@ -15,13 +15,15 @@ struct PrefilterConstants {
 @group(0) @binding(4) var blue_noise_texture: texture_2d<f32>;
 
 // Tonemapping functions to reduce fireflies
+
+const white_point: f32 = 1.0;
 fn rcp(x: f32) -> f32 { return 1.0 / x; }
 fn max3(x: vec3f) -> f32 { return max(x.r, max(x.g, x.b)); }
 fn tonemap(color: vec3f) -> vec3f {
-    return color / (color + vec3(5000.0));
+    return color / (color + vec3(white_point));
 }
 fn reverse_tonemap(color: vec3f) -> vec3f {
-    return 5000.0 * color / (vec3(1.0) - color);
+    return white_point * color / (vec3(1.0) - color);
 }
 
 // Predefined set of uniform directions
