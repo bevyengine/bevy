@@ -2,21 +2,21 @@
 use crate::reflect::ReflectComponent;
 use crate::{
     change_detection::Mut,
-    entity::{Entity, EntityHashSet},
+    entity::Entity,
     system::{input::SystemInput, BoxedSystem, IntoSystem, SystemParamValidationError},
     world::World,
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
+use bevy_reflect::prelude::ReflectDefault;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use core::marker::PhantomData;
-use derive_more::derive::{Deref, DerefMut};
+use bevy_reflect::Reflect;
+use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-#[require(SystemIdMarker)]
+#[require(SystemIdMarker = SystemIdMarker::typed_system_id_marker::<I, O>())]
 pub(crate) struct RegisteredSystem<I, O> {
     initialized: bool,
     system: BoxedSystem<I, O>,
@@ -31,15 +31,40 @@ impl<I, O> RegisteredSystem<I, O> {
     }
 }
 
-/// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
-#[derive(Component, Default)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
-pub struct SystemIdMarker;
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Default, Clone))]
+struct TypeIdAndName(TypeId, &'static str);
 
-/// Set of systems currently running
-#[derive(Default, Resource, Deref, DerefMut)]
-struct RunSystemStack(EntityHashSet);
+impl TypeIdAndName {
+    fn new<T: 'static>() -> Self {
+        Self(TypeId::of::<T>(), core::any::type_name::<T>())
+    }
+}
+
+impl Default for TypeIdAndName {
+    fn default() -> Self {
+        Self(TypeId::of::<()>(), core::any::type_name::<()>())
+    }
+}
+
+/// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
+#[derive(Debug, Default, Clone, Copy, Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Default, Clone, Component))]
+pub struct SystemIdMarker {
+    input_type_id: TypeIdAndName,
+    output_type_id: TypeIdAndName,
+}
+
+impl SystemIdMarker {
+    fn typed_system_id_marker<I: 'static, O: 'static>() -> Self {
+        Self {
+            input_type_id: TypeIdAndName::new::<I>(),
+            output_type_id: TypeIdAndName::new::<O>(),
+        }
+    }
+}
 
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
@@ -337,16 +362,20 @@ impl World {
         I: SystemInput + 'static,
         O: 'static,
     {
-        self.init_resource::<RunSystemStack>();
-
-        if self.resource::<RunSystemStack>().contains(&id.entity) {
-            return Err(RegisteredSystemError::Recursive(id));
-        }
-
         // Lookup
         let mut entity = self
             .get_entity_mut(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
+
+        let Some(system_id_marker) = entity.get::<SystemIdMarker>() else {
+            return Err(RegisteredSystemError::SystemNotCached);
+        };
+
+        if system_id_marker.input_type_id.0 != TypeId::of::<I>()
+            || system_id_marker.output_type_id.0 != TypeId::of::<O>()
+        {
+            return Err(RegisteredSystemError::IncorrectType(id, *system_id_marker));
+        }
 
         // Take ownership of system trait object
         let RegisteredSystem {
@@ -354,17 +383,13 @@ impl World {
             mut system,
         } = entity
             .take::<RegisteredSystem<I, O>>()
-            .ok_or(RegisteredSystemError::MaybeIncorrectType(id))?;
+            .ok_or(RegisteredSystemError::Recursive(id))?;
 
         // Initialize the system
         if !initialized {
             system.initialize(self);
             initialized = true;
         }
-
-        self.get_resource_mut::<RunSystemStack>().expect(
-            "`RunSystemStack` should never be removed during the execution of a one-shot system.",
-        ).insert(id.entity);
 
         let result = system
             .validate_param(self)
@@ -376,10 +401,6 @@ impl World {
                 system.queue_deferred(self.into());
                 ret
             });
-
-        self.get_resource_mut::<RunSystemStack>().expect(
-            "`RunSystemStack` should never be removed during the execution of a one-shot system.",
-        ).remove(&id.entity);
 
         // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity) {
@@ -520,11 +541,9 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
         /// The returned parameter validation error.
         err: SystemParamValidationError,
     },
-    /// Failed to retrieve system from a [`SystemId`] either because [`World::run_system`],
-    /// [`World::run_system_with`], or other variants were called with the wrong type, or because
-    /// of another error
-    #[error("System {:?} was not found on entity {:?}. Maybe it has wrong type", core::any::type_name::<SystemId<I, O>>(), core::convert::identity(.0))]
-    MaybeIncorrectType(SystemId<I, O>),
+    /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
+    #[error("Could not get system from {:?}, entity was \"SystemId<{}, {}>\"", core::any::type_name::<SystemId<I, O>>(), core::convert::identity(.1.input_type_id.1), core::convert::identity(.1.output_type_id.1))]
+    IncorrectType(SystemId<I, O>, SystemIdMarker),
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -541,9 +560,11 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
                 .field("system", system)
                 .field("err", err)
                 .finish(),
-            Self::MaybeIncorrectType(arg0) => {
-                f.debug_tuple("MaybeIncorrectType").field(arg0).finish()
-            }
+            Self::IncorrectType(arg0, arg1) => f
+                .debug_tuple("MaybeIncorrectType")
+                .field(arg0)
+                .field(arg1)
+                .finish(),
         }
     }
 }
@@ -558,8 +579,6 @@ mod tests {
         prelude::*,
         system::{RegisteredSystemError, SystemId},
     };
-
-    use super::{RegisteredSystem, RunSystemStack};
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -941,15 +960,22 @@ mod tests {
 
     #[test]
     fn world_run_system_recursive() {
+        #[derive(Component)]
+        struct RecursionMarker(u8);
+
         fn world_recursive(world: &mut World) {
-            match world.run_system_cached(world_recursive) {
-                Ok(_) => panic!("Calling an already running system should fail."),
-                Err(RegisteredSystemError::Recursive(_)) => (),
-                Err(err) => panic!(
-                    "Should've failed with `Recursive`, but failed with `{}`.",
-                    err
-                ),
-            };
+            let sys_id = world.register_system_cached(world_recursive);
+            if let Some(RecursionMarker(i)) = world.entity_mut(sys_id.entity()).take() {
+                if i == 10 {
+                    return;
+                }
+                world
+                    .entity_mut(sys_id.entity())
+                    .insert(RecursionMarker(i + 1));
+            } else {
+                world.entity_mut(sys_id.entity()).insert(RecursionMarker(0));
+            }
+            world.run_system_cached(world_recursive).unwrap();
         }
 
         let mut world = World::new();
@@ -966,23 +992,19 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn removing_system_stack_with_one_shot() {
-        let mut world = World::new();
-        let _ = world.run_system_cached(|world: &mut World| {
-            world.remove_resource::<RunSystemStack>();
-        });
-    }
+    fn wrong_system_type() {
+        fn test() -> Result<(), u8> {
+            Ok(())
+        }
 
-    #[test]
-    #[should_panic]
-    fn removing_system_stack_with_observer() {
         let mut world = World::new();
-        world.add_observer(
-            |_trigger: Trigger<OnRemove, RegisteredSystem<(), ()>>, mut commands: Commands| {
-                commands.remove_resource::<RunSystemStack>();
-            },
-        );
-        let _ = world.run_system_cached(|_world: &mut World| {});
+
+        let entity = world.register_system_cached(test).entity();
+
+        match world.run_system::<u8>(SystemId::from_entity(entity)) {
+            Ok(_) => panic!("Should fail since called `run_system` with wrong SystemId type."),
+            Err(RegisteredSystemError::IncorrectType(_, _)) => (),
+            Err(err) => panic!("Failed with wrong error. `{:?}`", err),
+        }
     }
 }
