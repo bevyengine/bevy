@@ -162,6 +162,7 @@ fn prepare_uniform_components<C>(
 /// To do so, it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
 pub struct ExtractComponentPlugin<C> {
     only_extract_visible: bool,
+    // The use of the `fn` type here ensures that this is always `Send`, even if `C` is not.
     marker: PhantomData<fn() -> C>,
 }
 
