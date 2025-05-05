@@ -251,7 +251,9 @@ mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use alloc::{sync::Arc, vec::Vec};
-    use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
+    use bevy_ecs::{
+        entity::UniqueEntityIter, inheritance::MutComponent, prelude::*, system::lifetimeless::Read,
+    };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
@@ -421,7 +423,7 @@ mod parallel {
     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
     unsafe fn propagate_descendants_unchecked(
         parent: Entity,
-        p_global_transform: Mut<GlobalTransform>,
+        p_global_transform: MutComponent<GlobalTransform>,
         p_children: &Children,
         nodes: &NodeQuery,
         outbox: &mut Vec<Entity>,

@@ -113,7 +113,7 @@ mod tests {
             ReadOnlyQueryData, WorldQuery,
         },
         schedule::{IntoScheduleConfigs, Schedule},
-        storage::{Table, TableRow},
+        storage::{Table, TableId, TableRow},
         system::{assert_is_system, IntoSystem, Query, System, SystemState},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -849,6 +849,7 @@ mod tests {
             _fetch: &mut Self::Fetch<'w>,
             _state: &Self::State,
             _table: &'w Table,
+            _table_id: TableId,
         ) {
         }
 

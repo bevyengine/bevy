@@ -147,9 +147,10 @@ pub(crate) fn world_query_impl(
             unsafe fn set_table<'__w>(
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _state: &Self::State,
-                _table: &'__w #path::storage::Table
+                _table: &'__w #path::storage::Table,
+                _table_id: #path::storage::TableId
             ) {
-                #(<#field_types>::set_table(&mut _fetch.#named_field_idents, &_state.#named_field_idents, _table);)*
+                #(<#field_types>::set_table(&mut _fetch.#named_field_idents, &_state.#named_field_idents, _table, _table_id);)*
             }
 
             fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {

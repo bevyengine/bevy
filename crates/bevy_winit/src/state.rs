@@ -6,6 +6,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, NonSendMut, Res},
     entity::Entity,
     event::{EventCursor, EventWriter},
+    inheritance::MutComponent,
     prelude::*,
     system::SystemState,
     world::FromWorld,
@@ -954,7 +955,7 @@ pub fn winit_runner<T: Event>(mut app: App, event_loop: EventLoop<T>) -> AppExit
 
 pub(crate) fn react_to_resize(
     window_entity: Entity,
-    window: &mut Mut<'_, Window>,
+    window: &mut MutComponent<'_, Window>,
     size: PhysicalSize<u32>,
     window_resized: &mut EventWriter<WindowResized>,
 ) {
@@ -971,7 +972,7 @@ pub(crate) fn react_to_resize(
 
 pub(crate) fn react_to_scale_factor_change(
     window_entity: Entity,
-    window: &mut Mut<'_, Window>,
+    window: &mut MutComponent<'_, Window>,
     scale_factor: f64,
     window_backend_scale_factor_changed: &mut EventWriter<WindowBackendScaleFactorChanged>,
     window_scale_factor_changed: &mut EventWriter<WindowScaleFactorChanged>,

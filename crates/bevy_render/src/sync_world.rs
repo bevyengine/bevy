@@ -289,7 +289,7 @@ mod render_entities_world_query_impls {
         component::{ComponentId, Components, Tick},
         entity::Entity,
         query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
-        storage::{Table, TableRow},
+        storage::{Table, TableId, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
@@ -338,9 +338,12 @@ mod render_entities_world_query_impls {
             fetch: &mut Self::Fetch<'w>,
             &component_id: &ComponentId,
             table: &'w Table,
+            table_id: TableId,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
-            unsafe { <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table) }
+            unsafe {
+                <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table, table_id);
+            }
         }
 
         fn update_component_access(
@@ -438,9 +441,10 @@ mod render_entities_world_query_impls {
             fetch: &mut Self::Fetch<'w>,
             &component_id: &ComponentId,
             table: &'w Table,
+            table_id: TableId,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
-            unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table) }
+            unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table, table_id) }
         }
 
         fn update_component_access(

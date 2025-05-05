@@ -1,6 +1,7 @@
 use bevy_color::Color;
 use bevy_ecs::{
     component::Mutable,
+    inheritance::MutComponent,
     prelude::*,
     system::{Query, SystemParam},
 };
@@ -254,7 +255,13 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<(Entity, usize, Mut<String>, Mut<TextFont>, Mut<TextColor>)> {
+    ) -> Option<(
+        Entity,
+        usize,
+        Mut<String>,
+        MutComponent<TextFont>,
+        MutComponent<TextColor>,
+    )> {
         // Root
         if index == 0 {
             let (text, font, color) = self.roots.get_mut(root_entity).ok()?;
@@ -326,12 +333,20 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     }
 
     /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_font(&mut self, root_entity: Entity, index: usize) -> Option<Mut<TextFont>> {
+    pub fn get_font(
+        &mut self,
+        root_entity: Entity,
+        index: usize,
+    ) -> Option<MutComponent<TextFont>> {
         self.get(root_entity, index).map(|(_, _, _, font, _)| font)
     }
 
     /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_color(&mut self, root_entity: Entity, index: usize) -> Option<Mut<TextColor>> {
+    pub fn get_color(
+        &mut self,
+        root_entity: Entity,
+        index: usize,
+    ) -> Option<MutComponent<TextColor>> {
         self.get(root_entity, index)
             .map(|(_, _, _, _, color)| color)
     }
@@ -346,14 +361,14 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn font(&mut self, root_entity: Entity, index: usize) -> Mut<TextFont> {
+    pub fn font(&mut self, root_entity: Entity, index: usize) -> MutComponent<TextFont> {
         self.get_font(root_entity, index).unwrap()
     }
 
     /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn color(&mut self, root_entity: Entity, index: usize) -> Mut<TextColor> {
+    pub fn color(&mut self, root_entity: Entity, index: usize) -> MutComponent<TextColor> {
         self.get_color(root_entity, index).unwrap()
     }
 
@@ -361,7 +376,13 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     pub fn for_each(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextFont>, Mut<TextColor>),
+        mut callback: impl FnMut(
+            Entity,
+            usize,
+            Mut<String>,
+            MutComponent<TextFont>,
+            MutComponent<TextColor>,
+        ),
     ) {
         self.for_each_until(root_entity, |a, b, c, d, e| {
             (callback)(a, b, c, d, e);
@@ -377,7 +398,11 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     }
 
     /// Invokes a callback on each span's [`TextFont`] in a text block, starting with the root entity.
-    pub fn for_each_font(&mut self, root_entity: Entity, mut callback: impl FnMut(Mut<TextFont>)) {
+    pub fn for_each_font(
+        &mut self,
+        root_entity: Entity,
+        mut callback: impl FnMut(MutComponent<TextFont>),
+    ) {
         self.for_each(root_entity, |_, _, _, font, _| {
             (callback)(font);
         });
@@ -387,7 +412,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     pub fn for_each_color(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Mut<TextColor>),
+        mut callback: impl FnMut(MutComponent<TextColor>),
     ) {
         self.for_each(root_entity, |_, _, _, _, color| {
             (callback)(color);
@@ -401,7 +426,13 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     pub fn for_each_until(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextFont>, Mut<TextColor>) -> bool,
+        mut callback: impl FnMut(
+            Entity,
+            usize,
+            Mut<String>,
+            MutComponent<TextFont>,
+            MutComponent<TextColor>,
+        ) -> bool,
     ) {
         // Root
         let Ok((text, font, color)) = self.roots.get_mut(root_entity) else {

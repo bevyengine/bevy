@@ -15,6 +15,7 @@ use crate::{
         RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
+    inheritance::InheritedComponents,
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
@@ -743,6 +744,8 @@ impl BundleInfo {
         storages: &mut Storages,
         components: &Components,
         observers: &Observers,
+        entities: &Entities,
+        inherited_components: &mut InheritedComponents,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
@@ -846,6 +849,12 @@ impl BundleInfo {
                 table_components,
                 sparse_set_components,
             );
+            inherited_components.init_inherited_components(
+                entities,
+                archetypes,
+                &mut storages.tables,
+                new_archetype_id,
+            );
             // Add an edge from the old archetype to the new archetype.
             archetypes[archetype_id]
                 .edges_mut()
@@ -882,6 +891,8 @@ impl BundleInfo {
         storages: &mut Storages,
         components: &Components,
         observers: &Observers,
+        entities: &Entities,
+        inherited_components: &mut InheritedComponents,
         archetype_id: ArchetypeId,
         intersection: bool,
     ) -> Option<ArchetypeId> {
@@ -956,6 +967,12 @@ impl BundleInfo {
                 next_table_id,
                 next_table_components,
                 next_sparse_set_components,
+            );
+            inherited_components.init_inherited_components(
+                entities,
+                archetypes,
+                &mut storages.tables,
+                new_archetype_id,
             );
             Some(new_archetype_id)
         };
@@ -1038,6 +1055,8 @@ impl<'w> BundleInserter<'w> {
             &mut world.storages,
             &world.components,
             &world.observers,
+            &world.entities,
+            &mut world.inherited_components,
             archetype_id,
         );
         if new_archetype_id == archetype_id {
@@ -1299,7 +1318,38 @@ impl<'w> BundleInserter<'w> {
             }
         };
 
-        let new_archetype = &*new_archetype;
+        let (new_archetype_id, is_inherited) = (new_archetype.id(), new_archetype.is_inherited());
+
+        if is_inherited {
+            let old_archetype_id = location.archetype_id;
+            let world = self.world.world_mut();
+            if new_location.table_id != location.table_id {
+                world
+                    .inherited_components
+                    .update_inherited_archetypes::<true>(
+                        &mut world.archetypes,
+                        &mut world.storages.tables,
+                        new_archetype_id,
+                        old_archetype_id,
+                        entity,
+                        new_location,
+                    );
+            } else {
+                world
+                    .inherited_components
+                    .update_inherited_archetypes::<false>(
+                        &mut world.archetypes,
+                        &mut world.storages.tables,
+                        new_archetype_id,
+                        old_archetype_id,
+                        entity,
+                        new_location,
+                    );
+            }
+        }
+
+        let new_archetype = &self.world.archetypes()[new_archetype_id];
+
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
 
@@ -1409,6 +1459,8 @@ impl<'w> BundleSpawner<'w> {
             &mut world.storages,
             &world.components,
             &world.observers,
+            &world.entities,
+            &mut world.inherited_components,
             ArchetypeId::EMPTY,
         );
         let archetype = &mut world.archetypes[new_archetype_id];

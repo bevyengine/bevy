@@ -1,11 +1,13 @@
+use core::marker::PhantomData;
+
 use crate::{
     archetype::Archetype,
     component::{ComponentId, Components, Tick},
     query::FilteredAccess,
-    storage::Table,
+    storage::{Table, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use variadics_please::all_tuples;
+use variadics_please::all_tuples_enumerated;
 
 /// Types that can be used as parameters in a [`Query`].
 /// Types that implement this should also implement either [`QueryData`] or [`QueryFilter`]
@@ -98,8 +100,14 @@ pub unsafe trait WorldQuery {
     /// # Safety
     ///
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
+    /// - `table_id` must match `table`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        table: &'w Table,
+        table_id: TableId,
+    );
 
     /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
@@ -130,10 +138,15 @@ pub unsafe trait WorldQuery {
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool;
+
+    #[inline(always)]
+    fn is_shared<'w>(_fetch: &Self::Fetch<'w>) -> bool {
+        false
+    }
 }
 
 macro_rules! impl_tuple_world_query {
-    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($n:tt, $name: ident, $state: ident)),*) => {
 
         #[expect(
             clippy::allow_attributes,
@@ -158,47 +171,47 @@ macro_rules! impl_tuple_world_query {
         /// `update_component_access` adds all `With` and `Without` filters from the subqueries.
         /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
-            type Fetch<'w> = ($($name::Fetch<'w>,)*);
+            type Fetch<'w> = (($($name::Fetch<'w>,)*), usize);
             type State = ($($name::State,)*);
 
 
+            #[inline(always)]
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-                let ($($name,)*) = fetch;
-                ($(
-                    $name::shrink_fetch($name),
-                )*)
+                let ($($name,)*) = fetch.0;
+                (($( $name::shrink_fetch($name),)*), fetch.1)
             }
 
-            #[inline]
+            #[inline(always)]
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*)
+                (($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*), 0)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
-            #[inline]
+            #[inline(always)]
             unsafe fn set_archetype<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 state: &Self::State,
                 archetype: &'w Archetype,
                 table: &'w Table
             ) {
-                let ($($name,)*) = fetch;
+                let ($($name,)*) = &mut fetch.0;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
                 $(unsafe { $name::set_archetype($name, $state, archetype, table); })*
+                $(if $name::is_shared($name) {fetch.1 |= 1 << $n;} )*
             }
 
-            #[inline]
-            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-                let ($($name,)*) = fetch;
+            #[inline(always)]
+            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table, table_id: TableId) {
+                let ($($name,)*) = &mut fetch.0;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_table($name, $state, table); })*
+                $(unsafe { $name::set_table($name, $state, table, table_id); })*
+                $(if $name::is_shared($name) {fetch.1 |= 1 << $n;} )*
             }
-
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = state;
@@ -219,7 +232,7 @@ macro_rules! impl_tuple_world_query {
     };
 }
 
-all_tuples!(
+all_tuples_enumerated!(
     #[doc(fake_variadic)]
     impl_tuple_world_query,
     0,

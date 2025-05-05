@@ -14,6 +14,7 @@ use crate::{
         EntityLocation,
     },
     event::Event,
+    inheritance::{InheritedComponents, MutComponent},
     observer::Observer,
     query::{Access, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
@@ -585,7 +586,7 @@ impl<'w> EntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<MutComponent<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.cell.get_mut() }
     }
@@ -597,7 +598,7 @@ impl<'w> EntityMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<MutComponent<'_, T>> {
         // SAFETY:
         // - &mut self implies exclusive access for duration of returned value
         // - Caller ensures `T` is a mutable component
@@ -608,7 +609,7 @@ impl<'w> EntityMut<'w> {
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutComponent<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.cell.get_mut() }
     }
@@ -620,7 +621,7 @@ impl<'w> EntityMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<MutComponent<'w, T>> {
         // SAFETY:
         // - Consuming `self` implies exclusive access
         // - Caller ensures `T` is a mutable component
@@ -1342,7 +1343,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<MutComponent<'_, T>> {
         self.as_mutable().into_mut()
     }
 
@@ -1438,7 +1439,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<MutComponent<'_, T>> {
         self.as_mutable().into_mut_assume_mutable()
     }
 
@@ -1450,7 +1451,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutComponent<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut() }
     }
@@ -1467,7 +1468,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<MutComponent<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut_assume_mutable() }
     }
@@ -2000,6 +2001,8 @@ impl<'w> EntityWorldMut<'w> {
                 storages,
                 &registrator,
                 &world.observers,
+                &world.entities,
+                &mut world.inherited_components,
                 old_location.archetype_id,
                 false,
             )?
@@ -2036,6 +2039,7 @@ impl<'w> EntityWorldMut<'w> {
         let storages = &mut world.storages;
         let components = &mut world.components;
         let entities = &mut world.entities;
+        let inherited_components = &mut world.inherited_components;
         let removed_components = &mut world.removed_components;
 
         let entity = self.entity;
@@ -2074,6 +2078,8 @@ impl<'w> EntityWorldMut<'w> {
                 entities,
                 archetypes,
                 storages,
+                inherited_components,
+                components,
                 new_archetype_id,
             );
         }
@@ -2099,6 +2105,8 @@ impl<'w> EntityWorldMut<'w> {
         entities: &mut Entities,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
+        inherited_components: &mut InheritedComponents,
+        components: &Components,
         new_archetype_id: ArchetypeId,
     ) {
         let old_archetype = &mut archetypes[old_archetype_id];
@@ -2119,6 +2127,7 @@ impl<'w> EntityWorldMut<'w> {
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
+
         let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
@@ -2159,6 +2168,28 @@ impl<'w> EntityWorldMut<'w> {
             new_location
         };
 
+        if archetypes[new_archetype_id].is_inherited() {
+            if old_table_id == archetypes[new_archetype_id].table_id() {
+                inherited_components.update_inherited_archetypes::<false>(
+                    archetypes,
+                    &mut storages.tables,
+                    new_archetype_id,
+                    old_archetype_id,
+                    entity,
+                    new_location,
+                );
+            } else {
+                inherited_components.update_inherited_archetypes::<true>(
+                    archetypes,
+                    &mut storages.tables,
+                    new_archetype_id,
+                    old_archetype_id,
+                    entity,
+                    new_location,
+                );
+            }
+        }
+
         *self_location = new_location;
         // SAFETY: The entity is valid and has been moved to the new location already.
         unsafe {
@@ -2185,6 +2216,8 @@ impl<'w> EntityWorldMut<'w> {
                 &mut world.storages,
                 &world.components,
                 &world.observers,
+                &world.entities,
+                &mut world.inherited_components,
                 location.archetype_id,
                 // components from the bundle that are not present on the entity are ignored
                 true,
@@ -2247,6 +2280,8 @@ impl<'w> EntityWorldMut<'w> {
             &mut world.entities,
             &mut world.archetypes,
             &mut world.storages,
+            &mut world.inherited_components,
+            &world.components,
             new_archetype_id,
         );
 
@@ -3025,7 +3060,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> Entry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 1);
     /// ```
     #[inline]
-    pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
+    pub fn and_modify<F: FnOnce(MutComponent<'_, T>)>(self, f: F) -> Self {
         match self {
             Entry::Occupied(mut entry) => {
                 f(entry.get_mut());
@@ -3254,7 +3289,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 17);
     /// ```
     #[inline]
-    pub fn get_mut(&mut self) -> Mut<'_, T> {
+    pub fn get_mut(&mut self) -> MutComponent<'_, T> {
         // This shouldn't panic because if we have an OccupiedEntry the component must exist.
         self.entity_world.get_mut::<T>().unwrap()
     }
@@ -3283,7 +3318,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 15);
     /// ```
     #[inline]
-    pub fn into_mut(self) -> Mut<'a, T> {
+    pub fn into_mut(self) -> MutComponent<'a, T> {
         // This shouldn't panic because if we have an OccupiedEntry the component must exist.
         self.entity_world.get_mut().unwrap()
     }
@@ -3798,7 +3833,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<MutComponent<'_, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
@@ -3811,7 +3846,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutComponent<'w, T>> {
         // SAFETY:
         // - We have write access
         // - The bound `T: Component<Mutability = Mutable>` ensures the component is mutable
@@ -3826,7 +3861,7 @@ impl<'w> FilteredEntityMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<MutComponent<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
@@ -4311,7 +4346,7 @@ where
     /// Returns `None` if the component doesn't have a component of that type or
     /// if the type is one of the excluded components.
     #[inline]
-    pub fn get_mut<C>(&mut self) -> Option<Mut<'_, C>>
+    pub fn get_mut<C>(&mut self) -> Option<MutComponent<'_, C>>
     where
         C: Component<Mutability = Mutable>,
     {

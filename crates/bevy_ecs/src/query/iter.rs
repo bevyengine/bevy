@@ -5,7 +5,7 @@ use crate::{
     component::Tick,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
-    storage::{Table, TableRow, Tables},
+    storage::{Table, TableId, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef,
@@ -130,7 +130,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     ///  # Safety
     ///  - `range` must be in `[0, storage::entity_count)` or None.
-    #[inline]
+    #[inline(always)]
     pub(super) unsafe fn fold_over_storage_range<B, Func>(
         &mut self,
         mut accum: B,
@@ -153,7 +153,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 // - The fetched table matches both D and F
                 // - caller ensures `range` is within `[0, table.entity_count)`
                 // - The if block ensures that the query iteration is dense
-                unsafe { self.fold_over_table_range(accum, func, table, range) };
+                unsafe { self.fold_over_table_range(accum, func, table, table_id, range) };
         } else {
             // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be archetype ids.
             let archetype_id = unsafe { storage.archetype_id };
@@ -192,13 +192,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Safety
     ///  - all `rows` must be in `[0, table.entity_count)`.
     ///  - `table` must match D and F
+    ///  - `table_id` must match `table`
     ///  - The query iteration must be dense (i.e. `self.query_state.is_dense` must be true).
-    #[inline]
+    #[inline(always)]
     pub(super) unsafe fn fold_over_table_range<B, Func>(
         &mut self,
         mut accum: B,
         func: &mut Func,
         table: &'w Table,
+        table_id: TableId,
         rows: Range<usize>,
     ) -> B
     where
@@ -212,11 +214,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             "TableRow is only valid up to u32::MAX"
         );
 
-        D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
+        D::set_table(
+            &mut self.cursor.fetch,
+            &self.query_state.fetch_state,
+            table,
+            table_id,
+        );
         F::set_table(
             &mut self.cursor.filter,
             &self.query_state.filter_state,
             table,
+            table_id,
         );
 
         let entities = table.entities();
@@ -248,7 +256,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
-    #[inline]
+    #[inline(always)]
     pub(super) unsafe fn fold_over_archetype_range<B, Func>(
         &mut self,
         mut accum: B,
@@ -317,7 +325,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///  - `archetype` must match D and F
     ///  - `archetype` must have the same length with it's table.
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
-    #[inline]
+    #[inline(always)]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
         &mut self,
         mut accum: B,
@@ -898,7 +906,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
         (min_size, Some(max_size))
     }
 
-    #[inline]
+    #[inline(always)]
     fn fold<B, Func>(mut self, init: B, mut func: Func) -> B
     where
         Func: FnMut(B, Self::Item) -> B,
@@ -2473,8 +2481,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
-                        D::set_table(&mut self.fetch, &query_state.fetch_state, table);
-                        F::set_table(&mut self.filter, &query_state.filter_state, table);
+                        D::set_table(&mut self.fetch, &query_state.fetch_state, table, table_id);
+                        F::set_table(&mut self.filter, &query_state.filter_state, table, table_id);
                     }
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
