@@ -297,6 +297,21 @@ impl PluginGroup for DefaultPickingPlugins {
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug, Clone)]
 /// Controls the behavior of picking
+///
+/// ## Custom initialization
+/// ```
+/// # use bevy_app::App;
+/// # use bevy_picking::{PickingSettings, PickingPlugin};
+/// App::new()
+///     .insert_resource(PickingSettings {
+///         is_enabled: true,
+///         is_input_enabled: false,
+///         is_hover_enabled: true,
+///         is_window_picking_enabled: false,
+///     })
+///     // or DefaultPlugins
+///     .add_plugins(PickingPlugin);
+/// ```
 pub struct PickingSettings {
     /// Enables and disables all picking features.
     pub is_enabled: bool,

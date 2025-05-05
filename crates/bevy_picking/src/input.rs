@@ -42,6 +42,19 @@ pub mod prelude {
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
 #[reflect(Resource, Default, Clone)]
 /// Settings for enabling and disabling updating mouse and touch inputs for picking
+///
+/// ## Custom initialization
+/// ```
+/// # use bevy_app::App;
+/// # use bevy_picking::input::{PointerInputSettings,PointerInputPlugin};
+/// App::new()
+///     .insert_resource(PointerInputSettings {
+///         is_touch_enabled: false,
+///         is_mouse_enabled: true,
+///     })
+///     // or DefaultPlugins
+///     .add_plugins(PointerInputPlugin);
+/// ```
 pub struct PointerInputSettings {
     /// Should touch inputs be updated?
     pub is_touch_enabled: bool,
