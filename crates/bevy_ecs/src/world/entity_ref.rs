@@ -2773,6 +2773,8 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    ///
+    /// Panics if the given system is an exclusive system.
     #[track_caller]
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,

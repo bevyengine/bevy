@@ -78,7 +78,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
 
 stackfuture = { version = "0.3", default-features = false }
-atomicow = { version = "1.0", default-features = false }
+atomicow = { version = "1.1", default-features = false }
 async-broadcast = { version = "0.7.2", default-features = false, optional = true }
 async-fs = { version = "2.0", default-features = false, optional = true }
 async-lock = { version = "3.0", default-features = false, optional = true }
