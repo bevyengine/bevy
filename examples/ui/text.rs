@@ -3,6 +3,7 @@
 //! It displays the current FPS in the top left corner, as well as text that changes color
 //! in the bottom right. For text within a scene, please see the text2d example.
 
+use bevy::text::FontFeaturesBuilder;
 use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -111,13 +112,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|parent| {
             let text_rows = [
-                ("Smallcaps: ", b"smcp", "Hello World"),
-                ("Ligatures: ", b"liga", "fi fl ff ffi ffl"),
-                ("Fractions: ", b"frac", "12/134"),
-                ("Superscript: ", b"sups", "Up here!"),
-                ("Subscript: ", b"subs", "Down here!"),
-                ("Old-style figures: ", b"onum", "1234567890"),
-                ("Lining figures: ", b"lnum", "1234567890"),
+                ("Smallcaps: ", FontFeatures::SMALL_CAPS, "Hello World"),
+                (
+                    "Ligatures: ",
+                    FontFeatures::STANDARD_LIGATURES,
+                    "fi fl ff ffi ffl",
+                ),
+                ("Fractions: ", FontFeatures::FRACTIONS, "12/134"),
+                ("Superscript: ", FontFeatures::SUPERSCRIPT, "Up here!"),
+                ("Subscript: ", FontFeatures::SUBSCRIPT, "Down here!"),
+                (
+                    "Oldstyle figures: ",
+                    FontFeatures::OLDSTYLE_FIGURES,
+                    "1234567890",
+                ),
+                (
+                    "Lining figures: ",
+                    FontFeatures::LINING_FIGURES,
+                    "1234567890",
+                ),
             ];
 
             for (title, feature, text) in text_rows {
@@ -134,7 +147,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextFont {
                         font: opentype_font_handle.clone(),
                         font_size: 24.0,
-                        font_features: FontFeatures::new().enable(feature),
+                        font_features: FontFeaturesBuilder::new().enable(feature).build(),
                         ..default()
                     },
                 ));
