@@ -486,19 +486,18 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_ecs::system::SystemChangeTick;
 /// # use bevy_ecs::query::Spawned;
 /// # use bevy_ecs::query::SpawnDetails;
 /// #
 /// # #[derive(Component, Debug)]
 /// # struct Name {};
 ///
-/// fn print_spawn_ticks(query: Query<(Entity, SpawnDetails)>, system_ticks: SystemChangeTick) {
-///     for (entity, spawned) in &query {
-///         if spawned.is_newer_than(system_ticks.last_run(), system_ticks.this_run()) {
+/// fn print_spawn_ticks(query: Query<(Entity, SpawnDetails)>) {
+///     for (entity, spawn_details) in &query {
+///         if spawn_details.is_spawned() {
 ///             print!("new ");
 ///         }
-///         println!("entity {entity:?} spawned at {spawned:?}");        
+///         println!("entity {entity:?} spawned at {:?}", spawn_details.spawned_at());        
 ///     }
 /// }
 ///
