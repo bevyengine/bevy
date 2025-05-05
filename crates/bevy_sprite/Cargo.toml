@@ -41,6 +41,7 @@ bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+lettuces = { version = "0.0.7", features = ["bevy", "bevy_reflect", "serde"] }
 
 [lints]
 workspace = true

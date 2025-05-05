@@ -22,9 +22,7 @@ use bevy_render::{
 };
 use tracing::warn;
 
-mod tilemap_chunk_material;
-
-pub use tilemap_chunk_material::*;
+use super::{TilemapChunkMaterial, ATTRIBUTE_TILE_INDEX};
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks and updating their indices.
