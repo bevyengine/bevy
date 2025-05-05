@@ -228,13 +228,6 @@ use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
 use tracing::error;
 
-#[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
-compile_error!(
-    "The \"file_watcher\" feature for hot reloading requires the \
-    \"multi_threaded\" feature to be functional.\n\
-    Consider either disabling the \"file_watcher\" feature or enabling \"multi_threaded\""
-);
-
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
 /// which can be something like a filesystem, a network, etc.
 ///
