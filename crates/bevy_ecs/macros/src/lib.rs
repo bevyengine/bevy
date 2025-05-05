@@ -78,6 +78,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
+    let mut field_get_value_components = Vec::new();
     let mut field_from_components = Vec::new();
     let mut field_required_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
@@ -105,6 +106,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         field_from_components.push(quote! {
                             #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                         });
+                        field_get_value_components.push(quote! {
+                            self.#field.get_value_components(components, &mut *ids);
+                        });
                     }
                     None => {
                         let index = Index::from(i);
@@ -113,6 +117,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         });
                         field_from_components.push(quote! {
                             #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
+                        });
+                        field_get_value_components.push(quote! {
+                            self.#index.get_value_components(components, &mut *ids);
                         });
                     }
                 }
@@ -184,6 +191,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             ) {
                 #(#field_get_components)*
             }
+            // #[allow(unused_variables)]
+            // #[inline]
+            // fn get_value_components(
+            //     &self,
+            //     components: &mut #ecs_path::component::ComponentsRegistrator,
+            //     ids: &mut impl FnMut(#ecs_path::component::ComponentId)
+            // ) {
+            //     #(#field_get_value_components)*
+            // }
         }
     })
 }

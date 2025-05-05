@@ -19,6 +19,7 @@ use crate::{
     prelude::World,
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
+    shared_component::{BundleRegisterByValue, SharedComponentKey, SuperKeyTrait},
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REPLACE},
 };
@@ -26,7 +27,10 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::TypeIdMap;
-use core::{any::TypeId, ptr::NonNull};
+use core::{
+    any::{Any, TypeId},
+    ptr::NonNull,
+};
 use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
@@ -204,6 +208,13 @@ pub trait DynamicBundle {
     /// ownership of the component values to `func`.
     #[doc(hidden)]
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
+
+    fn get_value_components(
+        &self,
+        _components: &mut ComponentsRegistrator,
+        _ids: &mut impl FnMut(ComponentId, Box<dyn SharedComponentKey>),
+    ) {
+    }
 }
 
 /// An operation on an [`Entity`] that occurs _after_ inserting the [`Bundle`] that defined this bundle effect.
@@ -266,6 +277,17 @@ impl<C: Component> DynamicBundle for C {
     #[inline]
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
         OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, ptr));
+    }
+
+    #[inline]
+    fn get_value_components(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId, Box<dyn SharedComponentKey>),
+    ) {
+        if let Some(key) = (self as &dyn Any).downcast_ref::<<C::Key as SuperKeyTrait>::KeyType>() {
+            ids(components.register_component::<C>(), key.clone_key())
+        }
     }
 }
 
@@ -365,6 +387,18 @@ macro_rules! tuple_impl {
                 ($(
                     $name.get_components(&mut *func),
                 )*)
+            }
+
+            #[inline(always)]
+            fn get_value_components(
+                &self,
+                components: &mut ComponentsRegistrator,
+                ids: &mut impl FnMut(ComponentId, Box<dyn SharedComponentKey>),
+            ) {
+                let ($($name,)*) = &self;
+                $(
+                    $name.get_value_components(components, &mut *ids);
+                )*
             }
         }
     }
@@ -734,10 +768,11 @@ impl BundleInfo {
         components: &Components,
         observers: &Observers,
         archetype_id: ArchetypeId,
+        value_components: impl Iterator<Item = (ComponentId, Box<dyn SharedComponentKey>)>,
     ) -> ArchetypeId {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
-            .get_archetype_after_bundle_insert(self.id)
+            .get_archetype_after_bundle_insert(self.id, value_components)
         {
             return archetype_after_insert_id;
         }
@@ -998,6 +1033,7 @@ impl<'w> BundleInserter<'w> {
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
+        value_components: impl Iterator<Item = (ComponentId, Box<dyn SharedComponentKey>)>,
     ) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
@@ -1006,7 +1042,15 @@ impl<'w> BundleInserter<'w> {
             .bundles
             .register_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
-        unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
+        unsafe {
+            Self::new_with_id(
+                world,
+                archetype_id,
+                bundle_id,
+                change_tick,
+                value_components,
+            )
+        }
     }
 
     /// Creates a new [`BundleInserter`].
@@ -1019,6 +1063,7 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         bundle_id: BundleId,
         change_tick: Tick,
+        value_components: impl Iterator<Item = (ComponentId, Box<dyn SharedComponentKey>)>,
     ) -> Self {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
@@ -1033,7 +1078,7 @@ impl<'w> BundleInserter<'w> {
         if new_archetype_id == archetype_id {
             let archetype = &mut world.archetypes[archetype_id];
             // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
-            let archetype_after_insert = unsafe {
+            let (archetype_after_insert, _) = unsafe {
                 archetype
                     .edges()
                     .get_archetype_after_bundle_insert_internal(bundle_id)

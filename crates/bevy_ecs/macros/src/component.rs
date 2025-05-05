@@ -265,6 +265,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
+            type Key = #bevy_ecs_path::shared_component::NoKey<Self>;
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::ComponentsRegistrator,

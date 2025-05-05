@@ -24,12 +24,17 @@ use crate::{
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
     observer::Observers,
+    shared_component::SharedComponentKey,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::collections::HashMap;
+use bevy_platform::{
+    collections::HashMap,
+    hash::{DefaultHasher, FixedHasher},
+};
 use core::{
-    hash::Hash,
+    any::Any,
+    hash::{Hash, Hasher},
     ops::{Index, IndexMut, RangeFrom},
 };
 
@@ -197,8 +202,15 @@ impl BundleComponentStatus for SpawnBundleStatus {
 #[derive(Default)]
 pub struct Edges {
     insert_bundle: SparseArray<BundleId, ArchetypeAfterBundleInsert>,
+    insert_value: HashMap<ValueEdge, ArchetypeId>,
     remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
     take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
+}
+
+#[derive(Hash, Eq, PartialEq)]
+struct ValueEdge {
+    archetype_id: ArchetypeId,
+    value_components: Box<[Box<dyn SharedComponentKey>]>,
 }
 
 impl Edges {
@@ -208,9 +220,13 @@ impl Edges {
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     #[inline]
-    pub fn get_archetype_after_bundle_insert(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
-        self.get_archetype_after_bundle_insert_internal(bundle_id)
-            .map(|bundle| bundle.archetype_id)
+    pub fn get_archetype_after_bundle_insert(
+        &self,
+        bundle_id: BundleId,
+        value_components: impl Iterator<Item = (ComponentId, Box<dyn SharedComponentKey>)>,
+    ) -> Option<ArchetypeId> {
+        self.get_archetype_after_bundle_insert_internal(bundle_id, value_components)
+            .map(|(_, archetype_id)| archetype_id)
     }
 
     /// Internal version of `get_archetype_after_bundle_insert` that
@@ -219,8 +235,24 @@ impl Edges {
     pub(crate) fn get_archetype_after_bundle_insert_internal(
         &self,
         bundle_id: BundleId,
-    ) -> Option<&ArchetypeAfterBundleInsert> {
-        self.insert_bundle.get(bundle_id)
+        value_components: impl Iterator<Item = (ComponentId, Box<dyn SharedComponentKey>)>,
+    ) -> Option<(&ArchetypeAfterBundleInsert, ArchetypeId)> {
+        self.insert_bundle.get(bundle_id).and_then(|result| {
+            let mut value_components: Vec<_> = value_components.collect();
+            value_components.sort_by_key(|(id, _)| *id);
+            let value_components: Box<_> =
+                value_components.into_iter().map(|(_, key)| key).collect();
+            if value_components.is_empty() {
+                Some((result, result.archetype_id))
+            } else {
+                self.insert_value
+                    .get(&ValueEdge {
+                        archetype_id: result.archetype_id,
+                        value_components,
+                    })
+                    .map(|&archetype_id| (result, archetype_id))
+            }
+        })
     }
 
     /// Caches the target archetype when inserting a bundle into the source archetype.

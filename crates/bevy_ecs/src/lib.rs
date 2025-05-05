@@ -52,6 +52,7 @@ pub mod relationship;
 pub mod removal_detection;
 pub mod resource;
 pub mod schedule;
+pub mod shared_component;
 pub mod spawn;
 pub mod storage;
 pub mod system;

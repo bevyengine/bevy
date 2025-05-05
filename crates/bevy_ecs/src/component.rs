@@ -8,6 +8,7 @@ use crate::{
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     resource::Resource,
+    shared_component::{SharedComponentKey, SuperKeyTrait},
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
@@ -485,6 +486,8 @@ use thiserror::Error;
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
+
+    type Key: SuperKeyTrait<ValueType = Self>;
 
     /// A marker type to assist Bevy with determining if this component is
     /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
@@ -1722,7 +1725,7 @@ impl<'w> ComponentsRegistrator<'w> {
         &mut self,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId {
-        let type_id = TypeId::of::<T>();
+        let type_id = TypeId::of::<<T::Key as SuperKeyTrait>::RegisterComponent>();
         if let Some(id) = self.indices.get(&type_id) {
             return *id;
         }
@@ -1761,7 +1764,7 @@ impl<'w> ComponentsRegistrator<'w> {
         unsafe {
             self.register_component_inner(id, ComponentDescriptor::new::<T>());
         }
-        let type_id = TypeId::of::<T>();
+        let type_id = TypeId::of::<<T::Key as SuperKeyTrait>::RegisterComponent>();
         let prev = self.indices.insert(type_id, id);
         debug_assert!(prev.is_none());
 
