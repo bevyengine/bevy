@@ -87,18 +87,6 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 #[derive(Default)]
 pub struct TextPlugin;
 
-/// Text is rendered for two different view projections;
-/// 2-dimensional text ([`Text2d`]) is rendered in "world space" with a `BottomToTop` Y-axis,
-/// while UI is rendered with a `TopToBottom` Y-axis.
-/// This matters for text because the glyph positioning is different in either layout.
-/// For `TopToBottom`, 0 is the top of the text, while for `BottomToTop` 0 is the bottom.
-pub enum YAxisOrientation {
-    /// Top to bottom Y-axis orientation, for UI
-    TopToBottom,
-    /// Bottom to top Y-axis orientation, for 2d world space
-    BottomToTop,
-}
-
 /// System set in [`PostUpdate`] where all 2d text update systems are executed.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct Update2dText;
