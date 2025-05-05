@@ -287,7 +287,10 @@ impl Observer {
         let system = Box::new(IntoObserverSystem::into_system(system));
         assert!(
             !system.is_exclusive(),
-            "Exclusive system may not be used as observer: `{}`",
+            concat!(
+                "Exclusive system `{}` may not be used as observer.\n",
+                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
+            ),
             system.name()
         );
         Self {
@@ -542,7 +545,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Exclusive system may not be used as observer: `bevy_ecs::observer::runner::tests::exclusive_system_cannot_be_observer::system`"
+        expected = "Exclusive system `bevy_ecs::observer::runner::tests::exclusive_system_cannot_be_observer::system` may not be used as observer.\nInstead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
     )]
     fn exclusive_system_cannot_be_observer() {
         fn system(_: Trigger<TriggerEvent>, _world: &mut World) {}
