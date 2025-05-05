@@ -2206,7 +2206,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * Tuples of query data and `#[derive(QueryData)]` structs have the union of the access of their subqueries
     /// * [`EntityMut`](crate::world::EntityMut) has read and write access to all components, but no required access
     /// * [`EntityRef`](crate::world::EntityRef) has read access to all components, but no required access
-    /// * [`Entity`], [`EntityLocation`], [`SpawnedTick`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
+    /// * [`Entity`], [`EntityLocation`], [`SpawnDetails`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
     ///   so can be added to any query
     /// * [`FilteredEntityRef`](crate::world::FilteredEntityRef) and [`FilteredEntityMut`](crate::world::FilteredEntityMut)
     ///   have access determined by the [`QueryBuilder`](crate::query::QueryBuilder) used to construct them.
@@ -2296,7 +2296,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ```
     ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
-    /// [`SpawnedTick`]: crate::query::SpawnedTick
+    /// [`SpawnDetails`]: crate::query::SpawnDetails
     /// [`&Archetype`]: crate::archetype::Archetype
     /// [`Has<T>`]: crate::query::Has
     #[track_caller]

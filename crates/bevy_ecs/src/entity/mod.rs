@@ -545,15 +545,6 @@ unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 pub struct Entities {
     meta: Vec<EntityMeta>,
 
-    /// The `Tick` the entity of the same index did spawn or despawn at.
-    ///
-    /// Has the same length as [`Self::meta`].
-    ///
-    /// Value is init if the entity of this index had a valid archetype at some point.
-    ///
-    /// Value is uninit if entity was merely allocated yet.
-    spawned_or_despawned_at: Vec<MaybeUninit<Tick>>,
-
     /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
     /// that have been freed or are in the process of being allocated:
     ///
@@ -602,7 +593,6 @@ impl Entities {
     pub(crate) const fn new() -> Self {
         Entities {
             meta: Vec::new(),
-            spawned_or_despawned_at: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
         }
@@ -703,7 +693,6 @@ impl Entities {
         } else {
             let index = u32::try_from(self.meta.len()).expect("too many entities");
             self.meta.push(EntityMeta::EMPTY);
-            self.spawned_or_despawned_at.push(MaybeUninit::uninit());
             Entity::from_raw(index)
         }
     }
@@ -724,10 +713,8 @@ impl Entities {
                 .extend((self.meta.len() as u32)..entity.index());
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            let new_len = entity.index() as usize + 1;
-            self.meta.resize(new_len, EntityMeta::EMPTY);
-            self.spawned_or_despawned_at
-                .resize(new_len, MaybeUninit::uninit());
+            self.meta
+                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
             None
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
             self.pending.swap_remove(index);
@@ -768,10 +755,8 @@ impl Entities {
                 .extend((self.meta.len() as u32)..entity.index());
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            let new_len = entity.index() as usize + 1;
-            self.meta.resize(new_len, EntityMeta::EMPTY);
-            self.spawned_or_despawned_at
-                .resize(new_len, MaybeUninit::uninit());
+            self.meta
+                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
             AllocAtWithoutReplacement::DidNotExist
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
             self.pending.swap_remove(index);
@@ -839,9 +824,7 @@ impl Entities {
             .expect("64-bit atomic operations are not supported on this platform.")
             - freelist_size;
         if shortfall > 0 {
-            let additional = shortfall as usize;
-            self.meta.reserve(additional);
-            self.spawned_or_despawned_at.reserve(additional);
+            self.meta.reserve(shortfall as usize);
         }
     }
 
@@ -856,7 +839,6 @@ impl Entities {
     /// Clears all [`Entity`] from the World.
     pub fn clear(&mut self) {
         self.meta.clear();
-        self.spawned_or_despawned_at.clear();
         self.pending.clear();
         *self.free_cursor.get_mut() = 0;
     }
@@ -912,14 +894,7 @@ impl Entities {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
-        by.map(|by| meta.spawned_or_despawned_by = MaybeLocation::new(Some(by)));
-
-        // SAFETY: Caller guarantees that `index` a valid entity index
-        let spawned_or_despawned_at = unsafe {
-            self.spawned_or_despawned_at
-                .get_unchecked_mut(index as usize)
-        };
-        *spawned_or_despawned_at = MaybeUninit::new(at);
+        meta.spawned_or_despawned = MaybeUninit::new(SpawnedOrDespawned { by, at });
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
@@ -985,8 +960,6 @@ impl Entities {
             let old_meta_len = self.meta.len();
             let new_meta_len = old_meta_len + -current_free_cursor as usize;
             self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            self.spawned_or_despawned_at
-                .resize(new_meta_len, MaybeUninit::uninit());
             for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
                 init(
                     Entity::from_raw_and_generation(index as u32, meta.generation),
@@ -1070,8 +1043,8 @@ impl Entities {
         entity: Entity,
     ) -> MaybeLocation<Option<&'static Location<'static>>> {
         MaybeLocation::new_with_flattened(|| {
-            self.get_entity_meta(entity)
-                .map(|meta| meta.spawned_or_despawned_by.map(|l| l.unwrap()))
+            self.entity_get_spawned_or_despawned(entity)
+                .map(|spawned_or_despawned| spawned_or_despawned.by)
         })
     }
 
@@ -1079,61 +1052,56 @@ impl Entities {
     /// Returns `None` if its index has been reused by another entity or if this entity
     /// has never existed.
     pub fn entity_get_spawned_or_despawned_at(&self, entity: Entity) -> Option<Tick> {
-        self.get_entity_meta(entity).is_some().then(|| {
-            // SAFETY:
-            // self.meta and self.spawned_or_despawned_at have the same length
-            // get_entity_meta returning Some: index is in range, spawn/despawn tick is init
-            unsafe { self.entity_get_spawned_or_despawned_at_unchecked(entity) }
-        })
+        self.entity_get_spawned_or_despawned(entity)
+            .map(|spawned_or_despawned| spawned_or_despawned.at)
     }
 
-    /// Returns the [`Tick`] at which this entity has last been spawned or despawned.
-    ///
-    /// # Safety
-    ///
-    /// The given entity must be alive or must have been alive without being reused.
-    pub unsafe fn entity_get_spawned_or_despawned_at_unchecked(&self, entity: Entity) -> Tick {
-        // SAFETY:
-        // user ensured the entity is alive or despawned while not being overridden
-        let spawned_or_despawned_at = unsafe {
-            self.spawned_or_despawned_at
-                .get_unchecked(entity.index() as usize)
-        };
-        // SAFETY:
-        // user ensured the entity is alive or despawned while not being overridden
-        unsafe { MaybeUninit::assume_init(*spawned_or_despawned_at) }
-    }
-
-    /// Returns the [`EntityMeta`] for the given entity if the entity is alive or if
-    /// it was despawned without being overwritten.
+    /// Returns the [`SpawnedOrDespawned`] related to the entity's last spawn or
+    /// respawn. Returns `None` if its index has been reused by another entity or if
+    /// this entity has never existed.
     #[inline]
-    fn get_entity_meta(&self, entity: Entity) -> Option<EntityMeta> {
+    fn entity_get_spawned_or_despawned(&self, entity: Entity) -> Option<SpawnedOrDespawned> {
         self.meta
             .get(entity.index() as usize)
-            .copied()
             .filter(|meta|
             // Generation is incremented immediately upon despawn
             (meta.generation == entity.generation)
             || (meta.location.archetype_id == ArchetypeId::INVALID)
             && (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1)))
+            .map(|meta| {
+                // SAFETY: valid archetype or non-min generation is proof this is init
+                unsafe { meta.spawned_or_despawned.assume_init() }
+            })
+    }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned and the Tick of when that happened.
+    ///
+    /// # Safety
+    ///
+    /// The entity index must belong to an entity that is currently alive or, if it
+    /// despawned, was not overwritten by a new entity of the same index.
+    #[inline]
+    pub(crate) unsafe fn entity_get_spawned_or_despawned_unchecked(
+        &self,
+        entity: Entity,
+    ) -> (MaybeLocation, Tick) {
+        // SAFETY: caller ensures entity is allocated
+        let meta = unsafe { self.meta.get_unchecked(entity.index() as usize) };
+        // SAFETY: caller ensures entities of this index were at least spawned
+        let spawned_or_despawned = unsafe { meta.spawned_or_despawned.assume_init() };
+        (spawned_or_despawned.by, spawned_or_despawned.at)
     }
 
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for (index, meta) in self.meta.iter().enumerate() {
+        for meta in &mut self.meta {
             if meta.generation > NonZero::<u32>::MIN
                 || meta.location.archetype_id != ArchetypeId::INVALID
             {
-                // SAFETY:
-                // self.spawned_or_despawned_at has the same length as self.meta
-                let spawned_or_despawned_at =
-                    unsafe { self.spawned_or_despawned_at.get_unchecked_mut(index) };
-                // SAFETY:
-                // increased generation indicates the entity was once spawned OR
-                // valid archetype means the entity was spawned
-                let spawned_or_despawned_at =
-                    unsafe { MaybeUninit::assume_init_mut(spawned_or_despawned_at) };
-                spawned_or_despawned_at.check_tick(change_tick);
+                // SAFETY: non-min generation or valid archetype is proof this is init
+                let spawned_or_despawned = unsafe { meta.spawned_or_despawned.assume_init_mut() };
+                spawned_or_despawned.at.check_tick(change_tick);
             }
         }
     }
@@ -1198,7 +1166,13 @@ struct EntityMeta {
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
-    spawned_or_despawned_by: MaybeLocation<Option<&'static Location<'static>>>,
+    spawned_or_despawned: MaybeUninit<SpawnedOrDespawned>,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct SpawnedOrDespawned {
+    by: MaybeLocation,
+    at: Tick,
 }
 
 impl EntityMeta {
@@ -1206,7 +1180,7 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
-        spawned_or_despawned_by: MaybeLocation::new(None),
+        spawned_or_despawned: MaybeUninit::uninit(),
     };
 }
 

@@ -1143,7 +1143,8 @@ impl<'w> UnsafeEntityCell<'w> {
         unsafe {
             self.world()
                 .entities()
-                .entity_get_spawned_or_despawned_at_unchecked(self.entity)
+                .entity_get_spawned_or_despawned_unchecked(self.entity)
+                .1
         }
     }
 }

@@ -1012,7 +1012,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 /// A common use for this filter is one-time initialization.
 ///
 /// To retain all results without filtering but still check whether they were spawned after the
-/// system last ran, use [`SpawnedTick`](crate::query::SpawnedTick) instead.
+/// system last ran, use [`SpawnDetails`](crate::query::SpawnDetails) instead.
 ///
 /// **Note** that this includes entities that spawned before the first time this Query was run.
 ///
@@ -1032,19 +1032,16 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 /// ```
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_ecs::system::SystemChangeTick;
 /// # use bevy_ecs::query::Spawned;
-/// # use bevy_ecs::query::SpawnedTick;
+/// # use bevy_ecs::query::SpawnDetails;
 ///
 /// fn system1(query: Query<Entity, Spawned>) {
 ///     for entity in &query { /* entity spawned */ }
 /// }
 ///
-/// fn system2(query: Query<(Entity, SpawnedTick)>, system_ticks: SystemChangeTick) {
+/// fn system2(query: Query<(Entity, SpawnDetails)>) {
 ///     for (entity, spawned) in &query {
-///         if spawned.is_newer_than(system_ticks.last_run(), system_ticks.this_run()) {
-///             /* entity spawned */
-///         }
+///         if spawned.is_spawned() { /* entity spawned */ }
 ///     }
 /// }
 /// ```
@@ -1143,7 +1140,8 @@ unsafe impl QueryFilter for Spawned {
         let spawned = unsafe {
             fetch
                 .entities
-                .entity_get_spawned_or_despawned_at_unchecked(entity)
+                .entity_get_spawned_or_despawned_unchecked(entity)
+                .1
         };
         spawned.is_newer_than(fetch.last_run, fetch.this_run)
     }

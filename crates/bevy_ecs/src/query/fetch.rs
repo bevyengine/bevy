@@ -31,7 +31,7 @@ use variadics_please::all_tuples;
 ///   Gets the identifier of the queried entity.
 /// - **[`EntityLocation`].**
 ///   Gets the location metadata of the queried entity.
-/// - **[`SpawnedTick`].**
+/// - **[`SpawnDetails`].**
 ///   Gets the tick the entity was spawned at.
 /// - **[`EntityRef`].**
 ///   Read-only access to arbitrary components on the queried entity.
@@ -472,7 +472,7 @@ unsafe impl QueryData for EntityLocation {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityLocation {}
 
-/// The `SpawnedTick` query parameter fetches the [`Tick`] the entity was spawned at.
+/// The `SpawnDetails` query parameter fetches the [`Tick`] the entity was spawned at.
 ///
 /// To evaluate whether the spawn happened since the last time the system ran, the system
 /// param [`SystemChangeTick`](bevy_ecs::system::SystemChangeTick) needs to be used.
@@ -488,12 +488,12 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 /// # use bevy_ecs::system::Query;
 /// # use bevy_ecs::system::SystemChangeTick;
 /// # use bevy_ecs::query::Spawned;
-/// # use bevy_ecs::query::SpawnedTick;
+/// # use bevy_ecs::query::SpawnDetails;
 /// #
 /// # #[derive(Component, Debug)]
 /// # struct Name {};
 ///
-/// fn print_spawn_ticks(query: Query<(Entity, SpawnedTick)>, system_ticks: SystemChangeTick) {
+/// fn print_spawn_ticks(query: Query<(Entity, SpawnDetails)>, system_ticks: SystemChangeTick) {
 ///     for (entity, spawned) in &query {
 ///         if spawned.is_newer_than(system_ticks.last_run(), system_ticks.this_run()) {
 ///             print!("new ");
@@ -505,12 +505,43 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 /// # bevy_ecs::system::assert_is_system(print_spawn_ticks);
 /// ```
 #[derive(Clone, Copy)]
-pub struct SpawnedTick;
+pub struct SpawnDetails {
+    spawned_by: MaybeLocation,
+    spawned_at: Tick,
+    last_run: Tick,
+    this_run: Tick,
+}
+
+impl SpawnDetails {
+    /// Returns `true` if the entity spawned since the last time this system ran.
+    /// Otherwise, returns `false`.
+    pub fn is_spawned(self) -> bool {
+        self.spawned_at.is_newer_than(self.last_run, self.this_run)
+    }
+
+    /// Returns the `Tick` this entity spawned at.
+    pub fn spawned_at(self) -> Tick {
+        self.spawned_at
+    }
+
+    /// Returns the source code location from which this entity has been spawned.
+    pub fn spawned_by(self) -> MaybeLocation {
+        self.spawned_by
+    }
+}
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct SpawnDetailsFetch<'w> {
+    entities: &'w Entities,
+    last_run: Tick,
+    this_run: Tick,
+}
 
 // SAFETY:
 // No components are accessed.
-unsafe impl WorldQuery for SpawnedTick {
-    type Fetch<'w> = &'w Entities;
+unsafe impl WorldQuery for SpawnDetails {
+    type Fetch<'w> = SpawnDetailsFetch<'w>;
     type State = ();
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
@@ -520,10 +551,14 @@ unsafe impl WorldQuery for SpawnedTick {
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         _state: &Self::State,
-        _last_run: Tick,
-        _this_run: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w> {
-        world.entities()
+        SpawnDetailsFetch {
+            entities: world.entities(),
+            last_run,
+            this_run,
+        }
     }
 
     const IS_DENSE: bool = true;
@@ -560,10 +595,10 @@ unsafe impl WorldQuery for SpawnedTick {
 // SAFETY:
 // No components are accessed.
 // Is its own ReadOnlyQueryData.
-unsafe impl QueryData for SpawnedTick {
+unsafe impl QueryData for SpawnDetails {
     const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
-    type Item<'w> = Tick;
+    type Item<'w> = Self;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
@@ -576,12 +611,22 @@ unsafe impl QueryData for SpawnedTick {
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: only living entities are queried
-        unsafe { fetch.entity_get_spawned_or_despawned_at_unchecked(entity) }
+        let (spawned_by, spawned_at) = unsafe {
+            fetch
+                .entities
+                .entity_get_spawned_or_despawned_unchecked(entity)
+        };
+        Self {
+            spawned_by,
+            spawned_at,
+            last_run: fetch.last_run,
+            this_run: fetch.this_run,
+        }
     }
 }
 
 /// SAFETY: access is read only
-unsafe impl ReadOnlyQueryData for SpawnedTick {}
+unsafe impl ReadOnlyQueryData for SpawnDetails {}
 
 /// SAFETY:
 /// `fetch` accesses all components in a readonly way.
