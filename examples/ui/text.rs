@@ -3,13 +3,12 @@
 //! It displays the current FPS in the top left corner, as well as text that changes color
 //! in the bottom right. For text within a scene, please see the text2d example.
 
-use bevy::text::FontFeaturesBuilder;
 use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     text::Underline,
-    text::FontFeatures,
+    text::{FontFeatures, FontFeaturesBuilder},
 };
 
 fn main() {
