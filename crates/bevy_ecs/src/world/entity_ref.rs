@@ -3346,14 +3346,6 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
 ///
 /// let filtered_entity: FilteredEntityRef = query.single(&mut world).unwrap();
 /// let component: &A = filtered_entity.get().unwrap();
-///
-/// // Here `FilteredEntityRef` is nested in a tuple, so it does not have access to `&A`.
-/// let mut query = QueryBuilder::<(Entity, FilteredEntityRef)>::new(&mut world)
-///     .data::<&A>()
-///     .build();
-///
-/// let (_, filtered_entity) = query.single(&mut world).unwrap();
-/// assert!(filtered_entity.get::<A>().is_none());
 /// ```
 #[derive(Clone)]
 pub struct FilteredEntityRef<'w> {
@@ -3677,14 +3669,6 @@ unsafe impl EntityEquivalent for FilteredEntityRef<'_> {}
 ///
 /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
 /// let component: Mut<A> = filtered_entity.get_mut().unwrap();
-///
-/// // Here `FilteredEntityMut` is nested in a tuple, so it does not have access to `&mut A`.
-/// let mut query = QueryBuilder::<(Entity, FilteredEntityMut)>::new(&mut world)
-///     .data::<&mut A>()
-///     .build();
-///
-/// let (_, mut filtered_entity) = query.single_mut(&mut world).unwrap();
-/// assert!(filtered_entity.get_mut::<A>().is_none());
 /// ```
 pub struct FilteredEntityMut<'w> {
     entity: UnsafeEntityCell<'w>,
