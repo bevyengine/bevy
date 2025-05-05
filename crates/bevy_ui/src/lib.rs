@@ -17,6 +17,7 @@ pub mod widget;
 
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
+pub mod ui_transform;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -59,6 +60,7 @@ pub mod prelude {
             geometry::*,
             ui_material::*,
             ui_node::*,
+            ui_transform::*,
             widget::{Button, ImageNode, Label, NodeImageMode},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
