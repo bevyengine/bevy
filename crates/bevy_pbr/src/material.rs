@@ -8,7 +8,7 @@ use crate::meshlet::{
 };
 use crate::*;
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{Asset, AssetEvents, AssetId, AssetServer, UntypedAssetId};
+use bevy_asset::{Asset, AssetId, AssetServer, UntypedAssetId};
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
@@ -286,12 +286,11 @@ where
             .add_plugins((RenderAssetPlugin::<PreparedMaterial<M>>::default(),))
             .add_systems(
                 PostUpdate,
-                (
-                    mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    check_entities_needing_specialization::<M>.after(AssetEvents),
-                )
+                mark_meshes_as_changed_if_their_materials_changed::<M>
+                    .ambiguous_with_all()
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
-            );
+            )
+            .add_systems(Last, check_entities_needing_specialization::<M>);
 
         if self.shadows_enabled {
             app.add_systems(
