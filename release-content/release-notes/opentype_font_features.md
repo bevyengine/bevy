@@ -38,5 +38,4 @@ TextFont {
 }
 ```
 
-Note that OpenType font features are only available for `.otf` fonts that support them, and different fonts may support
-different subsets of OpenType features.
+Note that OpenType font features are only available for `.otf` fonts that support them, and different fonts may support  different subsets of OpenType features.
