@@ -1993,8 +1993,8 @@ mod tests {
         // produce two distinct assets.
         //
         // CAUTION: Due to https://github.com/bevyengine/bevy/issues/18267, the
-        // test actually checks if the assets are the same. The test should be
-        // updated when the issue is fixed.
+        // test is inverted - it confirms that different settings produce the same
+        // asset. The test should be updated when the issue is fixed.
 
         // First, implement an asset that's a single u8, whose value is copied from
         // the loader settings.
