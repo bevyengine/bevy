@@ -595,18 +595,18 @@ impl<T: Event> WinitAppRunnerState<T> {
                 // Get windows that are cached but without raw handles. Those window were already created, but got their
                 // handle wrapper removed when the app was suspended.
                 let mut query = self.world_mut()
-                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<RawHandleWrapper>)>();
                 if let Ok((entity, window)) = query.single(&self.world()) {
                     let window = window.clone();
 
-                    let mut create_window =
-                        SystemState::<CreateWindowParams>::from_world(self.world_mut());
-
-                    let (.., mut handlers, accessibility_requested, monitors) =
-                        create_window.get_mut(self.world_mut());
-
-                    WINIT_WINDOWS.with_borrow(|winit_windows| {
+                    WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
                         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
+                            let mut create_window =
+                                SystemState::<CreateWindowParams>::from_world(self.world_mut());
+
+                            let (.., mut handlers, accessibility_requested, monitors) =
+                                create_window.get_mut(self.world_mut());
+
                             let winit_window = winit_windows.create_window(
                                 event_loop,
                                 entity,
