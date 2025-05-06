@@ -6,6 +6,7 @@ mod single_threaded;
 use alloc::{borrow::Cow, vec, vec::Vec};
 use core::any::TypeId;
 
+#[expect(deprecated, reason = "We still need to support this.")]
 pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
 
 #[cfg(feature = "std")]
@@ -53,6 +54,10 @@ pub enum ExecutorKind {
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
     /// immediately after running each system.
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use SingleThreaded instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
+    )]
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     #[cfg(feature = "std")]
@@ -346,6 +351,7 @@ mod tests {
     struct TestComponent;
 
     const EXECUTORS: [ExecutorKind; 3] = [
+        #[expect(deprecated, reason = "We still need to test this.")]
         ExecutorKind::Simple,
         ExecutorKind::SingleThreaded,
         ExecutorKind::MultiThreaded,
@@ -406,6 +412,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
+        #[expect(deprecated, reason = "We still need to test this.")]
         schedule.set_executor_kind(ExecutorKind::Simple);
         schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);
