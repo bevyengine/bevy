@@ -569,8 +569,8 @@ all_tuples!(
 /// # Deferred
 ///
 /// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
-/// are visible only after deferred operations are applied,
-/// typically at the end of the schedule iteration.
+/// are visible only after deferred operations are applied, typically after the system
+/// that queued them.
 ///
 /// # Time complexity
 ///
@@ -794,9 +794,8 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 /// # Deferred
 ///
 /// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
-/// (like entity creation or entity component addition or removal)
-/// are visible only after deferred operations are applied,
-/// typically at the end of the schedule iteration.
+/// (like entity creation or entity component addition or removal) are visible only
+/// after deferred operations are applied, typically after the system that queued them.
 ///
 /// # Time complexity
 ///
@@ -1019,8 +1018,8 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 /// # Deferred
 ///
 /// Note, that entity spawns issued with [`Commands`](crate::system::Commands)
-/// are visible only after deferred operations are applied,
-/// typically at the end of the schedule iteration.
+/// are visible only after deferred operations are applied, typically after the
+/// system that queued them.
 ///
 /// # Time complexity
 ///

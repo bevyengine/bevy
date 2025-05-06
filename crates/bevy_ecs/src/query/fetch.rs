@@ -497,18 +497,21 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 ///         if spawn_details.is_spawned() {
 ///             print!("new ");
 ///         }
-///         println!(
-///             "entity {:?} spawned at {:?} by {:?}",
+///         print!(
+///             "entity {:?} spawned at {:?}",
 ///             entity,
-///             spawn_details.spawned_at(),
-///             spawn_details.spawned_by()
-///         );        
+///             spawn_details.spawned_at()
+///         );
+///         match spawn_details.spawned_by().into_option() {
+///             Some(location) => println!(" by {:?}", location),
+///             None => println!()
+///         }    
 ///     }
 /// }
 ///
 /// # bevy_ecs::system::assert_is_system(print_spawn_details);
 /// ```
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct SpawnDetails {
     spawned_by: MaybeLocation,
     spawned_at: Tick,
