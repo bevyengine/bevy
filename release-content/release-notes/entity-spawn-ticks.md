@@ -6,13 +6,13 @@ pull_requests: [19047]
 
 Keeping track which entities have been spawned since the last time a system ran could only be done indirectly by inserting marker components and do your logic on entities that match an `Added<MyMarker>` filter or in `MyMarker`'s `on_add` hook.
 
-This has the issue however that not add reacts on a spawn but also insertions at existing entities. Sometimes you cannot even add your marker because the spawn is hidden in some non-public API.
+This has the issue however that not every add reacts on a spawn but also on insertions at existing entities. Sometimes you cannot even add your marker because the spawn call is hidden in some non-public API.
 
 The new `SpawnDetails` query data and `Spawned` query filter enable you to find recently spawned entities without any marker components.
 
 ## `SpawnDetails`
 
-Use this in your query when you want to get information about it's spawn. You might want to do that to log debug information about it, using it's `Debug` implementation.
+Use this in your query when you want to get information about it's spawn. You might want to do that for debug purposes, using it's `Debug` implementation.
 
 You can also get specific information via methods. The following example prints the entity id (prefixed with "new" if it showed up for the first time), the `Tick` it spawned at and, if the `track_location` feature is activated, the source code location where it was spawned. Said feature is not enabled by default because it comes with a runtime cost.
 
@@ -39,7 +39,7 @@ fn print_spawn_details(query: Query<(Entity, SpawnDetails)>) {
 
 Use this filter in your query if you are only interested in entities that were spawned after the last time your system ran.
 
-Note that this, like `Added<T>` and `Changed<T>`, is a non-archetypal filter. This means that your query could still go through millions of entities without yielding any recently spawned ones. Unlike filters like `With<T>` that can easily skip all entities that do not have `T` without checking them one-by-one.
+Note that this, like `Added<T>` and `Changed<T>`, is a non-archetypal filter. This means that your query could still go through millions of entities without yielding any recently spawned ones. Unlike filters like `With<T>` which can easily skip all entities that do not have `T` without checking them one-by-one.
 
 Because of this, these systems have roughly the same performance:
 
@@ -57,7 +57,7 @@ fn system2(query: Query<(Entity, SpawnDetails)>) {
 
 ## Getter methods
 
-Getting around this weakness of non-archetypal filters can be to check only specific entities when they are spawned at: The method `spawned_at` was added to all entity pointer structs, such as `EntityRef`, `EntityMut` and `EntityWorldMut`.
+Getting around this weakness of non-archetypal filters can be to check only specific entities for their spawn tick: The method `spawned_at` was added to all entity pointer structs, such as `EntityRef`, `EntityMut` and `EntityWorldMut`.
 
 In this example we want to filter for entities that were spawned after a certain `tick`:
 
@@ -80,4 +80,4 @@ fn filter_spawned_after(
 
 The tick is stored in `Entities`. It's method `entity_get_spawned_or_despawned_at` not only returns when a living entity spawned at, it also returns when a despawned entity found it's bitter end.
 
-Note however that despawned entities can be replaced by bevy at any following spawn. Then this method returns `None` for the despawned entity. The same is true if the entity was not even spawned yet, only allocated.
+Note however that despawned entities can be replaced by bevy at any following spawn. Then this method returns `None` for the despawned entity. The same is true if the entity is not even spawned yet, only allocated.
