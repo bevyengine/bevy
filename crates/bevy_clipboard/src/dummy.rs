@@ -6,10 +6,6 @@ use std::borrow::Cow;
 pub struct Clipboard;
 
 impl Clipboard {
-    fn new() -> Result<arboard::Clipboard, arboard::Error> {
-        Err(arboard::Error::ClipboardNotSupported)
-    }
-
     /// Fetches UTF-8 text from the clipboard and returns it.
     ///
     /// # Errors

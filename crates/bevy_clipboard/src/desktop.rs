@@ -7,17 +7,13 @@ use bevy_ecs::resource::Resource;
 pub struct Clipboard;
 
 impl Clipboard {
-    fn new() -> Result<arboard::Clipboard, arboard::Error> {
-        arboard::Clipboard::new()
-    }
-
     /// Fetches UTF-8 text from the clipboard and returns it.
     ///
     /// # Errors
     ///
     /// Returns error if clipboard is empty or contents are not UTF-8 text.
     pub fn get_text(&mut self) -> Result<String, arboard::Error> {
-        Self::new().and_then(|mut clipboard| clipboard.get_text())
+        arboard::Clipboard::new().and_then(|mut clipboard| clipboard.get_text())
     }
 
     /// Places the text onto the clipboard. Any valid UTF-8 string is accepted.
@@ -29,6 +25,6 @@ impl Clipboard {
         &mut self,
         text: T,
     ) -> Result<(), arboard::Error> {
-        Self::new().and_then(|mut clipboard| clipboard.set_text(text))
+        arboard::Clipboard::new().and_then(|mut clipboard| clipboard.set_text(text))
     }
 }
