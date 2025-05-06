@@ -57,10 +57,8 @@ pub fn create_windows<F: QueryFilter + 'static>(
         monitors,
     ): SystemParamItem<CreateWindowParams<F>>,
 ) {
-    WINIT_WINDOWS.with_borrow_mut(|ww_ref| {
-        let winit_windows = ww_ref.as_mut().expect("Failed to initialize winit windows");
-        ACCESS_KIT_ADAPTERS.with_borrow_mut(|aka_ref| {
-            let adapters = aka_ref.as_mut().expect("Failed to initialize access kit adapters");
+    WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
+        ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
             for (entity, mut window, handle_holder) in &mut created_windows {
                 if winit_windows.get_window(entity).is_some() {
                     continue;
@@ -259,8 +257,7 @@ pub(crate) fn despawn_windows(
         // rather than having the component added
         // and removed in the same frame.
         if !window_entities.contains(window) {
-            WINIT_WINDOWS.with_borrow_mut(|ww_ref| {
-                let winit_windows = ww_ref.as_mut().expect("Failed to initialize winit windows");
+            WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
                 if let Some(window) = winit_windows.remove_window(window) {
                     // Keeping WindowWrapper that are dropped for one frame
                     // Otherwise the last `Arc` of the window could be in the rendering thread, and dropped there
@@ -303,8 +300,7 @@ pub(crate) fn changed_windows(
     mut window_resized: EventWriter<WindowResized>,
     _non_send_marker: NonSendMarker,
 ) {
-    WINIT_WINDOWS.with_borrow(|ww_ref| {
-        let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
+    WINIT_WINDOWS.with_borrow(|winit_windows| {
         for (entity, mut window, mut cache) in &mut changed_windows {
             let Some(winit_window) = winit_windows.get_window(entity) else {
                 continue;

@@ -23,12 +23,19 @@ use bevy_window::{PrimaryWindow, Window, WindowClosed};
 thread_local! {
     /// Temporary storage of access kit adapter data to replace usage of `!Send` resources. This will be replaced with proper
     /// storage of `!Send` data after issue #17667 is complete.
-    pub static ACCESS_KIT_ADAPTERS: RefCell<Option<AccessKitAdapters>> = const { RefCell::new(None) };
+    pub static ACCESS_KIT_ADAPTERS: RefCell<AccessKitAdapters> = const { RefCell::new(AccessKitAdapters::new()) };
 }
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
+
+impl AccessKitAdapters {
+    /// Creates a new empty `AccessKitAdapters`.
+    pub const fn new() -> Self {
+        Self(EntityHashMap::new())
+    }
+}
 
 /// Maps window entities to their respective [`ActionRequest`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
@@ -155,10 +162,7 @@ fn window_closed(
     mut events: EventReader<WindowClosed>,
     _non_send_marker: NonSendMarker,
 ) {
-    ACCESS_KIT_ADAPTERS.with_borrow_mut(|aka_ref| {
-        let adapters = aka_ref
-            .as_mut()
-            .expect("Failed to initialize access kit adapters");
+    ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
         for WindowClosed { window, .. } in events.read() {
             adapters.remove(window);
             handlers.remove(window);
@@ -197,10 +201,7 @@ fn update_accessibility_nodes(
     node_entities: Query<Entity, With<AccessibilityNode>>,
     _non_send_marker: NonSendMarker,
 ) {
-    ACCESS_KIT_ADAPTERS.with_borrow_mut(|aka_ref| {
-        let adapters = aka_ref
-            .as_mut()
-            .expect("Failed to initialize access kit adapters");
+    ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
         let Ok((primary_window_id, primary_window)) = primary_window.single() else {
             return;
         };
@@ -307,7 +308,6 @@ pub struct AccessKitPlugin;
 
 impl Plugin for AccessKitPlugin {
     fn build(&self, app: &mut App) {
-        ACCESS_KIT_ADAPTERS.set(Some(AccessKitAdapters::default()));
         app.init_resource::<WinitActionRequestHandlers>()
             .add_event::<ActionRequestWrapper>()
             .add_systems(

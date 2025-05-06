@@ -251,13 +251,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     ) {
         self.window_event_received = true;
 
-        WINIT_WINDOWS.with_borrow(|ww_ref| {
-            let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
-            ACCESS_KIT_ADAPTERS.with_borrow_mut(|aka_ref| {
-                let access_kit_adapters = aka_ref
-                    .as_mut()
-                    .expect("Failed to initialize access kit adapters");
-
+        WINIT_WINDOWS.with_borrow(|winit_windows| {
+            ACCESS_KIT_ADAPTERS.with_borrow_mut(|access_kit_adapters| {
                 let (
                     mut window_resized,
                     mut window_backend_scale_factor_changed,
@@ -514,8 +509,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
         #[cfg(target_os = "windows")]
         {
-            WINIT_WINDOWS.with_borrow(|ww_ref| {
-                let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
+            WINIT_WINDOWS.with_borrow(|winit_windows| {
                 let headless = winit_windows.windows.is_empty();
                 let exiting = self.app_exit.is_some();
                 let reactive = matches!(self.update_mode, UpdateMode::Reactive { .. });
@@ -611,14 +605,8 @@ impl<T: Event> WinitAppRunnerState<T> {
                     let (.., mut handlers, accessibility_requested, monitors) =
                         create_window.get_mut(self.world_mut());
 
-                    WINIT_WINDOWS.with_borrow(|ww_ref| {
-                        let winit_windows =
-                            ww_ref.as_mut().expect("Failed to initialize winit windows");
-                        ACCESS_KIT_ADAPTERS.with_borrow_mut(|aka_ref| {
-                            let adapters = aka_ref
-                                .as_mut()
-                                .expect("Failed to initialize access kit adapters");
-
+                    WINIT_WINDOWS.with_borrow(|winit_windows| {
+                        ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
                             let winit_window = winit_windows.create_window(
                                 event_loop,
                                 entity,
@@ -698,8 +686,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
                     )))]
                     {
-                        let visible = WINIT_WINDOWS.with_borrow(|ww_ref| {
-                            let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
+                        let visible = WINIT_WINDOWS.with_borrow(|winit_windows| {
                             winit_windows.windows.iter().any(|(_, w)| {
                                 w.is_visible().unwrap_or(false)
                             })
@@ -732,8 +719,7 @@ impl<T: Event> WinitAppRunnerState<T> {
         }
 
         if self.redraw_requested && self.lifecycle != AppLifecycle::Suspended {
-            WINIT_WINDOWS.with_borrow(|ww_ref| {
-                let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
+            WINIT_WINDOWS.with_borrow(|winit_windows| {
                 for window in winit_windows.windows.values() {
                     window.request_redraw();
                 }
@@ -901,9 +887,7 @@ impl<T: Event> WinitAppRunnerState<T> {
         #[cfg(not(feature = "custom_cursor"))]
         let (mut windows,) = windows_state.get_mut(self.world_mut());
 
-        WINIT_WINDOWS.with_borrow(|ww_ref| {
-            let winit_windows = ww_ref.as_ref().expect("Failed to initialize winit windows");
-
+        WINIT_WINDOWS.with_borrow(|winit_windows| {
             for (entity, mut pending_cursor) in windows.iter_mut() {
                 let Some(winit_window) = winit_windows.get_window(entity) else {
                     continue;

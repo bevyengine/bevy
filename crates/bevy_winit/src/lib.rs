@@ -55,7 +55,7 @@ mod winit_monitors;
 mod winit_windows;
 
 thread_local! {
-    static WINIT_WINDOWS: RefCell<Option<WinitWindows>> = const { RefCell::new(None) };
+    static WINIT_WINDOWS: RefCell<WinitWindows> = const { RefCell::new(WinitWindows::new()) };
 }
 
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
@@ -129,7 +129,6 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             .build()
             .expect("Failed to build event loop");
 
-        WINIT_WINDOWS.set(Some(WinitWindows::default()));
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
