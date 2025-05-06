@@ -36,7 +36,7 @@ pub fn spawn_commands(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in (1..5).map(|i| i * 2 * 1000) {
+    for entity_count in [100, 1_000, 10_000] {
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
             let mut world = World::default();
             let mut command_queue = CommandQueue::default();
@@ -136,7 +136,7 @@ pub fn fake_commands(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for command_count in (1..5).map(|i| i * 2 * 1000) {
+    for command_count in [100, 1_000, 10_000] {
         group.bench_function(format!("{}_commands", command_count), |bencher| {
             let mut world = World::default();
             let mut command_queue = CommandQueue::default();
@@ -181,7 +181,7 @@ pub fn sized_commands_impl<T: Default + Command>(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for command_count in (1..5).map(|i| i * 2 * 1000) {
+    for command_count in [100, 1_000, 10_000] {
         group.bench_function(format!("{}_commands", command_count), |bencher| {
             let mut world = World::default();
             let mut command_queue = CommandQueue::default();
