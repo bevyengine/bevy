@@ -2,9 +2,9 @@ use crate::{
     DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
     SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, Last, Plugin};
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEvents, AssetId, AssetServer, Handle};
+use bevy_asset::{AsAssetId, Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_2d::{
         AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
@@ -271,10 +271,7 @@ where
             .init_resource::<EntitiesNeedingSpecialization<M>>()
             .register_type::<MeshMaterial2d<M>>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default())
-            .add_systems(
-                PostUpdate,
-                check_entities_needing_specialization::<M>.after(AssetEvents),
-            );
+            .add_systems(Last, check_entities_needing_specialization::<M>);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
