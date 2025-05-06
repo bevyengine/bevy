@@ -40,7 +40,6 @@ std = [
   "bevy_platform/std",
   "bevy_time/std",
   "bevy_utils/std",
-  "bevy_tasks/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -51,7 +50,6 @@ critical-section = [
   "bevy_platform/critical-section",
   "bevy_time/critical-section",
   "bevy_utils/critical-section",
-  "bevy_tasks/critical-section",
 ]
 
 [dependencies]
