@@ -97,7 +97,7 @@ impl Drop for RenderAppChannels {
 ///   This is run on the main app's thread.
 /// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the
 ///   main schedule can start sooner.
-/// - Then the `rendering schedule` is run. See [`RenderSet`](crate::RenderSet) for the standard steps in this process.
+/// - Then the `rendering schedule` is run. See [`RenderSystems`](crate::RenderSystems) for the standard steps in this process.
 /// - In parallel to the rendering thread the [`RenderExtractApp`] schedule runs. By
 ///   default, this schedule is empty. But it is useful if you need something to run before I/O processing.
 /// - Next all the `winit events` are processed.
