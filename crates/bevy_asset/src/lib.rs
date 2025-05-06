@@ -414,7 +414,10 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
-            .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
+            .configure_sets(
+                PreUpdate,
+                AssetTrackingSystems.after(handle_internal_asset_events),
+            )
             // `handle_internal_asset_events` requires the use of `&mut World`,
             // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
             // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
@@ -611,9 +614,12 @@ impl AssetApp for App {
                 PostUpdate,
                 Assets::<A>::asset_events
                     .run_if(Assets::<A>::asset_events_condition)
-                    .in_set(AssetEvents),
+                    .in_set(AssetEventSystems),
             )
-            .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
+            .add_systems(
+                PreUpdate,
+                Assets::<A>::track_assets.in_set(AssetTrackingSystems),
+            )
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -643,13 +649,21 @@ impl AssetApp for App {
 
 /// A system set that holds all "track asset" operations.
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-pub struct TrackAssets;
+pub struct AssetTrackingSystems;
+
+/// Deprecated alias for [`AssetTrackingSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetTrackingSystems`.")]
+pub type TrackAssets = AssetTrackingSystems;
 
 /// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
 ///
 /// [`Events`]: bevy_ecs::event::Events
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct AssetEvents;
+pub struct AssetEventSystems;
+
+/// Deprecated alias for [`AssetEventSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetEventSystems`.")]
+pub type AssetEvents = AssetEventSystems;
 
 #[cfg(test)]
 mod tests {

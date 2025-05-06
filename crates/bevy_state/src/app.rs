@@ -6,7 +6,7 @@ use log::warn;
 use crate::{
     state::{
         setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+        StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
     },
     state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
 };
@@ -224,18 +224,18 @@ impl AppExtStates for SubApp {
         }
 
         // Note: We work with `StateTransition` in set
-        // `StateTransitionSteps::ExitSchedules` rather than `OnExit`, because
+        // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
         // `OnExit` only runs for one specific variant of the state.
         self.add_systems(
             StateTransition,
-            despawn_entities_on_exit_state::<S>.in_set(StateTransitionSteps::ExitSchedules),
+            despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
         )
         // Note: We work with `StateTransition` in set
-        // `StateTransitionSteps::EnterSchedules` rather than `OnEnter`, because
+        // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
         // `OnEnter` only runs for one specific variant of the state.
         .add_systems(
             StateTransition,
-            despawn_entities_on_enter_state::<S>.in_set(StateTransitionSteps::EnterSchedules),
+            despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
         )
     }
 

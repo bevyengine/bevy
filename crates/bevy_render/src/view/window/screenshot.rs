@@ -13,7 +13,7 @@ use crate::{
     renderer::RenderDevice,
     texture::{GpuImage, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
@@ -432,7 +432,7 @@ impl Plugin for ScreenshotPlugin {
                     prepare_screenshots
                         .after(prepare_view_attachments)
                         .before(prepare_view_targets)
-                        .in_set(RenderSet::ManageViews),
+                        .in_set(RenderSystems::ManageViews),
                 );
         }
     }

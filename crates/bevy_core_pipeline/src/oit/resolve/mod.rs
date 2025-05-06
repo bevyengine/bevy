@@ -20,7 +20,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use tracing::warn;
 
@@ -65,8 +65,8 @@ impl Plugin for OitResolvePlugin {
             .add_systems(
                 Render,
                 (
-                    queue_oit_resolve_pipeline.in_set(RenderSet::Queue),
-                    prepare_oit_resolve_bind_group.in_set(RenderSet::PrepareBindGroups),
+                    queue_oit_resolve_pipeline.in_set(RenderSystems::Queue),
+                    prepare_oit_resolve_bind_group.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             .init_resource::<OitResolvePipeline>();

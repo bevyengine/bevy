@@ -117,7 +117,7 @@ impl Default for App {
         app.add_systems(
             First,
             event_update_system
-                .in_set(bevy_ecs::event::EventUpdates)
+                .in_set(bevy_ecs::event::EventUpdateSystems)
                 .run_if(bevy_ecs::event::event_update_condition),
         );
         app.add_event::<AppExit>();
