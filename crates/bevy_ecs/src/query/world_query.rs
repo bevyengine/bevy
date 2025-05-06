@@ -101,7 +101,7 @@ pub unsafe trait WorldQuery {
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
 
-    /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
+    /// Sets available accesses for implementers with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
     ///
     /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
