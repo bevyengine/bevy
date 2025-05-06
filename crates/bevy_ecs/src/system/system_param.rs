@@ -367,6 +367,21 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // The caller ensures the world matches the one used in init_state.
         unsafe { state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick) }
     }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        if get_query_state::<D, F>(*state, world).is_none() {
+            return Err(SystemParamValidationError::invalid::<Self>(
+                "Query state not found",
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>(
