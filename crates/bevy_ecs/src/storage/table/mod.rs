@@ -139,9 +139,9 @@ impl TableRow {
 /// An opaque for components in [`Table`]s. Specifies a single column in a specific table.
 /// Think of this as a more localized [`ComponentId`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TableColumn(u32);
+pub struct TableColumnId(pub(crate) u32);
 
-impl TableColumn {
+impl TableColumnId {
     /// Gets the index of the row as a [`usize`].
     #[inline]
     pub const fn as_usize(self) -> usize {
@@ -167,7 +167,7 @@ impl TableColumn {
 /// [`build`]: Self::build
 pub(crate) struct TableBuilder {
     data: Vec<ThinColumn>,
-    columns: SparseSet<ComponentId, TableColumn>,
+    columns: SparseSet<ComponentId, TableColumnId>,
     capacity: usize,
 }
 
@@ -184,7 +184,7 @@ impl TableBuilder {
     /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        let column_id = TableColumn(self.data.len() as u32);
+        let column_id = TableColumnId(self.data.len() as u32);
         self.data
             .push(ThinColumn::with_capacity(component_info, self.capacity));
         self.columns.insert(component_info.id(), column_id);
@@ -216,7 +216,7 @@ impl TableBuilder {
 /// [`World`]: crate::world::World
 pub struct Table {
     data: Box<[ThinColumn]>,
-    columns: ImmutableSparseSet<ComponentId, TableColumn>,
+    columns: ImmutableSparseSet<ComponentId, TableColumnId>,
     entities: Vec<Entity>,
 }
 
@@ -525,29 +525,29 @@ impl Table {
     ///
     /// The `column` must be for *this* table.
     #[inline]
-    pub(crate) unsafe fn get_column_by_id(&self, column: TableColumn) -> &ThinColumn {
+    pub(crate) unsafe fn get_column_by_id(&self, column: TableColumnId) -> &ThinColumn {
         // SAFETY: The column map is immutable and the key came from this table.
         unsafe { self.data.get_unchecked(column.as_usize()) }
     }
 
-    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`TableColumn`] within the table.
+    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`TableColumnId`] within the table.
     ///
     /// # Safety
     ///
     /// The `column` must be for *this* table.
     #[inline]
-    pub(crate) unsafe fn get_column_mut_by_id(&mut self, column: TableColumn) -> &mut ThinColumn {
+    pub(crate) unsafe fn get_column_mut_by_id(&mut self, column: TableColumnId) -> &mut ThinColumn {
         // SAFETY: The column map is immutable and the key came from this table.
         unsafe { self.data.get_unchecked_mut(column.as_usize()) }
     }
 
-    /// Fetches [`TableColumn`] for a given [`Component`] within the table.
+    /// Fetches [`TableColumnId`] for a given [`Component`] within the table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_id(&self, component_id: ComponentId) -> Option<TableColumn> {
+    pub(crate) fn get_column_id(&self, component_id: ComponentId) -> Option<TableColumnId> {
         self.columns.get(component_id).copied()
     }
 

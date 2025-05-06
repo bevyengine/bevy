@@ -692,7 +692,7 @@ impl SparseSets {
     pub(crate) fn get_or_insert(
         &mut self,
         component_info: &ComponentInfo,
-    ) -> &mut ComponentSparseSet {
+    ) -> (&mut ComponentSparseSet, ComponentSparseSetId) {
         let Self { data, sets } = self;
 
         let id = *sets.get_or_insert_with(component_info.id(), || {
@@ -701,7 +701,7 @@ impl SparseSets {
             id
         });
         // SAFETY: The id is from self
-        unsafe { self.get_mut_by_id(id) }
+        (unsafe { self.get_mut_by_id(id) }, id)
     }
 
     /// Clear entities stored in each [`ComponentSparseSet`]

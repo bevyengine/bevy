@@ -24,7 +24,10 @@ use crate::{
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
     observer::Observers,
-    storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
+    storage::{
+        ComponentSparseSetId, ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex,
+        TableColumnId, TableId, TableRow,
+    },
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::HashMap;
@@ -388,7 +391,9 @@ impl Archetype {
         id: ArchetypeId,
         table_id: TableId,
         table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
-        sparse_set_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
+        sparse_set_components: impl Iterator<
+            Item = (ComponentId, ArchetypeComponentId, ComponentSparseSetId),
+        >,
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
@@ -411,12 +416,16 @@ impl Archetype {
             // component in the `table_components` vector
             component_index.insert_component_on_archetype(
                 component_id,
-                ArchetypeRecord { column: Some(idx) },
+                ArchetypeRecord {
+                    storage_index: ComponentStorageIndex {
+                        column_in_table: TableColumnId(idx as u32),
+                    },
+                },
                 id,
             );
         }
 
-        for (component_id, archetype_component_id) in sparse_set_components {
+        for (component_id, archetype_component_id, set_id) in sparse_set_components {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -430,7 +439,11 @@ impl Archetype {
             );
             component_index.insert_component_on_archetype(
                 component_id,
-                ArchetypeRecord { column: None },
+                ArchetypeRecord {
+                    storage_index: ComponentStorageIndex {
+                        id_of_sparse_set: set_id,
+                    },
+                },
                 id,
             );
         }
@@ -865,7 +878,13 @@ pub struct ArchetypeRecord {
         dead_code,
         reason = "Currently unused, but planned to be used to implement a component index to improve performance of fragmenting relations."
     )]
-    pub(crate) column: Option<usize>,
+    pub(crate) storage_index: ComponentStorageIndex,
+}
+
+/// A id that specifies where in storage a component is stored.
+pub(crate) union ComponentStorageIndex {
+    column_in_table: TableColumnId,
+    id_of_sparse_set: ComponentSparseSetId,
 }
 
 /// An id for a [`ArchetypeRecord`].
@@ -918,6 +937,7 @@ impl Archetypes {
                 TableId::empty(),
                 Vec::new(),
                 Vec::new(),
+                |_| unreachable!("There are no sparse set components"),
             );
         }
         archetypes
@@ -1013,6 +1033,8 @@ impl Archetypes {
     /// Gets the archetype id matching the given inputs or inserts a new one if it doesn't exist.
     /// `table_components` and `sparse_set_components` must be sorted
     ///
+    /// Note that `sparse_set_id_of` will be called with all of the `sparse_set_components` and nothing else.
+    ///
     /// # Safety
     /// [`TableId`] must exist in tables
     /// `table_components` and `sparse_set_components` must exist in `components`
@@ -1023,6 +1045,7 @@ impl Archetypes {
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
+        mut sparse_set_id_of: impl FnMut(ComponentId) -> ComponentSparseSetId,
     ) -> ArchetypeId {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),
@@ -1062,7 +1085,8 @@ impl Archetypes {
                     sparse_set_components
                         .iter()
                         .copied()
-                        .zip(sparse_set_archetype_components),
+                        .zip(sparse_set_archetype_components)
+                        .map(|(id, archetype_id)| (id, archetype_id, sparse_set_id_of(id))),
                 ));
                 id
             })

@@ -845,6 +845,8 @@ impl BundleInfo {
                 table_id,
                 table_components,
                 sparse_set_components,
+                // SAFETY: All sparse set components have their sets created on bundle registration, and for a component to be in an archetype it must be in a registered bundle.
+                |id| unsafe { storages.sparse_sets.get_id(id).debug_checked_unwrap() },
             );
             // Add an edge from the old archetype to the new archetype.
             archetypes[archetype_id]
@@ -956,6 +958,8 @@ impl BundleInfo {
                 next_table_id,
                 next_table_components,
                 next_sparse_set_components,
+                // SAFETY: All sparse set components have their sets created on bundle registration, and for a component to be in an archetype it must be in a registered bundle.
+                |id| unsafe { storages.sparse_sets.get_id(id).debug_checked_unwrap() },
             );
             Some(new_archetype_id)
         };
