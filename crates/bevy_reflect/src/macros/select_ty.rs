@@ -17,6 +17,7 @@
 /// - None - Downcasts with `try_take`
 ///
 /// And `<BINDING?>` is an optional binding (i.e. `<IDENT> @`) for the downcasted value.
+/// It can also be used to bind the value to `_` to ignore the value if not needed.
 ///
 /// If the `<EXPR>` doesn't evaluate to `()`, an `else` case is required:
 ///
@@ -104,13 +105,13 @@ macro_rules! select_ty {
 
     // --- Empty Case --- //
     // This allows usages to contain no cases (e.g., all commented out or macro-generated)
-    {@selector[$($tys:ty,)*] $value:ident, $binding:ident, } => {{}};
+    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, } => {{}};
 
     // --- Else Case --- //
-    {@selector[$($tys:ty,)*] $value:ident, $binding:ident, else => $action:expr $(,)? } => {
+    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, else => $action:expr $(,)? } => {
          $action
     };
-    {@selector[$($tys:ty,)*] $value:ident, $_binding:ident, $binding:ident @ else => $action:expr $(,)? } => {{
+    {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, $binding:ident @ else => $action:expr $(,)? } => {{
         let $binding: &[$crate::Type] = &[$($crate::Type::of::<$tys>(),)*];
          $action
     }};
@@ -119,8 +120,16 @@ macro_rules! select_ty {
     // This rule is used to detect an optional binding (i.e. `<IDENT> @`) for each case.
     // Note that its placement is _below_ the `else` rules.
     // This is to prevent this binding rule from superseding the custom one for the `else` case.
-    {@selector[$($tys:ty,)*] $value:ident, $_old_binding:ident, $binding:ident @ $($tt:tt)+} => {
+    {@selector[$($tys:ty,)*] $value:ident, $_old_binding:tt, $binding:tt @ $($tt:tt)+} => {
         select_ty!(@selector[$($tys,)*] $value, $binding, $($tt)+)
+    };
+
+    // --- Binding Helpers --- //
+    {@bind_mut _} => {
+        _
+    };
+    {@bind_mut $binding:ident} => {
+        mut $binding
     };
 
     // --- Main Cases --- //
@@ -129,39 +138,50 @@ macro_rules! select_ty {
     // The terminal rule is the one that can be used for non-exhaustive statements.
 
     // ~~~ Mutable Borrow ~~~ //
-    {@selector[$($tys:ty,)*] $value:ident, $binding:ident, &mut $ty:ty => $action:expr , $($tt:tt)+} => {
+    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &mut $ty:ty => $action:expr , $($tt:tt)+} => {
         match $value.as_partial_reflect_mut().try_downcast_mut::<$ty>() {
             Some($binding) => $action,
             None => select_ty!(@selector[$($tys,)* &mut $ty,] $value, $value, $($tt)+)
         }
     };
-    {@selector[$($tys:ty,)*] $value:ident, $binding:ident, &mut $ty:ty => $action:expr $(,)?} => {
+    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &mut $ty:ty => $action:expr $(,)?} => {
         if let Some($binding) = $value.as_partial_reflect_mut().try_downcast_mut::<$ty>() {
             $action
         }
     };
 
     // ~~~ Immutable Borrow ~~~ //
-    {@selector[$($tys:ty,)*] $value:ident, $binding:ident, &$ty:ty => $action:expr , $($tt:tt)+} => {
+    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &$ty:ty => $action:expr , $($tt:tt)+} => {
         match $value.as_partial_reflect().try_downcast_ref::<$ty>() {
             Some($binding) => $action,
             None => select_ty!(@selector[$($tys,)* &mut $ty,] $value, $value, $($tt)+)
         }
     };
-    {@selector[$($tys:ty,)*] $value:ident, $binding:ident, &$ty:ty => $action:expr $(,)?} => {
+    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &$ty:ty => $action:expr $(,)?} => {
         if let Some($binding) = $value.as_partial_reflect().try_downcast_ref::<$ty>() {
             $action
         }
     };
 
     // ~~~ Owned ~~~ //
-    {@selector[$($tys:ty,)*] $value:ident, $binding:ident, $ty:ty => $action:expr , $($tt:tt)+} => {
+    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, $ty:ty => $action:expr , $($tt:tt)+} => {
         match $value.into_partial_reflect().try_take::<$ty>() {
-            Ok(mut $binding) => $action,
-            Err(mut $value) => select_ty!(@selector[$($tys,)* $ty,] $value, $value, $($tt)+),
+            Ok(select_ty!(@bind_mut $binding)) => $action,
+            Err($value) => {
+                // We have to rebind `$value` here so that we can unconditionally ignore it
+                // due to the fact that `unused_variables` seems to be the only lint that
+                // is visible outside the macro when used within other crates.
+                #[allow(
+                    unused_variables,
+                    reason = "unfortunately this variable cannot receive a custom binding to let it be ignored otherwise"
+                )]
+                let mut $value = $value;
+
+                select_ty!(@selector[$($tys,)* $ty,] $value, $value, $($tt)+)
+            },
         }
     };
-    {@selector[$($tys:ty,)*] $value:ident, $binding:ident, $ty:ty => $action:expr $(,)?} => {
+    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, $ty:ty => $action:expr $(,)?} => {
         if let Ok($binding) = $value.into_partial_reflect().try_take::<$ty>() {
             $action
         }
@@ -177,7 +197,6 @@ mod tests {
         unused_imports,
         unused_parens,
         unused_mut,
-        unused_variables,
         reason = "the warnings generated by these macros should only be visible to `bevy_reflect`"
     )]
 
@@ -260,6 +279,19 @@ mod tests {
         let value = Box::new(true);
         let result = into_string(value);
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn should_retrieve_owned() {
+        let original_value = Box::new(String::from("hello"));
+        let cloned_value = original_value.clone();
+
+        let value = select_ty! {cloned_value,
+            _ @ Option<String> => panic!("unexpected type"),
+            else => cloned_value
+        };
+
+        assert_eq!(value.try_take::<String>().unwrap(), *original_value);
     }
 
     #[test]
