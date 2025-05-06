@@ -193,11 +193,12 @@ impl TableBuilder {
 
     /// Build the [`Table`], after this operation the caller wouldn't be able to add more columns. The [`Table`] will be ready to use.
     #[must_use]
-    pub fn build(self) -> Table {
+    pub fn build(self, id: TableId) -> Table {
         Table {
             columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
             data: self.data.into_boxed_slice(),
+            id,
         }
     }
 }
@@ -218,6 +219,7 @@ pub struct Table {
     data: Box<[ThinColumn]>,
     columns: ImmutableSparseSet<ComponentId, TableColumnId>,
     entities: Vec<Entity>,
+    id: TableId,
 }
 
 struct AbortOnPanic;
@@ -230,6 +232,11 @@ impl Drop for AbortOnPanic {
 }
 
 impl Table {
+    /// The [`TableId`] for this [`Table`].
+    pub fn id(&self) -> TableId {
+        self.id
+    }
+
     /// Fetches a read-only slice of the entities stored within the [`Table`].
     #[inline]
     pub fn entities(&self) -> &[Entity] {
@@ -388,14 +395,11 @@ impl Table {
     /// Get the data of the column matching `component_id` as a slice.
     ///
     /// # Safety
-    /// `row.as_usize()` < `self.len()`
-    /// - `T` must match the `component_id`
-    pub unsafe fn get_data_slice_for<T>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<T>]> {
-        self.get_column(component_id)
-            .map(|col| col.get_data_slice(self.entity_count()))
+    /// - `column` must be for this table.
+    /// - `T` must match the `column`
+    pub unsafe fn get_data_slice_for<T>(&self, column: TableColumnId) -> &[UnsafeCell<T>] {
+        self.get_column_by_id(column)
+            .get_data_slice(self.entity_count())
     }
 
     /// Get the added ticks of the column matching `component_id` as a slice.
@@ -752,7 +756,7 @@ pub struct Tables {
 
 impl Default for Tables {
     fn default() -> Self {
-        let empty_table = TableBuilder::with_capacity(0, 0).build();
+        let empty_table = TableBuilder::with_capacity(0, 0).build(TableId::empty());
         Tables {
             tables: vec![empty_table],
             table_ids: HashMap::default(),
@@ -822,12 +826,13 @@ impl Tables {
             .raw_entry_mut()
             .from_key(component_ids)
             .or_insert_with(|| {
+                let id = TableId::from_usize(tables.len());
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
                 for component_id in component_ids {
                     table = table.add_column(components.get_info_unchecked(*component_id));
                 }
-                tables.push(table.build());
-                (component_ids.into(), TableId::from_usize(tables.len() - 1))
+                tables.push(table.build(id));
+                (component_ids.into(), id)
             });
 
         *value
@@ -919,7 +924,7 @@ mod tests {
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
             .add_column(components.get_info(component_id).unwrap())
-            .build();
+            .build(TableId::INVALID);
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards

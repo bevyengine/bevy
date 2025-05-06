@@ -25,17 +25,13 @@ use crate::{
     entity::{Entity, EntityLocation},
     observer::Observers,
     storage::{
-        ComponentSparseSetId, ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex,
-        TableColumnId, TableId, TableRow,
+        ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableColumnId, TableId,
+        TableRow,
     },
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::HashMap;
-use core::{
-    hash::Hash,
-    hint::unreachable_unchecked,
-    ops::{Index, IndexMut, RangeFrom},
-};
+use core::ops::{Index, IndexMut, RangeFrom};
 
 /// An opaque location within a [`Archetype`].
 ///
@@ -791,6 +787,7 @@ impl SparseSetIndex for ArchetypeComponentId {
 }
 
 /// This maps a [`TableId`] to the column of this component in that table if it is present.
+#[repr(transparent)]
 pub(crate) struct ComponentColumns(Vec<Option<TableColumnId>>);
 
 impl ComponentColumns {
@@ -810,7 +807,7 @@ impl ComponentColumns {
 }
 
 pub(crate) struct ComponentRecord {
-    columns: ComponentColumns,
+    pub(crate) columns: ComponentColumns,
     archetypes: Vec<ArchetypeId>,
 }
 

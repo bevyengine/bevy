@@ -1140,7 +1140,16 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             components: StorageSwitch::new(
-                || None,
+                || {
+                    (
+                        world
+                            .archetypes()
+                            .component_index()
+                            .get_record(component_id)
+                            .map(|record| &record.columns),
+                        None,
+                    )
+                },
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
@@ -1177,17 +1186,18 @@ unsafe impl<T: Component> WorldQuery for &T {
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut ReadFetch<'w, T>,
-        &component_id: &ComponentId,
+        _component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let table_data = Some(
-            table
-                .get_data_slice_for(component_id)
-                .debug_checked_unwrap()
-                .into(),
-        );
+        // SAFETY: For a table to exist, it must have an archetype.
+        let columns = fetch.components.table.0.debug_checked_unwrap();
+        // SAFETY: For this to be called, the table must be relevant to this component.
+        let column = columns
+            .get_column_in_table(table.id())
+            .debug_checked_unwrap();
+        let table_data = Some(table.get_data_slice_for(column).into());
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.components.set_table(table_data) };
+        fetch.components.table.1 = table_data;
     }
 
     fn update_component_access(
@@ -1237,7 +1247,7 @@ unsafe impl<T: Component> QueryData for &T {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                let table = unsafe { table.1.debug_checked_unwrap() };
                 // SAFETY: Caller ensures `table_row` is in range.
                 let item = unsafe { table.get(table_row.as_usize()) };
                 item.deref()
