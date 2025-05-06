@@ -1429,7 +1429,7 @@ impl<'w> BundleRemover<'w> {
     ) -> Option<Self> {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         // SAFETY: Caller ensures archetype and bundle ids are correct.
-        let new_archetype_id = unsafe {
+        let mut new_archetype_id = unsafe {
             bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
                 &mut world.storages,
@@ -1439,11 +1439,13 @@ impl<'w> BundleRemover<'w> {
                 !require_all,
             )?
         };
-        if new_archetype_id == archetype_id {
+        if new_archetype_id.id() == archetype_id {
             return None;
         }
-        let (old_archetype, new_archetype) =
-            world.archetypes.get_2_mut(archetype_id, new_archetype_id);
+
+        let (old_archetype, new_archetype) = world
+            .archetypes
+            .get_2_mut(archetype_id, new_archetype_id.id());
 
         let tables = if old_archetype.table_id() == new_archetype.table_id() {
             None
@@ -1455,13 +1457,17 @@ impl<'w> BundleRemover<'w> {
             Some((old.into(), new.into()))
         };
 
-        Some(Self {
+        let remover = Self {
             bundle_info: bundle_info.into(),
             new_archetype: new_archetype.into(),
             old_archetype: old_archetype.into(),
             old_and_new_table: tables,
             world: world.as_unsafe_world_cell(),
-        })
+        };
+
+        new_archetype_id.trigger_if_new(&mut remover.world.into_deferred());
+
+        Some(remover)
     }
 
     /// This can be passed to [`remove`](Self::remove) as the `pre_remove` function if you don't want to do anything before removing.

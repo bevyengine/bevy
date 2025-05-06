@@ -136,7 +136,6 @@ const _: () = {
             state: &Self::State,
             archetype: &bevy_ecs::archetype::Archetype,
             system_meta: &mut bevy_ecs::system::SystemMeta,
-            world: &World,
         ) {
             // SAFETY: Caller guarantees the archetype is from the world used in `init_state`
             unsafe {
@@ -144,7 +143,6 @@ const _: () = {
                     &state.state,
                     archetype,
                     system_meta,
-                    world,
                 );
             };
         }

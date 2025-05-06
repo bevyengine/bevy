@@ -237,7 +237,6 @@ pub unsafe trait SystemParam: Sized {
         state: &Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
-        world: &World,
     ) {
     }
 
@@ -348,19 +347,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 
     unsafe fn new_archetype(
-        state: &Self::State,
-        archetype: &Archetype,
-        system_meta: &mut SystemMeta,
-        world: &World,
+        _state: &Self::State,
+        _archetype: &Archetype,
+        _system_meta: &mut SystemMeta,
     ) {
-        let state = world
-            .entity(*state)
-            .get::<QueryStateWrapper<D, F>>()
-            .unwrap();
-        state.inner().update_archetype_component_access(
-            archetype,
-            &mut system_meta.archetype_component_access,
-        );
     }
 
     #[inline]
@@ -384,25 +374,23 @@ pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>
     system_meta: &mut SystemMeta,
     state: Option<QueryState<D, F>>,
 ) -> Entity {
-    let component_id = world.register_component::<QueryStateWrapper<D, F>>();
     let state: QueryState<D, F> = state.unwrap_or_else(|| {
         QueryState::new_with_access(world, &mut system_meta.archetype_component_access)
     });
 
-    let mut component_access = state.component_access.clone();
-    // The Query need access to its own state. Just to be consistent, this will not
-    // cause a conflict since QueryStateWrapper is immutable
-    component_access.add_component_read(component_id);
+    // No need to update access to since `QueryStateWrapper` is immutable
     assert_component_access_compatibility(
         &system_meta.name,
         core::any::type_name::<D>(),
         core::any::type_name::<F>(),
         &system_meta.component_access_set,
-        &component_access,
+        &state.component_access,
         world,
     );
 
-    system_meta.component_access_set.add(component_access);
+    system_meta
+        .component_access_set
+        .add(state.component_access.clone());
 
     world.spawn(QueryStateWrapper::new(state)).id()
 }
@@ -456,10 +444,9 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         state: &Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
-        world: &World,
     ) {
         // SAFETY: Delegate to existing `SystemParam` implementations.
-        unsafe { Query::<D, F>::new_archetype(state, archetype, system_meta, world) };
+        unsafe { Query::<D, F>::new_archetype(state, archetype, system_meta) };
     }
 
     #[inline]
@@ -529,10 +516,9 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
-        world: &World,
     ) {
         // SAFETY: Delegate to existing `SystemParam` implementations.
-        unsafe { Single::<D, F>::new_archetype(state, archetype, system_meta, &world) };
+        unsafe { Single::<D, F>::new_archetype(state, archetype, system_meta) };
     }
 
     #[inline]
@@ -613,10 +599,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state: &Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
-        world: &World,
     ) {
         // SAFETY: Delegate to existing `SystemParam` implementations.
-        unsafe { Query::<D, F>::new_archetype(state, archetype, system_meta, world) };
+        unsafe { Query::<D, F>::new_archetype(state, archetype, system_meta) };
     }
 
     #[inline]
@@ -831,9 +816,9 @@ macro_rules! impl_param_set {
                 ($($param,)*)
             }
 
-            unsafe fn new_archetype(state: &Self::State, archetype: &Archetype, system_meta: &mut SystemMeta, world: &World) {
+            unsafe fn new_archetype(state: &Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
                 // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                unsafe { <($($param,)*) as SystemParam>::new_archetype(state, archetype, system_meta, world); }
+                unsafe { <($($param,)*) as SystemParam>::new_archetype(state, archetype, system_meta); }
             }
 
             fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2043,7 +2028,7 @@ unsafe impl<T: SystemParam> SystemParam for When<T> {
     }
 
     unsafe fn new_archetype(
-        state: &mut Self::State,
+        state: &Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
     ) {
@@ -2107,11 +2092,10 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         state: &Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
-        world: &World,
     ) {
         for state in state {
             // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-            unsafe { T::new_archetype(state, archetype, system_meta, &world) };
+            unsafe { T::new_archetype(state, archetype, system_meta) };
         }
     }
 
@@ -2159,11 +2143,10 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         state: &Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
-        world: &World,
     ) {
         for state in state {
             // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-            unsafe { T::new_archetype(state, archetype, system_meta, world) }
+            unsafe { T::new_archetype(state, archetype, system_meta) }
         }
     }
 
@@ -2242,13 +2225,13 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            unsafe fn new_archetype(($($param,)*): &Self::State, archetype: &Archetype, system_meta: &mut SystemMeta, world: &World) {
+            unsafe fn new_archetype(($($param,)*): &Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
                 #[allow(
                     unused_unsafe,
                     reason = "Zero-length tuples will not run anything in the unsafe block."
                 )]
                 // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                unsafe { $($param::new_archetype($param, archetype, system_meta, world);)* }
+                unsafe { $($param::new_archetype($param, archetype, system_meta);)* }
             }
 
             #[inline]
@@ -2424,10 +2407,9 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         state: &Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
-        world: &World,
     ) {
         // SAFETY: The caller guarantees that the provided `archetype` matches the World used to initialize `state`.
-        unsafe { P::new_archetype(state, archetype, system_meta, world) };
+        unsafe { P::new_archetype(state, archetype, system_meta) };
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2674,12 +2656,7 @@ trait DynParamState: Sync + Send {
     ///
     /// # Safety
     /// `archetype` must be from the [`World`] used to initialize `state` in [`SystemParam::init_state`].
-    unsafe fn new_archetype(
-        &self,
-        archetype: &Archetype,
-        system_meta: &mut SystemMeta,
-        world: &World,
-    );
+    unsafe fn new_archetype(&self, archetype: &Archetype, system_meta: &mut SystemMeta);
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
@@ -2709,14 +2686,9 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         self
     }
 
-    unsafe fn new_archetype(
-        &self,
-        archetype: &Archetype,
-        system_meta: &mut SystemMeta,
-        world: &World,
-    ) {
+    unsafe fn new_archetype(&self, archetype: &Archetype, system_meta: &mut SystemMeta) {
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-        unsafe { T::new_archetype(&self.0, archetype, system_meta, world) };
+        unsafe { T::new_archetype(&self.0, archetype, system_meta) };
     }
 
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
@@ -2781,10 +2753,9 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         state: &Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
-        world: &World,
     ) {
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-        unsafe { state.0.new_archetype(archetype, system_meta, world) };
+        unsafe { state.0.new_archetype(archetype, system_meta) };
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {

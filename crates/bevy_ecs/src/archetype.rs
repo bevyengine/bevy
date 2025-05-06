@@ -825,26 +825,19 @@ pub(crate) struct ArchetypeIdState {
 
 impl ArchetypeIdState {
     /// Creates a new [`ArchetypeIdState`] with the given ID and marks it as old.
-    #[inline]
     pub(crate) fn old(id: ArchetypeId) -> Self {
         Self { id, is_new: false }
     }
 
     /// Get the [`ArchetypeId`].
-    #[inline]
     pub(crate) fn id(&self) -> ArchetypeId {
         self.id
     }
 
-    #[inline]
+    /// Trigger the `ArchetypeCreated` event if the archetype is new.
     pub(crate) fn trigger_if_new(&mut self, world: &mut DeferredWorld) {
         if self.is_new {
             world.trigger(ArchetypeCreated(self.id));
-            // let id = self.id;
-            // world.commands().queue(move |world: &mut World| {
-            //     world.trigger(ArchetypeCreated(id));
-            //     std::println!("Trigger {:?}", id);
-            // });
             self.is_new = false;
         }
     }
@@ -1032,7 +1025,6 @@ impl Archetypes {
                 id
             });
 
-        // std::println!("After get_id_or_insert archetype {is_new}");
         ArchetypeIdState {
             id: archetype_id,
             is_new,

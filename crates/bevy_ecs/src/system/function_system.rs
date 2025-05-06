@@ -479,9 +479,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
         for archetype in &archetypes[old_generation..] {
             // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
-            unsafe {
-                Param::new_archetype(&self.param_state, archetype, &mut self.meta, world.world())
-            };
+            unsafe { Param::new_archetype(&self.param_state, archetype, &mut self.meta) };
         }
     }
 
@@ -797,14 +795,7 @@ where
 
         for archetype in &archetypes[old_generation..] {
             // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
-            unsafe {
-                F::Param::new_archetype(
-                    &state.param,
-                    archetype,
-                    &mut self.system_meta,
-                    world.world(),
-                )
-            };
+            unsafe { F::Param::new_archetype(&state.param, archetype, &mut self.system_meta) };
         }
     }
 
