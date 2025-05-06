@@ -136,7 +136,7 @@ impl TableRow {
     }
 }
 
-/// An opaque for components in [`Table`]s. Specifies a single column in a specific table.
+/// An opaque id for components in [`Table`]s. Specifies a single column in a specific table.
 /// Think of this as a more localized [`ComponentId`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TableColumnId(pub(crate) u32);
