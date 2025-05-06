@@ -6,28 +6,59 @@
 )]
 #![no_std]
 
-#[cfg(feature = "std")]
-extern crate std;
+/// Configuration information for this crate.
+pub mod cfg {
+    pub(crate) use bevy_platform::cfg::*;
 
-extern crate alloc;
+    pub use bevy_platform::cfg::{alloc, std, web};
 
-mod conditional_send {
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
-            /// futures aren't Send.
-            pub trait ConditionalSend {}
-            impl<T> ConditionalSend for T {}
-        } else {
-            /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
-            /// futures aren't Send.
-            pub trait ConditionalSend: Send {}
-            impl<T: Send> ConditionalSend for T {}
+    define_alias! {
+        #[cfg(feature = "async_executor")] => {
+            /// Indicates `async_executor` is used as the future execution backend.
+            async_executor
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))] => {
+            /// Indicates multithreading support.
+            multi_threaded
+        }
+
+        #[cfg(target_arch = "wasm32")] => {
+            /// Indicates the current target requires additional `Send` bounds.
+            conditional_send
+        }
+
+        #[cfg(feature = "async-io")] => {
+            /// Indicates `async-io` will be used for the implementation of `block_on`.
+            async_io
+        }
+
+        #[cfg(feature = "futures-lite")] => {
+            /// Indicates `futures-lite` will be used for the implementation of `block_on`.
+            futures_lite
         }
     }
 }
 
-pub use conditional_send::*;
+cfg::std! {
+    extern crate std;
+}
+
+extern crate alloc;
+
+cfg::conditional_send! {
+    if {
+        /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
+        /// futures aren't Send.
+        pub trait ConditionalSend {}
+        impl<T> ConditionalSend for T {}
+    } else {
+        /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
+        /// futures aren't Send.
+        pub trait ConditionalSend: Send {}
+        impl<T: Send> ConditionalSend for T {}
+    }
+}
 
 /// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
 /// futures aren't Send.
@@ -42,27 +73,38 @@ pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Outpu
 
 pub mod futures;
 
-#[cfg(not(feature = "async_executor"))]
-mod edge_executor;
+cfg::async_executor! {
+    if {} else {
+        mod edge_executor;
+    }
+}
 
 mod executor;
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
-#[cfg_attr(all(target_arch = "wasm32", feature = "web"), path = "wasm_task.rs")]
-mod task;
+cfg::web! {
+    if {
+        #[path = "wasm_task.rs"]
+        mod task;
+    } else {
+        mod task;
+
+        pub use usages::tick_global_task_pools_on_main_thread;
+    }
+}
 
 pub use task::Task;
 
-cfg_if::cfg_if! {
-    if #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))] {
+cfg::multi_threaded! {
+    if {
         mod task_pool;
         mod thread_executor;
 
         pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
         pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
-    } else if #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))] {
+    } else {
         mod single_threaded_task_pool;
 
         pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
@@ -73,15 +115,35 @@ mod usages;
 pub use futures_lite::future::poll_once;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
-#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-pub use usages::tick_global_task_pools_on_main_thread;
-
-#[cfg(feature = "std")]
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-io")] {
+cfg::switch! {
+    cfg::async_io => {
         pub use async_io::block_on;
-    } else {
+    }
+    cfg::futures_lite => {
         pub use futures_lite::future::block_on;
+    }
+    _ => {
+        /// Blocks on the supplied `future`.
+        /// This implementation will busy-wait until it is completed.
+        /// Consider enabling the `async-io` or `futures-lite` features.
+        pub fn block_on<T>(future: impl Future<Output = T>) -> T {
+            use core::task::{Poll, Context};
+
+            // Pin the future on the stack.
+            let mut future = core::pin::pin!(future);
+
+            // We don't care about the waker as we're just going to poll as fast as possible.
+            let waker = futures::noop_waker();
+            let cx = &mut Context::from_waker(&waker);
+
+            // Keep polling until the future is ready.
+            loop {
+                match future.as_mut().poll(cx) {
+                    Poll::Ready(output) => return output,
+                    Poll::Pending => core::hint::spin_loop(),
+                }
+            }
+        }
     }
 }
 
@@ -96,38 +158,28 @@ pub use futures_lite;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        block_on,
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
     };
-
-    #[cfg(feature = "std")]
-    #[doc(hidden)]
-    pub use crate::block_on;
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "std")] {
-        use core::num::NonZero;
-
-        /// Gets the logical CPU core count available to the current process.
-        ///
-        /// This is identical to [`std::thread::available_parallelism`], except
-        /// it will return a default value of 1 if it internally errors out.
-        ///
-        /// This will always return at least 1.
-        pub fn available_parallelism() -> usize {
+/// Gets the logical CPU core count available to the current process.
+///
+/// This is identical to `std::thread::available_parallelism`, except
+/// it will return a default value of 1 if it internally errors out.
+///
+/// This will always return at least 1.
+pub fn available_parallelism() -> usize {
+    cfg::switch! {{
+        cfg::std => {
             std::thread::available_parallelism()
-                .map(NonZero::<usize>::get)
+                .map(core::num::NonZero::<usize>::get)
                 .unwrap_or(1)
         }
-    } else {
-        /// Gets the logical CPU core count available to the current process.
-        ///
-        /// This will always return at least 1.
-        pub fn available_parallelism() -> usize {
-            // Without access to std, assume a single thread is available
+        _ => {
             1
         }
-    }
+    }}
 }
