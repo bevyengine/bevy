@@ -271,38 +271,54 @@ impl IntoSystemSet<()> for ApplyDeferred {
 mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
+    #[cfg(feature = "std")]
+    use crate::world::unsafe_world_cell::UnsafeWorldCell;
     use crate::{
         error::Result,
         system::{ReadOnlySystem, ScheduleSystem},
-        world::{unsafe_world_cell::UnsafeWorldCell, World},
+        world::World,
     };
 
     /// # Safety
     /// See `System::run_unsafe`.
+    // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
         let result = system.run_unsafe((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
     }
 
     /// # Safety
     /// See `ReadOnlySystem::run_unsafe`.
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "currently only used with the std feature")
-    )]
+    // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: UnsafeWorldCell,
     ) -> O {
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run_unsafe((), world))
     }
 
     #[inline(never)]
     pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) -> Result {
         let result = system.run((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
+        black_box(());
+        result
+    }
+
+    #[inline(never)]
+    pub(super) fn run_without_applying_deferred(
+        system: &mut ScheduleSystem,
+        world: &mut World,
+    ) -> Result {
+        let result = system.run_without_applying_deferred((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
     }
@@ -312,6 +328,7 @@ mod __rust_begin_short_backtrace {
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
     ) -> O {
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run((), world))
     }
 }
