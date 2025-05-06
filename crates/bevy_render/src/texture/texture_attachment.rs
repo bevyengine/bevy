@@ -1,7 +1,7 @@
 use crate::{
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, FrameGraphError, PassNodeBuilder,
-        ResourceBoardKey, ResourceHandle, TextureViewDrawing, TextureViewInfo,
+        ColorAttachment, ColorAttachmentDrawing, FrameGraphError, GetResourceDrawing,
+        PassNodeBuilder, ResourceBoardKey, ResourceHandle, TextureViewDrawing, TextureViewInfo,
     },
     render_resource::{TextureFormat, TextureView},
 };
@@ -12,17 +12,17 @@ use std::ops::Deref;
 use wgpu::{Color, LoadOp, Operations, RenderPassDepthStencilAttachment, StoreOp};
 
 #[derive(Clone)]
-pub struct ColorAttachmentProvider {
+pub struct ColorAttachmentHandle {
     pub texture: ResourceBoardKey,
     pub resolve_target: Option<ResourceBoardKey>,
     clear_color: Option<LinearRgba>,
     is_first_call: Arc<AtomicBool>,
 }
 
-impl ResourceHandle for ColorAttachmentProvider {
+impl GetResourceDrawing for ColorAttachmentHandle {
     type Drawing = ColorAttachmentDrawing;
 
-    fn make_resource_drawing(
+    fn get_resource_drawing(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> Result<Self::Drawing, FrameGraphError> {
@@ -64,7 +64,7 @@ impl ResourceHandle for ColorAttachmentProvider {
     }
 }
 
-impl ColorAttachmentProvider {
+impl ColorAttachmentHandle {
     pub fn new(
         texture: ResourceBoardKey,
         resolve_target: Option<ResourceBoardKey>,

@@ -14,8 +14,8 @@ use crate::{
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, FrameGraph, FrameGraphError, PassNodeBuilder,
-        ResourceBoardKey, ResourceHandle, TextureInfo,
+        ColorAttachment, ColorAttachmentDrawing, FrameGraph, FrameGraphError, GetResourceDrawing,
+        PassNodeBuilder, ResourceBoardKey, TextureInfo,
     },
     prelude::Shader,
     primitives::Frustum,
@@ -24,7 +24,7 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
-    texture::{ColorAttachmentProvider, GpuImage, OutputColorAttachment},
+    texture::{ColorAttachmentHandle, GpuImage, OutputColorAttachment},
     Render, RenderApp, RenderSet,
 };
 use alloc::sync::Arc;
@@ -720,17 +720,17 @@ pub struct NoIndirectDrawing;
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
 
-impl ResourceHandle for ViewTarget {
+impl GetResourceDrawing for ViewTarget {
     type Drawing = ColorAttachmentDrawing;
 
-    fn make_resource_drawing(
+    fn get_resource_drawing(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::Drawing, FrameGraphError> {
+    ) -> std::result::Result<Self::Drawing, FrameGraphError> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            self.main_textures.a.make_resource_drawing(pass_node_builder)
+            self.main_textures.a.get_resource_drawing(pass_node_builder)
         } else {
-            self.main_textures.b.make_resource_drawing(pass_node_builder)
+            self.main_textures.b.get_resource_drawing(pass_node_builder)
         }
     }
 }
@@ -949,8 +949,8 @@ pub fn prepare_view_uniforms(
 
 #[derive(Clone)]
 struct MainTargetTextures {
-    a: ColorAttachmentProvider,
-    b: ColorAttachmentProvider,
+    a: ColorAttachmentHandle,
+    b: ColorAttachmentHandle,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -1080,12 +1080,12 @@ pub fn prepare_view_targets(
         let converted_clear_color = clear_color.map(Into::into);
 
         let main_textures = MainTargetTextures {
-            a: ColorAttachmentProvider::new(
+            a: ColorAttachmentHandle::new(
                 a_key.into(),
                 sampled_key.as_ref().map(|key| key.into()),
                 converted_clear_color,
             ),
-            b: ColorAttachmentProvider::new(
+            b: ColorAttachmentHandle::new(
                 b_key.into(),
                 sampled_key.as_ref().map(|key| key.into()),
                 converted_clear_color,

@@ -13,8 +13,9 @@ use crate::{
     frame_graph::{
         BindGroupDrawing, BindGroupEntryRef, ColorAttachment, ColorAttachmentDrawing,
         DepthStencilAttachmentDrawing, FrameGraphBuffer, FrameGraphError, FrameGraphTexture,
-        GraphResource, PassNodeBuilder, RenderPassCommandBuilder, ResourceBoardKey, ResourceHandle,
-        ResourceRead, ResourceRef, TextureViewDrawing, TextureViewInfo,
+        GetResourceDrawing, GraphResource, PassNodeBuilder, RenderPassCommandBuilder,
+        ResourceBoardKey, ResourceHandle, ResourceRead, ResourceRef, TextureViewDrawing,
+        TextureViewInfo,
     },
     render_resource::{BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, Texture},
     view::ViewDepthTexture,
@@ -39,10 +40,10 @@ impl<'a> Drop for RenderPassBuilder<'a> {
     }
 }
 
-impl ResourceHandle for (&ViewDepthTexture, StoreOp) {
+impl GetResourceDrawing for (&ViewDepthTexture, StoreOp) {
     type Drawing = DepthStencilAttachmentDrawing;
 
-    fn make_resource_drawing(
+    fn get_resource_drawing(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> Result<Self::Drawing, FrameGraphError> {
@@ -66,15 +67,12 @@ where
 {
     type Drawing = BindGroupDrawing;
 
-    fn make_resource_drawing(
-        &self,
-        _pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::Drawing, FrameGraphError> {
-        Ok(BindGroupDrawing {
+    fn make_resource_drawing(&self, _pass_node_builder: &mut PassNodeBuilder) -> Self::Drawing {
+        BindGroupDrawing {
             label: self.0.clone(),
             layout: self.1.clone(),
             entries: self.2.to_vec(),
-        })
+        }
     }
 }
 
@@ -86,6 +84,10 @@ impl<'a> RenderPassBuilder<'a> {
             render_pass,
             pass_node_builder,
         }
+    }
+
+    pub fn pass_node_builder(&mut self) -> &mut PassNodeBuilder<'a> {
+        &mut self.pass_node_builder
     }
 
     pub fn end_pipeline_statistics_query(&mut self) -> &mut Self {
@@ -330,20 +332,15 @@ impl<'a> RenderPassBuilder<'a> {
         self
     }
 
-    pub fn set_bind_group<T>(
-        &mut self,
-        index: u32,
-        bind_group: T,
-        offsets: &[u32],
-    ) -> Result<&mut Self, FrameGraphError>
+    pub fn set_bind_group<T>(&mut self, index: u32, bind_group: T, offsets: &[u32]) -> &mut Self
     where
         T: ResourceHandle<Drawing = BindGroupDrawing>,
     {
-        let bind_group_ref = bind_group.make_resource_drawing(&mut self.pass_node_builder)?;
+        let bind_group_ref = bind_group.make_resource_drawing(&mut self.pass_node_builder);
 
         self.render_pass
             .set_bind_group(index, &bind_group_ref, offsets);
-        Ok(self)
+        self
     }
 
     pub fn set_render_pipeline(&mut self, id: CachedRenderPipelineId) -> &mut Self {
@@ -361,27 +358,19 @@ impl<'a> RenderPassBuilder<'a> {
         self
     }
 
-    pub fn add_color_attachment<T>(&mut self, provider: &T) -> Result<&mut Self, FrameGraphError>
-    where
-        T: ResourceHandle<Drawing = ColorAttachmentDrawing>,
-    {
-        let color_attachment = provider.make_resource_drawing(&mut self.pass_node_builder)?;
-
+    pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentDrawing) -> &mut Self {
         self.render_pass.add_color_attachment(color_attachment);
-        Ok(self)
+
+        self
     }
 
-    pub fn set_depth_stencil_attachment<T>(
+    pub fn set_depth_stencil_attachment(
         &mut self,
-        provider: &T,
-    ) -> Result<&mut Self, FrameGraphError>
-    where
-        T: ResourceHandle<Drawing = DepthStencilAttachmentDrawing>,
-    {
-        let color_attachment = provider.make_resource_drawing(&mut self.pass_node_builder)?;
-
+        depth_stencil_attachment: DepthStencilAttachmentDrawing,
+    ) -> &mut Self {
         self.render_pass
-            .set_depth_stencil_attachment(color_attachment);
-        Ok(self)
+            .set_depth_stencil_attachment(depth_stencil_attachment);
+
+        self
     }
 }

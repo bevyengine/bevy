@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::{render_pass_builder::RenderPassBuilder, FrameGraph},
+    frame_graph::{render_pass_builder::RenderPassBuilder, FrameGraph, GetResourceDrawing},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
     render_resource::StoreOp,
@@ -46,12 +46,17 @@ impl ViewNode for MainTransparentPass2dNode {
 
         let render_device = world.resource::<RenderDevice>();
 
-        let mut render_pass_builder =
-            RenderPassBuilder::new(frame_graph.create_pass_node_bulder("main_transparent_pass_2d"));
+        let mut pass_node_builder = frame_graph.create_pass_node_bulder("main_transparent_pass_2d");
+
+        let color_attachment = target.get_resource_drawing(&mut pass_node_builder)?;
+        let depth_stencil_attachment =
+            (depth, StoreOp::Store).get_resource_drawing(&mut pass_node_builder)?;
+
+        let mut render_pass_builder = RenderPassBuilder::new(pass_node_builder);
 
         render_pass_builder
-            .add_color_attachment(target)?
-            .set_depth_stencil_attachment(&(depth, StoreOp::Store))?
+            .add_color_attachment(color_attachment)
+            .set_depth_stencil_attachment(depth_stencil_attachment)
             .set_camera_viewport(camera.viewport.clone());
 
         let mut tracked_render_pass = TrackedRenderPass::new(&render_device, render_pass_builder);

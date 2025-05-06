@@ -92,7 +92,7 @@ impl ViewNode for TonemappingNode {
             builder.read_from_board(source)?;
 
         builder
-            .add_color_attachment(&ColorAttachmentDrawing {
+            .add_color_attachment(ColorAttachmentDrawing {
                 view: TextureViewDrawing {
                     texture: destination_read,
                     desc: TextureViewInfo::default(),
@@ -102,7 +102,7 @@ impl ViewNode for TonemappingNode {
                     load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
                     store: StoreOp::Store,
                 },
-            })?
+            })
             .set_render_pipeline(view_tonemapping_pipeline.0)
             .set_bind_group(
                 0,
@@ -118,7 +118,7 @@ impl ViewNode for TonemappingNode {
                     )),
                 ),
                 &[view_uniform_offset.offset],
-            )?
+            )
             .draw(0..3, 0..1);
 
         Ok(())

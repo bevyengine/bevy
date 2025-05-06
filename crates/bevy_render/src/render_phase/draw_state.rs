@@ -215,8 +215,7 @@ impl<'a> TrackedRenderPass<'a> {
         self.state
             .set_bind_group_layout(index, bind_group.layout.id(), dynamic_uniform_indices);
         self.pass
-            .set_bind_group(index as u32, bind_group.clone(), dynamic_uniform_indices)
-            .unwrap();
+            .set_bind_group(index as u32, bind_group.clone(), dynamic_uniform_indices);
     }
 
     /// Sets the active bind group for a given bind group index. The bind group layout

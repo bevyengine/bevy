@@ -47,23 +47,26 @@ impl ResourceMaterial for Texture {
     }
 }
 
-pub trait ResourceHandle {
+pub trait GetResourceDrawing {
     type Drawing;
 
-    fn make_resource_drawing(
+    fn get_resource_drawing(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> Result<Self::Drawing, FrameGraphError>;
 }
 
+pub trait ResourceHandle {
+    type Drawing;
+
+    fn make_resource_drawing(&self, pass_node_builder: &mut PassNodeBuilder) -> Self::Drawing;
+}
+
 impl<T: Clone + ResourceDrawing> ResourceHandle for T {
     type Drawing = T;
 
-    fn make_resource_drawing(
-        &self,
-        _pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::Drawing, FrameGraphError> {
-        Ok(self.clone())
+    fn make_resource_drawing(&self, _pass_node_builder: &mut PassNodeBuilder) -> Self::Drawing {
+        self.clone()
     }
 }
 
