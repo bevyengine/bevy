@@ -395,6 +395,6 @@ mod tests {
             assert_eq!(last_entity, Ok(tab_entity_2));
         };
 
-        world.run_system_cached(system);
+        let _ = world.run_system_cached(system);
     }
 }
