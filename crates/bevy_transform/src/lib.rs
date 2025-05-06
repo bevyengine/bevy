@@ -45,10 +45,10 @@ pub mod prelude {
     pub use crate::{
         commands::BuildChildrenTransformExt,
         helper::TransformHelper,
-        plugins::{TransformPlugin, TransformSystem},
+        plugins::{TransformPlugin, TransformSystems},
         traits::TransformPoint,
     };
 }
 
 #[cfg(feature = "bevy-support")]
-pub use prelude::{TransformPlugin, TransformPoint, TransformSystem};
+pub use prelude::{TransformPlugin, TransformPoint, TransformSystems};

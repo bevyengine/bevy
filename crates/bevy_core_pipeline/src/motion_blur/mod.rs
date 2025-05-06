@@ -20,7 +20,7 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, ShaderType, SpecializedRenderPipelines},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 pub mod node;
@@ -152,7 +152,7 @@ impl Plugin for MotionBlurPlugin {
             .init_resource::<SpecializedRenderPipelines<pipeline::MotionBlurPipeline>>()
             .add_systems(
                 Render,
-                pipeline::prepare_motion_blur_pipelines.in_set(RenderSet::Prepare),
+                pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
             );
 
         render_app

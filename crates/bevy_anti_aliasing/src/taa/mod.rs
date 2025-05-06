@@ -36,7 +36,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use tracing::warn;
 
@@ -64,9 +64,9 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter_and_mip_bias.in_set(RenderSet::ManageViews),
-                    prepare_taa_pipelines.in_set(RenderSet::Prepare),
-                    prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
+                    prepare_taa_jitter_and_mip_bias.in_set(RenderSystems::ManageViews),
+                    prepare_taa_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_taa_history_textures.in_set(RenderSystems::PrepareResources),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(Core3d, Node3d::Taa)
