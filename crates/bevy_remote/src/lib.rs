@@ -374,7 +374,7 @@ use bevy_ecs::{
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_utils::prelude::default;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -543,34 +543,38 @@ impl Plugin for RemotePlugin {
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
                 RemoteLast,
-                (RemoteSet::ProcessRequests, RemoteSet::Cleanup).chain(),
+                (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
             )
             .add_systems(
                 RemoteLast,
                 (
                     (process_remote_requests, process_ongoing_watching_requests)
                         .chain()
-                        .in_set(RemoteSet::ProcessRequests),
-                    remove_closed_watching_requests.in_set(RemoteSet::Cleanup),
+                        .in_set(RemoteSystems::ProcessRequests),
+                    remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
                 ),
             );
     }
 }
 
 /// Schedule that contains all systems to process Bevy Remote Protocol requests
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct RemoteLast;
 
 /// The systems sets of the [`RemoteLast`] schedule.
 ///
 /// These can be useful for ordering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RemoteSet {
+pub enum RemoteSystems {
     /// Processing of remote requests.
     ProcessRequests,
     /// Cleanup (remove closed watchers etc)
     Cleanup,
 }
+
+/// Deprecated alias for [`RemoteSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RemoteSystems`.")]
+pub type RemoteSet = RemoteSystems;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]

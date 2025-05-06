@@ -8,7 +8,7 @@ use bevy_picking::backend::HitData;
 use bevy_picking::hover::HoverMap;
 use bevy_picking::pointer::{Location, PointerId, PointerPress};
 use bevy_picking::prelude::*;
-use bevy_picking::{pointer, PickSet};
+use bevy_picking::{pointer, PickingSystems};
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_text::prelude::*;
@@ -85,7 +85,7 @@ impl Plugin for DebugPickingPlugin {
         app.init_resource::<DebugPickingMode>()
             .add_systems(
                 PreUpdate,
-                pointer_debug_visibility.in_set(PickSet::PostHover),
+                pointer_debug_visibility.in_set(PickingSystems::PostHover),
             )
             .add_systems(
                 PreUpdate,
@@ -108,7 +108,7 @@ impl Plugin for DebugPickingPlugin {
                     log_pointer_event_debug::<DragDrop>,
                 )
                     .distributive_run_if(DebugPickingMode::is_enabled)
-                    .in_set(PickSet::Last),
+                    .in_set(PickingSystems::Last),
             );
 
         app.add_systems(
@@ -116,7 +116,7 @@ impl Plugin for DebugPickingPlugin {
             (add_pointer_debug, update_debug_data, debug_draw)
                 .chain()
                 .distributive_run_if(DebugPickingMode::is_enabled)
-                .in_set(PickSet::Last),
+                .in_set(PickingSystems::Last),
         );
     }
 }

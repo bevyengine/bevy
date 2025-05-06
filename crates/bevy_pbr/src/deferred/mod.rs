@@ -29,7 +29,7 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 pub struct DeferredPbrLightingPlugin;
@@ -115,7 +115,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
             .add_systems(
                 Render,
-                (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
+                (prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),),
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
                 Core3d,

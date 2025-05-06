@@ -1,4 +1,5 @@
 pub use bevy_ecs_macros::MapEntities;
+use indexmap::IndexSet;
 
 use crate::{
     entity::{hash_map::EntityHashMap, Entity},
@@ -6,10 +7,15 @@ use crate::{
     world::World,
 };
 
-use alloc::{collections::VecDeque, vec::Vec};
-use bevy_platform_support::collections::HashSet;
-use core::hash::BuildHasher;
+use alloc::{
+    collections::{BTreeSet, VecDeque},
+    vec::Vec,
+};
+use bevy_platform::collections::HashSet;
+use core::{hash::BuildHasher, mem};
 use smallvec::SmallVec;
+
+use super::EntityIndexSet;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -24,7 +30,7 @@ use smallvec::SmallVec;
 /// entities in the context of scenes and entity cloning, which generally uses [`MapEntities`] internally
 /// to map each field (see those docs for usage).
 ///
-/// [`HashSet<Entity>`]: bevy_platform_support::collections::HashSet
+/// [`HashSet<Entity>`]: bevy_platform::collections::HashSet
 ///
 /// ## Example
 ///
@@ -59,42 +65,87 @@ impl MapEntities for Entity {
     }
 }
 
-impl MapEntities for Option<Entity> {
+impl<T: MapEntities> MapEntities for Option<T> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        if let Some(entity) = self {
-            *entity = entity_mapper.get_mapped(*entity);
+        if let Some(entities) = self {
+            entities.map_entities(entity_mapper);
         }
     }
 }
 
-impl<S: BuildHasher + Default> MapEntities for HashSet<Entity, S> {
+impl<T: MapEntities + Eq + core::hash::Hash, S: BuildHasher + Default> MapEntities
+    for HashSet<T, S>
+{
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        *self = self.drain().map(|e| entity_mapper.get_mapped(e)).collect();
+        *self = self
+            .drain()
+            .map(|mut entities| {
+                entities.map_entities(entity_mapper);
+                entities
+            })
+            .collect();
     }
 }
-impl MapEntities for Vec<Entity> {
+
+impl<T: MapEntities + Eq + core::hash::Hash, S: BuildHasher + Default> MapEntities
+    for IndexSet<T, S>
+{
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        for entity in self.iter_mut() {
-            *entity = entity_mapper.get_mapped(*entity);
+        *self = self
+            .drain(..)
+            .map(|mut entities| {
+                entities.map_entities(entity_mapper);
+                entities
+            })
+            .collect();
+    }
+}
+
+impl MapEntities for EntityIndexSet {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = self
+            .drain(..)
+            .map(|e| entity_mapper.get_mapped(e))
+            .collect();
+    }
+}
+
+impl<T: MapEntities + Ord> MapEntities for BTreeSet<T> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = mem::take(self)
+            .into_iter()
+            .map(|mut entities| {
+                entities.map_entities(entity_mapper);
+                entities
+            })
+            .collect();
+    }
+}
+
+impl<T: MapEntities> MapEntities for Vec<T> {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        for entities in self.iter_mut() {
+            entities.map_entities(entity_mapper);
         }
     }
 }
 
-impl MapEntities for VecDeque<Entity> {
+impl<T: MapEntities> MapEntities for VecDeque<T> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        for entity in self.iter_mut() {
-            *entity = entity_mapper.get_mapped(*entity);
+        for entities in self.iter_mut() {
+            entities.map_entities(entity_mapper);
         }
     }
 }
 
-impl<A: smallvec::Array<Item = Entity>> MapEntities for SmallVec<A> {
+impl<T: MapEntities, A: smallvec::Array<Item = T>> MapEntities for SmallVec<A> {
     fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
-        for entity in self.iter_mut() {
-            *entity = entity_mapper.get_mapped(*entity);
+        for entities in self.iter_mut() {
+            entities.map_entities(entity_mapper);
         }
     }
 }
+
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
 /// Usually this is done by using an [`EntityHashMap<Entity>`] to map source entities

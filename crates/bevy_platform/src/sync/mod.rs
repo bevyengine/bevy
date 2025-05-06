@@ -14,8 +14,17 @@ pub use once::{Once, OnceLock, OnceState};
 pub use poison::{LockResult, PoisonError, TryLockError, TryLockResult};
 pub use rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-#[cfg(feature = "alloc")]
-pub use arc::{Arc, Weak};
+crate::cfg::alloc! {
+    pub use arc::{Arc, Weak};
+
+    crate::cfg::arc! {
+        if {
+            use alloc::sync as arc;
+        } else {
+            use portable_atomic_util as arc;
+        }
+    }
+}
 
 pub mod atomic;
 
@@ -25,9 +34,3 @@ mod mutex;
 mod once;
 mod poison;
 mod rwlock;
-
-#[cfg(all(feature = "alloc", not(target_has_atomic = "ptr")))]
-use portable_atomic_util as arc;
-
-#[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
-use alloc::sync as arc;

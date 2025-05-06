@@ -29,7 +29,7 @@ pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
     root_paths: alloc::sync::Arc<
-        parking_lot::RwLock<bevy_platform_support::collections::HashMap<Box<Path>, PathBuf>>,
+        parking_lot::RwLock<bevy_platform::collections::HashMap<Box<Path>, PathBuf>>,
     >,
 }
 
