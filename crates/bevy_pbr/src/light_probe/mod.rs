@@ -27,7 +27,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Visibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
@@ -383,7 +383,7 @@ impl Plugin for LightProbePlugin {
             .add_systems(
                 Render,
                 (upload_light_probes, prepare_environment_uniform_buffer)
-                    .in_set(RenderSet::PrepareResources),
+                    .in_set(RenderSystems::PrepareResources),
             );
     }
 }

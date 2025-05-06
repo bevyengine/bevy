@@ -7,7 +7,7 @@ use crate::{
     error::Result,
     never::Never,
     prelude::{Bundle, Trigger},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::{Fallible, Infallible},
     system::{input::SystemIn, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -120,6 +120,11 @@ where
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.observer.component_access()
+    }
+
+    #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        self.observer.component_access_set()
     }
 
     #[inline]

@@ -418,6 +418,21 @@ use thiserror::Error;
 ///         println!("{message}");
 ///     }
 /// }
+///
+/// ```
+/// # Setting the clone behavior
+///
+/// You can specify how the [`Component`] is cloned when deriving it.
+///
+/// Your options are the functions and variants of [`ComponentCloneBehavior`]
+/// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Component)]
+/// #[component(clone_behavior = Ignore)]
+/// struct MyComponent;
+///
 /// ```
 ///
 /// # Implementing the trait for foreign types
@@ -559,6 +574,17 @@ pub trait Component: Send + Sync + 'static {
     /// ```
     ///
     /// Fields with `#[entities]` must implement [`MapEntities`](crate::entity::MapEntities).
+    ///
+    /// Bevy provides various implementations of [`MapEntities`](crate::entity::MapEntities), so that arbitrary combinations like these are supported with `#[entities]`:
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{component::Component, entity::Entity};
+    /// #[derive(Component)]
+    /// struct Inventory {
+    ///     #[entities]
+    ///     items: Vec<Option<Entity>>
+    /// }
+    /// ```
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
@@ -2049,7 +2075,7 @@ impl Components {
     }
 
     /// Gets the [`ComponentDescriptor`] of the component with this [`ComponentId`] if it is present.
-    /// This will return `None` only if the id is neither regisered nor queued to be registered.
+    /// This will return `None` only if the id is neither registered nor queued to be registered.
     ///
     /// Currently, the [`Cow`] will be [`Cow::Owned`] if and only if the component is queued. It will be [`Cow::Borrowed`] otherwise.
     ///
@@ -2073,7 +2099,7 @@ impl Components {
     }
 
     /// Gets the name of the component with this [`ComponentId`] if it is present.
-    /// This will return `None` only if the id is neither regisered nor queued to be registered.
+    /// This will return `None` only if the id is neither registered nor queued to be registered.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
