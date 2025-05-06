@@ -251,6 +251,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     ) {
         self.window_event_received = true;
 
+        #[allow(unused_mut, reason = "only needs to be mut on windows for now")]
+        let mut manual_run_redraw_requested = false;
+
         WINIT_WINDOWS.with_borrow(|winit_windows| {
             ACCESS_KIT_ADAPTERS.with_borrow_mut(|access_kit_adapters| {
                 let (
@@ -456,7 +459,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                             // Have the startup behavior run in about_to_wait, which prevents issues with
                             // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
                             if self.startup_forced_updates == 0 {
-                                self.redraw_requested(_event_loop);
+                                manual_run_redraw_requested = true;
                             }
                         }
                     }
@@ -472,6 +475,10 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 }
             });
         });
+
+        if manual_run_redraw_requested {
+            self.redraw_requested(_event_loop);
+        }
     }
 
     fn device_event(
