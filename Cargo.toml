@@ -1410,6 +1410,14 @@ doc-scrape-examples = true
 [package.metadata.example.no_prepass]
 hidden = true
 
+[[example]]
+name = "gltf_override_sampler"
+path = "tests/gltf/gltf_override_sampler.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_override_sampler]
+hidden = true
+
 # Animation
 [[example]]
 name = "animation_events"
