@@ -504,9 +504,6 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 /// # use bevy_ecs::system::Query;
 /// # use bevy_ecs::query::Spawned;
 /// # use bevy_ecs::query::SpawnDetails;
-/// #
-/// # #[derive(Component, Debug)]
-/// # struct Name {};
 ///
 /// fn print_spawn_details(query: Query<(Entity, SpawnDetails)>) {
 ///     for (entity, spawn_details) in &query {
