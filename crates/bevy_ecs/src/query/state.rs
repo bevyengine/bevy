@@ -1901,7 +1901,7 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
     }
 }
 
-/// Warpper of [`QueryState`] for safety reasons.
+/// Wrapper of [`QueryState`] for safety reasons.
 /// The inner state in manage by observer. DO NOT try to mutate it outside of the observer,
 /// event with unsafe code.
 #[derive(Component)]
@@ -1963,11 +1963,6 @@ fn on_add_query_state<D: QueryData + 'static, F: QueryFilter + 'static>(
         // SAFETY: We keep a mutable reference but this method doesn't read that reference.
         state.0.update_archetypes_unsafe_world_cell(world);
         state.0.sync_by_observer = true;
-
-        std::println!(
-            "Spawned observer for {}",
-            std::any::type_name::<QueryState<D, F>>()
-        );
     });
 }
 
