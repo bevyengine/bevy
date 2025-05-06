@@ -1,7 +1,7 @@
 //! Tests loading the same glTF multiple times but with different values for
 //! `GltfLoaderSettings::override_sampler` and `default_sampler`.
 //!
-//! This test currently fails due to https://github.com/bevyengine/bevy/issues/18267 -
+//! CAUTION: This test currently fails due to https://github.com/bevyengine/bevy/issues/18267 -
 //! subsequent loads of the same gltf do not respect the loader settings.
 
 use bevy::{gltf::GltfLoaderSettings, prelude::*};
