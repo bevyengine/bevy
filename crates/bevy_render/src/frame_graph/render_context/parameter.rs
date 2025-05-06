@@ -1,17 +1,51 @@
 use std::ops::Range;
 
 use bevy_color::LinearRgba;
-use wgpu::{QuerySet, ShaderStages};
+use wgpu::{Extent3d, QuerySet, ShaderStages};
 
 use crate::{
     frame_graph::{
         BindGroupDrawing, FrameGraphBuffer, FrameGraphError, RenderPassContext, ResourceRead,
-        ResourceRef,
+        ResourceRef, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedRenderPipelineId},
 };
 
-use super::ErasedRenderPassCommand;
+use super::{
+    command_encoder_context::{CommandEncoderContext, ErasedCommandEncoderCommand},
+    ErasedRenderPassCommand,
+};
+
+pub struct CopyTextureToTextureParameter {
+    pub source: TexelCopyTextureInfo,
+    pub destination: TexelCopyTextureInfo,
+    pub copy_size: Extent3d,
+}
+
+impl ErasedRenderPassCommand for CopyTextureToTextureParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.copy_texture_to_texture(
+            self.source.clone(),
+            self.destination.clone(),
+            self.copy_size.clone(),
+        )?;
+        Ok(())
+    }
+}
+
+impl ErasedCommandEncoderCommand for CopyTextureToTextureParameter {
+    fn draw(
+        &self,
+        command_encoder_context: &mut CommandEncoderContext,
+    ) -> Result<(), FrameGraphError> {
+        command_encoder_context.copy_texture_to_texture(
+            self.source.clone(),
+            self.destination.clone(),
+            self.copy_size.clone(),
+        )?;
+        Ok(())
+    }
+}
 
 pub struct DrawIndexedIndirectParameter {
     pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
@@ -103,7 +137,7 @@ impl ErasedRenderPassCommand for MultiDrawIndexedIndirectCountParameter {
 }
 
 pub struct SetStencilReferenceParameter {
-   pub reference: u32,
+    pub reference: u32,
 }
 
 impl ErasedRenderPassCommand for SetStencilReferenceParameter {

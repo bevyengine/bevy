@@ -1,10 +1,11 @@
 use bevy_color::LinearRgba;
-use wgpu::{QuerySet, ShaderStages};
+use wgpu::{Extent3d, QuerySet, ShaderStages};
 
 use super::{
-    BeginPipelineStatisticsQueryParameter, DrawIndexedIndirectParameter, DrawIndexedParameter,
-    DrawIndirectParameter, DrawParameter, EndPipelineStatisticsQueryParameter, FrameGraphBuffer,
-    FrameGraphError, InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
+    BeginPipelineStatisticsQueryParameter, CopyTextureToTextureParameter,
+    DrawIndexedIndirectParameter, DrawIndexedParameter, DrawIndirectParameter, DrawParameter,
+    EndPipelineStatisticsQueryParameter, FrameGraphBuffer, FrameGraphError,
+    InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
     MultiDrawIndexedIndirectParameter, MultiDrawIndirectParameter, PopDebugGroupParameter,
     PushDebugGroupParameter, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter,
     SetBlendConstantParameter, SetIndexBufferParameter, SetPushConstantsParameter,
@@ -12,12 +13,28 @@ use super::{
     SetStencilReferenceParameter, SetVertexBufferParameter, SetViewportParameter,
     WriteTimestampParameter,
 };
-use crate::{frame_graph::{BindGroupDrawing, ResourceDrawing}, render_resource::{BindGroup, CachedRenderPipelineId}};
+use crate::{
+    frame_graph::{BindGroupDrawing, ResourceDrawing, TexelCopyTextureInfo},
+    render_resource::{BindGroup, CachedRenderPipelineId},
+};
 use core::ops::Range;
 use std::ops::Deref;
 
 pub trait RenderPassCommandBuilder {
     fn add_render_pass_command(&mut self, value: RenderPassCommand);
+
+    fn copy_texture_to_texture(
+        &mut self,
+        source: TexelCopyTextureInfo,
+        destination: TexelCopyTextureInfo,
+        copy_size: Extent3d,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(CopyTextureToTextureParameter {
+            source,
+            destination,
+            copy_size,
+        }));
+    }
 
     fn draw_indirect(
         &mut self,
@@ -286,6 +303,34 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
             render_pass,
             render_context,
         }
+    }
+
+    pub fn copy_texture_to_texture(
+        &mut self,
+        source: TexelCopyTextureInfo,
+        destination: TexelCopyTextureInfo,
+        copy_size: Extent3d,
+    ) -> Result<(), FrameGraphError> {
+        let source_texture = self.render_context.get_resource(&source.texture)?;
+        let destination_texture = self.render_context.get_resource(&destination.texture)?;
+
+        self.command_encoder.copy_texture_to_texture(
+            wgpu::TexelCopyTextureInfoBase {
+                texture: &source_texture.resource,
+                mip_level: source.mip_level,
+                origin: source.origin,
+                aspect: source.aspect,
+            },
+            wgpu::TexelCopyTextureInfoBase {
+                texture: &destination_texture.resource,
+                mip_level: destination.mip_level,
+                origin: destination.origin,
+                aspect: destination.aspect,
+            },
+            copy_size,
+        );
+
+        Ok(())
     }
 
     pub fn end_pipeline_statistics_query(&mut self) {

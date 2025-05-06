@@ -2,7 +2,7 @@ use crate::{
     camera::Viewport,
     frame_graph::{
         ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing,
-        FrameGraphError, RenderContext, RenderPassBlutPrint, RenderPassCommand,
+        FrameGraphError, RenderContext, RenderPassDrawing, RenderPassCommand,
         RenderPassCommandBuilder, ResourceDrawing,
     },
 };
@@ -11,7 +11,7 @@ use super::PassTrait;
 
 #[derive(Default)]
 pub struct RenderPass {
-    render_pass: RenderPassBlutPrint,
+    render_pass: RenderPassDrawing,
     commands: Vec<RenderPassCommand>,
     vaild: bool,
 }

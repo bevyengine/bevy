@@ -1,7 +1,8 @@
+pub mod command_encoder_context;
 pub mod parameter;
-
 pub mod render_pass_context;
 
+use command_encoder_context::CommandEncoderContext;
 pub use parameter::*;
 pub use render_pass_context::*;
 
@@ -16,6 +17,7 @@ use crate::{
     render_resource::{CachedRenderPipelineId, PipelineCache, RenderPipeline},
     renderer::RenderDevice,
 };
+
 use alloc::sync::Arc;
 
 pub struct RenderContext<'a> {
@@ -85,6 +87,14 @@ impl<'a> RenderContext<'a> {
         let render_pass = render_pass_info.create_render_pass(&mut command_encoder)?;
 
         Ok(RenderPassContext::new(command_encoder, render_pass, self))
+    }
+
+    pub fn begin_command_encoder<'b>(&'b mut self) -> CommandEncoderContext<'a, 'b> {
+        let command_encoder = self
+            .render_device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+
+        CommandEncoderContext::new(command_encoder, self)
     }
 
     pub fn get_render_pipeline(

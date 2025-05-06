@@ -8,7 +8,7 @@ use super::{
 };
 
 #[derive(Default)]
-pub struct RenderPassBlutPrint {
+pub struct RenderPassDrawing {
     pub label: Option<Cow<'static, str>>,
     pub color_attachments: Vec<ColorAttachmentDrawing>,
     pub depth_stencil_attachment: Option<DepthStencilAttachmentDrawing>,
@@ -21,7 +21,7 @@ pub struct RenderPassInfo {
     pub depth_stencil_attachment: Option<DepthStencilAttachment>,
 }
 
-impl ResourceDrawing for RenderPassBlutPrint {
+impl ResourceDrawing for RenderPassDrawing {
     type Resource = RenderPassInfo;
 
     fn make_resource<'a>(
