@@ -64,7 +64,7 @@ use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 use tracing::error;
 
-use crate::{binding_arrays_are_usable, ExtractMeshesSet};
+use crate::{binding_arrays_are_usable, MeshExtractionSystems};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
@@ -201,9 +201,10 @@ impl Plugin for LightmapPlugin {
             return;
         };
 
-        render_app
-            .init_resource::<RenderLightmaps>()
-            .add_systems(ExtractSchedule, extract_lightmaps.after(ExtractMeshesSet));
+        render_app.init_resource::<RenderLightmaps>().add_systems(
+            ExtractSchedule,
+            extract_lightmaps.after(MeshExtractionSystems),
+        );
     }
 }
 
