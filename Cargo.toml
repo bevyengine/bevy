@@ -2306,6 +2306,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "state_scoped"
+path = "examples/ecs/state_scoped.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.state_scoped]
+name = "State Scoped"
+description = "Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states."
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "system_closure"
 path = "examples/ecs/system_closure.rs"
 doc-scrape-examples = true
