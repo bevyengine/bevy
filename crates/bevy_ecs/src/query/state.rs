@@ -1959,7 +1959,7 @@ fn on_add_query_state<D: QueryData + 'static, F: QueryFilter + 'static>(
                 .unwrap()
         };
         // Its still possible archetype created after the state is created and before getting sync by
-        // the observer. The archetype [Observer, ObserverState] and [QueryState<D, F>] for example.
+        // the observer. The archetype [Observer] and [QueryStateWrapper<D, F>] for example.
         // SAFETY: We keep a mutable reference but this method doesn't read that reference.
         state.0.update_archetypes_unsafe_world_cell(world);
         state.0.sync_by_observer = true;
@@ -2455,5 +2455,16 @@ mod tests {
         // But only if the original query was dense
         assert!(!query.is_dense);
         assert_eq!(1, query.iter(&world).count());
+    }
+
+    #[test]
+    fn update_query_state_archetype() {
+        let mut world = World::new();
+
+        fn sys(query: Query<Entity>) {
+            assert_eq!(query.iter().count(), 3); // This number can be changd as more things are entities
+        }
+
+        let _ = world.run_system_cached(sys);
     }
 }
