@@ -1,12 +1,16 @@
-use super::{Camera3d, ViewTransmissionTexture};
+use super::{Camera3d, Transmissive3d, ViewTransmissionTexture};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::FrameGraph,
+    frame_graph::{FrameGraph, GetResourceDrawing, RenderPassBuilder},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
+    render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
+    render_resource::StoreOp,
+    renderer::RenderDevice,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
 use core::ops::Range;
+use tracing::error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
@@ -27,11 +31,106 @@ impl ViewNode for MainTransmissivePass3dNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
-        (_camera, _view, _camera_3d, _target, _transmission, depth): QueryItem<Self::ViewQuery>,
-        _world: &World,
+        graph: &mut RenderGraphContext,
+        frame_graph: &mut FrameGraph,
+        (camera, view, camera_3d, target, transmission, depth): QueryItem<Self::ViewQuery>,
+        world: &World,
     ) -> Result<(), NodeRunError> {
+        let view_entity = graph.view_entity();
+
+        let Some(transmissive_phases) =
+            world.get_resource::<ViewSortedRenderPhases<Transmissive3d>>()
+        else {
+            return Ok(());
+        };
+
+        let Some(transmissive_phase) = transmissive_phases.get(&view.retained_view_entity) else {
+            return Ok(());
+        };
+
+        #[cfg(feature = "trace")]
+        let _main_transmissive_pass_3d_span = info_span!("main_transmissive_pass_3d").entered();
+
+        if !transmissive_phase.items.is_empty() {
+            let render_device = world.resource::<RenderDevice>();
+
+            let screen_space_specular_transmission_steps =
+                camera_3d.screen_space_specular_transmission_steps;
+            if screen_space_specular_transmission_steps > 0 {
+                let _transmission =
+                    transmission.expect("`ViewTransmissionTexture` should exist at this point");
+
+                // `transmissive_phase.items` are depth sorted, so we split them into N = `screen_space_specular_transmission_steps`
+                // ranges, rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
+                //
+                // Note: For the sake of simplicity, we currently split items evenly among steps. In the future, we
+                // might want to use a more sophisticated heuristic (e.g. based on view bounds, or with an exponential
+                // falloff so that nearby objects have more levels of transparency available to them)
+                for range in split_range(
+                    0..transmissive_phase.items.len(),
+                    screen_space_specular_transmission_steps,
+                ) {
+                    // Copy the main texture to the transmission texture, allowing to use the color output of the
+                    // previous step (or of the `Opaque3d` phase, for the first step) as a transmissive color input
+                    // render_context.command_encoder().copy_texture_to_texture(
+                    //     target.main_texture().as_image_copy(),
+                    //     transmission.texture.as_image_copy(),
+                    //     Extent3d {
+                    //         width: physical_target_size.x,
+                    //         height: physical_target_size.y,
+                    //         depth_or_array_layers: 1,
+                    //     },
+                    // );
+
+                    let mut pass_node_builder =
+                        frame_graph.create_pass_node_bulder("main_transmissive_pass_3d");
+
+                    let color_attachment = target.get_resource_drawing(&mut pass_node_builder)?;
+                    let depth_stencil_attachment =
+                        (depth, StoreOp::Store).get_resource_drawing(&mut pass_node_builder)?;
+                    let mut builder = RenderPassBuilder::new(pass_node_builder);
+
+                    builder
+                        .add_color_attachment(color_attachment)
+                        .set_depth_stencil_attachment(depth_stencil_attachment)
+                        .set_camera_viewport(camera.viewport.clone());
+
+                    let mut tracked_render_pass = TrackedRenderPass::new(&render_device, builder);
+
+                    // render items in range
+                    if let Err(err) = transmissive_phase.render_range(
+                        &mut tracked_render_pass,
+                        world,
+                        view_entity,
+                        range,
+                    ) {
+                        error!("Error encountered while rendering the transmissive phase {err:?}");
+                    }
+                }
+            } else {
+                let mut pass_node_builder =
+                    frame_graph.create_pass_node_bulder("main_transmissive_pass_3d");
+
+                let color_attachment = target.get_resource_drawing(&mut pass_node_builder)?;
+                let depth_stencil_attachment =
+                    (depth, StoreOp::Store).get_resource_drawing(&mut pass_node_builder)?;
+                let mut builder = RenderPassBuilder::new(pass_node_builder);
+
+                builder
+                    .add_color_attachment(color_attachment)
+                    .set_depth_stencil_attachment(depth_stencil_attachment)
+                    .set_camera_viewport(camera.viewport.clone());
+
+                let mut tracked_render_pass = TrackedRenderPass::new(&render_device, builder);
+
+                if let Err(err) =
+                    transmissive_phase.render(&mut tracked_render_pass, world, view_entity)
+                {
+                    error!("Error encountered while rendering the transmissive phase {err:?}");
+                }
+            }
+        }
+
         Ok(())
     }
 }

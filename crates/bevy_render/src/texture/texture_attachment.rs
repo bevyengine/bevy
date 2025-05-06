@@ -1,7 +1,7 @@
 use crate::{
     frame_graph::{
         ColorAttachment, ColorAttachmentDrawing, FrameGraphError, GetResourceDrawing,
-        PassNodeBuilder, ResourceBoardKey, ResourceHandle, TextureViewDrawing, TextureViewInfo,
+        PassNodeBuilder, ResourceBoardKey, TextureViewDrawing, TextureViewInfo,
     },
     render_resource::{TextureFormat, TextureView},
 };

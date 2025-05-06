@@ -763,8 +763,6 @@ pub fn extract_camera_prepass_phase(
 
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
     opaque_3d_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
     alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
