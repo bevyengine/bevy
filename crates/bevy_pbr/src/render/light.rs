@@ -1993,7 +1993,7 @@ pub fn queue_shadows<M: Material>(
 
                 // Skip the entity if it's not in the camera render layers.
                 if let (Some(camera_layers), Some(layers)) = (camera_layers, mesh_layers) {
-                    if !camera_layers.intersects(&layers) {
+                    if !camera_layers.intersects(layers) {
                         continue;
                     }
                 }
