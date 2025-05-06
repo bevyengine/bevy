@@ -2,12 +2,12 @@ mod prepass_bindings;
 
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
-    collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
-    queue_material_meshes, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs, skin,
-    DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey,
-    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
-    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
-    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    collect_meshes_for_gpu_building, queue_material_meshes, set_mesh_motion_vector_flags,
+    setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks, Material,
+    MaterialKeyCache, MaterialPipeline, MaterialPipelineKey, MeshKeyCache, MeshLayouts,
+    MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderMaterialInstances,
+    RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup,
+    SetMeshBindGroup, ShadowView, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -873,9 +873,6 @@ pub fn specialize_prepass_material_meshes<M>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
-    render_lightmaps: Res<RenderLightmaps>,
-    render_visibility_ranges: Res<RenderVisibilityRanges>,
-    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     view_key_cache: Res<ViewKeyPrepassCache>,
     views: Query<(
         &ExtractedView,
@@ -903,6 +900,8 @@ pub fn specialize_prepass_material_meshes<M>(
         pipeline_cache,
         view_specialization_ticks,
         entity_specialization_ticks,
+        mesh_key_cache,
+        material_key_cache,
     ): (
         ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
         SystemChangeTick,
@@ -911,6 +910,8 @@ pub fn specialize_prepass_material_meshes<M>(
         Res<PipelineCache>,
         Res<ViewPrepassSpecializationTicks>,
         Res<EntitySpecializationTicks<M>>,
+        Res<MeshKeyCache>,
+        Res<MaterialKeyCache<M>>,
     ),
 ) where
     M: Material,
@@ -949,7 +950,9 @@ pub fn specialize_prepass_material_meshes<M>(
             else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let Some(entity_tick) = entity_specialization_ticks.get(visible_entity) else {
+                continue;
+            };
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
@@ -963,17 +966,17 @@ pub fn specialize_prepass_material_meshes<M>(
             let Some(material) = render_materials.get(material_asset_id) else {
                 continue;
             };
-            let Some(material_bind_group) =
-                material_bind_group_allocator.get(material.binding.group)
-            else {
-                warn!("Couldn't get bind group for material");
-                continue;
-            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
+            let Some(mesh_key) = mesh_key_cache.get(visible_entity) else {
+                continue;
+            };
+            let Some(material_key) = material_key_cache.get(visible_entity) else {
+                continue;
+            };
 
-            let mut mesh_key = *view_key | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits());
+            let mut mesh_key = *view_key | *mesh_key;
 
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
@@ -1004,23 +1007,6 @@ pub fn specialize_prepass_material_meshes<M>(
                 mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
             }
 
-            if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {
-                // Even though we don't use the lightmap in the forward prepass, the
-                // `SetMeshBindGroup` render command will bind the data for it. So
-                // we need to include the appropriate flag in the mesh pipeline key
-                // to ensure that the necessary bind group layout entries are
-                // present.
-                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
-
-                if lightmap.bicubic_sampling && deferred {
-                    mesh_key |= MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING;
-                }
-            }
-
-            if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
-                mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
-            }
-
             // If the previous frame has skins or morph targets, note that.
             if motion_vector_prepass.is_some() {
                 if mesh_instance
@@ -1042,9 +1028,7 @@ pub fn specialize_prepass_material_meshes<M>(
                 &prepass_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    bind_group_data: material_bind_group
-                        .get_extra_data(material.binding.slot)
-                        .clone(),
+                    bind_group_data: material_key.clone(),
                 },
                 &mesh.layout,
             );

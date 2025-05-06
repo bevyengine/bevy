@@ -1,6 +1,6 @@
 use crate::{
     DrawMesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances, SetMesh2dBindGroup,
-    SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
+    SetMesh2dViewBindGroup, View2dKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
@@ -736,7 +736,7 @@ pub fn specialize_wireframes(
     render_wireframe_instances: Res<RenderWireframeInstances>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
-    view_key_cache: Res<ViewKeyCache>,
+    view_key_cache: Res<View2dKeyCache>,
     entity_specialization_ticks: Res<WireframeEntitySpecializationTicks>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
