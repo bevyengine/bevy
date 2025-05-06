@@ -1,5 +1,8 @@
 //! Tests loading the same glTF multiple times but with different values for
 //! `GltfLoaderSettings::override_sampler` and `default_sampler`.
+//!
+//! This test currently fails due to https://github.com/bevyengine/bevy/issues/18267 -
+//! subsequent loads of the same gltf do not respect the loader settings.
 
 use bevy::{gltf::GltfLoaderSettings, prelude::*};
 use bevy_image::{ImageAddressMode, ImageFilterMode, ImageSamplerDescriptor};
@@ -67,9 +70,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn each combination.
 
-    for (index, combo) in combos.iter().enumerate() {
-        let asset = GltfAssetLabel::Scene(0)
-            .from_asset(format!("models/checkerboard/checkerboard{index}.gltf"));
+    for combo in combos.iter() {
+        let asset = GltfAssetLabel::Scene(0).from_asset("models/checkerboard/checkerboard.gltf");
 
         let sampler = combo.sampler.clone();
 
