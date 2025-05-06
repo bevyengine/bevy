@@ -26,6 +26,7 @@ pub fn update_clipping_system(
     mut node_query: Query<(
         &Node,
         &ComputedNode,
+        &ComputedNodeTarget,
         &GlobalTransform,
         Option<&mut CalculatedClip>,
     )>,
@@ -48,13 +49,14 @@ fn update_clipping(
     node_query: &mut Query<(
         &Node,
         &ComputedNode,
+        &ComputedNodeTarget,
         &GlobalTransform,
         Option<&mut CalculatedClip>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
-    let Ok((node, computed_node, global_transform, maybe_calculated_clip)) =
+    let Ok((node, computed_node, target, global_transform, maybe_calculated_clip)) =
         node_query.get_mut(entity)
     else {
         return;
@@ -111,8 +113,8 @@ fn update_clipping(
         clip_rect.max.x -= clip_inset.right;
         clip_rect.max.y -= clip_inset.bottom;
 
-        clip_rect = clip_rect
-            .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
+        clip_rect =
+            clip_rect.inflate(node.overflow_clip_margin.margin.max(0.) * target.scale_factor);
 
         if node.overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;
@@ -130,7 +132,7 @@ fn update_clipping(
     }
 }
 
-pub fn update_ui_context_system(
+pub fn compute_node_targets_system(
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
@@ -143,28 +145,27 @@ pub fn update_ui_context_system(
     let default_camera_entity = default_ui_camera.get();
 
     for root_entity in ui_root_nodes.iter() {
-        let camera = target_camera_query
+        let maybe_camera = target_camera_query
             .get(root_entity)
             .ok()
             .map(UiTargetCamera::entity)
-            .or(default_camera_entity)
-            .unwrap_or(Entity::PLACEHOLDER);
+            .or(default_camera_entity);
 
-        let (scale_factor, physical_size) = camera_query
-            .get(camera)
-            .ok()
-            .map(|camera| {
-                (
-                    camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
-                    camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
-                )
+        let (scale_factor, physical_size) = maybe_camera
+            .and_then(|camera| {
+                camera_query.get(camera).ok().map(|camera| {
+                    (
+                        camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
+                        camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
+                    )
+                })
             })
             .unwrap_or((1., UVec2::ZERO));
 
         update_contexts_recursively(
             root_entity,
             ComputedNodeTarget {
-                camera,
+                camera: maybe_camera,
                 scale_factor,
                 physical_size,
             },
@@ -252,7 +253,7 @@ mod tests {
         schedule.add_systems(
             (
                 bevy_render::camera::camera_system,
-                super::update_ui_context_system,
+                super::compute_node_targets_system,
             )
                 .chain(),
         );
@@ -285,7 +286,7 @@ mod tests {
         assert_eq!(
             *world.get::<ComputedNodeTarget>(uinode).unwrap(),
             ComputedNodeTarget {
-                camera,
+                camera: Some(camera),
                 physical_size,
                 scale_factor,
             }
@@ -347,7 +348,7 @@ mod tests {
             assert_eq!(
                 *world.get::<ComputedNodeTarget>(uinode).unwrap(),
                 ComputedNodeTarget {
-                    camera,
+                    camera: Some(camera),
                     scale_factor,
                     physical_size,
                 }
