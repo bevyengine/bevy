@@ -574,6 +574,17 @@ pub trait Component: Send + Sync + 'static {
     /// ```
     ///
     /// Fields with `#[entities]` must implement [`MapEntities`](crate::entity::MapEntities).
+    ///
+    /// Bevy provides various implementations of [`MapEntities`](crate::entity::MapEntities), so that arbitrary combinations like these are supported with `#[entities]`:
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{component::Component, entity::Entity};
+    /// #[derive(Component)]
+    /// struct Inventory {
+    ///     #[entities]
+    ///     items: Vec<Option<Entity>>
+    /// }
+    /// ```
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
