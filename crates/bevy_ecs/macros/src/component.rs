@@ -251,6 +251,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let clone_behavior = if relationship_target.is_some() {
         quote!(#bevy_ecs_path::component::ComponentCloneBehavior::Custom(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
+    } else if let Some(behavior) = attrs.clone_behavior {
+        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::#behavior)
     } else {
         quote!(
             use #bevy_ecs_path::component::{DefaultCloneBehaviorBase, DefaultCloneBehaviorViaClone};
@@ -396,6 +398,7 @@ pub const ON_REMOVE: &str = "on_remove";
 pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
+pub const CLONE_BEHAVIOR: &str = "clone_behavior";
 
 /// All allowed attribute value expression kinds for component hooks
 #[derive(Debug)]
@@ -458,6 +461,7 @@ struct Attrs {
     relationship: Option<Relationship>,
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
+    clone_behavior: Option<Expr>,
 }
 
 #[derive(Clone, Copy)]
@@ -496,6 +500,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         relationship: None,
         relationship_target: None,
         immutable: false,
+        clone_behavior: None,
     };
 
     let mut require_paths = HashSet::new();
@@ -531,6 +536,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;
                     Ok(())
+                } else if nested.path.is_ident(CLONE_BEHAVIOR) {
+                    attrs.clone_behavior = Some(nested.value()?.parse()?);
+                    Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
                 }
@@ -558,6 +566,13 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
             let relationship_target = attr.parse_args::<RelationshipTarget>()?;
             attrs.relationship_target = Some(relationship_target);
         }
+    }
+
+    if attrs.relationship_target.is_some() && attrs.clone_behavior.is_some() {
+        return Err(syn::Error::new(
+                attrs.clone_behavior.span(),
+                "A Relationship Target already has its own clone behavior, please remove `clone_behavior = ...`",
+            ));
     }
 
     Ok(attrs)

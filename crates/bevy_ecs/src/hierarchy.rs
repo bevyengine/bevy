@@ -281,6 +281,12 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(children)
     }
 
+    /// Removes all the children from this entity.
+    /// See also [`clear_related`](Self::clear_related)
+    pub fn clear_children(&mut self) -> &mut Self {
+        self.clear_related::<ChildOf>()
+    }
+
     /// Insert children at specific index.
     /// See also [`insert_related`](Self::insert_related).
     pub fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
@@ -367,6 +373,12 @@ impl<'a> EntityCommands<'a> {
     /// Adds the given children to this entity
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
         self.add_related::<ChildOf>(children)
+    }
+
+    /// Removes all the children from this entity.
+    /// See also [`clear_related`](Self::clear_related)
+    pub fn clear_children(&mut self) -> &mut Self {
+        self.clear_related::<ChildOf>()
     }
 
     /// Insert children at specific index.
@@ -499,7 +511,7 @@ pub fn validate_parent_has_component<C: Component>(
 #[macro_export]
 macro_rules! children {
     [$($child:expr),*$(,)?] => {
-       $crate::hierarchy::Children::spawn(($($crate::spawn::Spawn($child)),*))
+       $crate::hierarchy::Children::spawn($crate::recursive_spawn!($($child),*))
     };
 }
 
@@ -717,6 +729,39 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
         assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
+    }
+
+    #[test]
+    fn spawn_many_children() {
+        let mut world = World::new();
+
+        // 12 children should result in a flat tuple
+        let id = world
+            .spawn(children![(), (), (), (), (), (), (), (), (), (), (), ()])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 12,);
+
+        // 13 will start nesting, but should nonetheless produce a flat hierarchy
+        let id = world
+            .spawn(children![
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+            ])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 13,);
     }
 
     #[test]

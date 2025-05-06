@@ -19,6 +19,8 @@ pub mod widget;
 pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
+#[cfg(feature = "bevy_ui_picking_backend")]
+use bevy_picking::PickSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 // This module is not re-exported, but is instead made public.
@@ -39,7 +41,7 @@ pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
 
-use widget::{ImageNode, ImageNodeSize};
+use widget::{ImageNode, ImageNodeSize, ViewportNode};
 
 /// The UI prelude.
 ///
@@ -59,11 +61,12 @@ pub mod prelude {
             geometry::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, ImageNode, Label, NodeImageMode},
+            widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
+        bevy_text::TextBackgroundColor,
     };
 }
 
@@ -160,6 +163,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiTargetCamera>()
             .register_type::<ImageNode>()
             .register_type::<ImageNodeSize>()
+            .register_type::<ViewportNode>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
@@ -190,7 +194,8 @@ impl Plugin for UiPlugin {
             );
 
         #[cfg(feature = "bevy_ui_picking_backend")]
-        app.add_plugins(picking_backend::UiPickingPlugin);
+        app.add_plugins(picking_backend::UiPickingPlugin)
+            .add_systems(First, widget::viewport_picking.in_set(PickSet::PostInput));
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystems::Layout)
@@ -207,10 +212,11 @@ impl Plugin for UiPlugin {
                 update_ui_context_system.in_set(UiSystems::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
-                    .in_set(UiSystems::Stack)
-                    // the systems don't care about stack index
+                    .in_set(UiSystem::Stack)
+                    // These systems don't care about stack index
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
+                    .ambiguous_with(widget::update_viewport_render_target_size)
                     .in_set(AmbiguousWithText),
                 update_clipping_system.after(TransformSystems::Propagate),
                 // Potential conflicts: `Assets<Image>`
@@ -218,11 +224,19 @@ impl Plugin for UiPlugin {
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
-                    .in_set(UiSystems::Content)
+                    .in_set(UiSystem::Content)
+                    .in_set(AmbiguousWithText)
+                    .in_set(AmbiguousWithUpdateText2dLayout),
+                // Potential conflicts: `Assets<Image>`
+                // `widget::text_system` and `bevy_text::update_text2d_layout` run independently
+                // since this system will only ever update viewport images.
+                widget::update_viewport_render_target_size
+                    .in_set(UiSystem::PostLayout)
                     .in_set(AmbiguousWithText)
                     .in_set(AmbiguousWithUpdateText2dLayout),
             ),
         );
+
         build_text_interop(app);
 
         if !self.enable_rendering {

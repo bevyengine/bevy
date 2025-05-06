@@ -8,7 +8,7 @@ use crate::{
         setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
         StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
     },
-    state_scoped::clear_state_scoped_entities,
+    state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -62,7 +62,7 @@ pub trait AppExtStates {
     /// If the [`States`] trait was derived with the `#[states(scoped_entities)]` attribute, it
     /// will be called automatically.
     ///
-    /// For more information refer to [`StateScoped`](crate::state_scoped::StateScoped).
+    /// For more information refer to [`crate::state_scoped`].
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_reflect")]
@@ -222,11 +222,20 @@ impl AppExtStates for SubApp {
             let name = core::any::type_name::<S>();
             warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
         }
-        // We work with [`StateTransition`] in set [`StateTransitionSystems::ExitSchedules`] as opposed to [`OnExit`],
-        // because [`OnExit`] only runs for one specific variant of the state.
+
+        // Note: We work with `StateTransition` in set
+        // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
+        // `OnExit` only runs for one specific variant of the state.
         self.add_systems(
             StateTransition,
-            clear_state_scoped_entities::<S>.in_set(StateTransitionSystems::ExitSchedules),
+            despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
+        )
+        // Note: We work with `StateTransition` in set
+        // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
+        // `OnEnter` only runs for one specific variant of the state.
+        .add_systems(
+            StateTransition,
+            despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
         )
     }
 
