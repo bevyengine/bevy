@@ -792,9 +792,15 @@ impl SparseSetIndex for ArchetypeComponentId {
 /// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
 #[derive(Default)]
 pub struct ComponentIndex {
-    data: Vec<(Vec<Option<ArchetypeRecord>>, usize)>,
+    data: Vec<ComponentRecord>,
     // SAFETY: These keys must
-    map: HashMap<ComponentId, ArchetypeComponentRecordId>,
+    map: HashMap<ComponentId, ArchetypeRecordId>,
+}
+
+#[derive(Default)]
+struct ComponentRecord {
+    num_archetypes: usize,
+    archetype_map: Vec<Option<ArchetypeRecord>>,
 }
 
 impl ComponentIndex {
@@ -802,23 +808,26 @@ impl ComponentIndex {
         &mut self,
         component: ComponentId,
         archetype: ArchetypeRecord,
-    ) -> ArchetypeComponentRecordId {
+    ) -> ArchetypeRecordId {
         let Self { data, map } = self;
         let archetype_index = archetype.archetype.index();
         let id = *map.entry(component).or_insert_with(|| {
-            let id = ArchetypeComponentRecordId(data.len() as u32);
-            data.push((Vec::new(), 0));
+            let id = ArchetypeRecordId(data.len() as u32);
+            data.push(Default::default());
             id
         });
         // SAFETY: `map`'s safety ensures this
         let component_data = unsafe { data.get_unchecked_mut(id.as_usize()) };
-        component_data
-            .0
-            .resize_with(component_data.0.len().max(archetype_index + 1), || None);
-        component_data.1 += 1;
+        component_data.archetype_map.resize_with(
+            component_data.archetype_map.len().max(archetype_index + 1),
+            || None,
+        );
+        component_data.num_archetypes += 1;
         // SAFETY: We just resized to make this valid
         unsafe {
-            *component_data.0.get_unchecked_mut(archetype_index) = Some(archetype);
+            *component_data
+                .archetype_map
+                .get_unchecked_mut(archetype_index) = Some(archetype);
         };
         id
     }
@@ -834,20 +843,20 @@ impl ComponentIndex {
             .map(|id| unsafe { self.iter_archetypes_with_component_by_id(*id) })
     }
 
-    /// Gets all the archetypes with this component by its [`ArchetypeComponentRecordId`].
+    /// Gets all the archetypes with this component by its [`ArchetypeRecordId`].
     ///
     /// # SAFETY
     ///
     /// The id must be for this [`ComponentIndex`].
     pub unsafe fn iter_archetypes_with_component_by_id(
         &self,
-        component: ArchetypeComponentRecordId,
+        component: ArchetypeRecordId,
     ) -> ComponentsArchetypesIter {
         // SAFETY: Ensured by caller and `map`'s safety
         let records = unsafe { self.data.get_unchecked(component.as_usize()) };
         ComponentsArchetypesIter {
-            len: records.1,
-            data: records.0.iter(),
+            len: records.num_archetypes,
+            data: records.archetype_map.iter(),
         }
     }
 }
@@ -888,10 +897,11 @@ pub struct ArchetypeRecord {
     pub(crate) archetype: ArchetypeId,
 }
 
+/// An id for a [`ArchetypeRecord`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeComponentRecordId(u32);
+pub struct ArchetypeRecordId(u32);
 
-impl ArchetypeComponentRecordId {
+impl ArchetypeRecordId {
     /// Gets the index of the row as a [`usize`].
     #[inline]
     pub const fn as_usize(self) -> usize {
