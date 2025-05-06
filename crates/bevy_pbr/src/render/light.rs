@@ -265,7 +265,6 @@ pub fn extract_lights(
         >,
     >,
     mapper: Extract<Query<RenderEntity>>,
-    mesh_layers_query: Extract<Query<&RenderLayers>>,
     mut previous_point_lights_len: Local<usize>,
     mut previous_spot_lights_len: Local<usize>,
 ) {
@@ -307,7 +306,7 @@ pub fn extract_lights(
         let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
             data: cubemap_visible_entities
                 .iter()
-                .map(|v| create_render_visible_mesh_entities(&mapper, v, &mesh_layers_query))
+                .map(|v| create_render_visible_mesh_entities(&mapper, v))
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap(),
@@ -367,7 +366,7 @@ pub fn extract_lights(
                 continue;
             }
             let render_visible_entities =
-                create_render_visible_mesh_entities(&mapper, visible_entities, &mesh_layers_query);
+                create_render_visible_mesh_entities(&mapper, visible_entities);
 
             let texel_size =
                 2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
@@ -459,9 +458,7 @@ pub fn extract_lights(
                 cascade_visible_entities.insert(
                     entity,
                     v.iter()
-                        .map(|v| {
-                            create_render_visible_mesh_entities(&mapper, v, &mesh_layers_query)
-                        })
+                        .map(|v| create_render_visible_mesh_entities(&mapper, v))
                         .collect(),
                 );
             } else {
@@ -506,18 +503,13 @@ pub fn extract_lights(
 fn create_render_visible_mesh_entities(
     mapper: &Extract<Query<RenderEntity>>,
     visible_entities: &VisibleMeshEntities,
-    mesh_layers_query: &Extract<Query<&RenderLayers>>,
 ) -> RenderVisibleMeshEntities {
     RenderVisibleMeshEntities {
         entities: visible_entities
             .iter()
             .map(|e| {
                 let render_entity = mapper.get(*e).unwrap_or(Entity::PLACEHOLDER);
-
-                // Extract RenderLayers from the mesh entity
-                let mesh_render_layers = mesh_layers_query.get(*e).ok().cloned();
-
-                (render_entity, MainEntity::from(*e), mesh_render_layers)
+                (render_entity, MainEntity::from(*e))
             })
             .collect(),
     }
@@ -1816,7 +1808,7 @@ pub fn specialize_shadows<M: Material>(
                 .entry(extracted_view_light.retained_view_entity)
                 .or_default();
 
-            for (_, visible_entity, _) in visible_entities.iter().cloned() {
+            for (_, visible_entity) in visible_entities.iter().copied() {
                 let Some(material_instances) =
                     render_material_instances.instances.get(&visible_entity)
                 else {
@@ -1979,26 +1971,12 @@ pub fn queue_shadows<M: Material>(
                     .expect("Failed to get spot light visible entities"),
             };
 
-            for (entity, main_entity, mesh_render_layers) in visible_entities.iter().cloned() {
+            for (entity, main_entity) in visible_entities.iter().copied() {
                 let Some((current_change_tick, pipeline_id)) =
                     view_specialized_material_pipeline_cache.get(&main_entity)
                 else {
                     continue;
                 };
-
-                // Skip the entity if it's not in the camera render layers.
-                if let (Some(camera_layers), Some(mesh_layers)) =
-                    (camera_layers, mesh_render_layers)
-                {
-                    if !camera_layers.intersects(&mesh_layers) {
-                        continue;
-                    }
-                }
-
-                // Skip the entity if it's cached in a bin and up to date.
-                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
-                    continue;
-                }
 
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
                 else {
@@ -2008,6 +1986,20 @@ pub fn queue_shadows<M: Material>(
                     .flags
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                 {
+                    continue;
+                }
+
+                let mesh_layers = mesh_instance.shared.render_layers.as_ref();
+
+                // Skip the entity if it's not in the camera render layers.
+                if let (Some(camera_layers), Some(layers)) = (camera_layers, mesh_layers) {
+                    if !camera_layers.intersects(&layers) {
+                        continue;
+                    }
+                }
+
+                // Skip the entity if it's cached in a bin and up to date.
+                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
                     continue;
                 }
 

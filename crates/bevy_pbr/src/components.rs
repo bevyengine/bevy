@@ -4,7 +4,6 @@ use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::sync_world::MainEntity;
-use bevy_render::view::RenderLayers;
 /// Collection of mesh entities visible for 3D lighting.
 ///
 /// This component contains all mesh entities visible from the current light view.
@@ -20,7 +19,7 @@ pub struct VisibleMeshEntities {
 #[reflect(Component, Debug, Default, Clone)]
 pub struct RenderVisibleMeshEntities {
     #[reflect(ignore, clone)]
-    pub entities: Vec<(Entity, MainEntity, Option<RenderLayers>)>,
+    pub entities: Vec<(Entity, MainEntity)>,
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
