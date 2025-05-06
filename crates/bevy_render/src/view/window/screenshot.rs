@@ -23,7 +23,7 @@ use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::default;
@@ -425,6 +425,7 @@ impl Plugin for ScreenshotPlugin {
                 .init_resource::<RenderScreenshotTargets>()
                 .init_resource::<RenderScreenshotsPrepared>()
                 .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+                .init_resource::<ScreenshotToScreenPipeline>()
                 .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
                 .add_systems(
                     Render,

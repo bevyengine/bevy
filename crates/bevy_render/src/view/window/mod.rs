@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_utils::default;
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
@@ -21,7 +21,7 @@ use wgpu::{
 
 pub mod screenshot;
 
-use screenshot::{ScreenshotPlugin, ScreenshotToScreenPipeline};
+use screenshot::ScreenshotPlugin;
 
 pub struct WindowRenderPlugin;
 
@@ -41,12 +41,6 @@ impl Plugin for WindowRenderPlugin {
                         .before(prepare_windows),
                 )
                 .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ScreenshotToScreenPipeline>();
         }
     }
 }
