@@ -299,7 +299,6 @@ std = [
   "bevy_state?/std",
   "bevy_time/std",
   "bevy_transform/std",
-  "bevy_utils/std",
   "bevy_tasks/std",
   "bevy_window?/std",
 ]
@@ -317,7 +316,6 @@ critical-section = [
   "bevy_reflect/critical-section",
   "bevy_state?/critical-section",
   "bevy_time/critical-section",
-  "bevy_utils/critical-section",
   "bevy_tasks/critical-section",
 ]
 
@@ -380,9 +378,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev", default-f
   "bevy-support",
   "bevy_reflect",
 ] }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
-  "alloc",
-] }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 
 # bevy (std required)
