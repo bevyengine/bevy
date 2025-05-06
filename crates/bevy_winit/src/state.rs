@@ -251,7 +251,10 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     ) {
         self.window_event_received = true;
 
-        #[expect(unused_mut, reason = "only needs to be mut on windows for now")]
+        #[cfg_attr(
+            not(target_os = "windows"),
+            expect(unused_mut, reason = "only needs to be mut on windows for now")
+        )]
         let mut manual_run_redraw_requested = false;
 
         WINIT_WINDOWS.with_borrow(|winit_windows| {
