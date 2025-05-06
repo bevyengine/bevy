@@ -20,7 +20,7 @@ pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
 #[cfg(feature = "bevy_ui_picking_backend")]
-use bevy_picking::PickSet;
+use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 // This module is not re-exported, but is instead made public.
@@ -195,7 +195,10 @@ impl Plugin for UiPlugin {
 
         #[cfg(feature = "bevy_ui_picking_backend")]
         app.add_plugins(picking_backend::UiPickingPlugin)
-            .add_systems(First, widget::viewport_picking.in_set(PickSet::PostInput));
+            .add_systems(
+                First,
+                widget::viewport_picking.in_set(PickingSystems::PostInput),
+            );
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystems::Layout)
@@ -212,7 +215,7 @@ impl Plugin for UiPlugin {
                 update_ui_context_system.in_set(UiSystems::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
-                    .in_set(UiSystem::Stack)
+                    .in_set(UiSystems::Stack)
                     // These systems don't care about stack index
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
@@ -224,14 +227,14 @@ impl Plugin for UiPlugin {
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
-                    .in_set(UiSystem::Content)
+                    .in_set(UiSystems::Content)
                     .in_set(AmbiguousWithText)
                     .in_set(AmbiguousWithUpdateText2dLayout),
                 // Potential conflicts: `Assets<Image>`
                 // `widget::text_system` and `bevy_text::update_text2d_layout` run independently
                 // since this system will only ever update viewport images.
                 widget::update_viewport_render_target_size
-                    .in_set(UiSystem::PostLayout)
+                    .in_set(UiSystems::PostLayout)
                     .in_set(AmbiguousWithText)
                     .in_set(AmbiguousWithUpdateText2dLayout),
             ),
