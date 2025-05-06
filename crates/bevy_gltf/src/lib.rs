@@ -100,13 +100,14 @@ extern crate alloc;
 use alloc::sync::Arc;
 use std::sync::Mutex;
 
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::Resource;
 use bevy_image::{CompressedImageFormats, ImageSamplerDescriptor};
-use bevy_render::{mesh::MeshVertexAttribute, renderer::RenderDevice};
+use bevy_mesh::MeshVertexAttribute;
+use bevy_render::renderer::RenderDevice;
 
 /// The glTF prelude.
 ///

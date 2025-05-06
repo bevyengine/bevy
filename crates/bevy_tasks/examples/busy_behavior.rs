@@ -2,7 +2,9 @@
 //! for 100ms. It's expected to take about a second to run (assuming the machine has >= 4 logical
 //! cores)
 
-use bevy_platform_support::time::Instant;
+#![expect(clippy::print_stdout, reason = "Allowed in examples.")]
+
+use bevy_platform::time::Instant;
 use bevy_tasks::TaskPoolBuilder;
 use core::time::Duration;
 

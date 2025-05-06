@@ -6,7 +6,7 @@ use core::ops::RangeInclusive;
 
 /// A builder used for creating a [`Mesh`] with a [`Torus`] shape.
 #[derive(Clone, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct TorusMeshBuilder {
     /// The [`Torus`] shape.
     pub torus: Torus,

@@ -1,7 +1,9 @@
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
 use bevy_math::{Rect, URect, UVec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
+#[cfg(not(feature = "bevy_reflect"))]
+use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
@@ -87,12 +89,17 @@ impl TextureAtlasSources {
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
 #[derive(Asset, PartialEq, Eq, Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub struct TextureAtlasLayout {
     /// Total size of texture atlas.
     pub size: UVec2,
@@ -200,7 +207,7 @@ impl TextureAtlasLayout {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Default, Debug, PartialEq, Hash)
+    reflect(Default, Debug, PartialEq, Hash, Clone)
 )]
 pub struct TextureAtlas {
     /// Texture atlas layout handle
@@ -214,6 +221,18 @@ impl TextureAtlas {
     pub fn texture_rect(&self, texture_atlases: &Assets<TextureAtlasLayout>) -> Option<URect> {
         let atlas = texture_atlases.get(&self.layout)?;
         atlas.textures.get(self.index).copied()
+    }
+
+    /// Returns this [`TextureAtlas`] with the specified index.
+    pub fn with_index(mut self, index: usize) -> Self {
+        self.index = index;
+        self
+    }
+
+    /// Returns this [`TextureAtlas`] with the specified [`TextureAtlasLayout`] handle.
+    pub fn with_layout(mut self, layout: Handle<TextureAtlasLayout>) -> Self {
+        self.layout = layout;
+        self
     }
 }
 

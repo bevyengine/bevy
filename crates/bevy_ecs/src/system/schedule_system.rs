@@ -4,24 +4,24 @@ use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::Result,
-    query::Access,
+    query::{Access, FilteredAccessSet},
     system::{input::SystemIn, BoxedSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use super::IntoSystem;
+use super::{IntoSystem, SystemParamValidationError};
 
 /// A wrapper system to change a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
-pub struct InfallibleSystemWrapper<S: System<In = (), Out = ()>>(S);
+pub struct InfallibleSystemWrapper<S: System<In = ()>>(S);
 
-impl<S: System<In = (), Out = ()>> InfallibleSystemWrapper<S> {
+impl<S: System<In = ()>> InfallibleSystemWrapper<S> {
     /// Create a new `OkWrapperSystem`
     pub fn new(system: S) -> Self {
         Self(IntoSystem::into_system(system))
     }
 }
 
-impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
+impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     type In = ();
     type Out = Result;
 
@@ -36,6 +36,11 @@ impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        self.0.component_access_set()
+    }
+
+    #[inline(always)]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         self.0.archetype_component_access()
     }
@@ -66,12 +71,6 @@ impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        self.0.run(input, world);
-        Ok(())
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.0.apply_deferred(world);
     }
@@ -82,7 +81,10 @@ impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         self.0.validate_param_unsafe(world)
     }
 

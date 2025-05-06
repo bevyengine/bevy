@@ -23,7 +23,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::{Component, HookContext},
-    entity::{Entity, EntityBorrow},
+    entity::{ContainsEntity, Entity},
     event::EventReader,
     prelude::With,
     query::Has,
@@ -34,7 +34,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -44,6 +44,7 @@ use bevy_window::{
 };
 use core::ops::Range;
 use derive_more::derive::From;
+use thiserror::Error;
 use tracing::warn;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
@@ -53,7 +54,7 @@ use wgpu::{BlendState, TextureFormat, TextureUsages};
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
 #[derive(Reflect, Debug, Clone)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct Viewport {
     /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
     /// (0,0) corresponds to the top-left corner
@@ -71,6 +72,42 @@ impl Default for Viewport {
             physical_position: Default::default(),
             physical_size: UVec2::new(1, 1),
             depth: 0.0..1.0,
+        }
+    }
+}
+
+impl Viewport {
+    /// Cut the viewport rectangle so that it lies inside a rectangle of the
+    /// given size.
+    ///
+    /// If either of the viewport's position coordinates lies outside the given
+    /// dimensions, it will be moved just inside first. If either of the given
+    /// dimensions is zero, the position and size of the viewport rectangle will
+    /// both be set to zero in that dimension.
+    pub fn clamp_to_size(&mut self, size: UVec2) {
+        // If the origin of the viewport rect is outside, then adjust so that
+        // it's just barely inside. Then, cut off the part that is outside.
+        if self.physical_size.x + self.physical_position.x > size.x {
+            if self.physical_position.x < size.x {
+                self.physical_size.x = size.x - self.physical_position.x;
+            } else if size.x > 0 {
+                self.physical_position.x = size.x - 1;
+                self.physical_size.x = 1;
+            } else {
+                self.physical_position.x = 0;
+                self.physical_size.x = 0;
+            }
+        }
+        if self.physical_size.y + self.physical_position.y > size.y {
+            if self.physical_position.y < size.y {
+                self.physical_size.y = size.y - self.physical_position.y;
+            } else if size.y > 0 {
+                self.physical_position.y = size.y - 1;
+                self.physical_size.y = 1;
+            } else {
+                self.physical_position.y = 0;
+                self.physical_size.y = 0;
+            }
         }
     }
 }
@@ -104,6 +141,7 @@ impl Default for Viewport {
 /// example have the following values:
 /// `full_size` = 32x18, `size` = 16x9, `offset` = 16,9
 #[derive(Debug, Clone, Copy, Reflect, PartialEq)]
+#[reflect(Clone, PartialEq, Default)]
 pub struct SubCameraView {
     /// Size of the entire camera view
     pub full_size: UVec2,
@@ -150,7 +188,7 @@ pub struct ComputedCameraValues {
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(opaque)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
@@ -249,7 +287,7 @@ impl Default for PhysicalCameraParameters {
 /// Error returned when a conversion between world-space and viewport-space coordinates fails.
 ///
 /// See [`world_to_viewport`][Camera::world_to_viewport] and [`viewport_to_world`][Camera::viewport_to_world].
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Error)]
 pub enum ViewportConversionError {
     /// The pre-computed size of the viewport was not available.
     ///
@@ -259,18 +297,22 @@ pub enum ViewportConversionError {
     ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
     ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
     ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
+    #[error("pre-computed size of viewport not available")]
     NoViewportSize,
     /// The computed coordinate was beyond the `Camera`'s near plane.
     ///
     /// Only applicable when converting from world-space to viewport-space.
+    #[error("computed coordinate beyond `Camera`'s near plane")]
     PastNearPlane,
     /// The computed coordinate was beyond the `Camera`'s far plane.
     ///
     /// Only applicable when converting from world-space to viewport-space.
+    #[error("computed coordinate beyond `Camera`'s far plane")]
     PastFarPlane,
     /// The Normalized Device Coordinates could not be computed because the `camera_transform`, the
     /// `world_position`, or the projection matrix defined by [`CameraProjection`] contained `NAN`
     /// (see [`world_to_ndc`][Camera::world_to_ndc] and [`ndc_to_world`][Camera::ndc_to_world]).
+    #[error("found NaN while computing NDC")]
     InvalidData,
 }
 
@@ -290,7 +332,7 @@ pub enum ViewportConversionError {
 /// [`Camera2d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_2d/struct.Camera2d.html
 /// [`Camera3d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Camera3d.html
 #[derive(Component, Debug, Reflect, Clone)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[component(on_add = warn_on_no_render_graph)]
 #[require(
     Frustum,
@@ -310,7 +352,7 @@ pub struct Camera {
     /// camera will not be rendered.
     pub is_active: bool,
     /// Computed values for this camera, such as the projection matrix and the render target size.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
     pub target: RenderTarget,
@@ -319,7 +361,7 @@ pub struct Camera {
     pub hdr: bool,
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub output_mode: CameraOutputMode,
     /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
     /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
@@ -708,7 +750,7 @@ impl Default for CameraOutputMode {
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
 #[reflect(opaque)]
-#[reflect(Component, Debug)]
+#[reflect(Component, Debug, Clone)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
@@ -728,6 +770,7 @@ impl CameraRenderGraph {
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
 /// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect, From)]
+#[reflect(Clone)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
@@ -740,6 +783,7 @@ pub enum RenderTarget {
 
 /// A render target that renders to an [`Image`].
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[reflect(Clone, PartialEq, Hash)]
 pub struct ImageRenderTarget {
     /// The image to render to.
     pub handle: Handle<Image>,
@@ -773,6 +817,7 @@ impl Default for RenderTarget {
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
+#[reflect(Clone, PartialEq, Hash)]
 pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
     Window(NormalizedWindowRef),
@@ -986,12 +1031,7 @@ pub fn camera_system(
                 if let Some(viewport) = &mut camera.viewport {
                     let target_info = &new_computed_target_info;
                     if let Some(target) = target_info {
-                        if viewport.physical_size.x > target.physical_size.x {
-                            viewport.physical_size.x = target.physical_size.x;
-                        }
-                        if viewport.physical_size.y > target.physical_size.y {
-                            viewport.physical_size.y = target.physical_size.y;
-                        }
+                        viewport.clamp_to_size(target.physical_size);
                     }
                 }
                 camera.computed.target_info = new_computed_target_info;
@@ -1022,7 +1062,7 @@ pub fn camera_system(
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
 #[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
 #[reflect(opaque)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
@@ -1273,7 +1313,7 @@ pub fn sort_cameras(
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 #[derive(Component, Clone, Default, Reflect)]
-#[reflect(Default, Component)]
+#[reflect(Default, Component, Clone)]
 pub struct TemporalJitter {
     /// Offset is in range [-0.5, 0.5].
     pub offset: Vec2,

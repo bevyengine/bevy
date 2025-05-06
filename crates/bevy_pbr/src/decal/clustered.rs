@@ -21,16 +21,16 @@ use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{Entity, EntityHashMap},
     prelude::ReflectComponent,
     query::With,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::Mat4;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -80,7 +80,7 @@ pub struct ClusteredDecalPlugin;
 /// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
 /// with forward or deferred rendering and don't require a prepass.
 #[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
-#[reflect(Component, Debug)]
+#[reflect(Component, Debug, Clone)]
 #[require(Transform, Visibility, VisibilityClass)]
 #[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
 pub struct ClusteredDecal {

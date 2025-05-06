@@ -69,17 +69,24 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
     } else if length_error_squared > 2e-4 {
         // Length error is approximately 1e-4 or more.
         #[cfg(feature = "std")]
-        eprintln!(
-            "Warning: {message} The length is {}.",
-            ops::sqrt(length_squared)
-        );
+        #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+        {
+            eprintln!(
+                "Warning: {message} The length is {}.",
+                ops::sqrt(length_squared)
+            );
+        }
     }
 }
 
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -353,7 +360,11 @@ impl approx::UlpsEq for Dir2 {
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq, Into)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -614,7 +625,11 @@ impl approx::UlpsEq for Dir3 {
 /// This may or may not be faster than [`Dir3`]: make sure to benchmark!
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)

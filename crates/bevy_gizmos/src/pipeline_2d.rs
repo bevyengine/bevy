@@ -1,4 +1,3 @@
-use crate::view::{OnlyViewLayout, SetViewBindGroup};
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
@@ -11,7 +10,7 @@ use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 use bevy_ecs::{
     prelude::Entity,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -26,8 +25,9 @@ use bevy_render::{
     },
     render_resource::*,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp,
+    Render, RenderApp, RenderSet,
 };
+use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use tracing::error;
 
 pub struct LineGizmo2dPlugin;
@@ -44,6 +44,15 @@ impl Plugin for LineGizmo2dPlugin {
             .add_render_command::<Transparent2d, DrawLineJointGizmo2d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
+            .configure_sets(
+                Render,
+                GizmoRenderSystem::QueueLineGizmos2d
+                    .in_set(RenderSet::Queue)
+                    .ambiguous_with(bevy_sprite::queue_sprites)
+                    .ambiguous_with(
+                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
+                    ),
+            )
             .add_systems(
                 Render,
                 (queue_line_gizmos_2d, queue_line_joint_gizmos_2d)
@@ -64,15 +73,14 @@ impl Plugin for LineGizmo2dPlugin {
 
 #[derive(Clone, Resource)]
 struct LineGizmoPipeline {
-    view_layout: BindGroupLayout,
+    mesh_pipeline: Mesh2dPipeline,
     uniform_layout: BindGroupLayout,
 }
 
 impl FromWorld for LineGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let view_layout = render_world.resource::<OnlyViewLayout>().0.clone();
         LineGizmoPipeline {
-            view_layout,
+            mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
             uniform_layout: render_world
                 .resource::<LineGizmoUniformBindgroupLayout>()
                 .layout
@@ -83,8 +91,7 @@ impl FromWorld for LineGizmoPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct LineGizmoPipelineKey {
-    hdr: bool,
-    msaa: Msaa,
+    mesh_key: Mesh2dPipelineKey,
     strip: bool,
     line_style: GizmoLineStyle,
 }
@@ -93,7 +100,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.hdr {
+        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
@@ -104,7 +111,10 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
 
-        let layout = vec![self.view_layout.clone(), self.uniform_layout.clone()];
+        let layout = vec![
+            self.mesh_pipeline.view_layout.clone(),
+            self.uniform_layout.clone(),
+        ];
 
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
@@ -148,7 +158,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 },
             }),
             multisample: MultisampleState {
-                count: key.msaa.samples(),
+                count: key.mesh_key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -161,15 +171,14 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
 #[derive(Clone, Resource)]
 struct LineJointGizmoPipeline {
-    view_layout: BindGroupLayout,
+    mesh_pipeline: Mesh2dPipeline,
     uniform_layout: BindGroupLayout,
 }
 
 impl FromWorld for LineJointGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let view_layout = render_world.resource::<OnlyViewLayout>().0.clone();
         LineJointGizmoPipeline {
-            view_layout,
+            mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
             uniform_layout: render_world
                 .resource::<LineGizmoUniformBindgroupLayout>()
                 .layout
@@ -180,8 +189,7 @@ impl FromWorld for LineJointGizmoPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct LineJointGizmoPipelineKey {
-    hdr: bool,
-    msaa: Msaa,
+    mesh_key: Mesh2dPipelineKey,
     joints: GizmoLineJoint,
 }
 
@@ -189,7 +197,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
     type Key = LineJointGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.hdr {
+        let format = if key.mesh_key.contains(Mesh2dPipelineKey::HDR) {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
@@ -200,7 +208,10 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
 
-        let layout = vec![self.view_layout.clone(), self.uniform_layout.clone()];
+        let layout = vec![
+            self.mesh_pipeline.view_layout.clone(),
+            self.uniform_layout.clone(),
+        ];
 
         if key.joints == GizmoLineJoint::None {
             error!("There is no entry point for line joints with GizmoLineJoints::None. Please consider aborting the drawing process before reaching this stage.");
@@ -248,7 +259,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 },
             }),
             multisample: MultisampleState {
-                count: key.msaa.samples(),
+                count: key.mesh_key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -261,19 +272,19 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
 type DrawLineGizmo2d = (
     SetItemPipeline,
-    SetViewBindGroup<0>,
+    SetMesh2dViewBindGroup<0>,
     SetLineGizmoBindGroup<1>,
     DrawLineGizmo<false>,
 );
 type DrawLineGizmo2dStrip = (
     SetItemPipeline,
-    SetViewBindGroup<0>,
+    SetMesh2dViewBindGroup<0>,
     SetLineGizmoBindGroup<1>,
     DrawLineGizmo<true>,
 );
 type DrawLineJointGizmo2d = (
     SetItemPipeline,
-    SetViewBindGroup<0>,
+    SetMesh2dViewBindGroup<0>,
     SetLineGizmoBindGroup<1>,
     DrawLineJointGizmo,
 );
@@ -300,6 +311,9 @@ fn queue_line_gizmos_2d(
             continue;
         };
 
+        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | Mesh2dPipelineKey::from_hdr(view.hdr);
+
         let render_layers = render_layers.unwrap_or_default();
         for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
@@ -315,8 +329,7 @@ fn queue_line_gizmos_2d(
                     &pipeline_cache,
                     &pipeline,
                     LineGizmoPipelineKey {
-                        msaa: *msaa,
-                        hdr: view.hdr,
+                        mesh_key,
                         strip: false,
                         line_style: config.line_style,
                     },
@@ -328,6 +341,7 @@ fn queue_line_gizmos_2d(
                     sort_key: FloatOrd(f32::INFINITY),
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    extracted_index: usize::MAX,
                     indexed: false,
                 });
             }
@@ -337,8 +351,7 @@ fn queue_line_gizmos_2d(
                     &pipeline_cache,
                     &pipeline,
                     LineGizmoPipelineKey {
-                        msaa: *msaa,
-                        hdr: view.hdr,
+                        mesh_key,
                         strip: true,
                         line_style: config.line_style,
                     },
@@ -350,6 +363,7 @@ fn queue_line_gizmos_2d(
                     sort_key: FloatOrd(f32::INFINITY),
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    extracted_index: usize::MAX,
                     indexed: false,
                 });
             }
@@ -377,6 +391,9 @@ fn queue_line_joint_gizmos_2d(
             continue;
         };
 
+        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | Mesh2dPipelineKey::from_hdr(view.hdr);
+
         let render_layers = render_layers.unwrap_or_default();
         for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
@@ -395,8 +412,7 @@ fn queue_line_joint_gizmos_2d(
                 &pipeline_cache,
                 &pipeline,
                 LineJointGizmoPipelineKey {
-                    msaa: *msaa,
-                    hdr: view.hdr,
+                    mesh_key,
                     joints: config.line_joints,
                 },
             );
@@ -407,6 +423,7 @@ fn queue_line_joint_gizmos_2d(
                 sort_key: FloatOrd(f32::INFINITY),
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                extracted_index: usize::MAX,
                 indexed: false,
             });
         }

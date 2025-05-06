@@ -1,8 +1,8 @@
 use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::entity::Entity;
 
-use bevy_ecs::entity::hash_map::EntityHashMap;
-use bevy_platform_support::collections::HashMap;
+use bevy_ecs::entity::EntityHashMap;
+use bevy_platform::collections::HashMap;
 use bevy_window::{
     CursorGrabMode, MonitorSelection, VideoModeSelection, Window, WindowMode, WindowPosition,
     WindowResolution, WindowWrapper,
@@ -110,14 +110,16 @@ impl WinitWindows {
             }
         };
 
+        // It's crucial to avoid setting the window's final visibility here;
+        // as explained above, the window must be invisible until the AccessKit
+        // adapter is created.
         winit_window_attributes = winit_window_attributes
             .with_window_level(convert_window_level(window.window_level))
             .with_theme(window.window_theme.map(convert_window_theme))
             .with_resizable(window.resizable)
             .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
-            .with_transparent(window.transparent)
-            .with_visible(window.visible);
+            .with_transparent(window.transparent);
 
         #[cfg(target_os = "windows")]
         {
@@ -143,7 +145,14 @@ impl WinitWindows {
 
         #[cfg(target_os = "ios")]
         {
+            use crate::converters::convert_screen_edge;
             use winit::platform::ios::WindowAttributesExtIOS;
+
+            let preferred_edge =
+                convert_screen_edge(window.preferred_screen_edges_deferring_system_gestures);
+
+            winit_window_attributes = winit_window_attributes
+                .with_preferred_screen_edges_deferring_system_gestures(preferred_edge);
             winit_window_attributes = winit_window_attributes
                 .with_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
             winit_window_attributes = winit_window_attributes
@@ -276,6 +285,7 @@ impl WinitWindows {
         let winit_window = event_loop.create_window(winit_window_attributes).unwrap();
         let name = window.title.clone();
         prepare_accessibility_for_window(
+            event_loop,
             &winit_window,
             entity,
             name,
@@ -283,6 +293,10 @@ impl WinitWindows {
             adapters,
             handlers,
         );
+
+        // Now that the AccessKit adapter is created, it's safe to show
+        // the window.
+        winit_window.set_visible(window.visible);
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
         if window.cursor_options.grab_mode != CursorGrabMode::None {

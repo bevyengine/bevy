@@ -130,14 +130,12 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{CameraUpdateSystem, Projection},
+    camera::{sort_cameras, CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_resource::Shader,
     sync_component::SyncComponentPlugin,
-    texture::GpuImage,
     view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
@@ -468,13 +466,20 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_clusters,
+                    extract_lights,
+                    late_sweep_material_instances,
+                ),
+            )
             .add_systems(
                 Render,
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
-                        .after(prepare_assets::<GpuImage>),
+                        .after(sort_cameras),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )

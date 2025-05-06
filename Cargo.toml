@@ -26,6 +26,8 @@ members = [
   "crates/bevy_reflect/compile_fail",
   # Examples of compiling Bevy for mobile platforms.
   "examples/mobile",
+  # Examples of using Bevy on no_std platforms.
+  "examples/no_std/*",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -51,6 +53,8 @@ unwrap_or_default = "warn"
 needless_lifetimes = "allow"
 too_many_arguments = "allow"
 nonstandard_macro_braces = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -129,6 +133,7 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_anti_aliasing",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
@@ -209,6 +214,13 @@ bevy_core_pipeline = [
   "bevy_render",
 ]
 
+# Provides various anti aliasing solutions
+bevy_anti_aliasing = [
+  "bevy_internal/bevy_anti_aliasing",
+  "bevy_asset",
+  "bevy_render",
+]
+
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
@@ -221,6 +233,7 @@ bevy_pbr = [
   "bevy_asset",
   "bevy_render",
   "bevy_core_pipeline",
+  "bevy_anti_aliasing",
 ]
 
 # Provides picking functionality
@@ -238,6 +251,7 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
+  "bevy_anti_aliasing",
 ]
 
 # Provides text functionality
@@ -250,6 +264,7 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
+  "bevy_anti_aliasing",
 ]
 
 # Windowing layer
@@ -275,6 +290,9 @@ bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
+
+# Use the configurable global error handler as the default error handler.
+configurable_error_handler = ["bevy_internal/configurable_error_handler"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -554,7 +572,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
-accesskit = "0.17"
+accesskit = "0.18"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
@@ -1574,6 +1592,7 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
+required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"
@@ -2196,6 +2215,7 @@ wasm = false
 name = "fallible_params"
 path = "examples/ecs/fallible_params.rs"
 doc-scrape-examples = true
+required-features = ["configurable_error_handler"]
 
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
@@ -2204,14 +2224,14 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "fallible_systems"
-path = "examples/ecs/fallible_systems.rs"
+name = "error_handling"
+path = "examples/ecs/error_handling.rs"
 doc-scrape-examples = true
-required-features = ["bevy_mesh_picking_backend"]
+required-features = ["bevy_mesh_picking_backend", "configurable_error_handler"]
 
-[package.metadata.example.fallible_systems]
-name = "Fallible Systems"
-description = "Systems that return results to handle errors"
+[package.metadata.example.error_handling]
+name = "Error handling"
+description = "How to return and handle errors across the ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2282,6 +2302,17 @@ doc-scrape-examples = true
 [package.metadata.example.system_piping]
 name = "System Piping"
 description = "Pipe the output of one system into a second, allowing you to handle any errors gracefully"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "state_scoped"
+path = "examples/ecs/state_scoped.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.state_scoped]
+name = "State Scoped"
+description = "Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states."
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -3325,6 +3356,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_background_colors"
+path = "examples/ui/text_background_colors.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_background_colors]
+name = "Text Background Colors"
+description = "Demonstrates text background colors"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
 doc-scrape-examples = true
@@ -3476,6 +3518,17 @@ doc-scrape-examples = true
 [package.metadata.example.viewport_debug]
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "viewport_node"
+path = "examples/ui/viewport_node.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.viewport_node]
+name = "Viewport Node"
+description = "Demonstrates how to create a viewport node with picking support"
 category = "UI (User Interface)"
 wasm = true
 
@@ -4260,4 +4313,51 @@ doc-scrape-examples = true
 name = "Occlusion Culling"
 description = "Demonstration of Occlusion Culling"
 category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "camera_controller"
+path = "examples/helpers/camera_controller.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.camera_controller]
+name = "Camera Controller"
+description = "Example Free-Cam Styled Camera Controller"
+category = "Helpers"
+wasm = true
+
+[[example]]
+name = "widgets"
+path = "examples/helpers/widgets.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.widgets]
+name = "Widgets"
+description = "Example UI Widgets"
+category = "Helpers"
+wasm = true
+
+[[example]]
+name = "no_std_library"
+path = "examples/no_std/library/src/lib.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.no_std_library]
+name = "`no_std` Compatible Library"
+description = "Example library compatible with `std` and `no_std` targets"
+category = "Embedded"
+wasm = true
+
+[[example]]
+name = "extended_material_bindless"
+path = "examples/shader/extended_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extended_material_bindless]
+name = "Extended Bindless Material"
+description = "Demonstrates bindless `ExtendedMaterial`"
+category = "Shaders"
 wasm = false

@@ -3,7 +3,7 @@ use alloc::{vec, vec::Vec};
 use bevy_ecs::{
     resource::Resource,
     schedule::{
-        ExecutorKind, InternedScheduleLabel, IntoSystemSetConfigs, Schedule, ScheduleLabel,
+        ExecutorKind, InternedScheduleLabel, IntoScheduleConfigs, Schedule, ScheduleLabel,
         SystemSet,
     },
     system::Local,
@@ -15,6 +15,13 @@ use bevy_ecs::{
 /// By default, it will run the following schedules in the given order:
 ///
 /// On the first run of the schedule (and only on the first run), it will run:
+/// * [`StateTransition`] [^1]
+///      * This means that [`OnEnter(MyState::Foo)`] will be called *before* [`PreStartup`]
+///        if `MyState` was added to the app with `MyState::Foo` as the initial state,
+///        as well as [`OnEnter(MyComputedState)`] if it `compute`s to `Some(Self)` in `MyState::Foo`.
+///      * If you want to run systems before any state transitions, regardless of which state is the starting state,
+///        for example, for registering required components, you can add your own custom startup schedule
+///        before [`StateTransition`]. See [`MainScheduleOrder::insert_startup_before`] for more details.
 /// * [`PreStartup`]
 /// * [`Startup`]
 /// * [`PostStartup`]
@@ -22,7 +29,7 @@ use bevy_ecs::{
 /// Then it will run:
 /// * [`First`]
 /// * [`PreUpdate`]
-/// * [`StateTransition`]
+/// * [`StateTransition`] [^1]
 /// * [`RunFixedMainLoop`]
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
@@ -37,35 +44,39 @@ use bevy_ecs::{
 ///
 /// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
 ///
+/// [^1]: [`StateTransition`] is inserted only if you have `bevy_state` feature enabled. It is enabled in `default` features.
+///
 /// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
+/// [`OnEnter(MyState::Foo)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
+/// [`OnEnter(MyComputedState)`]: https://docs.rs/bevy/latest/bevy/prelude/struct.OnEnter.html
 /// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
 /// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`SubApp`]: crate::SubApp
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Main;
 
 /// The schedule that runs before [`Startup`].
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PreStartup;
 
 /// The schedule that runs once when the app starts.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Startup;
 
 /// The schedule that runs once after [`Startup`].
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PostStartup;
 
 /// Runs first in the schedule.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct First;
 
 /// The schedule that contains logic that must run before [`Update`]. For example, a system that reads raw keyboard
@@ -76,7 +87,7 @@ pub struct First;
 /// [`PreUpdate`] abstracts out "pre work implementation details".
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PreUpdate;
 
 /// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
@@ -88,21 +99,21 @@ pub struct PreUpdate;
 /// [`RunFixedMainLoop`] will *not* be parallelized between each other.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct RunFixedMainLoop;
 
 /// Runs first in the [`FixedMain`] schedule.
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedFirst;
 
 /// The schedule that contains logic that must run before [`FixedUpdate`].
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedPreUpdate;
 
 /// The schedule that contains most gameplay logic, which runs at a fixed rate rather than every render frame.
@@ -117,7 +128,7 @@ pub struct FixedPreUpdate;
 /// See the [`Update`] schedule for examples of systems that *should not* use this schedule.
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedUpdate;
 
 /// The schedule that runs after the [`FixedUpdate`] schedule, for reacting
@@ -125,14 +136,14 @@ pub struct FixedUpdate;
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedPostUpdate;
 
 /// The schedule that runs last in [`FixedMain`]
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedLast;
 
 /// The schedule that contains systems which only run after a fixed period of time has elapsed.
@@ -144,7 +155,7 @@ pub struct FixedLast;
 /// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct FixedMain;
 
 /// The schedule that contains any app logic that must run once per render frame.
@@ -157,13 +168,13 @@ pub struct FixedMain;
 ///
 /// See the [`FixedUpdate`] schedule for examples of systems that *should not* use this schedule.
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Update;
 
 /// The schedule that contains scene spawning.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SpawnScene;
 
 /// The schedule that contains logic that must run after [`Update`]. For example, synchronizing "local transforms" in a hierarchy
@@ -174,13 +185,13 @@ pub struct SpawnScene;
 /// [`PostUpdate`] abstracts out "implementation details" from users defining systems in [`Update`].
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PostUpdate;
 
 /// Runs last in the schedule.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Last;
 
 /// Animation system set. This exists in [`PostUpdate`].
@@ -316,7 +327,7 @@ impl Plugin for MainSchedulePlugin {
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
-            use bevy_ecs::schedule::{IntoSystemConfigs, Stepping};
+            use bevy_ecs::schedule::{IntoScheduleConfigs, Stepping};
             app.add_systems(Main, Stepping::begin_frame.before(Main::run_main));
         }
     }

@@ -26,7 +26,11 @@ use core::time::Duration;
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Clone, PartialEq)
+)]
 pub struct Stopwatch {
     elapsed: Duration,
     is_paused: bool,
