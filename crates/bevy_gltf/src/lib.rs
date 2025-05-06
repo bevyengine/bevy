@@ -96,30 +96,30 @@
 //! required extensions. The table below shows which of the ratified Khronos extensions are
 //! supported by Bevy.
 //!
-//! | Extension                       | Supported | Requires feature                  |
-//! | ------------------------------- | --------- | --------------------------------- |
-//! | KHR_animation_pointer           | ❌        |                                   |
-//! | KHR_draco_mesh_compression      | ❌        |                                   |
-//! | KHR_lights_punctual             | ✅        |                                   |
-//! | KHR_materials_anisotropy        | ✅        | pbr_anisotropy_texture            |
-//! | KHR_materials_clearcoat         | ✅        | pbr_multi_layer_material_textures |
-//! | KHR_materials_dispersion        | ❌        |                                   |
-//! | KHR_materials_emissive_strength | ✅        |                                   |
-//! | KHR_materials_ior               | ✅        |                                   |
-//! | KHR_materials_iridescence       | ❌        |                                   |
-//! | KHR_materials_sheen             | ❌        |                                   |
-//! | KHR_materials_specular          | ✅        | pbr_specular_textures             |
-//! | KHR_materials_transmission      | ✅        | pbr_transmission_textures         |
-//! | KHR_materials_unlit             | ✅        |                                   |
-//! | KHR_materials_variants          | ❌        |                                   |
-//! | KHR_materials_volume            | ✅        |                                   |
-//! | KHR_mesh_quantization           | ❌        |                                   |
-//! | KHR_texture_basisu              | ❌        |                                   |
-//! | KHR_texture_transform           | ✅\*      |                                   |
-//! | KHR_xmp_json_ld                 | ❌        |                                   |
-//! | EXT_mesh_gpu_instancing         | ❌        |                                   |
-//! | EXT_meshopt_compression         | ❌        |                                   |
-//! | EXT_texture_webp                | ❌        |                                   |
+//! | Extension                         | Supported | Requires feature                    |
+//! | --------------------------------- | --------- | ----------------------------------- |
+//! | `KHR_animation_pointer`           | ❌        |                                     |
+//! | `KHR_draco_mesh_compression`      | ❌        |                                     |
+//! | `KHR_lights_punctual`             | ✅        |                                     |
+//! | `KHR_materials_anisotropy`        | ✅        | `pbr_anisotropy_texture`            |
+//! | `KHR_materials_clearcoat`         | ✅        | `pbr_multi_layer_material_textures` |
+//! | `KHR_materials_dispersion`        | ❌        |                                     |
+//! | `KHR_materials_emissive_strength` | ✅        |                                     |
+//! | `KHR_materials_ior`               | ✅        |                                     |
+//! | `KHR_materials_iridescence`       | ❌        |                                     |
+//! | `KHR_materials_sheen`             | ❌        |                                     |
+//! | `KHR_materials_specular`          | ✅        | `pbr_specular_textures`             |
+//! | `KHR_materials_transmission`      | ✅        | `pbr_transmission_textures`         |
+//! | `KHR_materials_unlit`             | ✅        |                                     |
+//! | `KHR_materials_variants`          | ❌        |                                     |
+//! | `KHR_materials_volume`            | ✅        |                                     |
+//! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_texture_basisu`              | ❌        |                                     |
+//! | `KHR_texture_transform`           | ✅\*      |                                     |
+//! | `KHR_xmp_json_ld`                 | ❌        |                                     |
+//! | `EXT_mesh_gpu_instancing`         | ❌        |                                     |
+//! | `EXT_meshopt_compression`         | ❌        |                                     |
+//! | `EXT_texture_webp`                | ❌        |                                     |
 //!
 //! \*KHR_texture_transform is only supported on `base_color_texture`, see [#15310](https://github.com/bevyengine/bevy/issues/15310).
 //!
