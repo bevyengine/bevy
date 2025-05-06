@@ -593,7 +593,29 @@ impl_sparse_set_index!(u8, u16, u32, u64, usize);
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 #[derive(Default)]
 pub struct SparseSets {
-    sets: SparseSet<ComponentId, ComponentSparseSet>,
+    data: Vec<ComponentSparseSet>,
+    // SAFETY: These ids must correspond to indices in `data`.
+    sets: SparseSet<ComponentId, ComponentSparseSetId>,
+}
+
+/// An opaque id for components in [`SparseSets`]s. Specifies a particular [`ComponentSparseSet`].
+/// Think of this as a more localized [`ComponentId`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ComponentSparseSetId(u32);
+
+impl ComponentSparseSetId {
+    /// Gets the index of the row as a [`usize`].
+    #[inline]
+    pub const fn as_usize(self) -> usize {
+        // usize is at least u32 in Bevy
+        self.0 as usize
+    }
+
+    /// Gets the index of the row as a [`usize`].
+    #[inline]
+    pub const fn as_u32(self) -> u32 {
+        self.0
+    }
 }
 
 impl SparseSets {
@@ -612,13 +634,57 @@ impl SparseSets {
     /// An Iterator visiting all ([`ComponentId`], [`ComponentSparseSet`]) pairs.
     /// NOTE: Order is not guaranteed.
     pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ComponentSparseSet)> {
-        self.sets.iter().map(|(id, data)| (*id, data))
+        self.sets
+            .iter()
+            // SAFETY: Upheld by `map` safety.
+            .map(|(id, index)| (*id, unsafe { self.data.get_unchecked(index.as_usize()) }))
+    }
+
+    /// Gets a id to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
+    #[inline]
+    pub fn get_id(&self, component_id: ComponentId) -> Option<ComponentSparseSetId> {
+        self.sets.get(component_id).copied()
+    }
+
+    /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    ///
+    /// # SAFETY:
+    ///
+    /// The id must be from this [`SparseSets`].
+    #[inline]
+    pub(crate) unsafe fn get_by_id(&self, id: ComponentSparseSetId) -> &ComponentSparseSet {
+        self.data.get_unchecked(id.as_usize())
+    }
+
+    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    ///
+    /// # SAFETY:
+    ///
+    /// The id must be from this [`SparseSets`].
+    #[inline]
+    pub(crate) unsafe fn get_mut_by_id(
+        &mut self,
+        id: ComponentSparseSetId,
+    ) -> &mut ComponentSparseSet {
+        self.data.get_unchecked_mut(id.as_usize())
     }
 
     /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
     #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
-        self.sets.get(component_id)
+        self.sets
+            .get(component_id)
+            // SAFETY: The id came from self.
+            .map(|id| unsafe { self.get_by_id(*id) })
+    }
+
+    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
+    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
+        self.sets
+            .get(component_id)
+            .copied()
+            // SAFETY: The id came from self.
+            .map(|id| unsafe { self.get_mut_by_id(id) })
     }
 
     /// Gets a mutable reference of [`ComponentSparseSet`] of a [`ComponentInfo`].
@@ -627,30 +693,26 @@ impl SparseSets {
         &mut self,
         component_info: &ComponentInfo,
     ) -> &mut ComponentSparseSet {
-        if !self.sets.contains(component_info.id()) {
-            self.sets.insert(
-                component_info.id(),
-                ComponentSparseSet::new(component_info, 64),
-            );
-        }
+        let Self { data, sets } = self;
 
-        self.sets.get_mut(component_info.id()).unwrap()
-    }
-
-    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
-    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
-        self.sets.get_mut(component_id)
+        let id = *sets.get_or_insert_with(component_info.id(), || {
+            let id = ComponentSparseSetId(data.len() as u32);
+            data.push(ComponentSparseSet::new(component_info, 64));
+            id
+        });
+        // SAFETY: The id is from self
+        unsafe { self.get_mut_by_id(id) }
     }
 
     /// Clear entities stored in each [`ComponentSparseSet`]
     pub(crate) fn clear_entities(&mut self) {
-        for set in self.sets.values_mut() {
+        for set in self.data.iter_mut() {
             set.clear();
         }
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for set in self.sets.values_mut() {
+        for set in self.data.iter_mut() {
             set.check_change_ticks(change_tick);
         }
     }
