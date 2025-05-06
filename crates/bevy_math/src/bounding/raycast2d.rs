@@ -78,7 +78,7 @@ impl RayCast2d {
     pub fn circle_intersection_at(&self, circle: &BoundingCircle) -> Option<f32> {
         let offset = self.ray.origin - circle.center;
         let projected = offset.dot(*self.ray.direction);
-        let cross = offset.x * self.ray.direction.y - offset.y * self.ray.direction.x;
+        let cross = offset.perp_dot(*self.ray.direction);
         let distance_squared = circle.radius().squared() - cross.squared();
         if distance_squared < 0.
             || ops::copysign(projected.squared(), -projected) < -distance_squared
