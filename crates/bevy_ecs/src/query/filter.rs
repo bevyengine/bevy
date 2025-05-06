@@ -555,6 +555,63 @@ all_tuples!(
     S
 );
 
+/// Allows a query to contain entities with the component `T`, bypassing [`DefaultQueryFilters`].
+///
+/// [`DefaultQueryFilters`]: crate::entity_disabling::DefaultQueryFilters
+pub struct Allows<T>(PhantomData<T>);
+
+/// SAFETY:
+/// `update_component_access` does not add any accesses.
+/// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
+/// `update_component_access` adds an archetypal filter for `T`.
+/// This is sound because it doesn't affect the query
+unsafe impl<T: Component> WorldQuery for Allows<T> {
+    type Fetch<'w> = ();
+    type State = ComponentId;
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
+
+    #[inline]
+    unsafe fn init_fetch(_: UnsafeWorldCell, _: &ComponentId, _: Tick, _: Tick) {}
+
+    // Even if the component is sparse, this implementation doesn't do anything with it
+    const IS_DENSE: bool = true;
+
+    #[inline]
+    unsafe fn set_archetype(_: &mut (), _: &ComponentId, _: &Archetype, _: &Table) {}
+
+    #[inline]
+    unsafe fn set_table(_: &mut (), _: &ComponentId, _: &Table) {}
+
+    #[inline]
+    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
+        access.access_mut().add_archetypal(id);
+    }
+
+    fn init_state(world: &mut World) -> ComponentId {
+        world.register_component::<T>()
+    }
+
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
+    }
+
+    fn matches_component_set(_: &ComponentId, _: &impl Fn(ComponentId) -> bool) -> bool {
+        // Allows<T> always matches
+        true
+    }
+}
+
+// SAFETY: WorldQuery impl performs no access at all
+unsafe impl<T: Component> QueryFilter for Allows<T> {
+    const IS_ARCHETYPAL: bool = true;
+
+    #[inline(always)]
+    unsafe fn filter_fetch(_: &mut Self::Fetch<'_>, _: Entity, _: TableRow) -> bool {
+        true
+    }
+}
+
 /// A filter on a component that only retains results the first time after they have been added.
 ///
 /// A common use for this filter is one-time initialization.

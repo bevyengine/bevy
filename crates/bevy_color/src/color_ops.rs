@@ -77,6 +77,20 @@ pub trait Alpha: Sized {
     }
 }
 
+impl Alpha for f32 {
+    fn with_alpha(&self, alpha: f32) -> Self {
+        alpha
+    }
+
+    fn alpha(&self) -> f32 {
+        *self
+    }
+
+    fn set_alpha(&mut self, alpha: f32) {
+        *self = alpha;
+    }
+}
+
 /// Trait for manipulating the hue of a color.
 pub trait Hue: Sized {
     /// Return a new version of this color with the hue channel set to the given value.

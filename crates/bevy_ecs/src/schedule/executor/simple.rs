@@ -1,3 +1,5 @@
+#![expect(deprecated, reason = "Everything here is deprecated")]
+
 use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
 
@@ -20,6 +22,10 @@ use super::__rust_begin_short_backtrace;
 /// A variant of [`SingleThreadedExecutor`](crate::schedule::SingleThreadedExecutor) that calls
 /// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running each system.
 #[derive(Default)]
+#[deprecated(
+    since = "0.17.0",
+    note = "Use SingleThreadedExecutor instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
+)]
 pub struct SimpleExecutor {
     /// Systems sets whose conditions have been evaluated.
     evaluated_sets: FixedBitSet,
@@ -165,7 +171,10 @@ impl SimpleExecutor {
         }
     }
 }
-
+#[deprecated(
+    since = "0.17.0",
+    note = "Use SingleThreadedExecutor instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
+)]
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
     let error_handler = default_error_handler();
 
