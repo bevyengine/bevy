@@ -2751,4 +2751,27 @@ mod tests {
     )]
     #[derive(Component)]
     struct MyEntitiesTuple(#[entities] Vec<Entity>, #[entities] Entity, usize);
+
+    #[test]
+    fn clone_entities() {
+        use crate::entity::{ComponentCloneCtx, SourceComponent};
+
+        #[derive(Component)]
+        #[component(clone_behavior = Ignore)]
+        struct IgnoreClone;
+
+        #[derive(Component)]
+        #[component(clone_behavior = Default)]
+        struct DefaultClone;
+
+        #[derive(Component)]
+        #[component(clone_behavior = Custom(custom_clone))]
+        struct CustomClone;
+
+        #[derive(Component, Clone)]
+        #[component(clone_behavior = clone::<Self>())]
+        struct CloneFunction;
+
+        fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
+    }
 }
