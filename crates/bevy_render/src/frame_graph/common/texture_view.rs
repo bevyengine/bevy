@@ -1,8 +1,10 @@
 use alloc::borrow::Cow;
 
 use crate::frame_graph::{
-    BluePrint, FrameGraphError, FrameGraphTexture, RenderContext, ResourceRead, ResourceRef,
+    FrameGraphError, FrameGraphTexture, RenderContext, ResourceRead, ResourceRef,
 };
+
+use super::ResourceDrawing;
 
 #[derive(Default, Clone)]
 pub struct TextureViewInfo {
@@ -34,14 +36,18 @@ impl TextureViewInfo {
 }
 
 #[derive(Clone)]
-pub struct TextureViewBluePrint {
+pub struct TextureViewDrawing {
     pub texture: ResourceRef<FrameGraphTexture, ResourceRead>,
     pub desc: TextureViewInfo,
 }
 
-impl BluePrint for TextureViewBluePrint {
-    type Product = wgpu::TextureView;
-    fn make(&self, render_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
+impl ResourceDrawing for TextureViewDrawing {
+    type Resource = wgpu::TextureView;
+
+    fn make_resource<'a>(
+        &self,
+        render_context: &RenderContext<'a>,
+    ) -> Result<Self::Resource, FrameGraphError> {
         render_context
             .resource_table
             .get_resource::<FrameGraphTexture>(&self.texture)

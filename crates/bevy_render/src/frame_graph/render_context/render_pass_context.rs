@@ -2,10 +2,9 @@ use bevy_color::LinearRgba;
 use wgpu::{QuerySet, ShaderStages};
 
 use super::{
-    BeginPipelineStatisticsQueryParameter, BindGroupBluePrint, BluePrint,
-    DrawIndexedIndirectParameter, DrawIndexedParameter, DrawIndirectParameter, DrawParameter,
-    EndPipelineStatisticsQueryParameter, FrameGraphBuffer, FrameGraphError,
-    InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
+    BeginPipelineStatisticsQueryParameter, DrawIndexedIndirectParameter, DrawIndexedParameter,
+    DrawIndirectParameter, DrawParameter, EndPipelineStatisticsQueryParameter, FrameGraphBuffer,
+    FrameGraphError, InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
     MultiDrawIndexedIndirectParameter, MultiDrawIndirectParameter, PopDebugGroupParameter,
     PushDebugGroupParameter, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter,
     SetBlendConstantParameter, SetIndexBufferParameter, SetPushConstantsParameter,
@@ -13,7 +12,7 @@ use super::{
     SetStencilReferenceParameter, SetVertexBufferParameter, SetViewportParameter,
     WriteTimestampParameter,
 };
-use crate::render_resource::{BindGroup, CachedRenderPipelineId};
+use crate::{frame_graph::{BindGroupDrawing, ResourceDrawing}, render_resource::{BindGroup, CachedRenderPipelineId}};
 use core::ops::Range;
 use std::ops::Deref;
 
@@ -230,7 +229,7 @@ pub trait RenderPassCommandBuilder {
         self.add_render_pass_command(RenderPassCommand::new(SetRenderPipelineParameter { id }));
     }
 
-    fn set_bind_group(&mut self, index: u32, bind_group: &BindGroupBluePrint, offsets: &[u32]) {
+    fn set_bind_group(&mut self, index: u32, bind_group: &BindGroupDrawing, offsets: &[u32]) {
         self.add_render_pass_command(RenderPassCommand::new(SetBindGroupParameter {
             index,
             bind_group: bind_group.clone(),
@@ -459,10 +458,10 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
     pub fn set_bind_group(
         &mut self,
         index: u32,
-        bind_group: &BindGroupBluePrint,
+        bind_group: &BindGroupDrawing,
         offsets: &[u32],
     ) -> Result<(), FrameGraphError> {
-        let bind_group = bind_group.make(&self.render_context)?;
+        let bind_group = bind_group.make_resource(&self.render_context)?;
         self.render_pass.set_bind_group(index, &bind_group, offsets);
 
         Ok(())

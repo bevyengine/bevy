@@ -14,14 +14,14 @@ use crate::{
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     frame_graph::{
-        BluePrintProvider, ColorAttachment, ColorAttachmentBluePrint, FrameGraph, FrameGraphError,
-        PassNodeBuilder, ResourceBoardKey, TextureInfo,
+        ColorAttachment, ColorAttachmentDrawing, FrameGraph, FrameGraphError, PassNodeBuilder,
+        ResourceBoardKey, ResourceHandle, TextureInfo,
     },
     prelude::Shader,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
-    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
+    render_resource::{DynamicUniformBuffer, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{ColorAttachmentProvider, GpuImage, OutputColorAttachment},
@@ -720,17 +720,17 @@ pub struct NoIndirectDrawing;
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
 
-impl BluePrintProvider for ViewTarget {
-    type BluePrint = ColorAttachmentBluePrint;
+impl ResourceHandle for ViewTarget {
+    type Drawing = ColorAttachmentDrawing;
 
-    fn make_blue_print(
+    fn make_resource_drawing(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::BluePrint, FrameGraphError> {
+    ) -> Result<Self::Drawing, FrameGraphError> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            self.main_textures.a.make_blue_print(pass_node_builder)
+            self.main_textures.a.make_resource_drawing(pass_node_builder)
         } else {
-            self.main_textures.b.make_blue_print(pass_node_builder)
+            self.main_textures.b.make_resource_drawing(pass_node_builder)
         }
     }
 }

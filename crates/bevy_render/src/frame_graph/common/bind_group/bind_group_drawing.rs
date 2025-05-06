@@ -1,14 +1,14 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Deref};
 
 use crate::{
-    frame_graph::{BluePrint, FrameGraphBuffer, FrameGraphError, RenderContext},
-    render_resource::{BindGroup, BindGroupLayout},
+    frame_graph::{FrameGraphBuffer, FrameGraphError, RenderContext, ResourceDrawing},
+    render_resource::BindGroupLayout,
 };
 
 use super::{BindGroupEntryRef, BindingResourceRef};
 
 #[derive(Clone)]
-pub struct BindGroupBluePrint {
+pub struct BindGroupDrawing {
     pub label: Option<Cow<'static, str>>,
     pub layout: BindGroupLayout,
     pub entries: Vec<BindGroupEntryRef>,
@@ -34,18 +34,21 @@ impl<'a> BindingResource<'a> {
     }
 }
 
-impl BluePrint for BindGroupBluePrint {
-    type Product = BindGroup;
+impl ResourceDrawing for BindGroupDrawing {
+    type Resource = wgpu::BindGroup;
 
-    fn make(&self, resource_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
+    fn make_resource<'a>(
+        &self,
+        render_context: &RenderContext<'a>,
+    ) -> Result<Self::Resource, FrameGraphError> {
         let mut resources = vec![];
         for entry in self.entries.iter() {
             let resource = match &entry.resource {
                 BindingResourceRef::Buffer(resource_ref) => {
-                    BindingResource::Buffer(resource_context.get_resource(resource_ref)?)
+                    BindingResource::Buffer(render_context.get_resource(resource_ref)?)
                 }
                 BindingResourceRef::Sampler(info) => BindingResource::Sampler(
-                    resource_context
+                    render_context
                         .render_device
                         .wgpu_device()
                         .create_sampler(&info.get_sample_desc()),
@@ -54,7 +57,7 @@ impl BluePrint for BindGroupBluePrint {
                     texture_ref,
                     texture_view_info,
                 } => {
-                    let texture = resource_context.get_resource(texture_ref)?;
+                    let texture = render_context.get_resource(texture_ref)?;
                     BindingResource::TextureView(
                         texture
                             .resource
@@ -66,17 +69,20 @@ impl BluePrint for BindGroupBluePrint {
             resources.push((entry.binding, resource));
         }
 
-        let bind_graoup = resource_context.render_device.create_bind_group(
-            self.label.as_deref(),
-            &self.layout,
-            &resources
-                .iter()
-                .map(|(binding, resource)| wgpu::BindGroupEntry {
-                    binding: *binding,
-                    resource: resource.get_resource_binding(),
-                })
-                .collect::<Vec<_>>(),
-        );
+        let bind_graoup = render_context
+            .render_device
+            .wgpu_device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: self.label.as_deref(),
+                layout: self.layout.deref(),
+                entries: &resources
+                    .iter()
+                    .map(|(binding, resource)| wgpu::BindGroupEntry {
+                        binding: *binding,
+                        resource: resource.get_resource_binding(),
+                    })
+                    .collect::<Vec<_>>(),
+            });
 
         Ok(bind_graoup)
     }

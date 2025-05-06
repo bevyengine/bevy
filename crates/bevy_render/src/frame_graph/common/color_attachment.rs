@@ -1,11 +1,11 @@
-use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
+use crate::frame_graph::{FrameGraphError, RenderContext};
 
-use super::TextureViewBluePrint;
+use super::{ResourceDrawing, TextureViewDrawing};
 
 #[derive(Clone)]
-pub struct ColorAttachmentBluePrint {
-    pub view: TextureViewBluePrint,
-    pub resolve_target: Option<TextureViewBluePrint>,
+pub struct ColorAttachmentDrawing {
+    pub view: TextureViewDrawing,
+    pub resolve_target: Option<TextureViewDrawing>,
     pub ops: wgpu::Operations<wgpu::Color>,
 }
 
@@ -26,14 +26,17 @@ impl ColorAttachment {
     }
 }
 
-impl BluePrint for ColorAttachmentBluePrint {
-    type Product = ColorAttachment;
+impl ResourceDrawing for ColorAttachmentDrawing {
+    type Resource = ColorAttachment;
 
-    fn make(&self, render_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
-        let view = self.view.make(render_context)?;
+    fn make_resource<'a>(
+        &self,
+        render_context: &RenderContext<'a>,
+    ) -> Result<Self::Resource, FrameGraphError> {
+        let view = self.view.make_resource(render_context)?;
 
         if let Some(resolve_target) = &self.resolve_target {
-            let resolve_target = resolve_target.make(render_context)?;
+            let resolve_target = resolve_target.make_resource(render_context)?;
 
             Ok(ColorAttachment {
                 view,

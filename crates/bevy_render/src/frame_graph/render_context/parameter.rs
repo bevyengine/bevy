@@ -5,7 +5,7 @@ use wgpu::{QuerySet, ShaderStages};
 
 use crate::{
     frame_graph::{
-        BindGroupBluePrint, FrameGraphBuffer, FrameGraphError, RenderPassContext, ResourceRead,
+        BindGroupDrawing, FrameGraphBuffer, FrameGraphError, RenderPassContext, ResourceRead,
         ResourceRef,
     },
     render_resource::{BindGroup, CachedRenderPipelineId},
@@ -347,7 +347,7 @@ impl ErasedRenderPassCommand for SetRenderPipelineParameter {
 
 pub struct SetBindGroupParameter {
     pub index: u32,
-    pub bind_group: BindGroupBluePrint,
+    pub bind_group: BindGroupDrawing,
     pub offsets: Vec<u32>,
 }
 

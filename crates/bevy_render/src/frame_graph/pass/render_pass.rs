@@ -1,9 +1,9 @@
 use crate::{
     camera::Viewport,
     frame_graph::{
-        BluePrint, ColorAttachment, ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint,
+        ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing,
         FrameGraphError, RenderContext, RenderPassBlutPrint, RenderPassCommand,
-        RenderPassCommandBuilder,
+        RenderPassCommandBuilder, ResourceDrawing,
     },
 };
 
@@ -36,7 +36,7 @@ impl RenderPass {
 
     pub fn set_depth_stencil_attachment(
         &mut self,
-        depth_stencil_attachment: DepthStencilAttachmentBluePrint,
+        depth_stencil_attachment: DepthStencilAttachmentDrawing,
     ) {
         self.render_pass.depth_stencil_attachment = Some(depth_stencil_attachment);
     }
@@ -49,7 +49,7 @@ impl RenderPass {
         self.vaild = true;
     }
 
-    pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentBluePrint) {
+    pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentDrawing) {
         self.render_pass.color_attachments.push(color_attachment);
 
         self.vaild = true;
@@ -64,7 +64,7 @@ impl RenderPassCommandBuilder for RenderPass {
 
 impl PassTrait for RenderPass {
     fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
-        let render_pass_info = self.render_pass.make(render_context)?;
+        let render_pass_info = self.render_pass.make_resource(render_context)?;
         let render_pass_context = render_context.begin_render_pass(&render_pass_info)?;
 
         render_pass_context.execute(&self.commands)?;

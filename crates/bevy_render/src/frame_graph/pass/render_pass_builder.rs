@@ -11,11 +11,10 @@ use wgpu::{QuerySet, ShaderStages, StoreOp};
 use crate::{
     camera::Viewport,
     frame_graph::{
-        BindGroupBluePrint, BindGroupEntryRef, BluePrintProvider, ColorAttachment,
-        ColorAttachmentBluePrint, DepthStencilAttachmentBluePrint, FrameGraphBuffer,
-        FrameGraphError, FrameGraphTexture, GraphResource, PassNodeBuilder,
-        RenderPassCommandBuilder, ResourceBoardKey, ResourceRead, ResourceRef, SamplerInfo,
-        TextureViewBluePrint, TextureViewInfo,
+        BindGroupDrawing, BindGroupEntryRef, ColorAttachment, ColorAttachmentDrawing,
+        DepthStencilAttachmentDrawing, FrameGraphBuffer, FrameGraphError, FrameGraphTexture,
+        GraphResource, PassNodeBuilder, RenderPassCommandBuilder, ResourceBoardKey, ResourceHandle,
+        ResourceRead, ResourceRef, TextureViewDrawing, TextureViewInfo,
     },
     render_resource::{BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, Texture},
     view::ViewDepthTexture,
@@ -40,18 +39,18 @@ impl<'a> Drop for RenderPassBuilder<'a> {
     }
 }
 
-impl BluePrintProvider for (&ViewDepthTexture, StoreOp) {
-    type BluePrint = DepthStencilAttachmentBluePrint;
+impl ResourceHandle for (&ViewDepthTexture, StoreOp) {
+    type Drawing = DepthStencilAttachmentDrawing;
 
-    fn make_blue_print(
+    fn make_resource_drawing(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::BluePrint, FrameGraphError> {
+    ) -> Result<Self::Drawing, FrameGraphError> {
         let depth_texture_read =
             pass_node_builder.read_from_board(self.0.get_depth_texture_key())?;
 
-        Ok(DepthStencilAttachmentBluePrint {
-            view: TextureViewBluePrint {
+        Ok(DepthStencilAttachmentDrawing {
+            view: TextureViewDrawing {
                 texture: depth_texture_read,
                 desc: TextureViewInfo::default(),
             },
@@ -61,17 +60,17 @@ impl BluePrintProvider for (&ViewDepthTexture, StoreOp) {
     }
 }
 
-impl<T> BluePrintProvider for (Option<Cow<'static, str>>, &BindGroupLayout, &T)
+impl<T> ResourceHandle for (Option<Cow<'static, str>>, &BindGroupLayout, &T)
 where
     T: Deref<Target = [BindGroupEntryRef]>,
 {
-    type BluePrint = BindGroupBluePrint;
+    type Drawing = BindGroupDrawing;
 
-    fn make_blue_print(
+    fn make_resource_drawing(
         &self,
         _pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::BluePrint, FrameGraphError> {
-        Ok(BindGroupBluePrint {
+    ) -> Result<Self::Drawing, FrameGraphError> {
+        Ok(BindGroupDrawing {
             label: self.0.clone(),
             layout: self.1.clone(),
             entries: self.2.to_vec(),
@@ -338,9 +337,9 @@ impl<'a> RenderPassBuilder<'a> {
         offsets: &[u32],
     ) -> Result<&mut Self, FrameGraphError>
     where
-        T: BluePrintProvider<BluePrint = BindGroupBluePrint>,
+        T: ResourceHandle<Drawing = BindGroupDrawing>,
     {
-        let bind_group_ref = bind_group.make_blue_print(&mut self.pass_node_builder)?;
+        let bind_group_ref = bind_group.make_resource_drawing(&mut self.pass_node_builder)?;
 
         self.render_pass
             .set_bind_group(index, &bind_group_ref, offsets);
@@ -364,9 +363,9 @@ impl<'a> RenderPassBuilder<'a> {
 
     pub fn add_color_attachment<T>(&mut self, provider: &T) -> Result<&mut Self, FrameGraphError>
     where
-        T: BluePrintProvider<BluePrint = ColorAttachmentBluePrint>,
+        T: ResourceHandle<Drawing = ColorAttachmentDrawing>,
     {
-        let color_attachment = provider.make_blue_print(&mut self.pass_node_builder)?;
+        let color_attachment = provider.make_resource_drawing(&mut self.pass_node_builder)?;
 
         self.render_pass.add_color_attachment(color_attachment);
         Ok(self)
@@ -377,9 +376,9 @@ impl<'a> RenderPassBuilder<'a> {
         provider: &T,
     ) -> Result<&mut Self, FrameGraphError>
     where
-        T: BluePrintProvider<BluePrint = DepthStencilAttachmentBluePrint>,
+        T: ResourceHandle<Drawing = DepthStencilAttachmentDrawing>,
     {
-        let color_attachment = provider.make_blue_print(&mut self.pass_node_builder)?;
+        let color_attachment = provider.make_resource_drawing(&mut self.pass_node_builder)?;
 
         self.render_pass
             .set_depth_stencil_attachment(color_attachment);

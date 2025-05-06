@@ -1,17 +1,17 @@
 use std::borrow::Cow;
 
-use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
+use crate::frame_graph::{FrameGraphError, RenderContext};
 
 use super::{
-    ColorAttachment, ColorAttachmentBluePrint, DepthStencilAttachment,
-    DepthStencilAttachmentBluePrint,
+    ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachment, DepthStencilAttachmentDrawing,
+    ResourceDrawing,
 };
 
 #[derive(Default)]
 pub struct RenderPassBlutPrint {
     pub label: Option<Cow<'static, str>>,
-    pub color_attachments: Vec<ColorAttachmentBluePrint>,
-    pub depth_stencil_attachment: Option<DepthStencilAttachmentBluePrint>,
+    pub color_attachments: Vec<ColorAttachmentDrawing>,
+    pub depth_stencil_attachment: Option<DepthStencilAttachmentDrawing>,
     pub raw_color_attachments: Vec<ColorAttachment>,
 }
 
@@ -21,21 +21,24 @@ pub struct RenderPassInfo {
     pub depth_stencil_attachment: Option<DepthStencilAttachment>,
 }
 
-impl BluePrint for RenderPassBlutPrint {
-    type Product = RenderPassInfo;
+impl ResourceDrawing for RenderPassBlutPrint {
+    type Resource = RenderPassInfo;
 
-    fn make(&self, render_context: &RenderContext) -> Result<Self::Product, FrameGraphError> {
+    fn make_resource<'a>(
+        &self,
+        render_context: &RenderContext<'a>,
+    ) -> Result<Self::Resource, FrameGraphError> {
         let mut color_attachments = self.raw_color_attachments.clone();
 
         for color_attachment in self.color_attachments.iter() {
-            color_attachments.push(color_attachment.make(render_context)?);
+            color_attachments.push(color_attachment.make_resource(render_context)?);
         }
 
         let mut depth_stencil_attachment = None;
 
         if let Some(depth_stencil_attachment_blue_print) = &self.depth_stencil_attachment {
             depth_stencil_attachment =
-                Some(depth_stencil_attachment_blue_print.make(render_context)?);
+                Some(depth_stencil_attachment_blue_print.make_resource(render_context)?);
         }
 
         Ok(RenderPassInfo {

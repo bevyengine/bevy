@@ -1,22 +1,22 @@
-use crate::frame_graph::{BluePrint, FrameGraphError, RenderContext};
+use crate::frame_graph::{FrameGraphError, RenderContext};
 
-use super::TextureViewBluePrint;
+use super::{ResourceDrawing, TextureViewDrawing};
 
 #[derive(Clone)]
-pub struct DepthStencilAttachmentBluePrint {
-    pub view: TextureViewBluePrint,
+pub struct DepthStencilAttachmentDrawing {
+    pub view: TextureViewDrawing,
     pub depth_ops: Option<wgpu::Operations<f32>>,
     pub stencil_ops: Option<wgpu::Operations<u32>>,
 }
 
-impl BluePrint for DepthStencilAttachmentBluePrint {
-    type Product = DepthStencilAttachment;
+impl ResourceDrawing for DepthStencilAttachmentDrawing {
+    type Resource = DepthStencilAttachment;
 
-    fn make(
+    fn make_resource<'a>(
         &self,
-        render_context: &RenderContext,
-    ) -> Result<Self::Product, FrameGraphError> {
-        let view = self.view.make(render_context)?;
+        render_context: &RenderContext<'a>,
+    ) -> Result<Self::Resource, FrameGraphError> {
+        let view = self.view.make_resource(render_context)?;
 
         Ok(DepthStencilAttachment {
             view,

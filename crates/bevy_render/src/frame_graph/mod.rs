@@ -1,4 +1,3 @@
-pub mod blue_pritnt;
 pub mod common;
 pub mod device_pass;
 pub mod graph;
@@ -13,7 +12,6 @@ pub mod resource_node;
 pub mod resource_table;
 pub mod transient_resource_cache;
 
-pub use blue_pritnt::*;
 pub use common::*;
 pub use device_pass::*;
 pub use graph::*;

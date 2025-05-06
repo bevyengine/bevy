@@ -1,8 +1,8 @@
 use crate::{
     camera::{ClearColor, ExtractedCamera, NormalizedRenderTarget, SortedCameras},
     frame_graph::{
-        ColorAttachmentBluePrint, FrameGraph, FrameGraphTexture, RenderPass, TextureViewInfo,
-        TextureViewBluePrint,
+        ColorAttachmentDrawing, FrameGraph, FrameGraphTexture, RenderPass, TextureViewInfo,
+        TextureViewDrawing,
     },
     render_graph::{Node, NodeRunError, RenderGraphContext},
     view::ExtractedWindows,
@@ -98,8 +98,8 @@ impl Node for CameraDriverNode {
 
             let mut render_pass = RenderPass::default();
 
-            render_pass.add_color_attachment(ColorAttachmentBluePrint {
-                view: TextureViewBluePrint {
+            render_pass.add_color_attachment(ColorAttachmentDrawing {
+                view: TextureViewDrawing {
                     texture: swap_chain_texture_read,
                     desc: TextureViewInfo::default(),
                 },

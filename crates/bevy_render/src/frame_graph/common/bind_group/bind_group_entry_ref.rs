@@ -1,8 +1,8 @@
 use variadics_please::all_tuples_with_size;
 
-use crate::frame_graph::{FrameGraphBuffer, FrameGraphTexture, ResourceRead, ResourceRef};
-
-use super::{SamplerInfo, TextureViewInfo};
+use crate::frame_graph::{
+    FrameGraphBuffer, FrameGraphTexture, ResourceRead, ResourceRef, SamplerInfo, TextureViewInfo,
+};
 
 #[derive(Clone)]
 pub struct BindGroupEntryRef {
@@ -177,7 +177,9 @@ impl DynamicBindGroupEntryRefs {
         self
     }
 
-    pub fn new_with_indices<const N: usize>(entries: impl IntoIndexedBindingResourceRefArray<N>) -> Self {
+    pub fn new_with_indices<const N: usize>(
+        entries: impl IntoIndexedBindingResourceRefArray<N>,
+    ) -> Self {
         Self {
             entries: entries
                 .into_array()

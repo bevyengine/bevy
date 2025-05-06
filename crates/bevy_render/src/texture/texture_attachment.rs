@@ -1,7 +1,7 @@
 use crate::{
     frame_graph::{
-        BluePrintProvider, ColorAttachment, ColorAttachmentBluePrint, FrameGraphError,
-        PassNodeBuilder, ResourceBoardKey, TextureViewBluePrint, TextureViewInfo,
+        ColorAttachment, ColorAttachmentDrawing, FrameGraphError, PassNodeBuilder,
+        ResourceBoardKey, ResourceHandle, TextureViewDrawing, TextureViewInfo,
     },
     render_resource::{TextureFormat, TextureView},
 };
@@ -19,29 +19,30 @@ pub struct ColorAttachmentProvider {
     is_first_call: Arc<AtomicBool>,
 }
 
-impl BluePrintProvider for ColorAttachmentProvider {
-    type BluePrint = ColorAttachmentBluePrint;
-    fn make_blue_print(
+impl ResourceHandle for ColorAttachmentProvider {
+    type Drawing = ColorAttachmentDrawing;
+
+    fn make_resource_drawing(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::BluePrint, FrameGraphError> {
+    ) -> Result<Self::Drawing, FrameGraphError> {
         let view;
 
         let mut resolve_target = None;
 
         if self.resolve_target.is_none() {
-            view = TextureViewBluePrint {
+            view = TextureViewDrawing {
                 texture: pass_node_builder.read_from_board(&self.texture)?,
                 desc: TextureViewInfo::default(),
             };
         } else {
-            view = TextureViewBluePrint {
+            view = TextureViewDrawing {
                 texture: pass_node_builder
                     .read_from_board(self.resolve_target.as_ref().unwrap())?,
                 desc: TextureViewInfo::default(),
             };
 
-            resolve_target = Some(TextureViewBluePrint {
+            resolve_target = Some(TextureViewDrawing {
                 texture: pass_node_builder.read_from_board(&self.texture)?,
                 desc: TextureViewInfo::default(),
             })
@@ -49,7 +50,7 @@ impl BluePrintProvider for ColorAttachmentProvider {
 
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
-        Ok(ColorAttachmentBluePrint {
+        Ok(ColorAttachmentDrawing {
             view,
             resolve_target,
             ops: Operations {

@@ -1,16 +1,15 @@
-
 pub mod parameter;
 
 pub mod render_pass_context;
 
-pub use render_pass_context::*;
 pub use parameter::*;
+pub use render_pass_context::*;
 
 use wgpu::AdapterInfo;
 
 use super::{
-    BindGroupBluePrint, BluePrint, FrameGraphBuffer, FrameGraphError, GraphResource,
-    RenderPassInfo, ResourceRead, ResourceRef, ResourceTable, TransientResourceCache,
+    FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo, ResourceRead, ResourceRef,
+    ResourceTable, TransientResourceCache,
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
