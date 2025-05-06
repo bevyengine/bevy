@@ -525,7 +525,7 @@ impl World {
             .archetypes()
             .component_index()
             .iter_archetypes_with_component(requiree)
-            .is_none_or(|mut iter| iter.next().is_none())
+            .is_some_and(|archetypes| !archetypes.is_empty())
         {
             return Err(RequiredComponentsError::ArchetypeExists(requiree));
         }

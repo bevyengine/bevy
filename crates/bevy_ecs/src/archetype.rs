@@ -30,6 +30,7 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::HashMap;
 use core::{
     hash::Hash,
+    mem::MaybeUninit,
     ops::{Index, IndexMut, RangeFrom},
 };
 
@@ -410,10 +411,8 @@ impl Archetype {
             // component in the `table_components` vector
             component_index.insert_component_on_archetype(
                 component_id,
-                ArchetypeRecord {
-                    column: Some(idx),
-                    archetype: id,
-                },
+                ArchetypeRecord { column: Some(idx) },
+                id,
             );
         }
 
@@ -431,10 +430,8 @@ impl Archetype {
             );
             component_index.insert_component_on_archetype(
                 component_id,
-                ArchetypeRecord {
-                    column: None,
-                    archetype: id,
-                },
+                ArchetypeRecord { column: None },
+                id,
             );
         }
         Self {
@@ -800,17 +797,18 @@ pub struct ComponentIndex {
 #[derive(Default)]
 struct ComponentRecord {
     num_archetypes: usize,
-    archetype_map: Vec<Option<ArchetypeRecord>>,
+    archetype_map: Vec<MaybeUninit<ArchetypeRecord>>,
+    archetypes: Vec<ArchetypeId>,
 }
 
 impl ComponentIndex {
     fn insert_component_on_archetype(
         &mut self,
         component: ComponentId,
-        archetype: ArchetypeRecord,
+        record: ArchetypeRecord,
+        archetype: ArchetypeId,
     ) -> ArchetypeRecordId {
         let Self { data, map } = self;
-        let archetype_index = archetype.archetype.index();
         let id = *map.entry(component).or_insert_with(|| {
             let id = ArchetypeRecordId(data.len() as u32);
             data.push(Default::default());
@@ -819,24 +817,25 @@ impl ComponentIndex {
         // SAFETY: `map`'s safety ensures this
         let component_data = unsafe { data.get_unchecked_mut(id.as_usize()) };
         component_data.archetype_map.resize_with(
-            component_data.archetype_map.len().max(archetype_index + 1),
-            || None,
+            component_data
+                .archetype_map
+                .len()
+                .max(archetype.index() + 1),
+            MaybeUninit::zeroed,
         );
         component_data.num_archetypes += 1;
+        component_data.archetypes.push(archetype);
         // SAFETY: We just resized to make this valid
         unsafe {
             *component_data
                 .archetype_map
-                .get_unchecked_mut(archetype_index) = Some(archetype);
+                .get_unchecked_mut(archetype.index()) = MaybeUninit::new(record);
         };
         id
     }
 
     /// Gets all the archetypes with this component
-    pub fn iter_archetypes_with_component(
-        &self,
-        component: ComponentId,
-    ) -> Option<ComponentsArchetypesIter> {
+    pub fn iter_archetypes_with_component(&self, component: ComponentId) -> Option<&[ArchetypeId]> {
         self.map
             .get(&component)
             // SAFETY: These ids are from self
@@ -851,39 +850,12 @@ impl ComponentIndex {
     pub unsafe fn iter_archetypes_with_component_by_id(
         &self,
         component: ArchetypeRecordId,
-    ) -> ComponentsArchetypesIter {
+    ) -> &[ArchetypeId] {
         // SAFETY: Ensured by caller and `map`'s safety
         let records = unsafe { self.data.get_unchecked(component.as_usize()) };
-        ComponentsArchetypesIter {
-            len: records.num_archetypes,
-            data: records.archetype_map.iter(),
-        }
+        &records.archetypes
     }
 }
-
-/// An iterator over all the archetypes with a given component.
-/// See also [`ComponentIndex::iter_archetypes_with_component`].
-pub struct ComponentsArchetypesIter<'a> {
-    len: usize,
-    data: core::slice::Iter<'a, Option<ArchetypeRecord>>,
-}
-
-impl<'a> Iterator for ComponentsArchetypesIter<'a> {
-    type Item = ArchetypeId;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.data
-            .next()
-            .and_then(|item| item.as_ref().map(|item| item.archetype))
-            .inspect(|_| self.len -= 1)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len, Some(self.len))
-    }
-}
-
-impl<'a> ExactSizeIterator for ComponentsArchetypesIter<'a> {}
 
 /// Metadata about how a component is stored in an [`Archetype`].
 pub struct ArchetypeRecord {
@@ -894,7 +866,6 @@ pub struct ArchetypeRecord {
         reason = "Currently unused, but planned to be used to implement a component index to improve performance of fragmenting relations."
     )]
     pub(crate) column: Option<usize>,
-    pub(crate) archetype: ArchetypeId,
 }
 
 /// An id for a [`ArchetypeRecord`].

@@ -558,11 +558,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         .archetypes()
                         .component_index()
                         .iter_archetypes_with_component(component_id)
+                        .map(|archetypes| archetypes.iter())
                 })
                 // select the component with the fewest archetypes
                 .min_by_key(ExactSizeIterator::len);
             if let Some(archetypes) = potential_archetypes {
-                for archetype_id in archetypes {
+                for &archetype_id in archetypes {
                     // exclude archetypes that have already been processed
                     if archetype_id < self.archetype_generation.0 {
                         continue;
