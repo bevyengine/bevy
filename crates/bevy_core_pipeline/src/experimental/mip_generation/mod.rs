@@ -44,7 +44,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::TextureCache,
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bitflags::bitflags;
 use tracing::debug;
@@ -103,7 +103,7 @@ impl Plugin for MipGenerationPlugin {
             )
             .add_systems(
                 Render,
-                create_downsample_depth_pipelines.in_set(RenderSet::Prepare),
+                create_downsample_depth_pipelines.in_set(RenderSystems::Prepare),
             )
             .add_systems(
                 Render,
@@ -112,7 +112,7 @@ impl Plugin for MipGenerationPlugin {
                     prepare_downsample_depth_view_bind_groups,
                 )
                     .chain()
-                    .in_set(RenderSet::PrepareResources)
+                    .in_set(RenderSystems::PrepareResources)
                     .run_if(resource_exists::<DownsampleDepthPipelines>)
                     .after(prepare_core_3d_depth_textures),
             );

@@ -30,7 +30,7 @@ use crate::{
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 /// A plugin that manages GPU memory for mesh data.
@@ -311,7 +311,7 @@ impl Plugin for MeshAllocatorPlugin {
             .add_systems(
                 Render,
                 allocate_and_free_meshes
-                    .in_set(RenderSet::PrepareAssets)
+                    .in_set(RenderSystems::PrepareAssets)
                     .before(prepare_assets::<RenderMesh>),
             );
     }
