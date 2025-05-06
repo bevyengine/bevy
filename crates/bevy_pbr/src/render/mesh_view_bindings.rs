@@ -33,6 +33,7 @@ use core::{array, num::NonZero};
 use environment_map::EnvironmentMapLight;
 
 use crate::{
+    atmosphere::resources::PbrAtmosphereData,
     decal::{
         self,
         clustered::{
@@ -44,7 +45,9 @@ use crate::{
         self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
         IRRADIANCE_VOLUMES_ARE_USABLE,
     },
-    prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
+    prepass,
+    resources::{AtmosphereBuffer, AtmosphereSamplers, AtmosphereTextures},
+    Atmosphere, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
     MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
     ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
@@ -80,6 +83,7 @@ bitflags::bitflags! {
         const MOTION_VECTOR_PREPASS       = 1 << 3;
         const DEFERRED_PREPASS            = 1 << 4;
         const OIT_ENABLED                 = 1 << 5;
+        const ATMOSPHERE                  = 1 << 6;
     }
 }
 
@@ -92,7 +96,7 @@ impl MeshPipelineViewLayoutKey {
         use MeshPipelineViewLayoutKey as Key;
 
         format!(
-            "mesh_view_layout{}{}{}{}{}{}",
+            "mesh_view_layout{}{}{}{}{}{}{}",
             self.contains(Key::MULTISAMPLED)
                 .then_some("_multisampled")
                 .unwrap_or_default(),
@@ -110,6 +114,9 @@ impl MeshPipelineViewLayoutKey {
                 .unwrap_or_default(),
             self.contains(Key::OIT_ENABLED)
                 .then_some("_oit")
+                .unwrap_or_default(),
+            self.contains(Key::ATMOSPHERE)
+                .then_some("_atmosphere")
                 .unwrap_or_default(),
         )
     }
@@ -136,6 +143,9 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
         if value.contains(MeshPipelineKey::OIT_ENABLED) {
             result |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+        }
+        if value.contains(MeshPipelineKey::ATMOSPHERE) {
+            result |= MeshPipelineViewLayoutKey::ATMOSPHERE;
         }
 
         result
@@ -398,6 +408,20 @@ fn layout_entries(
         }
     }
 
+    // Atmosphere
+    if layout_key.contains(MeshPipelineViewLayoutKey::ATMOSPHERE) {
+        entries = entries.extend_with_indices((
+            // transmittance LUT
+            (
+                37,
+                texture_2d(TextureSampleType::Float { filterable: true }),
+            ),
+            (38, sampler(SamplerBindingType::Filtering)),
+            // atmosphere data buffer
+            (39, storage_buffer_read_only::<PbrAtmosphereData>(false)),
+        ));
+    }
+
     entries.to_vec()
 }
 
@@ -521,6 +545,8 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
         Has<OrderIndependentTransparencySettings>,
+        Option<&AtmosphereTextures>,
+        Has<Atmosphere>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,
@@ -534,7 +560,12 @@ pub fn prepare_mesh_view_bind_groups(
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
     oit_buffers: Res<OitBuffers>,
-    (decals_buffer, render_decals): (Res<DecalsBuffer>, Res<RenderClusteredDecals>),
+    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_samplers): (
+        Res<DecalsBuffer>,
+        Res<RenderClusteredDecals>,
+        Res<AtmosphereBuffer>,
+        Res<AtmosphereSamplers>,
+    ),
 ) {
     if let (
         Some(view_binding),
@@ -569,6 +600,8 @@ pub fn prepare_mesh_view_bind_groups(
             render_view_environment_maps,
             render_view_irradiance_volumes,
             has_oit,
+            atmosphere_textures,
+            has_atmosphere,
         ) in &views
         {
             let fallback_ssao = fallback_images
@@ -583,6 +616,9 @@ pub fn prepare_mesh_view_bind_groups(
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
             if has_oit {
                 layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+            }
+            if has_atmosphere {
+                layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
             }
 
             let layout = &mesh_pipeline.get_view_layout(layout_key);
@@ -753,6 +789,18 @@ pub fn prepare_mesh_view_bind_groups(
                         (34, oit_layers_binding.clone()),
                         (35, oit_layer_ids_binding.clone()),
                         (36, oit_settings_binding.clone()),
+                    ));
+                }
+            }
+
+            if has_atmosphere {
+                if let (Some(atmosphere_textures), Some(atmosphere_buffer_binding)) =
+                    (atmosphere_textures, atmosphere_buffer.buffer.binding())
+                {
+                    entries = entries.extend_with_indices((
+                        (37, &atmosphere_textures.transmittance_lut.default_view),
+                        (38, &atmosphere_samplers.transmittance_lut),
+                        (39, atmosphere_buffer_binding),
                     ));
                 }
             }

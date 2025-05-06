@@ -4,7 +4,10 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    pbr::{light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
+    pbr::{
+        light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight, AtmosphereSettings,
+        CascadeShadowConfigBuilder, SunLight,
+    },
     prelude::*,
     render::camera::Exposure,
 };
@@ -78,8 +81,18 @@ fn setup_terrain_scene(
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
+        SunLight::default(),
         Transform::from_xyz(1.0, -0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         cascade_shadow_config,
+    ));
+
+    // Spawn a new light probe to generate an environment map for the atmosphere
+    commands.spawn((
+        LightProbe,
+        AtmosphereEnvironmentMapLight::default(),
+        // The translation controls where the light probe is placed,
+        // and the scale controls the extents of where it will affect objects in the scene.
+        Transform::from_xyz(0.0, 1.0, 0.0).with_scale(Vec3::splat(1000.0)),
     ));
 
     let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));

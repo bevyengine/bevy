@@ -1,8 +1,11 @@
 //! Light probes for baked global illumination.
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_core_pipeline::core_3d::{
+    graph::{Core3d, Node3d},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -21,6 +24,7 @@ use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
+    render_graph::RenderGraphApp,
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -30,14 +34,22 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
+use prefilter::{
+    create_environment_map_from_prefilter, extract_prefilter_entities,
+    prepare_prefilter_bind_groups, prepare_prefilter_textures, PrefilterPipelines, SpdNode,
+};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
-    light_probe::environment_map::{
-        EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE,
+    light_probe::{
+        environment_map::{EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE},
+        prefilter::{
+            IrradianceMapNode, PrefilterBindGroupLayouts, PrefilterNode, PrefilterSamplers,
+            RadianceMapNode, ENVIRONMENT_FILTER_SHADER_HANDLE, SPD_SHADER_HANDLE,
+        },
     },
 };
 
@@ -48,6 +60,7 @@ pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> =
 
 pub mod environment_map;
 pub mod irradiance_volume;
+pub mod prefilter;
 
 /// The maximum number of each type of light probe that each view will consider.
 ///
@@ -362,10 +375,18 @@ impl Plugin for LightProbePlugin {
             "irradiance_volume.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(app, SPD_SHADER_HANDLE, "spd.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            ENVIRONMENT_FILTER_SHADER_HANDLE,
+            "environment_filter.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>();
+            .register_type::<IrradianceVolume>()
+            .add_systems(Update, create_environment_map_from_prefilter);
     }
 
     fn finish(&self, app: &mut App) {
@@ -377,13 +398,37 @@ impl Plugin for LightProbePlugin {
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
+            .init_resource::<PrefilterBindGroupLayouts>()
+            .init_resource::<PrefilterSamplers>()
+            .init_resource::<PrefilterPipelines>()
+            .add_render_graph_node::<SpdNode>(Core3d, PrefilterNode::GenerateMipmap)
+            .add_render_graph_node::<RadianceMapNode>(Core3d, PrefilterNode::RadianceMap)
+            .add_render_graph_node::<IrradianceMapNode>(Core3d, PrefilterNode::IrradianceMap)
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    Node3d::EndPrepasses,
+                    PrefilterNode::GenerateMipmap,
+                    PrefilterNode::RadianceMap,
+                    PrefilterNode::IrradianceMap,
+                    Node3d::StartMainPass,
+                ),
+            )
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
+            .add_systems(ExtractSchedule, extract_prefilter_entities)
             .add_systems(
                 Render,
-                (upload_light_probes, prepare_environment_uniform_buffer)
-                    .in_set(RenderSet::PrepareResources),
+                (
+                    prepare_prefilter_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    (
+                        upload_light_probes,
+                        prepare_environment_uniform_buffer,
+                        prepare_prefilter_textures,
+                    )
+                        .in_set(RenderSet::PrepareResources),
+                ),
             );
     }
 }

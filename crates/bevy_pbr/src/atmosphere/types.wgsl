@@ -7,8 +7,10 @@ struct Atmosphere {
     // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
     top_radius: f32, // units: m
 
-    ground_albedo: vec3<f32>,
+    // The origin of the view relative to the center of the planet.
+    origin: vec3<f32>,
 
+    ground_albedo: vec3<f32>,
     rayleigh_density_exp_scale: f32,
     rayleigh_scattering: vec3<f32>,
 
@@ -34,6 +36,8 @@ struct AtmosphereSettings {
     aerial_view_lut_samples: u32,
     aerial_view_lut_max_distance: f32,
     scene_units_to_m: f32,
+    jitter_strength: f32,
+    rendering_method: u32,
 }
 
 
@@ -42,4 +46,9 @@ struct AtmosphereSettings {
 struct AtmosphereTransforms {
     world_from_atmosphere: mat4x4<f32>,
     atmosphere_from_world: mat4x4<f32>,
+}
+
+struct PbrAtmosphereData {
+    atmosphere: Atmosphere,
+    settings: AtmosphereSettings,
 }

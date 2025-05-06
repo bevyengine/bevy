@@ -625,5 +625,94 @@ fn directional_light(
     color = (diffuse + specular_light) * derived_input.NdotL;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    return color * (*light).color.rgb;
+    color *= (*light).color.rgb;
+
+#ifdef ATMOSPHERE
+    let P = (*input).P;
+    let O = vec3(0.0, view_bindings::atmosphere_data.atmosphere.bottom_radius, 0.0);
+    let P_scaled = P * vec3(view_bindings::atmosphere_data.settings.scene_units_to_m);
+    let P_as = P_scaled + O;
+    let r = length(P_as);
+    let local_up = normalize(P_as);
+    let mu_light = dot(L, local_up);
+
+    // Sample atmosphere
+    let transmittance = sample_transmittance_lut(r, mu_light);
+    let sun_visibility = calculate_visible_sun_ratio(r, mu_light, (*light).angular_size);
+    
+    // Apply atmospheric effects
+    color *= transmittance * sun_visibility;
+#endif
+
+    return color;
 }
+
+#ifdef ATMOSPHERE
+// TODO: remove these functions once the refactor is complete
+// these were copied from bevy_pbr/src/atmosphere/functions.wgsl
+fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
+    let uv = transmittance_lut_r_mu_to_uv(r, mu);
+    return textureSampleLevel(
+        view_bindings::atmosphere_transmittance_texture, 
+        view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
+}
+
+fn transmittance_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
+    let top_radius = view_bindings::atmosphere_data.atmosphere.top_radius;
+    let bottom_radius = view_bindings::atmosphere_data.atmosphere.bottom_radius;
+    
+    // Distance along a horizontal ray from the ground to the top atmosphere boundary
+    let H = sqrt(top_radius * top_radius - bottom_radius * bottom_radius);
+
+    // Distance from a point at height r to the horizon
+    // ignore the case where r <= atmosphere.bottom_radius
+    let rho = sqrt(max(r * r - bottom_radius * bottom_radius, 0.0));
+
+    // Distance from a point at height r to the top atmosphere boundary at zenith angle mu
+    let d = distance_to_top_atmosphere_boundary(r, mu);
+
+    // Minimum and maximum distance to the top atmosphere boundary from a point at height r
+    let d_min = top_radius - r; // length of the ray straight up to the top atmosphere boundary
+    let d_max = rho + H; // length of the ray to the top atmosphere boundary and grazing the horizon
+
+    let u = (d - d_min) / (d_max - d_min);
+    let v = rho / H;
+    return vec2<f32>(u, v);
+}
+
+fn distance_to_top_atmosphere_boundary(r: f32, mu: f32) -> f32 {
+    let top_radius = view_bindings::atmosphere_data.atmosphere.top_radius;
+    // ignore the case where r > atmosphere.top_radius
+    let positive_discriminant = max(r * r * (mu * mu - 1.0) + top_radius * top_radius, 0.0);
+    return max(-r * mu + sqrt(positive_discriminant), 0.0);
+}
+
+fn ray_intersects_ground(r: f32, mu: f32) -> bool {
+    let bottom_radius = view_bindings::atmosphere_data.atmosphere.bottom_radius;
+    return mu < 0.0 && r * r * (mu * mu - 1.0) + bottom_radius * bottom_radius >= 0.0;
+}
+
+fn calculate_visible_sun_ratio(r: f32, mu: f32, sun_angular_size: f32) -> f32 {
+    let bottom_radius = view_bindings::atmosphere_data.atmosphere.bottom_radius;
+    // Calculate the angle between horizon and sun center
+    // Invert the horizon angle calculation to fix shading direction
+    let horizon_cos = -sqrt(1.0 - (bottom_radius * bottom_radius) / (r * r));
+    let horizon_angle = acos(horizon_cos);
+    let sun_zenith_angle = acos(mu);
+    
+    // If sun is completely above horizon
+    if sun_zenith_angle + sun_angular_size * 0.5 <= horizon_angle {
+        return 1.0;
+    }
+    
+    // If sun is completely below horizon
+    if sun_zenith_angle - sun_angular_size * 0.5 >= horizon_angle {
+        return 0.0;
+    }
+    
+    // Calculate partial visibility using circular segment area formula
+    let d = (horizon_angle - sun_zenith_angle) / (sun_angular_size * 0.5);
+    let visible_ratio = 0.5 + d * 0.5;
+    return clamp(visible_ratio, 0.0, 1.0);
+}
+#endif  // ATMOSPHERE

@@ -1,12 +1,14 @@
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
-    bindings::{atmosphere, view, atmosphere_transforms},
+    bindings::{atmosphere, view, settings, atmosphere_transforms},
     functions::{
         sample_transmittance_lut, sample_transmittance_lut_segment,
         sample_sky_view_lut, direction_world_to_atmosphere,
         uv_to_ray_direction, uv_to_ndc, sample_aerial_view_lut,
-        view_radius, sample_sun_radiance, ndc_to_camera_dist
+        view_radius, sample_sun_luminance, ndc_to_camera_dist,
+        raymarch_atmosphere, max_atmosphere_distance, get_view_position
     },
+    bruneton_functions::distance_to_bottom_atmosphere_boundary
 };
 #import bevy_render::view::View;
 
@@ -28,26 +30,51 @@ struct RenderSkyOutput {
 @fragment
 fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
-
-    let ray_dir_ws = uv_to_ray_direction(in.uv);
+    let world_pos = get_view_position();
     let r = view_radius();
-    let mu = ray_dir_ws.y;
+    let ray_dir_ws = uv_to_ray_direction(in.uv).xyz;
+    let up = normalize(world_pos);
+    let mu = dot(ray_dir_ws, up);
+
+    let should_raymarch = settings.rendering_method == 1u;
+
+    let raymarch_steps = 16.0;
 
     var transmittance: vec3<f32>;
     var inscattering: vec3<f32>;
 
-    let sun_radiance = sample_sun_radiance(ray_dir_ws.xyz);
+    let sun_luminance = sample_sun_luminance(ray_dir_ws.xyz);
 
     if depth == 0.0 {
-        let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
+        let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws);
         transmittance = sample_transmittance_lut(r, mu);
         inscattering += sample_sky_view_lut(r, ray_dir_as);
-        inscattering += sun_radiance * transmittance * view.exposure;
+        if should_raymarch {
+            let t_max = max_atmosphere_distance(r, mu);
+            let sample_count = mix(1.0, raymarch_steps, clamp(t_max * 0.01, 0.0, 1.0));
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, in.uv, true, true, true);
+            inscattering = result.inscattering;
+            transmittance = result.transmittance;
+        }
+
+        inscattering += sun_luminance * transmittance;
     } else {
         let t = ndc_to_camera_dist(vec3(uv_to_ndc(in.uv), depth));
         inscattering = sample_aerial_view_lut(in.uv, t);
         transmittance = sample_transmittance_lut_segment(r, mu, t);
+
+        if should_raymarch {
+            let sample_count = mix(1.0, raymarch_steps, clamp(t * 0.01, 0.0, 1.0));
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, sample_count, in.uv, true, false, true);
+            inscattering = result.inscattering;
+            transmittance = result.transmittance;
+        }
     }
+
+    // exposure compensation
+    inscattering *= view.exposure;
+
+    // inscattering = vec3(0.5);
 #ifdef DUAL_SOURCE_BLENDING
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
 #else

@@ -7,13 +7,16 @@
     bindings::{
         atmosphere, settings, view, lights, transmittance_lut, transmittance_lut_sampler, 
         multiscattering_lut, multiscattering_lut_sampler, sky_view_lut, sky_view_lut_sampler,
-        aerial_view_lut, aerial_view_lut_sampler, atmosphere_transforms
+        aerial_view_lut, aerial_view_lut_sampler, atmosphere_transforms, blue_noise_texture, blue_noise_sampler
     },
     bruneton_functions::{
         transmittance_lut_r_mu_to_uv, transmittance_lut_uv_to_r_mu, 
         ray_intersects_ground, distance_to_top_atmosphere_boundary, 
         distance_to_bottom_atmosphere_boundary
     },
+    shadows::{
+        get_shadow
+    }
 }
 
 // NOTE FOR CONVENTIONS: 
@@ -243,7 +246,9 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
 }
 
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
-fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
+fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f32>, world_pos: vec3<f32>, shadow: bool) -> vec3<f32> {
+    let local_r = length(world_pos);
+    let local_up = normalize(world_pos);
     var inscattering = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
@@ -263,8 +268,14 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
 
+        // sample shadow map
+        let shadow_map_factor = get_shadow(light_i, world_pos, ray_dir);
+
         // Transmittance from scattering event to light source
-        let scattering_factor = shadow_factor * scattering_coeff;
+        var scattering_factor = shadow_factor * scattering_coeff;
+        if shadow {
+            scattering_factor *= shadow_map_factor;
+        }
 
         // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
@@ -272,26 +283,29 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 
         inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
     }
-    return inscattering * view.exposure;
+    return inscattering;
 }
 
-const SUN_ANGULAR_SIZE: f32 = 0.0174533; // angular diameter of sun in radians
-
-fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
-    let r = view_radius();
-    let mu_view = ray_dir_ws.y;
+fn sample_sun_luminance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
+    let view_pos = get_view_position();
+    let r = length(view_pos);
+    let up = normalize(view_pos);
+    let mu_view = dot(ray_dir_ws, up);
     let shadow_factor = f32(!ray_intersects_ground(r, mu_view));
-    var sun_radiance = vec3(0.0);
+    var sun_luminance = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
         let angle_to_sun = fast_acos(neg_LdotV);
         let pixel_size = fwidth(angle_to_sun);
-        let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE * 0.5);
-        let sun_solid_angle = (SUN_ANGULAR_SIZE * SUN_ANGULAR_SIZE) * 4.0 * FRAC_PI;
-        sun_radiance += ((*light).color.rgb / sun_solid_angle) * factor * shadow_factor;
+        let sun_angular_size = (*light).angular_size;
+        if sun_angular_size > 0.0 {
+            let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - sun_angular_size * 0.5);
+            let sun_solid_angle = (sun_angular_size * sun_angular_size) * 4.0 * FRAC_PI;
+            sun_luminance += ((*light).color.rgb / sun_solid_angle) * factor * shadow_factor;
+        }
     }
-    return sun_radiance;
+    return sun_luminance;
 }
 
 // TRANSFORM UTILITIES
@@ -303,9 +317,21 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     return mix(t_top, t_bottom, f32(hits));
 }
 
+fn get_view_position() -> vec3<f32> {
+    let world_pos = view.world_position * settings.scene_units_to_m + atmosphere.origin;
+    return world_pos;
+}
+
+fn view_radius_constant() -> f32 {
+    return view.world_position.y * settings.scene_units_to_m + atmosphere.bottom_radius;
+}
+
 /// Assuming y=0 is the planet ground, returns the view radius in meters
 fn view_radius() -> f32 {
-    return view.world_position.y * settings.scene_units_to_m + atmosphere.bottom_radius;
+    // Simply return the length of the view position vector since we're now
+    // properly positioning the camera in spherical coordinates
+    let world_pos = get_view_position();
+    return length(world_pos);
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
@@ -376,4 +402,166 @@ fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
     let sin_azimuth = sin(azimuth);
     let cos_azimuth = cos(azimuth);
     return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
+}
+
+fn get_view_ray(uv: vec2<f32>) -> vec3<f32> {
+    let clip_pos = vec2(uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0) * vec2(1.0, -1.0);
+    let view_pos = view.view_from_clip * vec4(clip_pos, 1.0, 1.0);
+    let view_ray = normalize(view_pos.xyz / view_pos.w);
+    let world_ray = (view.world_from_view * vec4(view_ray, 0.0)).xyz;
+    return normalize(world_ray);
+}
+
+fn ray_sphere_intersect(r: f32, mu: f32, sphere_radius: f32) -> vec2<f32> {
+    let discriminant = r * r * (mu * mu - 1.0) + sphere_radius * sphere_radius;
+    
+    // No intersection
+    if discriminant < 0.0 {
+        return vec2(-1.0);
+    }
+    
+    let q = -r * mu;
+    let sqrt_discriminant = sqrt(discriminant);
+    
+    // Return both intersection distances
+    return vec2(
+        q - sqrt_discriminant,
+        q + sqrt_discriminant
+    );
+}
+
+struct RaymarchSegment {
+    start: f32,
+    end: f32,
+}
+
+fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
+    // Get both intersection points with atmosphere
+    let atmosphere_intersections = ray_sphere_intersect(r, mu, atmosphere.top_radius);
+    let ground_intersections = ray_sphere_intersect(r, mu, atmosphere.bottom_radius);
+    
+    var segment: RaymarchSegment;
+    
+    if r < atmosphere.bottom_radius {
+        // Inside planet - start from bottom of atmosphere
+        segment.start = ground_intersections.y; // Use second intersection point with ground
+        segment.end = atmosphere_intersections.y;
+    } else if r < atmosphere.top_radius {
+        // Inside atmosphere
+        segment.start = 0.0;
+        segment.end = select(atmosphere_intersections.y, ground_intersections.x, ray_intersects_ground(r, mu));
+    } else {
+        // Outside atmosphere
+        if atmosphere_intersections.x < 0.0 {
+            // No intersection with atmosphere
+            return segment;
+        }
+        // Start at atmosphere entry, end at exit or ground
+        segment.start = atmosphere_intersections.x;
+        segment.end = select(atmosphere_intersections.y, ground_intersections.x, ray_intersects_ground(r, mu));
+    }
+
+    return segment;
+}
+
+fn get_blue_noise(uv: vec2<f32>) -> f32 {
+    let screen_size = view.viewport.zw;
+    let aspect = view.viewport.z / view.viewport.w;
+    let noise_scale = screen_size.y / 64.0;
+    let noise_uv = vec2(uv.x * aspect, uv.y) * noise_scale;
+    let blue_noise = textureSampleLevel(blue_noise_texture, blue_noise_sampler, noise_uv, 0.0).r;
+    return blue_noise;
+}
+
+struct RaymarchResult {
+    inscattering: vec3<f32>,
+    transmittance: vec3<f32>,
+}
+
+fn raymarch_atmosphere(
+    pos: vec3<f32>,
+    ray_dir: vec3<f32>,
+    t_max: f32,
+    sample_count: f32,
+    uv: vec2<f32>,
+    jitter: bool,
+    ground: bool,
+    shadow: bool
+) -> RaymarchResult {
+    let r = length(pos);
+    let up = normalize(pos);
+    let mu = dot(ray_dir, up);
+    
+    let segment = get_raymarch_segment(r, mu);
+    let t_start = segment.start;
+    var t_end = segment.end;
+    
+    t_end = min(t_end, t_max);
+    let t_total = t_end - t_start;
+    
+    var result: RaymarchResult;
+    result.inscattering = vec3(0.0);
+    result.transmittance = vec3(1.0);
+    
+    // Skip if invalid segment
+    if t_total <= 0.0 {
+        return result;
+    }
+
+    var sample_offset = (get_blue_noise(uv) - 0.5) * settings.jitter_strength + 0.5;
+    if !jitter {
+        sample_offset = MIDPOINT_RATIO;
+    }
+    
+    var prev_t = t_start;
+    var optical_depth = vec3(0.0);
+    for (var s = 0.0; s < sample_count; s += 1.0) {
+        // Linear distribution from atmosphere entry to exit/ground
+        let t_i = t_start + t_total * (s + sample_offset) / sample_count;
+        let dt_i = (t_i - prev_t);
+        prev_t = t_i;
+
+        let sample_pos = pos + ray_dir * t_i;
+        let local_r = length(sample_pos);
+        let local_up = normalize(sample_pos);
+        let local_atmosphere = sample_atmosphere(local_r);
+
+        let sample_optical_depth = local_atmosphere.extinction * dt_i;
+        optical_depth += sample_optical_depth;
+        let sample_transmittance = exp(-sample_optical_depth);
+
+        let inscattering = sample_local_inscattering(
+            local_atmosphere,
+            ray_dir,
+            sample_pos,
+            shadow
+        );
+
+        let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
+        result.inscattering += result.transmittance * s_int;
+
+        result.transmittance *= sample_transmittance;
+        if all(result.transmittance < vec3(0.001)) {
+            break;
+        }
+    }
+
+    // include reflected luminance from planet ground 
+    if ground && ray_intersects_ground(r, mu) {
+        for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
+            let light = &lights.directional_lights[light_i];
+            let light_dir = (*light).direction_to_light;
+            let light_color = (*light).color.rgb;
+            let transmittance_to_ground = exp(-optical_depth);
+            let local_up = get_local_up(r, t_max, ray_dir);
+            let mu_light = dot(light_dir, local_up);
+            let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
+            let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
+            // Normalized Lambert BRDF
+            let ground_luminance = transmittance_to_ground * atmosphere.ground_albedo / PI;
+            result.inscattering += ground_luminance * light_luminance;
+        }
+    }
+
+    return result;
 }
