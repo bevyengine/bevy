@@ -511,7 +511,7 @@ pub fn validate_parent_has_component<C: Component>(
 #[macro_export]
 macro_rules! children {
     [$($child:expr),*$(,)?] => {
-       $crate::hierarchy::Children::spawn(($($crate::spawn::Spawn($child)),*))
+       $crate::hierarchy::Children::spawn($crate::recursive_spawn!($($child),*))
     };
 }
 
@@ -729,6 +729,39 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
         assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
+    }
+
+    #[test]
+    fn spawn_many_children() {
+        let mut world = World::new();
+
+        // 12 children should result in a flat tuple
+        let id = world
+            .spawn(children![(), (), (), (), (), (), (), (), (), (), (), ()])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 12,);
+
+        // 13 will start nesting, but should nonetheless produce a flat hierarchy
+        let id = world
+            .spawn(children![
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+            ])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 13,);
     }
 
     #[test]

@@ -287,7 +287,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
         let mut fetch_state = D::init_state(builder.world_mut());
         let filter_state = F::init_state(builder.world_mut());
-        D::set_access(&mut fetch_state, builder.access());
+
+        let mut component_access = FilteredAccess::default();
+        D::update_component_access(&fetch_state, &mut component_access);
+        D::provide_extra_access(
+            &mut fetch_state,
+            component_access.access_mut(),
+            builder.access().access(),
+        );
 
         let mut component_access = builder.access().clone();
 
@@ -754,29 +761,27 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut fetch_state = NewD::get_state(world.components()).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
         let filter_state = NewF::get_state(world.components()).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
-        fn to_readonly(mut access: FilteredAccess<ComponentId>) -> FilteredAccess<ComponentId> {
-            access.access_mut().clear_writes();
-            access
-        }
-
-        let self_access = if D::IS_READ_ONLY && self.component_access.access().has_any_write() {
+        let mut self_access = self.component_access.clone();
+        if D::IS_READ_ONLY {
             // The current state was transmuted from a mutable
             // `QueryData` to a read-only one.
             // Ignore any write access in the current state.
-            &to_readonly(self.component_access.clone())
-        } else {
-            &self.component_access
-        };
+            self_access.access_mut().clear_writes();
+        }
 
-        NewD::set_access(&mut fetch_state, self_access);
         NewD::update_component_access(&fetch_state, &mut component_access);
+        NewD::provide_extra_access(
+            &mut fetch_state,
+            component_access.access_mut(),
+            self_access.access(),
+        );
 
         let mut filter_component_access = FilteredAccess::default();
         NewF::update_component_access(&filter_state, &mut filter_component_access);
 
         component_access.extend(&filter_component_access);
         assert!(
-            component_access.is_subset(self_access),
+            component_access.is_subset(&self_access),
             "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
             core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>()
         );
@@ -788,7 +793,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             is_dense: self.is_dense,
             fetch_state,
             filter_state,
-            component_access: self.component_access.clone(),
+            component_access: self_access,
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
             #[cfg(feature = "trace")]
@@ -882,8 +887,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             }
         }
 
-        NewD::set_access(&mut new_fetch_state, &joined_component_access);
         NewD::update_component_access(&new_fetch_state, &mut component_access);
+        NewD::provide_extra_access(
+            &mut new_fetch_state,
+            component_access.access_mut(),
+            joined_component_access.access(),
+        );
 
         let mut new_filter_component_access = FilteredAccess::default();
         NewF::update_component_access(&new_filter_state, &mut new_filter_component_access);
@@ -2063,12 +2072,12 @@ mod tests {
     fn can_transmute_filtered_entity() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
-        let query =
-            QueryState::<(Entity, &A, &B)>::new(&mut world).transmute::<FilteredEntityRef>(&world);
+        let query = QueryState::<(Entity, &A, &B)>::new(&mut world)
+            .transmute::<(Entity, FilteredEntityRef)>(&world);
 
         let mut query = query;
         // Our result is completely untyped
-        let entity_ref = query.single(&world).unwrap();
+        let (_entity, entity_ref) = query.single(&world).unwrap();
 
         assert_eq!(entity, entity_ref.id());
         assert_eq!(0, entity_ref.get::<A>().unwrap().0);
@@ -2286,11 +2295,11 @@ mod tests {
 
         let query_1 = QueryState::<&mut A>::new(&mut world);
         let query_2 = QueryState::<&mut B>::new(&mut world);
-        let mut new_query: QueryState<FilteredEntityMut> = query_1.join(&world, &query_2);
+        let mut new_query: QueryState<(Entity, FilteredEntityMut)> = query_1.join(&world, &query_2);
 
-        let mut entity = new_query.single_mut(&mut world).unwrap();
-        assert!(entity.get_mut::<A>().is_some());
-        assert!(entity.get_mut::<B>().is_some());
+        let (_entity, mut entity_mut) = new_query.single_mut(&mut world).unwrap();
+        assert!(entity_mut.get_mut::<A>().is_some());
+        assert!(entity_mut.get_mut::<B>().is_some());
     }
 
     #[test]
@@ -2314,6 +2323,10 @@ mod tests {
 
         // Has should bypass the filter entirely
         let mut query = QueryState::<Has<C>>::new(&mut world);
+        assert_eq!(3, query.iter(&world).count());
+
+        // Allows should bypass the filter entirely
+        let mut query = QueryState::<(), Allows<C>>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
         // Other filters should still be respected
