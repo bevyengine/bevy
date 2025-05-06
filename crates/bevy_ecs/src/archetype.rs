@@ -814,7 +814,7 @@ pub(crate) struct ComponentRecord {
 /// Maps [`ComponentId`]s to [`ComponentRecord`], which contains a list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
 /// along with other metadata.
 #[derive(Default)]
-pub struct ComponentIndex {
+pub(crate) struct ComponentIndex {
     map: HashMap<ComponentId, ComponentRecord>,
 }
 
