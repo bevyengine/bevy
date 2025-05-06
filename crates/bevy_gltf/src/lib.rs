@@ -121,7 +121,7 @@
 //! | `EXT_meshopt_compression`         | ❌        |                                     |
 //! | `EXT_texture_webp`                | ❌        |                                     |
 //!
-//! \*KHR_texture_transform is only supported on `base_color_texture`, see [#15310](https://github.com/bevyengine/bevy/issues/15310).
+//! \*`KHR_texture_transform` is only supported on `base_color_texture`, see [#15310](https://github.com/bevyengine/bevy/issues/15310).
 //!
 //! See the [glTF Extension Registry](https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md) for more information on extensions.
 
