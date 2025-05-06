@@ -106,9 +106,9 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 /// - Removed assets are not detected.
 ///
 /// The list of changed assets only gets updated in the
-/// [`AssetEvents`] schedule which runs in `Last`. Therefore, `AssetChanged`
+/// [`AssetEvents`] schedule which runs in `PostUpdate`. Therefore, `AssetChanged`
 /// will only pick up asset changes in schedules following `AssetEvents` or the
-/// next frame. Consider adding the system in the `Last` schedule after [`AssetEvents`] if you need
+/// next frame. Consider adding the system in the `PostUpdate` schedule after [`AssetEvents`] if you need
 /// to react without frame delay to asset changes.
 ///
 /// # Performance
