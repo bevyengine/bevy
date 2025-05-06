@@ -315,13 +315,6 @@ impl ObserverDescriptor {
         self
     }
 
-    pub(crate) fn merge(&mut self, descriptor: &ObserverDescriptor) {
-        self.events.extend(descriptor.events.iter().copied());
-        self.components
-            .extend(descriptor.components.iter().copied());
-        self.entities.extend(descriptor.entities.iter().copied());
-    }
-
     /// Returns the `events` that the observer is watching.
     pub fn events(&self) -> &[ComponentId] {
         &self.events
@@ -728,11 +721,10 @@ impl World {
     pub(crate) fn register_observer(&mut self, observer_entity: Entity) {
         // SAFETY: References do not alias.
         let (observer_state, archetypes, observers) = unsafe {
-            let observer_state: *const ObserverState =
-                self.get::<ObserverState>(observer_entity).unwrap();
+            let observer_state: *const Observer = self.get::<Observer>(observer_entity).unwrap();
             // Populate ObservedBy for each observed entity.
-            for watched_entity in &(*observer_state).descriptor.entities {
-                let mut entity_mut = self.entity_mut(*watched_entity);
+            for watched_entity in (*observer_state).descriptor.entities.iter().copied() {
+                let mut entity_mut = self.entity_mut(watched_entity);
                 let mut observed_by = entity_mut.entry::<ObservedBy>().or_default().into_mut();
                 observed_by.0.push(observer_entity);
             }
@@ -853,7 +845,7 @@ mod tests {
     use crate::component::ComponentId;
     use crate::{
         change_detection::MaybeLocation,
-        observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},
+        observer::{Observer, OnReplace},
         prelude::*,
         traversal::Traversal,
     };
@@ -1368,14 +1360,14 @@ mod tests {
         world.init_resource::<Order>();
         let event_a = OnRemove::register_component_id(&mut world);
 
-        world.spawn(ObserverState {
-            // SAFETY: we registered `event_a` above and it matches the type of EventA
-            descriptor: unsafe { ObserverDescriptor::default().with_events(vec![event_a]) },
-            runner: |mut world, _trigger, _ptr, _propagate| {
+        // SAFETY: we registered `event_a` above and it matches the type of EventA
+        let observe = unsafe {
+            Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
-            },
-            ..Default::default()
-        });
+            })
+            .with_event(event_a)
+        };
+        world.spawn(observe);
 
         world.commands().queue(move |world: &mut World| {
             // SAFETY: we registered `event_a` above and it matches the type of EventA

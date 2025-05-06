@@ -293,6 +293,22 @@ pub unsafe trait QueryData: WorldQuery {
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
 
+    /// Offers additional access above what we requested in `update_component_access`.
+    /// Implementations may add additional access that is a subset of `available_access`
+    /// and does not conflict with anything in `access`,
+    /// and must update `access` to include that access.
+    ///
+    /// This is used by [`WorldQuery`] types like [`FilteredEntityRef`]
+    /// and [`FilteredEntityMut`] to support dynamic access.
+    ///
+    /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
+    fn provide_extra_access(
+        _state: &mut Self::State,
+        _access: &mut Access<ComponentId>,
+        _available_access: &Access<ComponentId>,
+    ) {
+    }
+
     /// Fetch [`Self::Item`](`QueryData::Item`) for either the given `entity` in the current [`Table`],
     /// or for the given `entity` in the current [`Archetype`]. This must always be called after
     /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
@@ -797,7 +813,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
     type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
-    type State = FilteredAccess<ComponentId>;
+    type State = Access<ComponentId>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -823,18 +839,12 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         _: &'w Archetype,
         _table: &Table,
     ) {
-        fetch.1.clone_from(&state.access);
+        fetch.1.clone_from(state);
     }
 
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
-        fetch.1.clone_from(&state.access);
-    }
-
-    #[inline]
-    fn set_access<'w>(state: &mut Self::State, access: &FilteredAccess<ComponentId>) {
-        state.clone_from(access);
-        state.access_mut().clear_writes();
+        fetch.1.clone_from(state);
     }
 
     fn update_component_access(
@@ -842,18 +852,18 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
         assert!(
-            filtered_access.access().is_compatible(&state.access),
+            filtered_access.access().is_compatible(state),
             "FilteredEntityRef conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
         );
-        filtered_access.access.extend(&state.access);
+        filtered_access.access.extend(state);
     }
 
     fn init_state(_world: &mut World) -> Self::State {
-        FilteredAccess::default()
+        Access::default()
     }
 
     fn get_state(_components: &Components) -> Option<Self::State> {
-        Some(FilteredAccess::default())
+        Some(Access::default())
     }
 
     fn matches_component_set(
@@ -872,6 +882,25 @@ unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
+    }
+
+    #[inline]
+    fn provide_extra_access(
+        state: &mut Self::State,
+        access: &mut Access<ComponentId>,
+        available_access: &Access<ComponentId>,
+    ) {
+        // Claim any extra access that doesn't conflict with other subqueries
+        // This is used when constructing a `QueryLens` or creating a query from a `QueryBuilder`
+        // Start with the entire available access, since that is the most we can possibly access
+        state.clone_from(available_access);
+        // Prevent all writes, since `FilteredEntityRef` only performs read access
+        state.clear_writes();
+        // Prevent any access that would conflict with other accesses in the current query
+        state.remove_conflicting_access(access);
+        // Finally, add the resulting access to the query access
+        // to make sure a later `FilteredEntityMut` won't conflict with this.
+        access.extend(state);
     }
 
     #[inline(always)]
@@ -893,7 +922,7 @@ unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_> {}
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
-    type State = FilteredAccess<ComponentId>;
+    type State = Access<ComponentId>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -919,17 +948,12 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         _: &'w Archetype,
         _table: &Table,
     ) {
-        fetch.1.clone_from(&state.access);
+        fetch.1.clone_from(state);
     }
 
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
-        fetch.1.clone_from(&state.access);
-    }
-
-    #[inline]
-    fn set_access<'w>(state: &mut Self::State, access: &FilteredAccess<ComponentId>) {
-        state.clone_from(access);
+        fetch.1.clone_from(state);
     }
 
     fn update_component_access(
@@ -937,18 +961,18 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
         assert!(
-            filtered_access.access().is_compatible(&state.access),
+            filtered_access.access().is_compatible(state),
             "FilteredEntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
         );
-        filtered_access.access.extend(&state.access);
+        filtered_access.access.extend(state);
     }
 
     fn init_state(_world: &mut World) -> Self::State {
-        FilteredAccess::default()
+        Access::default()
     }
 
     fn get_state(_components: &Components) -> Option<Self::State> {
-        Some(FilteredAccess::default())
+        Some(Access::default())
     }
 
     fn matches_component_set(
@@ -967,6 +991,23 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
+    }
+
+    #[inline]
+    fn provide_extra_access(
+        state: &mut Self::State,
+        access: &mut Access<ComponentId>,
+        available_access: &Access<ComponentId>,
+    ) {
+        // Claim any extra access that doesn't conflict with other subqueries
+        // This is used when constructing a `QueryLens` or creating a query from a `QueryBuilder`
+        // Start with the entire available access, since that is the most we can possibly access
+        state.clone_from(available_access);
+        // Prevent any access that would conflict with other accesses in the current query
+        state.remove_conflicting_access(access);
+        // Finally, add the resulting access to the query access
+        // to make sure a later `FilteredEntityRef` or `FilteredEntityMut` won't conflict with this.
+        access.extend(state);
     }
 
     #[inline(always)]
@@ -2239,6 +2280,16 @@ macro_rules! impl_tuple_query_data {
                 ($(
                     $name::shrink($name),
                 )*)
+            }
+
+            #[inline]
+            fn provide_extra_access(
+                state: &mut Self::State,
+                access: &mut Access<ComponentId>,
+                available_access: &Access<ComponentId>,
+            ) {
+                let ($($name,)*) = state;
+                $($name::provide_extra_access($name, access, available_access);)*
             }
 
             #[inline(always)]

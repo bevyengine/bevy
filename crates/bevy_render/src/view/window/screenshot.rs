@@ -425,6 +425,7 @@ impl Plugin for ScreenshotPlugin {
                 .init_resource::<RenderScreenshotTargets>()
                 .init_resource::<RenderScreenshotsPrepared>()
                 .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+                .init_resource::<ScreenshotToScreenPipeline>()
                 .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
                 .add_systems(
                     Render,

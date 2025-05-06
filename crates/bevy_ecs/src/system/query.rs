@@ -2210,8 +2210,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///   so can be added to any query
     /// * [`FilteredEntityRef`](crate::world::FilteredEntityRef) and [`FilteredEntityMut`](crate::world::FilteredEntityMut)
     ///   have access determined by the [`QueryBuilder`](crate::query::QueryBuilder) used to construct them.
-    ///   Any query can be transmuted to them, and they will receive the access of the source query,
-    ///   but only if they are the top-level query and not nested
+    ///   Any query can be transmuted to them, and they will receive the access of the source query.
+    ///   When combined with other `QueryData`, they will receive any access of the source query that does not conflict with the other data.
     /// * [`Added<T>`](crate::query::Added) and [`Changed<T>`](crate::query::Changed) filters have read and required access to `T`
     /// * [`With<T>`](crate::query::With) and [`Without<T>`](crate::query::Without) filters have no access at all,
     ///   so can be added to any query
@@ -2283,9 +2283,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// // Anything can be transmuted to `FilteredEntityRef` or `FilteredEntityMut`
     /// // This will create a `FilteredEntityMut` that only has read access to `T`
     /// assert_valid_transmute::<&T, FilteredEntityMut>();
-    /// // This transmute will succeed, but the `FilteredEntityMut` will have no access!
-    /// // It must be the top-level query to be given access, but here it is nested in a tuple.
-    /// assert_valid_transmute::<&T, (Entity, FilteredEntityMut)>();
+    /// // This will create a `FilteredEntityMut` that has no access to `T`,
+    /// // read access to `U`, and write access to `V`.
+    /// assert_valid_transmute::<(&mut T, &mut U, &mut V), (&mut T, &U, FilteredEntityMut)>();
     ///
     /// // `Added<T>` and `Changed<T>` filters have the same access as `&T` data
     /// // Remember that they are only evaluated on the transmuted query, not the original query!
