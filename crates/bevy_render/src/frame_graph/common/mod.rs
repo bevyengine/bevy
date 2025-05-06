@@ -12,19 +12,43 @@ pub use render_pass_info::*;
 pub use sampler_info::*;
 pub use texture_view::*;
 
-use super::{FrameGraph, FrameGraphError, PassNodeBuilder, RenderContext};
+use crate::render_resource::{Buffer, Texture};
+
+use super::{
+    FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResourceNodeHandle,
+    PassNodeBuilder, RenderContext,
+};
 
 pub trait ResourceMaterial {
-    type Handle: ResourceHandle;
+    type Handle;
 
-    fn make_resource_handle(
-        &self,
-        frame_graph: &mut FrameGraph,
-    ) -> Result<Self::Handle, FrameGraphError>;
+    fn make_resource_handle(&self, frame_graph: &mut FrameGraph) -> Self::Handle;
+}
+
+impl ResourceMaterial for Buffer {
+    type Handle = GraphResourceNodeHandle<FrameGraphBuffer>;
+
+    fn make_resource_handle(&self, frame_graph: &mut FrameGraph) -> Self::Handle {
+        let key = format!("buffer_{:?}", self.id());
+        let buffer = FrameGraphBuffer::new_arc_with_buffer(self);
+        let handle = frame_graph.import(&key, buffer);
+        handle
+    }
+}
+
+impl ResourceMaterial for Texture {
+    type Handle = GraphResourceNodeHandle<FrameGraphTexture>;
+
+    fn make_resource_handle(&self, frame_graph: &mut FrameGraph) -> Self::Handle {
+        let key = format!("texture_{:?}", self.id());
+        let texture = FrameGraphTexture::new_arc_with_texture(self);
+        let handle = frame_graph.import(&key, texture);
+        handle
+    }
 }
 
 pub trait ResourceHandle {
-    type Drawing: ResourceDrawing;
+    type Drawing;
 
     fn make_resource_drawing(
         &self,

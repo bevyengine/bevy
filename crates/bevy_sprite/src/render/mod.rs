@@ -19,7 +19,12 @@ use bevy_ecs::{
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_platform::collections::HashMap;
-use bevy_render::{frame_graph::SamplerInfo, view::{RenderVisibleEntities, RetainedViewEntity}};
+use bevy_render::{
+    frame_graph::{
+        BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial, SamplerInfo,
+    },
+    view::{RenderVisibleEntities, RetainedViewEntity},
+};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -125,7 +130,7 @@ impl FromWorld for SpritePipeline {
                 sampler,
                 size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
-                sampler_info
+                sampler_info,
             }
         };
 
@@ -513,7 +518,7 @@ impl Default for SpriteMeta {
 
 #[derive(Component)]
 pub struct SpriteViewBindGroup {
-    pub value: BindGroup,
+    pub value: BindGroupHandle,
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -624,30 +629,37 @@ pub fn queue_sprites(
 
 pub fn prepare_sprite_view_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     sprite_pipeline: Res<SpritePipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
     tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
+    mut frame_graph: ResMut<FrameGraph>,
 ) {
-    let Some(view_binding) = view_uniforms.uniforms.binding() else {
+    let Some(view_binding_buffer) = view_uniforms.uniforms.buffer() else {
         return;
     };
+
+    let view_binding_buffer_handle = view_binding_buffer.make_resource_handle(&mut frame_graph);
+    let view_binding_buffer_size = ViewUniform::min_size();
 
     for (entity, tonemapping) in &views {
         let lut_bindings =
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
-        let view_bind_group = render_device.create_bind_group(
-            "mesh2d_view_bind_group",
-            &sprite_pipeline.view_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, lut_bindings.0),
-                (2, lut_bindings.1),
-            )),
-        );
+
+        let lut_binding_texture_handle = lut_bindings.0.make_resource_handle(&mut frame_graph);
+
+        let view_bind_group = BindGroupHandle {
+            label: Some("mesh2d_view_bind_group".into()),
+            layout: sprite_pipeline.view_layout.clone(),
+            entries: DynamicBindGroupEntryHandles::sequential((
+                (&view_binding_buffer_handle, view_binding_buffer_size),
+                &lut_binding_texture_handle,
+                lut_bindings.1,
+            ))
+            .to_vec(),
+        };
 
         commands.entity(entity).insert(SpriteViewBindGroup {
             value: view_bind_group,
@@ -919,7 +931,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, &sprite_view_bind_group.value, &[view_uniform.offset]);
+        pass.set_bind_group_handle(I, &sprite_view_bind_group.value, &[view_uniform.offset]);
         RenderCommandResult::Success
     }
 }

@@ -5,7 +5,8 @@ use crate::render_resource::{Buffer, Texture};
 use super::{
     FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphRawResourceNodeHandle,
     GraphResource, GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass,
-    PassTrait, ResourceBoardKey, ResourceRead, ResourceRef, ResourceWrite, TypeEquals,
+    PassTrait, ResourceBoardKey, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
+    TypeEquals,
 };
 
 pub struct PassNodeBuilder<'a> {
@@ -49,9 +50,7 @@ impl<'a> PassNodeBuilder<'a> {
         &mut self,
         buffer: &Buffer,
     ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
-        let key = format!("buffer_{:?}", buffer.id());
-        let buffer = FrameGraphBuffer::new_arc_with_buffer(buffer);
-        let handle = self.import(&key, buffer);
+        let handle = buffer.make_resource_handle(self.graph);
         let read = self.read(handle);
         read
     }
@@ -60,9 +59,7 @@ impl<'a> PassNodeBuilder<'a> {
         &mut self,
         texture: &Texture,
     ) -> ResourceRef<FrameGraphTexture, ResourceRead> {
-        let key = format!("texture_{:?}", texture.id());
-        let texture = FrameGraphTexture::new_arc_with_texture(texture);
-        let handle = self.import(&key, texture);
+        let handle = texture.make_resource_handle(self.graph);
         let read = self.read(handle);
         read
     }

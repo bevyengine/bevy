@@ -1,4 +1,6 @@
-use std::{borrow::Cow, ops::Deref};
+use std::{borrow::Cow, num::NonZero, ops::Deref};
+
+use wgpu::BufferBinding;
 
 use crate::{
     frame_graph::{FrameGraphBuffer, FrameGraphError, RenderContext, ResourceDrawing},
@@ -15,7 +17,10 @@ pub struct BindGroupDrawing {
 }
 
 pub enum BindingResource<'a> {
-    Buffer(&'a FrameGraphBuffer),
+    Buffer {
+        buffer: &'a FrameGraphBuffer,
+        size: Option<NonZero<u64>>,
+    },
     Sampler(wgpu::Sampler),
     TextureView(wgpu::TextureView),
 }
@@ -23,12 +28,16 @@ pub enum BindingResource<'a> {
 impl<'a> BindingResource<'a> {
     pub fn get_resource_binding(&self) -> wgpu::BindingResource {
         match &self {
-            BindingResource::Buffer(buffer) => {
-                wgpu::BindingResource::Buffer(buffer.resource.as_entire_buffer_binding())
-            }
             BindingResource::Sampler(sampler) => wgpu::BindingResource::Sampler(sampler),
             BindingResource::TextureView(texture_view) => {
                 wgpu::BindingResource::TextureView(texture_view)
+            }
+            BindingResource::Buffer { buffer, size } => {
+                wgpu::BindingResource::Buffer(BufferBinding {
+                    buffer: &buffer.resource,
+                    offset: 0,
+                    size: *size,
+                })
             }
         }
     }
@@ -44,9 +53,6 @@ impl ResourceDrawing for BindGroupDrawing {
         let mut resources = vec![];
         for entry in self.entries.iter() {
             let resource = match &entry.resource {
-                BindingResourceRef::Buffer(resource_ref) => {
-                    BindingResource::Buffer(render_context.get_resource(resource_ref)?)
-                }
                 BindingResourceRef::Sampler(info) => BindingResource::Sampler(
                     render_context
                         .render_device
@@ -54,16 +60,20 @@ impl ResourceDrawing for BindGroupDrawing {
                         .create_sampler(&info.get_sample_desc()),
                 ),
                 BindingResourceRef::TextureView {
-                    texture_ref,
+                    texture,
                     texture_view_info,
                 } => {
-                    let texture = render_context.get_resource(texture_ref)?;
+                    let texture = render_context.get_resource(texture)?;
                     BindingResource::TextureView(
                         texture
                             .resource
                             .create_view(&texture_view_info.get_texture_view_desc()),
                     )
                 }
+                BindingResourceRef::Buffer { buffer, size } => BindingResource::Buffer {
+                    buffer: render_context.get_resource(buffer)?,
+                    size: *size,
+                },
             };
 
             resources.push((entry.binding, resource));

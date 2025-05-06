@@ -408,27 +408,6 @@ pub fn get_lut_bindings<'a>(
     tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
     fallback_image: &'a FallbackImage,
-) -> (&'a TextureView, &'a Sampler) {
-    let image = match tonemapping {
-        // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
-        Tonemapping::None
-        | Tonemapping::Reinhard
-        | Tonemapping::ReinhardLuminance
-        | Tonemapping::AcesFitted
-        | Tonemapping::AgX
-        | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
-        Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
-        Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
-    };
-    let lut_image = images.get(image).unwrap_or(&fallback_image.d3);
-    (&lut_image.texture_view, &lut_image.sampler)
-}
-
-pub fn get_lut_bindings_temp<'a>(
-    images: &'a RenderAssets<GpuImage>,
-    tonemapping_luts: &'a TonemappingLuts,
-    tonemapping: &Tonemapping,
-    fallback_image: &'a FallbackImage,
 ) -> (&'a Texture, &'a SamplerInfo) {
     let image = match tonemapping {
         // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
@@ -444,6 +423,7 @@ pub fn get_lut_bindings_temp<'a>(
     let lut_image = images.get(image).unwrap_or(&fallback_image.d3);
     (&lut_image.texture, &lut_image.sampler_info)
 }
+
 
 pub fn get_lut_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 2] {
     [

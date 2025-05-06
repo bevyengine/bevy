@@ -2,12 +2,12 @@ use crate::{
     camera::Viewport,
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     frame_graph::{
-        render_pass_builder::RenderPassBuilder, FrameGraphBuffer, FrameGraphTexture, ResourceRead,
-        ResourceRef,
+        render_pass_builder::RenderPassBuilder, BindGroupHandle, FrameGraphBuffer,
+        FrameGraphTexture, ResourceRead, ResourceRef,
     },
     render_resource::{
-        BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, CachedRenderPipelineId,
-        ShaderStages, Texture,
+        BindGroup, BindGroupId, BindGroupLayoutId, Buffer, BufferId, BufferSlice,
+        CachedRenderPipelineId, ShaderStages, Texture,
     },
     renderer::RenderDevice,
 };
@@ -24,6 +24,7 @@ use tracing::trace;
 struct DrawState {
     pipeline: Option<CachedRenderPipelineId>,
     bind_groups: Vec<(Option<BindGroupId>, Vec<u32>)>,
+    bind_group_layouts: Vec<(Option<BindGroupLayoutId>, Vec<u32>)>,
     /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
     vertex_buffers: Vec<Option<(BufferId, u64, u64)>>,
     index_buffer: Option<(BufferId, u64, IndexFormat)>,
@@ -48,6 +49,19 @@ impl DrawState {
         self.pipeline == Some(pipeline)
     }
 
+    fn set_bind_group_layout(
+        &mut self,
+        index: usize,
+        bind_group_layout: BindGroupLayoutId,
+        dynamic_indices: &[u32],
+    ) {
+        let group = &mut self.bind_group_layouts[index];
+        group.0 = Some(bind_group_layout);
+        group.1.clear();
+        group.1.extend(dynamic_indices);
+        self.stores_state = true;
+    }
+
     /// Marks the `bind_group` as bound to the `index`.
     fn set_bind_group(&mut self, index: usize, bind_group: BindGroupId, dynamic_indices: &[u32]) {
         let group = &mut self.bind_groups[index];
@@ -66,6 +80,20 @@ impl DrawState {
     ) -> bool {
         if let Some(current_bind_group) = self.bind_groups.get(index) {
             current_bind_group.0 == Some(bind_group) && dynamic_indices == current_bind_group.1
+        } else {
+            false
+        }
+    }
+
+    fn is_bind_group_layout_set(
+        &self,
+        index: usize,
+        bind_group_layout: BindGroupLayoutId,
+        dynamic_indices: &[u32],
+    ) -> bool {
+        if let Some(current_bind_group) = self.bind_group_layouts.get(index) {
+            current_bind_group.0 == Some(bind_group_layout)
+                && dynamic_indices == current_bind_group.1
         } else {
             false
         }
@@ -110,23 +138,6 @@ impl DrawState {
     ) -> bool {
         self.index_buffer == Some((buffer, offset, index_format))
     }
-
-    /// Resets tracking state
-    pub fn reset_tracking(&mut self) {
-        if !self.stores_state {
-            return;
-        }
-        self.pipeline = None;
-        self.bind_groups.iter_mut().for_each(|val| {
-            val.0 = None;
-            val.1.clear();
-        });
-        self.vertex_buffers.iter_mut().for_each(|val| {
-            *val = None;
-        });
-        self.index_buffer = None;
-        self.stores_state = false;
-    }
 }
 
 /// A [`RenderPass`], which tracks the current pipeline state to skip redundant operations.
@@ -161,6 +172,7 @@ impl<'a> TrackedRenderPass<'a> {
         Self {
             state: DrawState {
                 bind_groups: vec![(None, Vec::new()); max_bind_groups],
+                bind_group_layouts: vec![(None, Vec::new()); max_bind_groups],
                 vertex_buffers: vec![None; max_vertex_buffers],
                 ..default()
             },
@@ -177,6 +189,34 @@ impl<'a> TrackedRenderPass<'a> {
         }
         self.state.set_pipeline(pipeline);
         self.pass.set_render_pipeline(pipeline);
+    }
+
+    pub fn set_bind_group_handle(
+        &mut self,
+        index: usize,
+        bind_group: &'a BindGroupHandle,
+        dynamic_uniform_indices: &[u32],
+    ) {
+        if self.state.is_bind_group_layout_set(
+            index,
+            bind_group.layout.id(),
+            dynamic_uniform_indices,
+        ) {
+            #[cfg(feature = "detailed_trace")]
+            trace!(
+                "set bind_group {} (already set): {:?} ({:?})",
+                index,
+                bind_group,
+                dynamic_uniform_indices
+            );
+            return;
+        }
+
+        self.state
+            .set_bind_group_layout(index, bind_group.layout.id(), dynamic_uniform_indices);
+        self.pass
+            .set_bind_group(index as u32, bind_group.clone(), dynamic_uniform_indices)
+            .unwrap();
     }
 
     /// Sets the active bind group for a given bind group index. The bind group layout
@@ -344,9 +384,9 @@ impl<'a> TrackedRenderPass<'a> {
     pub fn draw_indirect(&mut self, indirect_buffer: &'a Buffer, indirect_offset: u64) {
         #[cfg(feature = "detailed_trace")]
         trace!("draw indirect: {:?} {}", indirect_buffer, indirect_offset);
-        
+
         let indirect_buffer_read = self.pass.import_and_read_buffer(indirect_buffer);
-        
+
         self.pass
             .draw_indirect(&indirect_buffer_read, indirect_offset);
     }

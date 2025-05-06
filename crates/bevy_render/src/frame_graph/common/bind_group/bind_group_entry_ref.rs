@@ -1,3 +1,5 @@
+use std::num::NonZero;
+
 use variadics_please::all_tuples_with_size;
 
 use crate::frame_graph::{
@@ -12,10 +14,13 @@ pub struct BindGroupEntryRef {
 
 #[derive(Clone)]
 pub enum BindingResourceRef {
-    Buffer(ResourceRef<FrameGraphBuffer, ResourceRead>),
+    Buffer {
+        buffer: ResourceRef<FrameGraphBuffer, ResourceRead>,
+        size: Option<NonZero<u64>>,
+    },
     Sampler(SamplerInfo),
     TextureView {
-        texture_ref: ResourceRef<FrameGraphTexture, ResourceRead>,
+        texture: ResourceRef<FrameGraphTexture, ResourceRead>,
         texture_view_info: TextureViewInfo,
     },
 }
@@ -70,7 +75,10 @@ pub trait IntoBindingResourceRef {
 
 impl IntoBindingResourceRef for &ResourceRef<FrameGraphBuffer, ResourceRead> {
     fn into_binding(self) -> BindingResourceRef {
-        BindingResourceRef::Buffer(self.clone())
+        BindingResourceRef::Buffer {
+            buffer: self.clone(),
+            size: None,
+        }
     }
 }
 
@@ -83,7 +91,7 @@ impl IntoBindingResourceRef for &SamplerInfo {
 impl IntoBindingResourceRef for &ResourceRef<FrameGraphTexture, ResourceRead> {
     fn into_binding(self) -> BindingResourceRef {
         BindingResourceRef::TextureView {
-            texture_ref: self.clone(),
+            texture: self.clone(),
             texture_view_info: TextureViewInfo::default(),
         }
     }
@@ -97,7 +105,7 @@ impl IntoBindingResourceRef
 {
     fn into_binding(self) -> BindingResourceRef {
         BindingResourceRef::TextureView {
-            texture_ref: self.0.clone(),
+            texture: self.0.clone(),
             texture_view_info: self.1.clone(),
         }
     }

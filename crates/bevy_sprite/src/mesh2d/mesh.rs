@@ -1,6 +1,8 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
-use bevy_render::frame_graph::SamplerInfo;
+use bevy_render::frame_graph::{
+    BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial, SamplerInfo,
+};
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
 use bevy_core_pipeline::tonemapping::DebandDither;
@@ -397,7 +399,7 @@ impl FromWorld for Mesh2dPipeline {
                 sampler,
                 size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
-                sampler_info
+                sampler_info,
             }
         };
         Mesh2dPipeline {
@@ -777,12 +779,11 @@ pub fn prepare_mesh2d_bind_group(
 
 #[derive(Component)]
 pub struct Mesh2dViewBindGroup {
-    pub value: BindGroup,
+    pub value: BindGroupHandle,
 }
 
 pub fn prepare_mesh2d_view_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
@@ -790,27 +791,37 @@ pub fn prepare_mesh2d_view_bind_groups(
     tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
+    mut frame_graph: ResMut<FrameGraph>,
 ) {
-    let (Some(view_binding), Some(globals)) = (
-        view_uniforms.uniforms.binding(),
-        globals_buffer.buffer.binding(),
+    let (Some(view_binding_buffer), Some(globals_buffer)) = (
+        view_uniforms.uniforms.buffer(),
+        globals_buffer.buffer.buffer(),
     ) else {
         return;
     };
 
+    let view_binding_buffer_handle = view_binding_buffer.make_resource_handle(&mut frame_graph);
+    let view_binding_buffer_size = ViewUniform::min_size();
+
+    let globals_buffer_handle = globals_buffer.make_resource_handle(&mut frame_graph);
+
     for (entity, tonemapping) in &views {
         let lut_bindings =
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
-        let view_bind_group = render_device.create_bind_group(
-            "mesh2d_view_bind_group",
-            &mesh2d_pipeline.view_layout,
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, globals.clone()),
-                (2, lut_bindings.0),
-                (3, lut_bindings.1),
-            )),
-        );
+
+        let lut_binding_texture_handle = lut_bindings.0.make_resource_handle(&mut frame_graph);
+
+        let view_bind_group = BindGroupHandle {
+            label: Some("mesh2d_view_bind_group1".into()),
+            layout: mesh2d_pipeline.view_layout.clone(),
+            entries: DynamicBindGroupEntryHandles::sequential((
+                (&view_binding_buffer_handle, view_binding_buffer_size),
+                &globals_buffer_handle,
+                &lut_binding_texture_handle,
+                lut_bindings.1,
+            ))
+            .to_vec(),
+        };
 
         commands.entity(entity).insert(Mesh2dViewBindGroup {
             value: view_bind_group,
@@ -820,7 +831,7 @@ pub fn prepare_mesh2d_view_bind_groups(
 
 pub struct SetMesh2dViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
-    type Param = (SRes<ViewUniforms>, SRes<GlobalsBuffer>);
+    type Param = ();
     type ViewQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
     type ItemQuery = ();
 
@@ -829,13 +840,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
         _item: &P,
         (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
         _view: Option<()>,
-        (view_uniforms, global): SystemParamItem<'w, '_, Self::Param>,
+        _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.import_and_read_buffer(view_uniforms.into_inner().uniforms.buffer().unwrap());
-        pass.import_and_read_buffer(global.buffer.buffer().unwrap());
-
-        pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
+        pass.set_bind_group_handle(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
         RenderCommandResult::Success
     }

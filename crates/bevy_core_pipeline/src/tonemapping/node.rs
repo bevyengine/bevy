@@ -16,7 +16,7 @@ use bevy_render::{
     view::{ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
-use super::{get_lut_bindings_temp, Tonemapping, TonemappingLuts, TonemappingPipeline};
+use super::{get_lut_bindings, Tonemapping, TonemappingLuts, TonemappingPipeline};
 
 #[derive(Default)]
 pub struct TonemappingNode {
@@ -78,7 +78,7 @@ impl ViewNode for TonemappingNode {
         let tonemapping_luts = world.resource::<TonemappingLuts>();
 
         let lut_bindings =
-            get_lut_bindings_temp(gpu_images, tonemapping_luts, tonemapping, fallback_image);
+            get_lut_bindings(gpu_images, tonemapping_luts, tonemapping, fallback_image);
 
         let mut builder =
             RenderPassBuilder::new(frame_graph.create_pass_node_bulder("main_opaque_pass_2d"));
