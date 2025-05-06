@@ -291,9 +291,6 @@ bevy_log = ["bevy_internal/bevy_log"]
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
-# Use the configurable global error handler as the default error handler.
-configurable_error_handler = ["bevy_internal/configurable_error_handler"]
-
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
@@ -2215,7 +2212,6 @@ wasm = false
 name = "fallible_params"
 path = "examples/ecs/fallible_params.rs"
 doc-scrape-examples = true
-required-features = ["configurable_error_handler"]
 
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
@@ -2227,7 +2223,7 @@ wasm = false
 name = "error_handling"
 path = "examples/ecs/error_handling.rs"
 doc-scrape-examples = true
-required-features = ["bevy_mesh_picking_backend", "configurable_error_handler"]
+required-features = ["bevy_mesh_picking_backend"]
 
 [package.metadata.example.error_handling]
 name = "Error handling"
