@@ -33,7 +33,7 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::HashMap;
 use core::{
     hash::Hash,
-    mem::MaybeUninit,
+    hint::unreachable_unchecked,
     ops::{Index, IndexMut, RangeFrom},
 };
 
@@ -383,8 +383,13 @@ pub struct Archetype {
 }
 
 impl Archetype {
-    /// `table_components` and `sparse_set_components` must be sorted
-    pub(crate) fn new(
+    /// Creates a new [`Archetype`].
+    ///
+    /// # Safety
+    ///
+    /// Caller ensures `table_components` and `sparse_set_components` must be sorted and belong to their corresponding storages.
+    /// The `table_components` must be in the same order as was used to create the table.
+    pub(crate) unsafe fn new(
         components: &Components,
         component_index: &mut ComponentIndex,
         observers: &Observers,
@@ -411,16 +416,13 @@ impl Archetype {
                     archetype_component_id,
                 },
             );
-            // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
+            // SAFETY: Caller ensures this is a table storage component and that the `table_components` are sorted AND they were inserted in the `Table` in the same
             // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
             // component in the `table_components` vector
-            component_index.insert_component_on_archetype(
+            component_index.insert_table_component_on_archetype(
                 component_id,
-                ArchetypeRecord {
-                    storage_index: ComponentStorageIndex {
-                        column_in_table: TableColumnId(idx as u32),
-                    },
-                },
+                table_id,
+                TableColumnId(idx as u32),
                 id,
             );
         }
@@ -437,15 +439,8 @@ impl Archetype {
                     archetype_component_id,
                 },
             );
-            component_index.insert_component_on_archetype(
-                component_id,
-                ArchetypeRecord {
-                    storage_index: ComponentStorageIndex {
-                        id_of_sparse_set: set_id,
-                    },
-                },
-                id,
-            );
+            // SAFETY: Caller ensures this is a sparse set component.
+            component_index.insert_set_component_on_archetype(component_id, set_id, id);
         }
         Self {
             id,
@@ -798,111 +793,92 @@ impl SparseSetIndex for ArchetypeComponentId {
     }
 }
 
+/// A id that specifies where in storage a component is stored.
+pub(crate) enum ComponentStorageIndex {
+    TableColumnMap(Vec<Option<TableColumnId>>),
+    SparseSetId(ComponentSparseSetId),
+}
+
+pub(crate) struct ComponentRecord {
+    storage_index: ComponentStorageIndex,
+    archetypes: Vec<ArchetypeId>,
+}
+
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
 /// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
 #[derive(Default)]
 pub struct ComponentIndex {
-    data: Vec<ComponentRecord>,
-    // SAFETY: These keys must
-    map: HashMap<ComponentId, ArchetypeRecordId>,
-}
-
-#[derive(Default)]
-struct ComponentRecord {
-    num_archetypes: usize,
-    archetype_map: Vec<MaybeUninit<ArchetypeRecord>>,
-    archetypes: Vec<ArchetypeId>,
+    map: HashMap<ComponentId, ComponentRecord>,
 }
 
 impl ComponentIndex {
-    fn insert_component_on_archetype(
+    /// Inserts this component on this archetype.
+    ///
+    /// # SAFETY:
+    ///
+    /// The table information *must* be correct, and the component must be a table storage component.
+    unsafe fn insert_table_component_on_archetype(
         &mut self,
         component: ComponentId,
-        record: ArchetypeRecord,
+        table: TableId,
+        table_column: TableColumnId,
         archetype: ArchetypeId,
-    ) -> ArchetypeRecordId {
-        let Self { data, map } = self;
-        let id = *map.entry(component).or_insert_with(|| {
-            let id = ArchetypeRecordId(data.len() as u32);
-            data.push(Default::default());
-            id
-        });
-        // SAFETY: `map`'s safety ensures this
-        let component_data = unsafe { data.get_unchecked_mut(id.as_usize()) };
-        component_data.archetype_map.resize_with(
-            component_data
-                .archetype_map
-                .len()
-                .max(archetype.index() + 1),
-            MaybeUninit::zeroed,
-        );
-        component_data.num_archetypes += 1;
+    ) -> &mut ComponentRecord {
+        let component_data = self
+            .map
+            .entry(component)
+            .or_insert_with(|| ComponentRecord {
+                storage_index: ComponentStorageIndex::TableColumnMap(Vec::new()),
+                archetypes: Vec::new(),
+            });
+
         component_data.archetypes.push(archetype);
-        // SAFETY: We just resized to make this valid
-        unsafe {
-            *component_data
-                .archetype_map
-                .get_unchecked_mut(archetype.index()) = MaybeUninit::new(record);
+        let column_map = match &mut component_data.storage_index {
+            ComponentStorageIndex::TableColumnMap(table_column_ids) => table_column_ids,
+            // SAFETY: Caller ensures this is a table component.
+            ComponentStorageIndex::SparseSetId(_) => unsafe { unreachable_unchecked() },
         };
-        id
+        column_map.resize_with(column_map.len().max(table.as_usize() + 1), || None);
+        // SAFETY: It was just resized to be in bounds
+        unsafe {
+            *column_map.get_unchecked_mut(table.as_usize()) = Some(table_column);
+        }
+
+        component_data
+    }
+
+    /// Inserts this component on this archetype.
+    ///
+    /// # SAFETY:
+    ///
+    /// The `set_id` *must* be correct, and the component must be a sparse set storage component.
+    unsafe fn insert_set_component_on_archetype(
+        &mut self,
+        component: ComponentId,
+        set_id: ComponentSparseSetId,
+        archetype: ArchetypeId,
+    ) -> &mut ComponentRecord {
+        let component_data = self
+            .map
+            .entry(component)
+            .or_insert_with(|| ComponentRecord {
+                storage_index: ComponentStorageIndex::SparseSetId(set_id),
+                archetypes: Vec::new(),
+            });
+
+        component_data.archetypes.push(archetype);
+        component_data
     }
 
     /// Gets all the archetypes with this component
     pub fn iter_archetypes_with_component(&self, component: ComponentId) -> Option<&[ArchetypeId]> {
         self.map
             .get(&component)
-            // SAFETY: These ids are from self
-            .map(|id| unsafe { self.iter_archetypes_with_component_by_id(*id) })
+            .map(|record| record.archetypes.as_slice())
     }
 
-    /// Gets all the archetypes with this component by its [`ArchetypeRecordId`].
-    ///
-    /// # SAFETY
-    ///
-    /// The id must be for this [`ComponentIndex`].
-    pub unsafe fn iter_archetypes_with_component_by_id(
-        &self,
-        component: ArchetypeRecordId,
-    ) -> &[ArchetypeId] {
-        // SAFETY: Ensured by caller and `map`'s safety
-        let records = unsafe { self.data.get_unchecked(component.as_usize()) };
-        &records.archetypes
-    }
-}
-
-/// Metadata about how a component is stored in an [`Archetype`].
-pub struct ArchetypeRecord {
-    /// Index of the component in the archetype's [`Table`](crate::storage::Table),
-    /// or None if the component is a sparse set component.
-    #[expect(
-        dead_code,
-        reason = "Currently unused, but planned to be used to implement a component index to improve performance of fragmenting relations."
-    )]
-    pub(crate) storage_index: ComponentStorageIndex,
-}
-
-/// A id that specifies where in storage a component is stored.
-pub(crate) union ComponentStorageIndex {
-    column_in_table: TableColumnId,
-    id_of_sparse_set: ComponentSparseSetId,
-}
-
-/// An id for a [`ArchetypeRecord`].
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeRecordId(u32);
-
-impl ArchetypeRecordId {
-    /// Gets the index of the row as a [`usize`].
-    #[inline]
-    pub const fn as_usize(self) -> usize {
-        // usize is at least u32 in Bevy
-        self.0 as usize
-    }
-
-    /// Gets the index of the row as a [`usize`].
-    #[inline]
-    pub const fn as_u32(self) -> u32 {
-        self.0
+    pub(crate) fn get_record(&self, component: ComponentId) -> Option<&ComponentRecord> {
+        self.map.get(&component)
     }
 }
 
@@ -1036,8 +1012,10 @@ impl Archetypes {
     /// Note that `sparse_set_id_of` will be called with all of the `sparse_set_components` and nothing else.
     ///
     /// # Safety
-    /// [`TableId`] must exist in tables
-    /// `table_components` and `sparse_set_components` must exist in `components`
+    /// [`TableId`] must exist in tables and is correct.
+    /// `table_components` and `sparse_set_components` must exist in `components`.
+    /// Caller ensures `table_components` and `sparse_set_components` must be sorted and belong to their corresponding storages.
+    /// The `table_components` must be in the same order as was used to create the table.
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
         components: &Components,
@@ -1141,6 +1119,7 @@ impl Index<RangeFrom<ArchetypeGeneration>> for Archetypes {
         &self.archetypes[index.start.0.index()..]
     }
 }
+
 impl Index<ArchetypeId> for Archetypes {
     type Output = Archetype;
 

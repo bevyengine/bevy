@@ -838,7 +838,7 @@ impl BundleInfo {
                     new_sparse_set_components
                 };
             };
-            // SAFETY: ids in self must be valid
+            // SAFETY: ids in self must be valid, storages are correct, the tables are sorted, so the table ordering is correct.
             let new_archetype_id = archetypes.get_id_or_insert(
                 components,
                 observers,
@@ -952,6 +952,7 @@ impl BundleInfo {
                 };
             }
 
+            // SAFETY: ids in self must be valid, storages are correct, the tables are sorted, so the table ordering is correct.
             let new_archetype_id = archetypes.get_id_or_insert(
                 components,
                 observers,
