@@ -22,10 +22,10 @@
 /// If the `<EXPR>` doesn't evaluate to `()`, an `else` case is required:
 ///
 /// ```text
-/// <BINDING?> else => <EXPR>,
+/// <BINDING?> else <[ <TYPES_IDENT> ]?> => <EXPR>,
 /// ```
 ///
-/// The `<BINDING?>` on an `else` case can optionally be used to access a slice that contains the
+/// The `<TYPES_IDENT?>` on an `else` case can optionally be used to access a slice that contains the
 /// [`Type`] of each `<TYPE>` in the macro.
 /// This can be used as a convenience for debug messages or logging.
 ///
@@ -66,9 +66,9 @@
 ///     list @ &mut Vec<u32> => {
 ///       list.push(value as u32);
 ///     },
-///     // The `else` case also supports bindings.
-///     // Here, `types` contains all the types from the cases above
-///     types @ else => panic!("expected types: {:?}", types)
+///     // The `else` case also supports bindings as well as a special syntax
+///     // for getting a slice over all the types in the macro
+///     other @ else [types] => panic!("expected types: {:?} but received {:?}", types, other.reflect_type_path())
 ///   }
 /// }
 /// #
@@ -108,12 +108,17 @@ macro_rules! select_ty {
     {@selector[$($tys:ty,)*] $value:ident, $binding:tt, } => {{}};
 
     // --- Else Case --- //
-    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, else => $action:expr $(,)? } => {
-         $action
-    };
-    {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, $binding:ident @ else => $action:expr $(,)? } => {{
-        let $binding: &[$crate::Type] = &[$($crate::Type::of::<$tys>(),)*];
-         $action
+    {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, else => $action:expr $(,)? } => {{
+        $action
+    }};
+    {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, $($binding:tt @)? else => $action:expr $(,)? } => {{
+        $(let select_ty!(@bind_mut $binding) = $value;)?
+        $action
+    }};
+    {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, $($binding:tt @)? else [$types:ident] => $action:expr $(,)? } => {{
+        $(let select_ty!(@bind_mut $binding) = $value;)?
+        let $types: &[$crate::Type] = &[$($crate::Type::of::<$tys>(),)*];
+        $action
     }};
 
     // --- Binding Matcher --- //
@@ -353,16 +358,16 @@ mod tests {
 
     #[test]
     fn should_allow_else_with_binding() {
-        let _value = Box::new(123);
+        let value = Box::new(123);
 
-        select_ty! {_value,
+        select_ty! {value,
             f32 => {
-                assert_eq!(_value, 123.0);
+                assert_eq!(value, 123.0);
             },
             f64 => {
-                assert_eq!(_value, 123.0);
+                assert_eq!(value, 123.0);
             },
-            types @ else => {
+            _ @ else [types] => {
                 assert_eq!(types.len(), 2);
                 assert_eq!(types[0], Type::of::<f32>());
                 assert_eq!(types[1], Type::of::<f64>());
