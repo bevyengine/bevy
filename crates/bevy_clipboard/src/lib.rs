@@ -1,15 +1,15 @@
 //! This crate provides a platform-agnostic interface for accessing the clipboard
 
-#[cfg(any(windows, all(unix)))]
+#[cfg(any(windows, unix))]
 mod desktop;
 
-#[cfg(not(any(windows, all(unix))))]
+#[cfg(not(any(windows, unix)))]
 mod dummy;
 
-#[cfg(any(windows, all(unix)))]
+#[cfg(any(windows, unix))]
 pub use desktop::*;
 
-#[cfg(not(any(windows, all(unix))))]
+#[cfg(not(any(windows, unix)))]
 pub use dummy::*;
 
 /// Clipboard plugin
