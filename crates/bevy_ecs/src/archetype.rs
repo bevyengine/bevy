@@ -408,10 +408,13 @@ impl Archetype {
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
             // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
             // component in the `table_components` vector
-            component_index
-                .entry(component_id)
-                .or_default()
-                .insert(id, ArchetypeRecord { column: Some(idx) });
+            component_index.insert_component_on_archetype(
+                component_id,
+                ArchetypeRecord {
+                    column: Some(idx),
+                    archetype: id,
+                },
+            );
         }
 
         for (component_id, archetype_component_id) in sparse_set_components {
@@ -426,10 +429,13 @@ impl Archetype {
                     archetype_component_id,
                 },
             );
-            component_index
-                .entry(component_id)
-                .or_default()
-                .insert(id, ArchetypeRecord { column: None });
+            component_index.insert_component_on_archetype(
+                component_id,
+                ArchetypeRecord {
+                    column: None,
+                    archetype: id,
+                },
+            );
         }
         Self {
             id,
@@ -784,7 +790,121 @@ impl SparseSetIndex for ArchetypeComponentId {
 
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
 /// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
-pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
+#[derive(Default)]
+pub struct ComponentIndex {
+    data: Vec<(Vec<Option<ArchetypeRecord>>, usize)>,
+    // SAFETY: These keys must
+    map: HashMap<ComponentId, ArchetypeComponentRecordId>,
+}
+
+impl ComponentIndex {
+    fn insert_component_on_archetype(
+        &mut self,
+        component: ComponentId,
+        archetype: ArchetypeRecord,
+    ) -> ArchetypeComponentRecordId {
+        let Self { data, map } = self;
+        let archetype_index = archetype.archetype.index();
+        let id = *map.entry(component).or_insert_with(|| {
+            let id = ArchetypeComponentRecordId(data.len() as u32);
+            data.push((Vec::new(), 0));
+            id
+        });
+        // SAFETY: `map`'s safety ensures this
+        let component_data = unsafe { data.get_unchecked_mut(id.as_usize()) };
+        component_data
+            .0
+            .resize_with(component_data.0.len().max(archetype_index + 1), || None);
+        component_data.1 += 1;
+        // SAFETY: We just resized to make this valid
+        unsafe {
+            *component_data.0.get_unchecked_mut(archetype_index) = Some(archetype);
+        };
+        id
+    }
+
+    /// Gets all the archetypes with this component
+    pub fn iter_archetypes_with_component(
+        &self,
+        component: ComponentId,
+    ) -> Option<ComponentsArchetypesIter> {
+        self.map
+            .get(&component)
+            // SAFETY: These ids are from self
+            .map(|id| unsafe { self.iter_archetypes_with_component_by_id(*id) })
+    }
+
+    /// Gets all the archetypes with this component by its [`ArchetypeComponentRecordId`].
+    ///
+    /// # SAFETY
+    ///
+    /// The id must be for this [`ComponentIndex`].
+    pub unsafe fn iter_archetypes_with_component_by_id(
+        &self,
+        component: ArchetypeComponentRecordId,
+    ) -> ComponentsArchetypesIter {
+        // SAFETY: Ensured by caller and `map`'s safety
+        let records = unsafe { self.data.get_unchecked(component.as_usize()) };
+        ComponentsArchetypesIter {
+            len: records.1,
+            data: records.0.iter(),
+        }
+    }
+}
+
+/// An iterator over all the archetypes with a given component.
+/// See also [`ComponentIndex::iter_archetypes_with_component`].
+pub struct ComponentsArchetypesIter<'a> {
+    len: usize,
+    data: core::slice::Iter<'a, Option<ArchetypeRecord>>,
+}
+
+impl<'a> Iterator for ComponentsArchetypesIter<'a> {
+    type Item = ArchetypeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.data
+            .next()
+            .and_then(|item| item.as_ref().map(|item| item.archetype))
+            .inspect(|_| self.len -= 1)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<'a> ExactSizeIterator for ComponentsArchetypesIter<'a> {}
+
+/// Metadata about how a component is stored in an [`Archetype`].
+pub struct ArchetypeRecord {
+    /// Index of the component in the archetype's [`Table`](crate::storage::Table),
+    /// or None if the component is a sparse set component.
+    #[expect(
+        dead_code,
+        reason = "Currently unused, but planned to be used to implement a component index to improve performance of fragmenting relations."
+    )]
+    pub(crate) column: Option<usize>,
+    pub(crate) archetype: ArchetypeId,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct ArchetypeComponentRecordId(u32);
+
+impl ArchetypeComponentRecordId {
+    /// Gets the index of the row as a [`usize`].
+    #[inline]
+    pub const fn as_usize(self) -> usize {
+        // usize is at least u32 in Bevy
+        self.0 as usize
+    }
+
+    /// Gets the index of the row as a [`usize`].
+    #[inline]
+    pub const fn as_u32(self) -> u32 {
+        self.0
+    }
+}
 
 /// The backing store of all [`Archetype`]s within a [`World`].
 ///
@@ -799,17 +919,6 @@ pub struct Archetypes {
     by_components: HashMap<ArchetypeComponents, ArchetypeId>,
     /// find all the archetypes that contain a component
     pub(crate) by_component: ComponentIndex,
-}
-
-/// Metadata about how a component is stored in an [`Archetype`].
-pub struct ArchetypeRecord {
-    /// Index of the component in the archetype's [`Table`](crate::storage::Table),
-    /// or None if the component is a sparse set component.
-    #[expect(
-        dead_code,
-        reason = "Currently unused, but planned to be used to implement a component index to improve performance of fragmenting relations."
-    )]
-    pub(crate) column: Option<usize>,
 }
 
 impl Archetypes {
@@ -1003,8 +1112,11 @@ impl Archetypes {
         flags: ArchetypeFlags,
         set: bool,
     ) {
-        if let Some(archetypes) = self.by_component.get(&component_id) {
-            for archetype_id in archetypes.keys() {
+        if let Some(archetypes) = self
+            .by_component
+            .iter_archetypes_with_component(component_id)
+        {
+            for archetype_id in archetypes {
                 // SAFETY: the component index only contains valid archetype ids
                 self.archetypes
                     .get_mut(archetype_id.index())

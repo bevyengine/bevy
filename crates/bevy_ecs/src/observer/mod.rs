@@ -821,17 +821,18 @@ impl World {
                     if observers.map.is_empty() && observers.entity_map.is_empty() {
                         cache.component_observers.remove(component);
                         if let Some(flag) = Observers::is_archetype_cached(event_type) {
-                            if let Some(by_component) = archetypes.by_component.get(component) {
-                                for archetype in by_component.keys() {
+                            if let Some(by_component) = archetypes
+                                .by_component
+                                .iter_archetypes_with_component(*component)
+                            {
+                                for archetype in by_component {
                                     let archetype = &mut archetypes.archetypes[archetype.index()];
-                                    if archetype.contains(*component) {
-                                        let no_longer_observed = archetype
-                                            .components()
-                                            .all(|id| !cache.component_observers.contains_key(&id));
+                                    let no_longer_observed = archetype
+                                        .components()
+                                        .all(|id| !cache.component_observers.contains_key(&id));
 
-                                        if no_longer_observed {
-                                            archetype.flags.set(flag, false);
-                                        }
+                                    if no_longer_observed {
+                                        archetype.flags.set(flag, false);
                                     }
                                 }
                             }
