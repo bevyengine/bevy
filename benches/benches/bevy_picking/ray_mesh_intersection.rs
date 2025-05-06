@@ -37,7 +37,7 @@ fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
     for p in 0..vertices_per_side.pow(2) {
         let (x, z) = p_to_xz_norm(p, vertices_per_side);
 
-        // Push a new vertice to the mesh. We translate all vertices so the final square is
+        // Push a new vertex to the mesh. We translate all vertices so the final square is
         // centered at (0, 0), instead of (0.5, 0.5).
         positions.push([x - 0.5, 0.0, z - 0.5]);
 

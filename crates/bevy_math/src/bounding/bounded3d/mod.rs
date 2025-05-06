@@ -250,12 +250,7 @@ impl BoundingVolume for Aabb3d {
     #[inline(always)]
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
         let rot_mat = Mat3::from_quat(rotation.into());
-        let abs_rot_mat = Mat3::from_cols(
-            rot_mat.x_axis.abs(),
-            rot_mat.y_axis.abs(),
-            rot_mat.z_axis.abs(),
-        );
-        let half_size = abs_rot_mat * self.half_size();
+        let half_size = rot_mat.abs() * self.half_size();
         *self = Self::new(rot_mat * self.center(), half_size);
     }
 }
@@ -279,6 +274,8 @@ impl IntersectsVolume<BoundingSphere> for Aabb3d {
 
 #[cfg(test)]
 mod aabb3d_tests {
+    use approx::assert_relative_eq;
+
     use super::Aabb3d;
     use crate::{
         bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
@@ -396,6 +393,19 @@ mod aabb3d_tests {
         assert!((scaled.max - Vec3A::splat(2.)).length() < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
+    }
+
+    #[test]
+    fn rotate() {
+        use core::f32::consts::PI;
+        let a = Aabb3d {
+            min: Vec3A::new(-2.0, -2.0, -2.0),
+            max: Vec3A::new(2.0, 2.0, 2.0),
+        };
+        let rotation = Quat::from_euler(glam::EulerRot::XYZ, PI, PI, 0.0);
+        let rotated = a.rotated_by(rotation);
+        assert_relative_eq!(rotated.min, a.min);
+        assert_relative_eq!(rotated.max, a.max);
     }
 
     #[test]

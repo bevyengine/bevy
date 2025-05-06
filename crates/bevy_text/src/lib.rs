@@ -110,6 +110,7 @@ impl Plugin for TextPlugin {
             .register_type::<TextFont>()
             .register_type::<LineHeight>()
             .register_type::<TextColor>()
+            .register_type::<TextBackgroundColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
             .register_type::<TextLayout>()

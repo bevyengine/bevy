@@ -1178,7 +1178,7 @@ pub struct OverflowClipMargin {
 
 impl OverflowClipMargin {
     pub const DEFAULT: Self = Self {
-        visual_box: OverflowClipBox::ContentBox,
+        visual_box: OverflowClipBox::PaddingBox,
         margin: 0.,
     };
 
@@ -1224,9 +1224,9 @@ impl OverflowClipMargin {
 )]
 pub enum OverflowClipBox {
     /// Clip any content that overflows outside the content box
-    #[default]
     ContentBox,
     /// Clip any content that overflows outside the padding box
+    #[default]
     PaddingBox,
     /// Clip any content that overflows outside the border box
     BorderBox,

@@ -4,7 +4,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::Result,
-    query::Access,
+    query::{Access, FilteredAccessSet},
     system::{input::SystemIn, BoxedSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
@@ -36,6 +36,11 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        self.0.component_access_set()
+    }
+
+    #[inline(always)]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         self.0.archetype_component_access()
     }

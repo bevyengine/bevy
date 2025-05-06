@@ -243,13 +243,9 @@ impl BoundingVolume for Aabb2d {
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
-        let rotation: Rot2 = rotation.into();
-        let abs_rot_mat = Mat2::from_cols(
-            Vec2::new(rotation.cos, rotation.sin),
-            Vec2::new(rotation.sin, rotation.cos),
-        );
-        let half_size = abs_rot_mat * self.half_size();
-        *self = Self::new(rotation * self.center(), half_size);
+        let rot_mat = Mat2::from(rotation.into());
+        let half_size = rot_mat.abs() * self.half_size();
+        *self = Self::new(rot_mat * self.center(), half_size);
     }
 }
 
@@ -274,6 +270,8 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
 
 #[cfg(test)]
 mod aabb2d_tests {
+    use approx::assert_relative_eq;
+
     use super::Aabb2d;
     use crate::{
         bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
@@ -392,6 +390,17 @@ mod aabb2d_tests {
         assert!((scaled.max - Vec2::splat(2.)).length() < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
+    }
+
+    #[test]
+    fn rotate() {
+        let a = Aabb2d {
+            min: Vec2::new(-2.0, -2.0),
+            max: Vec2::new(2.0, 2.0),
+        };
+        let rotated = a.rotated_by(core::f32::consts::PI);
+        assert_relative_eq!(rotated.min, a.min);
+        assert_relative_eq!(rotated.max, a.max);
     }
 
     #[test]

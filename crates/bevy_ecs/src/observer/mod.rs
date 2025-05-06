@@ -349,7 +349,7 @@ pub struct ObserverTrigger {
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
     pub target: Entity,
-    /// The location of the source code that triggered the obserer.
+    /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
 }
 
@@ -562,6 +562,10 @@ impl World {
     ///     // ...
     /// });
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given system is an exclusive system.
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,

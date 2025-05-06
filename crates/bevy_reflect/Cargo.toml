@@ -33,6 +33,9 @@ debug_stack = ["std"]
 ## Adds reflection support to `glam` types.
 glam = ["dep:glam"]
 
+## Adds reflection support to `hashbrown` types.
+hashbrown = ["dep:hashbrown"]
+
 ## Adds reflection support to `petgraph` types.
 petgraph = ["dep:petgraph", "std"]
 
@@ -87,6 +90,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 
 # used by bevy-utils, but it also needs reflect impls
 foldhash = { version = "0.1.3", default-features = false }
+hashbrown = { version = "0.15.1", optional = true, default-features = false }
 
 # other
 erased-serde = { version = "0.4", default-features = false, features = [

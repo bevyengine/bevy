@@ -11,7 +11,7 @@ keywords = ["bevy"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-file_watcher = ["notify-debouncer-full", "watch"]
+file_watcher = ["notify-debouncer-full", "watch", "multi_threaded"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
 asset_processor = []
@@ -19,38 +19,50 @@ watch = []
 trace = []
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
+  "bevy_reflect",
+] }
 bevy_asset_macros = { path = "macros", version = "0.16.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
   "uuid",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, features = [
+  "async_executor",
+] }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
 ] }
 
-stackfuture = "0.3"
-atomicow = "1.0"
-async-broadcast = "0.7.2"
-async-fs = "2.0"
-async-lock = "3.0"
-bitflags = { version = "2.3", features = ["serde"] }
-crossbeam-channel = "0.5"
-downcast-rs = { version = "2", default-features = false, features = ["std"] }
-disqualified = "1.0"
-either = "1.13"
-futures-io = "0.3"
-futures-lite = "2.0.1"
-blake3 = "1.5"
-parking_lot = { version = "0.12", features = ["arc_lock", "send_guard"] }
-ron = "0.8"
-serde = { version = "1", features = ["derive"] }
+stackfuture = { version = "0.3", default-features = false }
+atomicow = { version = "1.1", default-features = false, features = ["std"] }
+async-broadcast = { version = "0.7.2", default-features = false }
+async-fs = { version = "2.0", default-features = false }
+async-lock = { version = "3.0", default-features = false }
+bitflags = { version = "2.3", default-features = false }
+crossbeam-channel = { version = "0.5", default-features = false, features = [
+  "std",
+] }
+downcast-rs = { version = "2", default-features = false }
+disqualified = { version = "1.0", default-features = false }
+either = { version = "1.13", default-features = false }
+futures-io = { version = "0.3", default-features = false }
+futures-lite = { version = "2.0.1", default-features = false }
+blake3 = { version = "1.5", default-features = false }
+parking_lot = { version = "0.12", default-features = false, features = [
+  "arc_lock",
+  "send_guard",
+] }
+ron = { version = "0.8", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
-uuid = { version = "1.13.1", features = ["v4"] }
-tracing = { version = "0.1", default-features = false, features = ["std"] }
+uuid = { version = "1.13.1", default-features = false, features = [
+  "v4",
+  "serde",
+] }
+tracing = { version = "0.1", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
@@ -77,7 +89,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-featu
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-notify-debouncer-full = { version = "0.5.0", optional = true }
+notify-debouncer-full = { version = "0.5.0", default-features = false, optional = true }
 
 [lints]
 workspace = true

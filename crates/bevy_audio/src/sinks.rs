@@ -1,9 +1,10 @@
+use crate::Volume;
 use bevy_ecs::component::Component;
 use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
+use core::time::Duration;
+pub use rodio::source::SeekError;
 use rodio::{Sink, SpatialSink};
-
-use crate::Volume;
 
 /// Common interactions with an audio sink.
 pub trait AudioSinkPlayback {
@@ -40,6 +41,26 @@ pub trait AudioSinkPlayback {
     ///
     /// No effect if not paused.
     fn play(&self);
+
+    /// Attempts to seek to a given position in the current source.
+    ///
+    /// This blocks between 0 and ~5 milliseconds.
+    ///
+    /// As long as the duration of the source is known, seek is guaranteed to saturate
+    /// at the end of the source. For example given a source that reports a total duration
+    /// of 42 seconds calling `try_seek()` with 60 seconds as argument will seek to
+    /// 42 seconds.
+    ///
+    /// # Errors
+    /// This function will return [`SeekError::NotSupported`] if one of the underlying
+    /// sources does not support seeking.
+    ///
+    /// It will return an error if an implementation ran
+    /// into one during the seek.
+    ///
+    /// When seeking beyond the end of a source, this
+    /// function might return an error if the duration of the source is not known.
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError>;
 
     /// Pauses playback of this sink.
     ///
@@ -160,6 +181,10 @@ impl AudioSinkPlayback for AudioSink {
         self.sink.play();
     }
 
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
+        self.sink.try_seek(pos)
+    }
+
     fn pause(&self) {
         self.sink.pause();
     }
@@ -254,6 +279,10 @@ impl AudioSinkPlayback for SpatialAudioSink {
 
     fn play(&self) {
         self.sink.play();
+    }
+
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
+        self.sink.try_seek(pos)
     }
 
     fn pause(&self) {

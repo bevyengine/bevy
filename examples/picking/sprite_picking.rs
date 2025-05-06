@@ -1,5 +1,5 @@
-//! Demonstrates picking for sprites and sprite atlases. The picking backend only tests against the
-//! sprite bounds, so the sprite atlas can be picked by clicking on its transparent areas.
+//! Demonstrates picking for sprites and sprite atlases.
+//! By default, the sprite picking backend considers a sprite only when a pointer is over an opaque pixel.
 
 use bevy::{prelude::*, sprite::Anchor};
 use std::fmt::Debug;

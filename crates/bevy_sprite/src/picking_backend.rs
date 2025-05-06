@@ -1,6 +1,9 @@
 //! A [`bevy_picking`] backend for sprites. Works for simple sprites and sprite atlases. Works for
-//! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
-//! This means a partially transparent sprite is pickable even in its transparent areas.
+//! sprites with arbitrary transforms.
+//!
+//! By default, picking for sprites is based on pixel opacity.
+//! A sprite is picked only when a pointer is over an opaque pixel.
+//! Alternatively, you can configure picking to be based on sprite bounds.
 //!
 //! ## Implementation Notes
 //!
@@ -45,9 +48,10 @@ pub enum SpritePickingMode {
 #[reflect(Resource, Default)]
 pub struct SpritePickingSettings {
     /// When set to `true` sprite picking will only consider cameras marked with
-    /// [`SpritePickingCamera`].
+    /// [`SpritePickingCamera`]. Defaults to `false`.
+    /// Regardless of this setting, only sprites marked with [`Pickable`] will be considered.
     ///
-    /// This setting is provided to give you fine-grained control over which cameras and entities
+    /// This setting is provided to give you fine-grained control over which cameras
     /// should be used by the sprite picking backend at runtime.
     pub require_markers: bool,
     /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.

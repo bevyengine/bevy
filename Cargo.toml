@@ -3341,6 +3341,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_background_colors"
+path = "examples/ui/text_background_colors.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_background_colors]
+name = "Text Background Colors"
+description = "Demonstrates text background colors"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
 doc-scrape-examples = true
@@ -3492,6 +3503,17 @@ doc-scrape-examples = true
 [package.metadata.example.viewport_debug]
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "viewport_node"
+path = "examples/ui/viewport_node.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.viewport_node]
+name = "Viewport Node"
+description = "Demonstrates how to create a viewport node with picking support"
 category = "UI (User Interface)"
 wasm = true
 

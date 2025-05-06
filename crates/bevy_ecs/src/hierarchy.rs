@@ -281,6 +281,12 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(children)
     }
 
+    /// Removes all the children from this entity.
+    /// See also [`clear_related`](Self::clear_related)
+    pub fn clear_children(&mut self) -> &mut Self {
+        self.clear_related::<ChildOf>()
+    }
+
     /// Insert children at specific index.
     /// See also [`insert_related`](Self::insert_related).
     pub fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
@@ -367,6 +373,12 @@ impl<'a> EntityCommands<'a> {
     /// Adds the given children to this entity
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
         self.add_related::<ChildOf>(children)
+    }
+
+    /// Removes all the children from this entity.
+    /// See also [`clear_related`](Self::clear_related)
+    pub fn clear_children(&mut self) -> &mut Self {
+        self.clear_related::<ChildOf>()
     }
 
     /// Insert children at specific index.
