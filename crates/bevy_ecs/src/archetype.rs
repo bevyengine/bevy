@@ -968,7 +968,7 @@ impl Archetypes {
     ///
     /// # Safety
     /// - [`TableId`] must exist in tables
-    /// `table_components` and `sparse_set_components` must exist in `components`
+    ///   `table_components` and `sparse_set_components` must exist in `components`
     /// - Caller must call `ArchetypeIdState::trigger_if_new` on the returned `ArchetypeIdState`
     #[must_use]
     pub(crate) unsafe fn get_id_or_insert(

@@ -427,7 +427,7 @@ fn get_query_state<'w, D: QueryData + 'static, F: QueryFilter + 'static>(
             .get::<QueryStateWrapper<D, F>>()
     };
 
-    state.map(|state| state.inner())
+    state.map(QueryStateWrapper::inner)
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If

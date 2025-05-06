@@ -2689,13 +2689,13 @@ impl UiTargetCamera {
 pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
-pub struct DefaultUiCamera<'w, 's> {
-    cameras: Query<'w, 's, (Entity, &'static Camera)>,
-    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
-    primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
+pub struct DefaultUiCamera<'w> {
+    cameras: Query<'w, 'w, (Entity, &'static Camera)>,
+    default_cameras: Query<'w, 'w, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
+    primary_window: Query<'w, 'w, Entity, With<PrimaryWindow>>,
 }
 
-impl<'w, 's> DefaultUiCamera<'w, 's> {
+impl<'w> DefaultUiCamera<'w> {
     pub fn get(&self) -> Option<Entity> {
         self.default_cameras.single().ok().or_else(|| {
             // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.

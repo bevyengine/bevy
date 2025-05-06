@@ -70,14 +70,14 @@ pub struct UiChildren<'w, 's> {
 #[cfg(not(feature = "ghost_nodes"))]
 /// System param that gives access to UI children utilities.
 #[derive(SystemParam)]
-pub struct UiChildren<'w, 's> {
-    ui_children_query: Query<'w, 's, Option<&'static Children>, With<Node>>,
-    changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
-    parents_query: Query<'w, 's, &'static ChildOf>,
+pub struct UiChildren<'w> {
+    ui_children_query: Query<'w, 'w, Option<&'static Children>, With<Node>>,
+    changed_children_query: Query<'w, 'w, Entity, Changed<Children>>,
+    parents_query: Query<'w, 'w, &'static ChildOf>,
 }
 
 #[cfg(feature = "ghost_nodes")]
-impl<'w, 's> UiChildren<'w, 's> {
+impl<'w> UiChildren<'w> {
     /// Iterates the children of `entity`, skipping over [`GhostNode`].
     ///
     /// Traverses the hierarchy depth-first to ensure child order.
@@ -135,9 +135,9 @@ impl<'w, 's> UiChildren<'w, 's> {
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-impl<'w, 's> UiChildren<'w, 's> {
+impl<'w> UiChildren<'w> {
     /// Iterates the children of `entity`.
-    pub fn iter_ui_children(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
+    pub fn iter_ui_children(&'w self, entity: Entity) -> impl Iterator<Item = Entity> + 'w {
         self.ui_children_query
             .get(entity)
             .ok()
@@ -149,17 +149,17 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 
     /// Returns the UI parent of the provided entity.
-    pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
+    pub fn get_parent(&'w self, entity: Entity) -> Option<Entity> {
         self.parents_query.get(entity).ok().map(ChildOf::parent)
     }
 
     /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
-    pub fn is_changed(&'s self, entity: Entity) -> bool {
+    pub fn is_changed(&'w self, entity: Entity) -> bool {
         self.changed_children_query.contains(entity)
     }
 
     /// Returns `true` if the given entity is either a [`Node`] or a [`GhostNode`].
-    pub fn is_ui_node(&'s self, entity: Entity) -> bool {
+    pub fn is_ui_node(&'w self, entity: Entity) -> bool {
         self.ui_children_query.contains(entity)
     }
 }

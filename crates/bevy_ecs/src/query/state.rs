@@ -1931,8 +1931,8 @@ fn on_add_query_state<D: QueryData + 'static, F: QueryFilter + 'static>(
                 .archetypes()
                 .get(archetype_id)
                 .expect("Invalid ArchetypeId");
+            // SAFETY: This in intended mutation
             let Some(mut state) = world.get_entity_mut(entity).ok().and_then(|entity| unsafe {
-                // SAFETY: This in intended mutation
                 entity.into_mut_assume_mutable::<QueryStateWrapper<D, F>>()
             }) else {
                 world.commands().entity(trigger.observer()).despawn();

@@ -263,13 +263,13 @@ impl ExtractedUiNodes {
 }
 
 #[derive(SystemParam)]
-pub struct UiCameraMap<'w, 's> {
-    mapping: Query<'w, 's, RenderEntity>,
+pub struct UiCameraMap<'w> {
+    mapping: Query<'w, 'w, RenderEntity>,
 }
 
-impl<'w, 's> UiCameraMap<'w, 's> {
+impl<'w> UiCameraMap<'w> {
     /// Get the default camera and create the mapper
-    pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
+    pub fn get_mapper(&'w self) -> UiCameraMapper<'w> {
         UiCameraMapper {
             mapping: &self.mapping,
             camera_entity: Entity::PLACEHOLDER,
@@ -278,13 +278,13 @@ impl<'w, 's> UiCameraMap<'w, 's> {
     }
 }
 
-pub struct UiCameraMapper<'w, 's> {
-    mapping: &'w Query<'w, 's, RenderEntity>,
+pub struct UiCameraMapper<'w> {
+    mapping: &'w Query<'w, 'w, RenderEntity>,
     camera_entity: Entity,
     render_entity: Entity,
 }
 
-impl<'w, 's> UiCameraMapper<'w, 's> {
+impl<'w> UiCameraMapper<'w> {
     /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
     pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
         let camera_entity = computed_target.camera;

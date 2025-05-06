@@ -289,13 +289,13 @@ pub trait IsFocused {
 ///
 /// When working with the entire [`World`], consider using the [`IsFocused`] instead.
 #[derive(SystemParam)]
-pub struct IsFocusedHelper<'w, 's> {
-    parent_query: Query<'w, 's, &'static ChildOf>,
+pub struct IsFocusedHelper<'w> {
+    parent_query: Query<'w, 'w, &'static ChildOf>,
     input_focus: Option<Res<'w, InputFocus>>,
     input_focus_visible: Option<Res<'w, InputFocusVisible>>,
 }
 
-impl IsFocused for IsFocusedHelper<'_, '_> {
+impl IsFocused for IsFocusedHelper<'_> {
     fn is_focused(&self, entity: Entity) -> bool {
         self.input_focus
             .as_deref()

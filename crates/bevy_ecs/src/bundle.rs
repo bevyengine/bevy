@@ -901,7 +901,7 @@ impl BundleInfo {
         };
         let result = if let Some(result) = archetype_after_remove_result {
             // This bundle removal result is cached. Just return that!
-            result.map(|id| ArchetypeIdState::old(id))
+            result.map(ArchetypeIdState::old)
         } else {
             let mut next_table_components;
             let mut next_sparse_set_components;
@@ -964,7 +964,7 @@ impl BundleInfo {
             Some(new_archetype_id)
         };
         let current_archetype = &mut archetypes[archetype_id];
-        let archetype_id_result = result.as_ref().map(|id| id.id());
+        let archetype_id_result = result.as_ref().map(ArchetypeIdState::id);
         // Cache the result in an edge.
         if intersection {
             current_archetype
