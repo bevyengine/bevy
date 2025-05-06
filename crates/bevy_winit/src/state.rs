@@ -608,28 +608,32 @@ impl<T: Event> WinitAppRunnerState<T> {
                     let mut create_window =
                         SystemState::<CreateWindowParams>::from_world(self.world_mut());
 
-                    let (
-                        ..,
-                        mut winit_windows,
-                        mut adapters,
-                        mut handlers,
-                        accessibility_requested,
-                        monitors,
-                    ) = create_window.get_mut(self.world_mut());
+                    let (.., mut handlers, accessibility_requested, monitors) =
+                        create_window.get_mut(self.world_mut());
 
-                    let winit_window = winit_windows.create_window(
-                        event_loop,
-                        entity,
-                        &window,
-                        &mut adapters,
-                        &mut handlers,
-                        &accessibility_requested,
-                        &monitors,
-                    );
+                    WINIT_WINDOWS.with_borrow(|ww_ref| {
+                        let winit_windows =
+                            ww_ref.as_mut().expect("Failed to initialize winit windows");
+                        ACCESS_KIT_ADAPTERS.with_borrow_mut(|aka_ref| {
+                            let adapters = aka_ref
+                                .as_mut()
+                                .expect("Failed to initialize access kit adapters");
 
-                    let wrapper = RawHandleWrapper::new(winit_window).unwrap();
+                            let winit_window = winit_windows.create_window(
+                                event_loop,
+                                entity,
+                                &window,
+                                adapters,
+                                &mut handlers,
+                                &accessibility_requested,
+                                &monitors,
+                            );
 
-                    self.world_mut().entity_mut(entity).insert(wrapper);
+                            let wrapper = RawHandleWrapper::new(winit_window).unwrap();
+
+                            self.world_mut().entity_mut(entity).insert(wrapper);
+                        });
+                    });
                 }
             }
         }
