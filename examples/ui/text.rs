@@ -4,7 +4,6 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
-    clipboard::*,
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
@@ -15,17 +14,7 @@ fn main() {
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup)
         .add_systems(Update, (text_update_system, text_color_system))
-        .add_systems(Startup, clipboard_test)
         .run();
-}
-
-fn clipboard_test(mut clipboard: ResMut<Clipboard>) {
-    let text = clipboard.get_text().unwrap();
-    info!("clipboard contents = {}", text);
-    info!("set clipboard text");
-    clipboard.set_text("Hello bevy!").unwrap();
-    let text = clipboard.get_text().unwrap();
-    info!("clipboard contents = {}", text);
 }
 
 // Marker struct to help identify the FPS UI component, since there may be many Text components
