@@ -859,7 +859,7 @@ impl RenderMeshInstanceShared {
         RenderMeshInstanceShared {
             mesh_asset_id: mesh.id(),
             flags: mesh_instance_flags,
-            // This also gets filled in later if using the gpu via during `RenderMeshGpuBuilder::update`.
+            // If `use_gpu_instance_buffer_builder` is enabled, this will be overridden during `RenderMeshInstanceGpuBuilder::update`.
             material_bindings_index,
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
