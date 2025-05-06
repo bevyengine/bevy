@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, Archetypes},
+    archetype::{Archetype, Archetypes, ComponentColumns},
     bundle::Bundle,
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
@@ -1102,7 +1102,10 @@ pub struct ReadFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
         // T::STORAGE_TYPE = StorageType::Table
-        Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+        (
+            Option<&'w ComponentColumns>,
+            Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+        ),
         // T::STORAGE_TYPE = StorageType::SparseSet
         Option<&'w ComponentSparseSet>,
     >,
