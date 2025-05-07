@@ -1988,10 +1988,7 @@ mod tests {
     }
 
     #[test]
-    // CAUTION: Due to https://github.com/bevyengine/bevy/issues/18267, the
-    // test is expected to fail. The `#[ignore] should be removed when the
-    // issue is fixed.
-    #[ignore]
+    #[ignore = "blocked on https://github.com/bevyengine/bevy/issues/11111"]
     fn same_asset_different_settings() {
         // Test loading the same asset twice with different settings. This should
         // produce two distinct assets.
