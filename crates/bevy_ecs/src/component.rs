@@ -1801,12 +1801,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 .debug_checked_unwrap()
         };
 
-        #[expect(
-            deprecated,
-            reason = "need to use this method until it is removed to ensure user defined components register hooks correctly"
-        )]
-        // TODO: Replace with `info.hooks.update_from_component::<T>();` once `Component::register_component_hooks` is removed
-        T::register_component_hooks(&mut info.hooks);
+        info.hooks.update_from_component::<T>();
 
         info.required_components = required_components;
     }
