@@ -15,7 +15,6 @@ use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::warn;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
     SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
