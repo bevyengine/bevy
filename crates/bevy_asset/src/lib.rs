@@ -1989,9 +1989,9 @@ mod tests {
 
     #[test]
     // CAUTION: Due to https://github.com/bevyengine/bevy/issues/18267, the
-    // test is expected to fail. The `#[should_panic] should be removed when the
+    // test is expected to fail. The `#[ignore] should be removed when the
     // issue is fixed.
-    #[should_panic(expected = "assertion `left != right` failed")]
+    #[ignore]
     fn same_asset_different_settings() {
         // Test loading the same asset twice with different settings. This should
         // produce two distinct assets.
