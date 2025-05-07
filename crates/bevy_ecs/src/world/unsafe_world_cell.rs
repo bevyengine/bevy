@@ -365,13 +365,19 @@ impl<'w> UnsafeWorldCell<'w> {
             .entities()
             .get(entity)
             .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
-        Ok(UnsafeEntityCell::new(self, entity, location))
+        Ok(UnsafeEntityCell::new(
+            self,
+            entity,
+            location,
+            self.last_change_tick(),
+            self.change_tick(),
+        ))
     }
 
     /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
     #[inline]
-    pub(crate) fn get_entity_with_ticks(
+    pub fn get_entity_with_ticks(
         self,
         entity: Entity,
         last_run: Tick,
@@ -381,7 +387,7 @@ impl<'w> UnsafeWorldCell<'w> {
             .entities()
             .get(entity)
             .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
-        Ok(UnsafeEntityCell::new_with_ticks(
+        Ok(UnsafeEntityCell::new(
             self, entity, location, last_run, this_run,
         ))
     }
@@ -721,21 +727,6 @@ pub struct UnsafeEntityCell<'w> {
 impl<'w> UnsafeEntityCell<'w> {
     #[inline]
     pub(crate) fn new(
-        world: UnsafeWorldCell<'w>,
-        entity: Entity,
-        location: EntityLocation,
-    ) -> Self {
-        UnsafeEntityCell {
-            world,
-            entity,
-            location,
-            last_run: world.last_change_tick(),
-            this_run: world.change_tick(),
-        }
-    }
-
-    #[inline]
-    pub(crate) fn new_with_ticks(
         world: UnsafeWorldCell<'w>,
         entity: Entity,
         location: EntityLocation,
