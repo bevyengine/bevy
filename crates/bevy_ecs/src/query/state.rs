@@ -787,7 +787,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
         // For transmuted queries, the dense-ness of the query is equal to the dense-ness of the original query.
         //
-        // We ensure soundness using `FiteredAccess::required`.
+        // We ensure soundness using `FilteredAccess::required`.
         //
         // Any `WorldQuery` implementations that rely on a query being sparse for soundness,
         // including `&`, `&mut`, `Ref`, and `Mut`, will add a sparse set component to the `required` set.
