@@ -58,13 +58,13 @@ pub use sinks::*;
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp};
 use bevy_ecs::prelude::*;
-use bevy_transform::TransformSystem;
+use bevy_transform::TransformSystems;
 
 use audio_output::*;
 
 /// Set for the audio playback systems, so they can share a run condition
 #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-struct AudioPlaySet;
+struct AudioPlaybackSystems;
 
 /// Adds support for audio playback to a Bevy Application
 ///
@@ -90,13 +90,13 @@ impl Plugin for AudioPlugin {
             .insert_resource(DefaultSpatialScale(self.default_spatial_scale))
             .configure_sets(
                 PostUpdate,
-                AudioPlaySet
+                AudioPlaybackSystems
                     .run_if(audio_output_available)
-                    .after(TransformSystem::TransformPropagate), // For spatial audio transforms
+                    .after(TransformSystems::Propagate), // For spatial audio transforms
             )
             .add_systems(
                 PostUpdate,
-                (update_emitter_positions, update_listener_positions).in_set(AudioPlaySet),
+                (update_emitter_positions, update_listener_positions).in_set(AudioPlaybackSystems),
             )
             .init_resource::<AudioOutput>();
 
@@ -118,7 +118,8 @@ impl AddAudioSource for App {
     {
         self.init_asset::<T>().add_systems(
             PostUpdate,
-            (play_queued_audio_system::<T>, cleanup_finished_audio::<T>).in_set(AudioPlaySet),
+            (play_queued_audio_system::<T>, cleanup_finished_audio::<T>)
+                .in_set(AudioPlaybackSystems),
         );
         self
     }

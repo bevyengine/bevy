@@ -1330,7 +1330,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 }
 
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
-pub struct NonSendMarker;
+pub struct NonSendMarker(PhantomData<*mut ()>);
 
 // SAFETY: No world access.
 unsafe impl SystemParam for NonSendMarker {
@@ -1349,7 +1349,7 @@ unsafe impl SystemParam for NonSendMarker {
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        Self
+        Self(PhantomData)
     }
 }
 
@@ -1803,6 +1803,112 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
 
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
 unsafe impl<T: ReadOnlySystemParam> ReadOnlySystemParam for Result<T, SystemParamValidationError> {}
+
+/// A [`SystemParam`] that wraps another parameter and causes its system to skip instead of failing when the parameter is invalid.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// // This system will fail if `SomeResource` is not present.
+/// fn fails_on_missing_resource(res: Res<SomeResource>) {}
+///
+/// // This system will skip without error if `SomeResource` is not present.
+/// fn skips_on_missing_resource(res: When<Res<SomeResource>>) {
+///     // The inner parameter is available using `Deref`
+///     let some_resource: &SomeResource = &res;
+/// }
+/// # bevy_ecs::system::assert_is_system(skips_on_missing_resource);
+/// ```
+#[derive(Debug)]
+pub struct When<T>(pub T);
+
+impl<T> When<T> {
+    /// Returns the inner `T`.
+    ///
+    /// The inner value is `pub`, so you can also obtain it by destructuring the parameter:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct SomeResource;
+    /// fn skips_on_missing_resource(When(res): When<Res<SomeResource>>) {
+    ///     let some_resource: Res<SomeResource> = res;
+    /// }
+    /// # bevy_ecs::system::assert_is_system(skips_on_missing_resource);
+    /// ```
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T> Deref for When<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for When<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+// SAFETY: Delegates to `T`, which ensures the safety requirements are met
+unsafe impl<T: SystemParam> SystemParam for When<T> {
+    type State = T::State;
+
+    type Item<'world, 'state> = When<T::Item<'world, 'state>>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        T::init_state(world, system_meta)
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        T::validate_param(state, system_meta, world).map_err(|mut e| {
+            e.skipped = true;
+            e
+        })
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        When(T::get_param(state, system_meta, world, change_tick))
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+        unsafe { T::new_archetype(state, archetype, system_meta) };
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        T::apply(state, system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        T::queue(state, system_meta, world);
+    }
+}
+
+// SAFETY: Delegates to `T`, which ensures the safety requirements are met
+unsafe impl<T: ReadOnlySystemParam> ReadOnlySystemParam for When<T> {}
 
 // SAFETY: When initialized with `init_state`, `get_param` returns an empty `Vec` and does no access.
 // Therefore, `init_state` trivially registers all access, and no accesses can conflict.
@@ -2587,11 +2693,12 @@ pub struct SystemParamValidationError {
     /// By default, this will result in a panic. See [`crate::error`] for more information.
     ///
     /// This is the default behavior, and is suitable for system params that should *always* be valid,
-    /// either because sensible fallback behavior exists (like [`Query`] or because
+    /// either because sensible fallback behavior exists (like [`Query`]) or because
     /// failures in validation should be considered a bug in the user's logic that must be immediately addressed (like [`Res`]).
     ///
     /// If `true`, the system should be skipped.
-    /// This is suitable for system params that are intended to only operate in certain application states, such as [`Single`].
+    /// This is set by wrapping the system param in [`When`],
+    /// and indicates that the system is intended to only operate in certain application states.
     pub skipped: bool,
 
     /// A message describing the validation error.

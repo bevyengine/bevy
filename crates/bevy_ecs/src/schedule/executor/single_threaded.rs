@@ -128,33 +128,16 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             let f = AssertUnwindSafe(|| {
-                if system.is_exclusive() {
-                    if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
-                        error_handler(
-                            err,
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
-                    }
-                } else {
-                    // Use run_unsafe to avoid immediately applying deferred buffers
-                    let world = world.as_unsafe_world_cell();
-                    system.update_archetype_component_access(world);
-                    // SAFETY: We have exclusive, single-threaded access to the world and
-                    // update_archetype_component_access is being called immediately before this.
-                    unsafe {
-                        if let Err(err) = __rust_begin_short_backtrace::run_unsafe(system, world) {
-                            error_handler(
-                                err,
-                                ErrorContext::System {
-                                    name: system.name(),
-                                    last_run: system.get_last_run(),
-                                },
-                            );
-                        }
-                    };
+                if let Err(err) =
+                    __rust_begin_short_backtrace::run_without_applying_deferred(system, world)
+                {
+                    error_handler(
+                        err,
+                        ErrorContext::System {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
+                    );
                 }
             });
 

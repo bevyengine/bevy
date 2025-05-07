@@ -7,7 +7,7 @@ use crate::{
     query::{QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
-        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
+        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam, When,
         SystemParamValidationError,
     },
     world::{
@@ -737,6 +737,19 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>>
         world: &mut World,
         meta: &mut SystemMeta,
     ) -> <Result<P, SystemParamValidationError> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`When`].
+#[derive(Clone)]
+pub struct WhenBuilder<T>(T);
+
+// SAFETY: `WhenBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `When<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<When<P>>
+    for WhenBuilder<B>
+{
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <When<P> as SystemParam>::State {
         self.0.build(world, meta)
     }
 }
