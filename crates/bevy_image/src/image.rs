@@ -850,7 +850,7 @@ impl Image {
     }
 
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
-    /// Does not properly resize the contents of the image, but only its internal `data` buffer.
+    /// Does not properly scale the contents of the image.
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
         if let Some(ref mut data) = self.data {
@@ -858,8 +858,6 @@ impl Image {
                 size.volume() * self.texture_descriptor.format.pixel_size(),
                 0,
             );
-        } else {
-            warn!("Resized an uninitialized image. Directly modify image.texture_descriptor.size instead");
         }
     }
 
