@@ -115,7 +115,27 @@ pub struct ViewPrepassTextures {
     pub size: Extent3d,
 }
 
-impl ViewPrepassTextures {}
+impl ViewPrepassTextures {
+    pub fn get_prepass_depth_texture(entity: Entity) -> String {
+        format!("prepass_depth_texture_{}", entity)
+    }
+
+    pub fn get_prepass_normal_texture(entity: Entity) -> String {
+        format!("prepass_normal_texture{}", entity)
+    }
+
+    pub fn get_prepass_motion_vectors_texture(entity: Entity) -> String {
+        format!("prepass_motion_vectors_texture{}", entity)
+    }
+
+    pub fn get_prepass_deferred_texture(entity: Entity) -> String {
+        format!("prepass_deferred_texture{}", entity)
+    }
+
+    pub fn get_deferred_lighting_pass_id_texture(entity: Entity) -> String {
+        format!("deferred_lighting_pass_id_texture{}", entity)
+    }
+}
 
 /// Opaque phase of the 3D prepass.
 ///

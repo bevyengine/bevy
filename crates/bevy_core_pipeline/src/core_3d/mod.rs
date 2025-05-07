@@ -70,6 +70,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
+use bevy_color::LinearRgba;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     experimental::occlusion_culling::OcclusionCulling,
@@ -80,6 +81,7 @@ use bevy_render::{
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
     render_resource::{Origin3d, TextureAspect},
+    texture::ColorAttachmentHandle,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
 pub use camera_3d::*;
@@ -120,13 +122,15 @@ use crate::{
     deferred::{
         copy_lighting_id::CopyDeferredLightingIdNode,
         node::{EarlyDeferredGBufferPrepassNode, LateDeferredGBufferPrepassNode},
-        AlphaMask3dDeferred, Opaque3dDeferred,
+        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
+        DEFERRED_PREPASS_FORMAT,
     },
     dof::DepthOfFieldNode,
     prepass::{
         node::{EarlyPrepassNode, LatePrepassNode},
         AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
         Opaque3dPrepass, OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
+        ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -779,6 +783,7 @@ pub fn prepare_core_3d_depth_textures(
         &Camera3d,
         &Msaa,
     )>,
+    mut framge_graph: ResMut<FrameGraph>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
     for (_, camera, extracted_view, depth_prepass, camera_3d, _msaa) in &views_3d {
@@ -827,6 +832,8 @@ pub fn prepare_core_3d_depth_textures(
             usage,
             view_formats: vec![],
         };
+
+        framge_graph.get_or_create(&key, texture_info.clone());
 
         commands.entity(entity).insert(ViewDepthTexture::new(
             texture_info,
@@ -988,14 +995,12 @@ pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<Defer
 
 // Prepares the textures used by the prepass
 pub fn prepare_prepass_textures(
-    mut _commands: Commands,
-    mut _texture_cache: ResMut<TextureCache>,
-    _render_device: Res<RenderDevice>,
-    _opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
-    _alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
-    _opaque_3d_deferred_phases: Res<ViewBinnedRenderPhases<Opaque3dDeferred>>,
-    _alpha_mask_3d_deferred_phases: Res<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    _views_3d: Query<(
+    mut commands: Commands,
+    opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
+    alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
+    opaque_3d_deferred_phases: Res<ViewBinnedRenderPhases<Opaque3dDeferred>>,
+    alpha_mask_3d_deferred_phases: Res<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
+    views_3d: Query<(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
@@ -1005,6 +1010,181 @@ pub fn prepare_prepass_textures(
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
     )>,
+    mut framge_graph: ResMut<FrameGraph>,
 ) {
-    //todo
+    let mut depth_textures = <HashMap<_, _>>::default();
+    let mut normal_textures = <HashMap<_, _>>::default();
+    let mut deferred_textures = <HashMap<_, _>>::default();
+    let mut deferred_lighting_id_textures = <HashMap<_, _>>::default();
+    let mut motion_vectors_textures = <HashMap<_, _>>::default();
+    for (
+        entity,
+        camera,
+        view,
+        msaa,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in &views_3d
+    {
+        if !opaque_3d_prepass_phases.contains_key(&view.retained_view_entity)
+            && !alpha_mask_3d_prepass_phases.contains_key(&view.retained_view_entity)
+            && !opaque_3d_deferred_phases.contains_key(&view.retained_view_entity)
+            && !alpha_mask_3d_deferred_phases.contains_key(&view.retained_view_entity)
+        {
+            commands.entity(entity).remove::<ViewPrepassTextures>();
+            continue;
+        };
+
+        let Some(physical_target_size) = camera.physical_target_size else {
+            continue;
+        };
+
+        let size = Extent3d {
+            depth_or_array_layers: 1,
+            width: physical_target_size.x,
+            height: physical_target_size.y,
+        };
+
+        let cached_depth_texture = depth_prepass.then(|| {
+            depth_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let texture_info = TextureInfo {
+                        label: Some("prepass_depth_texture".into()),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: msaa.samples(),
+                        dimension: TextureDimension::D2,
+                        format: CORE_3D_DEPTH_FORMAT,
+                        usage: TextureUsages::COPY_DST
+                            | TextureUsages::RENDER_ATTACHMENT
+                            | TextureUsages::TEXTURE_BINDING,
+                        view_formats: vec![],
+                    };
+
+                    let key = ViewPrepassTextures::get_prepass_depth_texture(entity);
+
+                    framge_graph.get_or_create(&key, texture_info.clone());
+
+                    (key, texture_info)
+                })
+                .clone()
+        });
+
+        let cached_normals_texture = normal_prepass.then(|| {
+            normal_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let texture_info = TextureInfo {
+                        label: Some("prepass_normal_texture".into()),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: msaa.samples(),
+                        dimension: TextureDimension::D2,
+                        format: NORMAL_PREPASS_FORMAT,
+                        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+
+                        view_formats: vec![],
+                    };
+
+                    let key = ViewPrepassTextures::get_prepass_normal_texture(entity);
+
+                    framge_graph.get_or_create(&key, texture_info.clone());
+
+                    (key, texture_info)
+                })
+                .clone()
+        });
+
+        let cached_motion_vectors_texture = motion_vector_prepass.then(|| {
+            motion_vectors_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let texture_info = TextureInfo {
+                        label: Some("prepass_motion_vectors_texture".into()),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: msaa.samples(),
+                        dimension: TextureDimension::D2,
+                        format: MOTION_VECTOR_PREPASS_FORMAT,
+                        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                        view_formats: vec![],
+                    };
+
+                    let key = ViewPrepassTextures::get_prepass_motion_vectors_texture(entity);
+
+                    framge_graph.get_or_create(&key, texture_info.clone());
+
+                    (key, texture_info)
+                })
+                .clone()
+        });
+
+        let cached_deferred_texture = deferred_prepass.then(|| {
+            deferred_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let texture_info = TextureInfo {
+                        label: Some("prepass_deferred_texture".into()),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: TextureDimension::D2,
+                        format: DEFERRED_PREPASS_FORMAT,
+                        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                        view_formats: vec![],
+                    };
+
+                    let key = ViewPrepassTextures::get_prepass_deferred_texture(entity);
+
+                    framge_graph.get_or_create(&key, texture_info.clone());
+
+                    (key, texture_info)
+                })
+                .clone()
+        });
+
+        let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
+            deferred_lighting_id_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let texture_info = TextureInfo {
+                        label: Some("deferred_lighting_pass_id_texture".into()),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: TextureDimension::D2,
+                        format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
+                        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                        view_formats: vec![],
+                    };
+
+                    let key = ViewPrepassTextures::get_deferred_lighting_pass_id_texture(entity);
+
+                    framge_graph.get_or_create(&key, texture_info.clone());
+
+                    (key, texture_info)
+                })
+                .clone()
+        });
+
+        commands.entity(entity).insert(ViewPrepassTextures {
+            depth: cached_depth_texture
+                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+            normal: cached_normals_texture
+                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+            // Red and Green channels are X and Y components of the motion vectors
+            // Blue channel doesn't matter, but set to 0.0 for possible faster clear
+            // https://gpuopen.com/performance/#clears
+            motion_vectors: cached_motion_vectors_texture
+                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+            deferred: cached_deferred_texture
+                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+            deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
+                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+            size,
+        });
+    }
 }
