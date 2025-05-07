@@ -1123,26 +1123,38 @@ impl<'w> EntityWorldMut<'w> {
 
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
         self.assert_not_despawned();
+        let last_change_tick = self.world.last_change_tick;
+        let change_tick = self.world.read_change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
             self.location,
+            last_change_tick,
+            change_tick,
         )
     }
     fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         self.assert_not_despawned();
+        let last_change_tick = self.world.last_change_tick;
+        let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
             self.location,
+            last_change_tick,
+            change_tick,
         )
     }
     fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
         self.assert_not_despawned();
+        let last_change_tick = self.world.last_change_tick;
+        let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
             self.location,
+            last_change_tick,
+            change_tick,
         )
     }
 
@@ -2338,15 +2350,6 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn despawn(self) {
         self.despawn_with_caller(MaybeLocation::caller());
-    }
-
-    /// Despawns the provided entity and its descendants.
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use entity.despawn(), which now automatically despawns recursively."
-    )]
-    pub fn despawn_recursive(self) {
-        self.despawn();
     }
 
     pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {

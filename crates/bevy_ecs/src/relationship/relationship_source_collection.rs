@@ -709,7 +709,7 @@ mod tests {
         let collection = rel_target.collection();
 
         // Insertions should maintain ordering
-        assert!(collection.iter().eq(&[b, c, d]));
+        assert!(collection.iter().eq(&[d, c, b]));
 
         world.entity_mut(c).despawn();
 
@@ -717,7 +717,7 @@ mod tests {
         let collection = rel_target.collection();
 
         // Removals should maintain ordering
-        assert!(collection.iter().eq(&[b, d]));
+        assert!(collection.iter().eq(&[d, b]));
     }
 
     #[test]
