@@ -3,7 +3,7 @@ use crate::{
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
-    storage::{ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, Table, TableRow, TablesComponentMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -93,7 +93,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
     ///
-    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
+    /// Implementers of this method will generally either have a trivial `true` body (required for archetypal filters),
     /// or access the necessary data within this function to make the final decision on filter inclusion.
     ///
     /// # Safety
@@ -683,7 +683,10 @@ pub struct AddedFetch<'w, T: Component> {
     ticks: StorageSwitch<
         T,
         // T::STORAGE_TYPE = StorageType::Table
-        Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+        (
+            Option<&'w TablesComponentMeta>,
+            Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+        ),
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
@@ -724,7 +727,15 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             ticks: StorageSwitch::new(
-                || None,
+                || {
+                    let tables = &world.storages().tables;
+                    (
+                        tables
+                            .get_tables_component_id(id)
+                            .map(|id| tables.get_component_storage_meta(id).debug_checked_unwrap()),
+                        None,
+                    )
+                },
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
@@ -763,17 +774,18 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut Self::Fetch<'w>,
-        &component_id: &ComponentId,
+        _component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let table_ticks = Some(
-            table
-                .get_added_ticks_slice_for(component_id)
-                .debug_checked_unwrap()
-                .into(),
-        );
+        let column = fetch
+            .ticks
+            .table
+            .0
+            // SAFETY: If this table didn't have this component, this would not be being called.
+            .map(|meta| meta.column_in(table.id()).debug_checked_unwrap());
+        let table_ticks = column.map(|column| table.get_added_ticks_slice_for(column).into());
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.ticks.set_table(table_ticks) };
+        fetch.ticks.table.1 = table_ticks;
     }
 
     #[inline]
@@ -812,8 +824,8 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
         // SAFETY: The invariants are upheld by the caller.
         fetch.ticks.extract(
             |table| {
-                // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                // SAFETY: set_table was previously called and this entity must have this component, so it must not be none.
+                let table = unsafe { table.1.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get(table_row.as_usize()) };
 
@@ -911,7 +923,10 @@ pub struct Changed<T>(PhantomData<T>);
 pub struct ChangedFetch<'w, T: Component> {
     ticks: StorageSwitch<
         T,
-        Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+        (
+            Option<&'w TablesComponentMeta>,
+            Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+        ),
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
@@ -951,7 +966,15 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
             ticks: StorageSwitch::new(
-                || None,
+                || {
+                    let tables = &world.storages().tables;
+                    (
+                        tables
+                            .get_tables_component_id(id)
+                            .map(|id| tables.get_component_storage_meta(id).debug_checked_unwrap()),
+                        None,
+                    )
+                },
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
@@ -990,17 +1013,18 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut Self::Fetch<'w>,
-        &component_id: &ComponentId,
+        _component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let table_ticks = Some(
-            table
-                .get_changed_ticks_slice_for(component_id)
-                .debug_checked_unwrap()
-                .into(),
-        );
+        let column = fetch
+            .ticks
+            .table
+            .0
+            // SAFETY: If this table didn't have this component, this would not be being called.
+            .map(|meta| meta.column_in(table.id()).debug_checked_unwrap());
+        let table_ticks = column.map(|column| table.get_changed_ticks_slice_for(column).into());
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.ticks.set_table(table_ticks) };
+        fetch.ticks.table.1 = table_ticks;
     }
 
     #[inline]
@@ -1040,8 +1064,8 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
         // SAFETY: The invariants are upheld by the caller.
         fetch.ticks.extract(
             |table| {
-                // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                // SAFETY: set_table was previously called and this entity must have this component, so it must not be none.
+                let table = unsafe { table.1.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get(table_row.as_usize()) };
 

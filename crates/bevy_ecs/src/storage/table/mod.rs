@@ -136,6 +136,28 @@ impl TableRow {
     }
 }
 
+/// An opaque id for components in [`Table`]s. Specifies a single column in a specific table.
+/// Think of this as a more localized [`ComponentId`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TableColumnId(u32);
+
+impl TableColumnId {
+    pub(crate) const INVALID: TableColumnId = TableColumnId(u32::MAX);
+
+    /// Gets the index of the row as a [`usize`].
+    #[inline]
+    pub const fn as_usize(self) -> usize {
+        // usize is at least u32 in Bevy
+        self.0 as usize
+    }
+
+    /// Gets the index of the row as a [`usize`].
+    #[inline]
+    pub const fn as_u32(self) -> u32 {
+        self.0
+    }
+}
+
 /// A builder type for constructing [`Table`]s.
 ///
 ///  - Use [`with_capacity`] to initialize the builder.
@@ -146,7 +168,8 @@ impl TableRow {
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, ThinColumn>,
+    data: Vec<ThinColumn>,
+    columns: SparseSet<ComponentId, TableColumnId>,
     capacity: usize,
 }
 
@@ -156,25 +179,28 @@ impl TableBuilder {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
             capacity,
+            data: Vec::with_capacity(column_capacity),
         }
     }
 
     /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
     #[must_use]
-    pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        self.columns.insert(
-            component_info.id(),
-            ThinColumn::with_capacity(component_info, self.capacity),
-        );
-        self
+    pub fn add_column(&mut self, component_info: &ComponentInfo) -> TableColumnId {
+        let column_id = TableColumnId(self.data.len() as u32);
+        self.data
+            .push(ThinColumn::with_capacity(component_info, self.capacity));
+        self.columns.insert(component_info.id(), column_id);
+        column_id
     }
 
     /// Build the [`Table`], after this operation the caller wouldn't be able to add more columns. The [`Table`] will be ready to use.
     #[must_use]
-    pub fn build(self) -> Table {
+    pub fn build(self, id: TableId) -> Table {
         Table {
             columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
+            data: self.data.into_boxed_slice(),
+            id,
         }
     }
 }
@@ -192,8 +218,10 @@ impl TableBuilder {
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, ThinColumn>,
+    data: Box<[ThinColumn]>,
+    columns: ImmutableSparseSet<ComponentId, TableColumnId>,
     entities: Vec<Entity>,
+    id: TableId,
 }
 
 struct AbortOnPanic;
@@ -219,6 +247,12 @@ impl Table {
         self.entities.capacity()
     }
 
+    /// Get the id of this table.
+    #[inline]
+    pub fn id(&self) -> TableId {
+        self.id
+    }
+
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
     /// entity was swapped in)
     ///
@@ -230,7 +264,7 @@ impl Table {
         if row.as_usize() != last_element_index {
             // Instead of checking this condition on every `swap_remove` call, we
             // check it here and use `swap_remove_nonoverlapping`.
-            for col in self.columns.values_mut() {
+            for col in self.data.iter_mut() {
                 // SAFETY:
                 // - `row` < `len`
                 // - `last_element_index` = `len` - 1
@@ -243,7 +277,7 @@ impl Table {
         } else {
             // If `row.as_usize()` == `last_element_index` than there's no point in removing the component
             // at `row`, but we still need to drop it.
-            for col in self.columns.values_mut() {
+            for col in self.data.iter_mut() {
                 col.drop_last_component(last_element_index);
             }
         }
@@ -274,6 +308,8 @@ impl Table {
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
+            // SAFETY: The map is immutable so it must be correct.
+            let column = unsafe { self.data.get_unchecked_mut(column.as_usize()) };
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
@@ -307,6 +343,8 @@ impl Table {
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
+            // SAFETY: The map is immutable so it must be correct.
+            let column = unsafe { self.data.get_unchecked_mut(column.as_usize()) };
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
             } else {
@@ -340,6 +378,8 @@ impl Table {
         let is_last = row.as_usize() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
+            // SAFETY: The map is immutable so it must be correct.
+            let column = unsafe { self.data.get_unchecked_mut(column.as_usize()) };
             new_table
                 .get_column_mut(*component_id)
                 .debug_checked_unwrap()
@@ -358,34 +398,31 @@ impl Table {
     /// Get the data of the column matching `component_id` as a slice.
     ///
     /// # Safety
-    /// `row.as_usize()` < `self.len()`
-    /// - `T` must match the `component_id`
-    pub unsafe fn get_data_slice_for<T>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<T>]> {
-        self.get_column(component_id)
-            .map(|col| col.get_data_slice(self.entity_count()))
+    /// - `T` must match the `TableColumnId`
+    /// - The column must be for this table.
+    pub unsafe fn get_data_slice_for<T>(&self, column: TableColumnId) -> &[UnsafeCell<T>] {
+        self.get_column_by_id(column)
+            .get_data_slice(self.entity_count())
     }
 
     /// Get the added ticks of the column matching `component_id` as a slice.
-    pub fn get_added_ticks_slice_for(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<Tick>]> {
-        self.get_column(component_id)
-            // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_added_ticks_slice(self.entity_count()) })
+    ///
+    /// # Safety
+    /// - The column must be for this table.
+    pub unsafe fn get_added_ticks_slice_for(&self, column: TableColumnId) -> &[UnsafeCell<Tick>] {
+        let column = self.get_column_by_id(column);
+        // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
+        unsafe { column.get_added_ticks_slice(self.entity_count()) }
     }
 
     /// Get the changed ticks of the column matching `component_id` as a slice.
-    pub fn get_changed_ticks_slice_for(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<Tick>]> {
-        self.get_column(component_id)
-            // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_changed_ticks_slice(self.entity_count()) })
+    ///
+    /// # Safety
+    /// - The column must be for this table.
+    pub unsafe fn get_changed_ticks_slice_for(&self, column: TableColumnId) -> &[UnsafeCell<Tick>] {
+        let column = self.get_column_by_id(column);
+        // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
+        unsafe { column.get_changed_ticks_slice(self.entity_count()) }
     }
 
     /// Fetches the calling locations that last changed the each component
@@ -473,7 +510,8 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn get_column(&self, component_id: ComponentId) -> Option<&ThinColumn> {
-        self.columns.get(component_id)
+        // SAFETY: The column id is from this table.
+        unsafe { Some(self.get_column_by_id(self.get_column_id(component_id)?)) }
     }
 
     /// Fetches a mutable reference to the [`ThinColumn`] for a given [`Component`] within the
@@ -484,7 +522,40 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
-        self.columns.get_mut(component_id)
+        // SAFETY: The column id is from this table.
+        unsafe { Some(self.get_column_mut_by_id(self.get_column_id(component_id)?)) }
+    }
+
+    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`](crate::component::Component) within the table.
+    ///
+    /// # Safety
+    ///
+    /// The `column` must be for *this* table.
+    #[inline]
+    pub(crate) unsafe fn get_column_by_id(&self, column: TableColumnId) -> &ThinColumn {
+        // SAFETY: The column map is immutable and the key came from this table.
+        unsafe { self.data.get_unchecked(column.as_usize()) }
+    }
+
+    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`TableColumnId`] within the table.
+    ///
+    /// # Safety
+    ///
+    /// The `column` must be for *this* table.
+    #[inline]
+    pub(crate) unsafe fn get_column_mut_by_id(&mut self, column: TableColumnId) -> &mut ThinColumn {
+        // SAFETY: The column map is immutable and the key came from this table.
+        unsafe { self.data.get_unchecked_mut(column.as_usize()) }
+    }
+
+    /// Fetches [`TableColumnId`] for a given [`Component`] within the table.
+    ///
+    /// Returns `None` if the corresponding component does not belong to the table.
+    ///
+    /// [`Component`]: crate::component::Component
+    #[inline]
+    pub(crate) fn get_column_id(&self, component_id: ComponentId) -> Option<TableColumnId> {
+        self.columns.get(component_id).copied()
     }
 
     /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
@@ -530,7 +601,7 @@ impl Table {
         // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
         // called, and abort the program.
         let _guard = AbortOnPanic;
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             col.alloc(new_capacity);
         }
         core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
@@ -554,7 +625,7 @@ impl Table {
         // - There's no overflow
         // - `current_capacity` is indeed the capacity - safety requirement
         // - current capacity > 0
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             col.realloc(current_column_capacity, new_capacity);
         }
         core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
@@ -568,7 +639,7 @@ impl Table {
         self.reserve(1);
         let len = self.entity_count();
         self.entities.push(entity);
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             col.added_ticks
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             col.changed_ticks
@@ -619,7 +690,7 @@ impl Table {
     /// Call [`Tick::check_tick`] on all of the ticks in the [`Table`]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         let len = self.entity_count();
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             // SAFETY: `len` is the actual length of the column
             unsafe { col.check_change_ticks(len, change_tick) };
         }
@@ -627,7 +698,7 @@ impl Table {
 
     /// Iterates over the [`ThinColumn`]s of the [`Table`].
     pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn> {
-        self.columns.values()
+        self.data.iter()
     }
 
     /// Clears all of the stored components in the [`Table`].
@@ -635,7 +706,7 @@ impl Table {
         let len = self.entity_count();
         // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
         self.entities.clear();
-        for column in self.columns.values_mut() {
+        for column in self.data.iter_mut() {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
             // so `self.len()` should match the columns' len
             unsafe { column.clear(len) };
@@ -678,20 +749,45 @@ impl Table {
     }
 }
 
+/// Stores information about a component with table storage.
+pub struct TablesComponentMeta {
+    /// Maps [`TableId`]s to [`TableColumnId`]s (or invalid).
+    columns: Vec<TableColumnId>,
+}
+
+impl TablesComponentMeta {
+    /// Returns this component's column in this table, if it exists.
+    pub fn column_in(&self, table: TableId) -> Option<TableColumnId> {
+        self.columns
+            .get(table.0 as usize)
+            .and_then(|column| (*column != TableColumnId::INVALID).then_some(*column))
+    }
+}
+
+/// Identifies a [`ComponentId`] that has table storage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TablesComponentId(usize);
+
 /// A collection of [`Table`] storages, indexed by [`TableId`]
 ///
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
     table_ids: HashMap<Box<[ComponentId]>, TableId>,
+    /// Maps [`TablesComponentId`]s to [`TablesComponentMeta`]s.
+    component_meta: Vec<TablesComponentMeta>,
+    // SAFETY: These [`TablesComponentId`]s must be valid indices into [`component_meta`](Self::component_meta).
+    components: HashMap<ComponentId, TablesComponentId>,
 }
 
 impl Default for Tables {
     fn default() -> Self {
-        let empty_table = TableBuilder::with_capacity(0, 0).build();
+        let empty_table = TableBuilder::with_capacity(0, 0).build(TableId::empty());
         Tables {
             tables: vec![empty_table],
             table_ids: HashMap::default(),
+            component_meta: Vec::new(),
+            components: HashMap::new(),
         }
     }
 }
@@ -752,21 +848,74 @@ impl Tables {
             return TableId::empty();
         }
 
-        let tables = &mut self.tables;
-        let (_key, value) = self
-            .table_ids
+        let Self {
+            tables,
+            table_ids,
+            component_meta,
+            components: tables_components,
+        } = self;
+
+        let (_key, value) = table_ids
             .raw_entry_mut()
             .from_key(component_ids)
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
+                let id = TableId::from_usize(tables.len());
                 for component_id in component_ids {
-                    table = table.add_column(components.get_info_unchecked(*component_id));
+                    let column_id = table.add_column(components.get_info_unchecked(*component_id));
+                    Self::set_component_column(
+                        component_meta,
+                        tables_components,
+                        *component_id,
+                        id,
+                        column_id,
+                    );
                 }
-                tables.push(table.build());
-                (component_ids.into(), TableId::from_usize(tables.len() - 1))
+                tables.push(table.build(id));
+                (component_ids.into(), id)
             });
 
         *value
+    }
+
+    fn set_component_column(
+        component_meta: &mut Vec<TablesComponentMeta>,
+        components: &mut HashMap<ComponentId, TablesComponentId>,
+        component: ComponentId,
+        table: TableId,
+        column: TableColumnId,
+    ) {
+        let id = *components.entry(component).or_insert_with(|| {
+            let id = TablesComponentId(component_meta.len());
+            component_meta.push(TablesComponentMeta {
+                columns: Vec::new(),
+            });
+            id
+        });
+        // SAFETY: The id must be a valid index.
+        let meta = unsafe { component_meta.get_mut(id.0).debug_checked_unwrap() };
+        meta.columns.resize(
+            meta.columns.len().max(table.as_usize() + 1),
+            TableColumnId::INVALID,
+        );
+        // SAFETY: We just ensured the index is valid
+        unsafe {
+            *meta.columns.get_unchecked_mut(table.as_usize()) = column;
+        }
+    }
+
+    /// Gets the [`TablesComponentId`] for this component if it has been in any table.
+    pub fn get_tables_component_id(&self, component: ComponentId) -> Option<TablesComponentId> {
+        self.components.get(&component).copied()
+    }
+
+    /// Gets the [`TablesComponentMeta`] for this component if the id is for this [`Tables`].
+    /// These are never removed and do not correspond to any component data access.
+    pub fn get_component_storage_meta(
+        &self,
+        component: TablesComponentId,
+    ) -> Option<&TablesComponentMeta> {
+        self.component_meta.get(component.0)
     }
 
     /// Iterates through all of the tables stored within in [`TableId`] order.
@@ -809,7 +958,7 @@ impl Drop for Table {
         let len = self.entity_count();
         let cap = self.capacity();
         self.entities.clear();
-        for col in self.columns.values_mut() {
+        for col in self.data.iter_mut() {
             // SAFETY: `cap` and `len` are correct
             unsafe {
                 col.drop(cap, len);
@@ -853,9 +1002,9 @@ mod tests {
             unsafe { ComponentsRegistrator::new(&mut components, &mut componentids) };
         let component_id = registrator.register_component::<W<TableRow>>();
         let columns = &[component_id];
-        let mut table = TableBuilder::with_capacity(0, columns.len())
-            .add_column(components.get_info(component_id).unwrap())
-            .build();
+        let mut table_builder = TableBuilder::with_capacity(0, columns.len());
+        let _column_id = table_builder.add_column(components.get_info(component_id).unwrap());
+        let mut table = table_builder.build(TableId::from_u32(0));
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards
