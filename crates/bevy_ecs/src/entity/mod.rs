@@ -191,8 +191,6 @@ impl SparseSetIndex for EntityRow {
 pub struct EntityGeneration(u32);
 
 impl EntityGeneration {
-    const PLACEHOLDER: Self = Self(u32::MAX);
-
     /// Represents the first generation of an [`EntityRow`].
     pub const FRESH: Self = Self(0);
 
