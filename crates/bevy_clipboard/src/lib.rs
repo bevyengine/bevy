@@ -16,9 +16,8 @@ impl bevy_app::Plugin for ClipboardPlugin {
 
 #[cfg(windows)]
 mod clipboard {
-    use bevy_ecs::resource::Resource;
-
     use crate::ClipboardError;
+    use bevy_ecs::resource::Resource;
 
     /// Resource providing access to the clipboard
     #[derive(Resource, Default)]
