@@ -26,7 +26,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};

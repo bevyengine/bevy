@@ -9,7 +9,7 @@ use bevy_render::{
         Buffer, BufferDescriptor, BufferUsages, PipelineCache, Shader, SpecializedComputePipelines,
     },
     renderer::RenderDevice,
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
 mod buffers;
@@ -72,8 +72,8 @@ impl Plugin for AutoExposurePlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_buffers.in_set(RenderSet::Prepare),
-                    queue_view_auto_exposure_pipelines.in_set(RenderSet::Queue),
+                    prepare_buffers.in_set(RenderSystems::Prepare),
+                    queue_view_auto_exposure_pipelines.in_set(RenderSystems::Queue),
                 ),
             )
             .add_render_graph_node::<AutoExposureNode>(Core3d, node::AutoExposure)

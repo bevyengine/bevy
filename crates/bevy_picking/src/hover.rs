@@ -16,7 +16,7 @@ use crate::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 
 type DepthSortedHits = Vec<(Entity, HitData)>;
@@ -131,9 +131,7 @@ fn build_over_map(
         .filter(|e| !cancelled_pointers.contains(&e.pointer))
     {
         let pointer = entities_under_pointer.pointer;
-        let layer_map = pointer_over_map
-            .entry(pointer)
-            .or_insert_with(BTreeMap::new);
+        let layer_map = pointer_over_map.entry(pointer).or_default();
         for (entity, pick_data) in entities_under_pointer.picks.iter() {
             let layer = entities_under_pointer.order;
             let hits = layer_map.entry(FloatOrd(layer)).or_default();

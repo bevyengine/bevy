@@ -205,7 +205,7 @@ impl<'w, D: ReadOnlyQueryData, S: QueryStateDeref<Data = D>, E: EntityEquivalent
     /// use bevy_utils::Parallel;
     /// use crate::{bevy_ecs::prelude::{Component, Res, Resource, Entity}, bevy_ecs::system::Query};
     /// # use core::slice;
-    /// use bevy_platform_support::prelude::Vec;
+    /// use bevy_platform::prelude::Vec;
     /// # fn some_expensive_operation(_item: &T) -> usize {
     /// #     0
     /// # }

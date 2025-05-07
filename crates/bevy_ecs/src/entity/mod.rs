@@ -83,7 +83,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform::sync::atomic::Ordering;
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -91,7 +91,7 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_has_atomic = "64")]
-use bevy_platform_support::sync::atomic::AtomicI64 as AtomicIdCursor;
+use bevy_platform::sync::atomic::AtomicI64 as AtomicIdCursor;
 #[cfg(target_has_atomic = "64")]
 type IdCursor = i64;
 
@@ -99,7 +99,7 @@ type IdCursor = i64;
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
 #[cfg(not(target_has_atomic = "64"))]
-use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
+use bevy_platform::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
 
@@ -241,16 +241,6 @@ impl Hash for Entity {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.to_bits().hash(state);
     }
-}
-
-#[deprecated(
-    since = "0.16.0",
-    note = "This is exclusively used with the now deprecated `Entities::alloc_at_without_replacement`."
-)]
-pub(crate) enum AllocAtWithoutReplacement {
-    Exists(EntityLocation),
-    DidNotExist,
-    ExistsWithWrongGeneration,
 }
 
 impl Entity {
@@ -688,87 +678,6 @@ impl Entities {
             self.meta.push(EntityMeta::EMPTY);
             Entity::from_raw(index)
         }
-    }
-
-    /// Allocate a specific entity ID, overwriting its generation.
-    ///
-    /// Returns the location of the entity currently using the given ID, if any. Location should be
-    /// written immediately.
-    #[deprecated(
-        since = "0.16.0",
-        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
-    )]
-    pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
-
-        let loc = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            None
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            None
-        } else {
-            Some(mem::replace(
-                &mut self.meta[entity.index() as usize].location,
-                EntityMeta::EMPTY.location,
-            ))
-        };
-
-        self.meta[entity.index() as usize].generation = entity.generation;
-
-        loc
-    }
-
-    /// Allocate a specific entity ID, overwriting its generation.
-    ///
-    /// Returns the location of the entity currently using the given ID, if any.
-    #[deprecated(
-        since = "0.16.0",
-        note = "This can cause extreme performance problems when used after freeing a large number of entities and requesting an arbitrary entity. See #18054 on GitHub."
-    )]
-    #[expect(
-        deprecated,
-        reason = "We need to support `AllocAtWithoutReplacement` for now."
-    )]
-    pub(crate) fn alloc_at_without_replacement(
-        &mut self,
-        entity: Entity,
-    ) -> AllocAtWithoutReplacement {
-        self.verify_flushed();
-
-        let result = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
-            AllocAtWithoutReplacement::DidNotExist
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            AllocAtWithoutReplacement::DidNotExist
-        } else {
-            let current_meta = &self.meta[entity.index() as usize];
-            if current_meta.location.archetype_id == ArchetypeId::INVALID {
-                AllocAtWithoutReplacement::DidNotExist
-            } else if current_meta.generation == entity.generation {
-                AllocAtWithoutReplacement::Exists(current_meta.location)
-            } else {
-                return AllocAtWithoutReplacement::ExistsWithWrongGeneration;
-            }
-        };
-
-        self.meta[entity.index() as usize].generation = entity.generation;
-        result
     }
 
     /// Destroy an entity, allowing it to be reused.

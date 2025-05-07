@@ -10,10 +10,10 @@
 //!
 //! To draw an entity, a corresponding [`PhaseItem`] has to be added to one or multiple of these
 //! render phases for each view that it is visible in.
-//! This must be done in the [`RenderSet::Queue`].
-//! After that the render phase sorts them in the [`RenderSet::PhaseSort`].
+//! This must be done in the [`RenderSystems::Queue`].
+//! After that the render phase sorts them in the [`RenderSystems::PhaseSort`].
 //! Finally the items are rendered using a single [`TrackedRenderPass`], during
-//! the [`RenderSet::Render`].
+//! the [`RenderSystems::Render`].
 //!
 //! Therefore each phase item is assigned a [`Draw`] function.
 //! These set up the state of the [`TrackedRenderPass`] (i.e. select the
@@ -32,7 +32,7 @@ use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::entity::EntityHash;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;
 pub use draw::*;
 pub use draw_state::*;
@@ -59,7 +59,7 @@ use crate::{
         GetFullBatchData,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_ecs::{
     prelude::*,
@@ -67,6 +67,7 @@ use bevy_ecs::{
 };
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
+use tracing::warn;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.
@@ -853,6 +854,10 @@ where
             .set_range(self.cached_entity_bin_keys.len().., true);
 
         self.entities_that_changed_bins.clear();
+
+        for unbatchable_bin in self.unbatchable_meshes.values_mut() {
+            unbatchable_bin.buffer_indices.clear();
+        }
     }
 
     /// Checks to see whether the entity is in a bin and returns true if it's
@@ -1129,7 +1134,7 @@ where
             .add_systems(
                 Render,
                 (
-                    batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
+                    batching::sort_binned_render_phase::<BPI>.in_set(RenderSystems::PhaseSort),
                     (
                         no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
                             .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
@@ -1140,15 +1145,15 @@ where
                                 >,
                             ),
                     )
-                        .in_set(RenderSet::PrepareResources),
-                    sweep_old_entities::<BPI>.in_set(RenderSet::QueueSweep),
+                        .in_set(RenderSystems::PrepareResources),
+                    sweep_old_entities::<BPI>.in_set(RenderSystems::QueueSweep),
                     gpu_preprocessing::collect_buffers_for_phase::<BPI, GFBD>
                         .run_if(
                             resource_exists::<
                                 BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
                             >,
                         )
-                        .in_set(RenderSet::PrepareResourcesCollectPhaseBuffers),
+                        .in_set(RenderSystems::PrepareResourcesCollectPhaseBuffers),
                 ),
             );
     }
@@ -1245,14 +1250,14 @@ where
                                 >,
                             ),
                     )
-                        .in_set(RenderSet::PrepareResources),
+                        .in_set(RenderSystems::PrepareResources),
                     gpu_preprocessing::collect_buffers_for_phase::<SPI, GFBD>
                         .run_if(
                             resource_exists::<
                                 BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
                             >,
                         )
-                        .in_set(RenderSet::PrepareResourcesCollectPhaseBuffers),
+                        .in_set(RenderSystems::PrepareResourcesCollectPhaseBuffers),
                 ),
             );
     }
@@ -1325,6 +1330,10 @@ impl UnbatchableBinnedEntityIndexSet {
                 // but let's go ahead and do the sensible thing anyhow: demote
                 // the compressed `NoDynamicOffsets` field to the full
                 // `DynamicOffsets` array.
+                warn!(
+                    "Unbatchable binned entity index set was demoted from sparse to dense. \
+                    This is a bug in the renderer. Please report it.",
+                );
                 let new_dynamic_offsets = (0..instance_range.len() as u32)
                     .flat_map(|entity_index| self.indices_for_entity_index(entity_index))
                     .chain(iter::once(indices))
@@ -1335,6 +1344,17 @@ impl UnbatchableBinnedEntityIndexSet {
             UnbatchableBinnedEntityIndexSet::Dense(dense_indices) => {
                 dense_indices.push(indices);
             }
+        }
+    }
+
+    /// Clears the unbatchable binned entity index set.
+    fn clear(&mut self) {
+        match self {
+            UnbatchableBinnedEntityIndexSet::Dense(dense_indices) => dense_indices.clear(),
+            UnbatchableBinnedEntityIndexSet::Sparse { .. } => {
+                *self = UnbatchableBinnedEntityIndexSet::NoEntities;
+            }
+            _ => {}
         }
     }
 }
@@ -1445,10 +1465,10 @@ where
 ///
 /// The data required for rendering an entity is extracted from the main world in the
 /// [`ExtractSchedule`](crate::ExtractSchedule).
-/// Then it has to be queued up for rendering during the [`RenderSet::Queue`],
+/// Then it has to be queued up for rendering during the [`RenderSystems::Queue`],
 /// by adding a corresponding phase item to a render phase.
 /// Afterwards it will be possibly sorted and rendered automatically in the
-/// [`RenderSet::PhaseSort`] and [`RenderSet::Render`], respectively.
+/// [`RenderSystems::PhaseSort`] and [`RenderSystems::Render`], respectively.
 ///
 /// `PhaseItem`s come in two flavors: [`BinnedPhaseItem`]s and
 /// [`SortedPhaseItem`]s.

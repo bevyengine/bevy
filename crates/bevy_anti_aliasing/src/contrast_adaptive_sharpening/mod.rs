@@ -18,7 +18,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 mod node;
@@ -121,7 +121,7 @@ impl Plugin for CasPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<CasPipeline>>()
-            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
+            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare));
 
         {
             render_app
