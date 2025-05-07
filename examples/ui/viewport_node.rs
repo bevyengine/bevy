@@ -2,11 +2,12 @@
 //! pick entities visible in the widget's view.
 
 use bevy::{
+    asset::RenderAssetUsages,
     picking::pointer::PointerInteraction,
     prelude::*,
     render::{
         camera::RenderTarget,
-        render_resource::{TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
+        render_resource::{TextureDimension, TextureFormat, TextureUsages},
     },
     ui::widget::ViewportNode,
 };
@@ -34,22 +35,14 @@ fn test(
 
     // Set up an texture for the 3D camera to render to.
     // The size of the texture will be based on the viewport's ui size.
-    let image = Image {
-        data: None,
-        texture_descriptor: TextureDescriptor {
-            label: None,
-            size: default(),
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
-            mip_level_count: 1,
-            sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        },
-        ..default()
-    };
+    let mut image = Image::new_uninit(
+        default(),
+        TextureDimension::D2,
+        TextureFormat::Bgra8UnormSrgb,
+        RenderAssetUsages::all(),
+    );
+    image.texture_descriptor.usage =
+        TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
     let image_handle = images.add(image);
 
     // Spawn the 3D camera
