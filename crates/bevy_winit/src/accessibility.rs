@@ -2,6 +2,7 @@
 
 use alloc::{collections::VecDeque, sync::Arc};
 use bevy_input_focus::InputFocus;
+use core::cell::RefCell;
 use std::sync::Mutex;
 use winit::event_loop::ActiveEventLoop;
 
@@ -16,12 +17,25 @@ use bevy_a11y::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_ecs::{entity::EntityHashMap, prelude::*, system::NonSendMarker};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
+
+thread_local! {
+    /// Temporary storage of access kit adapter data to replace usage of `!Send` resources. This will be replaced with proper
+    /// storage of `!Send` data after issue #17667 is complete.
+    pub static ACCESS_KIT_ADAPTERS: RefCell<AccessKitAdapters> = const { RefCell::new(AccessKitAdapters::new()) };
+}
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
+
+impl AccessKitAdapters {
+    /// Creates a new empty `AccessKitAdapters`.
+    pub const fn new() -> Self {
+        Self(EntityHashMap::new())
+    }
+}
 
 /// Maps window entities to their respective [`ActionRequest`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
@@ -144,14 +158,16 @@ pub(crate) fn prepare_accessibility_for_window(
 }
 
 fn window_closed(
-    mut adapters: NonSendMut<AccessKitAdapters>,
     mut handlers: ResMut<WinitActionRequestHandlers>,
     mut events: EventReader<WindowClosed>,
+    _non_send_marker: NonSendMarker,
 ) {
-    for WindowClosed { window, .. } in events.read() {
-        adapters.remove(window);
-        handlers.remove(window);
-    }
+    ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
+        for WindowClosed { window, .. } in events.read() {
+            adapters.remove(window);
+            handlers.remove(window);
+        }
+    });
 }
 
 fn poll_receivers(
@@ -174,7 +190,6 @@ fn should_update_accessibility_nodes(
 }
 
 fn update_accessibility_nodes(
-    mut adapters: NonSendMut<AccessKitAdapters>,
     focus: Option<Res<InputFocus>>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
@@ -184,35 +199,38 @@ fn update_accessibility_nodes(
         Option<&ChildOf>,
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
+    _non_send_marker: NonSendMarker,
 ) {
-    let Ok((primary_window_id, primary_window)) = primary_window.single() else {
-        return;
-    };
-    let Some(adapter) = adapters.get_mut(&primary_window_id) else {
-        return;
-    };
-    let Some(focus) = focus else {
-        return;
-    };
-    if focus.is_changed() || !nodes.is_empty() {
-        // Don't panic if the focused entity does not currently exist
-        // It's probably waiting to be spawned
-        if let Some(focused_entity) = focus.0 {
-            if !node_entities.contains(focused_entity) {
-                return;
+    ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
+        let Ok((primary_window_id, primary_window)) = primary_window.single() else {
+            return;
+        };
+        let Some(adapter) = adapters.get_mut(&primary_window_id) else {
+            return;
+        };
+        let Some(focus) = focus else {
+            return;
+        };
+        if focus.is_changed() || !nodes.is_empty() {
+            // Don't panic if the focused entity does not currently exist
+            // It's probably waiting to be spawned
+            if let Some(focused_entity) = focus.0 {
+                if !node_entities.contains(focused_entity) {
+                    return;
+                }
             }
-        }
 
-        adapter.update_if_active(|| {
-            update_adapter(
-                nodes,
-                node_entities,
-                primary_window,
-                primary_window_id,
-                focus,
-            )
-        });
-    }
+            adapter.update_if_active(|| {
+                update_adapter(
+                    nodes,
+                    node_entities,
+                    primary_window,
+                    primary_window_id,
+                    focus,
+                )
+            });
+        }
+    });
 }
 
 fn update_adapter(
@@ -290,8 +308,7 @@ pub struct AccessKitPlugin;
 
 impl Plugin for AccessKitPlugin {
     fn build(&self, app: &mut App) {
-        app.init_non_send_resource::<AccessKitAdapters>()
-            .init_resource::<WinitActionRequestHandlers>()
+        app.init_resource::<WinitActionRequestHandlers>()
             .add_event::<ActionRequestWrapper>()
             .add_systems(
                 PostUpdate,
