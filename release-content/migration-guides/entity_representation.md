@@ -33,7 +33,7 @@ An entity's generation is no longer a `NonZeroU32`.
 Instead, it is an `EntityGeneration`.
 Internally, this stores a `u32`, but that might change later.
 
-Working with the generation directly has never been recomended, but it is sometimes useful to do so in tests.
+Working with the generation directly has never been recommended, but it is sometimes useful to do so in tests.
 To create a generation do `EntityGeneration::FRESH.after_versions(expected_generation)`.
 To use this in tests, do `asset_eq!(entity.generation(), EntityGeneration::FRESH.after_versions(expected_generation))`.
 
@@ -49,9 +49,9 @@ This means that where `Result<T, IdentifierError>` was returned, `Option<T>` is 
 It is well documented that both the bit format, serialization, and `Ord` implementations for `Entity` are subject to change between versions.
 Those have all changed in this version.
 
-For entiy ordering, the order still prioretizes an entity's generation, but after that, it now considers higher index entities less than lower index entities.
+For entity ordering, the order still prioretizes an entity's generation, but after that, it now considers higher index entities less than lower index entities.
 
 The changes to serialization and the bit format are directly related.
 Effectively, this means that all serialized and transmuted entities will not work as expected and may crash.
 To migrate, invert the lower 32 bits of the 64 represeentation of the entity, and subtract 1 from the upper bits.
-Again, this is still subject to change, and serialized scenes may break betwen versions.
+Again, this is still subject to change, and serialized scenes may break between versions.

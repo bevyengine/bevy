@@ -180,7 +180,7 @@ impl SparseSetIndex for EntityRow {
 }
 
 /// This tracks different versions or generations of an [`EntityRow`].
-/// Importantly, this can wrap, meaning each generation is not necesarily unique per [`EntityRow`].
+/// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityRow`].
 ///
 /// This should be treated as a opaque identifier, and it's internal representation may be subject to change.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
@@ -209,7 +209,7 @@ impl EntityGeneration {
         Self(bits)
     }
 
-    /// Returns the [`EntityGeneration`] that would result from this many more `versions` of the coresponding [`EntityRow`] from passing.
+    /// Returns the [`EntityGeneration`] that would result from this many more `versions` of the corresponding [`EntityRow`] from passing.
     #[inline]
     pub const fn after_versions(self, versions: u32) -> Self {
         Self(self.0.wrapping_add(versions))
@@ -534,7 +534,7 @@ impl<'de> Deserialize<'de> for Entity {
         use serde::de::Error;
         let id: u64 = Deserialize::deserialize(deserializer)?;
         Entity::try_from_bits(id)
-            .ok_or_else(|| D::Error::custom("Attemping to deserialize an invalid entity."))
+            .ok_or_else(|| D::Error::custom("Attempting to deserialize an invalid entity."))
     }
 }
 
