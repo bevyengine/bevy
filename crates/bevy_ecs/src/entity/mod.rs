@@ -136,7 +136,7 @@ impl EntityRow {
         self.0.get()
     }
 
-    /// Gets a some bits that represent this value.
+    /// Gets some bits that represent this value.
     /// The bits are opaque and should not be regarded as meaningful.
     #[inline(always)]
     const fn to_bits(self) -> u32 {
@@ -199,20 +199,16 @@ pub struct EntityGeneration(u32);
 impl EntityGeneration {
     const PLACEHOLDER: Self = Self(u32::MAX);
 
-    /// Gets a some bits that represent this value.
+    /// Gets some bits that represent this value.
     /// The bits are opaque and should not be regarded as meaningful.
     #[inline(always)]
     const fn to_bits(self) -> u32 {
         self.0
     }
 
-    /// Reconstruct an [`EntityRow`] previously destructured with [`EntityRow::to_bits`].
+    /// Reconstruct an [`EntityGeneration`] previously destructured with [`EntityGeneration::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
-    ///
-    /// # Panics
-    ///
-    /// This method will likely panic if given `u32` values that did not come from [`EntityRow::to_bits`].
     #[inline]
     const fn from_bits(bits: u32) -> Self {
         Self(bits)
