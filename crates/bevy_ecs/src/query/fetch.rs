@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, Archetypes},
+    archetype::{Archetype, Archetypes, ComponentColumns},
     bundle::Bundle,
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
@@ -1143,7 +1143,10 @@ pub struct ReadFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
         // T::STORAGE_TYPE = StorageType::Table
-        Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+        (
+            Option<&'w ComponentColumns>,
+            Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+        ),
         // T::STORAGE_TYPE = StorageType::SparseSet
         Option<&'w ComponentSparseSet>,
     >,
@@ -1178,7 +1181,16 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             components: StorageSwitch::new(
-                || None,
+                || {
+                    (
+                        world
+                            .archetypes()
+                            .component_index()
+                            .get_record(component_id)
+                            .map(|record| &record.columns),
+                        None,
+                    )
+                },
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
@@ -1215,17 +1227,18 @@ unsafe impl<T: Component> WorldQuery for &T {
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut ReadFetch<'w, T>,
-        &component_id: &ComponentId,
+        _component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let table_data = Some(
-            table
-                .get_data_slice_for(component_id)
-                .debug_checked_unwrap()
-                .into(),
-        );
+        // SAFETY: For a table to exist, it must have an archetype.
+        let columns = fetch.components.table.0.debug_checked_unwrap();
+        // SAFETY: For this to be called, the table must be relevant to this component.
+        let column = columns
+            .get_column_in_table(table.id())
+            .debug_checked_unwrap();
+        let table_data = Some(table.get_data_slice_for(column).into());
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.components.set_table(table_data) };
+        fetch.components.table.1 = table_data;
     }
 
     fn update_component_access(
@@ -1275,7 +1288,7 @@ unsafe impl<T: Component> QueryData for &T {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                let table = unsafe { table.1.debug_checked_unwrap() };
                 // SAFETY: Caller ensures `table_row` is in range.
                 let item = unsafe { table.get(table_row.as_usize()) };
                 item.deref()
@@ -1302,12 +1315,15 @@ pub struct RefFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
         // T::STORAGE_TYPE = StorageType::Table
-        Option<(
-            ThinSlicePtr<'w, UnsafeCell<T>>,
-            ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-        )>,
+        (
+            Option<&'w ComponentColumns>,
+            Option<(
+                ThinSlicePtr<'w, UnsafeCell<T>>,
+                ThinSlicePtr<'w, UnsafeCell<Tick>>,
+                ThinSlicePtr<'w, UnsafeCell<Tick>>,
+                MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+            )>,
+        ),
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
@@ -1345,7 +1361,16 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) -> RefFetch<'w, T> {
         RefFetch {
             components: StorageSwitch::new(
-                || None,
+                || {
+                    (
+                        world
+                            .archetypes()
+                            .component_index()
+                            .get_record(component_id)
+                            .map(|record| &record.columns),
+                        None,
+                    )
+                },
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
@@ -1384,10 +1409,17 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut RefFetch<'w, T>,
-        &component_id: &ComponentId,
+        _component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let column = table.get_column(component_id).debug_checked_unwrap();
+        // SAFETY: For a table to exist, it must have an archetype.
+        let columns = fetch.components.table.0.debug_checked_unwrap();
+        // SAFETY: For this to be called, the table must be relevant to this component.
+        let column = columns
+            .get_column_in_table(table.id())
+            .debug_checked_unwrap();
+        // SAFETY: The column id is for the right table
+        let column = table.get_column_by_id(column);
         let table_data = Some((
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
@@ -1397,7 +1429,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.components.set_table(table_data) };
+        fetch.components.table.1 = table_data;
     }
 
     fn update_component_access(
@@ -1448,7 +1480,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, callers) =
-                    unsafe { table.debug_checked_unwrap() };
+                    unsafe { table.1.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let component = unsafe { table_components.get(table_row.as_usize()) };
@@ -1497,12 +1529,15 @@ pub struct WriteFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
         // T::STORAGE_TYPE = StorageType::Table
-        Option<(
-            ThinSlicePtr<'w, UnsafeCell<T>>,
-            ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-        )>,
+        (
+            Option<&'w ComponentColumns>,
+            Option<(
+                ThinSlicePtr<'w, UnsafeCell<T>>,
+                ThinSlicePtr<'w, UnsafeCell<Tick>>,
+                ThinSlicePtr<'w, UnsafeCell<Tick>>,
+                MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+            )>,
+        ),
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
@@ -1540,7 +1575,16 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) -> WriteFetch<'w, T> {
         WriteFetch {
             components: StorageSwitch::new(
-                || None,
+                || {
+                    (
+                        world
+                            .archetypes()
+                            .component_index()
+                            .get_record(component_id)
+                            .map(|record| &record.columns),
+                        None,
+                    )
+                },
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
@@ -1579,10 +1623,17 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     #[inline]
     unsafe fn set_table<'w>(
         fetch: &mut WriteFetch<'w, T>,
-        &component_id: &ComponentId,
+        _component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let column = table.get_column(component_id).debug_checked_unwrap();
+        // SAFETY: For a table to exist, it must have an archetype.
+        let columns = fetch.components.table.0.debug_checked_unwrap();
+        // SAFETY: For this to be called, the table must be relevant to this component.
+        let column = columns
+            .get_column_in_table(table.id())
+            .debug_checked_unwrap();
+        // SAFETY: The column id is for the right table
+        let column = table.get_column_by_id(column);
         let table_data = Some((
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
@@ -1592,7 +1643,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        unsafe { fetch.components.set_table(table_data) };
+        fetch.components.table.1 = table_data;
     }
 
     fn update_component_access(
@@ -1643,7 +1694,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, callers) =
-                    unsafe { table.debug_checked_unwrap() };
+                    unsafe { table.1.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let component = unsafe { table_components.get(table_row.as_usize()) };
@@ -2478,9 +2529,9 @@ unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
 /// [`StorageType`] of a given component.
 pub(super) union StorageSwitch<C: Component, T: Copy, S: Copy> {
     /// The table variant. Requires the component to be a table component.
-    table: T,
+    pub(super) table: T,
     /// The sparse set variant. Requires the component to be a sparse set component.
-    sparse_set: S,
+    pub(super) sparse_set: S,
     _marker: PhantomData<C>,
 }
 
@@ -2493,28 +2544,6 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
             StorageType::SparseSet => Self {
                 sparse_set: sparse_set(),
             },
-        }
-    }
-
-    /// Creates a new [`StorageSwitch`] using a table variant.
-    ///
-    /// # Panics
-    ///
-    /// This will panic on debug builds if `C` is not a table component.
-    ///
-    /// # Safety
-    ///
-    /// `C` must be a table component.
-    #[inline]
-    pub unsafe fn set_table(&mut self, table: T) {
-        match C::STORAGE_TYPE {
-            StorageType::Table => self.table = table,
-            _ => {
-                #[cfg(debug_assertions)]
-                unreachable!();
-                #[cfg(not(debug_assertions))]
-                core::hint::unreachable_unchecked()
-            }
         }
     }
 

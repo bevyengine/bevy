@@ -564,19 +564,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     world
                         .archetypes()
                         .component_index()
-                        .get(&component_id)
-                        .map(|index| index.keys())
+                        .iter_archetypes_with_component(component_id)
+                        .map(|archetypes| archetypes.iter())
                 })
                 // select the component with the fewest archetypes
                 .min_by_key(ExactSizeIterator::len);
             if let Some(archetypes) = potential_archetypes {
-                for archetype_id in archetypes {
+                for &archetype_id in archetypes {
                     // exclude archetypes that have already been processed
-                    if archetype_id < &self.archetype_generation.0 {
+                    if archetype_id < self.archetype_generation.0 {
                         continue;
                     }
                     // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
-                    let archetype = &world.archetypes()[*archetype_id];
+                    let archetype = &world.archetypes()[archetype_id];
                     // SAFETY: The validate_world call ensures that the world is the same the QueryState
                     // was initialized from.
                     unsafe {
@@ -1782,7 +1782,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// fn my_system(query: Query<&A>) -> Result {
     ///  let a = query.single()?;
-    ///  
+    ///
     ///  // Do something with `a`
     ///  Ok(())
     /// }

@@ -515,7 +515,12 @@ impl World {
         let requiree = self.register_component::<T>();
 
         // TODO: Remove this panic and update archetype edges accordingly when required components are added
-        if self.archetypes().component_index().contains_key(&requiree) {
+        if self
+            .archetypes()
+            .component_index()
+            .iter_archetypes_with_component(requiree)
+            .is_some_and(|archetypes| !archetypes.is_empty())
+        {
             return Err(RequiredComponentsError::ArchetypeExists(requiree));
         }
 

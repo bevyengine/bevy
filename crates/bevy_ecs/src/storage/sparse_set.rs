@@ -383,6 +383,8 @@ pub(crate) struct ImmutableSparseSet<I, V: 'static> {
 
 macro_rules! impl_sparse_set {
     ($ty:ident) => {
+        #[expect(clippy::allow_attributes, reason = "Needed for macro")]
+        #[allow(unused, reason = "Not used currently, but useful utility to have.")]
         impl<I: SparseSetIndex, V> $ty<I, V> {
             /// Returns the number of elements in the sparse set.
             #[inline]
