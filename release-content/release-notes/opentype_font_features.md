@@ -15,7 +15,7 @@ commands.spawn((
   TextSpan::new("Ligatures: ff, fi, fl, ffi, ffl"),
   TextFont {
     font: opentype_font_handle,
-    font_features: FontFeaturesBuilder::new()
+    font_features: FontFeatures::builder()
       .enable(FontFeatures::STANDARD_LIGATURES)
       .set(FontFeatures::WIDTH, 300)
       .build(),

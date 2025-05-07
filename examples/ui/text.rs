@@ -7,7 +7,7 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    text::{FontFeatures, FontFeaturesBuilder},
+    text::FontFeatures,
 };
 
 fn main() {
@@ -144,7 +144,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextFont {
                         font: opentype_font_handle.clone(),
                         font_size: 24.0,
-                        font_features: FontFeaturesBuilder::new().enable(feature).build(),
+                        font_features: FontFeatures::builder().enable(feature).build(),
                         ..default()
                     },
                 ));
