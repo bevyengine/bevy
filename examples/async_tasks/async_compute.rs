@@ -62,7 +62,7 @@ fn spawn_tasks(mut commands: Commands) {
                     let duration = Duration::from_secs_f32(rand::thread_rng().gen_range(0.05..5.0));
 
                     // Pretend this is a time-intensive function. :)
-                    async_std::task::sleep(duration).await;
+                    async_io::Timer::after(duration).await;
 
                     // Such hard work, all done!
                     let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
