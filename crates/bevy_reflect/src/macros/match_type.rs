@@ -34,11 +34,11 @@
 /// Basic usage:
 ///
 /// ```
-/// # use bevy_reflect::macros::select_ty;
+/// # use bevy_reflect::macros::match_type;
 /// # use bevy_reflect::PartialReflect;
 /// #
 /// fn try_to_f32(value: &dyn PartialReflect) -> Option<f32> {
-///   select_ty! {value,
+///   match_type! {value,
 ///     &f32 => Some(*value),
 ///     &i32 => Some(*value as f32),
 ///     else => None
@@ -53,11 +53,11 @@
 /// With bindings:
 ///
 /// ```
-/// # use bevy_reflect::macros::select_ty;
+/// # use bevy_reflect::macros::match_type;
 /// # use bevy_reflect::PartialReflect;
 /// #
 /// fn try_push_value(container: &mut dyn PartialReflect, value: i32) {
-///   select_ty! {container,
+///   match_type! {container,
 ///     // By default, cases use the given identifier as the binding identifier
 ///     &mut Vec<i32> => {
 ///       container.push(value);
@@ -84,7 +84,7 @@
 /// [`PartialReflect`]: crate::PartialReflect
 /// [`Type`]: crate::Type
 #[macro_export]
-macro_rules! select_ty {
+macro_rules! match_type {
 
     {$value:ident} => {};
 
@@ -93,7 +93,7 @@ macro_rules! select_ty {
         // cast to `dyn PartialReflect` or dereference manually
         use $crate::PartialReflect;
 
-        select_ty!(@selector[] $value, $value, $($tt)*)
+        match_type!(@selector[] $value, $value, $($tt)*)
     }};
 
     // === Internal === //
@@ -112,11 +112,11 @@ macro_rules! select_ty {
         $action
     }};
     {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, $($binding:tt @)? else => $action:expr $(,)? } => {{
-        $(let select_ty!(@bind_mut $binding) = $value;)?
+        $(let match_type!(@bind_mut $binding) = $value;)?
         $action
     }};
     {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, $($binding:tt @)? else [$types:ident] => $action:expr $(,)? } => {{
-        $(let select_ty!(@bind_mut $binding) = $value;)?
+        $(let match_type!(@bind_mut $binding) = $value;)?
         let $types: &[$crate::Type] = &[$($crate::Type::of::<$tys>(),)*];
         $action
     }};
@@ -126,7 +126,7 @@ macro_rules! select_ty {
     // Note that its placement is _below_ the `else` rules.
     // This is to prevent this binding rule from superseding the custom one for the `else` case.
     {@selector[$($tys:ty,)*] $value:ident, $_old_binding:tt, $binding:tt @ $($tt:tt)+} => {
-        select_ty!(@selector[$($tys,)*] $value, $binding, $($tt)+)
+        match_type!(@selector[$($tys,)*] $value, $binding, $($tt)+)
     };
 
     // --- Binding Helpers --- //
@@ -146,7 +146,7 @@ macro_rules! select_ty {
     {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &mut $ty:ty => $action:expr , $($tt:tt)+} => {
         match $value.as_partial_reflect_mut().try_downcast_mut::<$ty>() {
             Some($binding) => $action,
-            None => select_ty!(@selector[$($tys,)* &mut $ty,] $value, $value, $($tt)+)
+            None => match_type!(@selector[$($tys,)* &mut $ty,] $value, $value, $($tt)+)
         }
     };
     {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &mut $ty:ty => $action:expr $(,)?} => {
@@ -159,7 +159,7 @@ macro_rules! select_ty {
     {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &$ty:ty => $action:expr , $($tt:tt)+} => {
         match $value.as_partial_reflect().try_downcast_ref::<$ty>() {
             Some($binding) => $action,
-            None => select_ty!(@selector[$($tys,)* &mut $ty,] $value, $value, $($tt)+)
+            None => match_type!(@selector[$($tys,)* &mut $ty,] $value, $value, $($tt)+)
         }
     };
     {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &$ty:ty => $action:expr $(,)?} => {
@@ -171,7 +171,7 @@ macro_rules! select_ty {
     // ~~~ Owned ~~~ //
     {@selector[$($tys:ty,)*] $value:ident, $binding:tt, $ty:ty => $action:expr , $($tt:tt)+} => {
         match $value.into_partial_reflect().try_take::<$ty>() {
-            Ok(select_ty!(@bind_mut $binding)) => $action,
+            Ok(match_type!(@bind_mut $binding)) => $action,
             Err($value) => {
                 // We have to rebind `$value` here so that we can unconditionally ignore it
                 // due to the fact that `unused_variables` seems to be the only lint that
@@ -182,7 +182,7 @@ macro_rules! select_ty {
                 )]
                 let mut $value = $value;
 
-                select_ty!(@selector[$($tys,)* $ty,] $value, $value, $($tt)+)
+                match_type!(@selector[$($tys,)* $ty,] $value, $value, $($tt)+)
             },
         }
     };
@@ -193,7 +193,7 @@ macro_rules! select_ty {
     };
 }
 
-pub use select_ty;
+pub use match_type;
 
 #[cfg(test)]
 mod tests {
@@ -215,8 +215,8 @@ mod tests {
     #[test]
     fn should_allow_empty() {
         fn empty(_value: Box<dyn PartialReflect>) {
-            select_ty! {_value}
-            select_ty! {_value,}
+            match_type! {_value}
+            match_type! {_value,}
         }
 
         empty(Box::new(42));
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn should_downcast_ref() {
         fn to_string(value: &dyn PartialReflect) -> String {
-            select_ty! {value,
+            match_type! {value,
                 &String => value.clone(),
                 &i32 => value.to_string(),
                 &f32 => format!("{:.2}", value),
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn should_downcast_mut() {
         fn push_value(container: &mut dyn PartialReflect, value: i32) -> bool {
-            select_ty! {container,
+            match_type! {container,
                 &mut Vec<i32> => container.push(value),
                 &mut Vec<u32> => container.push(value as u32),
                 else => return false
@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn should_downcast_owned() {
         fn into_string(value: Box<dyn PartialReflect>) -> Option<String> {
-            select_ty! {value,
+            match_type! {value,
                 String => Some(value),
                 i32 => Some(value.to_string()),
                 else => None
@@ -291,7 +291,7 @@ mod tests {
         let original_value = Box::new(String::from("hello"));
         let cloned_value = original_value.clone();
 
-        let value = select_ty! {cloned_value,
+        let value = match_type! {cloned_value,
             _ @ Option<String> => panic!("unexpected type"),
             else => cloned_value
         };
@@ -302,7 +302,7 @@ mod tests {
     #[test]
     fn should_allow_mixed_borrows() {
         fn process(value: Box<dyn PartialReflect>) {
-            select_ty! {value,
+            match_type! {value,
                 Option<f32> => {
                     let value = value.unwrap();
                     assert_eq!(value, 1.0);
@@ -332,7 +332,7 @@ mod tests {
     #[test]
     fn should_allow_custom_bindings() {
         fn process(mut value: Box<dyn PartialReflect>) {
-            select_ty! {value,
+            match_type! {value,
                 foo @ &mut i32 => {
                     *foo *= 2;
                     assert_eq!(*foo, 246);
@@ -360,7 +360,7 @@ mod tests {
     fn should_allow_else_with_binding() {
         let value = Box::new(123);
 
-        select_ty! {value,
+        match_type! {value,
             f32 => {
                 assert_eq!(value, 123.0);
             },
@@ -379,7 +379,7 @@ mod tests {
     fn should_handle_slice_types() {
         let _value = Box::new("hello world");
 
-        select_ty! {_value,
+        match_type! {_value,
             (&str) => {},
             (&[i32]) => {
                 panic!("unexpected type");
