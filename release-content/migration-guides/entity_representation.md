@@ -1,6 +1,6 @@
 ---
 title: Manual Entity Creation and Representation
-pull_requests: [18704]
+pull_requests: [18704, 19121]
 ---
 
 An entity is made of two parts: and index and a generation. Both have changes:
