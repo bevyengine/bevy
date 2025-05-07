@@ -663,7 +663,7 @@ mod tests {
 
             let expected_error = crate::cfg::switch! {{
                 crate::cfg::debug_stack => {
-                    "functions cannot be serialized (stack: `bevy_reflect::serde::ser::tests::functions::MyStruct`)"
+                    "functions cannot be serialized (stack: `bevy_reflect::serde::ser::tests::MyStruct`)"
                 }
                 _ => {
                     "functions cannot be serialized"
@@ -709,7 +709,7 @@ mod tests {
             assert_eq!(
                 error,
                 ron::Error::Message(
-                    "type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `bevy_reflect::serde::ser::tests::debug_stack::Foo` -> `bevy_reflect::serde::ser::tests::debug_stack::Bar` -> `bevy_reflect::serde::ser::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
+                    "type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `bevy_reflect::serde::ser::tests::Foo` -> `bevy_reflect::serde::ser::tests::Bar` -> `bevy_reflect::serde::ser::tests::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
                 )
             );
         }
