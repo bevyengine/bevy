@@ -1,7 +1,7 @@
 use crate::{
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, FrameGraphError, GetResourceDrawing,
-        PassNodeBuilder, ResourceBoardKey, TextureViewDrawing, TextureViewInfo,
+        ColorAttachment, ColorAttachmentDrawing, FrameGraphError, PassNodeBuilder,
+        ResourceBoardKey, TextureViewDrawing, TextureViewInfo,
     },
     render_resource::{TextureFormat, TextureView},
 };
@@ -19,13 +19,11 @@ pub struct ColorAttachmentHandle {
     is_first_call: Arc<AtomicBool>,
 }
 
-impl GetResourceDrawing for ColorAttachmentHandle {
-    type Drawing = ColorAttachmentDrawing;
-
-    fn get_resource_drawing(
+impl ColorAttachmentHandle {
+    pub fn get_color_attachment(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::Drawing, FrameGraphError> {
+    ) -> Result<ColorAttachmentDrawing, FrameGraphError> {
         let view;
 
         let mut resolve_target = None;
@@ -62,9 +60,7 @@ impl GetResourceDrawing for ColorAttachmentHandle {
             },
         })
     }
-}
 
-impl ColorAttachmentHandle {
     pub fn new(
         texture: ResourceBoardKey,
         resolve_target: Option<ResourceBoardKey>,

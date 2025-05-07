@@ -14,8 +14,9 @@ use crate::{
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, FrameGraph, FrameGraphError, GetResourceDrawing,
-        PassNodeBuilder, ResourceBoardKey, TextureInfo,
+        ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraph,
+        FrameGraphError, PassNodeBuilder, ResourceBoardKey, TextureInfo, TextureViewDrawing,
+        TextureViewInfo,
     },
     prelude::Shader,
     primitives::Frustum,
@@ -720,23 +721,19 @@ pub struct NoIndirectDrawing;
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
 
-impl GetResourceDrawing for ViewTarget {
-    type Drawing = ColorAttachmentDrawing;
-
-    fn get_resource_drawing(
-        &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> std::result::Result<Self::Drawing, FrameGraphError> {
-        if self.main_texture.load(Ordering::SeqCst) == 0 {
-            self.main_textures.a.get_resource_drawing(pass_node_builder)
-        } else {
-            self.main_textures.b.get_resource_drawing(pass_node_builder)
-        }
-    }
-}
-
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
+
+    pub fn get_color_attachment(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> Result<ColorAttachmentDrawing, FrameGraphError> {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures.a.get_color_attachment(pass_node_builder)
+        } else {
+            self.main_textures.b.get_color_attachment(pass_node_builder)
+        }
+    }
 
     pub fn get_main_texture_a(entity: Entity) -> String {
         format!("main_texture_a_{}", entity)
@@ -836,6 +833,24 @@ pub struct ViewDepthTexture {
 impl ViewDepthTexture {
     pub fn get_depth_texture(entity: Entity) -> String {
         format!("depth_texture_{}", entity)
+    }
+
+    pub fn get_depth_stencil_attachment(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+        store_op: StoreOp,
+    ) -> Result<DepthStencilAttachmentDrawing, FrameGraphError> {
+        let depth_texture_read =
+            pass_node_builder.read_from_board(self.get_depth_texture_key())?;
+
+        Ok(DepthStencilAttachmentDrawing {
+            view: TextureViewDrawing {
+                texture: depth_texture_read,
+                desc: TextureViewInfo::default(),
+            },
+            depth_ops: self.get_depth_ops(store_op),
+            stencil_ops: None,
+        })
     }
 
     pub fn new(

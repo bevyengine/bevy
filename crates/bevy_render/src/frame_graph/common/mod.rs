@@ -49,15 +49,6 @@ impl ResourceMaterial for Texture {
     }
 }
 
-pub trait GetResourceDrawing {
-    type Drawing;
-
-    fn get_resource_drawing(
-        &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::Drawing, FrameGraphError>;
-}
-
 pub trait ResourceHandle {
     type Drawing;
 

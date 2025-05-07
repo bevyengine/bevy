@@ -1,7 +1,7 @@
 use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::{render_pass_builder::RenderPassBuilder, FrameGraph, GetResourceDrawing},
+    frame_graph::{render_pass_builder::RenderPassBuilder, FrameGraph},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::StoreOp,
@@ -52,9 +52,9 @@ impl ViewNode for MainOpaquePass2dNode {
 
         let mut pass_node_builder = frame_graph.create_pass_node_bulder("main_opaque_pass_2d");
 
-        let color_attachment = target.get_resource_drawing(&mut pass_node_builder)?;
+        let color_attachment = target.get_color_attachment(&mut pass_node_builder)?;
         let depth_stencil_attachment =
-            (depth, StoreOp::Store).get_resource_drawing(&mut pass_node_builder)?;
+            depth.get_depth_stencil_attachment(&mut pass_node_builder, StoreOp::Store)?;
 
         let mut builder = RenderPassBuilder::new(pass_node_builder);
 

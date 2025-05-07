@@ -6,19 +6,17 @@ use std::{
 
 use bevy_color::LinearRgba;
 use tracing::warn;
-use wgpu::{QuerySet, ShaderStages, StoreOp};
+use wgpu::{QuerySet, ShaderStages};
 
 use crate::{
     camera::Viewport,
     frame_graph::{
         BindGroupDrawing, BindGroupEntryRef, ColorAttachment, ColorAttachmentDrawing,
         DepthStencilAttachmentDrawing, FrameGraphBuffer, FrameGraphError, FrameGraphTexture,
-        GetResourceDrawing, GraphResource, PassNodeBuilder, RenderPassCommandBuilder,
-        ResourceBoardKey, ResourceHandle, ResourceRead, ResourceRef, TextureViewDrawing,
-        TextureViewInfo,
+        GraphResource, PassNodeBuilder, RenderPassCommandBuilder, ResourceBoardKey, ResourceHandle,
+        ResourceRead, ResourceRef,
     },
     render_resource::{BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, Texture},
-    view::ViewDepthTexture,
 };
 
 use super::RenderPass;
@@ -37,27 +35,6 @@ impl<'a> Drop for RenderPassBuilder<'a> {
         } else {
             warn!("render pass must is vaild");
         }
-    }
-}
-
-impl GetResourceDrawing for (&ViewDepthTexture, StoreOp) {
-    type Drawing = DepthStencilAttachmentDrawing;
-
-    fn get_resource_drawing(
-        &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<Self::Drawing, FrameGraphError> {
-        let depth_texture_read =
-            pass_node_builder.read_from_board(self.0.get_depth_texture_key())?;
-
-        Ok(DepthStencilAttachmentDrawing {
-            view: TextureViewDrawing {
-                texture: depth_texture_read,
-                desc: TextureViewInfo::default(),
-            },
-            depth_ops: self.0.get_depth_ops(StoreOp::Store),
-            stencil_ops: None,
-        })
     }
 }
 
