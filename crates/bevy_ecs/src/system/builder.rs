@@ -7,7 +7,8 @@ use crate::{
     query::{QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
-        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam, When,
+        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
+        SystemParamValidationError, When,
     },
     world::{
         FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
@@ -707,6 +708,36 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
         }
 
         access
+    }
+}
+
+/// A [`SystemParamBuilder`] for an [`Option`].
+#[derive(Clone)]
+pub struct OptionBuilder<T>(T);
+
+// SAFETY: `OptionBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Option<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Option<P>>
+    for OptionBuilder<B>
+{
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <Option<P> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`Result`] of [`SystemParamValidationError`].
+#[derive(Clone)]
+pub struct ResultBuilder<T>(T);
+
+// SAFETY: `ResultBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Result<P, SystemParamValidationError>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>>
+    SystemParamBuilder<Result<P, SystemParamValidationError>> for ResultBuilder<B>
+{
+    fn build(
+        self,
+        world: &mut World,
+        meta: &mut SystemMeta,
+    ) -> <Result<P, SystemParamValidationError> as SystemParam>::State {
+        self.0.build(world, meta)
     }
 }
 
