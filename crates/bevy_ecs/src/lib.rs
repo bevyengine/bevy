@@ -64,10 +64,6 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(
-        deprecated,
-        reason = "`crate::schedule::apply_deferred` is considered deprecated; however, it may still be used by crates which consume `bevy_ecs`, so its removal here may cause confusion. It is intended to be removed in the Bevy 0.17 cycle."
-    )]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -86,8 +82,8 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs,
-            IntoSystemSet, Schedule, Schedules, SystemSet,
+            common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs, IntoSystemSet,
+            Schedule, Schedules, SystemSet,
         },
         spawn::{Spawn, SpawnRelated},
         system::{

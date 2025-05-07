@@ -1319,21 +1319,6 @@ where
         result
     }
 
-    fn clone_dynamic(&self) -> DynamicMap {
-        let mut dynamic_map = DynamicMap::default();
-        dynamic_map.set_represented_type(self.get_represented_type_info());
-        for (k, v) in self {
-            let key = K::from_reflect(k).unwrap_or_else(|| {
-                panic!(
-                    "Attempted to clone invalid key of type {}.",
-                    k.reflect_type_path()
-                )
-            });
-            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
-        }
-        dynamic_map
-    }
-
     fn insert_boxed(
         &mut self,
         key: Box<dyn PartialReflect>,

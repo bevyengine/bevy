@@ -2330,15 +2330,6 @@ impl<'w> EntityWorldMut<'w> {
         self.despawn_with_caller(MaybeLocation::caller());
     }
 
-    /// Despawns the provided entity and its descendants.
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use entity.despawn(), which now automatically despawns recursively."
-    )]
-    pub fn despawn_recursive(self) {
-        self.despawn();
-    }
-
     pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {
         self.assert_not_despawned();
         let world = self.world;

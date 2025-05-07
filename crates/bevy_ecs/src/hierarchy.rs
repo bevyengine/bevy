@@ -106,13 +106,6 @@ impl ChildOf {
     pub fn parent(&self) -> Entity {
         self.0
     }
-
-    /// The parent entity of this child entity.
-    #[deprecated(since = "0.16.0", note = "Use child_of.parent() instead")]
-    #[inline]
-    pub fn get(&self) -> Entity {
-        self.0
-    }
 }
 
 // TODO: We need to impl either FromWorld or Default so ChildOf can be registered as Reflect.
@@ -344,20 +337,6 @@ impl<'w> EntityWorldMut<'w> {
         });
         self
     }
-
-    /// Removes the [`ChildOf`] component, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.remove::<ChildOf>()")]
-    pub fn remove_parent(&mut self) -> &mut Self {
-        self.remove::<ChildOf>();
-        self
-    }
-
-    /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(ChildOf(entity))")]
-    pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
-        self
-    }
 }
 
 impl<'a> EntityCommands<'a> {
@@ -432,20 +411,6 @@ impl<'a> EntityCommands<'a> {
     /// [`with_children`]: EntityCommands::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
         self.with_related::<ChildOf>(bundle);
-        self
-    }
-
-    /// Removes the [`ChildOf`] component, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.remove::<ChildOf>()")]
-    pub fn remove_parent(&mut self) -> &mut Self {
-        self.remove::<ChildOf>();
-        self
-    }
-
-    /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(ChildOf(entity))")]
-    pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
         self
     }
 }
