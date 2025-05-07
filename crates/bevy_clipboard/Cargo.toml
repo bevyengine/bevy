@@ -12,6 +12,8 @@ keywords = ["bevy", "clipboard"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+
+[target.'cfg(any(windows, unix))'.dependencies]
 arboard = { version = "3.5.0", default-features = false }
 
 [lints]
