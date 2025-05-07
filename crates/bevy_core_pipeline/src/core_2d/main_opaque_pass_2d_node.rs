@@ -65,6 +65,8 @@ impl ViewNode for MainOpaquePass2dNode {
 
         let mut tracked_render_pass = TrackedRenderPass::new(&render_device, builder);
         if !opaque_phase.is_empty() {
+            #[cfg(feature = "trace")]
+            let _opaque_main_pass_3d_span = info_span!("opaque_main_pass_2d").entered();
             if let Err(err) = opaque_phase.render(&mut tracked_render_pass, world, view_entity) {
                 error!("Error encountered while rendering the 2d opaque phase {err:?}");
             }
@@ -72,6 +74,8 @@ impl ViewNode for MainOpaquePass2dNode {
 
         // Alpha mask draws
         if !alpha_mask_phase.is_empty() {
+            #[cfg(feature = "trace")]
+            let _alpha_mask_main_pass_3d_span = info_span!("alpha_mask_main_pass_2d").entered();
             if let Err(err) = alpha_mask_phase.render(&mut tracked_render_pass, world, view_entity)
             {
                 error!("Error encountered while rendering the 2d alpha mask phase {err:?}");

@@ -17,6 +17,7 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
     },
+    frame_graph::{BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial},
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_cube, uniform_buffer},
@@ -271,7 +272,7 @@ fn prepare_skybox_pipelines(
 }
 
 #[derive(Component)]
-pub struct SkyboxBindGroup(pub (BindGroup, u32));
+pub struct SkyboxBindGroup(pub (BindGroupHandle, u32));
 
 fn prepare_skybox_bind_groups(
     mut commands: Commands,
@@ -279,29 +280,38 @@ fn prepare_skybox_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     skybox_uniforms: Res<ComponentUniforms<SkyboxUniforms>>,
     images: Res<RenderAssets<GpuImage>>,
-    render_device: Res<RenderDevice>,
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
+    mut frame_graph: ResMut<FrameGraph>,
 ) {
     for (entity, skybox, skybox_uniform_index) in &views {
         if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (
             images.get(&skybox.image),
-            view_uniforms.uniforms.binding(),
-            skybox_uniforms.binding(),
+            view_uniforms.uniforms.buffer(),
+            skybox_uniforms.buffer(),
         ) {
-            let bind_group = render_device.create_bind_group(
-                "skybox_bind_group",
-                &pipeline.bind_group_layout,
-                &BindGroupEntries::sequential((
-                    &skybox.texture_view,
-                    &skybox.sampler,
-                    view_uniforms,
-                    skybox_uniforms,
-                )),
-            );
+            let skybox_read = skybox.texture.make_resource_handle(&mut frame_graph);
+            let view_uniforms_read = view_uniforms.make_resource_handle(&mut frame_graph);
+            let view_uniform_size = ViewUniform::min_size();
 
-            commands
-                .entity(entity)
-                .insert(SkyboxBindGroup((bind_group, skybox_uniform_index.index())));
+            let skybox_uniforms_read = skybox_uniforms.make_resource_handle(&mut frame_graph);
+            let skybox_uniforms_size = SkyboxUniforms::min_size();
+
+            let bind_group_handle = BindGroupHandle {
+                label: Some("skybox_bind_group".into()),
+                layout: pipeline.bind_group_layout.clone(),
+                entries: DynamicBindGroupEntryHandles::sequential((
+                    &skybox_read,
+                    &skybox.sampler_info,
+                    (&view_uniforms_read, view_uniform_size),
+                    (&skybox_uniforms_read, skybox_uniforms_size),
+                ))
+                .to_vec(),
+            };
+
+            commands.entity(entity).insert(SkyboxBindGroup((
+                bind_group_handle,
+                skybox_uniform_index.index(),
+            )));
         }
     }
 }
