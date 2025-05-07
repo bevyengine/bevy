@@ -642,7 +642,7 @@ mod tests {
 
     crate::cfg::functions! {
         use crate::func::{DynamicFunction, IntoFunction};
-        use alloc::{string::ToString, boxed::Box};
+        use alloc::boxed::Box;
 
         #[test]
         fn should_not_serialize_function() {
