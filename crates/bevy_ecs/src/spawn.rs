@@ -135,6 +135,8 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
 
 /// A [`SpawnableList`] that adds entities using an iterator of [`Entity`]:
 ///
+/// useful if the entity has already been spawned earlier or if you spawn multiple relationships link to the same entity at the same time.
+///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;
 /// # use bevy_ecs::spawn::{Spawn, WithRelated, SpawnRelated};
@@ -149,6 +151,7 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
 ///     Name::new("Root"),
 ///     Children::spawn((
 ///         Spawn(Name::new("Child1")),
+///         // This adds the already existing entities as children of Root.
 ///         WithRelated([child2, child3].into_iter()),
 ///     )),
 /// ));
@@ -170,6 +173,8 @@ impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelat
 /// A wrapper over an [`Entity`] indicating that an entity should be added.
 /// This is intended to be used for hierarchical spawning via traits like [`SpawnableList`] and [`SpawnRelated`].
 ///
+/// Unlike [`WithRelated`] this only adds one entity.
+///
 /// Also see the [`children`](crate::children) and [`related`](crate::related) macros that abstract over the [`Spawn`] API.
 ///
 /// ```
@@ -184,6 +189,7 @@ impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelat
 /// world.spawn((
 ///     Name::new("Root"),
 ///     Children::spawn((
+///         // This adds the already existing entity as a child of Root.
 ///         WithOneRelated(child1),
 ///     )),
 /// ));
