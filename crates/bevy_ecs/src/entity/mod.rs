@@ -1245,7 +1245,7 @@ mod tests {
     fn entity_const() {
         const C1: Entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
         assert_eq!(42, C1.index());
-        assert_eq!(1, C1.generation().to_bits());
+        assert_eq!(0, C1.generation().to_bits());
 
         const C2: Entity = Entity::from_bits(0x0000_00ff_0000_00cc);
         assert_eq!(!0x0000_00cc, C2.index());
@@ -1473,7 +1473,7 @@ mod tests {
     fn entity_debug() {
         let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
         let string = format!("{:?}", entity);
-        assert_eq!(string, "42v1#8589934549");
+        assert_eq!(string, "42v0#4294967253");
 
         let entity = Entity::PLACEHOLDER;
         let string = format!("{:?}", entity);
@@ -1484,7 +1484,7 @@ mod tests {
     fn entity_display() {
         let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
         let string = format!("{}", entity);
-        assert_eq!(string, "42v1");
+        assert_eq!(string, "42v0");
 
         let entity = Entity::PLACEHOLDER;
         let string = format!("{}", entity);
