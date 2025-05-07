@@ -185,6 +185,40 @@ impl SparseSetIndex for EntityRow {
     }
 }
 
+/// This tracks different versions or generations of an [`EntityRow`].
+/// Importantly, this can wrap, meaning each generation is not necesarily unique per [`EntityRow`].
+///
+/// This should be treated as a opaque identifier, and it's internal representation may be subject to change.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
+#[repr(transparent)]
+pub struct EntityGeneration(u32);
+
+impl EntityGeneration {
+    const PLACEHOLDER: Self = Self(u32::MAX);
+
+    /// Gets a some bits that represent this value.
+    /// The bits are opaque and should not be regarded as meaningful.
+    #[inline(always)]
+    const fn to_bits(self) -> u32 {
+        self.0
+    }
+
+    /// Reconstruct an [`EntityRow`] previously destructured with [`EntityRow::to_bits`].
+    ///
+    /// Only useful when applied to results from `to_bits` in the same instance of an application.
+    ///
+    /// # Panics
+    ///
+    /// This method will likely panic if given `u32` values that did not come from [`EntityRow::to_bits`].
+    #[inline]
+    const fn from_bits(bits: u32) -> Self {
+        Self(bits)
+    }
+}
+
 /// Lightweight identifier of an [entity](crate::entity).
 ///
 /// The identifier is implemented using a [generational index]: a combination of an index and a generation.
