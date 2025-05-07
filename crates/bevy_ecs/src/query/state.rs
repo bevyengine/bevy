@@ -14,7 +14,7 @@ use crate::{
 use crate::entity::UniqueEntityEquivalentSlice;
 
 use alloc::vec::{self, Vec};
-use bevy_platform_support::prelude::Box;
+use bevy_platform::prelude::Box;
 use core::{fmt, iter, ops::Deref, ptr, slice};
 use fixedbitset::FixedBitSet;
 use log::warn;

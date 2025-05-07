@@ -10,7 +10,7 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_platform_support::prelude::Box;
+use bevy_platform::prelude::Box;
 use core::{
     marker::PhantomData,
     mem::MaybeUninit,
