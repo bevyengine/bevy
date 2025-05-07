@@ -12,7 +12,7 @@ The new `SpawnDetails` query data and `Spawned` query filter enable you to find 
 
 ## `SpawnDetails`
 
-Use this in your query when you want to get information about it's spawn. You might want to do that for debug purposes, using it's `Debug` implementation.
+Use this in your query when you want to get information about the entity's spawn. You might want to do that for debug purposes, using the struct's `Debug` implementation.
 
 You can also get specific information via methods. The following example prints the entity id (prefixed with "new" if it showed up for the first time), the `Tick` it spawned at and, if the `track_location` feature is activated, the source code location where it was spawned. Said feature is not enabled by default because it comes with a runtime cost.
 
