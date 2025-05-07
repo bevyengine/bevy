@@ -976,6 +976,8 @@ impl World {
                         self.as_unsafe_world_cell_readonly(),
                         entity,
                         location,
+                        self.last_change_tick,
+                        self.read_change_tick(),
                     );
                     // SAFETY: `&self` gives read access to the entire world.
                     unsafe { EntityRef::new(cell) }
@@ -985,6 +987,8 @@ impl World {
 
     /// Returns a mutable iterator over all entities in the `World`.
     pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
+        let last_change_tick = self.last_change_tick;
+        let change_tick = self.change_tick();
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {
             archetype
@@ -1001,7 +1005,13 @@ impl World {
                     };
 
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(world_cell, entity, location);
+                    let cell = UnsafeEntityCell::new(
+                        world_cell,
+                        entity,
+                        location,
+                        last_change_tick,
+                        change_tick,
+                    );
                     // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
                     // so none will conflict with one another.
                     unsafe { EntityMut::new(cell) }
