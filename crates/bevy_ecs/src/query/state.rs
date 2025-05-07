@@ -1903,7 +1903,7 @@ mod tests {
         let world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get(&world_2, Entity::fresh_from_row(0).unwrap());
+        let _panics = query_state.get(&world_2, Entity::from_raw_u32(0).unwrap());
     }
 
     #[test]

@@ -1497,7 +1497,7 @@ mod tests {
     fn serialization_tests() {
         test_serialize_deserialize(BrpQueryRow {
             components: Default::default(),
-            entity: Entity::fresh_from_row(0).unwrap(),
+            entity: Entity::from_raw_u32(0).unwrap(),
             has: Default::default(),
         });
         test_serialize_deserialize(BrpListWatchingResponse::default());
@@ -1511,7 +1511,7 @@ mod tests {
             ..Default::default()
         });
         test_serialize_deserialize(BrpListParams {
-            entity: Entity::fresh_from_row(0).unwrap(),
+            entity: Entity::from_raw_u32(0).unwrap(),
         });
     }
 }

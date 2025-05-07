@@ -343,7 +343,7 @@ mod tests {
         let mut world = World::new();
         let mut mapper = SceneEntityMapper::new(&mut map, &mut world);
 
-        let mapped_ent = Entity::fresh_from_row(1).unwrap();
+        let mapped_ent = Entity::from_raw_u32(1).unwrap();
         let dead_ref = mapper.get_mapped(mapped_ent);
 
         assert_eq!(
@@ -352,9 +352,7 @@ mod tests {
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper
-                .get_mapped(Entity::fresh_from_row(2).unwrap())
-                .index(),
+            mapper.get_mapped(Entity::from_raw_u32(2).unwrap()).index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -372,7 +370,7 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.get_mapped(Entity::fresh_from_row(0).unwrap())
+            mapper.get_mapped(Entity::from_raw_u32(0).unwrap())
         });
 
         // Next allocated entity should be a further generation on the same index

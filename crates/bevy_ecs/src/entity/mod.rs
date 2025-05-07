@@ -395,7 +395,7 @@ impl Entity {
     ///
     /// Returns `None` if the row is `u32::MAX`.
     #[inline(always)]
-    pub const fn fresh_from_row(row: u32) -> Option<Entity> {
+    pub const fn from_raw_u32(row: u32) -> Option<Entity> {
         match NonMaxU32::new(row) {
             Some(row) => Some(Self::from_raw(EntityRow::new(row))),
             None => None,
