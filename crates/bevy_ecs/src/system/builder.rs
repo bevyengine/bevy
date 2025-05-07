@@ -7,8 +7,8 @@ use crate::{
     query::{QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
-        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam, When,
-        SystemParamValidationError,
+        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
+        SystemParamValidationError, When,
     },
     world::{
         FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
