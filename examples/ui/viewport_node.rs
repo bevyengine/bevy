@@ -2,15 +2,13 @@
 //! pick entities visible in the widget's view.
 
 use bevy::{
-    asset::RenderAssetUsages,
     picking::pointer::PointerInteraction,
     prelude::*,
     render::{
         camera::RenderTarget,
-        render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
+        render_resource::{TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     },
     ui::widget::ViewportNode,
-    window::PrimaryWindow,
 };
 
 fn main() {
@@ -27,7 +25,6 @@ struct Shape;
 
 fn test(
     mut commands: Commands,
-    window: Query<&Window, With<PrimaryWindow>>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -35,22 +32,24 @@ fn test(
     // Spawn a UI camera
     commands.spawn(Camera3d::default());
 
-    // Set up an texture for the 3D camera to render to
-    let window = window.single().unwrap();
-    let window_size = window.physical_size();
-    let size = Extent3d {
-        width: window_size.x,
-        height: window_size.y,
+    // Set up an texture for the 3D camera to render to.
+    // The size of the texture will be based on the viewport's ui size.
+    let image = Image {
+        data: None,
+        texture_descriptor: TextureDescriptor {
+            label: None,
+            size: default(),
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Bgra8UnormSrgb,
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        },
         ..default()
     };
-    let mut image = Image::new_uninit(
-        size,
-        TextureDimension::D2,
-        TextureFormat::Bgra8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD,
-    );
-    image.texture_descriptor.usage =
-        TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
     let image_handle = images.add(image);
 
     // Spawn the 3D camera
