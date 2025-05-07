@@ -1,19 +1,23 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    component::{ComponentId, Tick},
+    archetype::{
+        Archetype, ArchetypeComponentId, ArchetypeCreated, ArchetypeGeneration, ArchetypeId,
+    },
+    component::{ComponentId, HookContext, Tick},
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
-    prelude::FromWorld,
+    error::Result,
+    prelude::{FromWorld, Observer, Trigger},
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
     storage::{SparseSetIndex, TableId},
     system::Query,
-    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 use crate::entity::UniqueEntityEquivalentSlice;
 
 use alloc::vec::Vec;
+use bevy_ecs_macros::Component;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
@@ -59,10 +63,10 @@ pub(super) union StorageId {
 /// [`State`]: crate::query::world_query::WorldQuery::State
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
 /// [`Table`]: crate::storage::Table
-#[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
+#[repr(C)]
 pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
@@ -83,6 +87,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(super) is_dense: bool,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
+    sync_by_observer: bool,
     #[cfg(feature = "trace")]
     par_iter_span: Span,
 }
@@ -274,6 +279,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
+            sync_by_observer: false,
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -316,6 +322,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
+            sync_by_observer: false,
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -331,7 +338,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This will create read-only queries, see [`Self::query_mut`] for mutable queries.
     pub fn query<'w, 's>(&'s mut self, world: &'w World) -> Query<'w, 's, D::ReadOnly, F> {
-        self.update_archetypes(world);
+        if !self.sync_by_observer {
+            self.update_archetypes(world);
+        }
         self.query_manual(world)
     }
 
@@ -420,7 +429,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> Query<'w, 's, D, F> {
-        self.update_archetypes_unsafe_world_cell(world);
+        if !self.sync_by_observer {
+            self.update_archetypes_unsafe_world_cell(world);
+        }
         // SAFETY:
         // - The caller ensured we have the correct access to the world.
         // - We called `update_archetypes_unsafe_world_cell`, which calls `validate_world`.
@@ -540,7 +551,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let archetypes = world.archetypes();
             let old_generation =
                 core::mem::replace(&mut self.archetype_generation, archetypes.generation());
-
             for archetype in &archetypes[old_generation..] {
                 // SAFETY: The validate_world call ensures that the world is the same the QueryState
                 // was initialized from.
@@ -686,10 +696,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
     pub unsafe fn update_archetype_component_access(
-        &mut self,
+        &self,
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
+        if !self.matched_archetypes.contains(archetype.id().index()) {
+            return;
+        }
         // As a fast path, we can iterate directly over the components involved
         // if the `access` is finite.
         if let Ok(iter) = self.component_access.access.try_iter_component_access() {
@@ -795,6 +808,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: self_access,
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
+            sync_by_observer: false,
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -942,6 +956,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             component_access: joined_component_access,
             matched_tables,
             matched_archetypes,
+            sync_by_observer: false,
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
@@ -1886,6 +1901,71 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
     }
 }
 
+/// Wrapper of [`QueryState`] for safety reasons.
+/// The inner state in manage by observer. DO NOT try to mutate it outside of the observer,
+/// event with unsafe code.
+#[derive(Component)]
+#[component(on_add = on_add_query_state::<D, F>, immutable)]
+pub(crate) struct QueryStateWrapper<D: QueryData, F: QueryFilter>(QueryState<D, F>);
+
+impl<D: QueryData, F: QueryFilter> QueryStateWrapper<D, F> {
+    pub(crate) fn new(query_state: QueryState<D, F>) -> Self {
+        Self(query_state)
+    }
+
+    pub(crate) fn inner(&self) -> &QueryState<D, F> {
+        &self.0
+    }
+}
+
+fn on_add_query_state<D: QueryData + 'static, F: QueryFilter + 'static>(
+    mut world: DeferredWorld,
+    ctx: HookContext,
+) {
+    let entity = ctx.entity;
+
+    let observer = Observer::new(
+        move |trigger: Trigger<ArchetypeCreated>, mut world: DeferredWorld| -> Result {
+            let archetype_id: ArchetypeId = trigger.event().0;
+            let archetype_ptr: *const Archetype = world
+                .archetypes()
+                .get(archetype_id)
+                .expect("Invalid ArchetypeId");
+            // SAFETY: This in intended mutation
+            let Some(mut state) = world.get_entity_mut(entity).ok().and_then(|entity| unsafe {
+                entity.into_mut_assume_mutable::<QueryStateWrapper<D, F>>()
+            }) else {
+                world.commands().entity(trigger.observer()).despawn();
+                return Ok(());
+            };
+
+            // SAFETY: The archetype and state is from the same world
+            unsafe {
+                state.0.new_archetype_internal(&*archetype_ptr);
+            }
+
+            Ok(())
+        },
+    );
+
+    world.commands().queue(move |world: &mut World| {
+        world.spawn(observer);
+        let world = world.as_unsafe_world_cell();
+        let entity_mut = world.get_entity(entity).unwrap();
+        // SAFETY: This is intended mutation
+        let mut state = unsafe {
+            entity_mut
+                .get_mut_assume_mutable::<QueryStateWrapper<D, F>>()
+                .unwrap()
+        };
+        // Its still possible archetype created after the state is created and before getting sync by
+        // the observer. The archetype [Observer] and [QueryStateWrapper<D, F>] for example.
+        // SAFETY: We keep a mutable reference but this method doesn't read that reference.
+        state.0.update_archetypes_unsafe_world_cell(world);
+        state.0.sync_by_observer = true;
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -2375,5 +2455,16 @@ mod tests {
         // But only if the original query was dense
         assert!(!query.is_dense);
         assert_eq!(1, query.iter(&world).count());
+    }
+
+    #[test]
+    fn update_query_state_archetype() {
+        let mut world = World::new();
+
+        fn sys(query: Query<Entity>) {
+            assert_eq!(query.iter().count(), 3); // This number can be changd as more things are entities
+        }
+
+        let _ = world.run_system_cached(sys);
     }
 }

@@ -3,6 +3,8 @@ use bevy_utils::synccell::SyncCell;
 use variadics_please::all_tuples;
 
 use crate::{
+    component::ComponentId,
+    entity::Entity,
     prelude::QueryBuilder,
     query::{QueryData, QueryFilter, QueryState},
     resource::Resource,
@@ -211,10 +213,9 @@ impl ParamBuilder {
 unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
     SystemParamBuilder<Query<'w, 's, D, F>> for QueryState<D, F>
 {
-    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
+    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> (Entity, ComponentId) {
         self.validate_world(world.id());
-        init_query_param(world, system_meta, &self);
-        self
+        init_query_param(world, system_meta, Some(self))
     }
 }
 
@@ -290,12 +291,12 @@ unsafe impl<
         T: FnOnce(&mut QueryBuilder<D, F>),
     > SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
 {
-    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
+    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> (Entity, ComponentId) {
         let mut builder = QueryBuilder::new(world);
         (self.0)(&mut builder);
         let state = builder.build();
-        init_query_param(world, system_meta, &state);
-        state
+
+        init_query_param(world, system_meta, Some(state))
     }
 }
 
@@ -956,7 +957,7 @@ mod tests {
     #[derive(SystemParam)]
     #[system_param(builder)]
     struct CustomParam<'w, 's> {
-        query: Query<'w, 's, ()>,
+        query: Query<'w, 'w, ()>,
         local: Local<'s, usize>,
     }
 

@@ -150,21 +150,21 @@ pub enum TabNavigationError {
 /// An injectable helper object that provides tab navigation functionality.
 #[doc(hidden)]
 #[derive(SystemParam)]
-pub struct TabNavigation<'w, 's> {
+pub struct TabNavigation<'w> {
     // Query for tab groups.
-    tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static Children)>,
+    tabgroup_query: Query<'w, 'w, (Entity, &'static TabGroup, &'static Children)>,
     // Query for tab indices.
     tabindex_query: Query<
         'w,
-        's,
+        'w,
         (Entity, Option<&'static TabIndex>, Option<&'static Children>),
         Without<TabGroup>,
     >,
     // Query for parents.
-    parent_query: Query<'w, 's, &'static ChildOf>,
+    parent_query: Query<'w, 'w, &'static ChildOf>,
 }
 
-impl TabNavigation<'_, '_> {
+impl TabNavigation<'_> {
     /// Navigate to the desired focusable entity.
     ///
     /// Change the [`NavAction`] to navigate in a different direction.
@@ -365,8 +365,6 @@ pub fn handle_tab_navigation(
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::system::SystemState;
-
     use super::*;
 
     #[test]
@@ -378,23 +376,25 @@ mod tests {
         let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_entity))).id();
         let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
-        let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
-        let tab_navigation = system_state.get(world);
-        assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
-        assert_eq!(tab_navigation.tabindex_query.iter().count(), 2);
+        let system = move |tab_navigation: TabNavigation| {
+            assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
+            assert_eq!(tab_navigation.tabindex_query.iter().count(), 2);
 
-        let next_entity =
-            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
-        assert_eq!(next_entity, Ok(tab_entity_2));
+            let next_entity =
+                tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
+            assert_eq!(next_entity, Ok(tab_entity_2));
 
-        let prev_entity =
-            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Previous);
-        assert_eq!(prev_entity, Ok(tab_entity_1));
+            let prev_entity = tab_navigation
+                .navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Previous);
+            assert_eq!(prev_entity, Ok(tab_entity_1));
 
-        let first_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::First);
-        assert_eq!(first_entity, Ok(tab_entity_1));
+            let first_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::First);
+            assert_eq!(first_entity, Ok(tab_entity_1));
 
-        let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
-        assert_eq!(last_entity, Ok(tab_entity_2));
+            let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
+            assert_eq!(last_entity, Ok(tab_entity_2));
+        };
+
+        let _ = world.run_system_cached(system);
     }
 }

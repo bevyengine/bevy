@@ -6,8 +6,8 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::{
-        Archetype, ArchetypeAfterBundleInsert, ArchetypeId, Archetypes, BundleComponentStatus,
-        ComponentStatus, SpawnBundleStatus,
+        Archetype, ArchetypeAfterBundleInsert, ArchetypeId, ArchetypeIdState, Archetypes,
+        BundleComponentStatus, ComponentStatus, SpawnBundleStatus,
     },
     change_detection::MaybeLocation,
     component::{
@@ -747,12 +747,12 @@ impl BundleInfo {
         components: &Components,
         observers: &Observers,
         archetype_id: ArchetypeId,
-    ) -> ArchetypeId {
+    ) -> ArchetypeIdState {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
             .get_archetype_after_bundle_insert(self.id)
         {
-            return archetype_after_insert_id;
+            return ArchetypeIdState::old(archetype_after_insert_id);
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
@@ -806,7 +806,7 @@ impl BundleInfo {
                 added,
                 existing,
             );
-            archetype_id
+            ArchetypeIdState::old(archetype_id)
         } else {
             let table_id;
             let table_components;
@@ -854,7 +854,7 @@ impl BundleInfo {
                 .edges_mut()
                 .cache_archetype_after_bundle_insert(
                     self.id,
-                    new_archetype_id,
+                    new_archetype_id.id(),
                     bundle_status,
                     added_required_components,
                     added,
@@ -879,6 +879,7 @@ impl BundleInfo {
     ///
     /// # Safety
     /// `archetype_id` must exist and components in `bundle_info` must exist
+    /// Caller must call `ArchetypeIdState::trigger_if_new` on the returned value
     pub(crate) unsafe fn remove_bundle_from_archetype(
         &self,
         archetypes: &mut Archetypes,
@@ -887,7 +888,7 @@ impl BundleInfo {
         observers: &Observers,
         archetype_id: ArchetypeId,
         intersection: bool,
-    ) -> Option<ArchetypeId> {
+    ) -> Option<ArchetypeIdState> {
         // Check the archetype graph to see if the bundle has been
         // removed from this archetype in the past.
         let archetype_after_remove_result = {
@@ -900,7 +901,7 @@ impl BundleInfo {
         };
         let result = if let Some(result) = archetype_after_remove_result {
             // This bundle removal result is cached. Just return that!
-            result
+            result.map(ArchetypeIdState::old)
         } else {
             let mut next_table_components;
             let mut next_sparse_set_components;
@@ -963,15 +964,16 @@ impl BundleInfo {
             Some(new_archetype_id)
         };
         let current_archetype = &mut archetypes[archetype_id];
+        let archetype_id_result = result.as_ref().map(ArchetypeIdState::id);
         // Cache the result in an edge.
         if intersection {
             current_archetype
                 .edges_mut()
-                .cache_archetype_after_bundle_remove(self.id(), result);
+                .cache_archetype_after_bundle_remove(self.id(), archetype_id_result);
         } else {
             current_archetype
                 .edges_mut()
-                .cache_archetype_after_bundle_take(self.id(), result);
+                .cache_archetype_after_bundle_take(self.id(), archetype_id_result);
         }
         result
     }
@@ -1036,14 +1038,15 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let bundle_id = bundle_info.id();
-        let new_archetype_id = bundle_info.insert_bundle_into_archetype(
+        let mut archetype_id_state = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
             &world.observers,
             archetype_id,
         );
-        if new_archetype_id == archetype_id {
+
+        let inserter = if archetype_id_state.id() == archetype_id {
             let archetype = &mut world.archetypes[archetype_id];
             // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
@@ -1064,8 +1067,9 @@ impl<'w> BundleInserter<'w> {
                 world: world.as_unsafe_world_cell(),
             }
         } else {
-            let (archetype, new_archetype) =
-                world.archetypes.get_2_mut(archetype_id, new_archetype_id);
+            let (archetype, new_archetype) = world
+                .archetypes
+                .get_2_mut(archetype_id, archetype_id_state.id());
             // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
                 archetype
@@ -1103,7 +1107,11 @@ impl<'w> BundleInserter<'w> {
                     world: world.as_unsafe_world_cell(),
                 }
             }
-        }
+        };
+
+        archetype_id_state.trigger_if_new(&mut inserter.world.into_deferred());
+
+        inserter
     }
 
     /// # Safety
@@ -1421,7 +1429,7 @@ impl<'w> BundleRemover<'w> {
     ) -> Option<Self> {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         // SAFETY: Caller ensures archetype and bundle ids are correct.
-        let new_archetype_id = unsafe {
+        let mut new_archetype_id = unsafe {
             bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
                 &mut world.storages,
@@ -1431,11 +1439,13 @@ impl<'w> BundleRemover<'w> {
                 !require_all,
             )?
         };
-        if new_archetype_id == archetype_id {
+        if new_archetype_id.id() == archetype_id {
             return None;
         }
-        let (old_archetype, new_archetype) =
-            world.archetypes.get_2_mut(archetype_id, new_archetype_id);
+
+        let (old_archetype, new_archetype) = world
+            .archetypes
+            .get_2_mut(archetype_id, new_archetype_id.id());
 
         let tables = if old_archetype.table_id() == new_archetype.table_id() {
             None
@@ -1447,13 +1457,17 @@ impl<'w> BundleRemover<'w> {
             Some((old.into(), new.into()))
         };
 
-        Some(Self {
+        let remover = Self {
             bundle_info: bundle_info.into(),
             new_archetype: new_archetype.into(),
             old_archetype: old_archetype.into(),
             old_and_new_table: tables,
             world: world.as_unsafe_world_cell(),
-        })
+        };
+
+        new_archetype_id.trigger_if_new(&mut remover.world.into_deferred());
+
+        Some(remover)
     }
 
     /// This can be passed to [`remove`](Self::remove) as the `pre_remove` function if you don't want to do anything before removing.
@@ -1675,22 +1689,24 @@ impl<'w> BundleSpawner<'w> {
         change_tick: Tick,
     ) -> Self {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
-        let new_archetype_id = bundle_info.insert_bundle_into_archetype(
+        let mut archetype_id_state = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
             &world.observers,
             ArchetypeId::EMPTY,
         );
-        let archetype = &mut world.archetypes[new_archetype_id];
+        let archetype = &mut world.archetypes[archetype_id_state.id()];
         let table = &mut world.storages.tables[archetype.table_id()];
-        Self {
+        let spawner = Self {
             bundle_info: bundle_info.into(),
             table: table.into(),
             archetype: archetype.into(),
             change_tick,
             world: world.as_unsafe_world_cell(),
-        }
+        };
+        archetype_id_state.trigger_if_new(&mut spawner.world.into_deferred());
+        spawner
     }
 
     #[inline]
