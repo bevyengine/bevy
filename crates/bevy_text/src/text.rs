@@ -320,10 +320,10 @@ impl Default for TextFont {
 ///
 /// # Usage:
 /// ```
-/// use bevy_text::{FontFeatures, FontFeaturesBuilder};
+/// use bevy_text::FontFeatures;
 ///
-/// // Create using FontFeaturesBuilder
-/// let font_features = FontFeaturesBuilder::new()
+/// // Create using the builder
+/// let font_features = FontFeatures::builder()
 ///   .enable(FontFeatures::STANDARD_LIGATURES)
 ///   .set(FontFeatures::WEIGHT, 300)
 ///   .build();
@@ -407,6 +407,11 @@ impl FontFeatures {
     /// Varies between upright and slanted text. Must be a value greater than -90 and less than +90.
     /// A value of 0 is upright.
     pub const SLANT: [u8; 4] = *b"slnt";
+
+    /// Create a new [`FontFeaturesBuilder`].
+    pub fn builder() -> FontFeaturesBuilder {
+        FontFeaturesBuilder::default()
+    }
 }
 
 /// A builder for [`FontFeatures`].
@@ -416,11 +421,6 @@ pub struct FontFeaturesBuilder {
 }
 
 impl FontFeaturesBuilder {
-    /// Create a new [`FontFeaturesBuilder`].
-    pub fn new() -> Self {
-        FontFeaturesBuilder::default()
-    }
-
     /// Enable an OpenType feature.
     ///
     /// Most OpenType features are on/off switches, so this is a convenience method that sets the
