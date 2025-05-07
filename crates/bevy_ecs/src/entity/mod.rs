@@ -76,12 +76,6 @@ pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
-    identifier::{
-        error::IdentifierError,
-        kinds::IdKind,
-        masks::{IdentifierMask, HIGH_MASK},
-        Identifier,
-    },
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
@@ -299,7 +293,7 @@ pub struct Entity {
     // to make this struct equivalent to a u64.
     #[cfg(target_endian = "little")]
     row: EntityRow,
-    generation: NonZero<u32>,
+    generation: u32,
     #[cfg(target_endian = "big")]
     row: EntityRow,
 }
@@ -359,12 +353,7 @@ impl Entity {
     /// Construct an [`Entity`] from a raw `row` value and a non-zero `generation` value.
     /// Ensure that the generation value is never greater than `0x7FFF_FFFF`.
     #[inline(always)]
-    pub(crate) const fn from_raw_and_generation(
-        row: EntityRow,
-        generation: NonZero<u32>,
-    ) -> Entity {
-        debug_assert!(generation.get() <= HIGH_MASK);
-
+    pub(crate) const fn from_raw_and_generation(row: EntityRow, generation: u32) -> Entity {
         Self { row, generation }
     }
 
@@ -418,7 +407,7 @@ impl Entity {
     /// a component.
     #[inline(always)]
     pub const fn from_raw(row: EntityRow) -> Entity {
-        Self::from_raw_and_generation(row, NonZero::<u32>::MIN)
+        Self::from_raw_and_generation(row, 0)
     }
 
     /// This is equivalent to [`from_raw`](Self::from_raw) except that it takes a `u32` instead of an [`EntityRow`].
@@ -440,7 +429,7 @@ impl Entity {
     /// No particular structure is guaranteed for the returned bits.
     #[inline(always)]
     pub const fn to_bits(self) -> u64 {
-        IdentifierMask::pack_into_u64(self.row.to_bits(), self.generation.get())
+        self.row.to_bits() as u64 | ((self.generation as u64) << 32)
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
@@ -452,12 +441,10 @@ impl Entity {
     /// This method will likely panic if given `u64` values that did not come from [`Entity::to_bits`].
     #[inline]
     pub const fn from_bits(bits: u64) -> Self {
-        // Construct an Identifier initially to extract the kind from.
-        let id = Self::try_from_bits(bits);
-
-        match id {
-            Ok(entity) => entity,
-            Err(_) => panic!("Attempted to initialize invalid bits as an entity"),
+        if let Some(id) = Self::try_from_bits(bits) {
+            id
+        } else {
+            panic!("Attempted to initialize invalid bits as an entity")
         }
     }
 
@@ -467,21 +454,18 @@ impl Entity {
     ///
     /// This method is the fallible counterpart to [`Entity::from_bits`].
     #[inline(always)]
-    pub const fn try_from_bits(bits: u64) -> Result<Self, IdentifierError> {
-        if let Ok(id) = Identifier::try_from_bits(bits) {
-            let kind = id.kind() as u8;
+    pub const fn try_from_bits(bits: u64) -> Option<Self> {
+        let raw_row = bits as u32;
+        let raw_gen = (bits >> 32) as u32;
 
-            if kind == (IdKind::Entity as u8) {
-                if let Some(row) = EntityRow::try_from_bits(id.low()) {
-                    return Ok(Self {
-                        row,
-                        generation: id.high(),
-                    });
-                }
-            }
+        if let Some(row) = EntityRow::try_from_bits(raw_row) {
+            Some(Self {
+                row,
+                generation: raw_gen,
+            })
+        } else {
+            None
         }
-
-        Err(IdentifierError::InvalidEntityId(bits))
     }
 
     /// Return a transiently unique identifier.
@@ -506,24 +490,7 @@ impl Entity {
     /// given row has been reused (row, generation) pairs uniquely identify a given Entity.
     #[inline]
     pub const fn generation(self) -> u32 {
-        // Mask so not to expose any flags
-        IdentifierMask::extract_value_from_high(self.generation.get())
-    }
-}
-
-impl TryFrom<Identifier> for Entity {
-    type Error = IdentifierError;
-
-    #[inline]
-    fn try_from(value: Identifier) -> Result<Self, Self::Error> {
-        Self::try_from_bits(value.to_bits())
-    }
-}
-
-impl From<Entity> for Identifier {
-    #[inline]
-    fn from(value: Entity) -> Self {
-        Identifier::from_bits(value.to_bits())
+        self.generation
     }
 }
 
@@ -545,7 +512,8 @@ impl<'de> Deserialize<'de> for Entity {
     {
         use serde::de::Error;
         let id: u64 = Deserialize::deserialize(deserializer)?;
-        Entity::try_from_bits(id).map_err(D::Error::custom)
+        Entity::try_from_bits(id)
+            .ok_or_else(|| D::Error::custom("Attemping to deserialize an invalid entity."))
     }
 }
 
@@ -839,9 +807,9 @@ impl Entities {
             return None;
         }
 
-        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1);
+        meta.generation = meta.generation.wrapping_add(1);
 
-        if meta.generation == NonZero::<u32>::MIN {
+        if meta.generation == 0 {
             warn!(
                 "Entity({}) generation wrapped on Entities::free, aliasing may occur",
                 entity.row()
@@ -935,7 +903,7 @@ impl Entities {
 
         let meta = &mut self.meta[index as usize];
         if meta.location.archetype_id == ArchetypeId::INVALID {
-            meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
+            meta.generation = meta.generation.wrapping_add(generations);
             true
         } else {
             false
@@ -1090,7 +1058,7 @@ impl Entities {
                 // Generation is incremented immediately upon despawn
                 (meta.generation == entity.generation)
                 || (meta.location.archetype_id == ArchetypeId::INVALID)
-                && (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1)))
+                && (meta.generation == entity.generation.wrapping_add(1)))
                 .map(|meta| meta.spawned_or_despawned_by)
         })
         .map(Option::flatten)
@@ -1152,7 +1120,7 @@ impl fmt::Display for EntityDoesNotExistDetails {
 #[derive(Copy, Clone, Debug)]
 struct EntityMeta {
     /// The current generation of the [`Entity`].
-    pub generation: NonZero<u32>,
+    pub generation: u32,
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
@@ -1162,7 +1130,7 @@ struct EntityMeta {
 impl EntityMeta {
     /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
-        generation: NonZero::<u32>::MIN,
+        generation: 0,
         location: EntityLocation::INVALID,
         spawned_or_despawned_by: MaybeLocation::new(None),
     };
@@ -1220,7 +1188,7 @@ mod tests {
         // Generation cannot be greater than 0x7FFF_FFFF else it will be an invalid Entity id
         let e = Entity::from_raw_and_generation(
             EntityRow::new(NonMaxU32::new(0xDEADBEEF).unwrap()),
-            NonZero::<u32>::new(0x5AADF00D).unwrap(),
+            0x5AADF00D,
         );
         assert_eq!(Entity::from_bits(e.to_bits()), e);
     }
@@ -1301,139 +1269,77 @@ mod tests {
     )]
     fn entity_comparison() {
         assert_eq!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            ),
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 456),
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 456)
         );
         assert_ne!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(789).unwrap()
-            ),
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 789),
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 456)
         );
         assert_ne!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            ),
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(789).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 456),
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 789)
         );
         assert_ne!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            ),
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(456).unwrap()),
-                NonZero::<u32>::new(123).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 456),
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(456).unwrap()), 123)
         );
 
         // ordering is by generation then by index
 
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            ) >= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 456)
+                >= Entity::from_raw_and_generation(
+                    EntityRow::new(NonMaxU32::new(123).unwrap()),
+                    456
+                )
         );
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            ) <= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 456)
+                <= Entity::from_raw_and_generation(
+                    EntityRow::new(NonMaxU32::new(123).unwrap()),
+                    456
+                )
         );
         assert!(
-            !(Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            ) < Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            ))
+            !(Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 456)
+                < Entity::from_raw_and_generation(
+                    EntityRow::new(NonMaxU32::new(123).unwrap()),
+                    456
+                ))
         );
         assert!(
-            !(Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            ) > Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                NonZero::<u32>::new(456).unwrap()
-            ))
+            !(Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(123).unwrap()), 456)
+                > Entity::from_raw_and_generation(
+                    EntityRow::new(NonMaxU32::new(123).unwrap()),
+                    456
+                ))
         );
 
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(9).unwrap()),
-                NonZero::<u32>::new(1).unwrap()
-            ) < Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
-                NonZero::<u32>::new(9).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(9).unwrap()), 1)
+                < Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(1).unwrap()), 9)
         );
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
-                NonZero::<u32>::new(9).unwrap()
-            ) > Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(9).unwrap()),
-                NonZero::<u32>::new(1).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(1).unwrap()), 9)
+                > Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(9).unwrap()), 1)
         );
 
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
-                NonZero::<u32>::new(1).unwrap()
-            ) > Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
-                NonZero::<u32>::new(1).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(1).unwrap()), 1)
+                > Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(2).unwrap()), 1)
         );
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
-                NonZero::<u32>::new(1).unwrap()
-            ) >= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
-                NonZero::<u32>::new(1).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(1).unwrap()), 1)
+                >= Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(2).unwrap()), 1)
         );
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
-                NonZero::<u32>::new(2).unwrap()
-            ) < Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
-                NonZero::<u32>::new(2).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(2).unwrap()), 2)
+                < Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(1).unwrap()), 2)
         );
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
-                NonZero::<u32>::new(2).unwrap()
-            ) <= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
-                NonZero::<u32>::new(2).unwrap()
-            )
+            Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(2).unwrap()), 2)
+                <= Entity::from_raw_and_generation(EntityRow::new(NonMaxU32::new(1).unwrap()), 2)
         );
     }
 
