@@ -339,7 +339,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
-    type State = Entity;
+    type State = (Entity, ComponentId);
     type Item<'w, 's> = Query<'w, 'w, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -388,7 +388,8 @@ pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>
     world: &mut World,
     system_meta: &mut SystemMeta,
     state: Option<QueryState<D, F>>,
-) -> Entity {
+) -> (Entity, ComponentId) {
+    let component_id = world.register_component::<QueryStateWrapper<D, F>>();
     let state: QueryState<D, F> = state.unwrap_or_else(|| {
         QueryState::new_with_access(world, &mut system_meta.archetype_component_access)
     });
@@ -407,7 +408,9 @@ pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>
         .component_access_set
         .add(state.component_access.clone());
 
-    world.spawn(QueryStateWrapper::new(state)).id()
+    let entity = world.spawn(QueryStateWrapper::new(state)).id();
+
+    (entity, component_id)
 }
 
 fn assert_component_access_compatibility(
@@ -430,8 +433,9 @@ fn assert_component_access_compatibility(
     panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
 }
 
-fn get_query_state<'w, D: QueryData + 'static, F: QueryFilter + 'static>(
-    entity: Entity,
+/// Safety: Caller must ensure componet id is `QueryStateWrapper<D, F>`
+unsafe fn get_query_state<'w, D: QueryData + 'static, F: QueryFilter + 'static>(
+    (entity, component_id): (Entity, ComponentId),
     world: UnsafeWorldCell<'w>,
 ) -> Option<&'w QueryState<D, F>> {
     // SAFETY: QueryStateWrapper is immutable so no mutable access is possible
@@ -439,16 +443,17 @@ fn get_query_state<'w, D: QueryData + 'static, F: QueryFilter + 'static>(
         world
             .get_entity(entity)
             .ok()?
-            .get::<QueryStateWrapper<D, F>>()
+            .get_by_id(component_id)?
+            .deref::<QueryStateWrapper<D, F>>()
     };
 
-    state.map(QueryStateWrapper::inner)
+    Some(state.inner())
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Single<'a, D, F> {
-    type State = Entity;
+    type State = (Entity, ComponentId);
     type Item<'w, 's> = Single<'w, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -520,7 +525,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
 unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Option<Single<'a, D, F>>
 {
-    type State = Entity;
+    type State = (Entity, ComponentId);
     type Item<'w, 's> = Option<Single<'w, D, F>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -603,7 +608,7 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOn
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Populated<'_, '_, D, F>
 {
-    type State = Entity;
+    type State = (Entity, ComponentId);
     type Item<'w, 's> = Populated<'w, 'w, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
