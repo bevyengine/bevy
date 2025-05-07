@@ -73,9 +73,13 @@ use core::ops::Range;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     experimental::occlusion_culling::OcclusionCulling,
-    frame_graph::TextureInfo,
+    frame_graph::{
+        FrameGraph, FrameGraphError, PassNodeBuilder, ResourceBoardKey, SamplerInfo,
+        TexelCopyTextureInfo, TextureInfo,
+    },
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
+    render_resource::{Origin3d, TextureAspect},
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
 pub use camera_3d::*;
@@ -99,8 +103,8 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        CachedRenderPipelineId, Extent3d, FilterMode, TextureDimension, TextureFormat,
+        TextureUsages,
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
@@ -837,22 +841,45 @@ pub fn prepare_core_3d_depth_textures(
 
 #[derive(Component)]
 pub struct ViewTransmissionTexture {
-    pub texture: Texture,
-    pub view: TextureView,
-    pub sampler: Sampler,
+    pub sample_info: SamplerInfo,
+    pub texture_info: TextureInfo,
+    pub texture_key: ResourceBoardKey,
+}
+
+impl ViewTransmissionTexture {
+    pub fn get_view_transmission_texture(entity: Entity) -> String {
+        format!("view_transmission_texture_{}", entity)
+    }
+
+    pub fn get_view_transmission_texture_key(&self) -> &ResourceBoardKey {
+        &self.texture_key
+    }
+
+    pub fn get_image_copy(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> Result<TexelCopyTextureInfo, FrameGraphError> {
+        let main_texture_read =
+            pass_node_builder.read_from_board(self.get_view_transmission_texture_key())?;
+
+        Ok(TexelCopyTextureInfo {
+            mip_level: 0,
+            texture: main_texture_read,
+            origin: Origin3d::ZERO,
+            aspect: TextureAspect::All,
+        })
+    }
 }
 
 pub fn prepare_core_3d_transmission_textures(
     mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
     opaque_3d_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
     alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
+    mut frame_graph: ResMut<FrameGraph>,
 ) {
-    let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, camera_3d, view) in &views_3d {
         if !opaque_3d_phases.contains_key(&view.retained_view_entity)
             || !alpha_mask_3d_phases.contains_key(&view.retained_view_entity)
@@ -880,50 +907,47 @@ pub fn prepare_core_3d_transmission_textures(
             continue;
         }
 
-        let cached_texture = textures
-            .entry(camera.target.clone())
-            .or_insert_with(|| {
-                let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
+        let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
-                // The size of the transmission texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
+        // The size of the transmission texture
+        let size = Extent3d {
+            depth_or_array_layers: 1,
+            width: physical_target_size.x,
+            height: physical_target_size.y,
+        };
 
-                let format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
+        let format = if view.hdr {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
+        };
 
-                let descriptor = TextureDescriptor {
-                    label: Some("view_transmission_texture"),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
-                    dimension: TextureDimension::D2,
-                    format,
-                    usage,
-                    view_formats: &[],
-                };
+        let key = ViewTransmissionTexture::get_view_transmission_texture(entity);
 
-                texture_cache.get(&render_device, descriptor)
-            })
-            .clone();
+        let texture_info = TextureInfo {
+            label: Some("view_transmission_texture".into()),
+            size,
+            mip_level_count: 1,
+            sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
+            dimension: TextureDimension::D2,
+            format,
+            usage,
+            view_formats: vec![],
+        };
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("view_transmission_sampler"),
+        frame_graph.get_or_create(&key, texture_info.clone());
+
+        let sample_info = SamplerInfo {
+            label: Some("view_transmission_sampler".into()),
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             ..Default::default()
-        });
+        };
 
         commands.entity(entity).insert(ViewTransmissionTexture {
-            texture: cached_texture.texture,
-            view: cached_texture.default_view,
-            sampler,
+            sample_info,
+            texture_info,
+            texture_key: key.into(),
         });
     }
 }

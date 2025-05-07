@@ -15,8 +15,8 @@ use crate::{
     extract_component::ExtractComponentPlugin,
     frame_graph::{
         ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraph,
-        FrameGraphError, PassNodeBuilder, ResourceBoardKey, TextureInfo, TextureViewDrawing,
-        TextureViewInfo,
+        FrameGraphError, PassNodeBuilder, ResourceBoardKey, TexelCopyTextureInfo, TextureInfo,
+        TextureViewDrawing, TextureViewInfo,
     },
     prelude::Shader,
     primitives::Frustum,
@@ -45,8 +45,7 @@ use core::{
 };
 use std::sync::atomic::AtomicBool;
 use wgpu::{
-    BufferUsages, Color, Extent3d, LoadOp, Operations, StoreOp, TextureDimension, TextureFormat,
-    TextureUsages,
+    BufferUsages, Color, Extent3d, LoadOp, Operations, Origin3d, StoreOp, TextureAspect, TextureDimension, TextureFormat, TextureUsages
 };
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
@@ -724,6 +723,20 @@ pub struct NoCpuCulling;
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
+    pub fn get_main_texture_image_copy(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> Result<TexelCopyTextureInfo, FrameGraphError> {
+        let main_texture_read = pass_node_builder.read_from_board(self.get_main_texture_key())?;
+
+        Ok(TexelCopyTextureInfo {
+            mip_level: 0,
+            texture: main_texture_read,
+            origin: Origin3d::ZERO,
+            aspect: TextureAspect::All,
+        })
+    }
+
     pub fn get_color_attachment(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
@@ -840,8 +853,7 @@ impl ViewDepthTexture {
         pass_node_builder: &mut PassNodeBuilder,
         store_op: StoreOp,
     ) -> Result<DepthStencilAttachmentDrawing, FrameGraphError> {
-        let depth_texture_read =
-            pass_node_builder.read_from_board(self.get_depth_texture_key())?;
+        let depth_texture_read = pass_node_builder.read_from_board(self.get_depth_texture_key())?;
 
         Ok(DepthStencilAttachmentDrawing {
             view: TextureViewDrawing {

@@ -2,10 +2,13 @@ use super::{Camera3d, Transmissive3d, ViewTransmissionTexture};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::{FrameGraph, RenderPassBuilder},
+    frame_graph::{
+        command_encoder::CommandEncoderPass, command_encoder_context::CommandEncoderCommandBuilder,
+        FrameGraph, RenderPassBuilder,
+    },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
-    render_resource::StoreOp,
+    render_resource::{Extent3d, StoreOp},
     renderer::RenderDevice,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
@@ -48,6 +51,8 @@ impl ViewNode for MainTransmissivePass3dNode {
             return Ok(());
         };
 
+        let physical_target_size = camera.physical_target_size.unwrap();
+
         #[cfg(feature = "trace")]
         let _main_transmissive_pass_3d_span = info_span!("main_transmissive_pass_3d").entered();
 
@@ -57,7 +62,7 @@ impl ViewNode for MainTransmissivePass3dNode {
             let screen_space_specular_transmission_steps =
                 camera_3d.screen_space_specular_transmission_steps;
             if screen_space_specular_transmission_steps > 0 {
-                let _transmission =
+                let transmission =
                     transmission.expect("`ViewTransmissionTexture` should exist at this point");
 
                 // `transmissive_phase.items` are depth sorted, so we split them into N = `screen_space_specular_transmission_steps`
@@ -72,15 +77,28 @@ impl ViewNode for MainTransmissivePass3dNode {
                 ) {
                     // Copy the main texture to the transmission texture, allowing to use the color output of the
                     // previous step (or of the `Opaque3d` phase, for the first step) as a transmissive color input
-                    // render_context.command_encoder().copy_texture_to_texture(
-                    //     target.main_texture().as_image_copy(),
-                    //     transmission.texture.as_image_copy(),
-                    //     Extent3d {
-                    //         width: physical_target_size.x,
-                    //         height: physical_target_size.y,
-                    //         depth_or_array_layers: 1,
-                    //     },
-                    // );
+
+                    {
+                        let mut pass_node_builder = frame_graph
+                            .create_pass_node_bulder("main_transmissive_command_encoder_3d");
+
+                        let source = target.get_main_texture_image_copy(&mut pass_node_builder)?;
+                        let destination = transmission.get_image_copy(&mut pass_node_builder)?;
+
+                        let mut pass = CommandEncoderPass::default();
+
+                        pass.copy_texture_to_texture(
+                            source,
+                            destination,
+                            Extent3d {
+                                width: physical_target_size.x,
+                                height: physical_target_size.y,
+                                depth_or_array_layers: 1,
+                            },
+                        );
+
+                        pass_node_builder.set_pass(pass);
+                    }
 
                     let mut pass_node_builder =
                         frame_graph.create_pass_node_bulder("main_transmissive_pass_3d");
