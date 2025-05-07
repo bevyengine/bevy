@@ -715,7 +715,7 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
 #[derive(Clone)]
 pub struct OptionBuilder<T>(T);
 
-// SAFETY: `WhenBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `When<P>`
+// SAFETY: `OptionBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Option<P>`
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Option<P>>
     for OptionBuilder<B>
 {
@@ -728,7 +728,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Option<
 #[derive(Clone)]
 pub struct ResultBuilder<T>(T);
 
-// SAFETY: `WhenBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `When<P>`
+// SAFETY: `ResultBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Result<P, SystemParamValidationError>`
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>>
     SystemParamBuilder<Result<P, SystemParamValidationError>> for ResultBuilder<B>
 {
