@@ -93,7 +93,7 @@ mod clipboard {
             if let Some(clipboard) = self.0.as_mut() {
                 clipboard.set_text(text).map_err(ClipboardError::from)
             } else {
-                Err(arboard::Error::ClipboardNotSupported)
+                Err(ClipboardError::ClipboardNotSupported)
             }
         }
     }
