@@ -509,15 +509,6 @@ pub trait Component: Send + Sync + 'static {
     /// * For a component to be immutable, this type must be [`Immutable`].
     type Mutability: ComponentMutability;
 
-    /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use the individual hook methods instead (e.g., `Component::on_add`, etc.)"
-    )]
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.update_from_component::<Self>();
-    }
-
     /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
     fn on_add() -> Option<ComponentHook> {
         None
