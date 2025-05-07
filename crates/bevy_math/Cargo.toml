@@ -50,7 +50,6 @@ std = [
   "approx?/std",
   "rand?/std",
   "rand_distr?/std",
-  "bevy_reflect?/std",
 ]
 alloc = [
   "itertools/use_alloc",

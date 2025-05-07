@@ -295,7 +295,6 @@ std = [
   "bevy_input_focus?/std",
   "bevy_math/std",
   "bevy_platform/std",
-  "bevy_reflect/std",
   "bevy_state?/std",
   "bevy_time/std",
   "bevy_transform/std",
@@ -314,7 +313,6 @@ critical-section = [
   "bevy_input/critical-section",
   "bevy_input_focus?/critical-section",
   "bevy_platform/critical-section",
-  "bevy_reflect/critical-section",
   "bevy_state?/critical-section",
   "bevy_time/critical-section",
   "bevy_utils/critical-section",
@@ -342,12 +340,7 @@ async_executor = [
 
 # Enables use of browser APIs.
 # Note this is currently only applicable on `wasm32` architectures.
-web = [
-  "bevy_app/web",
-  "bevy_platform/web",
-  "bevy_reflect/web",
-  "bevy_tasks/web",
-]
+web = ["bevy_app/web", "bevy_platform/web", "bevy_tasks/web"]
 
 [dependencies]
 # bevy (no_std)

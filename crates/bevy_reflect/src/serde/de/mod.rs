@@ -519,10 +519,17 @@ mod tests {
         let error = reflect_deserializer
             .deserialize(&mut deserializer)
             .unwrap_err();
-        #[cfg(feature = "debug_stack")]
-        assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()));
-        #[cfg(not(feature = "debug_stack"))]
-        assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()));
+
+        let expected_error = crate::cfg::switch! {{
+            crate::cfg::debug_stack => {
+                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)"
+            }
+            _ => {
+                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`"
+            }
+        }};
+
+        assert_eq!(error, ron::Error::Message(expected_error.to_string()));
     }
 
     #[test]
@@ -664,16 +671,16 @@ mod tests {
             .deserialize(&mut deserializer)
             .unwrap_err();
 
-        #[cfg(feature = "debug_stack")]
-        assert_eq!(
-            error,
-            ron::Error::Message("my custom deserialize error (stack: `i32`)".to_string())
-        );
-        #[cfg(not(feature = "debug_stack"))]
-        assert_eq!(
-            error,
-            ron::Error::Message("my custom deserialize error".to_string())
-        );
+        let expected_error = crate::cfg::switch! {{
+            crate::cfg::debug_stack => {
+                "my custom deserialize error (stack: `i32`)"
+            }
+            _ => {
+                "my custom deserialize error"
+            }
+        }};
+
+        assert_eq!(error, ron::Error::Message(expected_error.to_string()));
     }
 
     #[test]
@@ -762,13 +769,11 @@ mod tests {
         assert!(<Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).is_none());
     }
 
-    #[cfg(feature = "functions")]
-    mod functions {
-        use super::*;
-        use crate::func::DynamicFunction;
-
+    crate::cfg::functions! {
         #[test]
         fn should_not_deserialize_function() {
+            use crate::func::DynamicFunction;
+
             #[derive(Reflect)]
             #[reflect(from_reflect = false)]
             struct MyStruct {
@@ -791,29 +796,20 @@ mod tests {
                 .deserialize(&mut ron_deserializer)
                 .unwrap_err();
 
-            #[cfg(feature = "debug_stack")]
-            assert_eq!(
-                error,
-                ron::Error::Message(
+            let expected_error = crate::cfg::switch! {{
+                crate::cfg::debug_stack => {
                     "no registration found for type `bevy_reflect::DynamicFunction` (stack: `bevy_reflect::serde::de::tests::functions::MyStruct`)"
-                        .to_string()
-                )
-            );
+                }
+                _ => {
+                    "no registration found for type `bevy_reflect::DynamicFunction`"
+                }
+            }};
 
-            #[cfg(not(feature = "debug_stack"))]
-            assert_eq!(
-                error,
-                ron::Error::Message(
-                    "no registration found for type `bevy_reflect::DynamicFunction`".to_string()
-                )
-            );
+            assert_eq!(error, ron::Error::Message(expected_error.to_string()));
         }
     }
 
-    #[cfg(feature = "debug_stack")]
-    mod debug_stack {
-        use super::*;
-
+    crate::cfg::debug_stack! {
         #[test]
         fn should_report_context_in_errors() {
             #[derive(Reflect)]

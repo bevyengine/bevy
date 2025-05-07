@@ -72,7 +72,6 @@ std = [
   "bevy_log",
   "bevy_ecs?/std",
   "bevy_math/std",
-  "bevy_reflect?/std",
   "bevy_tasks/std",
   "bevy_utils/std",
   "serde?/std",
@@ -84,7 +83,6 @@ critical-section = [
   "bevy_app?/critical-section",
   "bevy_ecs?/critical-section",
   "bevy_tasks/critical-section",
-  "bevy_reflect?/critical-section",
 ]
 
 ## Allows access to the `alloc` crate.

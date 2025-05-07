@@ -30,7 +30,6 @@ serialize = ["dep:serde", "bevy_ecs/serialize", "bevy_platform/serialize"]
 ## supported platforms.
 std = [
   "serde?/std",
-  "bevy_reflect?/std",
   "bevy_ecs/std",
   "bevy_app/std",
   "bevy_platform/std",
@@ -42,7 +41,6 @@ std = [
 critical-section = [
   "bevy_ecs/critical-section",
   "bevy_platform/critical-section",
-  "bevy_reflect?/critical-section",
   "bevy_app/critical-section",
 ]
 
