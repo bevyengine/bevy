@@ -24,8 +24,6 @@ mod tests {
         serde::{ReflectSerializer, ReflectSerializerProcessor},
         PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };
-    #[cfg(feature = "functions")]
-    use alloc::boxed::Box;
     use alloc::{
         string::{String, ToString},
         vec,
@@ -442,22 +440,17 @@ mod tests {
 
         let serializer = ReflectSerializer::new(&value, &registry);
         let error = ron::ser::to_string(&serializer).unwrap_err();
-        #[cfg(feature = "debug_stack")]
-        assert_eq!(
-            error,
-            ron::Error::Message(
+
+        let expected_error = crate::cfg::switch! {{
+            crate::cfg::debug_stack => {
                 "type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `core::ops::RangeInclusive<f32>`)"
-                    .to_string(),
-            )
-        );
-        #[cfg(not(feature = "debug_stack"))]
-        assert_eq!(
-            error,
-            ron::Error::Message(
+            }
+            _ => {
                 "type `core::ops::RangeInclusive<f32>` is not registered in the type registry"
-                    .to_string(),
-            )
-        );
+            }
+        }};
+
+        assert_eq!(error, ron::Error::Message(expected_error.to_string()));
     }
 
     #[test]
@@ -468,20 +461,17 @@ mod tests {
 
         let serializer = ReflectSerializer::new(&value, &registry);
         let error = ron::ser::to_string(&serializer).unwrap_err();
-        #[cfg(feature = "debug_stack")]
-        assert_eq!(
-            error,
-            ron::Error::Message(
-                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` or `ReflectSerializeWithRegistry` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()
-            )
-        );
-        #[cfg(not(feature = "debug_stack"))]
-        assert_eq!(
-            error,
-            ron::Error::Message(
-                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()
-            )
-        );
+
+        let expected_error = crate::cfg::switch! {{
+            crate::cfg::debug_stack => {
+                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` or `ReflectSerializeWithRegistry` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)"
+            }
+            _ => {
+                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`"
+            }
+        }};
+
+        assert_eq!(error, ron::Error::Message(expected_error.to_string()));
     }
 
     #[test]
@@ -638,23 +628,21 @@ mod tests {
         let serializer = ReflectSerializer::with_processor(&value, &registry, &processor);
         let error = ron::ser::to_string_pretty(&serializer, PrettyConfig::default()).unwrap_err();
 
-        #[cfg(feature = "debug_stack")]
-        assert_eq!(
-            error,
-            ron::Error::Message("my custom serialize error (stack: `i32`)".to_string())
-        );
-        #[cfg(not(feature = "debug_stack"))]
-        assert_eq!(
-            error,
-            ron::Error::Message("my custom serialize error".to_string())
-        );
+        let expected_error = crate::cfg::switch! {{
+            crate::cfg::debug_stack => {
+                "my custom serialize error (stack: `i32`)"
+            }
+            _ => {
+                "my custom serialize error"
+            }
+        }};
+
+        assert_eq!(error, ron::Error::Message(expected_error.to_string()));
     }
 
-    #[cfg(feature = "functions")]
-    mod functions {
-        use super::*;
+    crate::cfg::functions! {
         use crate::func::{DynamicFunction, IntoFunction};
-        use alloc::string::ToString;
+        use alloc::{string::ToString, boxed::Box};
 
         #[test]
         fn should_not_serialize_function() {
@@ -673,24 +661,20 @@ mod tests {
 
             let error = ron::ser::to_string(&serializer).unwrap_err();
 
-            #[cfg(feature = "debug_stack")]
-            assert_eq!(
-                error,
-                ron::Error::Message("functions cannot be serialized (stack: `bevy_reflect::serde::ser::tests::functions::MyStruct`)".to_string())
-            );
+            let expected_error = crate::cfg::switch! {{
+                crate::cfg::debug_stack => {
+                    "functions cannot be serialized (stack: `bevy_reflect::serde::ser::tests::functions::MyStruct`)"
+                }
+                _ => {
+                    "functions cannot be serialized"
+                }
+            }};
 
-            #[cfg(not(feature = "debug_stack"))]
-            assert_eq!(
-                error,
-                ron::Error::Message("functions cannot be serialized".to_string())
-            );
+            assert_eq!(error, ron::Error::Message(expected_error.to_string()));
         }
     }
 
-    #[cfg(feature = "debug_stack")]
-    mod debug_stack {
-        use super::*;
-
+    crate::cfg::debug_stack! {
         #[test]
         fn should_report_context_in_errors() {
             #[derive(Reflect)]

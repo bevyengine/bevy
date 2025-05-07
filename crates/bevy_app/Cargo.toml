@@ -43,7 +43,6 @@ error_panic_hook = []
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-  "bevy_reflect?/std",
   "bevy_ecs/std",
   "dep:ctrlc",
   "downcast-rs/std",
@@ -58,7 +57,6 @@ critical-section = [
   "bevy_tasks/critical-section",
   "bevy_ecs/critical-section",
   "bevy_platform/critical-section",
-  "bevy_reflect?/critical-section",
 ]
 
 ## Enables use of browser APIs.
@@ -66,7 +64,6 @@ critical-section = [
 web = [
   "bevy_platform/web",
   "bevy_tasks/web",
-  "bevy_reflect?/web",
   "dep:wasm-bindgen",
   "dep:web-sys",
   "dep:console_error_panic_hook",

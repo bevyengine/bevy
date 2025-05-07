@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [features]
-default = ["std", "smallvec", "debug"]
+default = ["smallvec", "debug"]
 
 # Features
 
@@ -26,7 +26,7 @@ functions = ["bevy_reflect_derive/functions"]
 debug = ["debug_stack"]
 
 ## When enabled, keeps track of the current serialization/deserialization context for better error messages
-debug_stack = ["std"]
+debug_stack = ["bevy_platform/std"]
 
 # Integrations
 
@@ -37,7 +37,7 @@ glam = ["dep:glam"]
 hashbrown = ["dep:hashbrown"]
 
 ## Adds reflection support to `petgraph` types.
-petgraph = ["dep:petgraph", "std"]
+petgraph = ["dep:petgraph"]
 
 ## Adds reflection support to `smallvec` types.
 smallvec = ["dep:smallvec"]
@@ -48,33 +48,8 @@ uuid = ["dep:uuid"]
 ## Adds reflection support to `wgpu-types` types.
 wgpu-types = ["dep:wgpu-types"]
 
-# Platform Compatibility
-
-## Allows access to the `std` crate. Enabling this feature will prevent compilation
-## on `no_std` targets, but provides access to certain additional features on
-## supported platforms.
-std = [
-  "bevy_utils/std",
-  "erased-serde/std",
-  "downcast-rs/std",
-  "serde/std",
-  "glam?/std",
-  "smol_str?/std",
-  "uuid?/std",
-  "bevy_platform/std",
-  "wgpu-types?/std",
-]
-
-## `critical-section` provides the building blocks for synchronization primitives
-## on all platforms, including `no_std`.
-critical-section = [
-  "bevy_platform/critical-section",
-  "bevy_utils/critical-section",
-]
-
-## Enables use of browser APIs.
-## Note this is currently only applicable on `wasm32` architectures.
-web = ["bevy_platform/web", "uuid?/js"]
+## Adds reflection support to `smol_str` types.
+smol_str = ["dep:smol_str"]
 
 [dependencies]
 # bevy
@@ -105,8 +80,11 @@ assert_type_match = "0.1.1"
 smallvec = { version = "1.11", default-features = false, optional = true }
 glam = { version = "0.29.3", default-features = false, features = [
   "serde",
+  "nostd-libm",
 ], optional = true }
-petgraph = { version = "0.7", features = ["serde-1"], optional = true }
+petgraph = { version = "0.7", features = [
+  "serde-1",
+], default-features = false, optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }
