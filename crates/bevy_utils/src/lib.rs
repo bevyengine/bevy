@@ -42,7 +42,7 @@ use core::mem::ManuallyDrop;
 
 #[cfg(feature = "alloc")]
 use {
-    bevy_platform_support::{
+    bevy_platform::{
         collections::HashMap,
         hash::{Hashed, NoOpHash, PassHash},
     },
@@ -67,7 +67,7 @@ pub trait PreHashMapExt<K, V> {
 impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, V> {
     #[inline]
     fn get_or_insert_with<F: FnOnce() -> V>(&mut self, key: &Hashed<K>, func: F) -> &mut V {
-        use bevy_platform_support::collections::hash_map::RawEntryMut;
+        use bevy_platform::collections::hash_map::RawEntryMut;
         let entry = self
             .raw_entry_mut()
             .from_key_hashed_nocheck(key.hash(), key);

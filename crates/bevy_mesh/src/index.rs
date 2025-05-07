@@ -70,6 +70,7 @@ pub enum MeshTrianglesError {
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),

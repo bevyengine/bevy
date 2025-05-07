@@ -36,7 +36,9 @@ use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
     prepare_core_3d_depth_textures,
 };
-use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoSystemConfigs as _};
+use bevy_ecs::{
+    component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs as _,
+};
 use bevy_image::Image;
 use bevy_math::{
     primitives::{Cuboid, Plane3d},
@@ -49,7 +51,7 @@ use bevy_render::{
     render_resource::{Shader, SpecializedRenderPipelines},
     sync_component::SyncComponentPlugin,
     view::Visibility,
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::Transform;
 use render::{
@@ -69,14 +71,14 @@ pub struct VolumetricFogPlugin;
 ///
 /// This allows the light to generate light shafts/god rays.
 #[derive(Clone, Copy, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VolumetricLight;
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VolumetricFog {
     /// Color of the ambient light.
     ///
@@ -114,7 +116,7 @@ pub struct VolumetricFog {
 }
 
 #[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]
 pub struct FogVolume {
     /// The color of the fog.
@@ -214,10 +216,10 @@ impl Plugin for VolumetricFogPlugin {
             .add_systems(
                 Render,
                 (
-                    render::prepare_volumetric_fog_pipelines.in_set(RenderSet::Prepare),
-                    render::prepare_volumetric_fog_uniforms.in_set(RenderSet::Prepare),
+                    render::prepare_volumetric_fog_pipelines.in_set(RenderSystems::Prepare),
+                    render::prepare_volumetric_fog_uniforms.in_set(RenderSystems::Prepare),
                     render::prepare_view_depth_textures_for_volumetric_fog
-                        .in_set(RenderSet::Prepare)
+                        .in_set(RenderSystems::Prepare)
                         .before(prepare_core_3d_depth_textures),
                 ),
             );

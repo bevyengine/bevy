@@ -1,5 +1,5 @@
 use alloc::{string::String, vec::Vec};
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
@@ -8,7 +8,7 @@ use crate::Task;
 use std::thread_local;
 
 #[cfg(not(feature = "std"))]
-use bevy_platform_support::sync::{Mutex, PoisonError};
+use bevy_platform::sync::{Mutex, PoisonError};
 
 #[cfg(feature = "std")]
 use crate::executor::LocalExecutor;
@@ -199,26 +199,27 @@ impl TaskPool {
     where
         T: 'static + MaybeSend + MaybeSync,
     {
-        #[cfg(target_arch = "wasm32")]
-        return Task::wrap_future(future);
+        cfg_if::cfg_if! {
+            if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+                Task::wrap_future(future)
+            } else if #[cfg(feature = "std")] {
+                LOCAL_EXECUTOR.with(|executor| {
+                    let task = executor.spawn(future);
+                    // Loop until all tasks are done
+                    while executor.try_tick() {}
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
-        return LOCAL_EXECUTOR.with(|executor| {
-            let task = executor.spawn(future);
-            // Loop until all tasks are done
-            while executor.try_tick() {}
+                    Task::new(task)
+                })
+            } else {
+                {
+                    let task = LOCAL_EXECUTOR.spawn(future);
+                    // Loop until all tasks are done
+                    while LOCAL_EXECUTOR.try_tick() {}
 
-            Task::new(task)
-        });
-
-        #[cfg(all(not(target_arch = "wasm32"), not(feature = "std")))]
-        return {
-            let task = LOCAL_EXECUTOR.spawn(future);
-            // Loop until all tasks are done
-            while LOCAL_EXECUTOR.try_tick() {}
-
-            Task::new(task)
-        };
+                    Task::new(task)
+                }
+            }
+        }
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].

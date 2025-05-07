@@ -49,7 +49,7 @@ std = [
   "downcast-rs/std",
   "bevy_utils/std",
   "bevy_tasks/std",
-  "bevy_platform_support/std",
+  "bevy_platform/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -57,8 +57,19 @@ std = [
 critical-section = [
   "bevy_tasks/critical-section",
   "bevy_ecs/critical-section",
-  "bevy_platform_support/critical-section",
+  "bevy_platform/critical-section",
   "bevy_reflect?/critical-section",
+]
+
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+web = [
+  "bevy_platform/web",
+  "bevy_tasks/web",
+  "bevy_reflect?/web",
+  "dep:wasm-bindgen",
+  "dep:web-sys",
+  "dep:console_error_panic_hook",
 ]
 
 [dependencies]
@@ -70,7 +81,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
   "alloc",
 ] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
 
 # other
 downcast-rs = { version = "2", default-features = false }
@@ -78,14 +89,15 @@ thiserror = { version = "2", default-features = false }
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
+cfg-if = "1.0.0"
 
 [target.'cfg(any(unix, windows))'.dependencies]
 ctrlc = { version = "3.4.4", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = ["Window"] }
-console_error_panic_hook = "0.1.6"
+wasm-bindgen = { version = "0.2", optional = true }
+web-sys = { version = "0.3", features = ["Window"], optional = true }
+console_error_panic_hook = { version = "0.1.6", optional = true }
 
 [dev-dependencies]
 crossbeam-channel = "0.5.0"

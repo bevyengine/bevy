@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-ui_test = "0.23.0"
+ui_test = "0.29.1"
 
 [[test]]
 name = "example"

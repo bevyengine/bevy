@@ -1,7 +1,7 @@
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
@@ -13,6 +13,8 @@ use crate::{
 use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
+
+use super::SystemParamValidationError;
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -85,6 +87,11 @@ where
     }
 
     #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.system_meta.component_access_set
+    }
+
+    #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.system_meta.archetype_component_access
     }
@@ -111,13 +118,11 @@ where
     #[inline]
     unsafe fn run_unsafe(
         &mut self,
-        _input: SystemIn<'_, Self>,
-        _world: UnsafeWorldCell,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
     ) -> Self::Out {
-        panic!("Cannot run exclusive systems with a shared World reference");
-    }
-
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        // SAFETY: The safety is upheld by the caller.
+        let world = unsafe { world.world_mut() };
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();
@@ -150,9 +155,12 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        _world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // All exclusive system params are always available.
-        true
+        Ok(())
     }
 
     #[inline]
@@ -281,6 +289,7 @@ macro_rules! impl_exclusive_system_function {
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
+                    _: PhantomData<In>,
                     mut f: impl FnMut(In::Param<'_>, &mut World, $($param,)*) -> Out,
                     input: In::Inner<'_>,
                     world: &mut World,
@@ -289,7 +298,7 @@ macro_rules! impl_exclusive_system_function {
                     f(In::wrap(input), world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, input, world, $($param),*)
+                call_inner(PhantomData::<In>, self, input, world, $($param),*)
             }
         }
     };

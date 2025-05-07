@@ -3,7 +3,7 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystem,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystems,
     ResolvedBorderRadius, TransparentUi, Val,
 };
 use bevy_app::prelude::*;
@@ -27,7 +27,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::TemporaryRenderEntity,
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
@@ -57,13 +57,13 @@ impl Plugin for BoxShadowPlugin {
                 .init_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_shadows.in_set(RenderUiSystem::ExtractBoxShadows),
+                    extract_shadows.in_set(RenderUiSystems::ExtractBoxShadows),
                 )
                 .add_systems(
                     Render,
                     (
-                        queue_shadows.in_set(RenderSet::Queue),
-                        prepare_shadows.in_set(RenderSet::PrepareBindGroups),
+                        queue_shadows.in_set(RenderSystems::Queue),
+                        prepare_shadows.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
         }
@@ -365,10 +365,8 @@ pub fn queue_shadows(
             draw_function,
             pipeline,
             entity: (entity, extracted_shadow.main_entity),
-            sort_key: (
-                FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
-                entity.index(),
-            ),
+            sort_key: FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
+
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             index,

@@ -12,7 +12,10 @@ keywords = ["bevy"]
 syn = "2.0"
 quote = "1.0"
 proc-macro2 = "1.0"
-cargo-manifest-proc-macros = "0.3.4"
+toml_edit = { version = "0.22.7", default-features = false, features = [
+  "parse",
+] }
+parking_lot = { version = "0.12" }
 
 [lints]
 workspace = true

@@ -43,21 +43,16 @@ impl Plugin for PanicHandlerPlugin {
         {
             static SET_HOOK: std::sync::Once = std::sync::Once::new();
             SET_HOOK.call_once(|| {
-                #[cfg(target_arch = "wasm32")]
-                {
-                    // This provides better panic handling in JS engines (displays the panic message and improves the backtrace).
-                    std::panic::set_hook(alloc::boxed::Box::new(console_error_panic_hook::hook));
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    #[cfg(feature = "error_panic_hook")]
-                    {
+                cfg_if::cfg_if! {
+                    if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+                        // This provides better panic handling in JS engines (displays the panic message and improves the backtrace).
+                        std::panic::set_hook(alloc::boxed::Box::new(console_error_panic_hook::hook));
+                    } else if #[cfg(feature = "error_panic_hook")] {
                         let current_hook = std::panic::take_hook();
                         std::panic::set_hook(alloc::boxed::Box::new(
                             bevy_ecs::error::bevy_error_panic_hook(current_hook),
                         ));
                     }
-
                     // Otherwise use the default target panic hook - Do nothing.
                 }
             });
