@@ -124,7 +124,7 @@ mod clipboard {
         /// Returns error if `text` failed to be stored on the clipboard.
         pub fn set_text<'a, T: Into<alloc::borrow::Cow<'a, str>>>(
             &mut self,
-            text: T,
+            _: T,
         ) -> Result<(), ClipboardError> {
             Err(ClipboardError::ClipboardNotSupported)
         }
