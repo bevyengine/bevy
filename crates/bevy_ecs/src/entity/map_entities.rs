@@ -171,7 +171,7 @@ impl<T: MapEntities, A: smallvec::Array<Item = T>> MapEntities for SmallVec<A> {
 ///     fn get_mapped(&mut self, entity: Entity) -> Entity {
 ///         self.map.get(&entity).copied().unwrap_or(entity)
 ///     }
-///     
+///
 ///     fn set_mapped(&mut self, source: Entity, target: Entity) {
 ///         self.map.insert(source, target);
 ///     }
@@ -228,7 +228,7 @@ impl EntityMapper for SceneEntityMapper<'_> {
 
         // this new entity reference is specifically designed to never represent any living entity
         let new = Entity::from_raw_and_generation(
-            self.dead_start.index(),
+            self.dead_start.row(),
             IdentifierMask::inc_masked_high_by(self.dead_start.generation, self.generations),
         );
 
@@ -331,6 +331,7 @@ impl<'m> SceneEntityMapper<'m> {
 
 #[cfg(test)]
 mod tests {
+
     use crate::{
         entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
         world::World,
@@ -338,14 +339,11 @@ mod tests {
 
     #[test]
     fn entity_mapper() {
-        const FIRST_IDX: u32 = 1;
-        const SECOND_IDX: u32 = 2;
-
         let mut map = EntityHashMap::default();
         let mut world = World::new();
         let mut mapper = SceneEntityMapper::new(&mut map, &mut world);
 
-        let mapped_ent = Entity::from_raw(FIRST_IDX);
+        let mapped_ent = Entity::from_raw_u32(1).unwrap();
         let dead_ref = mapper.get_mapped(mapped_ent);
 
         assert_eq!(
@@ -354,7 +352,7 @@ mod tests {
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper.get_mapped(Entity::from_raw(SECOND_IDX)).index(),
+            mapper.get_mapped(Entity::from_raw_u32(2).unwrap()).index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -372,7 +370,7 @@ mod tests {
         let mut world = World::new();
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
-            mapper.get_mapped(Entity::from_raw(0))
+            mapper.get_mapped(Entity::from_raw_u32(0).unwrap())
         });
 
         // Next allocated entity should be a further generation on the same index

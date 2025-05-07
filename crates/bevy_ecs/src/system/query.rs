@@ -933,7 +933,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     type Item = &'a Entity;
     ///     type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
-    ///  
+    ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
     ///        unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
@@ -1414,7 +1414,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(
     ///     match query.get_many([wrong_entity]).unwrap_err() {
@@ -1465,7 +1465,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(
     ///     match query.get_many_unique(UniqueEntityArray::from([wrong_entity])).unwrap_err() {
@@ -1610,7 +1610,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let entities: [Entity; 3] = entities.try_into().unwrap();
     ///
     /// world.spawn(A(73));
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     ///
@@ -1684,7 +1684,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let entity_set: UniqueEntityArray<3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     ///
@@ -2234,7 +2234,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
+    ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
     ///
