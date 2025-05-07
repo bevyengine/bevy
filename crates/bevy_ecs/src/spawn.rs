@@ -133,9 +133,10 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
     }
 }
 
-/// A [`SpawnableList`] that adds entities using an iterator of [`Entity`]:
+/// A [`SpawnableList`] that links already spawned entities to the root entity via relations of type `I`.
 ///
-/// useful if the entity has already been spawned earlier or if you spawn multiple relationships link to the same entity at the same time.
+/// This is useful if the entity has already been spawned earlier or if you spawn multiple relationships link to the same entity at the same time.
+/// If you only need to do this for a single entity, consider using [`WithOneRelated`].
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;
