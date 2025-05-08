@@ -8,7 +8,7 @@ use bevy_platform::{
 use core::mem::ManuallyDrop;
 use log::warn;
 
-use super::{Entity, EntitySetIterator};
+use super::{Entity, EntityRow, EntitySetIterator};
 
 /// This is the item we store in the free list.
 /// Effectively, this is a `MaybeUninit<Entity>` where uninit is represented by `Entity::PLACEHOLDER`.
@@ -744,7 +744,7 @@ impl Allocator {
 
     /// Returns whether or not the index is valid in this allocator.
     #[inline]
-    pub fn is_valid_index(&self, index: u32) -> bool {
+    pub fn is_valid_row(&self, row: EntityRow) -> bool {
         (index as u64) < self.total_entity_indices()
     }
 

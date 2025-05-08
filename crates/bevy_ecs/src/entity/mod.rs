@@ -864,6 +864,27 @@ impl Entities {
         meta.location = location;
     }
 
+    /// Updates the location of an [`Entity`]. This must be called when moving the components of
+    /// the spawned or despawned entity around in storage.
+    ///
+    /// # Safety
+    ///  - `index` must be a valid entity index.
+    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
+    ///    before handing control to unknown code.
+    #[inline]
+    pub(crate) unsafe fn set_spawn_despawn(
+        &mut self,
+        index: u32,
+        location: EntityLocation,
+        by: MaybeLocation,
+        at: Tick,
+    ) {
+        // SAFETY: Caller guarantees that `index` a valid entity index
+        let meta = unsafe { self.force_get_meta_mut(index as usize) };
+        meta.location = location;
+        meta.spawned_or_despawned = MaybeUninit::new(SpawnedOrDespawned { by, at });
+    }
+
     /// Gets the meta for this index mutably, creating it if it did not exist.
     ///
     /// # Safety
@@ -974,20 +995,6 @@ impl Entities {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
-    // /// Sets the source code location from which this entity has last been spawned
-    // /// or despawned.
-    // #[inline]
-    // pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: MaybeLocation) {
-    //     caller.map(|caller| {
-    //         if !self.allocator.is_valid_index(index) {
-    //             panic!("Entity index invalid")
-    //         }
-    //         // SAFETY: We just checked that it is valid
-    //         let meta = unsafe { self.force_get_meta_mut(index as usize) };
-    //         meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
-    //     });
-    // }
 
     /// Returns the source code location from which this entity has last been spawned
     /// or despawned. Returns `None` if its index has been reused by another entity
