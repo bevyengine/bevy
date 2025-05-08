@@ -1,12 +1,14 @@
+use std::borrow::Cow;
+
 use alloc::sync::Arc;
 
-use crate::render_resource::{Buffer, Texture};
+use crate::render_resource::{BindGroupLayout, Buffer, Texture};
 
 use super::{
-    FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphRawResourceNodeHandle,
-    GraphResource, GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass,
-    PassTrait, ResourceBoardKey, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
-    TypeEquals,
+    BindGroupDrawingBuilder, FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture,
+    GraphRawResourceNodeHandle, GraphResource, GraphResourceDescriptor, GraphResourceNodeHandle,
+    ImportToFrameGraph, Pass, PassTrait, ResourceBoardKey, ResourceMaterial, ResourceRead,
+    ResourceRef, ResourceWrite, TypeEquals,
 };
 
 pub struct PassNodeBuilder<'a> {
@@ -33,15 +35,20 @@ impl<'a> PassNodeBuilder<'a> {
         self.pass = Some(Pass::new(pass))
     }
 
+    pub fn create_bind_group_drawing_builder<'b>(
+        &'b mut self,
+        label: Option<Cow<'static, str>>,
+        layout: BindGroupLayout,
+    ) -> BindGroupDrawingBuilder<'a, 'b> {
+        BindGroupDrawingBuilder::new(label, layout, self)
+    }
+
     pub fn read_from_board<ResourceType: GraphResource, Key: Into<ResourceBoardKey>>(
         &mut self,
         key: Key,
     ) -> Result<ResourceRef<ResourceType, ResourceRead>, FrameGraphError> {
         let key: ResourceBoardKey = key.into();
-        let handle = self
-            .graph
-            .get(&key)
-            .ok_or(FrameGraphError::ResourceBoardKey { key: key.into() })?;
+        let handle = self.graph.get(&key)?;
         let read = self.read(handle);
         Ok(read)
     }

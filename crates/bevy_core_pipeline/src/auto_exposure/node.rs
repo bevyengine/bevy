@@ -9,10 +9,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    frame_graph::{
-        BindGroupDrawing, BindGroupEntryRefs, BindingResourceHandleHelper, ComputePassBuilder,
-        FrameGraph, FrameGraphTexture, ResourceRead, ResourceRef,
-    },
+    frame_graph::{ComputePassBuilder, FrameGraph, FrameGraphTexture, GraphResourceNodeHandle},
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::*,
@@ -80,26 +77,14 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let mut pass_node_builder = frame_graph.create_pass_node_bulder("auto_exposure_pass");
-
-        let globals_buffer = globals_buffer
-            .buffer
-            .make_binding_resource_ref(&mut pass_node_builder);
-
-        let auto_exposure_buffer = auto_exposure_buffers
-            .settings
-            .make_binding_resource_ref(&mut pass_node_builder);
-
-        let source: ResourceRef<FrameGraphTexture, ResourceRead> =
-            pass_node_builder.read_from_board(view_target.get_main_texture_key())?;
+        let source: GraphResourceNodeHandle<FrameGraphTexture> =
+            frame_graph.get(view_target.get_main_texture_key())?;
 
         let fallback = world.resource::<FallbackImage>();
         let mask = world
             .resource::<RenderAssets<GpuImage>>()
             .get(&auto_exposure.metering_mask)
             .unwrap_or(&fallback.d2);
-
-        let mask = mask.make_binding_resource_ref(&mut pass_node_builder);
 
         let Some(compensation_curve) = world
             .resource::<RenderAssets<GpuAutoExposureCompensationCurve>>()
@@ -108,42 +93,20 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let compensation_curve_texture = compensation_curve
-            .texture
-            .make_binding_resource_ref(&mut pass_node_builder);
+        let mut pass_node_builder = frame_graph.create_pass_node_bulder("auto_exposure_pass");
 
-        let compensation_curve_extents = compensation_curve
-            .extents
-            .make_binding_resource_ref(&mut pass_node_builder);
-
-        let resources_histogram = resources
-            .histogram
-            .make_binding_resource_ref(&mut pass_node_builder);
-
-        let auto_exposure_buffers_state = auto_exposure_buffers
-            .state
-            .make_binding_resource_ref(&mut pass_node_builder);
-
-        let view_uniforms_buffer = view_uniforms_resource
-            .uniforms
-            .make_binding_resource_ref(&mut pass_node_builder);
-
-        let compute_bind_group = BindGroupDrawing {
-            label: None,
-            layout: pipeline.histogram_layout.clone(),
-            entries: BindGroupEntryRefs::sequential((
-                &globals_buffer,
-                &auto_exposure_buffer,
-                &source,
-                &mask,
-                &compensation_curve_texture,
-                &compensation_curve_extents,
-                &resources_histogram,
-                &auto_exposure_buffers_state,
-                &view_uniforms_buffer,
-            ))
-            .to_vec(),
-        };
+        let compute_bind_group = pass_node_builder
+            .create_bind_group_drawing_builder(None, pipeline.histogram_layout.clone())
+            .push_bind_group_entry(&globals_buffer.buffer)
+            .push_bind_group_entry(&auto_exposure_buffers.settings)
+            .push_bind_group_entry(&source)
+            .push_bind_group_entry(mask)
+            .push_bind_group_entry(&compensation_curve.texture)
+            .push_bind_group_entry(&compensation_curve.extents)
+            .push_bind_group_entry(&resources.histogram)
+            .push_bind_group_entry(&auto_exposure_buffers.state)
+            .push_bind_group_entry(&view_uniforms_resource.uniforms)
+            .build();
 
         let mut builder = ComputePassBuilder::new(pass_node_builder);
 

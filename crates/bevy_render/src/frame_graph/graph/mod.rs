@@ -156,16 +156,20 @@ impl FrameGraph {
 
 impl FrameGraph {
     pub fn put(&mut self, key: &str, handle: GraphRawResourceNodeHandle) {
+        let key = key.into();
         self.resource_board.put(key, handle);
     }
 
     pub fn get<ResourceType: GraphResource, K: Into<ResourceBoardKey>>(
         &self,
         key: K,
-    ) -> Option<GraphResourceNodeHandle<ResourceType>> {
+    ) -> Result<GraphResourceNodeHandle<ResourceType>, FrameGraphError> {
+        let key = key.into();
+
         self.resource_board
-            .get(key)
+            .get(&key)
             .map(|raw| GraphResourceNodeHandle::new(raw.handle, raw.version))
+            .ok_or(FrameGraphError::ResourceBoardKey { key })
     }
 
     pub fn create_pass_node_bulder(&mut self, name: &str) -> PassNodeBuilder {
@@ -207,7 +211,8 @@ impl FrameGraph {
     where
         ResourceType: ImportToFrameGraph,
     {
-        if let Some(raw_handle) = self.resource_board.get(name) {
+        let key = name.into();
+        if let Some(raw_handle) = self.resource_board.get(&key) {
             return GraphResourceNodeHandle::new(raw_handle.handle, raw_handle.version);
         }
 
@@ -232,13 +237,14 @@ impl FrameGraph {
                 Other = <<DescriptorType as GraphResourceDescriptor>::Resource as GraphResource>::Descriptor,
             >,
     {
-        if let Some(raw_handle) = self.resource_board.get(name) {
+        let key = name.into();
+        if let Some(raw_handle) = self.resource_board.get(&key) {
             return GraphResourceNodeHandle::new(raw_handle.handle, raw_handle.version);
         }
 
         let handle = self.create(name, desc);
 
-        self.resource_board.put(name, handle.raw());
+        self.resource_board.put(key, handle.raw());
 
         handle
     }

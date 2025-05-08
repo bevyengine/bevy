@@ -108,9 +108,7 @@ use bevy_render::{
         CachedRenderPipelineId, Extent3d, FilterMode, TextureDimension, TextureFormat,
         TextureUsages,
     },
-    renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
-    texture::TextureCache,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };

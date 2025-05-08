@@ -11,7 +11,7 @@ pub use render_pass_context::*;
 use wgpu::AdapterInfo;
 
 use super::{
-    ComputePass, ComputePassInfo, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo,
+    ComputePassInfo, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo,
     ResourceRead, ResourceRef, ResourceTable, TransientResourceCache,
 };
 use crate::{

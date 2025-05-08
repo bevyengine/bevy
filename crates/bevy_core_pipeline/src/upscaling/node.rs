@@ -4,8 +4,8 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
     frame_graph::{
-        render_pass_builder::RenderPassBuilder, BindGroupEntryRefs, FrameGraph, FrameGraphTexture,
-        ResourceRead, ResourceRef,
+        render_pass_builder::RenderPassBuilder, FrameGraph, FrameGraphTexture,
+        GraphResourceNodeHandle,
     },
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::PipelineCache,
@@ -56,29 +56,23 @@ impl ViewNode for UpscalingNode {
 
         let converted_clear_color: Option<LinearRgba> = clear_color.map(|color| color.to_linear());
 
-        let main_texture_key = target.get_main_texture_key();
+        let main_texture: GraphResourceNodeHandle<FrameGraphTexture> =
+            frame_graph.get(target.get_main_texture_key())?;
 
-        let mut builder =
-            RenderPassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_pass"));
+        let mut pass_node_builder = frame_graph.create_pass_node_bulder("upscaling_pass");
 
-        let main_texture_read: ResourceRef<FrameGraphTexture, ResourceRead> =
-            builder.read_from_board(main_texture_key)?;
+        let bind_group = pass_node_builder
+            .create_bind_group_drawing_builder(None, blit_pipeline.texture_bind_group.clone())
+            .push_bind_group_entry(&main_texture)
+            .push_bind_group_entry(&blit_pipeline.sampler_info)
+            .build();
+
+        let mut builder = RenderPassBuilder::new(pass_node_builder);
 
         builder
             .add_raw_color_attachment(target.out_texture_color_attachment(converted_clear_color))
             .set_render_pipeline(upscaling_target.0)
-            .set_bind_group(
-                0,
-                (
-                    None,
-                    &blit_pipeline.texture_bind_group,
-                    &BindGroupEntryRefs::sequential((
-                        &main_texture_read,
-                        &blit_pipeline.sampler_info,
-                    )),
-                ),
-                &[],
-            )
+            .set_bind_group(0, bind_group, &[])
             .set_camera_viewport(camera.and_then(|camera| camera.viewport.clone()))
             .draw(0..3, 0..1);
 

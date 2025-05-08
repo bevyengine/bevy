@@ -34,13 +34,11 @@ pub struct ResourceBoard {
 }
 
 impl ResourceBoard {
-    pub fn put<T: Into<ResourceBoardKey>>(&mut self, key: T, handle: GraphRawResourceNodeHandle) {
-        let key = key.into();
+    pub fn put(&mut self, key: ResourceBoardKey, handle: GraphRawResourceNodeHandle) {
         self.resources.insert(key, handle);
     }
 
-    pub fn get<T: Into<ResourceBoardKey>>(&self, key: T) -> Option<&GraphRawResourceNodeHandle> {
-        let key = key.into();
+    pub fn get(&self, key: &ResourceBoardKey) -> Option<&GraphRawResourceNodeHandle> {
         self.resources.get(&key)
     }
 }

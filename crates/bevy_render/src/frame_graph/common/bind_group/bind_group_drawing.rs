@@ -3,11 +3,53 @@ use std::{borrow::Cow, num::NonZero, ops::Deref};
 use wgpu::BufferBinding;
 
 use crate::{
-    frame_graph::{FrameGraphBuffer, FrameGraphError, RenderContext, ResourceDrawing},
+    frame_graph::{
+        FrameGraphBuffer, FrameGraphError, PassNodeBuilder, RenderContext, ResourceDrawing,
+    },
     render_resource::BindGroupLayout,
 };
 
-use super::{BindGroupEntryRef, BindingResourceRef};
+use super::{BindGroupEntryRef, BindingResourceHandleHelper, BindingResourceRef};
+
+pub struct BindGroupDrawingBuilder<'a, 'b> {
+    label: Option<Cow<'static, str>>,
+    layout: BindGroupLayout,
+    entries: Vec<BindGroupEntryRef>,
+    pass_node_builder: &'b mut PassNodeBuilder<'a>,
+}
+
+impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
+    pub fn new(
+        label: Option<Cow<'static, str>>,
+        layout: BindGroupLayout,
+        pass_node_builder: &'b mut PassNodeBuilder<'a>,
+    ) -> Self {
+        Self {
+            label,
+            layout,
+            entries: vec![],
+            pass_node_builder,
+        }
+    }
+
+    pub fn push_bind_group_entry<T: BindingResourceHandleHelper>(mut self, value: &T) -> Self {
+        let bind_group_entry_ref = value.make_binding_resource_ref(self.pass_node_builder);
+        self.entries.push(BindGroupEntryRef {
+            binding: self.entries.len() as u32,
+            resource: bind_group_entry_ref,
+        });
+
+        self
+    }
+
+    pub fn build(self) -> BindGroupDrawing {
+        BindGroupDrawing {
+            label: self.label,
+            layout: self.layout,
+            entries: self.entries,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct BindGroupDrawing {

@@ -1,8 +1,4 @@
-use std::{
-    borrow::Cow,
-    mem::take,
-    ops::{Deref, Range},
-};
+use std::{mem::take, ops::Range};
 
 use bevy_color::LinearRgba;
 use tracing::warn;
@@ -11,12 +7,11 @@ use wgpu::{QuerySet, ShaderStages};
 use crate::{
     camera::Viewport,
     frame_graph::{
-        BindGroupDrawing, BindGroupEntryRef, ColorAttachment, ColorAttachmentDrawing,
-        DepthStencilAttachmentDrawing, FrameGraphBuffer, FrameGraphError, FrameGraphTexture,
-        GraphResource, PassNodeBuilder, RenderPassCommandBuilder, ResourceBoardKey, ResourceHandle,
-        ResourceRead, ResourceRef,
+        BindGroupDrawing, ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing,
+        FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource, PassNodeBuilder,
+        RenderPassCommandBuilder, ResourceBoardKey, ResourceHandle, ResourceRead, ResourceRef,
     },
-    render_resource::{BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, Texture},
+    render_resource::{BindGroup, Buffer, CachedRenderPipelineId, Texture},
 };
 
 use super::RenderPass;
@@ -34,21 +29,6 @@ impl<'a> Drop for RenderPassBuilder<'a> {
             self.pass_node_builder.set_pass(render_pass);
         } else {
             warn!("render pass must is vaild");
-        }
-    }
-}
-
-impl<T> ResourceHandle for (Option<Cow<'static, str>>, &BindGroupLayout, &T)
-where
-    T: Deref<Target = [BindGroupEntryRef]>,
-{
-    type Drawing = BindGroupDrawing;
-
-    fn make_resource_drawing(&self, _pass_node_builder: &mut PassNodeBuilder) -> Self::Drawing {
-        BindGroupDrawing {
-            label: self.0.clone(),
-            layout: self.1.clone(),
-            entries: self.2.to_vec(),
         }
     }
 }

@@ -9,13 +9,16 @@ pub use bind_group_entry_ref::*;
 pub use bind_group_handle::*;
 
 use crate::{
-    frame_graph::{FrameGraph, PassNodeBuilder, ResourceMaterial},
+    frame_graph::{
+        FrameGraph, FrameGraphBuffer, FrameGraphTexture, GraphResourceNodeHandle, PassNodeBuilder,
+        ResourceMaterial,
+    },
     render_resource::{Buffer, DynamicUniformBuffer, StorageBuffer, Texture, UniformBuffer},
     texture::GpuImage,
 };
 use encase::{internal::WriteInto, ShaderType};
 
-use super::TextureViewInfo;
+use super::{SamplerInfo, TextureViewInfo};
 
 pub trait BindingResourceHandleHelper {
     fn make_binding_resource_handle(&self, frame_graph: &mut FrameGraph) -> BindingResourceHandle;
@@ -24,6 +27,57 @@ pub trait BindingResourceHandleHelper {
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef;
+}
+
+impl BindingResourceHandleHelper for SamplerInfo {
+    fn make_binding_resource_handle(&self, _frame_graph: &mut FrameGraph) -> BindingResourceHandle {
+        BindingResourceHandle::Sampler(self.clone())
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        _pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        BindingResourceRef::Sampler(self.clone())
+    }
+}
+
+impl BindingResourceHandleHelper for GraphResourceNodeHandle<FrameGraphTexture> {
+    fn make_binding_resource_handle(&self, _frame_graph: &mut FrameGraph) -> BindingResourceHandle {
+        BindingResourceHandle::TextureView {
+            texture: self.clone(),
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        let texture = pass_node_builder.read(self.clone());
+
+        BindingResourceRef::TextureView {
+            texture,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
+}
+
+impl BindingResourceHandleHelper for GraphResourceNodeHandle<FrameGraphBuffer> {
+    fn make_binding_resource_handle(&self, _frame_graph: &mut FrameGraph) -> BindingResourceHandle {
+        BindingResourceHandle::Buffer {
+            buffer: self.clone(),
+            size: None,
+        }
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        let buffer = pass_node_builder.read(self.clone());
+        BindingResourceRef::Buffer { buffer, size: None }
+    }
 }
 
 impl BindingResourceHandleHelper for Buffer {
