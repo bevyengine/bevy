@@ -1,8 +1,14 @@
+use core::marker::PhantomData;
+
 use crate::{
+    archetype::Archetype,
+    component::Tick,
     entity::Entity,
     query::{QueryData, QueryFilter},
     relationship::{Relationship, RelationshipTarget},
+    storage::{Table, TableRow},
     system::Query,
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use alloc::collections::VecDeque;
 use smallvec::SmallVec;
@@ -268,5 +274,387 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.next = self.parent_query.get(self.next?).ok().map(R::get);
         self.next
+    }
+}
+
+/// A [`QueryFilter`] type that filters for entities that are related via `R` to an entity that matches `F`.
+///
+/// This works by looking up the related entity using the `R` relationship component,
+/// then checking if that related entity matches the filter given in `F`.
+///
+///
+/// # Examples
+///
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::RunSystemOnce;
+///
+/// #[derive(Component)]
+/// struct A;
+///
+/// let mut world = World::new();
+/// let parent = world.spawn(A).id();
+/// let child = world.spawn(ChildOf(parent))).id();
+/// let unrelated = world.spawn_empty().id();
+/// let grandchild = world.spawn(ChildOf(child)).id();
+///
+/// fn iterate_related_to_a(query: Query<Entity, RelatedTo<ChildOf, With<A>>>) {
+///     for entity in query.iter() {
+///        // Only the child entity should be iterated;
+///        // the parent, unrelated and chrandchild entities should be skipped,
+///        // as they are not related to an entity with the `A` component.
+///        assert_eq!(entity, child);
+///    }
+/// }
+///
+/// world.run_system_once(iterate_related_to_a);
+/// ```
+/// Note that type can be nested to filter for entities that have e.g. a grandparent with a certain component.
+/// When defining particularly complex filters like this, type aliases for a specific choice of `R` can be helpful to improve legibility!
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::RunSystemOnce;
+///
+/// #[derive(Component)]
+/// struct A;
+///
+/// type WithParent<A> = RelatedTo<ChildOf, With<A>>;
+///
+/// let mut world = World::new();
+/// let parent = world.spawn(A).id();
+/// let child = world.spawn(ChildOf(parent))).id();
+/// let grandchild = world.spawn(ChildOf(child)).id();
+///
+/// let mut parent_query = world.query::<Entity, WithParent<A>>();
+/// assert!(parent_query.get(child).is_ok());
+///
+/// let mut grandparent_query = world.query::<Entity, WithParent<WithParent<A>>>();
+/// assert!(grandparent_query.get(grandchild).is_ok());
+/// ```
+pub struct RelatedTo<R: Relationship, F: QueryFilter> {
+    _relationship: PhantomData<R>,
+    _filter: PhantomData<F>,
+}
+
+unsafe impl<R: Relationship, F: QueryFilter> WorldQuery for RelatedTo<R, F> {
+    // The filter is non-archetypal, and must be evaluated for each entity.
+    type Item<'a> = bool;
+
+    type Fetch<'a> = RelatedFilterFetch<'a, R, F>;
+
+    type State = RelatedFilterState<R, F>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        RelatedFilterFetch {
+            relation_fetch: <&'static R as WorldQuery>::shrink_fetch(fetch.relation_fetch),
+            filter_fetch: <F as WorldQuery>::shrink_fetch(fetch.filter_fetch),
+        }
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        state: &Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        RelatedFilterFetch {
+            relation_fetch: <&'static R as WorldQuery>::init_fetch(
+                world,
+                &state.relation_state,
+                last_run,
+                this_run,
+            ),
+            filter_fetch: <F as WorldQuery>::init_fetch(
+                world,
+                &state.filter_state,
+                last_run,
+                this_run,
+            ),
+        }
+    }
+
+    // Both R and F must be dense for every archetype retrieved to correspond to a table.
+    const IS_DENSE: bool = <F as WorldQuery>::IS_DENSE & <&R as WorldQuery>::IS_DENSE;
+
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        <&'static R as WorldQuery>::set_archetype(
+            &mut fetch.relation_fetch,
+            &state.relation_state,
+            archetype,
+            table,
+        );
+        <F as WorldQuery>::set_archetype(
+            &mut fetch.filter_fetch,
+            &state.filter_state,
+            archetype,
+            table,
+        );
+    }
+
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        <&'static R as WorldQuery>::set_table(
+            &mut fetch.relation_fetch,
+            &state.relation_state,
+            table,
+        );
+        <&R as WorldQuery>::set_table(&mut fetch.relation_fetch, &state.relation_state, table);
+        <F as WorldQuery>::set_table(&mut fetch.filter_fetch, &state.filter_state, table);
+    }
+
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Self::Item<'w> {
+        // Look up the relationship
+        // SAFETY: the safety requirements for calling `fetch` on `R` are a subset of the safety requirements for calling this method
+        let relation = unsafe {
+            <&'static R as WorldQuery>::fetch(&mut fetch.relation_fetch, entity, table_row)
+        };
+        // Then figure out what the related entity is
+        let related_entity = relation.get();
+
+        // Finally, check if the related entity matches the filter
+        // SAFETY: the safety requirements for calling `fetch` on `F` are a subset of the safety requirements for calling this method
+        unsafe {
+            <F as QueryFilter>::filter_fetch(&mut fetch.filter_fetch, related_entity, table_row)
+        }
+    }
+
+    fn update_component_access(
+        state: &Self::State,
+        access: &mut crate::query::FilteredAccess<crate::component::ComponentId>,
+    ) {
+        <&'static R as WorldQuery>::update_component_access(&state.relation_state, access);
+        <F as WorldQuery>::update_component_access(&state.filter_state, access);
+    }
+
+    fn init_state(world: &mut crate::prelude::World) -> Self::State {
+        RelatedFilterState {
+            relation_state: <&'static R as WorldQuery>::init_state(world),
+            filter_state: <F as WorldQuery>::init_state(world),
+        }
+    }
+
+    fn get_state(components: &crate::component::Components) -> Option<Self::State> {
+        Some(RelatedFilterState {
+            relation_state: <&'static R as WorldQuery>::get_state(components)?,
+            filter_state: <F as WorldQuery>::get_state(components)?,
+        })
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(crate::component::ComponentId) -> bool,
+    ) -> bool {
+        // We need to look at both the relationship and the filter components,
+        // but they do not need to be on the same entity.
+        // As a result, we use an OR operation, rather than the AND operation used in other WorldQuery implementations.
+        <&'static R as WorldQuery>::matches_component_set(&state.relation_state, set_contains_id)
+            || <F as WorldQuery>::matches_component_set(&state.filter_state, set_contains_id)
+    }
+}
+
+unsafe impl<R: Relationship, F: QueryFilter> QueryFilter for RelatedTo<R, F> {
+    // The information about whether or not a related entity matches the filter
+    // varies between entities found in the same archetype,
+    // so rapidly pre-computing the length of the filtered set is not possible.
+    const IS_ARCHETYPAL: bool = false;
+
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        // SAFETY: safety requirements for calling `fetch` on `Self` are the same as the safety requirements for calling this method
+        unsafe { Self::fetch(fetch, entity, table_row) }
+    }
+}
+
+/// The [`WorldQuery::Fetch`] type for [`RelatedTo`] and similar types.
+///
+/// This is used internally to implement [`WorldQuery`].
+pub struct RelatedFilterFetch<'w, R: Relationship, F: QueryFilter> {
+    /// The fetch for the relationship component,
+    /// used to look up the target entity.
+    relation_fetch: <&'static R as WorldQuery>::Fetch<'w>,
+    /// The fetch for the filter component,
+    /// used to determine if the target entity matches the filter.
+    filter_fetch: <F as WorldQuery>::Fetch<'w>,
+}
+
+impl<'w, R: Relationship, F: QueryFilter> Clone for RelatedFilterFetch<'w, R, F> {
+    fn clone(&self) -> Self {
+        Self {
+            relation_fetch: self.relation_fetch.clone(),
+            filter_fetch: self.filter_fetch.clone(),
+        }
+    }
+}
+
+/// The [`WorldQuery::State`] type for [`RelatedTo`] and similar types..
+///
+/// This is used internally to implement [`WorldQuery`].
+pub struct RelatedFilterState<R: Relationship, F: QueryFilter> {
+    /// The state for the relationship component,
+    /// used to look up the target entity.
+    /// This type evaluates to [`ComponentId`](crate::components::ComponentId).
+    relation_state: <&'static R as WorldQuery>::State,
+    /// The state for the filter component,
+    /// used to determine if the target entity matches the filter.
+    filter_state: <F as WorldQuery>::State,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RelatedTo;
+    use crate as bevy_ecs;
+    use crate::prelude::{Changed, ChildOf, Component, Entity, With, Without, World};
+
+    #[derive(Component)]
+    struct A;
+
+    #[derive(Component)]
+    struct B;
+
+    #[test]
+    fn related_to_empty_filter() {
+        let mut world = World::default();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
+        let _unrelated = world.spawn_empty().id();
+        let grandchild = world.spawn(ChildOf(child)).id();
+
+        let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, ()>>();
+        for matching_entity in query_state.iter(&world) {
+            let matches_child_or_grandchild =
+                matching_entity == child || matching_entity == grandchild;
+            assert!(
+                matches_child_or_grandchild,
+                "Entity {matching_entity} should have a parent"
+            );
+        }
+
+        assert_eq!(query_state.iter(&world).count(), 2);
+    }
+
+    #[test]
+    fn related_to_with() {
+        let mut world = World::default();
+        let parent = world.spawn(A).id();
+        let child = world.spawn(ChildOf(parent)).id();
+        let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, With<A>>>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
+    }
+
+    #[test]
+    fn related_to_same_with() {
+        let mut world = World::default();
+        let parent = world.spawn(A).id();
+        let child = world.spawn((A, ChildOf(parent))).id();
+        let mut query_state =
+            world.query_filtered::<Entity, (With<A>, RelatedTo<ChildOf, With<A>>)>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
+    }
+
+    // If this test fails but the one above passes,
+    // the RelatedTo filter is probably not matching enough archetypes.
+    #[test]
+    fn related_to_different_with() {
+        let mut world = World::default();
+        let parent = world.spawn(A).id();
+        let child = world.spawn((B, ChildOf(parent))).id();
+        let mut query_state =
+            world.query_filtered::<Entity, (With<B>, RelatedTo<ChildOf, With<A>>)>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
+    }
+
+    #[test]
+    fn related_to_changed() {
+        let mut world = World::default();
+        let parent = world.spawn(A).id();
+        let child = world.spawn(ChildOf(parent)).id();
+        // Changed is true when entities are first added, so this should match
+        let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, Changed<A>>>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
+    }
+
+    #[test]
+    fn related_to_without() {
+        let mut world = World::default();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
+        let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, Without<A>>>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
+    }
+
+    #[test]
+    fn related_to_impossible_filter() {
+        let mut world = World::default();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
+        // No entity could possibly match this filter:
+        // it requires entities to both have and not have the `A` component.
+        let mut query_state =
+            world.query_filtered::<Entity, RelatedTo<ChildOf, (With<A>, Without<A>)>>();
+        let maybe_fetched_child = query_state.get(&world, child);
+
+        assert!(maybe_fetched_child.is_err());
+    }
+
+    #[test]
+    fn related_to_compoound_filter() {
+        let mut world = World::default();
+        let parent = world.spawn(A).id();
+        let child_with = world.spawn((A, ChildOf(parent))).id();
+        let child_without = world.spawn(ChildOf(parent)).id();
+
+        // We're double-checking checking the behavior of the `RelatedTo` filter when combined with other filters.
+        let mut query_state =
+            world.query_filtered::<Entity, (With<A>, RelatedTo<ChildOf, With<A>>)>();
+
+        // This child has the `A` component and is a child of the parent, so it should be fetched.
+        let maybe_fetched_child_with = query_state.get(&world, child_with);
+        assert!(maybe_fetched_child_with.is_ok());
+
+        // This child does not have the `A` component but is not a child of the parent, so it should not be fetched,
+        // even though its parent has the `A` component.
+        let maybe_fetched_child_without = query_state.get(&world, child_without);
+        assert!(maybe_fetched_child_without.is_err());
+    }
+
+    #[test]
+    fn related_to_nested() {
+        let mut world = World::default();
+        let grandparent = world.spawn(A).id();
+        let parent = world.spawn((B, ChildOf(grandparent))).id();
+        let child = world.spawn(ChildOf(parent)).id();
+
+        // Look for entities that have a parent with A and a grandparent with B
+        let mut query_state = world
+            .query_filtered::<Entity, RelatedTo<ChildOf, (With<A>, RelatedTo<ChildOf, With<B>>)>>();
+        assert!(query_state.get(&world, child).is_ok());
+        assert!(query_state.get(&world, parent).is_err());
+        assert!(query_state.get(&world, grandparent).is_err());
     }
 }
