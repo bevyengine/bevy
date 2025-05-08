@@ -837,7 +837,25 @@ pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 pub struct MeshesToReextractNextFrame(MainEntityHashSet);
 
 impl RenderMeshInstanceShared {
+    #[inline]
     fn from_components(
+        previous_transform: Option<&PreviousGlobalTransform>,
+        mesh: &Mesh3d,
+        tag: Option<&MeshTag>,
+        not_shadow_caster: bool,
+        no_automatic_batching: bool,
+    ) -> Self {
+        Self::from_components_and_material_binding_index(
+            previous_transform,
+            mesh,
+            tag,
+            default(),
+            not_shadow_caster,
+            no_automatic_batching,
+        )
+    }
+
+    fn from_components_and_material_binding_index(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
         tag: Option<&MeshTag>,
@@ -1376,7 +1394,7 @@ pub fn extract_meshes_for_cpu_building(
                 })
                 .unwrap_or_default();
 
-            let shared = RenderMeshInstanceShared::from_components(
+            let shared = RenderMeshInstanceShared::from_components_and_material_binding_index(
                 previous_transform,
                 mesh,
                 tag,
@@ -1589,7 +1607,6 @@ fn extract_mesh_for_gpu_building(
         previous_transform,
         mesh,
         tag,
-        default(),
         not_shadow_caster,
         no_automatic_batching,
     );
