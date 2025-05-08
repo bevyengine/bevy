@@ -57,7 +57,7 @@ impl Slot {
     fn set_entity(&self, entity: Entity) {
         #[cfg(not(target_has_atomic = "64"))]
         self.entity_generation
-            .store(entity.generation(), Ordering::Relaxed);
+            .store(entity.generation().to_bits(), Ordering::Relaxed);
         #[cfg(not(target_has_atomic = "64"))]
         self.entity_index.store(entity.index(), Ordering::Relaxed);
         #[cfg(target_has_atomic = "64")]
@@ -69,11 +69,15 @@ impl Slot {
     fn get_entity(&self) -> Entity {
         #[cfg(not(target_has_atomic = "64"))]
         return Entity {
-            index: self.entity_index.load(Ordering::Relaxed),
-            // SAFETY: This is not 0 since it was from an entity's generation.
-            generation: unsafe {
-                core::num::NonZero::new_unchecked(self.entity_generation.load(Ordering::Relaxed))
+            // SAFETY: This is valid since it was from an entity's index to begin with.
+            index: unsafe {
+                EntityRow::new(NonMaxU32::new_unchecked(
+                    self.entity_index.load(Ordering::Relaxed),
+                ))
             },
+            generation: super::EntityGeneration::from_bits(
+                self.entity_generation.load(Ordering::Relaxed),
+            ),
         };
         #[cfg(target_has_atomic = "64")]
         // SAFETY: This is always sourced from a proper entity.
