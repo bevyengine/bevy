@@ -31,6 +31,10 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// when [`InheritedVisibility::get()`] is false.
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
+/// 
+/// If a UI node has both [`Interaction`] and [`Interactivity`] components,
+/// [`Interaction`] will always be [`Interaction::None`]
+/// when [`Interactivity::Disabled`] is used.
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
@@ -62,6 +66,31 @@ impl Interaction {
 }
 
 impl Default for Interaction {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Describes if an interactive UI node can be interacted with.
+/// 
+/// This is commoly queried with [`Interaction`]
+/// 
+/// Note: click/press-release actions will still be registered. To block propagation see [`FocusPolicy`]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq)]
+#[require(Interaction)]
+pub enum Interactivity {
+    /// The node can be interacted with, it's [`Interaction`] componnent will be updated.
+	Enabled,
+    /// The node can't be interacted with, it's [`Interaction`] componnent will always be [`Interaction::None`].
+	Disabled,
+}
+
+impl Interactivity {
+    const DEFAULT: Self = Self::Enabled;
+}
+
+impl Default for Interactivity {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -135,6 +164,7 @@ pub struct NodeQuery {
     node: &'static ComputedNode,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
+    interactivity: Option<&'static Interactivity>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
@@ -299,19 +329,24 @@ pub fn ui_focus_system(
     // the iteration will stop on it because it "captures" the interaction.
     let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
-        if let Some(mut interaction) = node.interaction {
-            if mouse_clicked {
-                // only consider nodes with Interaction "pressed"
-                if *interaction != Interaction::Pressed {
-                    *interaction = Interaction::Pressed;
-                    // if the mouse was simultaneously released, reset this Interaction in the next
-                    // frame
-                    if mouse_released {
-                        state.entities_to_reset.push(node.entity);
+
+        // Block interaction of disabled nodes
+        if node.interactivity.is_none() || node.interactivity.is_some_and(|inter| *inter == Interactivity::Enabled)
+        {
+            if let Some(mut interaction) = node.interaction {
+                if mouse_clicked {
+                    // only consider nodes with Interaction "pressed"
+                    if *interaction != Interaction::Pressed {
+                        *interaction = Interaction::Pressed;
+                        // if the mouse was simultaneously released, reset this Interaction in the next
+                        // frame
+                        if mouse_released {
+                            state.entities_to_reset.push(node.entity);
+                        }
                     }
+                } else if *interaction == Interaction::None {
+                    *interaction = Interaction::Hovered;
                 }
-            } else if *interaction == Interaction::None {
-                *interaction = Interaction::Hovered;
             }
         }
 
