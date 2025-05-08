@@ -1147,6 +1147,17 @@ impl<'w> UnsafeEntityCell<'w> {
             .entity_get_spawned_or_despawned_by(self.entity)
             .map(|o| o.unwrap())
     }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(self) -> Tick {
+        // SAFETY: UnsafeEntityCell is only constructed for living entities and offers no despawn method
+        unsafe {
+            self.world()
+                .entities()
+                .entity_get_spawned_or_despawned_unchecked(self.entity)
+                .1
+        }
+    }
 }
 
 /// Error that may be returned when calling [`UnsafeEntityCell::get_mut_by_id`].
