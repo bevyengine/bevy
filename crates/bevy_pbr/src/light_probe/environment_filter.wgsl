@@ -1,7 +1,7 @@
 #import bevy_render::maths::{PI, PI_2};
 #import bevy_pbr::lighting::perceptualRoughnessToRoughness;
 
-struct PrefilterConstants {
+struct FilteringConstants {
     mip_level: f32,
     sample_count: u32,
     roughness: f32,
@@ -11,7 +11,7 @@ struct PrefilterConstants {
 @group(0) @binding(0) var input_texture: texture_2d_array<f32>;
 @group(0) @binding(1) var input_sampler: sampler;
 @group(0) @binding(2) var output_texture: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(3) var<uniform> constants: PrefilterConstants;
+@group(0) @binding(3) var<uniform> constants: FilteringConstants;
 @group(0) @binding(4) var blue_noise_texture: texture_2d<f32>;
 
 // Tonemapping functions to reduce fireflies
@@ -196,11 +196,12 @@ fn hammersley_2d(i: u32, n: u32) -> vec2f {
 }
 
 // Blue noise randomization
-fn blue_noise_offset(pixel_coords: vec2u) -> vec2f {
+fn sample_noise(pixel_coords: vec2u) -> vec4f {
     // Get a stable random offset for this pixel
     let noise_size = vec2u(u32(constants.blue_noise_size.x), u32(constants.blue_noise_size.y));
     let noise_coords = pixel_coords % noise_size;
-    return textureSampleLevel(blue_noise_texture, input_sampler, vec2f(noise_coords) / constants.blue_noise_size, 0.0).rg;
+    let uv = vec2f(noise_coords) / constants.blue_noise_size;
+    return textureSampleLevel(blue_noise_texture, input_sampler, uv, 0.0);
 }
 
 // GGX/Trowbridge-Reitz normal distribution function (D term)
@@ -279,7 +280,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let roughness = constants.roughness;
     
     // Get blue noise offset for stratification
-    let blue_noise = blue_noise_offset(coords);
+    let vector_noise = sample_noise(coords);
     
     var radiance = vec3f(0.0);
     var total_weight = 0.0;
@@ -297,7 +298,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     for (var i = 0u; i < sample_count; i++) {
         // Get sample coordinates from Hammersley sequence with blue noise offset
         var xi = hammersley_2d(i, sample_count);
-        xi = fract(xi + blue_noise); // Apply Cranley-Patterson rotation
+        xi = fract(xi + vector_noise.rg); // Apply Cranley-Patterson rotation
         
         // Sample the GGX distribution to get a half vector
         let half_vector = importance_sample_ggx(xi, roughness, normal);
@@ -370,14 +371,11 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     // Create tangent space matrix
     let tangent_frame = calculate_tangent_frame(normal);
     
-    // Get blue noise offset for stratification
-    let blue_noise = blue_noise_offset(coords);
-    
     var irradiance = vec3f(0.0);
     var total_weight = 0.0;
     
     let sample_count = min(constants.sample_count, 64u);
-    
+
     for (var i = 0u; i < sample_count; i++) {
         // Using a predefined set of directions provides good hemisphere coverage for diffuse
         var dir = get_uniform_direction((i + u32(coords.x * 7u + coords.y * 11u + face * 5u)) % 64u);
@@ -418,9 +416,6 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     if (total_weight > 0.0) {
         irradiance = irradiance / total_weight * PI;
     }
-    
-    // Add some low-frequency ambient term to avoid completely dark areas
-    irradiance = max(irradiance, vec3f(0.01, 0.01, 0.01));
     
     // Write result to output texture
     textureStore(output_texture, coords, face, vec4f(irradiance, 1.0));

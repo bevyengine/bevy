@@ -1,7 +1,7 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
+use bevy_asset::{load_internal_asset, load_internal_binary_asset, weak_handle, AssetId, Handle};
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
     Camera3d,
@@ -35,10 +35,10 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
-use prefilter::{
-    create_environment_map_from_prefilter, extract_prefilter_entities,
-    prepare_prefilter_bind_groups, prepare_prefilter_textures, FilteredEnvironmentMapLight,
-    PrefilterPipelines, SpdNode,
+use generate::{
+    extract_generator_entities, generate_environment_map_light, prepare_generator_bind_groups,
+    prepare_intermediate_textures, GeneratedEnvironmentMapLight, GeneratorPipelines, SpdNode,
+    STBN_SPHERE, STBN_VEC2,
 };
 use tracing::error;
 
@@ -48,8 +48,8 @@ use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
     light_probe::{
         environment_map::{EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE},
-        prefilter::{
-            IrradianceMapNode, PrefilterBindGroupLayouts, PrefilterNode, PrefilterSamplers,
+        generate::{
+            GeneratorBindGroupLayouts, GeneratorNode, GeneratorSamplers, IrradianceMapNode,
             RadianceMapNode, ENVIRONMENT_FILTER_SHADER_HANDLE, SPD_SHADER_HANDLE,
         },
     },
@@ -61,8 +61,8 @@ pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("e80a2ae6-1c5a-4d9a-a852-d66ff0e6bf7f");
 
 pub mod environment_map;
+pub mod generate;
 pub mod irradiance_volume;
-pub mod prefilter;
 
 /// The maximum number of each type of light probe that each view will consider.
 ///
@@ -384,12 +384,40 @@ impl Plugin for LightProbePlugin {
             "environment_filter.wgsl",
             Shader::from_wgsl
         );
+        load_internal_binary_asset!(
+            app,
+            STBN_SPHERE,
+            "noise/sphere_coshemi_gauss1_0.png",
+            |bytes, _: String| Image::from_buffer(
+                bytes,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Png),
+                bevy_image::CompressedImageFormats::NONE,
+                false,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
+            )
+            .expect("Failed to load sphere cosine weighted blue noise texture")
+        );
+        load_internal_binary_asset!(
+            app,
+            STBN_VEC2,
+            "noise/vector2_uniform_gauss1_0.png",
+            |bytes, _: String| Image::from_buffer(
+                bytes,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Png),
+                bevy_image::CompressedImageFormats::NONE,
+                false,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
+            )
+            .expect("Failed to load vector2 uniform blue noise texture")
+        );
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
             .register_type::<IrradianceVolume>()
-            .add_plugins(ExtractComponentPlugin::<FilteredEnvironmentMapLight>::default())
-            .add_systems(Update, create_environment_map_from_prefilter);
+            .add_plugins(ExtractComponentPlugin::<GeneratedEnvironmentMapLight>::default())
+            .add_systems(Update, generate_environment_map_light);
     }
 
     fn finish(&self, app: &mut App) {
@@ -401,19 +429,19 @@ impl Plugin for LightProbePlugin {
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
-            .init_resource::<PrefilterBindGroupLayouts>()
-            .init_resource::<PrefilterSamplers>()
-            .init_resource::<PrefilterPipelines>()
-            .add_render_graph_node::<SpdNode>(Core3d, PrefilterNode::GenerateMipmap)
-            .add_render_graph_node::<RadianceMapNode>(Core3d, PrefilterNode::RadianceMap)
-            .add_render_graph_node::<IrradianceMapNode>(Core3d, PrefilterNode::IrradianceMap)
+            .init_resource::<GeneratorBindGroupLayouts>()
+            .init_resource::<GeneratorSamplers>()
+            .init_resource::<GeneratorPipelines>()
+            .add_render_graph_node::<SpdNode>(Core3d, GeneratorNode::Mipmap)
+            .add_render_graph_node::<RadianceMapNode>(Core3d, GeneratorNode::Radiance)
+            .add_render_graph_node::<IrradianceMapNode>(Core3d, GeneratorNode::Irradiance)
             .add_render_graph_edges(
                 Core3d,
                 (
                     Node3d::EndPrepasses,
-                    PrefilterNode::GenerateMipmap,
-                    PrefilterNode::RadianceMap,
-                    PrefilterNode::IrradianceMap,
+                    GeneratorNode::Mipmap,
+                    GeneratorNode::Radiance,
+                    GeneratorNode::Irradiance,
                     Node3d::StartMainPass,
                 ),
             )
@@ -422,16 +450,16 @@ impl Plugin for LightProbePlugin {
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
                 ExtractSchedule,
-                extract_prefilter_entities.after(create_environment_map_from_prefilter),
+                extract_generator_entities.after(generate_environment_map_light),
             )
             .add_systems(
                 Render,
                 (
-                    prepare_prefilter_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_generator_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     (
                         upload_light_probes,
                         prepare_environment_uniform_buffer,
-                        prepare_prefilter_textures,
+                        prepare_intermediate_textures,
                     )
                         .in_set(RenderSet::PrepareResources),
                 ),
