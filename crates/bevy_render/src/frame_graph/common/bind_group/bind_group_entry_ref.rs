@@ -97,6 +97,12 @@ impl IntoBindingResourceRef for &ResourceRef<FrameGraphTexture, ResourceRead> {
     }
 }
 
+impl IntoBindingResourceRef for &BindingResourceRef {
+    fn into_binding(self) -> BindingResourceRef {
+        self.clone()
+    }
+}
+
 impl IntoBindingResourceRef
     for (
         &ResourceRef<FrameGraphTexture, ResourceRead>,

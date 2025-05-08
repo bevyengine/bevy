@@ -8,18 +8,42 @@ use crate::{
         BindGroupDrawing, FrameGraphBuffer, FrameGraphError, RenderPassContext, ResourceRead,
         ResourceRef, TexelCopyTextureInfo,
     },
-    render_resource::{BindGroup, CachedRenderPipelineId},
+    render_resource::{BindGroup, CachedComputePipelineId, CachedRenderPipelineId},
 };
 
 use super::{
     command_encoder_context::{CommandEncoderContext, ErasedCommandEncoderCommand},
-    ErasedRenderPassCommand,
+    ComputePassContext, ErasedComputePassCommand, ErasedRenderPassCommand,
 };
+
+pub struct DispatchWorkgroupsParameter {
+    pub x: u32,
+    pub y: u32,
+    pub z: u32,
+}
+
+impl ErasedComputePassCommand for DispatchWorkgroupsParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.dispatch_workgroups(self.x, self.y, self.z);
+        Ok(())
+    }
+}
 
 pub struct CopyTextureToTextureParameter {
     pub source: TexelCopyTextureInfo,
     pub destination: TexelCopyTextureInfo,
     pub copy_size: Extent3d,
+}
+
+impl ErasedComputePassCommand for CopyTextureToTextureParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.copy_texture_to_texture(
+            self.source.clone(),
+            self.destination.clone(),
+            self.copy_size.clone(),
+        )?;
+        Ok(())
+    }
 }
 
 impl ErasedRenderPassCommand for CopyTextureToTextureParameter {
@@ -187,6 +211,13 @@ pub struct InsertDebugMarkerParameter {
     pub label: String,
 }
 
+impl ErasedComputePassCommand for InsertDebugMarkerParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.insert_debug_marker(&self.label);
+        Ok(())
+    }
+}
+
 impl ErasedRenderPassCommand for InsertDebugMarkerParameter {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
         render_pass_context.insert_debug_marker(&self.label);
@@ -198,6 +229,13 @@ pub struct PushDebugGroupParameter {
     pub label: String,
 }
 
+impl ErasedComputePassCommand for PushDebugGroupParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.push_debug_group(&self.label);
+        Ok(())
+    }
+}
+
 impl ErasedRenderPassCommand for PushDebugGroupParameter {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
         render_pass_context.push_debug_group(&self.label);
@@ -206,6 +244,13 @@ impl ErasedRenderPassCommand for PushDebugGroupParameter {
 }
 
 pub struct PopDebugGroupParameter;
+
+impl ErasedComputePassCommand for PopDebugGroupParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.pop_debug_group();
+        Ok(())
+    }
+}
 
 impl ErasedRenderPassCommand for PopDebugGroupParameter {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
@@ -230,6 +275,13 @@ pub struct WriteTimestampParameter {
     pub index: u32,
 }
 
+impl ErasedComputePassCommand for WriteTimestampParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.write_timestamp(&self.query_set, self.index);
+        Ok(())
+    }
+}
+
 impl ErasedRenderPassCommand for WriteTimestampParameter {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
         render_pass_context.write_timestamp(&self.query_set, self.index);
@@ -242,6 +294,13 @@ pub struct BeginPipelineStatisticsQueryParameter {
     pub index: u32,
 }
 
+impl ErasedComputePassCommand for BeginPipelineStatisticsQueryParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.write_timestamp(&self.query_set, self.index);
+        Ok(())
+    }
+}
+
 impl ErasedRenderPassCommand for BeginPipelineStatisticsQueryParameter {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
         render_pass_context.begin_pipeline_statistics_query(&self.query_set, self.index);
@@ -250,6 +309,13 @@ impl ErasedRenderPassCommand for BeginPipelineStatisticsQueryParameter {
 }
 
 pub struct EndPipelineStatisticsQueryParameter;
+
+impl ErasedComputePassCommand for EndPipelineStatisticsQueryParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.end_pipeline_statistics_query();
+        Ok(())
+    }
+}
 
 impl ErasedRenderPassCommand for EndPipelineStatisticsQueryParameter {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
@@ -291,6 +357,17 @@ pub struct SetRawBindGroupParameter {
     pub index: u32,
     pub bind_group: Option<BindGroup>,
     pub offsets: Vec<u32>,
+}
+
+impl ErasedComputePassCommand for SetRawBindGroupParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.set_raw_bind_group(
+            self.index,
+            self.bind_group.as_ref(),
+            &self.offsets,
+        )?;
+        Ok(())
+    }
 }
 
 impl ErasedRenderPassCommand for SetRawBindGroupParameter {
@@ -368,6 +445,18 @@ impl ErasedRenderPassCommand for SetVertexBufferParameter {
     }
 }
 
+pub struct SetComputePipelineParameter {
+    pub id: CachedComputePipelineId,
+}
+
+impl ErasedComputePassCommand for SetComputePipelineParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.set_compute_pipeline(self.id)?;
+
+        Ok(())
+    }
+}
+
 pub struct SetRenderPipelineParameter {
     pub id: CachedRenderPipelineId,
 }
@@ -383,6 +472,14 @@ pub struct SetBindGroupParameter {
     pub index: u32,
     pub bind_group: BindGroupDrawing,
     pub offsets: Vec<u32>,
+}
+
+impl ErasedComputePassCommand for SetBindGroupParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.set_bind_group(self.index, &self.bind_group, &self.offsets)?;
+
+        Ok(())
+    }
 }
 
 impl ErasedRenderPassCommand for SetBindGroupParameter {

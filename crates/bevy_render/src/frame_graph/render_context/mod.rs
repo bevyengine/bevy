@@ -1,20 +1,25 @@
 pub mod command_encoder_context;
+pub mod compute_pass_context;
 pub mod parameter;
 pub mod render_pass_context;
 
 use command_encoder_context::CommandEncoderContext;
+pub use compute_pass_context::*;
 pub use parameter::*;
 pub use render_pass_context::*;
 
 use wgpu::AdapterInfo;
 
 use super::{
-    FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo, ResourceRead, ResourceRef,
-    ResourceTable, TransientResourceCache,
+    ComputePass, ComputePassInfo, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo,
+    ResourceRead, ResourceRef, ResourceTable, TransientResourceCache,
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
-    render_resource::{CachedRenderPipelineId, PipelineCache, RenderPipeline},
+    render_resource::{
+        CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline, PipelineCache,
+        RenderPipeline,
+    },
     renderer::RenderDevice,
 };
 
@@ -74,6 +79,21 @@ impl<'a> RenderContext<'a> {
         }
     }
 
+    pub fn begin_compute_pass<'b>(
+        &'b mut self,
+        compute_pass_info: &ComputePassInfo,
+    ) -> Result<ComputePassContext<'a, 'b>, FrameGraphError> {
+        self.flush_encoder();
+
+        let mut command_encoder = self
+            .render_device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+
+        let compute_pass = compute_pass_info.create_render_pass(&mut command_encoder)?;
+
+        Ok(ComputePassContext::new(command_encoder, compute_pass, self))
+    }
+
     pub fn begin_render_pass<'b>(
         &'b mut self,
         render_pass_info: &RenderPassInfo,
@@ -95,6 +115,15 @@ impl<'a> RenderContext<'a> {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
         CommandEncoderContext::new(command_encoder, self)
+    }
+
+    pub fn get_compute_pipeline(
+        &self,
+        id: CachedComputePipelineId,
+    ) -> Result<&ComputePipeline, FrameGraphError> {
+        self.pipeline_cache
+            .get_compute_pipeline(id)
+            .ok_or(FrameGraphError::ResourceNotFound)
     }
 
     pub fn get_render_pipeline(

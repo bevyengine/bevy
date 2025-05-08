@@ -1,9 +1,13 @@
 pub mod render_pass;
 pub mod command_encoder;
 pub mod render_pass_builder;
+pub mod compute_pass;
+pub mod compute_pass_builder;
 
 pub use render_pass::*;
 pub use render_pass_builder::*;
+pub use compute_pass::*;
+pub use compute_pass_builder::*;
 
 use super::{FrameGraphError, RenderContext};
 
