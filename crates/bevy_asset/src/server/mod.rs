@@ -9,10 +9,7 @@ use crate::{
         MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
-    meta::{
-        loader_settings_meta_transform, AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal,
-        MetaTransform, Settings,
-    },
+    meta::{AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal, MetaTransform, Settings},
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
@@ -378,14 +375,9 @@ impl AssetServer {
     pub fn load_with_settings<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        settings: S,
     ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            (),
-            false,
-        )
+        self.load_with_meta_transform(path, Some(Box::new(settings)), (), false)
     }
 
     /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unaproved paths
@@ -396,14 +388,9 @@ impl AssetServer {
     pub fn load_with_settings_override<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        settings: S,
     ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            (),
-            true,
-        )
+        self.load_with_meta_transform(path, Some(Box::new(settings)), (), true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -419,15 +406,10 @@ impl AssetServer {
     pub fn load_acquire_with_settings<'a, A: Asset, S: Settings, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        settings: S,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            guard,
-            false,
-        )
+        self.load_with_meta_transform(path, Some(Box::new(settings)), guard, false)
     }
 
     /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unaproved paths
@@ -443,15 +425,10 @@ impl AssetServer {
     >(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        settings: S,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            guard,
-            true,
-        )
+        self.load_with_meta_transform(path, Some(Box::new(settings)), guard, true)
     }
 
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
@@ -672,7 +649,10 @@ impl AssetServer {
             })?;
 
         if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
-            (*meta_transform)(&mut *meta);
+            // Deref to avoid `apply_settings` downcast failing because the type
+            // is `Box<T>` when it expected `T`. XXX TODO: Better solution.
+            let meta_transform = core::ops::Deref::deref(meta_transform);
+            meta.apply_settings(meta_transform);
         }
         // downgrade the input handle so we don't keep the asset alive just because we're loading it
         // note we can't just pass a weak handle in, as only strong handles contain the asset meta transform

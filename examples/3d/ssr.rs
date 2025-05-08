@@ -190,15 +190,16 @@ fn spawn_water(
             extension: Water {
                 normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
                     "textures/water_normals.png",
-                    |settings| {
-                        settings.is_srgb = false;
-                        settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                    ImageLoaderSettings {
+                        is_srgb: false,
+                        sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
                             address_mode_u: ImageAddressMode::Repeat,
                             address_mode_v: ImageAddressMode::Repeat,
                             mag_filter: ImageFilterMode::Linear,
                             min_filter: ImageFilterMode::Linear,
                             ..default()
-                        });
+                        }),
+                        ..Default::default()
                     },
                 ),
                 // These water settings are just random values to create some

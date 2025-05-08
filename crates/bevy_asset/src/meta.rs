@@ -11,10 +11,9 @@ use crate::{
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
-use tracing::error;
 
 pub const META_FORMAT_VERSION: &str = "1.0";
-pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
+pub type MetaTransform = Box<dyn Settings>;
 
 /// Asset metadata that informs how an [`Asset`] should be handled by the asset system.
 ///
@@ -125,8 +124,8 @@ pub struct ProcessedInfoMinimal {
 pub trait AssetMetaDyn: Downcast + Send + Sync {
     /// Returns a reference to the [`AssetLoader`] settings, if they exist.
     fn loader_settings(&self) -> Option<&dyn Settings>;
-    /// Returns a mutable reference to the [`AssetLoader`] settings, if they exist.
-    fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings>;
+    /// XXX TODO.
+    fn apply_settings(&mut self, settings: &dyn Settings);
     /// Serializes the internal [`AssetMeta`].
     fn serialize(&self) -> Vec<u8>;
     /// Returns a reference to the [`ProcessedInfo`] if it exists.
@@ -143,11 +142,18 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
             None
         }
     }
-    fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings> {
+    fn apply_settings(&mut self, new_settings: &dyn Settings) {
         if let AssetAction::Load { settings, .. } = &mut self.asset {
-            Some(settings)
-        } else {
-            None
+            if let Some(new_settings) = new_settings.downcast_ref::<<L as AssetLoader>::Settings>()
+            {
+                *settings = new_settings.clone();
+            } else {
+                tracing::error!(
+                    "Configured settings type {} does not match AssetLoader settings type {}",
+                    new_settings.debug_type_name(),
+                    core::any::type_name::<<L as AssetLoader>::Settings>(),
+                );
+            }
         }
     }
     fn serialize(&self) -> Vec<u8> {
@@ -168,9 +174,19 @@ impl_downcast!(AssetMetaDyn);
 /// Settings used by the asset system, such as by [`AssetLoader`], [`Process`], and [`AssetSaver`]
 ///
 /// [`AssetSaver`]: crate::saver::AssetSaver
-pub trait Settings: Downcast + Send + Sync + 'static {}
+pub trait Settings: Downcast + Send + Sync + 'static {
+    // XXX TODO: Better solution. Currently used by apply_settings to print error.
+    fn debug_type_name(&self) -> &'static str;
+}
 
-impl<T: 'static> Settings for T where T: Send + Sync {}
+impl<T: 'static> Settings for T
+where
+    T: Send + Sync,
+{
+    fn debug_type_name(&self) -> &'static str {
+        core::any::type_name::<T>()
+    }
+}
 
 impl_downcast!(Settings);
 
@@ -214,28 +230,6 @@ impl AssetLoader for () {
     fn extensions(&self) -> &[&str] {
         unreachable!();
     }
-}
-
-pub(crate) fn meta_transform_settings<S: Settings>(
-    meta: &mut dyn AssetMetaDyn,
-    settings: &(impl Fn(&mut S) + Send + Sync + 'static),
-) {
-    if let Some(loader_settings) = meta.loader_settings_mut() {
-        if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
-            settings(loader_settings);
-        } else {
-            error!(
-                "Configured settings type {} does not match AssetLoader settings type",
-                core::any::type_name::<S>(),
-            );
-        }
-    }
-}
-
-pub(crate) fn loader_settings_meta_transform<S: Settings>(
-    settings: impl Fn(&mut S) + Send + Sync + 'static,
-) -> MetaTransform {
-    Box::new(move |meta| meta_transform_settings(meta, &settings))
 }
 
 pub type AssetHash = [u8; 32];

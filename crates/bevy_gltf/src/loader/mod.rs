@@ -169,7 +169,7 @@ pub struct GltfLoader {
 ///     }
 /// );
 /// ```
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct GltfLoaderSettings {
     /// If empty, the gltf mesh nodes will be skipped.
     ///
@@ -1700,9 +1700,10 @@ impl ImageOrPath {
                 sampler_descriptor,
             } => load_context
                 .loader()
-                .with_settings(move |settings: &mut ImageLoaderSettings| {
-                    settings.is_srgb = is_srgb;
-                    settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
+                .with_settings(ImageLoaderSettings {
+                    is_srgb,
+                    sampler: ImageSampler::Descriptor(sampler_descriptor.clone()),
+                    ..Default::default()
                 })
                 .load(path),
         };

@@ -3,7 +3,7 @@
 
 use crate::{
     io::Reader,
-    meta::{meta_transform_settings, AssetMetaDyn, MetaTransform, Settings},
+    meta::{MetaTransform, Settings},
     Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
     LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
 };
@@ -176,6 +176,7 @@ impl<'ctx, 'builder> NestedLoader<'ctx, 'builder, StaticTyped, Deferred> {
 }
 
 impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'builder, T, M> {
+    /*
     fn with_transform(
         mut self,
         transform: impl Fn(&mut dyn AssetMetaDyn) + Send + Sync + 'static,
@@ -190,17 +191,16 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
         }
         self
     }
+    */
 
     /// Configure the settings used to load the asset.
     ///
     /// If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
     /// and the asset load will fail.
     #[must_use]
-    pub fn with_settings<S: Settings>(
-        self,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
-    ) -> Self {
-        self.with_transform(move |meta| meta_transform_settings(meta, &settings))
+    pub fn with_settings<S: Settings>(mut self, settings: S) -> Self {
+        self.meta_transform = Some(Box::new(settings));
+        self
     }
 
     // convert between `T`s
@@ -429,7 +429,8 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
         };
 
         if let Some(meta_transform) = self.meta_transform {
-            meta_transform(&mut *meta);
+            // XXX TODO: Does this need the same deref hack as `load_internal`?
+            meta.apply_settings(&meta_transform);
         }
 
         let asset = self
