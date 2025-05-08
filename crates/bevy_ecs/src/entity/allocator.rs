@@ -332,7 +332,7 @@ impl<'a> core::iter::FusedIterator for FreeBufferIterator<'a> {}
 
 /// This tracks the state of a [`FreeCount`], which has lots of information packed into it.
 ///
-/// - The first 33 bits store a signed 33 bit integer. This behaves like a u33, but we define `1 << 33` as 0.
+/// - The first 33 bits store a signed 33 bit integer. This behaves like a u33, but we define `1 << 32` as 0.
 /// - The 34th bit stores a flag that indicates if the count has been disabled/suspended.
 /// - The remaining 30 bits are the generation. The generation just differentiates different versions of the state that happen to encode the same length.
 #[derive(Clone, Copy)]
@@ -422,7 +422,8 @@ impl FreeCount {
         FreeCountState(self.0.fetch_or(FreeCountState::DISABLING_BIT, order))
     }
 
-    /// Sets the length explicitly. Caller must be careful that the length has not changed since getting the state and setting it.
+    /// Sets the state explicitly.
+    /// Caller must be careful that the state has not changed since getting the state and setting it.
     #[inline]
     fn set_state_risky(&self, state: FreeCountState, order: Ordering) {
         self.0.store(state.0, order);
@@ -557,7 +558,7 @@ impl FreeList {
 
         let mut state = self.len.state(Ordering::Acquire);
         #[cfg(feature = "std")]
-        let mut attempts = 0u32;
+        let mut attempts = 1u32;
         loop {
             // The state is only disabled when freeing.
             // If a free is happening, we need to wait for the new entity to be ready on the free buffer.
@@ -744,7 +745,7 @@ impl Allocator {
     /// Allocates `count` entities in an iterator.
     #[inline]
     pub fn alloc_many(&self, count: u32) -> AllocEntitiesIterator {
-        // SAFETY: `free` takes `&mut self`, but this lifetime is captured by the iterator.
+        // SAFETY: `free` takes `&mut self`, and this lifetime is captured by the iterator.
         unsafe { self.shared.alloc_many(count) }
     }
 
@@ -841,9 +842,6 @@ impl RemoteAllocator {
     }
 
     /// Allocates an entity remotely.
-    /// This is not guaranteed to reuse a freed entity, even if one exists.
-    ///
-    /// This will return [`None`] if the source [`Allocator`] is destroyed.
     #[inline]
     pub fn alloc(&self) -> Entity {
         self.shared.remote_alloc()
