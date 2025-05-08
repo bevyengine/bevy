@@ -7,9 +7,9 @@ use bevy::color::palettes::css::GREEN;
 use bevy::color::palettes::css::LIGHT_SKY_BLUE;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
+use bevy::ecs::spawn::SpawnIter;
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
-use bevy_ecs::spawn::SpawnIter;
 
 #[derive(FromArgs, Resource)]
 /// `box_shadow` example
