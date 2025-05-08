@@ -640,13 +640,13 @@ impl SharedAllocator {
     }
 
     /// Allocates `count` [`EntityRow`]s. These rows will be fresh. They have never been given out before.
-    pub(crate) fn alloc_unique_entity_rows(&self, count: u32) -> AllocUniqueEntitiyRowIterator {
+    pub(crate) fn alloc_unique_entity_rows(&self, count: u32) -> AllocUniqueEntityRowIterator {
         let start_new = self.next_entity_index.fetch_add(count, Ordering::Relaxed);
         let new = match start_new.checked_add(count) {
             Some(new_next_entity_index) => start_new..new_next_entity_index,
             None => Self::on_overflow(),
         };
-        AllocUniqueEntitiyRowIterator(new)
+        AllocUniqueEntityRowIterator(new)
     }
 
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
@@ -782,10 +782,10 @@ impl core::fmt::Debug for Allocator {
 /// An [`Iterator`] returning a sequence of [`EntityRow`] values from an [`Allocator`] that are never aliased.
 /// These rows have never been given out before.
 ///
-/// **NOTE:** Dropping will leak the remaining entitie rows!
-pub(crate) struct AllocUniqueEntitiyRowIterator(core::ops::Range<u32>);
+/// **NOTE:** Dropping will leak the remaining entity rows!
+pub(crate) struct AllocUniqueEntityRowIterator(core::ops::Range<u32>);
 
-impl Iterator for AllocUniqueEntitiyRowIterator {
+impl Iterator for AllocUniqueEntityRowIterator {
     type Item = EntityRow;
 
     #[inline]
@@ -802,14 +802,14 @@ impl Iterator for AllocUniqueEntitiyRowIterator {
     }
 }
 
-impl ExactSizeIterator for AllocUniqueEntitiyRowIterator {}
-impl core::iter::FusedIterator for AllocUniqueEntitiyRowIterator {}
+impl ExactSizeIterator for AllocUniqueEntityRowIterator {}
+impl core::iter::FusedIterator for AllocUniqueEntityRowIterator {}
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from an [`Allocator`].
 ///
 /// **NOTE:** Dropping will leak the remaining entities!
 pub struct AllocEntitiesIterator<'a> {
-    new: AllocUniqueEntitiyRowIterator,
+    new: AllocUniqueEntityRowIterator,
     reused: FreeBufferIterator<'a>,
 }
 
