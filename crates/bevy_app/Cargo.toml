@@ -47,7 +47,6 @@ std = [
   "bevy_ecs/std",
   "dep:ctrlc",
   "downcast-rs/std",
-  "bevy_utils/std",
   "bevy_tasks/std",
   "bevy_platform/std",
 ]
@@ -77,9 +76,7 @@ web = [
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
-  "alloc",
-] }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
 

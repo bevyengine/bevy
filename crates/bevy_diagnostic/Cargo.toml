@@ -18,7 +18,6 @@ serialize = [
   "dep:serde",
   "bevy_ecs/serialize",
   "bevy_time/serialize",
-  "bevy_utils/serde",
   "bevy_platform/serialize",
 ]
 
@@ -39,7 +38,6 @@ std = [
   "bevy_app/std",
   "bevy_platform/std",
   "bevy_time/std",
-  "bevy_utils/std",
   "bevy_tasks/std",
 ]
 
@@ -50,7 +48,6 @@ critical-section = [
   "bevy_app/critical-section",
   "bevy_platform/critical-section",
   "bevy_time/critical-section",
-  "bevy_utils/critical-section",
   "bevy_tasks/critical-section",
 ]
 
@@ -59,9 +56,7 @@ critical-section = [
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
 bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
-  "alloc",
-] }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
