@@ -14,10 +14,10 @@ pub trait DirectAssetAccessExt {
     fn load_asset<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A>;
 
     /// Load an asset with settings, similarly to [`AssetServer::load_with_settings`].
-    fn load_asset_with_settings<'a, A: Asset, S: Settings>(
+    fn load_asset_with_settings<'a, A: Asset, S: Settings + serde::Serialize>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        settings: S,
     ) -> Handle<A>;
 }
 impl DirectAssetAccessExt for World {
@@ -40,10 +40,10 @@ impl DirectAssetAccessExt for World {
     ///
     /// # Panics
     /// If `self` doesn't have an [`AssetServer`] resource initialized yet.
-    fn load_asset_with_settings<'a, A: Asset, S: Settings>(
+    fn load_asset_with_settings<'a, A: Asset, S: Settings + serde::Serialize>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        settings: S,
     ) -> Handle<A> {
         self.resource::<AssetServer>()
             .load_with_settings(path, settings)

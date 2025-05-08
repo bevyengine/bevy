@@ -428,9 +428,9 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
             (meta, loader, ReaderRef::Boxed(reader))
         };
 
-        if let Some(meta_transform) = self.meta_transform {
+        if let Some(settings) = path.settings() {
             // XXX TODO: Does this need the same deref hack as `load_internal`?
-            meta.apply_settings(&meta_transform);
+            meta.apply_settings(settings);
         }
 
         let asset = self

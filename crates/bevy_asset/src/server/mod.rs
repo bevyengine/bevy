@@ -372,12 +372,12 @@ impl AssetServer {
     /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
     /// will be ignored and an error will be printed to the log.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn load_with_settings<'a, A: Asset, S: Settings>(
+    pub fn load_with_settings<'a, A: Asset, S: Settings + serde::Serialize>(
         &self,
         path: impl Into<AssetPath<'a>>,
         settings: S,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(Box::new(settings)), (), false)
+        self.load_with_meta_transform(path.into().with_settings(settings), None, (), false)
     }
 
     /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unaproved paths
@@ -385,12 +385,12 @@ impl AssetServer {
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
-    pub fn load_with_settings_override<'a, A: Asset, S: Settings>(
+    pub fn load_with_settings_override<'a, A: Asset, S: Settings + serde::Serialize>(
         &self,
         path: impl Into<AssetPath<'a>>,
         settings: S,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(Box::new(settings)), (), true)
+        self.load_with_meta_transform(path.into().with_settings(settings), None, (), true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -403,13 +403,18 @@ impl AssetServer {
     /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
     /// will be ignored and an error will be printed to the log.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn load_acquire_with_settings<'a, A: Asset, S: Settings, G: Send + Sync + 'static>(
+    pub fn load_acquire_with_settings<
+        'a,
+        A: Asset,
+        S: Settings + serde::Serialize,
+        G: Send + Sync + 'static,
+    >(
         &self,
         path: impl Into<AssetPath<'a>>,
         settings: S,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(Box::new(settings)), guard, false)
+        self.load_with_meta_transform(path.into().with_settings(settings), None, guard, false)
     }
 
     /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unaproved paths
@@ -420,7 +425,7 @@ impl AssetServer {
     pub fn load_acquire_with_settings_override<
         'a,
         A: Asset,
-        S: Settings,
+        S: Settings + serde::Serialize,
         G: Send + Sync + 'static,
     >(
         &self,
@@ -428,7 +433,7 @@ impl AssetServer {
         settings: S,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(Box::new(settings)), guard, true)
+        self.load_with_meta_transform(path.into().with_settings(settings), None, guard, true)
     }
 
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
@@ -648,11 +653,11 @@ impl AssetServer {
                 }
             })?;
 
-        if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
+        if let Some(settings) = path.settings() {
             // Deref to avoid `apply_settings` downcast failing because the type
             // is `Box<T>` when it expected `T`. XXX TODO: Better solution.
-            let meta_transform = core::ops::Deref::deref(meta_transform);
-            meta.apply_settings(meta_transform);
+            let settings = core::ops::Deref::deref(&settings.value);
+            meta.apply_settings(settings);
         }
         // downgrade the input handle so we don't keep the asset alive just because we're loading it
         // note we can't just pass a weak handle in, as only strong handles contain the asset meta transform

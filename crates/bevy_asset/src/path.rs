@@ -1,18 +1,59 @@
-use crate::io::AssetSourceId;
+use crate::{io::AssetSourceId, meta::Settings};
 use alloc::{
     borrow::ToOwned,
+    boxed::Box,
     string::{String, ToString},
+    sync::Arc,
 };
 use atomicow::CowArc;
+use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
     fmt::{Debug, Display},
-    hash::Hash,
+    hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+pub struct AssetPathSettingsId(u64);
+
+pub struct AssetPathSettings {
+    pub value: Box<dyn Settings>,
+    pub id: AssetPathSettingsId,
+}
+
+impl AssetPathSettings {
+    pub fn new<S: Settings + Serialize>(settings: S) -> AssetPathSettings {
+        // XXX TODO: Serializing to string is probably not the right solution.
+        let string = ron::ser::to_string(&settings).unwrap(); // XXX TODO: Avoid unwrap.
+
+        // XXX TODO: What's the appropriate hasher?
+        // XXX TODO: Should we hash the type id as well?
+        let id = AssetPathSettingsId(FixedHasher.hash_one(&string));
+
+        AssetPathSettings {
+            value: Box::new(settings),
+            id,
+        }
+    }
+}
+
+impl Hash for AssetPathSettings {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for AssetPathSettings {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for AssetPathSettings {}
 
 /// Represents a path to an asset in a "virtual filesystem".
 ///
@@ -58,6 +99,7 @@ pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
     label: Option<CowArc<'a, str>>,
+    settings: Option<Arc<AssetPathSettings>>,
 }
 
 impl<'a> Debug for AssetPath<'a> {
@@ -131,6 +173,7 @@ impl<'a> AssetPath<'a> {
             },
             path: CowArc::Borrowed(path),
             label: label.map(CowArc::Borrowed),
+            settings: None, // XXX TODO?
         })
     }
 
@@ -230,6 +273,7 @@ impl<'a> AssetPath<'a> {
             path: CowArc::Borrowed(path),
             source: AssetSourceId::Default,
             label: None,
+            settings: None, // XXX TODO?
         }
     }
 
@@ -258,6 +302,12 @@ impl<'a> AssetPath<'a> {
         self.path.deref()
     }
 
+    /// XXX TODO: Docs.
+    #[inline]
+    pub fn settings(&self) -> Option<&AssetPathSettings> {
+        self.settings.as_deref()
+    }
+
     /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
     #[inline]
     pub fn without_label(&self) -> AssetPath<'_> {
@@ -265,6 +315,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.clone(),
             path: self.path.clone(),
             label: None,
+            settings: self.settings.clone(),
         }
     }
 
@@ -288,6 +339,7 @@ impl<'a> AssetPath<'a> {
             source: self.source,
             path: self.path,
             label: Some(label.into()),
+            settings: self.settings,
         }
     }
 
@@ -299,6 +351,17 @@ impl<'a> AssetPath<'a> {
             source: source.into(),
             path: self.path,
             label: self.label,
+            settings: self.settings,
+        }
+    }
+
+    #[inline]
+    pub fn with_settings<S: Settings + Serialize>(self, settings: S) -> AssetPath<'a> {
+        AssetPath {
+            source: self.source,
+            path: self.path,
+            label: self.label,
+            settings: Some(Arc::new(AssetPathSettings::new(settings))),
         }
     }
 
@@ -313,6 +376,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.clone(),
             label: None,
             path,
+            settings: self.settings.clone(), // XXX TODO: Bit weird?
         })
     }
 
@@ -326,6 +390,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.into_owned(),
             path: self.path.into_owned(),
             label: self.label.map(CowArc::into_owned),
+            settings: self.settings.clone(), // XXX TODO?
         }
     }
 
@@ -447,6 +512,7 @@ impl<'a> AssetPath<'a> {
                 },
                 path: CowArc::Owned(result_path.into()),
                 label: rlabel.map(|l| CowArc::Owned(l.into())),
+                settings: self.settings.clone(), // XXX TODO?
             })
         }
     }
@@ -533,16 +599,19 @@ impl AssetPath<'static> {
             source,
             path,
             label,
+            settings,
         } = self;
 
         let source = source.as_static();
         let path = path.as_static();
         let label = label.map(CowArc::as_static);
+        let settings = settings.clone();
 
         Self {
             source,
             path,
             label,
+            settings,
         }
     }
 
@@ -562,6 +631,7 @@ impl<'a> From<&'a str> for AssetPath<'a> {
             source: source.into(),
             path: CowArc::Borrowed(path),
             label: label.map(CowArc::Borrowed),
+            settings: None,
         }
     }
 }
@@ -587,6 +657,7 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
             source: AssetSourceId::Default,
             path: CowArc::Borrowed(path),
             label: None,
+            settings: None,
         }
     }
 }
@@ -598,6 +669,7 @@ impl From<PathBuf> for AssetPath<'static> {
             source: AssetSourceId::Default,
             path: path.into(),
             label: None,
+            settings: None,
         }
     }
 }
