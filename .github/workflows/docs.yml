@@ -73,7 +73,8 @@ jobs:
             --exclude bevy_mobile_example \
             --exclude build-wasm-example \
             --exclude build-templated-pages \
-            --exclude example-showcase
+            --exclude example-showcase \
+            --config "build.rustdoc = \"tools/rustdoc-wrapper/rustdoc.sh\""
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation
