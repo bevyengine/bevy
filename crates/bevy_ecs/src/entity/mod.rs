@@ -85,7 +85,13 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_platform::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
-use core::{fmt, hash::Hash, num::NonZero, panic::Location};
+use core::{
+    fmt,
+    hash::Hash,
+    mem::{self, MaybeUninit},
+    num::NonZero,
+    panic::Location,
+};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -765,7 +771,7 @@ impl Entities {
     ) -> allocator::AllocEntitiesIterator<'static> {
         self.allocator.alloc_many_unsafe(count)
     }
-  
+
     /// This is the same as [`free`](Entities::free), but it allows skipping some generations.
     /// When the entity is reused, it will have a generation greater than the current generation + `generations`.
     #[inline]
@@ -774,7 +780,7 @@ impl Entities {
         entity: Entity,
         generations: u32,
     ) -> Option<EntityLocation> {
-        let theoretical = self.resolve_from_id(entity.index());
+        let theoretical = self.resolve_from_id(entity.row());
         if theoretical.is_none_or(|theoretcal| theoretcal != entity) {
             return None;
         }
@@ -782,18 +788,19 @@ impl Entities {
         // SAFETY: We resolved its id to ensure it is valid.
         let meta = unsafe { self.force_get_meta_mut(entity.index() as usize) };
         let prev_generation = meta.generation;
+        let (new_generation, aliased) = prev_generation.after_versions_and_could_alias(generations);
 
-        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1 + generations);
+        meta.generation = new_generation;
 
-        if prev_generation > meta.generation || generations == u32::MAX {
+        if aliased {
             warn!(
                 "Entity({}) generation wrapped on Entities::free, aliasing may occur",
                 entity.row()
             );
         }
 
-        let new_entity = Entity::from_raw_and_generation(entity.index, meta.generation);
-        let loc = core::mem::replace(&mut meta.location, EntityLocation::INVALID);
+        let new_entity = Entity::from_raw_and_generation(entity.row(), meta.generation);
+        let loc = mem::replace(&mut meta.location, EntityLocation::INVALID);
         self.allocator.free(new_entity);
 
         Some(loc)
@@ -891,14 +898,14 @@ impl Entities {
     /// Note that [`contains`](Entities::contains) will correctly return false for freed
     /// entities, since it checks the generation
     #[inline]
-    pub fn resolve_from_id(&self, index: u32) -> Option<Entity> {
-        let idu = index as usize;
+    pub fn resolve_from_id(&self, row: EntityRow) -> Option<Entity> {
+        let idu = row.index() as usize;
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
             Some(Entity::from_raw_and_generation(row, generation))
         } else {
             self.allocator
-                .is_valid_index(index)
-                .then_some(Entity::from_raw(index))
+                .is_valid_index(row)
+                .then_some(Entity::from_raw(row))
         }
     }
 
@@ -968,19 +975,19 @@ impl Entities {
         self.len() == 0
     }
 
-    /// Sets the source code location from which this entity has last been spawned
-    /// or despawned.
-    #[inline]
-    pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: MaybeLocation) {
-        caller.map(|caller| {
-            if !self.allocator.is_valid_index(index) {
-                panic!("Entity index invalid")
-            }
-            // SAFETY: We just checked that it is valid
-            let meta = unsafe { self.force_get_meta_mut(index as usize) };
-            meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
-        });
-    }
+    // /// Sets the source code location from which this entity has last been spawned
+    // /// or despawned.
+    // #[inline]
+    // pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: MaybeLocation) {
+    //     caller.map(|caller| {
+    //         if !self.allocator.is_valid_index(index) {
+    //             panic!("Entity index invalid")
+    //         }
+    //         // SAFETY: We just checked that it is valid
+    //         let meta = unsafe { self.force_get_meta_mut(index as usize) };
+    //         meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
+    //     });
+    // }
 
     /// Returns the source code location from which this entity has last been spawned
     /// or despawned. Returns `None` if its index has been reused by another entity
