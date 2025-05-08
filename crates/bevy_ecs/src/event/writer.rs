@@ -72,18 +72,18 @@ impl<'w, E: Event> EventWriter<'w, E> {
     #[doc(alias = "send")]
     #[track_caller]
     pub fn write(&mut self, event: E) -> EventId<E> {
-        self.events.send(event)
+        self.events.write(event)
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than sending each event individually.
+    /// Writes a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
+    /// This is more efficient than writing each event individually.
     /// This method returns the [IDs](`EventId`) of the written `events`.
     ///
     /// See [`Events`] for details.
     #[doc(alias = "send_batch")]
     #[track_caller]
     pub fn write_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
-        self.events.send_batch(events)
+        self.events.write_batch(events)
     }
 
     /// Writes the default value of the event. Useful when the event is an empty struct.
@@ -96,6 +96,6 @@ impl<'w, E: Event> EventWriter<'w, E> {
     where
         E: Default,
     {
-        self.events.send_default()
+        self.events.write_default()
     }
 }
