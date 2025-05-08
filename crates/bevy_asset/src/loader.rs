@@ -432,9 +432,7 @@ impl<'a> LoadContext<'a> {
         let label = label.into();
         let loaded_asset: ErasedLoadedAsset = loaded_asset.into();
         let labeled_path = self.asset_path.clone().with_label(label.clone());
-        let handle = self
-            .asset_server
-            .get_or_create_path_handle(labeled_path, None);
+        let handle = self.asset_server.get_or_create_path_handle(labeled_path);
         self.labeled_assets.insert(
             label,
             LabeledAsset {
@@ -518,7 +516,7 @@ impl<'a> LoadContext<'a> {
         label: impl Into<CowArc<'b, str>>,
     ) -> Handle<A> {
         let path = self.asset_path.clone().with_label(label);
-        let handle = self.asset_server.get_or_create_path_handle::<A>(path, None);
+        let handle = self.asset_server.get_or_create_path_handle::<A>(path);
         self.dependencies.insert(handle.id().untyped());
         handle
     }

@@ -365,6 +365,17 @@ impl<'a> AssetPath<'a> {
         }
     }
 
+    // XXX TODO: Ugly duplication.
+    #[inline]
+    pub fn with_settings_2(self, settings: Option<AssetPathSettings>) -> AssetPath<'a> {
+        AssetPath {
+            source: self.source,
+            path: self.path,
+            label: self.label,
+            settings: settings.map(Arc::new),
+        }
+    }
+
     /// Returns an [`AssetPath`] for the parent folder of this path, if there is a parent folder in the path.
     pub fn parent(&self) -> Option<AssetPath<'a>> {
         let path = match &self.path {

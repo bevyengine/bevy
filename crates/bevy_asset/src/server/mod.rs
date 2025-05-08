@@ -9,7 +9,7 @@ use crate::{
         MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
-    meta::{AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal, MetaTransform, Settings},
+    meta::{AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal, Settings},
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
@@ -319,7 +319,7 @@ impl AssetServer {
     /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, None, (), false)
+        self.load_with_meta_transform(path, (), false)
     }
 
     /// Same as [`load`](AssetServer::load), but you can load assets from unaproved paths
@@ -328,7 +328,7 @@ impl AssetServer {
     ///
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
     pub fn load_override<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, None, (), true)
+        self.load_with_meta_transform(path, (), true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -352,7 +352,7 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, None, guard, false)
+        self.load_with_meta_transform(path, guard, false)
     }
 
     /// Same as [`load`](AssetServer::load_acquire), but you can load assets from unaproved paths
@@ -365,7 +365,7 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, None, guard, true)
+        self.load_with_meta_transform(path, guard, true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
@@ -377,7 +377,7 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         settings: S,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path.into().with_settings(settings), None, (), false)
+        self.load_with_meta_transform(path.into().with_settings(settings), (), false)
     }
 
     /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unaproved paths
@@ -390,7 +390,7 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         settings: S,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path.into().with_settings(settings), None, (), true)
+        self.load_with_meta_transform(path.into().with_settings(settings), (), true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -414,7 +414,7 @@ impl AssetServer {
         settings: S,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path.into().with_settings(settings), None, guard, false)
+        self.load_with_meta_transform(path.into().with_settings(settings), guard, false)
     }
 
     /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unaproved paths
@@ -433,13 +433,12 @@ impl AssetServer {
         settings: S,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path.into().with_settings(settings), None, guard, true)
+        self.load_with_meta_transform(path.into().with_settings(settings), guard, true)
     }
 
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        meta_transform: Option<MetaTransform>,
         guard: G,
         override_unapproved: bool,
     ) -> Handle<A> {
@@ -456,11 +455,8 @@ impl AssetServer {
         }
 
         let mut infos = self.data.infos.write();
-        let (handle, should_load) = infos.get_or_create_path_handle::<A>(
-            path.clone(),
-            HandleLoadingMode::Request,
-            meta_transform,
-        );
+        let (handle, should_load) =
+            infos.get_or_create_path_handle::<A>(path.clone(), HandleLoadingMode::Request);
 
         if should_load {
             self.spawn_load_task(handle.clone().untyped(), path, infos, guard);
@@ -473,7 +469,6 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
-        meta_transform: Option<MetaTransform>,
         guard: G,
     ) -> UntypedHandle {
         let path = path.into().into_owned();
@@ -483,7 +478,6 @@ impl AssetServer {
             type_id,
             None,
             HandleLoadingMode::Request,
-            meta_transform,
         );
 
         if should_load {
@@ -507,10 +501,7 @@ impl AssetServer {
         let owned_handle = handle.clone();
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
-            if let Err(err) = server
-                .load_internal(Some(owned_handle), path, false, None)
-                .await
-            {
+            if let Err(err) = server.load_internal(Some(owned_handle), path, false).await {
                 error!("{}", err);
             }
             drop(guard);
@@ -535,13 +526,12 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path: AssetPath = path.into();
-        self.load_internal(None, path, false, None).await
+        self.load_internal(None, path, false).await
     }
 
     pub(crate) fn load_unknown_type_with_meta_transform<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        meta_transform: Option<MetaTransform>,
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
         let untyped_source = AssetSourceId::Name(match path.source() {
@@ -554,7 +544,6 @@ impl AssetServer {
         let (handle, should_load) = infos.get_or_create_path_handle::<LoadedUntypedAsset>(
             path.clone().with_source(untyped_source),
             HandleLoadingMode::Request,
-            meta_transform,
         );
 
         // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
@@ -620,7 +609,7 @@ impl AssetServer {
     /// required to figure out the asset type before a handle can be created.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
-        self.load_unknown_type_with_meta_transform(path, None)
+        self.load_unknown_type_with_meta_transform(path)
     }
 
     /// Performs an async asset load.
@@ -632,7 +621,6 @@ impl AssetServer {
         mut input_handle: Option<UntypedHandle>,
         path: AssetPath<'a>,
         force: bool,
-        meta_transform: Option<MetaTransform>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let asset_type_id = input_handle.as_ref().map(UntypedHandle::type_id);
 
@@ -687,7 +675,6 @@ impl AssetServer {
                     path.clone(),
                     path.label().is_none().then(|| loader.asset_type_id()),
                     HandleLoadingMode::Request,
-                    meta_transform,
                 );
                 unwrap_with_context(result, Either::Left(loader.asset_type_name()))
             }
@@ -724,7 +711,6 @@ impl AssetServer {
                 loader.asset_type_id(),
                 Some(loader.asset_type_name()),
                 HandleLoadingMode::Force,
-                None,
             );
             (base_handle, base_path)
         } else {
@@ -802,7 +788,7 @@ impl AssetServer {
                     .infos
                     .read()
                     .get_path_handles(&path)
-                    .map(|handle| server.load_internal(Some(handle), path.clone(), true, None))
+                    .map(|handle| server.load_internal(Some(handle), path.clone(), true))
                     .collect::<Vec<_>>();
 
                 for result in requests {
@@ -813,7 +799,7 @@ impl AssetServer {
                 }
 
                 if !reloaded && server.data.infos.read().should_reload(&path) {
-                    if let Err(err) = server.load_internal(None, path, true, None).await {
+                    if let Err(err) = server.load_internal(None, path, true).await {
                         error!("{}", err);
                     }
                 }
@@ -850,7 +836,6 @@ impl AssetServer {
                 loaded_asset.asset_type_id(),
                 Some(loaded_asset.asset_type_name()),
                 HandleLoadingMode::NotLoading,
-                None,
             );
             handle
         } else {
@@ -935,11 +920,7 @@ impl AssetServer {
             .data
             .infos
             .write()
-            .get_or_create_path_handle::<LoadedFolder>(
-                path.clone(),
-                HandleLoadingMode::Request,
-                None,
-            );
+            .get_or_create_path_handle::<LoadedFolder>(path.clone(), HandleLoadingMode::Request);
         if !should_load {
             return handle;
         }
@@ -1261,15 +1242,10 @@ impl AssetServer {
     pub(crate) fn get_or_create_path_handle<'a, A: Asset>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        meta_transform: Option<MetaTransform>,
     ) -> Handle<A> {
         let mut infos = self.data.infos.write();
         infos
-            .get_or_create_path_handle::<A>(
-                path.into().into_owned(),
-                HandleLoadingMode::NotLoading,
-                meta_transform,
-            )
+            .get_or_create_path_handle::<A>(path.into().into_owned(), HandleLoadingMode::NotLoading)
             .0
     }
 
@@ -1281,7 +1257,6 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
-        meta_transform: Option<MetaTransform>,
     ) -> UntypedHandle {
         let mut infos = self.data.infos.write();
         infos
@@ -1290,7 +1265,6 @@ impl AssetServer {
                 type_id,
                 None,
                 HandleLoadingMode::NotLoading,
-                meta_transform,
             )
             .0
     }

@@ -1,5 +1,4 @@
 use alloc::{
-    boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
@@ -13,7 +12,6 @@ use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 pub const META_FORMAT_VERSION: &str = "1.0";
-pub type MetaTransform = Box<dyn Settings>;
 
 /// Asset metadata that informs how an [`Asset`] should be handled by the asset system.
 ///
