@@ -628,15 +628,25 @@ impl SharedAllocator {
         panic!("too many entities")
     }
 
-    /// Allocates an [`Entity`] with a brand new index.
+    /// Allocates a fresh [`EntityRow`]. This row has never been given out before.
     #[inline]
-    fn alloc_new_index(&self) -> Entity {
+    pub(crate) fn alloc_unique_entity_row(&self) -> EntityRow {
         let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
         if index == u32::MAX {
             Self::on_overflow();
         }
         // SAFETY: We just checked that this was not max.
-        unsafe { Entity::from_raw(EntityRow::new(NonMaxU32::new_unchecked(index))) }
+        unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) }
+    }
+
+    /// Allocates `count` [`EntityRow`]s. These rows will be fresh. They have never been given out before.
+    pub(crate) fn alloc_unique_entity_rows(&self, count: u32) -> AllocUniqueEntitiyRowIterator {
+        let start_new = self.next_entity_index.fetch_add(count, Ordering::Relaxed);
+        let new = match start_new.checked_add(count) {
+            Some(new_next_entity_index) => start_new..new_next_entity_index,
+            None => Self::on_overflow(),
+        };
+        AllocUniqueEntitiyRowIterator(new)
     }
 
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
@@ -647,7 +657,8 @@ impl SharedAllocator {
     #[inline]
     unsafe fn alloc(&self) -> Entity {
         // SAFETY: assured by caller
-        unsafe { self.free.alloc() }.unwrap_or_else(|| self.alloc_new_index())
+        unsafe { self.free.alloc() }
+            .unwrap_or_else(|| Entity::from_raw(self.alloc_unique_entity_row()))
     }
 
     /// Allocates a `count` [`Entity`]s, reusing freed indices if they exist.
@@ -658,13 +669,8 @@ impl SharedAllocator {
     #[inline]
     unsafe fn alloc_many(&self, count: u32) -> AllocEntitiesIterator {
         let reused = self.free.alloc_many(count);
-        let missing = count - reused.len() as u32;
-        let start_new = self.next_entity_index.fetch_add(missing, Ordering::Relaxed);
-
-        let new = match start_new.checked_add(missing) {
-            Some(new_next_entity_index) => start_new..new_next_entity_index,
-            None => Self::on_overflow(),
-        };
+        let still_need = count - reused.len() as u32;
+        let new = self.alloc_unique_entity_rows(still_need);
         AllocEntitiesIterator { new, reused }
     }
 
@@ -674,7 +680,7 @@ impl SharedAllocator {
     fn remote_alloc(&self) -> Entity {
         self.free
             .remote_alloc()
-            .unwrap_or_else(|| self.alloc_new_index())
+            .unwrap_or_else(|| Entity::from_raw(self.alloc_unique_entity_row()))
     }
 
     /// Marks the allocator as closed, but it will still function normally.
@@ -773,11 +779,37 @@ impl core::fmt::Debug for Allocator {
     }
 }
 
+/// An [`Iterator`] returning a sequence of [`EntityRow`] values from an [`Allocator`] that are never aliased.
+/// These rows have never been given out before.
+///
+/// **NOTE:** Dropping will leak the remaining entitie rows!
+pub struct AllocUniqueEntitiyRowIterator(core::ops::Range<u32>);
+
+impl Iterator for AllocUniqueEntitiyRowIterator {
+    type Item = EntityRow;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0
+            .next()
+            // SAFETY: This came from an *exclusive* range. It can never be max.
+            .map(|idx| unsafe { EntityRow::new(NonMaxU32::new_unchecked(idx)) })
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+}
+
+impl ExactSizeIterator for AllocUniqueEntitiyRowIterator {}
+impl core::iter::FusedIterator for AllocUniqueEntitiyRowIterator {}
+
 /// An [`Iterator`] returning a sequence of [`Entity`] values from an [`Allocator`].
 ///
 /// **NOTE:** Dropping will leak the remaining entities!
 pub struct AllocEntitiesIterator<'a> {
-    new: core::ops::Range<u32>,
+    new: AllocUniqueEntitiyRowIterator,
     reused: FreeBufferIterator<'a>,
 }
 
@@ -785,13 +817,9 @@ impl<'a> Iterator for AllocEntitiesIterator<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.reused.next().or_else(|| {
-            self.new.next().map(|idx| {
-                // SAFETY: This came from an *exclusive* range. It can never be max.
-                let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(idx)) };
-                Entity::from_raw(row)
-            })
-        })
+        self.reused
+            .next()
+            .or_else(|| self.new.next().map(Entity::from_raw))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
