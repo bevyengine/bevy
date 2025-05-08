@@ -76,7 +76,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, GpuImage, TextureCache},
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::prelude::default;
 
@@ -346,10 +346,10 @@ impl Plugin for SmaaPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_smaa_pipelines.in_set(RenderSet::Prepare),
-                    prepare_smaa_uniforms.in_set(RenderSet::PrepareResources),
-                    prepare_smaa_textures.in_set(RenderSet::PrepareResources),
-                    prepare_smaa_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_smaa_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_smaa_uniforms.in_set(RenderSystems::PrepareResources),
+                    prepare_smaa_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_smaa_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<SmaaNode>>(Core3d, Node3d::Smaa)

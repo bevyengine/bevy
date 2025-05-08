@@ -24,7 +24,7 @@ use crate::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
         TextureCache,
     },
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
@@ -126,18 +126,18 @@ impl Plugin for ViewPlugin {
                 (
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
-                        .in_set(RenderSet::ManageViews)
+                        .in_set(RenderSystems::ManageViews)
                         .before(create_surfaces),
                     prepare_view_attachments
-                        .in_set(RenderSet::ManageViews)
+                        .in_set(RenderSystems::ManageViews)
                         .before(prepare_view_targets)
                         .after(prepare_windows),
                     prepare_view_targets
-                        .in_set(RenderSet::ManageViews)
+                        .in_set(RenderSystems::ManageViews)
                         .after(prepare_windows)
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
-                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+                    prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
                 ),
             );
         }

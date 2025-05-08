@@ -16,7 +16,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_window::PrimaryWindow;
 use resolve::{
@@ -126,7 +126,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 
         render_app.add_systems(
             Render,
-            prepare_oit_buffers.in_set(RenderSet::PrepareResources),
+            prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
         );
 
         render_app
