@@ -1,4 +1,4 @@
-#import bevy_render::maths::{PI, PI_2};
+#import bevy_render::maths::{PI, PI_2, fast_sqrt};
 #import bevy_pbr::lighting::perceptualRoughnessToRoughness;
 
 struct FilteringConstants {
@@ -6,6 +6,7 @@ struct FilteringConstants {
     sample_count: u32,
     roughness: f32,
     blue_noise_size: vec2f,
+    white_point: f32,
 }
 
 @group(0) @binding(0) var input_texture: texture_2d_array<f32>;
@@ -15,90 +16,11 @@ struct FilteringConstants {
 @group(0) @binding(4) var blue_noise_texture: texture_2d<f32>;
 
 // Tonemapping functions to reduce fireflies
-
-const white_point: f32 = 1.0;
-fn rcp(x: f32) -> f32 { return 1.0 / x; }
-fn max3(x: vec3f) -> f32 { return max(x.r, max(x.g, x.b)); }
 fn tonemap(color: vec3f) -> vec3f {
-    return color / (color + vec3(white_point));
+    return color / (color + vec3(constants.white_point));
 }
 fn reverse_tonemap(color: vec3f) -> vec3f {
-    return white_point * color / (vec3(1.0) - color);
-}
-
-// Predefined set of uniform directions
-fn get_uniform_direction(index: u32) -> vec3f {
-    var dir = vec3f(0.0);
-    
-    switch(index % 64u) {
-        case 0u: { dir = vec3f(0.91593, -0.347884, 0.200123); }
-        case 1u: { dir = vec3f(-0.244493, -0.710186, -0.660196); }
-        case 2u: { dir = vec3f(-0.838322, 0.259442, 0.479484); }
-        case 3u: { dir = vec3f(0.245473, 0.891464, -0.380835); }
-        case 4u: { dir = vec3f(0.632533, -0.155099, 0.758846); }
-        case 5u: { dir = vec3f(-0.20644, -0.973183, -0.101474); }
-        case 6u: { dir = vec3f(-0.269471, 0.0483681, -0.961793); }
-        case 7u: { dir = vec3f(0.143331, 0.973557, 0.177887); }
-        case 8u: { dir = vec3f(0.725872, -0.086002, -0.682432); }
-        case 9u: { dir = vec3f(-0.076835, -0.886014, 0.457249); }
-        case 10u: { dir = vec3f(-0.913781, 0.0503775, -0.403071); }
-        case 11u: { dir = vec3f(0.0159914, 0.676129, 0.73661); }
-        case 12u: { dir = vec3f(0.992288, 0.00772121, -0.12371); }
-        case 13u: { dir = vec3f(0.00641109, -0.177892, -0.984029); }
-        case 14u: { dir = vec3f(-0.985566, -0.0665794, 0.155651); }
-        case 15u: { dir = vec3f(-0.0700448, 0.706071, -0.704668); }
-        case 16u: { dir = vec3f(0.89279, 0.117001, 0.435013); }
-        case 17u: { dir = vec3f(0.142896, -0.893697, -0.425307); }
-        case 18u: { dir = vec3f(-0.687174, -0.132142, 0.714374); }
-        case 19u: { dir = vec3f(-0.217251, 0.965143, -0.145946); }
-        case 20u: { dir = vec3f(0.108209, 0.0279573, 0.993735); }
-        case 21u: { dir = vec3f(0.274912, -0.952168, 0.133416); }
-        case 22u: { dir = vec3f(-0.653478, -0.211134, -0.726904); }
-        case 23u: { dir = vec3f(-0.307126, 0.85749, 0.412777); }
-        case 24u: { dir = vec3f(0.831999, 0.327845, -0.447543); }
-        case 25u: { dir = vec3f(0.283463, -0.663772, 0.692138); }
-        case 26u: { dir = vec3f(-0.893939, -0.415437, -0.168182); }
-        case 27u: { dir = vec3f(-0.106605, 0.211719, 0.971499); }
-        case 28u: { dir = vec3f(0.873146, 0.474611, 0.11118); }
-        case 29u: { dir = vec3f(0.332658, -0.572825, -0.74914); }
-        case 30u: { dir = vec3f(-0.781162, -0.487098, 0.390541); }
-        case 31u: { dir = vec3f(-0.490404, 0.734038, -0.469779); }
-        case 32u: { dir = vec3f(0.604084, 0.431641, 0.669902); }
-        case 33u: { dir = vec3f(0.593065, -0.782314, -0.190417); }
-        case 34u: { dir = vec3f(-0.244516, -0.197766, 0.949263); }
-        case 35u: { dir = vec3f(-0.650394, 0.754372, 0.0889437); }
-        case 36u: { dir = vec3f(0.468682, 0.430484, -0.771376); }
-        case 37u: { dir = vec3f(0.647992, -0.666677, 0.368305); }
-        case 38u: { dir = vec3f(-0.604909, -0.626104, -0.492015); }
-        case 39u: { dir = vec3f(-0.564322, 0.511928, 0.647666); }
-        case 40u: { dir = vec3f(0.633455, 0.743985, -0.212653); }
-        case 41u: { dir = vec3f(0.292272, -0.234942, 0.927027); }
-        case 42u: { dir = vec3f(-0.600382, -0.796926, 0.0667077); }
-        case 43u: { dir = vec3f(-0.497216, 0.350652, -0.793612); }
-        case 44u: { dir = vec3f(0.516356, 0.783334, 0.346069); }
-        case 45u: { dir = vec3f(0.729109, -0.451604, -0.514251); }
-        case 46u: { dir = vec3f(-0.389822, -0.675926, 0.62543); }
-        case 47u: { dir = vec3f(-0.856868, 0.458917, -0.234889); }
-        case 48u: { dir = vec3f(0.189162, 0.381537, 0.904791); }
-        case 49u: { dir = vec3f(0.907219, -0.4183, 0.0444719); }
-        case 50u: { dir = vec3f(-0.225508, -0.532484, -0.815848); }
-        case 51u: { dir = vec3f(-0.882371, 0.341401, 0.323833); }
-        case 52u: { dir = vec3f(0.279638, 0.796232, -0.536486); }
-        case 53u: { dir = vec3f(0.759697, -0.242935, 0.603194); }
-        case 54u: { dir = vec3f(-0.265275, -0.929255, -0.257125); }
-        case 55u: { dir = vec3f(-0.455978, 0.114803, 0.882555); }
-        case 56u: { dir = vec3f(0.213508, 0.976688, 0.0222359); }
-        case 57u: { dir = vec3f(0.536034, -0.10141, -0.838084); }
-        case 58u: { dir = vec3f(-0.147707, -0.941925, 0.301597); }
-        case 59u: { dir = vec3f(-0.822975, 0.102675, -0.558722); }
-        case 60u: { dir = vec3f(0.0753368, 0.810439, 0.580958); }
-        case 61u: { dir = vec3f(0.958193, -0.0618399, -0.279361); }
-        case 62u: { dir = vec3f(-0.0168296, -0.509477, 0.860319); }
-        case 63u: { dir = vec3f(-0.999999, 0.00159255, 0.0); }
-        default: { dir = vec3f(0.0, 0.0, 1.0); }
-    }
-    
-    return normalize(dir);
+    return constants.white_point * color / (vec3(1.0) - color);
 }
 
 // Convert UV and face index to direction vector
@@ -197,7 +119,6 @@ fn hammersley_2d(i: u32, n: u32) -> vec2f {
 
 // Blue noise randomization
 fn sample_noise(pixel_coords: vec2u) -> vec4f {
-    // Get a stable random offset for this pixel
     let noise_size = vec2u(u32(constants.blue_noise_size.x), u32(constants.blue_noise_size.y));
     let noise_coords = pixel_coords % noise_size;
     let uv = vec2f(noise_coords) / constants.blue_noise_size;
@@ -222,8 +143,8 @@ fn importance_sample_ggx(xi: vec2f, roughness: f32, normal: vec3f) -> vec3f {
     let phi = 2.0 * PI * xi.x;
     
     // GGX mapping from uniform random to GGX distribution
-    let cos_theta = sqrt((1.0 - xi.y) / (1.0 + (a * a - 1.0) * xi.y));
-    let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+    let cos_theta = fast_sqrt((1.0 - xi.y) / (1.0 + (a * a - 1.0) * xi.y));
+    let sin_theta = fast_sqrt(1.0 - cos_theta * cos_theta);
     
     // Convert to cartesian
     let h = vec3f(
@@ -351,6 +272,30 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     textureStore(output_texture, coords, face, vec4f(radiance, 1.0));
 }
 
+// Calculate spherical coordinates using spiral pattern
+// and golden angle to get a uniform distribution
+fn uniform_sample_sphere(i: u32, normal: vec3f) -> vec3f {
+    // Get stratified sample index
+    let strat_i = i % constants.sample_count;
+    
+    let golden_angle = 2.4;
+    let full_sphere = f32(constants.sample_count) * 2.0;
+    let z = 1.0 - (2.0 * f32(strat_i) + 1.0) / full_sphere;
+    let r = fast_sqrt(1.0 - z * z);
+    
+    let phi = f32(strat_i) * golden_angle;
+    
+    // Create the direction vector
+    let dir_uniform = vec3f(
+        r * cos(phi),
+        r * sin(phi),
+        z
+    );
+
+    let tangent_frame = calculate_tangent_frame(normal);
+    return normalize(tangent_frame * dir_uniform);
+}
+
 @compute
 @workgroup_size(8, 8, 1)
 fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
@@ -368,54 +313,41 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let uv = (vec2f(coords) + 0.5) * invSize;
     let normal = sample_cube_dir(uv, face);
     
-    // Create tangent space matrix
-    let tangent_frame = calculate_tangent_frame(normal);
-    
     var irradiance = vec3f(0.0);
     var total_weight = 0.0;
     
-    let sample_count = min(constants.sample_count, 64u);
-
-    for (var i = 0u; i < sample_count; i++) {
-        // Using a predefined set of directions provides good hemisphere coverage for diffuse
-        var dir = get_uniform_direction((i + u32(coords.x * 7u + coords.y * 11u + face * 5u)) % 64u);
+    // Use uniform sampling on a hemisphere
+    for (var i = 0u; i < constants.sample_count; i++) {
+        // Get a uniform direction on unit sphere
+        var sample_dir = uniform_sample_sphere(i, normal);
         
-        // Ensure the direction is in the hemisphere defined by the normal
-        let NoL = dot(normal, dir);
+        // Calculate the cosine weight (N·L)
+        let weight = max(dot(normal, sample_dir), 0.0);
         
-        // Flip the direction if it's in the wrong hemisphere
-        if (NoL < 0.0) {
-            dir = -dir;
+        // Skip samples below horizon or at grazing angles
+        if (weight <= 0.001) {
+            continue;
         }
         
-        // Recalculate NoL after possible flipping
-        let weight = max(dot(normal, dir), 0.0);
+        // Sample environment with level 0 (no mip)
+        var sample_color = sample_environment(sample_dir, 0.0).rgb;
         
-        if (weight > 0.0) {
-            // Lambert PDF
-            let pdf = weight / PI;
-            let width = f32(size.x);
-
-            // Filtered importance sampling
-            let mip_level = clamp(
-                calculate_environment_map_lod(pdf, width, f32(sample_count)),
-                1.0, 
-                constants.roughness * 3.0
-            );
-            
-            // Sample environment with the calculated mip level
-            let sample_color = sample_environment(dir, mip_level).rgb;
-            
-            // Accumulate the sample
-            irradiance += sample_color * weight;
-            total_weight += weight;
-        }
+        // Apply tonemapping to reduce fireflies
+        sample_color = tonemap(sample_color);
+        
+        // Accumulate the contribution
+        irradiance += sample_color * weight;
+        total_weight += weight;
     }
     
-    // Normalize and scale by PI for diffuse BRDF
-    if (total_weight > 0.0) {
-        irradiance = irradiance / total_weight * PI;
-    }
+    // Normalize by total weight
+    irradiance = irradiance / total_weight;
+    
+    // Scale by PI to account for the Lambert BRDF normalization factor
+    irradiance *= PI;
+    
+    // Reverse tonemap to restore HDR range
+    irradiance = reverse_tonemap(irradiance);
     
     // Write result to output texture
     textureStore(output_texture, coords, face, vec4f(irradiance, 1.0));

@@ -325,6 +325,7 @@ pub struct GeneratedEnvironmentMapLight {
     pub intensity: f32,
     pub rotation: Quat,
     pub affects_lightmapped_mesh_diffuse: bool,
+    pub white_point: f32,
 }
 
 impl Default for GeneratedEnvironmentMapLight {
@@ -334,6 +335,7 @@ impl Default for GeneratedEnvironmentMapLight {
             intensity: 0.0,
             rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: true,
+            white_point: 2.0,
         }
     }
 }
@@ -372,6 +374,7 @@ pub fn extract_generator_entities(
             intensity: filtered_env_map.intensity,
             rotation: filtered_env_map.rotation,
             affects_lightmapped_mesh_diffuse: filtered_env_map.affects_lightmapped_mesh_diffuse,
+            white_point: filtered_env_map.white_point,
         };
         commands
             .get_entity(entity)
@@ -389,6 +392,7 @@ pub struct RenderEnvironmentMap {
     pub intensity: f32,
     pub rotation: Quat,
     pub affects_lightmapped_mesh_diffuse: bool,
+    pub white_point: f32,
 }
 
 #[derive(Component)]
@@ -448,6 +452,7 @@ pub struct FilteringConstants {
     sample_count: u32,
     roughness: f32,
     blue_noise_size: Vec2,
+    white_point: f32,
 }
 
 /// Stores bind groups for the environment map generation pipelines
@@ -586,6 +591,7 @@ pub fn prepare_generator_bind_groups(
                     vector2_uniform.size.width as f32,
                     vector2_uniform.size.height as f32,
                 ),
+                white_point: env_map_light.white_point,
             };
 
             let mut radiance_constants_buffer = UniformBuffer::from(radiance_constants);
@@ -614,12 +620,14 @@ pub fn prepare_generator_bind_groups(
         // Create irradiance bind group
         let irradiance_constants = FilteringConstants {
             mip_level: 0.0,
-            sample_count: 64,
+            // 32 phi, 32 theta = 1024 samples total
+            sample_count: 1024,
             roughness: 1.0,
             blue_noise_size: Vec2::new(
                 sphere_cosine_weights.size.width as f32,
                 sphere_cosine_weights.size.height as f32,
             ),
+            white_point: env_map_light.white_point,
         };
 
         let mut irradiance_constants_buffer = UniformBuffer::from(irradiance_constants);
