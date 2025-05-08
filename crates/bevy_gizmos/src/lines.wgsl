@@ -11,9 +11,10 @@ struct LineGizmoUniform {
     _joints_resolution: u32,
     gap_scale: f32,
     line_scale: f32,
+    time: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _padding: vec3<f32>,
+    _padding: vec2<f32>,
 #endif
 }
 
@@ -164,6 +165,7 @@ struct FragmentOutput {
 fn fragment_solid(in: FragmentInput) -> FragmentOutput {
     return FragmentOutput(in.color);
 }
+
 @fragment
 fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
     var alpha: f32;
@@ -184,6 +186,40 @@ fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
     let uv = in.uv * in.position.w;
 #endif
     let alpha = 1.0 - floor(min((uv % 2.0) / in.line_fraction, 1.0));
+    
+    return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
+}
+
+@fragment
+fn fragment_dashed_animated(in: FragmentInput) -> FragmentOutput {
+#ifdef PERSPECTIVE
+    let uv = in.uv;
+#else
+    let uv = in.uv * in.position.w;
+#endif
+    // apply animation speed, hardcoded but can be passed via configuration
+    let speed = 0.5;
+    let scaled_time = line_gizmo.time * speed;
+
+    // - the uv coordinates are going to be wrapped every 2.0 units
+    // - we're going to subtract the time from the uv values
+    //
+    // the modulo operation doesn't play nice with these two facts which is why
+    // we need to manually shift and wrap the time
+    let wrapped_time = scaled_time % 2.0;
+
+    // move the uv values, add two to ensure positive values
+    let shifted_uv = uv - wrapped_time + 2.0;
+
+    // wrap the uv values and scale appropriately to dash length
+    let wrapped_uv = (shifted_uv % 2.0) / in.line_fraction;
+
+    // calculate the alpha value to mask out the gaps of the dashed lines
+    // completely via the opacity of the color
+    //
+    // NOTE: the `1.0 -` at the start is a bit useless but I kept it for
+    // consistency since the other code does it as well
+    let alpha = 1.0 - floor(min(wrapped_uv, 1.0));
     
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }

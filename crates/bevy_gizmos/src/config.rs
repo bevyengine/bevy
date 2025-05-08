@@ -52,6 +52,8 @@ pub enum GizmoLineStyle {
         gap_scale: f32,
         /// The length of the visible line in `line_width`s
         line_scale: f32,
+        /// Whether or not the gizmo lines are animated which makes the line move from src to dst
+        animated: bool,
     },
 }
 
@@ -67,10 +69,12 @@ impl Hash for GizmoLineStyle {
             Self::Dashed {
                 gap_scale,
                 line_scale,
+                animated,
             } => {
                 2u64.hash(state);
                 gap_scale.to_bits().hash(state);
                 line_scale.to_bits().hash(state);
+                animated.hash(state);
             }
         }
     }
