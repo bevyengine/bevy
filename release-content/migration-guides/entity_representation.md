@@ -35,7 +35,7 @@ Internally, this stores a `u32`, but that might change later.
 
 Working with the generation directly has never been recommended, but it is sometimes useful to do so in tests.
 To create a generation do `EntityGeneration::FRESH.after_versions(expected_generation)`.
-To use this in tests, do `asset_eq!(entity.generation(), EntityGeneration::FRESH.after_versions(expected_generation))`.
+To use this in tests, do `assert_eq!(entity.generation(), EntityGeneration::FRESH.after_versions(expected_generation))`.
 
 ### Removed Interfaces
 
@@ -53,5 +53,5 @@ For entity ordering, the order still prioretizes an entity's generation, but aft
 
 The changes to serialization and the bit format are directly related.
 Effectively, this means that all serialized and transmuted entities will not work as expected and may crash.
-To migrate, invert the lower 32 bits of the 64 represeentation of the entity, and subtract 1 from the upper bits.
+To migrate, invert the lower 32 bits of the 64 representation of the entity, and subtract 1 from the upper bits.
 Again, this is still subject to change, and serialized scenes may break between versions.
