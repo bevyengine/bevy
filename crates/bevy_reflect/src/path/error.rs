@@ -5,19 +5,10 @@ use crate::{ReflectKind, VariantType};
 
 /// The kind of [`AccessError`], along with some kind-specific information.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum AccessErrorKind {
+pub enum AccessErrorKind<'a> {
     /// An error that occurs when a certain type doesn't
     /// contain the value referenced by the [`Access`].
     MissingField(ReflectKind),
-
-    /// An error that occurs when using an [`Access`] on the wrong type.
-    /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct, or a [`TupleIndex`](Access::TupleIndex) on a list)
-    IncompatibleTypes {
-        /// The [`ReflectKind`] that was expected based on the [`Access`].
-        expected: ReflectKind,
-        /// The actual [`ReflectKind`] that was found.
-        actual: ReflectKind,
-    },
 
     /// An error that occurs when using an [`Access`] on the wrong enum variant.
     /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct variant, or a [`TupleIndex`](Access::TupleIndex) on a unit variant)
@@ -27,10 +18,25 @@ pub enum AccessErrorKind {
         /// The actual [`VariantType`] that was found.
         actual: VariantType,
     },
+
+    /// Occurs when an [`Access`] is attempted on a type that does not support it.
+    UnsupportedAccess {
+        /// The [`ReflectKind`] that was attempted to be accessed.
+        base: ReflectKind,
+        /// The [`Access`] that was attempted.
+        access: Access<'a>,
+    },
 }
 
-impl AccessErrorKind {
-    pub(super) fn with_access(self, access: Access, offset: Option<usize>) -> AccessError {
+impl AccessErrorKind<'_> {
+    pub(super) fn with_access<'a>(
+        self,
+        access: Access<'a>,
+        offset: Option<usize>,
+    ) -> AccessError<'a>
+    where
+        Self: 'a,
+    {
         AccessError {
             kind: self,
             access,
@@ -52,7 +58,7 @@ impl AccessErrorKind {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccessError<'a> {
-    pub(super) kind: AccessErrorKind,
+    pub(super) kind: AccessErrorKind<'a>,
     pub(super) access: Access<'a>,
     pub(super) offset: Option<usize>,
 }
@@ -112,11 +118,11 @@ impl fmt::Display for AccessError<'_> {
                         access.display_value()
                     )
                 }
-            }
-            AccessErrorKind::IncompatibleTypes { expected, actual } => write!(
+            },
+            AccessErrorKind::UnsupportedAccess { base, access } => write!(
                 f,
-                "Expected {} access to access a {expected}, found a {actual} instead.",
-                access.kind()
+                "Tried to access {base} with {} access: '{access}'",
+                access.kind(),
             ),
             AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual } => write!(
                 f,
