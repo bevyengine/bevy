@@ -50,6 +50,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
+    view::Hdr,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -246,7 +247,7 @@ impl Plugin for AtmospherePlugin {
 /// from the planet's surface, ozone only exists in a band centered at a fairly
 /// high altitude.
 #[derive(Clone, Component, Reflect, ShaderType)]
-#[require(AtmosphereSettings)]
+#[require(AtmosphereSettings, Hdr)]
 #[reflect(Clone, Default)]
 pub struct Atmosphere {
     /// Radius of the planet
