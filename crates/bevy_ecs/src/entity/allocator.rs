@@ -783,7 +783,7 @@ impl core::fmt::Debug for Allocator {
 /// These rows have never been given out before.
 ///
 /// **NOTE:** Dropping will leak the remaining entitie rows!
-pub struct AllocUniqueEntitiyRowIterator(core::ops::Range<u32>);
+pub(crate) struct AllocUniqueEntitiyRowIterator(core::ops::Range<u32>);
 
 impl Iterator for AllocUniqueEntitiyRowIterator {
     type Item = EntityRow;
@@ -881,7 +881,7 @@ mod tests {
     use super::*;
     use alloc::vec;
 
-    /// Ensure the total capacity of [`OwnedBuffer`] is `u32::MAX + 1`, since the max *index* of an [`Entity`] is `u32::MAX`.
+    /// Ensure the total capacity of [`OwnedBuffer`] is `u32::MAX + 1`.
     #[test]
     fn chunk_capacity_sums() {
         let total: u64 = (0..FreeBuffer::NUM_CHUNKS)
