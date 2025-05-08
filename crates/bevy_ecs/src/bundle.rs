@@ -1584,14 +1584,18 @@ impl<'w> BundleRemover<'w> {
             );
         }
 
+        let change_tick = world.change_tick();
+
         // Handle table change
         let new_location = if let Some((mut old_table, mut new_table)) = self.old_and_new_table {
             let move_result = if needs_drop {
                 // SAFETY: old_table_row exists
                 unsafe {
-                    old_table
-                        .as_mut()
-                        .move_to_and_drop_missing_unchecked(location.table_row, new_table.as_mut())
+                    old_table.as_mut().move_to_and_drop_missing_unchecked(
+                        location.table_row,
+                        new_table.as_mut(),
+                        change_tick,
+                    )
                 }
             } else {
                 // SAFETY: old_table_row exists
@@ -1599,6 +1603,7 @@ impl<'w> BundleRemover<'w> {
                     old_table.as_mut().move_to_and_forget_missing_unchecked(
                         location.table_row,
                         new_table.as_mut(),
+                        change_tick,
                     )
                 }
             };
