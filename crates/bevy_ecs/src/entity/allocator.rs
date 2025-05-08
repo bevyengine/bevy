@@ -9,6 +9,8 @@ use core::mem::ManuallyDrop;
 use log::warn;
 use nonmax::NonMaxU32;
 
+use crate::query::DebugCheckedUnwrap;
+
 use super::{Entity, EntityRow, EntitySetIterator};
 
 /// This is the item we store in the free list.
@@ -270,7 +272,7 @@ impl FreeBuffer {
     ///
     /// [`Self::set`] must have been called on these indices before to initialize memory.
     #[inline]
-    unsafe fn iter(&self, indices: core::ops::RangeInclusive<u32>) -> FreeBufferIterator {
+    unsafe fn iter(&self, indices: core::ops::Range<u32>) -> FreeBufferIterator {
         FreeBufferIterator {
             buffer: self,
             indices,
@@ -296,7 +298,8 @@ impl Drop for FreeBuffer {
 /// [`FreeBuffer::set`] must have been called on these indices beforehand to initialize memory.
 struct FreeBufferIterator<'a> {
     buffer: &'a FreeBuffer,
-    indices: core::ops::RangeInclusive<u32>,
+    /// The indices in the buffer that are not in `current` yet.
+    indices: core::ops::Range<u32>,
     current: core::slice::Iter<'a, Slot>,
 }
 
@@ -309,20 +312,24 @@ impl<'a> Iterator for FreeBufferIterator<'a> {
             return Some(found.get_entity());
         }
 
+        let still_need = self.indices.len() as u32;
         let next_index = self.indices.next()?;
         let (chunk, index, chunk_capacity) = self.buffer.index_in_chunk(next_index);
 
         // SAFETY: Assured by constructor
-        let slice = unsafe { chunk.get_slice(index, self.len() as u32 + 1, chunk_capacity) };
-        self.indices = (*self.indices.start() + slice.len() as u32 - 1)..=(*self.indices.end());
-
+        let slice = unsafe { chunk.get_slice(index, still_need, chunk_capacity) };
+        self.indices.start += slice.len() as u32;
         self.current = slice.iter();
-        Some(self.current.next()?.get_entity())
+
+        // SAFETY: Constructor ensures these indices are valid in the buffer; the buffer is not sparse, and we just got the next slice.
+        // So the only way for the slice to be empty is if the constructor did not uphold safety.
+        let next = unsafe { self.current.next().debug_checked_unwrap() };
+        Some(next.get_entity())
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.indices.end().saturating_sub(*self.indices.start()) as usize;
+        let len = self.indices.len() + self.current.len();
         (len, Some(len))
     }
 }
@@ -527,21 +534,8 @@ impl FreeList {
         let len = self.len.pop_for_state(count, Ordering::AcqRel).length();
         let index = len.saturating_sub(count);
 
-        let indices = if index < len {
-            let end = len - 1;
-            index..=end
-        } else {
-            #[expect(
-                clippy::reversed_empty_ranges,
-                reason = "We intentionally need an empty range"
-            )]
-            {
-                1..=0
-            }
-        };
-
-        // SAFETY: The indices are all less than the length.
-        unsafe { self.buffer.iter(indices) }
+        // SAFETY: The iterator's items are all less than the length.
+        unsafe { self.buffer.iter(index..len) }
     }
 
     /// Allocates an [`Entity`] from the free list if one is available and it is safe to do so.
