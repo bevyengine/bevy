@@ -421,6 +421,11 @@ impl Type {
         self.type_path_table.crate_name()
     }
 
+    /// See [`TypePath::crate_version`].
+    pub fn crate_version(&self) -> Option<&'static str> {
+        self.type_path_table.crate_version()
+    }
+
     /// See [`TypePath::module_path`].
     pub fn module_path(&self) -> Option<&'static str> {
         self.type_path_table.module_path()
