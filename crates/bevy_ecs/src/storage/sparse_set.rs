@@ -300,6 +300,13 @@ impl ComponentSparseSet {
         })
     }
 
+    /// Returns the drop function for the component type stored in the sparse set,
+    /// or `None` if it doesn't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.dense.get_drop()
+    }
+
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).
     #[must_use = "The returned pointer must be used to drop the removed component."]
@@ -657,10 +664,11 @@ mod tests {
     use super::SparseSets;
     use crate::{
         component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
-        entity::Entity,
+        entity::{Entity, EntityRow},
         storage::SparseSet,
     };
     use alloc::{vec, vec::Vec};
+    use nonmax::NonMaxU32;
 
     #[derive(Debug, Eq, PartialEq)]
     struct Foo(usize);
@@ -668,11 +676,11 @@ mod tests {
     #[test]
     fn sparse_set() {
         let mut set = SparseSet::<Entity, Foo>::default();
-        let e0 = Entity::from_raw(0);
-        let e1 = Entity::from_raw(1);
-        let e2 = Entity::from_raw(2);
-        let e3 = Entity::from_raw(3);
-        let e4 = Entity::from_raw(4);
+        let e0 = Entity::from_raw(EntityRow::new(NonMaxU32::new(0).unwrap()));
+        let e1 = Entity::from_raw(EntityRow::new(NonMaxU32::new(1).unwrap()));
+        let e2 = Entity::from_raw(EntityRow::new(NonMaxU32::new(2).unwrap()));
+        let e3 = Entity::from_raw(EntityRow::new(NonMaxU32::new(3).unwrap()));
+        let e4 = Entity::from_raw(EntityRow::new(NonMaxU32::new(4).unwrap()));
 
         set.insert(e1, Foo(1));
         set.insert(e2, Foo(2));

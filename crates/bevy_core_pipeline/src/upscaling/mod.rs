@@ -1,12 +1,12 @@
 use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_render::{
     camera::{CameraOutputMode, ExtractedCamera},
     render_resource::*,
     view::ViewTarget,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 mod node;
@@ -26,7 +26,7 @@ impl Plugin for UpscalingPlugin {
                 // and aversion to extensive and intrusive system ordering.
                 // See https://github.com/bevyengine/bevy/issues/14770 for more context.
                 prepare_view_upscaling_pipelines
-                    .in_set(RenderSet::Prepare)
+                    .in_set(RenderSystems::Prepare)
                     .ambiguous_with_all(),
             );
         }

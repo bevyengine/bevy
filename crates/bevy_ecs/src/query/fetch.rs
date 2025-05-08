@@ -291,6 +291,22 @@ pub unsafe trait QueryData: WorldQuery {
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
 
+    /// Offers additional access above what we requested in `update_component_access`.
+    /// Implementations may add additional access that is a subset of `available_access`
+    /// and does not conflict with anything in `access`,
+    /// and must update `access` to include that access.
+    ///
+    /// This is used by [`WorldQuery`] types like [`FilteredEntityRef`]
+    /// and [`FilteredEntityMut`] to support dynamic access.
+    ///
+    /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
+    fn provide_extra_access(
+        _state: &mut Self::State,
+        _access: &mut Access<ComponentId>,
+        _available_access: &Access<ComponentId>,
+    ) {
+    }
+
     /// Fetch [`Self::Item`](`QueryData::Item`) for either the given `entity` in the current [`Table`],
     /// or for the given `entity` in the current [`Archetype`]. This must always be called after
     /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
@@ -470,12 +486,22 @@ unsafe impl QueryData for EntityLocation {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityLocation {}
 
+/// The [`WorldQuery::Fetch`] type for WorldQueries that can fetch multiple components from an entity
+/// ([`EntityRef`], [`EntityMut`], etc.)
+#[derive(Copy, Clone)]
+#[doc(hidden)]
+pub struct EntityFetch<'w> {
+    world: UnsafeWorldCell<'w>,
+    last_run: Tick,
+    this_run: Tick,
+}
+
 /// SAFETY:
 /// `fetch` accesses all components in a readonly way.
 /// This is sound because `update_component_access` and `update_archetype_component_access` set read access for all components and panic when appropriate.
 /// Filters are unchanged.
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
-    type Fetch<'w> = UnsafeWorldCell<'w>;
+    type Fetch<'w> = EntityFetch<'w>;
     type State = ();
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
@@ -485,10 +511,14 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         _state: &Self::State,
-        _last_run: Tick,
-        _this_run: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w> {
-        world
+        EntityFetch {
+            world,
+            last_run,
+            this_run,
+        }
     }
 
     const IS_DENSE: bool = true;
@@ -540,12 +570,17 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
 
     #[inline(always)]
     unsafe fn fetch<'w>(
-        world: &mut Self::Fetch<'w>,
+        fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
+        let cell = unsafe {
+            fetch
+                .world
+                .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
+                .debug_checked_unwrap()
+        };
         // SAFETY: Read-only access to every component has been registered.
         unsafe { EntityRef::new(cell) }
     }
@@ -556,7 +591,7 @@ unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for EntityMut<'a> {
-    type Fetch<'w> = UnsafeWorldCell<'w>;
+    type Fetch<'w> = EntityFetch<'w>;
     type State = ();
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
@@ -566,10 +601,14 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         _state: &Self::State,
-        _last_run: Tick,
-        _this_run: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w> {
-        world
+        EntityFetch {
+            world,
+            last_run,
+            this_run,
+        }
     }
 
     const IS_DENSE: bool = true;
@@ -621,12 +660,17 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
 
     #[inline(always)]
     unsafe fn fetch<'w>(
-        world: &mut Self::Fetch<'w>,
+        fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
+        let cell = unsafe {
+            fetch
+                .world
+                .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
+                .debug_checked_unwrap()
+        };
         // SAFETY: mutable access to every component has been registered.
         unsafe { EntityMut::new(cell) }
     }
@@ -634,8 +678,8 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
-    type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
-    type State = FilteredAccess<ComponentId>;
+    type Fetch<'w> = (EntityFetch<'w>, Access<ComponentId>);
+    type State = Access<ComponentId>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -646,12 +690,19 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         _state: &Self::State,
-        _last_run: Tick,
-        _this_run: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w> {
         let mut access = Access::default();
         access.read_all_components();
-        (world, access)
+        (
+            EntityFetch {
+                world,
+                last_run,
+                this_run,
+            },
+            access,
+        )
     }
 
     #[inline]
@@ -661,18 +712,12 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         _: &'w Archetype,
         _table: &Table,
     ) {
-        fetch.1.clone_from(&state.access);
+        fetch.1.clone_from(state);
     }
 
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
-        fetch.1.clone_from(&state.access);
-    }
-
-    #[inline]
-    fn set_access<'w>(state: &mut Self::State, access: &FilteredAccess<ComponentId>) {
-        state.clone_from(access);
-        state.access_mut().clear_writes();
+        fetch.1.clone_from(state);
     }
 
     fn update_component_access(
@@ -680,18 +725,18 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
         assert!(
-            filtered_access.access().is_compatible(&state.access),
+            filtered_access.access().is_compatible(state),
             "FilteredEntityRef conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
         );
-        filtered_access.access.extend(&state.access);
+        filtered_access.access.extend(state);
     }
 
     fn init_state(_world: &mut World) -> Self::State {
-        FilteredAccess::default()
+        Access::default()
     }
 
     fn get_state(_components: &Components) -> Option<Self::State> {
-        Some(FilteredAccess::default())
+        Some(Access::default())
     }
 
     fn matches_component_set(
@@ -712,14 +757,38 @@ unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
         item
     }
 
+    #[inline]
+    fn provide_extra_access(
+        state: &mut Self::State,
+        access: &mut Access<ComponentId>,
+        available_access: &Access<ComponentId>,
+    ) {
+        // Claim any extra access that doesn't conflict with other subqueries
+        // This is used when constructing a `QueryLens` or creating a query from a `QueryBuilder`
+        // Start with the entire available access, since that is the most we can possibly access
+        state.clone_from(available_access);
+        // Prevent all writes, since `FilteredEntityRef` only performs read access
+        state.clear_writes();
+        // Prevent any access that would conflict with other accesses in the current query
+        state.remove_conflicting_access(access);
+        // Finally, add the resulting access to the query access
+        // to make sure a later `FilteredEntityMut` won't conflict with this.
+        access.extend(state);
+    }
+
     #[inline(always)]
     unsafe fn fetch<'w>(
-        (world, access): &mut Self::Fetch<'w>,
+        (fetch, access): &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
+        let cell = unsafe {
+            fetch
+                .world
+                .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
+                .debug_checked_unwrap()
+        };
         // SAFETY: mutable access to every component has been registered.
         unsafe { FilteredEntityRef::new(cell, access.clone()) }
     }
@@ -730,8 +799,8 @@ unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
-    type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
-    type State = FilteredAccess<ComponentId>;
+    type Fetch<'w> = (EntityFetch<'w>, Access<ComponentId>);
+    type State = Access<ComponentId>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -742,12 +811,19 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         _state: &Self::State,
-        _last_run: Tick,
-        _this_run: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w> {
         let mut access = Access::default();
         access.write_all_components();
-        (world, access)
+        (
+            EntityFetch {
+                world,
+                last_run,
+                this_run,
+            },
+            access,
+        )
     }
 
     #[inline]
@@ -757,17 +833,12 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         _: &'w Archetype,
         _table: &Table,
     ) {
-        fetch.1.clone_from(&state.access);
+        fetch.1.clone_from(state);
     }
 
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
-        fetch.1.clone_from(&state.access);
-    }
-
-    #[inline]
-    fn set_access<'w>(state: &mut Self::State, access: &FilteredAccess<ComponentId>) {
-        state.clone_from(access);
+        fetch.1.clone_from(state);
     }
 
     fn update_component_access(
@@ -775,18 +846,18 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
         assert!(
-            filtered_access.access().is_compatible(&state.access),
+            filtered_access.access().is_compatible(state),
             "FilteredEntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
         );
-        filtered_access.access.extend(&state.access);
+        filtered_access.access.extend(state);
     }
 
     fn init_state(_world: &mut World) -> Self::State {
-        FilteredAccess::default()
+        Access::default()
     }
 
     fn get_state(_components: &Components) -> Option<Self::State> {
-        Some(FilteredAccess::default())
+        Some(Access::default())
     }
 
     fn matches_component_set(
@@ -807,14 +878,36 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
         item
     }
 
+    #[inline]
+    fn provide_extra_access(
+        state: &mut Self::State,
+        access: &mut Access<ComponentId>,
+        available_access: &Access<ComponentId>,
+    ) {
+        // Claim any extra access that doesn't conflict with other subqueries
+        // This is used when constructing a `QueryLens` or creating a query from a `QueryBuilder`
+        // Start with the entire available access, since that is the most we can possibly access
+        state.clone_from(available_access);
+        // Prevent any access that would conflict with other accesses in the current query
+        state.remove_conflicting_access(access);
+        // Finally, add the resulting access to the query access
+        // to make sure a later `FilteredEntityRef` or `FilteredEntityMut` won't conflict with this.
+        access.extend(state);
+    }
+
     #[inline(always)]
     unsafe fn fetch<'w>(
-        (world, access): &mut Self::Fetch<'w>,
+        (fetch, access): &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
     ) -> Self::Item<'w> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let cell = unsafe { world.get_entity(entity).debug_checked_unwrap() };
+        let cell = unsafe {
+            fetch
+                .world
+                .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
+                .debug_checked_unwrap()
+        };
         // SAFETY: mutable access to every component has been registered.
         unsafe { FilteredEntityMut::new(cell, access.clone()) }
     }
@@ -827,7 +920,7 @@ unsafe impl<'a, B> WorldQuery for EntityRefExcept<'a, B>
 where
     B: Bundle,
 {
-    type Fetch<'w> = UnsafeWorldCell<'w>;
+    type Fetch<'w> = EntityFetch<'w>;
     type State = SmallVec<[ComponentId; 4]>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
@@ -837,10 +930,14 @@ where
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         _: &Self::State,
-        _: Tick,
-        _: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w> {
-        world
+        EntityFetch {
+            world,
+            last_run,
+            this_run,
+        }
     }
 
     const IS_DENSE: bool = true;
@@ -907,11 +1004,14 @@ where
     }
 
     unsafe fn fetch<'w>(
-        world: &mut Self::Fetch<'w>,
+        fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _: TableRow,
     ) -> Self::Item<'w> {
-        let cell = world.get_entity(entity).unwrap();
+        let cell = fetch
+            .world
+            .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
+            .unwrap();
         EntityRefExcept::new(cell)
     }
 }
@@ -927,7 +1027,7 @@ unsafe impl<'a, B> WorldQuery for EntityMutExcept<'a, B>
 where
     B: Bundle,
 {
-    type Fetch<'w> = UnsafeWorldCell<'w>;
+    type Fetch<'w> = EntityFetch<'w>;
     type State = SmallVec<[ComponentId; 4]>;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
@@ -937,10 +1037,14 @@ where
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         _: &Self::State,
-        _: Tick,
-        _: Tick,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self::Fetch<'w> {
-        world
+        EntityFetch {
+            world,
+            last_run,
+            this_run,
+        }
     }
 
     const IS_DENSE: bool = true;
@@ -1008,11 +1112,14 @@ where
     }
 
     unsafe fn fetch<'w>(
-        world: &mut Self::Fetch<'w>,
+        fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _: TableRow,
     ) -> Self::Item<'w> {
-        let cell = world.get_entity(entity).unwrap();
+        let cell = fetch
+            .world
+            .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
+            .unwrap();
         EntityMutExcept::new(cell)
     }
 }
@@ -2079,6 +2186,16 @@ macro_rules! impl_tuple_query_data {
                 )*)
             }
 
+            #[inline]
+            fn provide_extra_access(
+                state: &mut Self::State,
+                access: &mut Access<ComponentId>,
+                available_access: &Access<ComponentId>,
+            ) {
+                let ($($name,)*) = state;
+                $($name::provide_extra_access($name, access, available_access);)*
+            }
+
             #[inline(always)]
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
@@ -2493,10 +2610,11 @@ impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs_macros::QueryData;
-
     use super::*;
+    use crate::change_detection::DetectChanges;
     use crate::system::{assert_is_system, Query};
+    use bevy_ecs::prelude::Schedule;
+    use bevy_ecs_macros::QueryData;
 
     #[derive(Component)]
     pub struct A;
@@ -2589,5 +2707,35 @@ mod tests {
         fn client_system(_: Query<Client<C>>) {}
 
         assert_is_system(client_system);
+    }
+
+    // Test that EntityRef::get_ref::<T>() returns a Ref<T> value with the correct
+    // ticks when the EntityRef was retrieved from a Query.
+    // See: https://github.com/bevyengine/bevy/issues/13735
+    #[test]
+    fn test_entity_ref_query_with_ticks() {
+        #[derive(Component)]
+        pub struct C;
+
+        fn system(query: Query<EntityRef>) {
+            for entity_ref in &query {
+                if let Some(c) = entity_ref.get_ref::<C>() {
+                    if !c.is_added() {
+                        panic!("Expected C to be added");
+                    }
+                }
+            }
+        }
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system);
+        world.spawn(C);
+
+        // reset the change ticks
+        world.clear_trackers();
+
+        // we want EntityRef to use the change ticks of the system
+        schedule.run(&mut world);
     }
 }

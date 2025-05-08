@@ -8,7 +8,7 @@ use crate::meshlet::{
 };
 use crate::*;
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{Asset, AssetEvents, AssetId, AssetServer, UntypedAssetId};
+use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId};
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
@@ -29,9 +29,9 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_platform_support::collections::hash_map::Entry;
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::hash::FixedHasher;
+use bevy_platform::collections::hash_map::Entry;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::camera::extract_cameras;
@@ -288,7 +288,7 @@ where
                 PostUpdate,
                 (
                     mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    check_entities_needing_specialization::<M>.after(AssetEvents),
+                    check_entities_needing_specialization::<M>.after(AssetEventSystems),
                 )
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
@@ -316,13 +316,10 @@ where
                 .add_systems(
                     ExtractSchedule,
                     (
-                        (
-                            extract_mesh_materials::<M>,
-                            early_sweep_material_instances::<M>,
-                        )
-                            .chain()
-                            .before(late_sweep_material_instances)
-                            .before(ExtractMeshesSet),
+                        extract_mesh_materials::<M>.in_set(MaterialExtractionSystems),
+                        early_sweep_material_instances::<M>
+                            .after(MaterialExtractionSystems)
+                            .before(late_sweep_material_instances),
                         extract_entities_needs_specialization::<M>.after(extract_cameras),
                     ),
                 )
@@ -330,13 +327,13 @@ where
                     Render,
                     (
                         specialize_material_meshes::<M>
-                            .in_set(RenderSet::PrepareMeshes)
+                            .in_set(RenderSystems::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>)
                             .after(prepare_assets::<RenderMesh>)
                             .after(collect_meshes_for_gpu_building)
                             .after(set_mesh_motion_vector_flags),
                         queue_material_meshes::<M>
-                            .in_set(RenderSet::QueueMeshes)
+                            .in_set(RenderSystems::QueueMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>),
                     ),
                 )
@@ -347,7 +344,7 @@ where
                         write_material_bind_group_buffers::<M>,
                     )
                         .chain()
-                        .in_set(RenderSet::PrepareBindGroups)
+                        .in_set(RenderSystems::PrepareBindGroups)
                         .after(prepare_assets::<PreparedMaterial<M>>),
                 );
 
@@ -359,14 +356,15 @@ where
                     .add_systems(
                         Render,
                         (
-                            check_views_lights_need_specialization.in_set(RenderSet::PrepareAssets),
+                            check_views_lights_need_specialization
+                                .in_set(RenderSystems::PrepareAssets),
                             // specialize_shadows::<M> also needs to run after prepare_assets::<PreparedMaterial<M>>,
                             // which is fine since ManageViews is after PrepareAssets
                             specialize_shadows::<M>
-                                .in_set(RenderSet::ManageViews)
+                                .in_set(RenderSystems::ManageViews)
                                 .after(prepare_lights),
                             queue_shadows::<M>
-                                .in_set(RenderSet::QueueMeshes)
+                                .in_set(RenderSystems::QueueMeshes)
                                 .after(prepare_assets::<PreparedMaterial<M>>),
                         ),
                     );
@@ -376,7 +374,7 @@ where
             render_app.add_systems(
                 Render,
                 queue_material_meshlet_meshes::<M>
-                    .in_set(RenderSet::QueueMeshes)
+                    .in_set(RenderSystems::QueueMeshes)
                     .run_if(resource_exists::<InstanceManager>),
             );
 
@@ -384,7 +382,7 @@ where
             render_app.add_systems(
                 Render,
                 prepare_material_meshlet_meshes_main_opaque_pass::<M>
-                    .in_set(RenderSet::QueueMeshes)
+                    .in_set(RenderSystems::QueueMeshes)
                     .after(prepare_assets::<PreparedMaterial<M>>)
                     .before(queue_material_meshlet_meshes::<M>)
                     .run_if(resource_exists::<InstanceManager>),
@@ -415,7 +413,8 @@ where
 ///
 /// See the comments in [`RenderMaterialInstances::mesh_material`] for more
 /// information.
-static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> = AssetId::<StandardMaterial>::invalid();
+pub(crate) static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> =
+    AssetId::<StandardMaterial>::invalid();
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
@@ -637,6 +636,14 @@ pub struct RenderMaterialInstance {
     last_change_tick: Tick,
 }
 
+/// A [`SystemSet`] that contains all `extract_mesh_materials` systems.
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct MaterialExtractionSystems;
+
+/// Deprecated alias for [`MaterialExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `MaterialExtractionSystems`.")]
+pub type ExtractMaterialsSet = MaterialExtractionSystems;
+
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
@@ -782,7 +789,7 @@ fn early_sweep_material_instances<M>(
 /// This runs after all invocations of [`early_sweep_material_instances`] and is
 /// responsible for bumping [`RenderMaterialInstances::current_change_tick`] in
 /// preparation for a new frame.
-fn late_sweep_material_instances(
+pub(crate) fn late_sweep_material_instances(
     mut material_instances: ResMut<RenderMaterialInstances>,
     mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
 ) {
@@ -820,11 +827,9 @@ pub fn extract_entities_needs_specialization<M>(
 ) where
     M: Material,
 {
-    for entity in entities_needing_specialization.iter() {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
-    }
-    // Clean up any despawned entities
+    // Clean up any despawned entities, we do this first in case the removed material was re-added
+    // the same frame, thus will appear both in the removed components list and have been added to
+    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
     for entity in removed_mesh_material_components.read() {
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
@@ -846,6 +851,11 @@ pub fn extract_entities_needs_specialization<M>(
                 cache.remove(&MainEntity::from(entity));
             }
         }
+    }
+
+    for entity in entities_needing_specialization.iter() {
+        // Update the entity's specialization tick with this run's tick
+        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
     }
 }
 
@@ -1011,6 +1021,10 @@ pub fn specialize_material_meshes<M: Material>(
             let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
                 continue;
             };
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -1022,10 +1036,6 @@ pub fn specialize_material_meshes<M: Material>(
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
-            else {
-                continue;
-            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };

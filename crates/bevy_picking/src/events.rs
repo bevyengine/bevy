@@ -23,7 +23,7 @@
 //!
 //! The order in which interaction events are received is extremely important, and you can read more
 //! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in
-//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickSet::Hover`](crate::PickSet::Hover). All pointer-event
+//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickingSystems::Hover`](crate::PickingSystems::Hover). All pointer-event
 //! observers resolve during the sync point between [`pointer_events`] and
 //! [`update_interactions`](crate::hover::update_interactions).
 //!
@@ -42,8 +42,8 @@ use core::{fmt::Debug, time::Duration};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::time::Instant;
+use bevy_platform::collections::HashMap;
+use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::NormalizedRenderTarget;
 use bevy_window::Window;

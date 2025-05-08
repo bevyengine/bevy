@@ -10,10 +10,10 @@
 //!
 //! To draw an entity, a corresponding [`PhaseItem`] has to be added to one or multiple of these
 //! render phases for each view that it is visible in.
-//! This must be done in the [`RenderSet::Queue`].
-//! After that the render phase sorts them in the [`RenderSet::PhaseSort`].
+//! This must be done in the [`RenderSystems::Queue`].
+//! After that the render phase sorts them in the [`RenderSystems::PhaseSort`].
 //! Finally the items are rendered using a single [`TrackedRenderPass`], during
-//! the [`RenderSet::Render`].
+//! the [`RenderSystems::Render`].
 //!
 //! Therefore each phase item is assigned a [`Draw`] function.
 //! These set up the state of the [`TrackedRenderPass`] (i.e. select the
@@ -32,7 +32,7 @@ use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::entity::EntityHash;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;
 pub use draw::*;
 pub use draw_state::*;
@@ -59,7 +59,7 @@ use crate::{
         GetFullBatchData,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_ecs::{
     prelude::*,
@@ -1134,7 +1134,7 @@ where
             .add_systems(
                 Render,
                 (
-                    batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
+                    batching::sort_binned_render_phase::<BPI>.in_set(RenderSystems::PhaseSort),
                     (
                         no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
                             .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
@@ -1145,15 +1145,15 @@ where
                                 >,
                             ),
                     )
-                        .in_set(RenderSet::PrepareResources),
-                    sweep_old_entities::<BPI>.in_set(RenderSet::QueueSweep),
+                        .in_set(RenderSystems::PrepareResources),
+                    sweep_old_entities::<BPI>.in_set(RenderSystems::QueueSweep),
                     gpu_preprocessing::collect_buffers_for_phase::<BPI, GFBD>
                         .run_if(
                             resource_exists::<
                                 BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
                             >,
                         )
-                        .in_set(RenderSet::PrepareResourcesCollectPhaseBuffers),
+                        .in_set(RenderSystems::PrepareResourcesCollectPhaseBuffers),
                 ),
             );
     }
@@ -1250,14 +1250,14 @@ where
                                 >,
                             ),
                     )
-                        .in_set(RenderSet::PrepareResources),
+                        .in_set(RenderSystems::PrepareResources),
                     gpu_preprocessing::collect_buffers_for_phase::<SPI, GFBD>
                         .run_if(
                             resource_exists::<
                                 BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
                             >,
                         )
-                        .in_set(RenderSet::PrepareResourcesCollectPhaseBuffers),
+                        .in_set(RenderSystems::PrepareResourcesCollectPhaseBuffers),
                 ),
             );
     }
@@ -1465,10 +1465,10 @@ where
 ///
 /// The data required for rendering an entity is extracted from the main world in the
 /// [`ExtractSchedule`](crate::ExtractSchedule).
-/// Then it has to be queued up for rendering during the [`RenderSet::Queue`],
+/// Then it has to be queued up for rendering during the [`RenderSystems::Queue`],
 /// by adding a corresponding phase item to a render phase.
 /// Afterwards it will be possibly sorted and rendered automatically in the
-/// [`RenderSet::PhaseSort`] and [`RenderSet::Render`], respectively.
+/// [`RenderSystems::PhaseSort`] and [`RenderSystems::Render`], respectively.
 ///
 /// `PhaseItem`s come in two flavors: [`BinnedPhaseItem`]s and
 /// [`SortedPhaseItem`]s.

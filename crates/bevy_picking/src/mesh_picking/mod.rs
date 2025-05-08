@@ -19,7 +19,7 @@ pub mod ray_cast;
 use crate::{
     backend::{ray::RayMap, HitData, PointerHits},
     prelude::*,
-    PickSet,
+    PickingSystems,
 };
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -71,7 +71,7 @@ impl Plugin for MeshPickingPlugin {
         app.init_resource::<MeshPickingSettings>()
             .register_type::<MeshPickingSettings>()
             .register_type::<SimplifiedMesh>()
-            .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend));
+            .add_systems(PreUpdate, update_hits.in_set(PickingSystems::Backend));
     }
 }
 

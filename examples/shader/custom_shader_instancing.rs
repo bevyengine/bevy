@@ -31,7 +31,7 @@ use bevy::{
         renderer::RenderDevice,
         sync_world::MainEntity,
         view::{ExtractedView, NoFrustumCulling, NoIndirectDrawing},
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderSystems,
     },
 };
 use bytemuck::{Pod, Zeroable};
@@ -104,8 +104,8 @@ impl Plugin for CustomMaterialPlugin {
             .add_systems(
                 Render,
                 (
-                    queue_custom.in_set(RenderSet::QueueMeshes),
-                    prepare_instance_buffers.in_set(RenderSet::PrepareResources),
+                    queue_custom.in_set(RenderSystems::QueueMeshes),
+                    prepare_instance_buffers.in_set(RenderSystems::PrepareResources),
                 ),
             );
     }

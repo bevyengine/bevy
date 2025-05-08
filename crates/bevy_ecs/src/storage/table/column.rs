@@ -717,6 +717,13 @@ impl Column {
         })
     }
 
+    /// Returns the drop function for elements of the column,
+    /// or `None` if they don't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.data.get_drop()
+    }
+
     /// Get change tick of this [`Column`]. Should be used for immutable components only.
     #[inline]
     pub fn get_change_tick(&self) -> Tick {

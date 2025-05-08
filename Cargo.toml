@@ -138,6 +138,7 @@ default = [
   "bevy_gizmos",
   "bevy_gltf",
   "bevy_input_focus",
+  "bevy_log",
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
@@ -159,7 +160,6 @@ default = [
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
-  "tracing",
   "vorbis",
   "webgl2",
   "x11",
@@ -285,6 +285,9 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
+# Enable integration with `tracing` and `log`
+bevy_log = ["bevy_internal/bevy_log"]
+
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
@@ -311,10 +314,7 @@ trace_tracy_memory = [
 ]
 
 # Tracing support
-tracing = ["bevy_internal/tracing", "dep:tracing"]
-
-# Enables traces within Bevy using tracing
-trace = ["bevy_internal/trace", "tracing"]
+trace = ["bevy_internal/trace", "dep:tracing"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
@@ -1592,7 +1592,7 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
-required-features = []
+required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"
@@ -2302,6 +2302,17 @@ doc-scrape-examples = true
 [package.metadata.example.system_piping]
 name = "System Piping"
 description = "Pipe the output of one system into a second, allowing you to handle any errors gracefully"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "state_scoped"
+path = "examples/ecs/state_scoped.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.state_scoped]
+name = "State Scoped"
+description = "Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states."
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -3345,6 +3356,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_background_colors"
+path = "examples/ui/text_background_colors.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_background_colors]
+name = "Text Background Colors"
+description = "Demonstrates text background colors"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
 doc-scrape-examples = true
@@ -3496,6 +3518,17 @@ doc-scrape-examples = true
 [package.metadata.example.viewport_debug]
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "viewport_node"
+path = "examples/ui/viewport_node.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.viewport_node]
+name = "Viewport Node"
+description = "Demonstrates how to create a viewport node with picking support"
 category = "UI (User Interface)"
 wasm = true
 

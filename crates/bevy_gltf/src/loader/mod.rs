@@ -1,9 +1,11 @@
 mod extensions;
 mod gltf_ext;
 
+use alloc::sync::Arc;
 use std::{
     io::Error,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -35,7 +37,7 @@ use bevy_pbr::UvChannel;
 use bevy_pbr::{
     DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, MAX_JOINTS,
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     mesh::Mesh3d,
@@ -146,6 +148,8 @@ pub struct GltfLoader {
     /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    /// Arc to default [`ImageSamplerDescriptor`].
+    pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -181,6 +185,12 @@ pub struct GltfLoaderSettings {
     pub load_lights: bool,
     /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
+    /// Overrides the default sampler. Data from sampler node is added on top of that.
+    ///
+    /// If None, uses global default which is stored in `DefaultGltfImageSampler` resource.
+    pub default_sampler: Option<ImageSamplerDescriptor>,
+    /// If true, the loader will ignore sampler data from gltf and use the default sampler.
+    pub override_sampler: bool,
 }
 
 impl Default for GltfLoaderSettings {
@@ -191,6 +201,8 @@ impl Default for GltfLoaderSettings {
             load_cameras: true,
             load_lights: true,
             include_source: false,
+            default_sampler: None,
+            override_sampler: false,
         }
     }
 }
@@ -506,6 +518,10 @@ async fn load_gltf<'a, 'b, 'c>(
         (animations, named_animations, animation_roots)
     };
 
+    let default_sampler = match settings.default_sampler.as_ref() {
+        Some(sampler) => sampler,
+        None => &loader.default_sampler.lock().unwrap().clone(),
+    };
     // We collect handles to ensure loaded images from paths are not unloaded before they are used elsewhere
     // in the loader. This prevents "reloads", but it also prevents dropping the is_srgb context on reload.
     //
@@ -522,7 +538,8 @@ async fn load_gltf<'a, 'b, 'c>(
                 &linear_textures,
                 parent_path,
                 loader.supported_compressed_formats,
-                settings.load_materials,
+                default_sampler,
+                settings,
             )
             .await?;
             image.process_loaded_texture(load_context, &mut _texture_handles);
@@ -542,7 +559,8 @@ async fn load_gltf<'a, 'b, 'c>(
                             linear_textures,
                             parent_path,
                             loader.supported_compressed_formats,
-                            settings.load_materials,
+                            default_sampler,
+                            settings,
                         )
                         .await
                     });
@@ -958,10 +976,15 @@ async fn load_image<'a, 'b>(
     linear_textures: &HashSet<usize>,
     parent_path: &'b Path,
     supported_compressed_formats: CompressedImageFormats,
-    render_asset_usages: RenderAssetUsages,
+    default_sampler: &ImageSamplerDescriptor,
+    settings: &GltfLoaderSettings,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
-    let sampler_descriptor = texture_sampler(&gltf_texture);
+    let sampler_descriptor = if settings.override_sampler {
+        default_sampler.clone()
+    } else {
+        texture_sampler(&gltf_texture, default_sampler)
+    };
 
     match gltf_texture.source().source() {
         Source::View { view, mime_type } => {
@@ -974,7 +997,7 @@ async fn load_image<'a, 'b>(
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
-                render_asset_usages,
+                settings.load_materials,
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -996,7 +1019,7 @@ async fn load_image<'a, 'b>(
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
-                        render_asset_usages,
+                        settings.load_materials,
                     )?,
                     label: GltfAssetLabel::Texture(gltf_texture.index()),
                 })

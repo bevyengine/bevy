@@ -18,7 +18,7 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut},
 };
 use bevy_math::{vec4, FloatOrd, Vec4};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{prelude::default, Parallel};
@@ -32,7 +32,7 @@ use crate::{
     primitives::Aabb,
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
 /// We need at least 4 storage buffer bindings available to enable the
@@ -72,7 +72,7 @@ impl Plugin for VisibilityRangePlugin {
             .add_systems(ExtractSchedule, extract_visibility_ranges)
             .add_systems(
                 Render,
-                write_render_visibility_ranges.in_set(RenderSet::PrepareResourcesFlush),
+                write_render_visibility_ranges.in_set(RenderSystems::PrepareResourcesFlush),
             );
     }
 }

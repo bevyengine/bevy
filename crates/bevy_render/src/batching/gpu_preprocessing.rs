@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_encase_derive::ShaderType;
 use bevy_math::UVec4;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use bytemuck::{Pod, Zeroable};
 use encase::{internal::WriteInto, ShaderSize};
@@ -36,7 +36,7 @@ use crate::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    Render, RenderApp, RenderDebugFlags, RenderSet,
+    Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 
 use super::{BatchMeta, GetBatchData, GetFullBatchData};
@@ -60,11 +60,11 @@ impl Plugin for BatchingPlugin {
             ))
             .add_systems(
                 Render,
-                write_indirect_parameters_buffers.in_set(RenderSet::PrepareResourcesFlush),
+                write_indirect_parameters_buffers.in_set(RenderSystems::PrepareResourcesFlush),
             )
             .add_systems(
                 Render,
-                clear_indirect_parameters_buffers.in_set(RenderSet::ManageViews),
+                clear_indirect_parameters_buffers.in_set(RenderSystems::ManageViews),
             );
     }
 

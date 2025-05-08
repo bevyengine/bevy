@@ -1,6 +1,6 @@
 use core::fmt::{Debug, Formatter};
 
-use bevy_platform_support::collections::HashTable;
+use bevy_platform::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
@@ -80,12 +80,6 @@ pub trait Map: PartialReflect {
     ///
     /// After calling this function, `self` will be empty.
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>;
-
-    /// Clones the map, producing a [`DynamicMap`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_map` instead")]
-    fn clone_dynamic(&self) -> DynamicMap {
-        self.to_dynamic_map()
-    }
 
     /// Creates a new [`DynamicMap`] from this map.
     fn to_dynamic_map(&self) -> DynamicMap {

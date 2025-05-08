@@ -6,7 +6,7 @@ use alloc::{
     borrow::{Cow, ToOwned},
     string::String,
 };
-use bevy_platform_support::hash::FixedHasher;
+use bevy_platform::hash::FixedHasher;
 use core::{
     hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
@@ -276,7 +276,7 @@ mod tests {
         let d1 = query.get(&world, e1).unwrap();
         let d2 = query.get(&world, e2).unwrap();
         // NameOrEntity Display for entities without a Name should be {index}v{generation}
-        assert_eq!(d1.to_string(), "0v1");
+        assert_eq!(d1.to_string(), "0v0");
         // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
     }
