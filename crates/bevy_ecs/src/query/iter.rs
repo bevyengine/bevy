@@ -221,7 +221,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: Caller assures `row` in range of the current archetype.
             let entity = unsafe { entities.get_unchecked(row as usize) };
             // SAFETY: This is from an exclusive range, so it can't be max.
-            let row = unsafe { TableRow::from_u32(NonMaxU32::new_unchecked(row)) };
+            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
 
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
@@ -352,7 +352,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: Caller assures `row` in range of the current archetype.
             let entity = unsafe { *entities.get_unchecked(row as usize) };
             // SAFETY: This is from an exclusive range, so it can't be max.
-            let row = unsafe { TableRow::from_u32(NonMaxU32::new_unchecked(row)) };
+            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
 
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
@@ -2404,7 +2404,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         &mut self.fetch,
                         *entity,
                         // SAFETY: This is from an exclusive range, so it can't be max.
-                        TableRow::from_u32(NonMaxU32::new_unchecked(index)),
+                        TableRow::new(NonMaxU32::new_unchecked(index)),
                     ))
                 }
             } else {
@@ -2483,7 +2483,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let entity =
                     unsafe { self.table_entities.get_unchecked(self.current_row as usize) };
                 // SAFETY: The row is less than the u32 len, so it must not be max.
-                let row = unsafe { TableRow::from_u32(NonMaxU32::new_unchecked(self.current_row)) };
+                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.current_row)) };
                 if !F::filter_fetch(&mut self.filter, *entity, row) {
                     self.current_row += 1;
                     continue;

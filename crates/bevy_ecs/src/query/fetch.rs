@@ -1505,7 +1505,7 @@ unsafe impl<T: Component> QueryData for &T {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: Caller ensures `table_row` is in range.
-                let item = unsafe { table.get(table_row.as_usize()) };
+                let item = unsafe { table.get(table_row.index()) };
                 item.deref()
             },
             |sparse_set| {
@@ -1683,13 +1683,13 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.as_usize()) };
+                let component = unsafe { table_components.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.as_usize()) };
+                let added = unsafe { added_ticks.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
+                let changed = unsafe { changed_ticks.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
+                let caller = callers.map(|callers| unsafe { callers.get(table_row.index()) });
 
                 Ref {
                     value: component.deref(),
@@ -1882,13 +1882,13 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.as_usize()) };
+                let component = unsafe { table_components.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.as_usize()) };
+                let added = unsafe { added_ticks.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
+                let changed = unsafe { changed_ticks.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
+                let caller = callers.map(|callers| unsafe { callers.get(table_row.index()) });
 
                 Mut {
                     value: component.deref_mut(),

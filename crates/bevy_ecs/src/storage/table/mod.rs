@@ -109,20 +109,20 @@ impl TableRow {
 
     /// Creates a [`TableRow`].
     #[inline]
-    pub const fn from_u32(index: NonMaxU32) -> Self {
+    pub const fn new(index: NonMaxU32) -> Self {
         Self(index)
     }
 
     /// Gets the index of the row as a [`usize`].
     #[inline]
-    pub const fn as_usize(self) -> usize {
+    pub const fn index(self) -> usize {
         // usize is at least u32 in Bevy
         self.0.get() as usize
     }
 
     /// Gets the index of the row as a [`usize`].
     #[inline]
-    pub const fn as_u32(self) -> u32 {
+    pub const fn index_u32(self) -> u32 {
         self.0.get()
     }
 }
@@ -216,9 +216,9 @@ impl Table {
     /// # Safety
     /// `row` must be in-bounds (`row.as_usize()` < `self.len()`)
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
-        debug_assert!(row.as_u32() < self.entity_count());
+        debug_assert!(row.index_u32() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
-        if row.as_u32() != last_element_index {
+        if row.index_u32() != last_element_index {
             // Instead of checking this condition on every `swap_remove` call, we
             // check it here and use `swap_remove_nonoverlapping`.
             for col in self.columns.values_mut() {
@@ -241,13 +241,13 @@ impl Table {
                 col.drop_last_component(last_element_index as usize);
             }
         }
-        let is_last = row.as_u32() == last_element_index;
-        self.entities.swap_remove(row.as_usize());
+        let is_last = row.index_u32() == last_element_index;
+        self.entities.swap_remove(row.index());
         if is_last {
             None
         } else {
             // SAFETY: This was sawp removed and was not last, so it must be in bounds.
-            unsafe { Some(*self.entities.get_unchecked(row.as_usize())) }
+            unsafe { Some(*self.entities.get_unchecked(row.index())) }
         }
     }
 
@@ -264,10 +264,10 @@ impl Table {
         row: TableRow,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row.as_u32() < self.entity_count());
+        debug_assert!(row.index_u32() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
-        let is_last = row.as_u32() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let is_last = row.index_u32() == last_element_index;
+        let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(
@@ -287,7 +287,7 @@ impl Table {
                 None
             } else {
                 // SAFETY: This was sawp removed and was not last, so it must be in bounds.
-                unsafe { Some(*self.entities.get_unchecked(row.as_usize())) }
+                unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
     }
@@ -303,10 +303,10 @@ impl Table {
         row: TableRow,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row.as_u32() < self.entity_count());
+        debug_assert!(row.index_u32() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
-        let is_last = row.as_u32() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let is_last = row.index_u32() == last_element_index;
+        let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(
@@ -325,7 +325,7 @@ impl Table {
                 None
             } else {
                 // SAFETY: This was sawp removed and was not last, so it must be in bounds.
-                unsafe { Some(*self.entities.get_unchecked(row.as_usize())) }
+                unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
     }
@@ -342,10 +342,10 @@ impl Table {
         row: TableRow,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row.as_u32() < self.entity_count());
+        debug_assert!(row.index_u32() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
-        let is_last = row.as_u32() == last_element_index;
-        let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        let is_last = row.index_u32() == last_element_index;
+        let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
         for (component_id, column) in self.columns.iter_mut() {
             new_table
                 .get_column_mut(*component_id)
@@ -358,7 +358,7 @@ impl Table {
                 None
             } else {
                 // SAFETY: This was sawp removed and was not last, so it must be in bounds.
-                unsafe { Some(*self.entities.get_unchecked(row.as_usize())) }
+                unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
     }
@@ -414,12 +414,12 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.as_u32() < self.entity_count()).then_some(
+        (row.index_u32() < self.entity_count()).then_some(
             // SAFETY: `row.as_usize()` < `len`
             unsafe {
                 self.get_column(component_id)?
                     .changed_ticks
-                    .get_unchecked(row.as_usize())
+                    .get_unchecked(row.index())
             },
         )
     }
@@ -430,12 +430,12 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.as_u32() < self.entity_count()).then_some(
+        (row.index_u32() < self.entity_count()).then_some(
             // SAFETY: `row.as_usize()` < `len`
             unsafe {
                 self.get_column(component_id)?
                     .added_ticks
-                    .get_unchecked(row.as_usize())
+                    .get_unchecked(row.index())
             },
         )
     }
@@ -447,13 +447,13 @@ impl Table {
         row: TableRow,
     ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
         MaybeLocation::new_with_flattened(|| {
-            (row.as_u32() < self.entity_count()).then_some(
+            (row.index_u32() < self.entity_count()).then_some(
                 // SAFETY: `row.as_usize()` < `len`
                 unsafe {
                     self.get_column(component_id)?
                         .changed_by
                         .as_ref()
-                        .map(|changed_by| changed_by.get_unchecked(row.as_usize()))
+                        .map(|changed_by| changed_by.get_unchecked(row.index()))
                 },
             )
         })
@@ -469,8 +469,8 @@ impl Table {
         row: TableRow,
     ) -> Option<ComponentTicks> {
         self.get_column(component_id).map(|col| ComponentTicks {
-            added: col.added_ticks.get_unchecked(row.as_usize()).read(),
-            changed: col.changed_ticks.get_unchecked(row.as_usize()).read(),
+            added: col.added_ticks.get_unchecked(row.index()).read(),
+            changed: col.changed_ticks.get_unchecked(row.index()).read(),
         })
     }
 
@@ -578,7 +578,7 @@ impl Table {
         let len = self.entity_count();
         // SAFETY: No entity row may be in more than one table row at once, so there are no duplicates,
         // and there can not be an entity row of u32::MAX. Therefore, this can not be max either.
-        let row = unsafe { TableRow::from_u32(NonMaxU32::new_unchecked(len)) };
+        let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(len)) };
         let len = len as usize;
         self.entities.push(entity);
         for col in self.columns.values_mut() {
@@ -676,7 +676,7 @@ impl Table {
         self.get_column_mut(component_id)
             .debug_checked_unwrap()
             .data
-            .get_unchecked_mut(row.as_usize())
+            .get_unchecked_mut(row.index())
             .promote()
     }
 
@@ -690,7 +690,7 @@ impl Table {
         row: TableRow,
     ) -> Option<Ptr<'_>> {
         self.get_column(component_id)
-            .map(|col| col.data.get_unchecked(row.as_usize()))
+            .map(|col| col.data.get_unchecked(row.index()))
     }
 }
 
