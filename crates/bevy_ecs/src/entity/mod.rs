@@ -622,7 +622,9 @@ impl RemotePending {
 }
 
 struct Pending {
+    /// This is always available, but is slower.
     remote: RemotePending,
+    /// This is not always available (on no std or when remotely reserving), but is faster.
     #[cfg(feature = "std")]
     local: bevy_utils::Parallel<Vec<Entity>>,
 }
@@ -645,6 +647,8 @@ impl Pending {
         }
     }
 
+    /// Queues this entity to be flushed.
+    /// This uses the most efficient queue available.
     fn queue_flush(&self, entity: Entity) {
         #[cfg(feature = "std")]
         self.local.scope(|pending| pending.push(entity));
@@ -653,6 +657,7 @@ impl Pending {
         self.remote.queue_flush(entity);
     }
 
+    /// Flushes the entities in the most efficient queue available.
     fn flush_local(&mut self, mut flusher: impl FnMut(Entity)) {
         #[cfg(feature = "std")]
         let pending = self.local.iter_mut().flat_map(|pending| pending.drain(..));
@@ -662,6 +667,17 @@ impl Pending {
 
         for pending in pending {
             flusher(pending);
+        }
+    }
+
+    /// Moves the pending entities in the less efficient queue into the more efficient one,
+    /// so they are included int [`flush_local`](Self::flush_local).
+    fn queue_remote_pending_to_be_flushed(&self) {
+        // Note that without std, all pending entities are already in remote.
+        #[cfg(feature = "std")]
+        {
+            let remote = self.remote.pending.try_iter();
+            self.local.scope(|pending| pending.extend(remote));
         }
     }
 }
@@ -935,11 +951,7 @@ impl Entities {
     /// Before using an entity reserved remotely, either set its location manually (usually though [`flush_entity`](crate::world::World::flush_entity)),
     /// or call this method to queue remotely reserved entities to be flushed with the rest.
     pub fn queue_remote_pending_to_be_flushed(&self) {
-        #[cfg(feature = "std")]
-        {
-            let remote = self.pending.remote.pending.try_iter();
-            self.pending.local.scope(|pending| pending.extend(remote));
-        }
+        self.pending.queue_remote_pending_to_be_flushed();
     }
 
     /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
