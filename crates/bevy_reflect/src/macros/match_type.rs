@@ -2,177 +2,156 @@
 ///
 /// # Syntax
 ///
-/// The first argument to the macro is the identifier of the variable holding the reflected value.
-/// This is also the default binding for all downcasted values.
-///
-/// All other arguments to the macro are match-like cases statements that follow the following pattern:
+/// The syntax of the macro closely resembles a standard `match`, but with some subtle differences.
 ///
 /// ```text
-/// <BINDING?> <REF?> <TYPE> => <EXPR>,
+/// match_type! { <input>, <arms> }
+///
+/// <input> := IDENT                          // the variable you’re matching
+///
+/// <arms> :=
+///     <arm> ( , <arm> )* [ , ]              // zero or more arms with optional trailing comma
+///
+/// <arm> :=
+///     [ <binding> @ ] <pattern> [ where <cond> ] => <expr>
+///
+/// <binding> := IDENT | _                    // rename or ignore the downcast value
+///
+/// <pattern> :=                              // determines the downcast method
+///   | TYPE                                  // -> try_take::<TYPE>()
+///   | & TYPE                                // -> try_downcast_ref::<TYPE>()
+///   | &mut TYPE                             // -> try_downcast_mut::<TYPE>()
+///   | _                                     // -> catch‑all (no downcast)
+///
+/// <cond> := a boolean expression that acts as a guard for the arm
+/// <expr> := expression or block that runs if the downcast succeeds for the given type
 /// ```
 ///
-/// Where `<REF?>` denotes what kind of downcasting to perform:
-/// - `&` - Downcasts with `try_downcast_ref`
-/// - `&mut` - Downcasts with `try_downcast_mut`
-/// - None - Downcasts with `try_take`
+/// The `<input>` must be a type that implements [`PartialReflect`].
+/// Owned values should be passed as a `Box<dyn PartialReflect>`.
 ///
-/// And `<BINDING?>` is an optional binding (i.e. `<IDENT> @`) for the downcasted value.
-/// It can also be used to bind the value to `_` to ignore the value if not needed.
+/// Types are matched in the order they are defined.
+/// Any `_` cases must be the last case in the list.
 ///
-/// If the `<EXPR>` doesn't evaluate to `()`, an `else` case is required:
+/// If a custom binding is not provided,
+/// the downcasted value will be bound to the same identifier as the input, thus shadowing it.
+/// You can use `_` to ignore the downcasted value if you don’t need it,
+/// which may be helpful to silence any "unused variable" lints.
 ///
-/// ```text
-/// <BINDING?> else <[ <TYPES_IDENT> ]?> => <EXPR>,
-/// ```
-///
-/// The `<TYPES_IDENT?>` on an `else` case can optionally be used to access a slice that contains the
-/// [`Type`] of each `<TYPE>` in the macro.
-/// This can be used as a convenience for debug messages or logging.
+/// The `where` clause is optional and can be used to add an extra boolean guard.
+/// If the guard evaluates to `true`, the expression will be executed if the type matches.
+/// Otherwise, matching will continue to the next arm even if the type matches.
 ///
 /// # Examples
 ///
-/// Basic usage:
 ///
 /// ```
 /// # use bevy_reflect::macros::match_type;
 /// # use bevy_reflect::PartialReflect;
 /// #
-/// fn try_to_f32(value: &dyn PartialReflect) -> Option<f32> {
-///   match_type! {value,
-///     &f32 => Some(*value),
-///     &i32 => Some(*value as f32),
-///     else => None
-///   }
+/// fn stringify(mut value: Box<dyn PartialReflect>) -> String {
+///     match_type! { value,
+///         // Downcast to an owned type
+///         f32 => format!("{:.1}", value),
+///         // Downcast to a mutable reference
+///         &mut i32 => {
+///             *value *= 2;
+///             value.to_string()
+///         },
+///         // Define custom bindings
+///         chars @ &Vec<char> => chars.iter().collect(),
+///         // Define conditional guards
+///         &String where value == "ping" => "pong".to_owned(),
+///         &String => value.clone(),
+///         // Fallback case
+///         _ => "<unknown>".to_string(),
+///     }
 /// }
-/// #
-/// # assert_eq!(try_to_f32(&123_i32), Some(123_f32));
-/// # assert_eq!(try_to_f32(&123.0_f32), Some(123.0_f32));
-/// # assert_eq!(try_to_f32(&123_u32), None);
-/// ```
 ///
-/// With bindings:
-///
-/// ```
-/// # use bevy_reflect::macros::match_type;
-/// # use bevy_reflect::PartialReflect;
-/// #
-/// fn try_push_value(container: &mut dyn PartialReflect, value: i32) {
-///   match_type! {container,
-///     // By default, cases use the given identifier as the binding identifier
-///     &mut Vec<i32> => {
-///       container.push(value);
-///     },
-///     // But you can also provide your own binding identifier
-///     list @ &mut Vec<u32> => {
-///       list.push(value as u32);
-///     },
-///     // The `else` case also supports bindings as well as a special syntax
-///     // for getting a slice over all the types in the macro
-///     other @ else [types] => panic!("expected types: {:?} but received {:?}", types, other.reflect_type_path())
-///   }
-/// }
-/// #
-/// # let mut list: Vec<i32> = vec![1, 2];
-/// # try_push_value(&mut list, 3);
-/// # assert_eq!(list, vec![1, 2, 3]);
-/// #
-/// # let mut list: Vec<u32> = vec![1, 2];
-/// # try_push_value(&mut list, 3);
-/// # assert_eq!(list, vec![1, 2, 3]);
+/// assert_eq!(stringify(Box::new(123.0_f32)), "123.0");
+/// assert_eq!(stringify(Box::new(123_i32)), "246");
+/// assert_eq!(stringify(Box::new(vec!['h', 'e', 'l', 'l', 'o'])), "hello");
+/// assert_eq!(stringify(Box::new("ping".to_string())), "pong");
+/// assert_eq!(stringify(Box::new("hello".to_string())), "hello");
+/// assert_eq!(stringify(Box::new(true)), "<unknown>");
 /// ```
 ///
 /// [`PartialReflect`]: crate::PartialReflect
-/// [`Type`]: crate::Type
 #[macro_export]
 macro_rules! match_type {
 
-    {$value:ident} => {};
+    // === Entry Point === //
 
-    {$value:ident, $($tt:tt)*} => {{
+    {$input:ident} => {{}};
+    {$input:ident, $($tt:tt)*} => {{
         // We use an import over fully-qualified syntax so users don't have to
         // cast to `dyn PartialReflect` or dereference manually
         use $crate::PartialReflect;
 
-        match_type!(@selector[] $value, $value, $($tt)*)
+        match_type!(@arm[$input] $($tt)*)
     }};
 
-    // === Internal === //
-    // Each internal selector contains:
-    // 1. The collection of case types encountered (used to build the type slice)
-    // 2. The identifier of the user-given value being processed
-    // 3. The detected binding (or the same identifier as the value if none)
-    // 4. The pattern to match
+    // === Arm Parsing === //
+    // These rules take the following input (in `[]`):
+    // 1. The input identifier
+    // 2. An optional binding identifier (or `_`)
+    //
+    // Additionally, most cases are comprised of both a terminal and non-terminal rule.
 
     // --- Empty Case --- //
-    // This allows usages to contain no cases (e.g., all commented out or macro-generated)
-    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, } => {{}};
+    {@arm [$input:ident $(as $binding:tt)?]} => {{}};
 
-    // --- Else Case --- //
-    {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, else => $action:expr $(,)? } => {{
-        $action
-    }};
-    {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, $($binding:tt @)? else => $action:expr $(,)? } => {{
-        $(let match_type!(@bind_mut $binding) = $value;)?
-        $action
-    }};
-    {@selector[$($tys:ty,)*] $value:ident, $_binding:tt, $($binding:tt @)? else [$types:ident] => $action:expr $(,)? } => {{
-        $(let match_type!(@bind_mut $binding) = $value;)?
-        let $types: &[$crate::Type] = &[$($crate::Type::of::<$tys>(),)*];
-        $action
-    }};
-
-    // --- Binding Matcher --- //
-    // This rule is used to detect an optional binding (i.e. `<IDENT> @`) for each case.
-    // Note that its placement is _below_ the `else` rules.
-    // This is to prevent this binding rule from superseding the custom one for the `else` case.
-    {@selector[$($tys:ty,)*] $value:ident, $_old_binding:tt, $binding:tt @ $($tt:tt)+} => {
-        match_type!(@selector[$($tys,)*] $value, $binding, $($tt)+)
+    // --- Custom Bindings --- //
+    {@arm [$input:ident $(as $binding:tt)?] $new_binding:tt @ $($tt:tt)+} => {
+        match_type!(@arm [$input as $new_binding] $($tt)+)
     };
 
-    // --- Binding Helpers --- //
-    {@bind_mut _} => {
-        _
+    // --- Fallback Case --- //
+    {@arm [$input:ident $(as $binding:tt)?] _ $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
+        match_type!(@else [$input $(as $binding)?, [$($condition)?], $action] $($tt)+)
     };
-    {@bind_mut $binding:ident} => {
-        mut $binding
-    };
-
-    // --- Main Cases --- //
-    // Note that each main case comes with two rules: a non-terminal and a terminal rule.
-    // The non-terminal rule is the one that can be used as an expression since it should be exhaustive.
-    // The terminal rule is the one that can be used for non-exhaustive statements.
-
-    // ~~~ Mutable Borrow ~~~ //
-    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &mut $ty:ty => $action:expr , $($tt:tt)+} => {
-        match $value.as_partial_reflect_mut().try_downcast_mut::<$ty>() {
-            Some($binding) => $action,
-            None => match_type!(@selector[$($tys,)* &mut $ty,] $value, $value, $($tt)+)
-        }
-    };
-    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &mut $ty:ty => $action:expr $(,)?} => {
-        if let Some($binding) = $value.as_partial_reflect_mut().try_downcast_mut::<$ty>() {
-            $action
-        }
+    {@arm [$input:ident $(as $binding:tt)?] _ $(where $condition:expr)? => $action:expr $(,)?} => {
+        match_type!(@else [$input $(as $binding)?, [$($condition)?], $action])
     };
 
-    // ~~~ Immutable Borrow ~~~ //
-    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &$ty:ty => $action:expr , $($tt:tt)+} => {
-        match $value.as_partial_reflect().try_downcast_ref::<$ty>() {
-            Some($binding) => $action,
-            None => match_type!(@selector[$($tys,)* &mut $ty,] $value, $value, $($tt)+)
-        }
+    // --- Mutable Downcast Case --- //
+    {@arm [$input:ident $(as $binding:tt)?] &mut $ty:ty $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
+        match_type!(@if [$input $(as $binding)?, mut, $ty, [$($condition)?], $action] $($tt)+)
     };
-    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, &$ty:ty => $action:expr $(,)?} => {
-        if let Some($binding) = $value.as_partial_reflect().try_downcast_ref::<$ty>() {
-            $action
-        }
+    {@arm [$input:ident $(as $binding:tt)?] &mut $ty:ty $(where $condition:expr)? => $action:expr $(,)?} => {
+        match_type!(@if [$input $(as $binding)?, mut, $ty, [$($condition)?], $action])
     };
 
-    // ~~~ Owned ~~~ //
-    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, $ty:ty => $action:expr , $($tt:tt)+} => {
-        match $value.into_partial_reflect().try_take::<$ty>() {
-            Ok(match_type!(@bind_mut $binding)) => $action,
-            Err($value) => {
+    // --- Immutable Downcast Case --- //
+    {@arm [$input:ident $(as $binding:tt)?] & $ty:ty $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
+        match_type!(@if [$input $(as $binding)?, ref, $ty, [$($condition)?], $action] $($tt)+)
+    };
+    {@arm [$input:ident $(as $binding:tt)?] & $ty:ty $(where $condition:expr)? => $action:expr $(,)?} => {
+        match_type!(@if [$input $(as $binding)?, ref, $ty, [$($condition)?], $action])
+    };
+
+    // --- Owned Downcast Case --- //
+    {@arm [$input:ident $(as $binding:tt)?] $ty:ty $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
+        match_type!(@if [$input $(as $binding)?, box, $ty, [$($condition)?], $action] $($tt)+)
+    };
+    {@arm [$input:ident $(as $binding:tt)?] $ty:ty $(where $condition:expr)? => $action:expr $(,)?} => {
+        match_type!(@if [$input $(as $binding)?, box, $ty, [$($condition)?], $action])
+    };
+
+    // === Type Matching === //
+    // These rules take the following input (in `[]`):
+    // 1. The input identifier
+    // 2. An optional binding identifier (or `_`)
+    // 3. The kind of downcast (e.g., `mut`, `ref`, or `box`)
+    // 4. The type to downcast to
+    // 5. An optional condition (wrapped in `[]` for disambiguation)
+    // 6. The action to take if the downcast succeeds
+
+    // This rule handles the owned downcast case
+    {@if [$input:ident $(as $binding:tt)?, box, $ty:ty, [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
+        match match_type!(@downcast box, $ty, $input) {
+            Ok(match_type!(@bind [mut] $input $(as $binding)?)) $(if $condition)? => $action,
+            $input => {
                 // We have to rebind `$value` here so that we can unconditionally ignore it
                 // due to the fact that `unused_variables` seems to be the only lint that
                 // is visible outside the macro when used within other crates.
@@ -180,16 +159,74 @@ macro_rules! match_type {
                     unused_variables,
                     reason = "unfortunately this variable cannot receive a custom binding to let it be ignored otherwise"
                 )]
-                let mut $value = $value;
+                let mut $input = match $input {
+                    Ok($input) => $crate::__macro_exports::alloc_utils::Box::new($input) as $crate::__macro_exports::alloc_utils::Box<dyn $crate::PartialReflect>,
+                    Err($input) => $input
+                };
 
-                match_type!(@selector[$($tys,)* $ty,] $value, $value, $($tt)+)
-            },
+                match_type!(@arm [$input] $($rest)*)
+            }
         }
     };
-    {@selector[$($tys:ty,)*] $value:ident, $binding:tt, $ty:ty => $action:expr $(,)?} => {
-        if let Ok($binding) = $value.into_partial_reflect().try_take::<$ty>() {
-            $action
+    // This rule handles the mutable and immutable downcast cases
+    {@if [$input:ident $(as $binding:tt)?, $kind:tt, $ty:ty, [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
+        match match_type!(@downcast $kind, $ty, $input) {
+            Some(match_type!(@bind [] $input $(as $binding)?)) $(if $condition)? => $action,
+            _ => {
+                match_type!(@arm [$input] $($rest)*)
+            }
         }
+    };
+
+    // This rule handles the fallback case where a condition has been provided
+    {@else [$input:ident $(as $binding:tt)?, [$condition:expr], $action:expr] $($rest:tt)*} => {{
+        let match_type!(@bind [mut] _ $(as $binding)?) = $input;
+
+        if $condition {
+            $action
+        } else {
+            match_type!(@arm [$input] $($rest)*)
+        }
+    }};
+    // This rule handles the fallback case where no condition has been provided
+    {@else [$input:ident $(as $binding:tt)?, [], $action:expr] $($rest:tt)*} => {{
+        let match_type!(@bind [mut] _ $(as $binding)?) = $input;
+
+        $action
+    }};
+
+    // === Helpers === //
+
+    // --- Downcasting --- //
+    // Helpers for downcasting `$input` to `$ty`
+    // based on the given keyword (`mut`, `ref`, or `box`).
+
+    {@downcast mut, $ty:ty, $input:ident} => {
+        $input.as_partial_reflect_mut().try_downcast_mut::<$ty>()
+    };
+    {@downcast ref, $ty:ty, $input:ident} => {
+        $input.as_partial_reflect().try_downcast_ref::<$ty>()
+    };
+    {@downcast box, $ty:ty, $input:ident} => {
+        $input.into_partial_reflect().try_take::<$ty>()
+    };
+
+    // --- Binding --- //
+    // Helpers for creating a binding for the downcasted value.
+    // This ensures that we only add `mut` when necessary,
+    // and that `_` is handled appropriately.
+
+    {@bind [$($mut:tt)?] _} => {
+        _
+    };
+    {@bind [$($mut:tt)?] $input:ident} => {
+        $($mut)? $input
+    };
+    {@bind [$($mut:tt)?] $input:tt as _} => {
+        _
+    };
+    {@bind [$($mut:tt)?] $input:tt as $binding:ident} => {
+        $($mut)? $binding
     };
 }
 
@@ -215,8 +252,8 @@ mod tests {
     #[test]
     fn should_allow_empty() {
         fn empty(_value: Box<dyn PartialReflect>) {
-            match_type! {_value}
-            match_type! {_value,}
+            let _: () = match_type! {_value};
+            let _: () = match_type! {_value,};
         }
 
         empty(Box::new(42));
@@ -229,7 +266,7 @@ mod tests {
                 &String => value.clone(),
                 &i32 => value.to_string(),
                 &f32 => format!("{:.2}", value),
-                else => "unknown".to_string()
+                _ => "unknown".to_string()
             }
         }
 
@@ -245,7 +282,7 @@ mod tests {
             match_type! {container,
                 &mut Vec<i32> => container.push(value),
                 &mut Vec<u32> => container.push(value as u32),
-                else => return false
+                _ => return false
             }
 
             true
@@ -269,7 +306,7 @@ mod tests {
             match_type! {value,
                 String => Some(value),
                 i32 => Some(value.to_string()),
-                else => None
+                _ => None
             }
         }
 
@@ -293,7 +330,7 @@ mod tests {
 
         let value = match_type! {cloned_value,
             _ @ Option<String> => panic!("unexpected type"),
-            else => cloned_value
+            _ => cloned_value
         };
 
         assert_eq!(value.try_take::<String>().unwrap(), *original_value);
@@ -357,37 +394,12 @@ mod tests {
     }
 
     #[test]
-    fn should_allow_else_with_binding() {
-        let value = Box::new(123);
-
-        match_type! {value,
-            f32 => {
-                assert_eq!(value, 123.0);
-            },
-            f64 => {
-                assert_eq!(value, 123.0);
-            },
-            _ @ else [types] => {
-                assert_eq!(types.len(), 2);
-                assert_eq!(types[0], Type::of::<f32>());
-                assert_eq!(types[1], Type::of::<f64>());
-            },
-        }
-    }
-
-    #[test]
     fn should_handle_slice_types() {
         let _value = Box::new("hello world");
 
         match_type! {_value,
             (&str) => {},
-            (&[i32]) => {
-                panic!("unexpected type");
-            },
-            (&mut [u32]) => {
-                panic!("unexpected type");
-            },
-            else => panic!("unexpected type"),
+            _ => panic!("unexpected type"),
         }
     }
 }
