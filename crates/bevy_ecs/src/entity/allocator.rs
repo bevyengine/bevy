@@ -860,6 +860,8 @@ mod tests {
             .map(FreeBuffer::capacity_of_chunk)
             .map(|x| x as u64)
             .sum();
+        // The last 2 won't be used, but that's ok.
+        // Keeping them powers of 2 makes things faster.
         let expected = u32::MAX as u64 + 1;
         assert_eq!(total, expected);
     }
@@ -900,5 +902,30 @@ mod tests {
         assert_eq!(len.pop_for_state(2, Ordering::Relaxed).length(), 3);
         assert_eq!(len.pop_for_state(2, Ordering::Relaxed).length(), 1);
         assert_eq!(len.pop_for_state(2, Ordering::Relaxed).length(), 0);
+    }
+
+    #[test]
+    fn uniqueness() {
+        let mut entities = Vec::with_capacity(2000);
+        let mut allocator = Allocator::new();
+        entities.extend(allocator.alloc_many(1000));
+
+        let pre_len = entities.len();
+        entities.dedup();
+        assert_eq!(pre_len, entities.len());
+
+        for e in entities.drain(..) {
+            allocator.free(e);
+        }
+
+        entities.extend(allocator.alloc_many(500));
+        for _ in 0..1000 {
+            entities.push(allocator.alloc());
+        }
+        entities.extend(allocator.alloc_many(500));
+
+        let pre_len = entities.len();
+        entities.dedup();
+        assert_eq!(pre_len, entities.len());
     }
 }

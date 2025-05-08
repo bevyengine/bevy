@@ -788,7 +788,8 @@ impl Entities {
         // SAFETY: We resolved its id to ensure it is valid.
         let meta = unsafe { self.force_get_meta_mut(entity.index() as usize) };
         let prev_generation = meta.generation;
-        let (new_generation, aliased) = prev_generation.after_versions_and_could_alias(generations);
+        let (new_generation, aliased) =
+            prev_generation.after_versions_and_could_alias(generations + 1);
 
         meta.generation = new_generation;
 
@@ -808,7 +809,7 @@ impl Entities {
 
     /// Destroy an entity, allowing it to be reused.
     pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.free_current_and_future_generations(entity, 1)
+        self.free_current_and_future_generations(entity, 0)
     }
 
     /// Prepares the for `additional` allocations/reservations.
