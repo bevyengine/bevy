@@ -23,6 +23,10 @@ struct GzAssetLoader;
 /// Possible errors that can be produced by [`GzAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "XXX TODO: Why did this start happening?"
+)]
 enum GzAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]

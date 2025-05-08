@@ -83,7 +83,10 @@ fn setup(
         // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the mesh in
         // RAM. For this example however, this would not work, as we need to inspect and modify the
         // mesh at runtime.
-        |settings: &mut GltfLoaderSettings| settings.load_meshes = RenderAssetUsages::all(),
+        GltfLoaderSettings {
+            load_meshes: RenderAssetUsages::all(),
+            ..Default::default()
+        },
     );
 
     // Here, we rely on the default loader settings to achieve a similar result to the above.

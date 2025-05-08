@@ -20,9 +20,10 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = asset_server.load_with_settings(
         "textures/fantasy_ui_borders/numbered_slices.png",
-        |settings: &mut ImageLoaderSettings| {
+        ImageLoaderSettings {
             // Need to use nearest filtering to avoid bleeding between the slices with tiling
-            settings.sampler = ImageSampler::nearest();
+            sampler: ImageSampler::nearest(),
+            ..Default::default()
         },
     );
 

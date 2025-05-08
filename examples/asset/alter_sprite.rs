@@ -66,7 +66,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
         // RAM. For this example however, this would not work, as we need to inspect and modify the
         // image at runtime.
-        |settings: &mut ImageLoaderSettings| settings.asset_usage = RenderAssetUsages::all(),
+        ImageLoaderSettings {
+            asset_usage: RenderAssetUsages::all(),
+            ..Default::default()
+        },
     );
 
     commands.spawn((

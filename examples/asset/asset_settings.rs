@@ -64,8 +64,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Sprite {
             image: asset_server.load_with_settings(
                 "bevy_pixel_dark_with_settings.png",
-                |settings: &mut ImageLoaderSettings| {
-                    settings.sampler = ImageSampler::nearest();
+                ImageLoaderSettings {
+                    sampler: ImageSampler::nearest(),
+                    ..Default::default()
                 },
             ),
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
