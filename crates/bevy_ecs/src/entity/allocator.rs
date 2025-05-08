@@ -7,6 +7,7 @@ use bevy_platform::{
 };
 use core::mem::ManuallyDrop;
 use log::warn;
+use nonmax::NonMaxU32;
 
 use super::{Entity, EntityRow, EntitySetIterator};
 
@@ -604,9 +605,6 @@ struct SharedAllocator {
     free: FreeList,
     /// The next value of [`Entity::index`] to give out if needed.
     next_entity_index: AtomicU32,
-    /// If true, the [`Self::next_entity_index`] has been incremented before,
-    /// so if it hits or passes zero again, an overflow has occored.
-    entity_index_given: AtomicBool,
     /// Tracks whether or not the primary [`Allocator`] has been closed or not.
     is_closed: AtomicBool,
 }
@@ -617,45 +615,33 @@ impl SharedAllocator {
         Self {
             free: FreeList::new(),
             next_entity_index: AtomicU32::new(0),
-            entity_index_given: AtomicBool::new(false),
             is_closed: AtomicBool::new(false),
         }
     }
 
     /// The total number of indices given out.
     #[inline]
-    fn total_entity_indices(&self) -> u64 {
-        let next = self.next_entity_index.load(Ordering::Relaxed);
-        if next == 0 {
-            if self.entity_index_given.load(Ordering::Relaxed) {
-                // every index has been given
-                u32::MAX as u64 + 1
-            } else {
-                // no index has been given
-                0
-            }
-        } else {
-            next as u64
-        }
+    fn total_entity_indices(&self) -> u32 {
+        self.next_entity_index.load(Ordering::Relaxed)
     }
 
-    /// Call this when the entity index is suspected to have overflown.
-    /// Panic if the overflow did happen.
+    /// This just panics.
+    /// It is included to help with branch prediction, and put the panic message in one spot.
     #[cold]
-    fn check_overflow(&self) {
-        if self.entity_index_given.swap(true, Ordering::AcqRel) {
-            panic!("too many entities")
-        }
+    #[inline]
+    fn on_overflow() -> ! {
+        panic!("too many entities")
     }
 
     /// Allocates an [`Entity`] with a brand new index.
     #[inline]
     fn alloc_new_index(&self) -> Entity {
         let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
-        if index == 0 {
-            self.check_overflow();
+        if index == u32::MAX {
+            Self::on_overflow();
         }
-        Entity::from_raw(index)
+        // SAFETY: We just checked that this was not max.
+        unsafe { Entity::from_raw(EntityRow::new(NonMaxU32::new_unchecked(index))) }
     }
 
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
@@ -680,12 +666,10 @@ impl SharedAllocator {
         let missing = count - reused.len() as u32;
         let start_new = self.next_entity_index.fetch_add(missing, Ordering::Relaxed);
 
-        let new_next_entity_index = start_new + missing;
-        if new_next_entity_index < missing || start_new == 0 {
-            self.check_overflow();
-        }
-
-        let new = start_new..=(start_new + missing - 1);
+        let new = match start_new.checked_add(missing) {
+            Some(new_next_entity_index) => start_new..new_next_entity_index,
+            None => Self::on_overflow(),
+        };
         AllocEntitiesIterator { new, reused }
     }
 
@@ -731,7 +715,7 @@ impl Allocator {
 
     /// The total number of indices given out.
     #[inline]
-    pub fn total_entity_indices(&self) -> u64 {
+    pub fn total_entity_indices(&self) -> u32 {
         self.shared.total_entity_indices()
     }
 
@@ -745,7 +729,7 @@ impl Allocator {
     /// Returns whether or not the index is valid in this allocator.
     #[inline]
     pub fn is_valid_row(&self, row: EntityRow) -> bool {
-        (index as u64) < self.total_entity_indices()
+        row.index() < self.total_entity_indices()
     }
 
     /// Frees the entity allowing it to be reused.
@@ -798,7 +782,7 @@ impl core::fmt::Debug for Allocator {
 ///
 /// **NOTE:** Dropping will leak the remaining entities!
 pub struct AllocEntitiesIterator<'a> {
-    new: core::ops::RangeInclusive<u32>,
+    new: core::ops::Range<u32>,
     reused: FreeBufferIterator<'a>,
 }
 
@@ -806,13 +790,17 @@ impl<'a> Iterator for AllocEntitiesIterator<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.reused
-            .next()
-            .or_else(|| self.new.next().map(Entity::from_raw))
+        self.reused.next().or_else(|| {
+            self.new.next().map(|idx| {
+                // SAFETY: This came from an *exclusive* range. It can never be max.
+                let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(idx)) };
+                Entity::from_raw(row)
+            })
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.reused.len() + self.new.end().saturating_sub(*self.new.end()) as usize;
+        let len = self.reused.len() + self.new.len();
         (len, Some(len))
     }
 }

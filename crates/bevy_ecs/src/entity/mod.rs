@@ -925,7 +925,7 @@ impl Entities {
             Some(Entity::from_raw_and_generation(row, generation))
         } else {
             self.allocator
-                .is_valid_index(row)
+                .is_valid_row(row)
                 .then_some(Entity::from_raw(row))
         }
     }
@@ -980,14 +980,14 @@ impl Entities {
     ///
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn total_count(&self) -> u64 {
+    pub fn total_count(&self) -> u32 {
         self.allocator.total_entity_indices()
     }
 
     /// The count of currently allocated entities.
     #[inline]
-    pub fn len(&self) -> u64 {
-        self.allocator.total_entity_indices() - self.allocator.num_free() as u64
+    pub fn len(&self) -> u32 {
+        self.allocator.total_entity_indices() - self.allocator.num_free()
     }
 
     /// Checks if any entity is currently active.
