@@ -267,6 +267,9 @@ pub fn ktx2_buffer_to_image(
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
     image.data = Some(wgpu_data.into_iter().flatten().collect::<Vec<_>>());
+    // Note: we must give wgpu the logical texture dimensions, so it can correctly compute mip sizes.
+    // However this currently causes wgpu to panic if the dimensions arent a multiple of blocksize.
+    // See https://github.com/gfx-rs/wgpu/issues/7677 for more context.
     image.texture_descriptor.size = Extent3d {
         width,
         height,
