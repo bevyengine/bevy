@@ -368,13 +368,37 @@ pub enum ImageSampler {
 }
 
 impl ImageSampler {
-    /// Returns an image sampler with [`ImageFilterMode::Linear`] min and mag filters
+    /// Returns an image sampler with [`Linear`](ImageFilterMode::Linear) min, mag and mipmap filters.
     #[inline]
+    #[deprecated(
+        since = "0.17.0",
+        note = "With more generators provided became misleading. For same behavior, use `trilinear()`."
+    )]
     pub fn linear() -> ImageSampler {
-        ImageSampler::Descriptor(ImageSamplerDescriptor::linear())
+        ImageSampler::Descriptor(ImageSamplerDescriptor::trilinear())
     }
 
-    /// Returns an image sampler with [`ImageFilterMode::Nearest`] min and mag filters
+    /// Returns an image sampler with [`Linear`](ImageFilterMode::Linear) min, mag and mipmap filters,
+    /// and 16x anisotropic filtering enabled.
+    #[inline]
+    pub fn anisotropic() -> ImageSampler {
+        ImageSampler::Descriptor(ImageSamplerDescriptor::anisotropic())
+    }
+
+    /// Returns an image sampler with [`Linear`](ImageFilterMode::Linear) min, mag and mipmap filters.
+    #[inline]
+    pub fn trilinear() -> ImageSampler {
+        ImageSampler::Descriptor(ImageSamplerDescriptor::trilinear())
+    }
+
+    /// Returns an image sampler with [`Linear`](ImageFilterMode::Linear) min and mag filters,
+    /// but [`Nearest`](ImageFilterMode::Nearest) mipmap filter.
+    #[inline]
+    pub fn bilinear() -> ImageSampler {
+        ImageSampler::Descriptor(ImageSamplerDescriptor::bilinear())
+    }
+
+    /// Returns an image sampler with [`ImageFilterMode::Nearest`] min, mag and mipmap filters.
     #[inline]
     pub fn nearest() -> ImageSampler {
         ImageSampler::Descriptor(ImageSamplerDescriptor::nearest())
@@ -527,43 +551,69 @@ pub struct ImageSamplerDescriptor {
 
 impl Default for ImageSamplerDescriptor {
     fn default() -> Self {
-        Self {
+        Self::anisotropic()
+    }
+}
+
+impl ImageSamplerDescriptor {
+    /// Returns a sampler descriptor with [`Linear`](ImageFilterMode::Linear) min, mag and mipmap filters.
+    #[inline]
+    #[deprecated(
+        since = "0.17.0",
+        note = "With more generators provided became misleading. For same behavior, use `trilinear()`."
+    )]
+    pub fn linear() -> ImageSamplerDescriptor {
+        Self::trilinear()
+    }
+
+    /// Returns a sampler descriptor with [`Linear`](ImageFilterMode::Linear) min, mag and mipmap filters,
+    /// and 16x anisotropic filtering enabled.
+    #[inline]
+    pub fn anisotropic() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
+            anisotropy_clamp: 16,
+            ..Self::trilinear()
+        }
+    }
+
+    /// Returns a sampler descriptor with [`Linear`](ImageFilterMode::Linear) min, mag and mipmap filters.
+    #[inline]
+    pub fn trilinear() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
+            mag_filter: ImageFilterMode::Linear,
+            min_filter: ImageFilterMode::Linear,
+            mipmap_filter: ImageFilterMode::Linear,
+            ..Self::nearest()
+        }
+    }
+
+    /// Returns a sampler descriptor with [`Linear`](ImageFilterMode::Linear) min and mag filters,
+    /// but [`Nearest`](ImageFilterMode::Nearest) mipmap filter.
+    #[inline]
+    pub fn bilinear() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
+            mag_filter: ImageFilterMode::Linear,
+            min_filter: ImageFilterMode::Linear,
+            ..Self::nearest()
+        }
+    }
+
+    /// Returns a sampler descriptor with [`Nearest`](ImageFilterMode::Nearest) min, mag and mipmap filters.
+    #[inline]
+    pub fn nearest() -> ImageSamplerDescriptor {
+        ImageSamplerDescriptor {
             address_mode_u: Default::default(),
             address_mode_v: Default::default(),
             address_mode_w: Default::default(),
-            mag_filter: Default::default(),
-            min_filter: Default::default(),
-            mipmap_filter: Default::default(),
+            mag_filter: ImageFilterMode::Nearest,
+            min_filter: ImageFilterMode::Nearest,
+            mipmap_filter: ImageFilterMode::Nearest,
             lod_min_clamp: 0.0,
             lod_max_clamp: 32.0,
             compare: None,
             anisotropy_clamp: 1,
             border_color: None,
             label: None,
-        }
-    }
-}
-
-impl ImageSamplerDescriptor {
-    /// Returns a sampler descriptor with [`Linear`](ImageFilterMode::Linear) min and mag filters
-    #[inline]
-    pub fn linear() -> ImageSamplerDescriptor {
-        ImageSamplerDescriptor {
-            mag_filter: ImageFilterMode::Linear,
-            min_filter: ImageFilterMode::Linear,
-            mipmap_filter: ImageFilterMode::Linear,
-            ..Default::default()
-        }
-    }
-
-    /// Returns a sampler descriptor with [`Nearest`](ImageFilterMode::Nearest) min and mag filters
-    #[inline]
-    pub fn nearest() -> ImageSamplerDescriptor {
-        ImageSamplerDescriptor {
-            mag_filter: ImageFilterMode::Nearest,
-            min_filter: ImageFilterMode::Nearest,
-            mipmap_filter: ImageFilterMode::Nearest,
-            ..Default::default()
         }
     }
 

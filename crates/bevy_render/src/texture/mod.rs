@@ -38,19 +38,44 @@ pub struct ImagePlugin {
 
 impl Default for ImagePlugin {
     fn default() -> Self {
-        ImagePlugin::default_linear()
+        ImagePlugin::default_anisotropic()
     }
 }
 
 impl ImagePlugin {
-    /// Creates image settings with linear sampling by default.
+    /// Creates image settings with trilinear filtering by default.
+    #[deprecated(
+        since = "0.17.0",
+        note = "With more generators provided became misleading. For same behavior, use `default_trilinear()`."
+    )]
     pub fn default_linear() -> ImagePlugin {
         ImagePlugin {
-            default_sampler: ImageSamplerDescriptor::linear(),
+            default_sampler: ImageSamplerDescriptor::trilinear(),
         }
     }
 
-    /// Creates image settings with nearest sampling by default.
+    /// Creates image settings with anisotropic filtering by default.
+    pub fn default_anisotropic() -> ImagePlugin {
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::anisotropic(),
+        }
+    }
+
+    /// Creates image settings with trilinear filtering by default.
+    pub fn default_trilinear() -> ImagePlugin {
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::trilinear(),
+        }
+    }
+
+    /// Creates image settings with bilinear filtering by default.
+    pub fn default_bilinear() -> ImagePlugin {
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::bilinear(),
+        }
+    }
+
+    /// Creates image settings with nearest filtering by default.
     pub fn default_nearest() -> ImagePlugin {
         ImagePlugin {
             default_sampler: ImageSamplerDescriptor::nearest(),
