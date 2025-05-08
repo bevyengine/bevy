@@ -45,7 +45,7 @@ impl Slot {
         #[cfg(not(target_has_atomic = "64"))]
         return Self {
             entity_index: AtomicU32::new(source.index()),
-            entity_generation: AtomicU32::new(source.generation()),
+            entity_generation: AtomicU32::new(source.generation().to_bits()),
         };
         #[cfg(target_has_atomic = "64")]
         return Self {
@@ -70,7 +70,7 @@ impl Slot {
         #[cfg(not(target_has_atomic = "64"))]
         return Entity {
             // SAFETY: This is valid since it was from an entity's index to begin with.
-            index: unsafe {
+            row: unsafe {
                 EntityRow::new(NonMaxU32::new_unchecked(
                     self.entity_index.load(Ordering::Relaxed),
                 ))
