@@ -303,7 +303,11 @@ struct PostProcessSettings {
     intensity: f32,
     // WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl2")]
-    _webgl2_padding: Vec3,
+    _webgl2_padding_8b: u32,
+    #[cfg(feature = "webgl2")]
+    _webgl2_padding_12b: u32,
+    #[cfg(feature = "webgl2")]
+    _webgl2_padding_16b: u32,
 }
 
 /// Set up a simple 3D scene
