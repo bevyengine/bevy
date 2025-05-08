@@ -34,8 +34,8 @@ Instead, it is an `EntityGeneration`.
 Internally, this stores a `u32`, but that might change later.
 
 Working with the generation directly has never been recommended, but it is sometimes useful to do so in tests.
-To create a generation do `EntityGeneration::FRESH.after_versions(expected_generation)`.
-To use this in tests, do `assert_eq!(entity.generation(), EntityGeneration::FRESH.after_versions(expected_generation))`.
+To create a generation do `EntityGeneration::FIRST.after_versions(expected_generation)`.
+To use this in tests, do `assert_eq!(entity.generation(), EntityGeneration::FIRST.after_versions(expected_generation))`.
 
 ### Removed Interfaces
 

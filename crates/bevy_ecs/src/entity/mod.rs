@@ -192,7 +192,7 @@ pub struct EntityGeneration(u32);
 
 impl EntityGeneration {
     /// Represents the first generation of an [`EntityRow`].
-    pub const FRESH: Self = Self(0);
+    pub const FIRST: Self = Self(0);
 
     /// Gets some bits that represent this value.
     /// The bits are opaque and should not be regarded as meaningful.
@@ -428,7 +428,7 @@ impl Entity {
     /// a component.
     #[inline(always)]
     pub const fn from_raw(row: EntityRow) -> Entity {
-        Self::from_raw_and_generation(row, EntityGeneration::FRESH)
+        Self::from_raw_and_generation(row, EntityGeneration::FIRST)
     }
 
     /// This is equivalent to [`from_raw`](Self::from_raw) except that it takes a `u32` instead of an [`EntityRow`].
@@ -1151,7 +1151,7 @@ struct EntityMeta {
 impl EntityMeta {
     /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
-        generation: EntityGeneration::FRESH,
+        generation: EntityGeneration::FIRST,
         location: EntityLocation::INVALID,
         spawned_or_despawned_by: MaybeLocation::new(None),
     };

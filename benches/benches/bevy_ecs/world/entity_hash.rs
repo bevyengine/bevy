@@ -23,7 +23,7 @@ fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
     assert_eq!(e.index(), !(id as u32));
     assert_eq!(
         e.generation(),
-        EntityGeneration::FRESH.after_versions(generation as u32)
+        EntityGeneration::FIRST.after_versions(generation as u32)
     );
     e
 }
