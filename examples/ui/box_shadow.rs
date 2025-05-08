@@ -9,6 +9,7 @@ use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
+use bevy_ecs::spawn::SpawnIter;
 
 #[derive(FromArgs, Resource)]
 /// `box_shadow` example
@@ -27,6 +28,140 @@ fn main() {
         .run();
 }
 
+const EXAMPLES: [(Vec2, Vec2, f32, f32, BorderRadius); 23] = [
+    (
+        Vec2::splat(50.),
+        Vec2::ZERO,
+        10.,
+        0.,
+        BorderRadius::bottom_right(Val::Px(10.)),
+    ),
+    (Vec2::new(50., 25.), Vec2::ZERO, 10., 0., BorderRadius::ZERO),
+    (Vec2::splat(50.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
+    (Vec2::new(100., 25.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
+    (
+        Vec2::splat(50.),
+        Vec2::ZERO,
+        10.,
+        0.,
+        BorderRadius::bottom_right(Val::Px(10.)),
+    ),
+    (Vec2::new(50., 25.), Vec2::ZERO, 0., 10., BorderRadius::ZERO),
+    (
+        Vec2::splat(50.),
+        Vec2::ZERO,
+        0.,
+        10.,
+        BorderRadius::bottom_right(Val::Px(10.)),
+    ),
+    (Vec2::new(100., 25.), Vec2::ZERO, 0., 10., BorderRadius::MAX),
+    (
+        Vec2::splat(50.),
+        Vec2::splat(25.),
+        0.,
+        0.,
+        BorderRadius::ZERO,
+    ),
+    (
+        Vec2::new(50., 25.),
+        Vec2::splat(25.),
+        0.,
+        0.,
+        BorderRadius::ZERO,
+    ),
+    (
+        Vec2::splat(50.),
+        Vec2::splat(10.),
+        0.,
+        0.,
+        BorderRadius::bottom_right(Val::Px(10.)),
+    ),
+    (
+        Vec2::splat(50.),
+        Vec2::splat(25.),
+        0.,
+        10.,
+        BorderRadius::ZERO,
+    ),
+    (
+        Vec2::new(50., 25.),
+        Vec2::splat(25.),
+        0.,
+        10.,
+        BorderRadius::ZERO,
+    ),
+    (
+        Vec2::splat(50.),
+        Vec2::splat(10.),
+        0.,
+        10.,
+        BorderRadius::bottom_right(Val::Px(10.)),
+    ),
+    (
+        Vec2::splat(50.),
+        Vec2::splat(10.),
+        0.,
+        3.,
+        BorderRadius::ZERO,
+    ),
+    (
+        Vec2::new(50., 25.),
+        Vec2::splat(10.),
+        0.,
+        3.,
+        BorderRadius::ZERO,
+    ),
+    (
+        Vec2::splat(50.),
+        Vec2::splat(10.),
+        0.,
+        3.,
+        BorderRadius::bottom_right(Val::Px(10.)),
+    ),
+    (
+        Vec2::splat(50.),
+        Vec2::splat(10.),
+        0.,
+        3.,
+        BorderRadius::all(Val::Px(20.)),
+    ),
+    (
+        Vec2::new(50., 25.),
+        Vec2::splat(10.),
+        0.,
+        3.,
+        BorderRadius::all(Val::Px(20.)),
+    ),
+    (
+        Vec2::new(25., 50.),
+        Vec2::splat(10.),
+        0.,
+        3.,
+        BorderRadius::MAX,
+    ),
+    (
+        Vec2::splat(50.),
+        Vec2::splat(10.),
+        0.,
+        10.,
+        BorderRadius::all(Val::Px(20.)),
+    ),
+    (
+        Vec2::new(50., 25.),
+        Vec2::splat(10.),
+        0.,
+        10.,
+        BorderRadius::all(Val::Px(20.)),
+    ),
+    (
+        Vec2::new(25., 50.),
+        Vec2::splat(10.),
+        0.,
+        10.,
+        BorderRadius::MAX,
+    ),
+];
+
 fn setup(mut commands: Commands) {
     // `from_env` panics on the web
     #[cfg(not(target_arch = "wasm32"))]
@@ -37,165 +172,26 @@ fn setup(mut commands: Commands) {
     // ui camera
     commands.spawn((Camera2d, BoxShadowSamples(args.samples)));
 
-    commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                padding: UiRect::all(Val::Px(30.)),
-                column_gap: Val::Px(30.),
-                flex_wrap: FlexWrap::Wrap,
-                ..default()
-            },
-            BackgroundColor(DEEP_SKY_BLUE.into()),
-        ))
-        .with_children(|commands| {
-            let example_nodes = [
-                (
-                    Vec2::splat(50.),
-                    Vec2::ZERO,
-                    10.,
-                    0.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
-                ),
-                (Vec2::new(50., 25.), Vec2::ZERO, 10., 0., BorderRadius::ZERO),
-                (Vec2::splat(50.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
-                (Vec2::new(100., 25.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
-                (
-                    Vec2::splat(50.),
-                    Vec2::ZERO,
-                    10.,
-                    0.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
-                ),
-                (Vec2::new(50., 25.), Vec2::ZERO, 0., 10., BorderRadius::ZERO),
-                (
-                    Vec2::splat(50.),
-                    Vec2::ZERO,
-                    0.,
-                    10.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
-                ),
-                (Vec2::new(100., 25.), Vec2::ZERO, 0., 10., BorderRadius::MAX),
-                (
-                    Vec2::splat(50.),
-                    Vec2::splat(25.),
-                    0.,
-                    0.,
-                    BorderRadius::ZERO,
-                ),
-                (
-                    Vec2::new(50., 25.),
-                    Vec2::splat(25.),
-                    0.,
-                    0.,
-                    BorderRadius::ZERO,
-                ),
-                (
-                    Vec2::splat(50.),
-                    Vec2::splat(10.),
-                    0.,
-                    0.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
-                ),
-                (
-                    Vec2::splat(50.),
-                    Vec2::splat(25.),
-                    0.,
-                    10.,
-                    BorderRadius::ZERO,
-                ),
-                (
-                    Vec2::new(50., 25.),
-                    Vec2::splat(25.),
-                    0.,
-                    10.,
-                    BorderRadius::ZERO,
-                ),
-                (
-                    Vec2::splat(50.),
-                    Vec2::splat(10.),
-                    0.,
-                    10.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
-                ),
-                (
-                    Vec2::splat(50.),
-                    Vec2::splat(10.),
-                    0.,
-                    3.,
-                    BorderRadius::ZERO,
-                ),
-                (
-                    Vec2::new(50., 25.),
-                    Vec2::splat(10.),
-                    0.,
-                    3.,
-                    BorderRadius::ZERO,
-                ),
-                (
-                    Vec2::splat(50.),
-                    Vec2::splat(10.),
-                    0.,
-                    3.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
-                ),
-                (
-                    Vec2::splat(50.),
-                    Vec2::splat(10.),
-                    0.,
-                    3.,
-                    BorderRadius::all(Val::Px(20.)),
-                ),
-                (
-                    Vec2::new(50., 25.),
-                    Vec2::splat(10.),
-                    0.,
-                    3.,
-                    BorderRadius::all(Val::Px(20.)),
-                ),
-                (
-                    Vec2::new(25., 50.),
-                    Vec2::splat(10.),
-                    0.,
-                    3.,
-                    BorderRadius::MAX,
-                ),
-                (
-                    Vec2::splat(50.),
-                    Vec2::splat(10.),
-                    0.,
-                    10.,
-                    BorderRadius::all(Val::Px(20.)),
-                ),
-                (
-                    Vec2::new(50., 25.),
-                    Vec2::splat(10.),
-                    0.,
-                    10.,
-                    BorderRadius::all(Val::Px(20.)),
-                ),
-                (
-                    Vec2::new(25., 50.),
-                    Vec2::splat(10.),
-                    0.,
-                    10.,
-                    BorderRadius::MAX,
-                ),
-            ];
-
-            for (size, offset, spread, blur, border_radius) in example_nodes {
-                commands.spawn(box_shadow_node_bundle(
-                    size,
-                    offset,
-                    spread,
-                    blur,
-                    border_radius,
-                ));
-            }
-
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            padding: UiRect::all(Val::Px(30.)),
+            column_gap: Val::Px(30.),
+            flex_wrap: FlexWrap::Wrap,
+            ..default()
+        },
+        BackgroundColor(DEEP_SKY_BLUE.into()),
+        Children::spawn((
+            SpawnIter(
+                EXAMPLES
+                    .into_iter()
+                    .map(|(size, offset, spread, blur, border_radius)| {
+                        box_shadow_node_bundle(size, offset, spread, blur, border_radius)
+                    }),
+            ),
             // Demonstrate multiple shadows on one node
-            commands.spawn((
+            Spawn((
                 Node {
                     width: Val::Px(40.),
                     height: Val::Px(40.),
@@ -235,8 +231,9 @@ fn setup(mut commands: Commands) {
                         blur_radius: Val::Px(3.),
                     },
                 ]),
-            ));
-        });
+            )),
+        )),
+    ));
 }
 
 fn box_shadow_node_bundle(
