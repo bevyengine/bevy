@@ -10,9 +10,12 @@ pub use bind_group_handle::*;
 
 use crate::{
     frame_graph::{FrameGraph, PassNodeBuilder, ResourceMaterial},
-    render_resource::{DynamicUniformBuffer, UniformBuffer},
+    render_resource::{Buffer, DynamicUniformBuffer, StorageBuffer, Texture, UniformBuffer},
+    texture::GpuImage,
 };
 use encase::{internal::WriteInto, ShaderType};
+
+use super::TextureViewInfo;
 
 pub trait BindingResourceHandleHelper {
     fn make_binding_resource_handle(&self, frame_graph: &mut FrameGraph) -> BindingResourceHandle;
@@ -21,6 +24,93 @@ pub trait BindingResourceHandleHelper {
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef;
+}
+
+impl BindingResourceHandleHelper for Buffer {
+    fn make_binding_resource_handle(&self, frame_graph: &mut FrameGraph) -> BindingResourceHandle {
+        let buffer = self.make_resource_handle(frame_graph);
+        BindingResourceHandle::Buffer { buffer, size: None }
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        let buffer = pass_node_builder.import_and_read_buffer(self);
+        BindingResourceRef::Buffer { buffer, size: None }
+    }
+}
+
+impl BindingResourceHandleHelper for Texture {
+    fn make_binding_resource_handle(&self, frame_graph: &mut FrameGraph) -> BindingResourceHandle {
+        let texture = self.make_resource_handle(frame_graph);
+        BindingResourceHandle::TextureView {
+            texture,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        let texture = pass_node_builder.import_and_read_texture(&self);
+
+        BindingResourceRef::TextureView {
+            texture,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
+}
+
+impl BindingResourceHandleHelper for GpuImage {
+    fn make_binding_resource_handle(&self, frame_graph: &mut FrameGraph) -> BindingResourceHandle {
+        let texture = self.texture.make_resource_handle(frame_graph);
+        BindingResourceHandle::TextureView {
+            texture,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        let texture = pass_node_builder.import_and_read_texture(&self.texture);
+
+        BindingResourceRef::TextureView {
+            texture,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
+}
+
+impl<T: ShaderType + WriteInto> BindingResourceHandleHelper for StorageBuffer<T> {
+    fn make_binding_resource_handle(&self, frame_graph: &mut FrameGraph) -> BindingResourceHandle {
+        let buffer = self.buffer().expect("buffer must have");
+        let handle = buffer.make_resource_handle(frame_graph);
+
+        let size = T::min_size();
+
+        BindingResourceHandle::Buffer {
+            buffer: handle,
+            size: Some(size),
+        }
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        let buffer = self.buffer().expect("buffer must have");
+        let buffer_ref = pass_node_builder.import_and_read_buffer(buffer);
+
+        let size = T::min_size();
+        BindingResourceRef::Buffer {
+            buffer: buffer_ref,
+            size: Some(size),
+        }
+    }
 }
 
 impl<T: ShaderType + WriteInto> BindingResourceHandleHelper for UniformBuffer<T> {
@@ -50,7 +140,6 @@ impl<T: ShaderType + WriteInto> BindingResourceHandleHelper for UniformBuffer<T>
         }
     }
 }
-
 
 impl<T: ShaderType + WriteInto> BindingResourceHandleHelper for DynamicUniformBuffer<T> {
     fn make_binding_resource_handle(&self, frame_graph: &mut FrameGraph) -> BindingResourceHandle {

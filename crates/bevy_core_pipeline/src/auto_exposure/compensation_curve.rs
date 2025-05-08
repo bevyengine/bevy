@@ -5,8 +5,8 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     render_asset::{RenderAsset, RenderAssetUsages},
     render_resource::{
-        Extent3d, ShaderType, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        TextureView, UniformBuffer,
+        Extent3d, ShaderType, Texture, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages, UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
 };
@@ -172,7 +172,7 @@ impl AutoExposureCompensationCurve {
 /// Consists of a [`TextureView`] with the curve's data,
 /// and a [`UniformBuffer`] with the curve's extents.
 pub struct GpuAutoExposureCompensationCurve {
-    pub(super) texture_view: TextureView,
+    pub(super) texture: Texture,
     pub(super) extents: UniformBuffer<AutoExposureCompensationCurveUniform>,
 }
 
@@ -217,8 +217,6 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
             &source.lut,
         );
 
-        let texture_view = texture.create_view(&Default::default());
-
         let mut extents = UniformBuffer::from(AutoExposureCompensationCurveUniform {
             min_log_lum: source.min_log_lum,
             inv_log_lum_range: 1.0 / (source.max_log_lum - source.min_log_lum),
@@ -228,9 +226,6 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
 
         extents.write_buffer(render_device, render_queue);
 
-        Ok(GpuAutoExposureCompensationCurve {
-            texture_view,
-            extents,
-        })
+        Ok(GpuAutoExposureCompensationCurve { extents, texture })
     }
 }
