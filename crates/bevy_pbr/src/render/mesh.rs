@@ -837,15 +837,19 @@ pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 pub struct MeshesToReextractNextFrame(MainEntityHashSet);
 
 impl RenderMeshInstanceShared {
+    /// A gpu builder will provide the mesh instance id
+    /// during `RenderMeshGpuBuilder::update`.
+    ///
+    /// Therefore, this does not need to be queried.
     #[inline]
-    fn from_components(
+    fn for_gpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
         tag: Option<&MeshTag>,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
     ) -> Self {
-        Self::from_components_and_material_binding_index(
+        Self::for_cpu_building(
             previous_transform,
             mesh,
             tag,
@@ -855,7 +859,15 @@ impl RenderMeshInstanceShared {
         )
     }
 
-    fn from_components_and_material_binding_index(
+    /// Build a struct with common properties between gpu and cpu builders for cpu builders.
+    ///
+    /// Unlike the gpu builder, the cpu builder does not have an equivalent
+    /// [`RenderMeshGpuBuilder::update`]. Therefore, we need to have
+    /// the [`MaterialBindingId`] ahead of time.
+    ///
+    /// Otherwise, a mesh with a handle to a base color texture will all appear identical
+    /// based on the most recently inserted mesh.
+    fn for_cpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
         tag: Option<&MeshTag>,
@@ -877,7 +889,6 @@ impl RenderMeshInstanceShared {
         RenderMeshInstanceShared {
             mesh_asset_id: mesh.id(),
             flags: mesh_instance_flags,
-            // If `use_gpu_instance_buffer_builder` is enabled, this will be overridden during `RenderMeshInstanceGpuBuilder::update`.
             material_bindings_index,
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
@@ -1394,7 +1405,7 @@ pub fn extract_meshes_for_cpu_building(
                 })
                 .unwrap_or_default();
 
-            let shared = RenderMeshInstanceShared::from_components_and_material_binding_index(
+            let shared = RenderMeshInstanceShared::for_cpu_building(
                 previous_transform,
                 mesh,
                 tag,
@@ -1603,7 +1614,7 @@ fn extract_mesh_for_gpu_building(
         transmitted_receiver,
     );
 
-    let shared = RenderMeshInstanceShared::from_components(
+    let shared = RenderMeshInstanceShared::for_gpu_building(
         previous_transform,
         mesh,
         tag,
