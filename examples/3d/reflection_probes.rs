@@ -39,8 +39,8 @@ enum ReflectionMode {
     // Both a world environment map and a reflection probe are present. The
     // reflection probe is shown in the sphere.
     ReflectionProbe = 2,
-    // A prefiltered environment map is shown.
-    PrefilteredEnvironmentMap = 3,
+    // A generated environment map is shown.
+    GeneratedEnvironmentMap = 3,
 }
 
 // The various reflection maps.
@@ -133,7 +133,7 @@ fn spawn_sphere(
     commands.spawn((
         Mesh3d(sphere_mesh.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Srgba::hex("#ffd891").unwrap().into(),
+            base_color: Srgba::hex("#ffffff").unwrap().into(),
             metallic: 1.0,
             perceptual_roughness: app_status.sphere_roughness,
             ..StandardMaterial::default()
@@ -157,10 +157,10 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     ));
 }
 
-fn spawn_prefiltered_environment_map(commands: &mut Commands, cubemaps: &Cubemaps) {
+fn spawn_generated_environment_map(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn((
         LightProbe,
-        FilteredEnvironmentMapLight {
+        GeneratedEnvironmentMapLight {
             environment_map: cubemaps.unfiltered_environment_map.clone(),
             intensity: 5000.0,
             ..default()
@@ -232,8 +232,8 @@ fn change_reflection_type(
     match app_status.reflection_mode {
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
         ReflectionMode::ReflectionProbe => spawn_reflection_probe(&mut commands, &cubemaps),
-        ReflectionMode::PrefilteredEnvironmentMap => {
-            spawn_prefiltered_environment_map(&mut commands, &cubemaps);
+        ReflectionMode::GeneratedEnvironmentMap => {
+            spawn_generated_environment_map(&mut commands, &cubemaps);
         }
     }
 
@@ -245,9 +245,9 @@ fn change_reflection_type(
             }
             ReflectionMode::EnvironmentMap
             | ReflectionMode::ReflectionProbe
-            | ReflectionMode::PrefilteredEnvironmentMap => {
+            | ReflectionMode::GeneratedEnvironmentMap => {
                 let image = match app_status.reflection_mode {
-                    ReflectionMode::PrefilteredEnvironmentMap => {
+                    ReflectionMode::GeneratedEnvironmentMap => {
                         cubemaps.unfiltered_environment_map.clone()
                     }
                     _ => cubemaps.skybox.clone(),
@@ -287,7 +287,7 @@ impl TryFrom<u32> for ReflectionMode {
             0 => Ok(ReflectionMode::None),
             1 => Ok(ReflectionMode::EnvironmentMap),
             2 => Ok(ReflectionMode::ReflectionProbe),
-            3 => Ok(ReflectionMode::PrefilteredEnvironmentMap),
+            3 => Ok(ReflectionMode::GeneratedEnvironmentMap),
             _ => Err(()),
         }
     }
@@ -299,7 +299,7 @@ impl Display for ReflectionMode {
             ReflectionMode::None => "No reflections",
             ReflectionMode::EnvironmentMap => "Environment map",
             ReflectionMode::ReflectionProbe => "Reflection probe",
-            ReflectionMode::PrefilteredEnvironmentMap => "Prefiltered environment map",
+            ReflectionMode::GeneratedEnvironmentMap => "Generated environment map",
         };
         formatter.write_str(text)
     }

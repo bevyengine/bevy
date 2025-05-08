@@ -31,10 +31,10 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
-use prefilter::{
-    create_environment_map_from_prefilter, extract_prefilter_entities,
-    prepare_prefilter_bind_groups, prepare_prefilter_textures, FilteredEnvironmentMapLight,
-    PrefilterPipelines, SpdNode,
+use generate::{
+    extract_generator_entities, generate_environment_map_light, prepare_generator_bind_groups,
+    prepare_intermediate_textures, GeneratedEnvironmentMapLight, GeneratorPipelines, SpdNode,
+    STBN_SPHERE, STBN_VEC2,
 };
 use tracing::error;
 
@@ -45,8 +45,8 @@ use crate::light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight
 use self::irradiance_volume::IrradianceVolume;
 
 pub mod environment_map;
+pub mod generate;
 pub mod irradiance_volume;
-pub mod prefilter;
 
 /// The maximum number of each type of light probe that each view will consider.
 ///
@@ -350,8 +350,8 @@ impl Plugin for LightProbePlugin {
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
             .register_type::<IrradianceVolume>()
-            .add_plugins(ExtractComponentPlugin::<FilteredEnvironmentMapLight>::default())
-            .add_systems(Update, create_environment_map_from_prefilter);
+            .add_plugins(ExtractComponentPlugin::<GeneratedEnvironmentMapLight>::default())
+            .add_systems(Update, generate_environment_map_light);
     }
 
     fn finish(&self, app: &mut App) {
@@ -363,19 +363,19 @@ impl Plugin for LightProbePlugin {
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
-            .init_resource::<PrefilterBindGroupLayouts>()
-            .init_resource::<PrefilterSamplers>()
-            .init_resource::<PrefilterPipelines>()
-            .add_render_graph_node::<SpdNode>(Core3d, PrefilterNode::GenerateMipmap)
-            .add_render_graph_node::<RadianceMapNode>(Core3d, PrefilterNode::RadianceMap)
-            .add_render_graph_node::<IrradianceMapNode>(Core3d, PrefilterNode::IrradianceMap)
+            .init_resource::<GeneratorBindGroupLayouts>()
+            .init_resource::<GeneratorSamplers>()
+            .init_resource::<GeneratorPipelines>()
+            .add_render_graph_node::<SpdNode>(Core3d, GeneratorNode::Mipmap)
+            .add_render_graph_node::<RadianceMapNode>(Core3d, GeneratorNode::Radiance)
+            .add_render_graph_node::<IrradianceMapNode>(Core3d, GeneratorNode::Irradiance)
             .add_render_graph_edges(
                 Core3d,
                 (
                     Node3d::EndPrepasses,
-                    PrefilterNode::GenerateMipmap,
-                    PrefilterNode::RadianceMap,
-                    PrefilterNode::IrradianceMap,
+                    GeneratorNode::Mipmap,
+                    GeneratorNode::Radiance,
+                    GeneratorNode::Irradiance,
                     Node3d::StartMainPass,
                 ),
             )
@@ -384,7 +384,7 @@ impl Plugin for LightProbePlugin {
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
                 ExtractSchedule,
-                extract_prefilter_entities.after(create_environment_map_from_prefilter),
+                extract_generator_entities.after(generate_environment_map_light),
             )
             .add_systems(
                 Render,

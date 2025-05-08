@@ -30,33 +30,36 @@ use bevy_render::{
     Extract,
 };
 
-use crate::atmosphere;
 use crate::light_probe::environment_map::EnvironmentMapLight;
 
-/// A handle to the SPD (Single Pass Downsampling) shader.
+/// Single Pass Downsampling (SPD) shader handle
 pub const SPD_SHADER_HANDLE: Handle<Shader> = weak_handle!("5dcf400c-bcb3-49b9-8b7e-80f4117eaf82");
 
-/// A handle to the environment filter shader.
+/// Environment Filter shader handle
 pub const ENVIRONMENT_FILTER_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
 
-/// Labels for the prefiltering nodes
+/// Sphere Cosine Weighted Irradiance shader handle
+pub const STBN_SPHERE: Handle<Image> = weak_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
+pub const STBN_VEC2: Handle<Image> = weak_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
+
+/// Labels for the environment map generation nodes
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
-pub enum PrefilterNode {
-    GenerateMipmap,
-    RadianceMap,
-    IrradianceMap,
+pub enum GeneratorNode {
+    Mipmap,
+    Radiance,
+    Irradiance,
 }
 
-/// Stores the bind group layouts for the prefiltering process
+/// Stores the bind group layouts for the environment map generation pipelines
 #[derive(Resource)]
-pub struct PrefilterBindGroupLayouts {
+pub struct GeneratorBindGroupLayouts {
     pub spd: BindGroupLayout,
     pub radiance: BindGroupLayout,
     pub irradiance: BindGroupLayout,
 }
 
-impl FromWorld for PrefilterBindGroupLayouts {
+impl FromWorld for GeneratorBindGroupLayouts {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
@@ -178,7 +181,7 @@ impl FromWorld for PrefilterBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ), // Output specular map
-                    (3, uniform_buffer::<PrefilterConstants>(false)), // Uniforms
+                    (3, uniform_buffer::<FilteringConstants>(false)), // Uniforms
                     (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
                 ),
             ),
@@ -202,7 +205,7 @@ impl FromWorld for PrefilterBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ), // Output irradiance map
-                    (3, uniform_buffer::<PrefilterConstants>(false)), // Uniforms
+                    (3, uniform_buffer::<FilteringConstants>(false)), // Uniforms
                     (4, texture_2d(TextureSampleType::Float { filterable: true })), // Blue noise texture
                 ),
             ),
@@ -216,18 +219,18 @@ impl FromWorld for PrefilterBindGroupLayouts {
     }
 }
 
-/// Samplers for the prefiltering process
+/// Samplers for the environment map generation pipelines
 #[derive(Resource)]
-pub struct PrefilterSamplers {
+pub struct GeneratorSamplers {
     pub linear: Sampler,
 }
 
-impl FromWorld for PrefilterSamplers {
+impl FromWorld for GeneratorSamplers {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
         let linear = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("prefilter_linear_sampler"),
+            label: Some("generator_linear_sampler"),
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             address_mode_w: AddressMode::ClampToEdge,
@@ -241,19 +244,19 @@ impl FromWorld for PrefilterSamplers {
     }
 }
 
-/// Pipelines for the prefiltering process
+/// Pipelines for the environment map generation pipelines
 #[derive(Resource)]
-pub struct PrefilterPipelines {
+pub struct GeneratorPipelines {
     pub spd_first: CachedComputePipelineId,
     pub spd_second: CachedComputePipelineId,
     pub radiance: CachedComputePipelineId,
     pub irradiance: CachedComputePipelineId,
 }
 
-impl FromWorld for PrefilterPipelines {
+impl FromWorld for GeneratorPipelines {
     fn from_world(world: &mut World) -> Self {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let layouts = world.resource::<PrefilterBindGroupLayouts>();
+        let layouts = world.resource::<GeneratorBindGroupLayouts>();
 
         let render_device = world.resource::<RenderDevice>();
         let features = render_device.features();
@@ -317,16 +320,16 @@ impl FromWorld for PrefilterPipelines {
 }
 
 #[derive(Component, Clone, Reflect, ExtractComponent)]
-pub struct FilteredEnvironmentMapLight {
+pub struct GeneratedEnvironmentMapLight {
     pub environment_map: Handle<Image>,
     pub intensity: f32,
     pub rotation: Quat,
     pub affects_lightmapped_mesh_diffuse: bool,
 }
 
-impl Default for FilteredEnvironmentMapLight {
+impl Default for GeneratedEnvironmentMapLight {
     fn default() -> Self {
-        FilteredEnvironmentMapLight {
+        GeneratedEnvironmentMapLight {
             environment_map: Handle::default(),
             intensity: 0.0,
             rotation: Quat::IDENTITY,
@@ -335,18 +338,18 @@ impl Default for FilteredEnvironmentMapLight {
     }
 }
 
-pub fn extract_prefilter_entities(
-    prefilter_query: Extract<
+pub fn extract_generator_entities(
+    query: Extract<
         Query<(
             RenderEntity,
-            &FilteredEnvironmentMapLight,
+            &GeneratedEnvironmentMapLight,
             &EnvironmentMapLight,
         )>,
     >,
     mut commands: Commands,
     render_images: Res<RenderAssets<GpuImage>>,
 ) {
-    for (entity, filtered_env_map, env_map_light) in prefilter_query.iter() {
+    for (entity, filtered_env_map, env_map_light) in query.iter() {
         let env_map = render_images
             .get(&filtered_env_map.environment_map)
             .expect("Environment map not found");
@@ -389,12 +392,12 @@ pub struct RenderEnvironmentMap {
 }
 
 #[derive(Component)]
-pub struct PrefilterTextures {
+pub struct IntermediateTextures {
     pub environment_map: CachedTexture,
 }
 
-/// Prepares textures needed for prefiltering
-pub fn prepare_prefilter_textures(
+/// Prepares textures needed for single pass downsampling
+pub fn prepare_intermediate_textures(
     light_probes: Query<Entity, With<RenderEnvironmentMap>>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
@@ -405,7 +408,7 @@ pub fn prepare_prefilter_textures(
         let environment_map = texture_cache.get(
             &render_device,
             TextureDescriptor {
-                label: Some("prefilter_environment_map"),
+                label: Some("intermediate_environment_map"),
                 size: Extent3d {
                     width: 512,
                     height: 512,
@@ -424,7 +427,7 @@ pub fn prepare_prefilter_textures(
 
         commands
             .entity(entity)
-            .insert(PrefilterTextures { environment_map });
+            .insert(IntermediateTextures { environment_map });
     }
 }
 
@@ -437,41 +440,45 @@ pub struct SpdConstants {
     _padding: u32,
 }
 
-/// Constants for prefiltering
+/// Constants for filtering
 #[derive(Clone, Copy, ShaderType)]
 #[repr(C)]
-pub struct PrefilterConstants {
+pub struct FilteringConstants {
     mip_level: f32,
     sample_count: u32,
     roughness: f32,
     blue_noise_size: Vec2,
 }
 
-/// Stores bind groups for the prefiltering process
+/// Stores bind groups for the environment map generation pipelines
 #[derive(Component)]
-pub struct PrefilterBindGroups {
+pub struct GeneratorBindGroups {
     pub spd: BindGroup,
     pub radiance: Vec<BindGroup>, // One per mip level
     pub irradiance: BindGroup,
 }
 
-/// Prepares bind groups for prefiltering
-pub fn prepare_prefilter_bind_groups(
+/// Prepares bind groups for environment map generation pipelines
+pub fn prepare_generator_bind_groups(
     light_probes: Query<
-        (Entity, &PrefilterTextures, &RenderEnvironmentMap),
+        (Entity, &IntermediateTextures, &RenderEnvironmentMap),
         With<RenderEnvironmentMap>,
     >,
     render_device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    layouts: Res<PrefilterBindGroupLayouts>,
-    samplers: Res<PrefilterSamplers>,
+    layouts: Res<GeneratorBindGroupLayouts>,
+    samplers: Res<GeneratorSamplers>,
     render_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
     // Get blue noise texture
-    let blue_noise_texture = render_images
-        .get(&atmosphere::shaders::BLUENOISE_TEXTURE)
-        .expect("Blue noise texture not loaded");
+    let sphere_cosine_weights = render_images
+        .get(&STBN_SPHERE)
+        .expect("Sphere cosine weights texture not loaded");
+
+    let vector2_uniform = render_images
+        .get(&STBN_VEC2)
+        .expect("Vector2 uniform texture not loaded");
 
     for (entity, textures, env_map_light) in &light_probes {
         // Create SPD bind group
@@ -571,13 +578,13 @@ pub fn prepare_prefilter_bind_groups(
                 128
             };
 
-            let radiance_constants = PrefilterConstants {
+            let radiance_constants = FilteringConstants {
                 mip_level: mip as f32,
                 sample_count,
                 roughness,
                 blue_noise_size: Vec2::new(
-                    blue_noise_texture.size.width as f32,
-                    blue_noise_texture.size.height as f32,
+                    vector2_uniform.size.width as f32,
+                    vector2_uniform.size.height as f32,
                 ),
             };
 
@@ -597,7 +604,7 @@ pub fn prepare_prefilter_bind_groups(
                     (1, &samplers.linear),
                     (2, &mip_storage_view),
                     (3, &radiance_constants_buffer),
-                    (4, &blue_noise_texture.texture_view),
+                    (4, &vector2_uniform.texture_view),
                 )),
             );
 
@@ -605,13 +612,13 @@ pub fn prepare_prefilter_bind_groups(
         }
 
         // Create irradiance bind group
-        let irradiance_constants = PrefilterConstants {
+        let irradiance_constants = FilteringConstants {
             mip_level: 0.0,
             sample_count: 64,
             roughness: 1.0,
             blue_noise_size: Vec2::new(
-                blue_noise_texture.size.width as f32,
-                blue_noise_texture.size.height as f32,
+                sphere_cosine_weights.size.width as f32,
+                sphere_cosine_weights.size.height as f32,
             ),
         };
 
@@ -636,11 +643,11 @@ pub fn prepare_prefilter_bind_groups(
                 (1, &samplers.linear),
                 (2, &irradiance_map),
                 (3, &irradiance_constants_buffer),
-                (4, &blue_noise_texture.texture_view),
+                (4, &sphere_cosine_weights.texture_view),
             )),
         );
 
-        commands.entity(entity).insert(PrefilterBindGroups {
+        commands.entity(entity).insert(GeneratorBindGroups {
             spd: spd_bind_group,
             radiance: radiance_bind_groups,
             irradiance: irradiance_bind_group,
@@ -667,7 +674,7 @@ fn create_storage_view(texture: &Texture, mip: u32, _render_device: &RenderDevic
 pub struct SpdNode {
     query: QueryState<(
         Entity,
-        Read<PrefilterBindGroups>,
+        Read<GeneratorBindGroups>,
         Read<RenderEnvironmentMap>,
     )>,
 }
@@ -692,7 +699,7 @@ impl Node for SpdNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<PrefilterPipelines>();
+        let pipelines = world.resource::<GeneratorPipelines>();
 
         // First pass (mips 0-5)
         let Some(spd_first_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.spd_first)
@@ -708,7 +715,7 @@ impl Node for SpdNode {
 
         for (entity, bind_groups, env_map_light) in self.query.iter_manual(world) {
             // Copy original environment map to mip 0 of the intermediate environment map
-            let textures = world.get::<PrefilterTextures>(entity).unwrap();
+            let textures = world.get::<IntermediateTextures>(entity).unwrap();
 
             render_context.command_encoder().copy_texture_to_texture(
                 env_map_light.environment_map.texture.as_image_copy(),
@@ -764,7 +771,7 @@ impl Node for SpdNode {
 
 /// Radiance map node for generating specular environment maps
 pub struct RadianceMapNode {
-    query: QueryState<(Entity, Read<PrefilterBindGroups>)>,
+    query: QueryState<(Entity, Read<GeneratorBindGroups>)>,
 }
 
 impl FromWorld for RadianceMapNode {
@@ -787,7 +794,7 @@ impl Node for RadianceMapNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<PrefilterPipelines>();
+        let pipelines = world.resource::<GeneratorPipelines>();
 
         let Some(radiance_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.radiance)
         else {
@@ -824,7 +831,7 @@ impl Node for RadianceMapNode {
 
 /// Irradiance Convolution Node
 pub struct IrradianceMapNode {
-    query: QueryState<(Entity, Read<PrefilterBindGroups>)>,
+    query: QueryState<(Entity, Read<GeneratorBindGroups>)>,
 }
 
 impl FromWorld for IrradianceMapNode {
@@ -847,7 +854,7 @@ impl Node for IrradianceMapNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<PrefilterPipelines>();
+        let pipelines = world.resource::<GeneratorPipelines>();
 
         let Some(irradiance_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.irradiance)
         else {
@@ -874,11 +881,11 @@ impl Node for IrradianceMapNode {
     }
 }
 
-/// System that creates an `EnvironmentMapLight` component from the prefiltered textures
-pub fn create_environment_map_from_prefilter(
+/// System that generates an `EnvironmentMapLight` component based on the `GeneratedEnvironmentMapLight` component
+pub fn generate_environment_map_light(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    query: Query<(Entity, &FilteredEnvironmentMapLight), Without<EnvironmentMapLight>>,
+    query: Query<(Entity, &GeneratedEnvironmentMapLight), Without<EnvironmentMapLight>>,
 ) {
     for (entity, filtered_env_map) in &query {
         // Create a placeholder for the irradiance map
