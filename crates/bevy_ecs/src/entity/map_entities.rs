@@ -3,7 +3,6 @@ use indexmap::IndexSet;
 
 use crate::{
     entity::{hash_map::EntityHashMap, Entity},
-    identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
 
@@ -229,11 +228,9 @@ impl EntityMapper for SceneEntityMapper<'_> {
         // this new entity reference is specifically designed to never represent any living entity
         let new = Entity::from_raw_and_generation(
             self.dead_start.row(),
-            IdentifierMask::inc_masked_high_by(self.dead_start.generation, self.generations),
+            self.dead_start.generation.after_versions(self.generations),
         );
-
-        // Prevent generations counter from being a greater value than HIGH_MASK.
-        self.generations = (self.generations + 1) & HIGH_MASK;
+        self.generations = self.generations.wrapping_add(1);
 
         self.map.insert(source, new);
 
