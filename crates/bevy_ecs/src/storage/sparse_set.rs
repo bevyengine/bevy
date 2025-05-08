@@ -7,7 +7,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, panic::Location};
-use nonmax::NonMaxUsize;
+use nonmax::{NonMaxU32, NonMaxUsize};
 
 #[derive(Debug)]
 pub(crate) struct SparseArray<I, V = I> {
@@ -176,12 +176,18 @@ impl ComponentSparseSet {
             let dense_index = self.dense.len();
             self.dense
                 .push(value, ComponentTicks::new(change_tick), caller);
-            self.sparse
-                .insert(entity.row(), TableRow::from_usize(dense_index));
+
+            // SAFETY: This entity row does not exist here yet, so there are no duplicates,
+            // and the entity index can not be the max, so the length must not be max either.
+            // To do so would have caused a panic in the entity alloxator.
+            let table_row =
+                unsafe { TableRow::from_u32(NonMaxU32::new_unchecked(dense_index as u32)) };
+
+            self.sparse.insert(entity.row(), table_row);
             #[cfg(debug_assertions)]
             assert_eq!(self.entities.len(), dense_index);
             #[cfg(not(debug_assertions))]
-            self.entities.push(entity.index());
+            self.entities.push(entity.row());
             #[cfg(debug_assertions)]
             self.entities.push(entity);
         }
@@ -201,7 +207,7 @@ impl ComponentSparseSet {
             }
         }
         #[cfg(not(debug_assertions))]
-        self.sparse.contains(entity.index())
+        self.sparse.contains(entity.row())
     }
 
     /// Returns a reference to the entity's component value.

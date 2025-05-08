@@ -606,8 +606,8 @@ impl Archetype {
 
     /// Gets the total number of entities that belong to the archetype.
     #[inline]
-    pub fn len(&self) -> usize {
-        self.entities.len()
+    pub fn len(&self) -> u32 {
+        self.entities.len() as u32
     }
 
     /// Checks if the archetype has any entities.

@@ -518,7 +518,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 ///         match spawn_details.spawned_by().into_option() {
 ///             Some(location) => println!(" by {:?}", location),
 ///             None => println!()
-///         }    
+///         }
 ///     }
 /// }
 ///
@@ -1617,11 +1617,15 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         let table_data = Some((
-            column.get_data_slice(table.entity_count()).into(),
-            column.get_added_ticks_slice(table.entity_count()).into(),
-            column.get_changed_ticks_slice(table.entity_count()).into(),
+            column.get_data_slice(table.entity_count() as usize).into(),
             column
-                .get_changed_by_slice(table.entity_count())
+                .get_added_ticks_slice(table.entity_count() as usize)
+                .into(),
+            column
+                .get_changed_ticks_slice(table.entity_count() as usize)
+                .into(),
+            column
+                .get_changed_by_slice(table.entity_count() as usize)
                 .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -1812,11 +1816,15 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         let table_data = Some((
-            column.get_data_slice(table.entity_count()).into(),
-            column.get_added_ticks_slice(table.entity_count()).into(),
-            column.get_changed_ticks_slice(table.entity_count()).into(),
+            column.get_data_slice(table.entity_count() as usize).into(),
             column
-                .get_changed_by_slice(table.entity_count())
+                .get_added_ticks_slice(table.entity_count() as usize)
+                .into(),
+            column
+                .get_changed_ticks_slice(table.entity_count() as usize)
+                .into(),
+            column
+                .get_changed_by_slice(table.entity_count() as usize)
                 .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
