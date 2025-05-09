@@ -63,7 +63,6 @@ uuid = { version = "1.13.1", default-features = false, features = [
   "serde",
 ] }
 tracing = { version = "0.1", default-features = false }
-itertools = { version = "0.14.0", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
