@@ -240,7 +240,7 @@ impl ViewNode for BloomNode {
 
         // Upsample passes except the final one
         for mip in (1..bloom_texture.mip_count).rev() {
-            let bind_group_mip = bloom_texture.mip_count - mip - 1;
+            let bind_group_mip = mip;
 
             let resource_meta = bloom_texture.get_resource_meta(entity, mip - 1);
             let bind_group_mip_resource_meta =
