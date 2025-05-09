@@ -280,15 +280,6 @@ impl Enum for DynamicEnum {
             DynamicVariant::Struct(..) => VariantType::Struct,
         }
     }
-
-    fn clone_dynamic(&self) -> DynamicEnum {
-        Self {
-            represented_type: self.represented_type,
-            variant_index: self.variant_index,
-            variant_name: self.variant_name.clone(),
-            variant: self.variant.clone(),
-        }
-    }
 }
 
 impl PartialReflect for DynamicEnum {
