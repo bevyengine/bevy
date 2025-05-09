@@ -103,7 +103,6 @@ impl ViewNode for BloomNode {
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
-        // &'static BloomBindGroups,
         &'static DynamicUniformIndex<BloomUniforms>,
         &'static Bloom,
         &'static UpsamplingPipelineIds,
@@ -115,13 +114,12 @@ impl ViewNode for BloomNode {
     // instead we write into our own bloom texture and then directly back onto main.
     fn run<'w>(
         &self,
-        _graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext,
         frame_graph: &mut FrameGraph,
         (
             camera,
             view_target,
             bloom_texture,
-            // _bind_groups,
             uniform_index,
             bloom_settings,
             upsampling_pipeline_ids,
@@ -133,6 +131,7 @@ impl ViewNode for BloomNode {
             return Ok(());
         }
 
+        let entity = graph.view_entity();
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let upsampling_pipeline_res = world.resource::<BloomUpsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -153,7 +152,7 @@ impl ViewNode for BloomNode {
 
         // First downsample pass
         {
-            let resource_meta = bloom_texture.get_resource_meta(0);
+            let resource_meta = bloom_texture.get_resource_meta(entity, 0);
 
             let bloom_texture_handle =
                 frame_graph.get_or_create(&resource_meta.key, resource_meta.desc);
@@ -193,8 +192,8 @@ impl ViewNode for BloomNode {
         for mip in 1..bloom_texture.mip_count {
             let bind_group_mip = mip - 1;
 
-            let resource_meta = bloom_texture.get_resource_meta(mip);
-            let bind_group_resource_meta = bloom_texture.get_resource_meta(bind_group_mip);
+            let resource_meta = bloom_texture.get_resource_meta(entity, mip);
+            let bind_group_resource_meta = bloom_texture.get_resource_meta(entity, bind_group_mip);
 
             let bind_group_bloom_texture_handle = frame_graph
                 .get_or_create(&bind_group_resource_meta.key, bind_group_resource_meta.desc);
@@ -243,8 +242,9 @@ impl ViewNode for BloomNode {
         for mip in (1..bloom_texture.mip_count).rev() {
             let bind_group_mip = bloom_texture.mip_count - mip - 1;
 
-            let resource_meta = bloom_texture.get_resource_meta(mip - 1);
-            let bind_group_mip_resource_meta = bloom_texture.get_resource_meta(bind_group_mip);
+            let resource_meta = bloom_texture.get_resource_meta(entity, mip - 1);
+            let bind_group_mip_resource_meta =
+                bloom_texture.get_resource_meta(entity, bind_group_mip);
 
             let bloom_texture_handle =
                 frame_graph.get_or_create(&resource_meta.key, resource_meta.desc);
@@ -304,7 +304,7 @@ impl ViewNode for BloomNode {
         {
             let mip = bloom_texture.mip_count - 1;
 
-            let resource_meta = bloom_texture.get_resource_meta(mip);
+            let resource_meta = bloom_texture.get_resource_meta(entity, mip);
 
             let bloom_texture_handle =
                 frame_graph.get_or_create(&resource_meta.key, resource_meta.desc);
@@ -396,8 +396,12 @@ impl BloomTexture {
         not(target_arch = "wasm32"),
         feature = "webgpu"
     ))]
-    pub fn get_resource_meta(&self, _base_mip_level: u32) -> ResourceMeta<FrameGraphTexture> {
-        let key = format!("{}", Self::BLOOM_TEXTURE_KEY);
+    pub fn get_resource_meta(
+        &self,
+        entity: Entity,
+        _base_mip_level: u32,
+    ) -> ResourceMeta<FrameGraphTexture> {
+        let key = format!("{}_{}", Self::BLOOM_TEXTURE_KEY, entity);
         ResourceMeta {
             key,
             desc: self.texture_info.clone(),

@@ -20,20 +20,24 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    frame_graph::FrameGraph,
-    render_asset::RenderAssetUsages,
+    frame_graph::{
+        ColorAttachmentDrawing, FrameGraph, FrameGraphTexture, GraphResourceNodeHandle,
+        RenderPassBuilder, SamplerInfo, TextureViewDrawing, TextureViewInfo,
+    },
+    render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
-        ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, PipelineCache,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, Operations,
+        PipelineCache, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
+        Shader, ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
         TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderDevice, RenderQueue},
+    texture::GpuImage,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -132,9 +136,9 @@ pub struct PostProcessingPipeline {
     /// The layout of bind group 0, containing the source, LUT, and settings.
     bind_group_layout: BindGroupLayout,
     /// Specifies how to sample the source framebuffer texture.
-    source_sampler: Sampler,
+    source_sampler_info: SamplerInfo,
     /// Specifies how to sample the chromatic aberration gradient.
-    chromatic_aberration_lut_sampler: Sampler,
+    chromatic_aberration_lut_sampler_info: SamplerInfo,
 }
 
 /// A key that uniquely identifies a built-in postprocessing pipeline.
@@ -170,7 +174,7 @@ pub struct ChromaticAberrationUniform {
 /// [`ChromaticAberrationUniform`]s for each view.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct PostProcessingUniformBuffers {
-    chromatic_aberration: DynamicUniformBuffer<ChromaticAberrationUniform>,
+    pub(crate) chromatic_aberration: DynamicUniformBuffer<ChromaticAberrationUniform>,
 }
 
 /// A component, part of the render world, that stores the appropriate byte
@@ -302,24 +306,24 @@ impl FromWorld for PostProcessingPipeline {
         // Both source and chromatic aberration LUTs should be sampled
         // bilinearly.
 
-        let source_sampler = render_device.create_sampler(&SamplerDescriptor {
+        let source_sampler_info = SamplerInfo {
             mipmap_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             ..default()
-        });
+        };
 
-        let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
+        let chromatic_aberration_lut_sampler_info = SamplerInfo {
             mipmap_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             ..default()
-        });
+        };
 
         PostProcessingPipeline {
             bind_group_layout,
-            source_sampler,
-            chromatic_aberration_lut_sampler,
+            source_sampler_info,
+            chromatic_aberration_lut_sampler_info,
         }
     }
 }
@@ -362,10 +366,74 @@ impl ViewNode for PostProcessingNode {
     fn run<'w>(
         &self,
         _: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
-        (_view_target, _pipeline_id, _chromatic_aberration, _post_processing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
-        _world: &'w World,
+        frame_graph: &mut FrameGraph,
+        (
+            view_target,
+            pipeline_id,
+            chromatic_aberration,
+            post_processing_uniform_buffer_offsets,
+        ): QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let post_processing_pipeline = world.resource::<PostProcessingPipeline>();
+        let post_processing_uniform_buffers = world.resource::<PostProcessingUniformBuffers>();
+        let gpu_image_assets = world.resource::<RenderAssets<GpuImage>>();
+
+        // We need a render pipeline to be prepared.
+        let Some(_) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
+            return Ok(());
+        };
+
+        // We need the chromatic aberration LUT to be present.
+        let Some(_) = gpu_image_assets.get(&chromatic_aberration.color_lut) else {
+            return Ok(());
+        };
+
+        // We need the postprocessing settings to be uploaded to the GPU.
+        let Some(_) = post_processing_uniform_buffers
+            .chromatic_aberration
+            .buffer()
+        else {
+            return Ok(());
+        };
+
+        let post_process = view_target.post_process_write();
+
+        let destination = frame_graph.get(post_process.destination)?;
+        let source: GraphResourceNodeHandle<FrameGraphTexture> =
+            frame_graph.get(post_process.source)?;
+
+        let mut pass_node_builder = frame_graph.create_pass_node_bulder("postprocessing pass");
+
+        let destination = pass_node_builder.read(destination);
+
+        let bind_group = pass_node_builder
+            .create_bind_group_drawing_builder(
+                Some("postprocessing bind group".into()),
+                post_processing_pipeline.bind_group_layout.clone(),
+            )
+            .push_bind_group_entry(&source)
+            .push_bind_group_entry(&post_processing_pipeline.source_sampler_info)
+            .push_bind_group_entry(&post_processing_pipeline.chromatic_aberration_lut_sampler_info)
+            .push_bind_group_entry(&post_processing_uniform_buffers.chromatic_aberration)
+            .build();
+
+        let mut builder = RenderPassBuilder::new(pass_node_builder);
+
+        builder
+            .add_color_attachment(ColorAttachmentDrawing {
+                view: TextureViewDrawing {
+                    texture: destination,
+                    desc: TextureViewInfo::default(),
+                },
+                resolve_target: None,
+                ops: Operations::default(),
+            })
+            .set_render_pipeline(**pipeline_id)
+            .set_bind_group(0, bind_group, &[**post_processing_uniform_buffer_offsets])
+            .draw(0..3, 0..1);
+
         Ok(())
     }
 }
