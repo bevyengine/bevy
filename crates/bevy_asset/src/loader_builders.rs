@@ -2,8 +2,8 @@
 //! [`LoadContext::loader`].
 
 use crate::{
-    io::Reader, meta::Settings, Asset, AssetLoadError, AssetPath, AssetPathSettings,
-    ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext, LoadDirectError, LoadedAsset,
+    io::Reader, meta::Settings, Asset, AssetLoadError, AssetPath, ErasedAssetLoader,
+    ErasedLoadedAsset, ErasedSettings, Handle, LoadContext, LoadDirectError, LoadedAsset,
     LoadedUntypedAsset, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
@@ -116,7 +116,7 @@ impl ReaderRef<'_> {
 /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
 pub struct NestedLoader<'ctx, 'builder, T, M> {
     load_context: &'builder mut LoadContext<'ctx>,
-    settings: Option<AssetPathSettings>,
+    settings: Option<ErasedSettings>,
     typing: T,
     mode: M,
 }
@@ -181,7 +181,7 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
     /// and the asset load will fail.
     #[must_use]
     pub fn with_settings<S: Settings + serde::Serialize>(mut self, settings: S) -> Self {
-        self.settings = Some(AssetPathSettings::new(settings));
+        self.settings = Some(ErasedSettings::new(settings));
         self
     }
 
@@ -285,7 +285,7 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     /// [`with_dynamic_type`]: Self::with_dynamic_type
     /// [`with_unknown_type`]: Self::with_unknown_type
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
-        let path = path.into().with_settings_2(self.settings).to_owned();
+        let path = path.into().with_erased_settings(self.settings).to_owned();
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
@@ -309,7 +309,7 @@ impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
     ///
     /// [`with_dynamic_type`]: Self::with_dynamic_type
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> UntypedHandle {
-        let path = path.into().with_settings_2(self.settings).to_owned();
+        let path = path.into().with_erased_settings(self.settings).to_owned();
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
@@ -330,7 +330,7 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
     ///
     /// This will infer the asset type from metadata.
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> Handle<LoadedUntypedAsset> {
-        let path = path.into().with_settings_2(self.settings).to_owned();
+        let path = path.into().with_erased_settings(self.settings).to_owned();
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server

@@ -19,58 +19,58 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 #[derive(Eq, PartialEq, Hash, Copy, Clone)]
-pub struct AssetPathSettingsId {
+pub struct ErasedSettingsId {
     // XXX TODO: Unclear if we want type id? Does make debugging a bit easier.
     type_id: TypeId,
     hash: u64,
 }
 
-impl Display for AssetPathSettingsId {
+impl Display for ErasedSettingsId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // XXX TODO: Reconsider formatting. Also we're using Debug for type_id...
         write!(f, "{:?}/{}", self.type_id, self.hash)
     }
 }
 
-pub struct AssetPathSettings {
+pub struct ErasedSettings {
     pub value: Box<dyn Settings>,
-    pub id: AssetPathSettingsId,
+    pub id: ErasedSettingsId,
 }
 
-impl AssetPathSettings {
-    pub fn new<S: Settings + Serialize>(settings: S) -> AssetPathSettings {
+impl ErasedSettings {
+    pub fn new<S: Settings + Serialize>(settings: S) -> ErasedSettings {
         // XXX TODO: Serializing to string is probably not the right solution.
         let string = ron::ser::to_string(&settings).unwrap(); // XXX TODO: Avoid unwrap.
 
         // XXX TODO: What's the appropriate hasher?
         // XXX TODO: Should we hash the type id as well?
-        let id = AssetPathSettingsId {
+        let id = ErasedSettingsId {
             type_id: TypeId::of::<S>(),
             hash: FixedHasher.hash_one(&string),
         };
 
-        AssetPathSettings {
+        ErasedSettings {
             value: Box::new(settings),
             id,
         }
     }
 }
 
-impl Hash for AssetPathSettings {
+impl Hash for ErasedSettings {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
 
-impl PartialEq for AssetPathSettings {
+impl PartialEq for ErasedSettings {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl Eq for AssetPathSettings {}
+impl Eq for ErasedSettings {}
 
-impl Display for AssetPathSettings {
+impl Display for ErasedSettings {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.id.fmt(f)
     }
@@ -122,7 +122,7 @@ pub struct AssetPath<'a> {
     label: Option<CowArc<'a, str>>,
     // XXX TODO: This is an Arc for now to simplify the implementation. Should
     // consider changing to CowArc.
-    settings: Option<Arc<AssetPathSettings>>,
+    settings: Option<Arc<ErasedSettings>>,
 }
 
 impl<'a> Debug for AssetPath<'a> {
@@ -141,7 +141,7 @@ impl<'a> Display for AssetPath<'a> {
             write!(f, "#{label}")?;
         }
         // XXX TODO: This might need a rethink as I'm not sure if the output
-        // needs to be parseable. Also see comments on AssetPathSettingsId::fmt.
+        // needs to be parseable. Also see comments on ErasedSettingsId::fmt.
         if let Some(settings) = &self.settings {
             write!(f, " (settings: {settings})")?;
         }
@@ -332,7 +332,7 @@ impl<'a> AssetPath<'a> {
 
     /// XXX TODO: Docs.
     #[inline]
-    pub fn settings(&self) -> Option<&AssetPathSettings> {
+    pub fn settings(&self) -> Option<&ErasedSettings> {
         self.settings.as_deref()
     }
 
@@ -389,13 +389,12 @@ impl<'a> AssetPath<'a> {
             source: self.source,
             path: self.path,
             label: self.label,
-            settings: Some(Arc::new(AssetPathSettings::new(settings))),
+            settings: Some(Arc::new(ErasedSettings::new(settings))),
         }
     }
 
-    // XXX TODO: Ugly duplication.
     #[inline]
-    pub fn with_settings_2(self, settings: Option<AssetPathSettings>) -> AssetPath<'a> {
+    pub fn with_erased_settings(self, settings: Option<ErasedSettings>) -> AssetPath<'a> {
         AssetPath {
             source: self.source,
             path: self.path,
