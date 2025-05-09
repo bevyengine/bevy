@@ -276,7 +276,6 @@ pub unsafe trait SystemParam: Sized {
     /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    /// - All `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
     #[expect(
         unused_variables,
         reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
@@ -296,7 +295,6 @@ pub unsafe trait SystemParam: Sized {
     /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
     ///   in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    /// - All `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
