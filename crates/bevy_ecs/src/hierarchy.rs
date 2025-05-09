@@ -614,7 +614,7 @@ mod tests {
 
         let mut entity_world_mut = world.spawn_empty();
 
-        let first_children = entity_world_mut.insert_children(0, &[child1, child2]);
+        let first_children = entity_world_mut.add_children(&[child1, child2]);
 
         let root = first_children.insert_children(1, &[child3, child4]).id();
 
@@ -628,6 +628,43 @@ mod tests {
                     Node::new(child3),
                     Node::new(child4),
                     Node::new(child2)
+                ]
+            )
+        );
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/19134
+    #[test]
+    fn insert_children_index_bound() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+        let child4 = world.spawn_empty().id();
+
+        let mut entity_world_mut = world.spawn_empty();
+
+        let first_children = entity_world_mut.add_children(&[child1, child2]).id();
+        let hierarchy = get_hierarchy(&world, first_children);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(first_children, vec![Node::new(child1), Node::new(child2)])
+        );
+
+        let root = world
+            .entity_mut(first_children)
+            .insert_children(usize::MAX, &[child3, child4])
+            .id();
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(
+                root,
+                vec![
+                    Node::new(child1),
+                    Node::new(child2),
+                    Node::new(child3),
+                    Node::new(child4),
                 ]
             )
         );
