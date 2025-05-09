@@ -232,7 +232,7 @@ impl ComponentSparseSet {
     #[inline]
     fn extend_buffer_by_1(&mut self) {
         self.buffer_len += 1;
-        if self.buffer_capacity >= self.buffer_len {
+        if self.buffer_capacity < self.buffer_len {
             self.realoc_buffer();
         }
     }
