@@ -18,6 +18,8 @@ impl bevy_app::Plugin for ClipboardPlugin {
 }
 
 /// Contents of the clipboard.
+///
+/// Depending on the platform, the contents may be available immediately or fetched asynchronously.
 #[derive(Debug)]
 pub enum ClipboardContents {
     /// The clipboard contents are ready to be accessed.
