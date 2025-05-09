@@ -1,14 +1,14 @@
 use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
-    entity::Entity,
+    entity::{Entity, EntityGeneration},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, mem::ManuallyDrop, panic::Location};
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZeroUsize, panic::Location};
 use nonmax::{NonMaxU32, NonMaxUsize};
 
-use super::{blob_vec::BlobVec, thin_array_ptr::ThinArrayPtr, TableRow};
+use super::ThinColumn;
 
 #[derive(Debug)]
 pub(crate) struct SparseArray<I, V = I> {
@@ -110,21 +110,54 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
+#[repr(transparent)]
+pub(crate) struct SparseSetRow(NonMaxU32);
+
+impl SparseSetRow {
+    /// Index indicating an invalid archetype row.
+    /// This is meant to be used as a placeholder.
+    pub const INVALID: SparseSetRow = SparseSetRow(NonMaxU32::MAX);
+
+    /// Creates a `SparseSetRow`.
+    #[inline]
+    pub const fn new(index: NonMaxU32) -> Self {
+        Self(index)
+    }
+
+    /// Gets the index of the row.
+    #[inline]
+    pub const fn index(self) -> usize {
+        self.0.get() as usize
+    }
+
+    /// Gets the index of the row.
+    #[inline]
+    pub const fn index_u32(self) -> u32 {
+        self.0.get()
+    }
+}
+
 /// A sparse data structure of [`Component`](crate::component::Component)s.
 ///
 /// Designed for relatively fast insertions and deletions.
 pub struct ComponentSparseSet {
     /// This maps [`EntityRow`] to a [`TableRow`], an index in [`data`](Self::data).
-    entity_to_row: Vec<Option<TableRow>>,
+    entity_to_row: Vec<Option<(SparseSetRow, EntityGeneration)>>,
     /// The rows that are free in [`data`](Self::data).
-    free_rows: Vec<TableRow>,
-    /// This stores the data and length information.
-    /// This is effectively a `Vec<MaybeUninit<MyComponent>>`, but it stores the layout and drop for `MyComponent`.
-    /// So, this needs to be manually dropped.
-    data: ManuallyDrop<BlobVec>,
-    added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    ///
+    /// # Safety
+    ///
+    /// These must be valid indecies into all the data and change detection lists.
+    free_rows: Vec<SparseSetRow>,
+    /// The length of the column buffer.
+    buffer_len: usize,
+    /// The capacity of the column buffer.
+    buffer_capacity: usize,
+    /// This is effectively a `Vec<MaybeUninit<MyComponent>>`, but it has the layout and drop for `MyComponent`.
+    /// So, this needs it's drop to be temporarily disabled when dropping uninit data.
+    column: ThinColumn,
 }
 
 impl ComponentSparseSet {
@@ -134,13 +167,9 @@ impl ComponentSparseSet {
         Self {
             entity_to_row: Vec::new(),
             free_rows: Vec::new(),
-            // SAFETY: Drop is correct.
-            data: ManuallyDrop::new(unsafe {
-                BlobVec::new(component_info.layout(), component_info.drop(), capacity)
-            }),
-            added_ticks: ThinArrayPtr::with_capacity(capacity),
-            changed_ticks: ThinArrayPtr::with_capacity(capacity),
-            changed_by: MaybeLocation::new_with(|| ThinArrayPtr::with_capacity(capacity)),
+            column: ThinColumn::with_capacity(component_info, capacity),
+            buffer_len: 0,
+            buffer_capacity: 0,
         }
     }
 
@@ -149,11 +178,63 @@ impl ComponentSparseSet {
 
     /// Returns the number of component values in the sparse set.
     #[inline]
-    pub fn len(&self) -> u32 {}
+    pub fn len(&self) -> u32 {
+        // There can't be more than u32::MAX entities, so the length is always less than that.
+        (self.buffer_len - self.free_rows.len()) as u32
+    }
 
     /// Returns `true` if the sparse set contains no component values.
     #[inline]
-    pub fn is_empty(&self) -> bool {}
+    pub fn is_empty(&self) -> bool {
+        self.buffer_len == self.free_rows.len()
+    }
+
+    #[inline]
+    fn get_row_of(&self, entity: Entity) -> Option<SparseSetRow> {
+        self.entity_to_row
+            .get(entity.index() as usize)
+            .copied()
+            .flatten()
+            .and_then(|(row, generation)| (entity.generation() == generation).then_some(row))
+    }
+
+    #[inline]
+    fn set_row_of(&mut self, entity: Entity, row: SparseSetRow) {
+        self.entity_to_row.resize(
+            self.entity_to_row.len().max((entity.index() + 1) as usize),
+            None,
+        );
+        // SAFETY: We just resized
+        unsafe {
+            *self
+                .entity_to_row
+                .get_unchecked_mut(entity.index() as usize) = Some((row, entity.generation()));
+        }
+    }
+
+    /// Reserves `additional` elements worth of capacity within the column buffer.
+    #[inline]
+    fn reserve_buffer(&mut self, additional: usize) {
+        if self.buffer_len + additional <= self.buffer_capacity {
+            return;
+        }
+        let new_capacity = self.buffer_capacity * 2;
+
+        if self.buffer_capacity == 0 {
+            // SAFETY: the current capacity is 0
+            unsafe { self.column.alloc(NonZeroUsize::new_unchecked(new_capacity)) };
+        } else {
+            // SAFETY:
+            // - `column_cap` is indeed the columns' capacity
+            unsafe {
+                self.column.realloc(
+                    NonZeroUsize::new_unchecked(self.buffer_capacity),
+                    NonZeroUsize::new_unchecked(new_capacity),
+                );
+            };
+        }
+        self.buffer_capacity = new_capacity;
+    }
 
     /// Inserts the `entity` key and component `value` pair into this sparse
     /// set.
@@ -167,7 +248,47 @@ impl ComponentSparseSet {
         value: OwningPtr<'_>,
         change_tick: Tick,
         caller: MaybeLocation,
-    ) {
+    ) -> SparseSetRow {
+        match self
+            .entity_to_row
+            .get(entity.index() as usize)
+            .copied()
+            .flatten()
+        {
+            Some((row, generation)) => {
+                debug_assert_eq!(generation, entity.generation(), "An entity is being inserted into a sparse set, but the sparse set, still has an earlier generation of the entity!");
+                // SAFETY: Caller ensures value is correct, row is in bounds,
+                // the current value was initialized and present.
+                unsafe {
+                    self.column.replace(row.index(), value, change_tick, caller);
+                }
+                row
+            }
+            None => {
+                if let Some(row) = self.free_rows.pop() {
+                    self.set_row_of(entity, row);
+                    // SAFETY: Caller ensures value is correct, free_rows ensures the row is in bound,
+                    // and the previous value at the row was already dropped.
+                    unsafe {
+                        self.column
+                            .initialize(row.index(), value, change_tick, caller);
+                    }
+                    row
+                } else {
+                    let idx = self.buffer_len as u32;
+                    // SAFETY: There are never more than u32::MAX entity rows and this row was not present.
+                    let row = unsafe { SparseSetRow::new(NonMaxU32::new_unchecked(idx)) };
+                    self.set_row_of(entity, row);
+                    self.reserve_buffer(1);
+                    // SAFETY: Caller ensures value is correct, and we just made the row in bounds.
+                    unsafe {
+                        self.column
+                            .initialize(row.index(), value, change_tick, caller);
+                    }
+                    row
+                }
+            }
+        }
     }
 
     /// Returns `true` if the sparse set has a component value for the provided `entity`.

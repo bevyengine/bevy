@@ -237,7 +237,10 @@ impl Table {
                 // - `row` != `last_element_index`
                 // - the `len` is kept within `self.entities`, it will update accordingly.
                 unsafe {
-                    col.swap_remove_and_drop_unchecked_nonoverlapping(last_element_index, row);
+                    col.swap_remove_and_drop_unchecked_nonoverlapping(
+                        last_element_index,
+                        row.as_usize(),
+                    );
                 };
             }
         } else {
@@ -275,10 +278,15 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
+                new_column.initialize_from_unchecked(
+                    column,
+                    last_element_index,
+                    row.as_usize(),
+                    new_row.as_usize(),
+                );
             } else {
                 // It's the caller's responsibility to drop these cases.
-                column.swap_remove_and_forget_unchecked(last_element_index, row);
+                column.swap_remove_and_forget_unchecked(last_element_index, row.as_usize());
             }
         }
         TableMoveResult {
@@ -308,9 +316,14 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
+                new_column.initialize_from_unchecked(
+                    column,
+                    last_element_index,
+                    row.as_usize(),
+                    new_row.as_usize(),
+                );
             } else {
-                column.swap_remove_and_drop_unchecked(last_element_index, row);
+                column.swap_remove_and_drop_unchecked(last_element_index, row.as_usize());
             }
         }
         TableMoveResult {
@@ -343,7 +356,12 @@ impl Table {
             new_table
                 .get_column_mut(*component_id)
                 .debug_checked_unwrap()
-                .initialize_from_unchecked(column, last_element_index, row, new_row);
+                .initialize_from_unchecked(
+                    column,
+                    last_element_index,
+                    row.as_usize(),
+                    new_row.as_usize(),
+                );
         }
         TableMoveResult {
             new_row,
@@ -867,7 +885,7 @@ mod tests {
                 let value: W<TableRow> = W(row);
                 OwningPtr::make(value, |value_ptr| {
                     table.get_column_mut(component_id).unwrap().initialize(
-                        row,
+                        row.as_usize(),
                         value_ptr,
                         Tick::new(0),
                         MaybeLocation::caller(),
