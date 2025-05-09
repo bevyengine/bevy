@@ -230,12 +230,19 @@ impl ComponentSparseSet {
 
     /// Reserves `additional` elements worth of capacity within the column buffer.
     #[inline]
-    fn extend_buffer(&mut self, additional: usize) {
-        self.buffer_len += additional;
-        if self.buffer_len <= self.buffer_capacity {
-            return;
+    fn extend_buffer_by_1(&mut self) {
+        self.buffer_len += 1;
+        if self.buffer_capacity >= self.buffer_len {
+            self.realoc_buffer();
         }
+    }
 
+    /// Called when the length exceeds the buffer.
+    /// This is marked cold to help with branch prediction.
+    // TODO: Hint unlikely instead.
+    #[inline(always)]
+    #[cold]
+    fn realoc_buffer(&mut self) {
         if self.buffer_capacity == 0 {
             const STARTING_CAPACITY: usize = 256;
             // SAFETY: the current capacity is 0
@@ -245,10 +252,7 @@ impl ComponentSparseSet {
             }
             self.buffer_capacity = STARTING_CAPACITY;
         } else {
-            let mut new_capacity = self.buffer_capacity;
-            while self.buffer_len > new_capacity {
-                new_capacity *= 2;
-            }
+            let new_capacity = self.buffer_capacity * 2;
 
             // SAFETY:
             // - `column_cap` is indeed the columns' capacity
@@ -306,7 +310,7 @@ impl ComponentSparseSet {
                     // SAFETY: There are never more than u32::MAX entity rows and this row was not present.
                     let row = unsafe { SparseSetRow::new(NonMaxU32::new_unchecked(idx)) };
                     self.set_row_of(entity, row);
-                    self.extend_buffer(1);
+                    self.extend_buffer_by_1();
                     // SAFETY: Caller ensures value is correct, and we just made the row in bounds.
                     unsafe {
                         self.column
