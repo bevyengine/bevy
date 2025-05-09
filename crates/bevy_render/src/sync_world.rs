@@ -1,6 +1,6 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::{ComponentCloneBehavior, Mutable, StorageType};
+use bevy_ecs::component::{ComponentCloneBehavior, Mutable, NoKey, StorageType};
 use bevy_ecs::entity::EntityHash;
 use bevy_ecs::{
     component::Component,
@@ -140,6 +140,7 @@ impl Component for RenderEntity {
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     type Mutability = Mutable;
+    type Key = NoKey<Self>;
 
     fn clone_behavior() -> ComponentCloneBehavior {
         ComponentCloneBehavior::Ignore

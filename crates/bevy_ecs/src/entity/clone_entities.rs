@@ -323,13 +323,14 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// Here's an example of how to do it using [`clone_behavior`](Component::clone_behavior):
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::component::{StorageType, ComponentCloneBehavior, Mutable};
+/// # use bevy_ecs::component::{StorageType, ComponentCloneBehavior, Mutable, NoKey};
 /// #[derive(Clone)]
 /// struct SomeComponent;
 ///
 /// impl Component for SomeComponent {
 ///     const STORAGE_TYPE: StorageType = StorageType::Table;
 ///     type Mutability = Mutable;
+///     type Key = NoKey<Self>;
 ///     fn clone_behavior() -> ComponentCloneBehavior {
 ///         ComponentCloneBehavior::clone::<Self>()
 ///     }
@@ -1296,6 +1297,7 @@ mod tests {
         // SAFETY:
         // - No drop command is required
         // - The component will store [u8; COMPONENT_SIZE], which is Send + Sync
+        // - fragmenting_value_vtable is None
         let descriptor = unsafe {
             ComponentDescriptor::new_with_layout(
                 "DynamicComp",
@@ -1304,6 +1306,7 @@ mod tests {
                 None,
                 true,
                 ComponentCloneBehavior::Custom(test_handler),
+                None,
             )
         };
         let component_id = world.register_component_with_descriptor(descriptor);

@@ -5,10 +5,10 @@ use crate::{
     bundle::BundleInfo,
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},
     entity::{ComponentCloneCtx, Entity, EntityMapper, SourceComponent},
+    fragmenting_value::{FragmentingValue, FragmentingValueVtable},
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     resource::Resource,
-    shared_component::{SharedComponentKey, SuperKeyTrait},
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
@@ -487,7 +487,8 @@ pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
 
-    type Key: SuperKeyTrait<ValueType = Self>;
+    /// A type used to define the "component key" of this component. Currently can be set to [`NoKey`] or [`SelfKey`].
+    type Key: ComponentKey<ValueType = Self>;
 
     /// A marker type to assist Bevy with determining if this component is
     /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
@@ -564,6 +565,12 @@ pub trait Component: Send + Sync + 'static {
     /// Fields with `#[entities]` must implement [`MapEntities`](crate::entity::MapEntities).
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
+
+    /// Returns `true` if this component is a [`FragmentingValue`] component and its value can be used to fragment archetypes.
+    #[inline(always)]
+    fn is_fragmenting_value_component() -> bool {
+        TypeId::of::<<Self::Key as ComponentKey>::KeyType>() == TypeId::of::<Self>()
+    }
 }
 
 mod private {
@@ -620,6 +627,48 @@ impl private::Seal for Mutable {}
 impl ComponentMutability for Mutable {
     const MUTABLE: bool = true;
 }
+
+/// This trait defines a concept of "component key". Component keys are components that fragment archetype by value, also known as
+/// "fragmenting components". Right now the only supported keys are [`NoKey`] - default behavior, and [`SelfKey`] - the component
+/// itself acts as the fragmenting key. Defining other key as a component might be used in the future to define component groups.
+pub trait ComponentKey: private::Seal {
+    /// The value that will be used to fragment the archetypes.
+    type KeyType: FragmentingValue;
+    /// The component this key is set to. Currently used only for validation.
+    type ValueType: Component;
+    /// A `const` to assert values not enforceable by type system at compile time.
+    /// Sadly this doesn't work with `cargo check`, but it will still fail when running `cargo build`.
+    const INVARIANT_ASSERT: ();
+}
+
+/// This component doesn't have a fragmenting key. This is the default behavior.
+pub struct NoKey<C>(PhantomData<C>);
+
+impl<C> private::Seal for NoKey<C> {}
+impl<C: Component> ComponentKey for NoKey<C> {
+    type KeyType = ();
+    type ValueType = C;
+    const INVARIANT_ASSERT: () = ();
+}
+
+/// Select other component as the key of this component. Currently this doesn't do anything useful, but in the future it might be
+/// possible to define component groups by selecting common key component.
+pub struct OtherComponentKey<C, K>(PhantomData<(C, K)>);
+
+impl<C, K> private::Seal for OtherComponentKey<C, K> {}
+impl<C: Component, K: FragmentingValue + Component> ComponentKey for OtherComponentKey<C, K> {
+    type KeyType = K;
+    type ValueType = C;
+    const INVARIANT_ASSERT: () = {
+        if matches!(K::STORAGE_TYPE, StorageType::Table) {
+            panic!("Key component must not have Table storage type")
+        }
+    };
+}
+
+/// Set this component as the fragmenting key. This means every different value of this component (as defined by [`PartialEq::eq`])
+/// will exist only in it's own archetype.
+pub type SelfKey<C> = OtherComponentKey<C, C>;
 
 /// The storage used for a specific component type.
 ///
@@ -994,6 +1043,13 @@ impl ComponentInfo {
     pub fn required_components(&self) -> &RequiredComponents {
         &self.required_components
     }
+
+    /// Returns this component's [`FragmentingValueVtable`], which is used to fragment by component value.
+    ///
+    /// Will return `None` if this component isn't fragmenting by value.
+    pub fn value_component_vtable(&self) -> Option<&FragmentingValueVtable> {
+        self.descriptor.fragmenting_value_vtable.as_ref()
+    }
 }
 
 /// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
@@ -1072,6 +1128,7 @@ pub struct ComponentDescriptor {
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
     clone_behavior: ComponentCloneBehavior,
+    fragmenting_value_vtable: Option<FragmentingValueVtable>,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -1111,6 +1168,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
             clone_behavior: T::clone_behavior(),
+            fragmenting_value_vtable: FragmentingValueVtable::from_component::<T>(),
         }
     }
 
@@ -1119,6 +1177,10 @@ impl ComponentDescriptor {
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
+    /// - If `fragmenting_value_vtable` is not `None`:
+    ///     - It must be usable on a pointer with a value of the layout `layout`
+    ///     - mutable should be `false`
+    ///     - storage type must not be `StorageType::Table`
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
@@ -1126,6 +1188,7 @@ impl ComponentDescriptor {
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
         clone_behavior: ComponentCloneBehavior,
+        fragmenting_value_vtable: Option<FragmentingValueVtable>,
     ) -> Self {
         Self {
             name: name.into(),
@@ -1136,6 +1199,7 @@ impl ComponentDescriptor {
             drop,
             mutable,
             clone_behavior,
+            fragmenting_value_vtable,
         }
     }
 
@@ -1154,6 +1218,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
+            fragmenting_value_vtable: None,
         }
     }
 
@@ -1167,6 +1232,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
+            fragmenting_value_vtable: None,
         }
     }
 
@@ -1725,7 +1791,7 @@ impl<'w> ComponentsRegistrator<'w> {
         &mut self,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId {
-        let type_id = TypeId::of::<<T::Key as SuperKeyTrait>::RegisterComponent>();
+        let type_id = TypeId::of::<T>();
         if let Some(id) = self.indices.get(&type_id) {
             return *id;
         }
@@ -1764,7 +1830,7 @@ impl<'w> ComponentsRegistrator<'w> {
         unsafe {
             self.register_component_inner(id, ComponentDescriptor::new::<T>());
         }
-        let type_id = TypeId::of::<<T::Key as SuperKeyTrait>::RegisterComponent>();
+        let type_id = TypeId::of::<T>();
         let prev = self.indices.insert(type_id, id);
         debug_assert!(prev.is_none());
 

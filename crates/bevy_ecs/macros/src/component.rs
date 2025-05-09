@@ -258,6 +258,34 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
+    let key = if let Some(key) = attrs.key {
+        // This check exists only to show better errors earlier and is not used for checking correctness,
+        // so it's okay for it to not work in 100% of cases.
+        if let Type::Path(type_path) = &key {
+            if let Some(ident) = type_path.path.get_ident() {
+                let ident = ident.to_string();
+                if (ident == "Self" || *struct_name == ident)
+                    && matches!(attrs.storage, StorageTy::Table)
+                {
+                    return syn::Error::new(
+                        ast.span(),
+                        "Component key must not have Table storage type.",
+                    )
+                    .into_compile_error()
+                    .into();
+                }
+            }
+            if !attrs.immutable {
+                return syn::Error::new(ast.span(), "Component key must be immutable.")
+                    .into_compile_error()
+                    .into();
+            }
+        }
+        quote! {#bevy_ecs_path::component::OtherComponentKey<Self, #key>}
+    } else {
+        quote! {#bevy_ecs_path::component::NoKey<Self>}
+    };
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
@@ -265,7 +293,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
-            type Key = #bevy_ecs_path::shared_component::NoKey<Self>;
+            type Key = #key;
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::ComponentsRegistrator,
@@ -397,6 +425,7 @@ pub const ON_REMOVE: &str = "on_remove";
 pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
+pub const KEY: &str = "key";
 
 /// All allowed attribute value expression kinds for component hooks
 #[derive(Debug)]
@@ -459,6 +488,7 @@ struct Attrs {
     relationship: Option<Relationship>,
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
+    key: Option<Type>,
 }
 
 #[derive(Clone, Copy)]
@@ -497,6 +527,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         relationship: None,
         relationship_target: None,
         immutable: false,
+        key: None,
     };
 
     let mut require_paths = HashSet::new();
@@ -531,6 +562,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;
+                    Ok(())
+                } else if nested.path.is_ident(KEY) {
+                    attrs.key = Some(nested.value()?.parse()?);
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
