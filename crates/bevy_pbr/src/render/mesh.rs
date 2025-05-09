@@ -1,6 +1,6 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
