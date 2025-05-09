@@ -227,7 +227,6 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
-            // The len is at least 1, so the subtraction is safe.
             let index = index.min(self.len());
             Vec::remove(self, current);
             self.insert(index, entity);
