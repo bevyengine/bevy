@@ -9,9 +9,7 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
     fmt::{Debug, Display},
     hash::Hash,
-    ops::Deref,
 };
-use itertools::Itertools;
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -365,7 +363,7 @@ impl<'a> AssetPath<'a> {
         if self.path.as_ref() == "/" || self.path.starts_with('#') || self.path.is_empty() {
             return None;
         }
-        let mut path: alloc::vec::Vec<_> = self.path_components().map(|s| s.to_string()).collect();
+        let mut path: Vec<_> = self.path_components().map(|s| s.to_string()).collect();
         path.pop();
         let path = path.join("/");
         Some(AssetPath {
