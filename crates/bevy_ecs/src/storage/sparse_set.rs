@@ -171,7 +171,26 @@ impl ComponentSparseSet {
     }
 
     /// Removes all of the values stored within.
-    pub(crate) fn clear(&mut self) {}
+    pub(crate) fn clear(&mut self) {
+        let Self {
+            entity_to_row,
+            free_rows,
+            buffer_len,
+            buffer_capacity: _,
+            column,
+        } = self;
+
+        if let Some(drop) = column.data.drop {
+            for row in entity_to_row.iter().filter_map(|row| row.map(|row| row.0)) {
+                // SAFETY: We have &mut and clearing all rows. This value will never be accessed again.
+                unsafe { drop(column.data.get_unchecked_mut(row.index()).promote()) }
+            }
+        }
+
+        free_rows.clear();
+        entity_to_row.clear();
+        *buffer_len = 0;
+    }
 
     /// Returns the number of component values in the sparse set.
     #[inline]
