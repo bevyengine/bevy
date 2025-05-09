@@ -190,6 +190,10 @@ impl SparseSetIndex for EntityRow {
 /// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityRow`].
 ///
 /// This should be treated as a opaque identifier, and it's internal representation may be subject to change.
+///
+/// Note that ordering doesn not nescesarily represent which generation is earlier than another, as aliasing can prevent this.
+/// Ordering should only be used to provide some form of determanism or algorithm.
+/// It should not be used to check if a generation is younger than another.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
@@ -231,6 +235,14 @@ impl EntityGeneration {
     pub const fn after_versions_and_could_alias(self, versions: u32) -> (Self, bool) {
         let raw = self.0.overflowing_add(versions);
         (Self(raw.0), raw.1)
+    }
+}
+
+impl Iterator for EntityGeneration {
+    type Item = Self;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.after_versions(1))
     }
 }
 
