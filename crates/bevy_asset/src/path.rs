@@ -638,7 +638,11 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
     fn from(path: &'a Path) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: CowArc::from(path.to_string_lossy().to_string()),
+            path: CowArc::from(
+                path.to_str()
+                    .expect("non unicode characters found in file path")
+                    .to_string(),
+            ),
             label: None,
         }
     }
@@ -649,7 +653,11 @@ impl From<PathBuf> for AssetPath<'static> {
     fn from(path: PathBuf) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: CowArc::from(path.to_string_lossy().to_string()),
+            path: CowArc::from(
+                path.to_str()
+                    .expect("non unicode characters found in file path")
+                    .to_string(),
+            ),
             label: None,
         }
     }
@@ -1077,5 +1085,25 @@ mod tests {
     fn test_trailing_slash_equality() {
         assert_eq!(AssetPath::from("a/b/"), AssetPath::from("a/b"));
         assert_eq!(AssetPath::from("a/b/#c"), AssetPath::from("a/b#c"));
+    }
+
+    #[test]
+    fn test_path_components() {
+        use alloc::vec;
+        use alloc::vec::Vec;
+
+        assert_eq!(
+            AssetPath::from("a/b/c")
+                .path_components()
+                .collect::<Vec<_>>(),
+            vec!["a", "b", "c"]
+        );
+
+        assert_eq!(
+            AssetPath::from("a/b/c/../d")
+                .path_components()
+                .collect::<Vec<_>>(),
+            vec!["a", "b", "c", "..", "d"]
+        );
     }
 }
