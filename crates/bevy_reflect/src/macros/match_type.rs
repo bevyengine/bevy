@@ -15,6 +15,17 @@
 /// <arm> :=
 ///     [ <binding> @ ] <pattern> [ where <cond> ] => <expr>
 ///
+/// <arm> :=
+///     [ <value_binding> @ ]                 // *optional* binding for the downcasted value
+///     <pattern>                             // type pattern to match
+///     [ `[` <types_binding> `]` ]           // *optional* type array
+///     [ where <cond> ]                      // *optional* guard
+///     => <expr>                             // expression or block to run on match
+///
+/// <value_binding> := IDENT | _      
+///
+/// <types_binding> := IDENT                                             
+///
 /// <binding> := IDENT | _                    // rename or ignore the downcast value
 ///
 /// <pattern> :=                              // determines the downcast method
@@ -42,8 +53,13 @@
 /// If the guard evaluates to `true`, the expression will be executed if the type matches.
 /// Otherwise, matching will continue to the next arm even if the type matches.
 ///
-/// # Examples
+/// If a `<types_binding>` is defined, this will be bound to a slice of [`Type`]s
+/// that were checked up to and including the current arm.
+/// This can be useful for debugging or logging purposes.
+/// Note that this list may contain duplicates if the same type is checked in multiple arms,
+/// such as when using `where` guards.
 ///
+/// # Examples
 ///
 /// ```
 /// # use bevy_reflect::macros::match_type;
@@ -63,8 +79,11 @@
 ///         // Define conditional guards
 ///         &String where value == "ping" => "pong".to_owned(),
 ///         &String => value.clone(),
-///         // Fallback case
-///         _ => "<unknown>".to_string(),
+///         // Fallback case with an optional type array
+///         _ [types] => {
+///             println!("Couldn't match any types: {:?}", types);
+///             "<unknown>".to_string()
+///         },
 ///     }
 /// }
 ///
@@ -77,6 +96,7 @@
 /// ```
 ///
 /// [`PartialReflect`]: crate::PartialReflect
+/// [`Type`]: crate::Type
 #[macro_export]
 macro_rules! match_type {
 
@@ -88,7 +108,7 @@ macro_rules! match_type {
         // cast to `dyn PartialReflect` or dereference manually
         use $crate::PartialReflect;
 
-        match_type!(@arm[$input] $($tt)*)
+        match_type!(@arm[[], $input] $($tt)*)
     }};
 
     // === Arm Parsing === //
@@ -99,43 +119,43 @@ macro_rules! match_type {
     // Additionally, most cases are comprised of both a terminal and non-terminal rule.
 
     // --- Empty Case --- //
-    {@arm [$input:ident $(as $binding:tt)?]} => {{}};
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?]} => {{}};
 
     // --- Custom Bindings --- //
-    {@arm [$input:ident $(as $binding:tt)?] $new_binding:tt @ $($tt:tt)+} => {
-        match_type!(@arm [$input as $new_binding] $($tt)+)
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] $new_binding:tt @ $($tt:tt)+} => {
+        match_type!(@arm [[$($tys),*], $input as $new_binding] $($tt)+)
     };
 
     // --- Fallback Case --- //
-    {@arm [$input:ident $(as $binding:tt)?] _ $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
-        match_type!(@else [$input $(as $binding)?, [$($condition)?], $action] $($tt)+)
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] _ $([$types:ident])? $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
+        match_type!(@else [[$($tys),*], $input $(as $binding)?, [$($types)?], [$($condition)?], $action] $($tt)+)
     };
-    {@arm [$input:ident $(as $binding:tt)?] _ $(where $condition:expr)? => $action:expr $(,)?} => {
-        match_type!(@else [$input $(as $binding)?, [$($condition)?], $action])
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] _ $([$types:ident])? $(where $condition:expr)? => $action:expr $(,)?} => {
+        match_type!(@else [[$($tys),*], $input $(as $binding)?, [$($types)?], [$($condition)?], $action])
     };
 
     // --- Mutable Downcast Case --- //
-    {@arm [$input:ident $(as $binding:tt)?] &mut $ty:ty $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
-        match_type!(@if [$input $(as $binding)?, mut, $ty, [$($condition)?], $action] $($tt)+)
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] &mut $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
+        match_type!(@if [[$($tys,)* &mut $ty], $input $(as $binding)?, mut, $ty, [$($types)?], [$($condition)?], $action] $($tt)+)
     };
-    {@arm [$input:ident $(as $binding:tt)?] &mut $ty:ty $(where $condition:expr)? => $action:expr $(,)?} => {
-        match_type!(@if [$input $(as $binding)?, mut, $ty, [$($condition)?], $action])
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] &mut $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr $(,)?} => {
+        match_type!(@if [[$($tys,)* &mut $ty], $input $(as $binding)?, mut, $ty, [$($types)?], [$($condition)?], $action])
     };
 
     // --- Immutable Downcast Case --- //
-    {@arm [$input:ident $(as $binding:tt)?] & $ty:ty $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
-        match_type!(@if [$input $(as $binding)?, ref, $ty, [$($condition)?], $action] $($tt)+)
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] & $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
+        match_type!(@if [[$($tys,)* &$ty], $input $(as $binding)?, ref, $ty, [$($types)?], [$($condition)?], $action] $($tt)+)
     };
-    {@arm [$input:ident $(as $binding:tt)?] & $ty:ty $(where $condition:expr)? => $action:expr $(,)?} => {
-        match_type!(@if [$input $(as $binding)?, ref, $ty, [$($condition)?], $action])
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] & $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr $(,)?} => {
+        match_type!(@if [[$($tys,)* &$ty], $input $(as $binding)?, ref, $ty, [$($types)?], [$($condition)?], $action])
     };
 
     // --- Owned Downcast Case --- //
-    {@arm [$input:ident $(as $binding:tt)?] $ty:ty $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
-        match_type!(@if [$input $(as $binding)?, box, $ty, [$($condition)?], $action] $($tt)+)
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
+        match_type!(@if [[$($tys,)* $ty], $input $(as $binding)?, box, $ty, [$($types)?], [$($condition)?], $action] $($tt)+)
     };
-    {@arm [$input:ident $(as $binding:tt)?] $ty:ty $(where $condition:expr)? => $action:expr $(,)?} => {
-        match_type!(@if [$input $(as $binding)?, box, $ty, [$($condition)?], $action])
+    {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr $(,)?} => {
+        match_type!(@if [[$($tys,)* $ty], $input $(as $binding)?, box, $ty, [$($types)?], [$($condition)?], $action])
     };
 
     // === Type Matching === //
@@ -148,9 +168,12 @@ macro_rules! match_type {
     // 6. The action to take if the downcast succeeds
 
     // This rule handles the owned downcast case
-    {@if [$input:ident $(as $binding:tt)?, box, $ty:ty, [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
+    {@if [[$($tys:ty),*], $input:ident $(as $binding:tt)?, box, $ty:ty, [$($types:ident)?], [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
         match match_type!(@downcast box, $ty, $input) {
-            Ok(match_type!(@bind [mut] $input $(as $binding)?)) $(if $condition)? => $action,
+            Ok(match_type!(@bind [mut] $input $(as $binding)?)) $(if $condition)? => {
+                match_type!(@collect [$($tys),*] $(as $types)?);
+                $action
+            },
             $input => {
                 // We have to rebind `$value` here so that we can unconditionally ignore it
                 // due to the fact that `unused_variables` seems to be the only lint that
@@ -164,32 +187,37 @@ macro_rules! match_type {
                     Err($input) => $input
                 };
 
-                match_type!(@arm [$input] $($rest)*)
+                match_type!(@arm [[$($tys),*], $input] $($rest)*)
             }
         }
     };
     // This rule handles the mutable and immutable downcast cases
-    {@if [$input:ident $(as $binding:tt)?, $kind:tt, $ty:ty, [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
+    {@if [[$($tys:ty),*], $input:ident $(as $binding:tt)?, $kind:tt, $ty:ty, [$($types:ident)?], [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
         match match_type!(@downcast $kind, $ty, $input) {
-            Some(match_type!(@bind [] $input $(as $binding)?)) $(if $condition)? => $action,
+            Some(match_type!(@bind [] $input $(as $binding)?)) $(if $condition)? => {
+                match_type!(@collect [$($tys),*] $(as $types)?);
+                $action
+            },
             _ => {
-                match_type!(@arm [$input] $($rest)*)
+                match_type!(@arm [[$($tys),*], $input] $($rest)*)
             }
         }
     };
 
     // This rule handles the fallback case where a condition has been provided
-    {@else [$input:ident $(as $binding:tt)?, [$condition:expr], $action:expr] $($rest:tt)*} => {{
+    {@else [[$($tys:ty),*], $input:ident $(as $binding:tt)?, [$($types:ident)?], [$condition:expr], $action:expr] $($rest:tt)*} => {{
+        match_type!(@collect [$($tys),*] $(as $types)?);
         let match_type!(@bind [mut] _ $(as $binding)?) = $input;
 
         if $condition {
             $action
         } else {
-            match_type!(@arm [$input] $($rest)*)
+            match_type!(@arm [[$($tys),*], $input] $($rest)*)
         }
     }};
     // This rule handles the fallback case where no condition has been provided
-    {@else [$input:ident $(as $binding:tt)?, [], $action:expr] $($rest:tt)*} => {{
+    {@else [[$($tys:ty),*], $input:ident $(as $binding:tt)?, [$($types:ident)?], [], $action:expr] $($rest:tt)*} => {{
+        match_type!(@collect [$($tys),*] $(as $types)?);
         let match_type!(@bind [mut] _ $(as $binding)?) = $input;
 
         $action
@@ -227,6 +255,14 @@ macro_rules! match_type {
     };
     {@bind [$($mut:tt)?] $input:tt as $binding:ident} => {
         $($mut)? $binding
+    };
+
+    // --- Collect Types --- //
+    // Helpers for collecting the types into an array of `Type`.
+
+    {@collect [$($ty:ty),*]} => {};
+    {@collect [$($tys:ty),*] as $types:ident} => {
+        let $types: &[$crate::Type] = &[$($crate::Type::of::<$tys>(),)*];
     };
 }
 
@@ -401,5 +437,48 @@ mod tests {
             (&str) => {},
             _ => panic!("unexpected type"),
         }
+    }
+
+    #[test]
+    fn should_capture_types() {
+        fn test(mut value: Box<dyn PartialReflect>) {
+            match_type! {value,
+                _ @ &mut u8 [types] => {
+                    assert_eq!(types.len(), 1);
+                    assert_eq!(types[0], Type::of::<&mut u8>());
+                },
+                _ @ &u16 [types] => {
+                    assert_eq!(types.len(), 2);
+                    assert_eq!(types[0], Type::of::<&mut u8>());
+                    assert_eq!(types[1], Type::of::<&u16>());
+                },
+                u32 [types] where value > 10  => {
+                    assert_eq!(types.len(), 3);
+                    assert_eq!(types[0], Type::of::<&mut u8>());
+                    assert_eq!(types[1], Type::of::<&u16>());
+                    assert_eq!(types[2], Type::of::<u32>());
+                },
+                _ @ u32 [types] => {
+                    assert_eq!(types.len(), 4);
+                    assert_eq!(types[0], Type::of::<&mut u8>());
+                    assert_eq!(types[1], Type::of::<&u16>());
+                    assert_eq!(types[2], Type::of::<u32>());
+                    assert_eq!(types[3], Type::of::<u32>());
+                },
+                _ [types] => {
+                    assert_eq!(types.len(), 4);
+                    assert_eq!(types[0], Type::of::<&mut u8>());
+                    assert_eq!(types[1], Type::of::<&u16>());
+                    assert_eq!(types[2], Type::of::<u32>());
+                    assert_eq!(types[3], Type::of::<u32>());
+                },
+            }
+        }
+
+        test(Box::new(0_u8));
+        test(Box::new(0_u16));
+        test(Box::new(123_u32));
+        test(Box::new(0_u32));
+        test(Box::new(0_u64));
     }
 }
