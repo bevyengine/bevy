@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
-use std::sync::Mutex;
+use bevy_platform::sync::Mutex;
 
 pub use clipboard::*;
 
