@@ -39,7 +39,12 @@ impl EmbeddedWatcher {
             root_paths,
             last_event: None,
         };
-        let watcher = new_asset_event_debouncer(root, debounce_wait_time, handler).unwrap();
+        let watcher = new_asset_event_debouncer(
+            root.to_string_lossy().to_string(),
+            debounce_wait_time,
+            handler,
+        )
+        .unwrap();
         Self { _watcher: watcher }
     }
 }
