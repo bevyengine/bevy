@@ -32,14 +32,21 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
         }
     }
 
-    pub fn push_bind_group_entry<T: BindingResourceHandleHelper>(mut self, value: &T) -> Self {
-        let bind_group_entry_ref = value.make_binding_resource_ref(self.pass_node_builder);
+    pub fn push_bind_group_resource_ref(
+        mut self,
+        bind_group_resource_ref: BindingResourceRef,
+    ) -> Self {
         self.entries.push(BindGroupEntryRef {
             binding: self.entries.len() as u32,
-            resource: bind_group_entry_ref,
+            resource: bind_group_resource_ref,
         });
 
         self
+    }
+
+    pub fn push_bind_group_entry<T: BindingResourceHandleHelper>(self, value: &T) -> Self {
+        let bind_group_resource_ref = value.make_binding_resource_ref(self.pass_node_builder);
+        self.push_bind_group_resource_ref(bind_group_resource_ref)
     }
 
     pub fn build(self) -> BindGroupDrawing {

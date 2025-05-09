@@ -42,6 +42,32 @@ impl BindingResourceHandleHelper for SamplerInfo {
     }
 }
 
+impl<'a> BindingResourceHandleHelper
+    for (
+        &'a GraphResourceNodeHandle<FrameGraphTexture>,
+        &'a TextureViewInfo,
+    )
+{
+    fn make_binding_resource_handle(&self, _frame_graph: &mut FrameGraph) -> BindingResourceHandle {
+        BindingResourceHandle::TextureView {
+            texture: self.0.clone(),
+            texture_view_info: self.1.clone(),
+        }
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        let texture = pass_node_builder.read(self.0.clone());
+
+        BindingResourceRef::TextureView {
+            texture,
+            texture_view_info: self.1.clone(),
+        }
+    }
+}
+
 impl BindingResourceHandleHelper for GraphResourceNodeHandle<FrameGraphTexture> {
     fn make_binding_resource_handle(&self, _frame_graph: &mut FrameGraph) -> BindingResourceHandle {
         BindingResourceHandle::TextureView {

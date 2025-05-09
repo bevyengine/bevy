@@ -6,6 +6,7 @@ pub mod sampler_info;
 pub mod texel_copy_texture_info;
 pub mod texture_view;
 pub mod compute_pass_info;
+pub mod resource_meta;
 
 pub use bind_group::*;
 pub use color_attachment::*;
@@ -15,6 +16,7 @@ pub use sampler_info::*;
 pub use texel_copy_texture_info::*;
 pub use texture_view::*;
 pub use compute_pass_info::*;
+pub use resource_meta::*;
 
 use crate::render_resource::{Buffer, Texture};
 
