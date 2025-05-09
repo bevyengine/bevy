@@ -16,7 +16,7 @@ pub(super) struct BlobVec {
     // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
     data: NonNull<u8>,
     // None if the underlying type doesn't need to be dropped
-    drop: Option<unsafe fn(OwningPtr<'_>)>,
+    pub drop: Option<unsafe fn(OwningPtr<'_>)>,
 }
 
 // We want to ignore the `drop` field in our `Debug` impl
@@ -185,6 +185,7 @@ impl BlobVec {
     }
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
+    /// This drops the replaced value.
     ///
     /// # Safety
     /// - index must be in-bounds
@@ -366,13 +367,6 @@ impl BlobVec {
         unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }
     }
 
-    /// Returns the drop function for values stored in the vector,
-    /// or `None` if they don't need to be dropped.
-    #[inline]
-    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.drop
-    }
-
     /// Clears the vector, removing (and dropping) all values.
     ///
     /// Note that this method has no effect on the allocated capacity of the vector.
@@ -398,11 +392,13 @@ impl BlobVec {
             }
         }
     }
-}
 
-impl Drop for BlobVec {
-    fn drop(&mut self) {
-        self.clear();
+    /// Deallocates this blob vec's memory without dropping it's contents.
+    ///
+    /// # Safety
+    ///
+    /// Any drop logic for the vec's contents, must be done before this.
+    pub(crate) unsafe fn dealloc(&mut self) {
         let array_layout =
             array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
         if array_layout.size() > 0 {
@@ -410,6 +406,16 @@ impl Drop for BlobVec {
             unsafe {
                 alloc::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
             }
+        }
+    }
+}
+
+impl Drop for BlobVec {
+    fn drop(&mut self) {
+        self.clear();
+        // SAFETY: Items have been cleared.
+        unsafe {
+            self.dealloc();
         }
     }
 }

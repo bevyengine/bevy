@@ -702,6 +702,6 @@ impl Column {
     /// or `None` if they don't need to be dropped.
     #[inline]
     pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.data.get_drop()
+        self.data.drop
     }
 }
