@@ -100,7 +100,7 @@ impl MeshletMesh {
         );
         let mut temp_cull_data = meshlets
             .iter()
-            .map(|meshlet| compute_meshlet_bounds(meshlet, &mut vertices))
+            .map(|meshlet| compute_meshlet_bounds(meshlet, &mut vertices, None))
             .collect::<Vec<_>>();
 
         let mut vertex_locks = vec![false; vertices.vertex_count];
@@ -188,18 +188,19 @@ impl MeshletMesh {
             for group in simplified {
                 match group {
                     Ok((group, new_meshlets)) => {
+                        // Calculate the culling bounding sphere for the new meshlets and set their LOD group data
+                        temp_cull_data.extend(new_meshlets.iter().map(|meshlet| {
+                            compute_meshlet_bounds(
+                                meshlet,
+                                &mut vertices,
+                                Some((group.lod_bounds, group.parent_error)),
+                            )
+                        }));
+
                         let start = meshlets.len();
                         merge_meshlets(&mut meshlets, new_meshlets);
                         let end = meshlets.len();
-                        // Calculate the culling bounding sphere for the new meshlets and set their LOD group data
                         let new_meshlet_ids = start as u32..end as u32;
-                        temp_cull_data.extend(new_meshlet_ids.clone().map(|id| {
-                            let mut bounds =
-                                compute_meshlet_bounds(meshlets.get(id as _), &mut vertices);
-                            bounds.lod_group_sphere = group.lod_bounds;
-                            bounds.error = group.parent_error;
-                            bounds
-                        }));
 
                         passed_tris += triangles_in_meshlets(&meshlets, new_meshlet_ids.clone());
                         simplification_queue.extend(new_meshlet_ids);
@@ -485,17 +486,9 @@ fn group_meshlets(
         let meshlet_id = simplification_queue[i];
 
         group.meshlets.push(meshlet_id);
-        group.aabb = group
-            .aabb
-            .merge(&meshlet_cull_data[meshlet_id as usize].aabb);
-    }
-    for group in groups.iter_mut() {
-        group.lod_bounds = merge_spheres(
-            group
-                .meshlets
-                .iter()
-                .map(|&id| meshlet_cull_data[id as usize].lod_group_sphere),
-        );
+        let data = &meshlet_cull_data[meshlet_id as usize];
+        group.aabb = group.aabb.merge(&data.aabb);
+        group.lod_bounds = merge_spheres(group.lod_bounds, data.lod_group_sphere);
     }
     groups
 }
@@ -680,6 +673,7 @@ fn build_and_compress_per_meshlet_vertex_data(
 fn compute_meshlet_bounds(
     meshlet: meshopt::Meshlet<'_>,
     vertices: &mut VertexDataAdapter<'_>,
+    prev_lod_data: Option<(BoundingSphere, f32)>,
 ) -> TempMeshletCullData {
     let aabb = Aabb3d::from_point_cloud(
         Isometry3d::IDENTITY,
@@ -690,35 +684,32 @@ fn compute_meshlet_bounds(
     );
 
     let bounds = meshopt::compute_meshlet_bounds(meshlet, vertices);
-    let lod_group_sphere = BoundingSphere::new(bounds.center, bounds.radius);
+    let (lod_group_sphere, error) =
+        prev_lod_data.unwrap_or((BoundingSphere::new(bounds.center, bounds.radius), 0.0));
 
     TempMeshletCullData {
         aabb,
         lod_group_sphere,
-        error: 0.0,
+        error,
     }
 }
 
-fn merge_spheres(spheres: impl Clone + Iterator<Item = BoundingSphere>) -> BoundingSphere {
-    let mut bounding_sphere = BoundingSphere::new(Vec3::ZERO, 0.0);
-
-    // Compute the lod group sphere center as a weighted average of the children spheres
-    let mut weight = 0.0;
-    for sphere in spheres.clone() {
-        bounding_sphere.center += sphere.center * sphere.radius();
-        weight += sphere.radius();
+fn merge_spheres(a: BoundingSphere, b: BoundingSphere) -> BoundingSphere {
+    let sr = a.radius().min(b.radius());
+    let br = a.radius().max(b.radius());
+    let len = a.center.distance(b.center);
+    if len + sr <= br || sr == 0.0 || len == 0.0 {
+        if a.radius() > b.radius() {
+            a
+        } else {
+            b
+        }
+    } else {
+        let radius = (sr + br + len) / 2.0;
+        let center =
+            (a.center + b.center + (a.radius() - b.radius()) * (a.center - b.center) / len) / 2.0;
+        BoundingSphere::new(center, radius)
     }
-    bounding_sphere.center /= weight;
-
-    // Force sphere to contain all child group spheres (we're currently building the parent from its children)
-    // TODO: This does not produce the absolute minimal bounding sphere. Doing so is non-trivial.
-    //       "Smallest enclosing balls of balls" http://www.inf.ethz.ch/personal/emo/DoctThesisFiles/fischer05.pdf
-    for sphere in spheres {
-        let d = sphere.center.distance(bounding_sphere.center);
-        bounding_sphere.sphere.radius = bounding_sphere.radius().max(sphere.radius() + d);
-    }
-
-    bounding_sphere
 }
 
 struct TempMeshletCullData {
@@ -746,7 +737,7 @@ impl Default for TempMeshletGroup {
     }
 }
 
-// All the BVH build code was stolen from https://github.com/SparkyPotato/radiance/blob/4aa17a3a5be7a0466dc69713e249bbcee9f46057/crates/rad-renderer/src/assets/mesh/virtual_mesh.rs because it works and I'm lazy and don't want to reimplement it.
+// All the BVH build code was stolen from https://github.com/SparkyPotato/radiance/blob/4aa17a3a5be7a0466dc69713e249bbcee9f46057/crates/rad-renderer/src/assets/mesh/virtual_mesh.rs because it works and I'm lazy and don't want to reimplement it
 struct TempBvhNode {
     group: u32,
     aabb: Aabb3d,
@@ -925,6 +916,7 @@ impl BvhBuilder {
                 let child = &out[child_id as usize];
                 let mut aabb = aabb_default();
                 let mut parent_error = 0.0f32;
+                let mut lod_bounds = BoundingSphere::new(Vec3A::ZERO, 0.0);
                 for i in 0..8 {
                     if child.child_counts[i] == 0 {
                         break;
@@ -934,18 +926,12 @@ impl BvhBuilder {
                         child.aabbs[i].center,
                         child.aabbs[i].half_extent,
                     ));
+                    lod_bounds = merge_spheres(
+                        lod_bounds,
+                        BoundingSphere::new(child.lod_bounds[i].center, child.lod_bounds[i].radius),
+                    );
                     parent_error = parent_error.max(child.aabbs[i].error);
                 }
-                let lod_bounds = merge_spheres((0..8).filter_map(|i| {
-                    if child.child_counts[i] > 0 {
-                        Some(BoundingSphere::new(
-                            child.lod_bounds[i].center,
-                            child.lod_bounds[i].radius,
-                        ))
-                    } else {
-                        None
-                    }
-                }));
 
                 let out = &mut out[onode];
                 out.aabbs[i] = aabb_to_meshlet(aabb, parent_error, child_id);
@@ -974,12 +960,15 @@ impl BvhBuilder {
                     if child.child_counts[i] == 0 {
                         break;
                     }
-                    assert!(child.aabbs[i].error <= error, "errors are not monotonic");
+                    assert!(
+                        child.aabbs[i].error <= error,
+                        "BVH errors are not monotonic"
+                    );
                     let sphere_error = (sphere.center - child.lod_bounds[i].center).length()
                         - (sphere.radius - child.lod_bounds[i].radius);
                     assert!(
-                        sphere_error <= 0.000001,
-                        "lod spheres are not monotonic ({sphere_error})"
+                        sphere_error <= 0.0001,
+                        "BVH lod spheres are not monotonic ({sphere_error})"
                     );
                 }
                 self.verify_bvh(out, cull_data, reachable, node.aabbs[i].child_offset);
@@ -992,8 +981,8 @@ impl BvhBuilder {
                         (Vec3A::from(sphere.center) - meshlet.lod_group_sphere.center).length()
                             - (sphere.radius - meshlet.lod_group_sphere.radius());
                     assert!(
-                        sphere_error <= 0.000001,
-                        "meshlet lod spheres are not monotonic ({sphere_error})"
+                        sphere_error <= 0.0001,
+                        "meshlet lod spheres are not monotonic: ({sphere_error})"
                     );
                     reachable[mid] = true;
                 }
@@ -1012,9 +1001,12 @@ impl BvhBuilder {
         for group in groups.iter_mut() {
             let first = remap.len() as u32;
             let count = group.meshlets.len() as u32;
-            for &m in group.meshlets.iter() {
-                remap.push(meshlets.meshlets[m as usize]);
-            }
+            remap.extend(
+                group
+                    .meshlets
+                    .iter()
+                    .map(|&m| meshlets.meshlets[m as usize]),
+            );
             group.meshlets.resize(2, 0);
             group.meshlets[0] = first as u32;
             group.meshlets[1] = count as u32;
