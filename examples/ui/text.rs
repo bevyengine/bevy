@@ -4,6 +4,7 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
+    clipboard::Clipboard,
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
@@ -12,7 +13,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, clipboard_test))
         .add_systems(Update, (text_update_system, text_color_system))
         .run();
 }
@@ -24,6 +25,15 @@ struct FpsText;
 // Marker struct to help identify the color-changing Text component
 #[derive(Component)]
 struct AnimatedText;
+
+fn clipboard_test(mut clipboard: ResMut<Clipboard>) {
+    let text = clipboard.get_text().unwrap().poll();
+    info!("clipboard contents = {:?}", text);
+    info!("set clipboard text");
+    clipboard.set_text("Hello bevy!").unwrap();
+    let text = clipboard.get_text().unwrap().poll();
+    info!("clipboard contents = {:?}", text);
+}
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
