@@ -146,7 +146,7 @@ pub struct ComponentSparseSet {
     ///
     /// # Safety
     ///
-    /// These must be valid indecies into all the data and change detection lists.
+    /// These must be valid indices into all the data and change detection lists.
     free_rows: Vec<SparseSetRow>,
     /// The length of the column buffer.
     buffer_len: usize,
