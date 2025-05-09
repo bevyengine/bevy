@@ -150,10 +150,7 @@ impl ThinColumn {
     ) {
         self.data.initialize_unchecked(row.index(), data);
         *self.added_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
-        *self
-            .changed_ticks
-            .get_unchecked_mut(row.index())
-            .get_mut() = tick;
+        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
@@ -174,10 +171,7 @@ impl ThinColumn {
         caller: MaybeLocation,
     ) {
         self.data.replace_unchecked(row.index(), data);
-        *self
-            .changed_ticks
-            .get_unchecked_mut(row.index())
-            .get_mut() = change_tick;
+        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = change_tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
@@ -386,10 +380,7 @@ impl Column {
     ) {
         debug_assert!(row.index() < self.len());
         self.data.replace_unchecked(row.index(), data);
-        *self
-            .changed_ticks
-            .get_unchecked_mut(row.index())
-            .get_mut() = change_tick;
+        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = change_tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
