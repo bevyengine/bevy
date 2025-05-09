@@ -169,6 +169,7 @@ macro_rules! match_type {
 
     // This rule handles the owned downcast case
     {@if [[$($tys:ty),*], $input:ident $(as $binding:tt)?, box, $ty:ty, [$($types:ident)?], [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
+        #[allow(unused_parens, reason = "may be used for disambiguation")]
         match match_type!(@downcast box, $ty, $input) {
             Ok(match_type!(@bind [mut] $input $(as $binding)?)) $(if $condition)? => {
                 match_type!(@collect [$($tys),*] $(as $types)?);
@@ -193,6 +194,7 @@ macro_rules! match_type {
     };
     // This rule handles the mutable and immutable downcast cases
     {@if [[$($tys:ty),*], $input:ident $(as $binding:tt)?, $kind:tt, $ty:ty, [$($types:ident)?], [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
+        #[allow(unused_parens, reason = "may be used for disambiguation")]
         match match_type!(@downcast $kind, $ty, $input) {
             Some(match_type!(@bind [] $input $(as $binding)?)) $(if $condition)? => {
                 match_type!(@collect [$($tys),*] $(as $types)?);
