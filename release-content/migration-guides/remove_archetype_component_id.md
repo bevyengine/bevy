@@ -14,6 +14,7 @@ They are no longer necessary, so calls to them can be removed.
 If you were implementing the traits manually, move any logic from those methods into `System::validate_param_unsafe`, `System::run_unsafe`, `SystemParam::validate_param`, or `SystemParam::get_param`, which can no longer rely on `update_archetype_component_access` being called first.
 
 The following methods on `SystemState` have been deprecated:
+
 * `update_archetypes` - Remove calls, as they no longer do anything
 * `update_archetypes_unsafe_world_cell` - Remove calls, as they no longer do anything
 * `get_manual` - Replace with `get`, as there is no longer a difference
