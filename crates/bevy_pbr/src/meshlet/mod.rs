@@ -89,6 +89,8 @@ const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("d90ac78c-500f-48aa-b488-cc98eb3f6314");
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("db8d9001-6ca7-4d00-968a-d5f5b96b89c3");
+const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("69187376-3dea-4d0f-b3f5-185bde63d6a2");
 
 /// Provides a plugin for rendering large amounts of high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
 ///
@@ -166,7 +168,7 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            super::MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
+            MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
             "visibility_buffer_resolve.wgsl",
             Shader::from_wgsl
         );
