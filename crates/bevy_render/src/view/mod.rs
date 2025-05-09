@@ -830,7 +830,7 @@ impl ViewTarget {
 
             PostProcessWrite {
                 source: &self.main_textures.b.texture,
-                destination: &self.main_textures.b.texture,
+                destination: &self.main_textures.a.texture,
             }
         }
     }
@@ -1081,7 +1081,7 @@ pub fn prepare_view_targets(
         let a_key = ViewTarget::get_main_texture_a(entity);
         frame_graph.get_or_create(&a_key, descriptor.clone());
 
-        let b_key = ViewTarget::get_main_texture_a(entity);
+        let b_key = ViewTarget::get_main_texture_b(entity);
         frame_graph.get_or_create(&b_key, descriptor.clone());
 
         let mut sampled_key = None;

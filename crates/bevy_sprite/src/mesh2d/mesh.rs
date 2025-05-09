@@ -8,9 +8,7 @@ use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
 use bevy_core_pipeline::tonemapping::DebandDither;
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
-    tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
-    },
+    tonemapping::{get_lut_bind_group_layout_entries, get_lut_image, Tonemapping, TonemappingLuts},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
@@ -806,19 +804,18 @@ pub fn prepare_mesh2d_view_bind_groups(
     let globals_buffer_handle = globals_buffer.make_resource_handle(&mut frame_graph);
 
     for (entity, tonemapping) in &views {
-        let lut_bindings =
-            get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+        let lut_image = get_lut_image(&images, &tonemapping_luts, tonemapping, &fallback_image);
 
-        let lut_binding_texture_handle = lut_bindings.0.make_resource_handle(&mut frame_graph);
+        let lut_binding_texture_handle = lut_image.texture.make_resource_handle(&mut frame_graph);
 
         let view_bind_group = BindGroupHandle {
-            label: Some("mesh2d_view_bind_group1".into()),
+            label: Some("mesh2d_view_bind_group".into()),
             layout: mesh2d_pipeline.view_layout.clone(),
             entries: DynamicBindGroupEntryHandles::sequential((
                 (&view_binding_buffer_handle, view_binding_buffer_size),
                 &globals_buffer_handle,
                 &lut_binding_texture_handle,
-                lut_bindings.1,
+                &lut_image.sampler_info,
             ))
             .to_vec(),
         };

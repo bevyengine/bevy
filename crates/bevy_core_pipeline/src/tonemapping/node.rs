@@ -15,7 +15,7 @@ use bevy_render::{
     view::{ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
-use super::{get_lut_bindings, Tonemapping, TonemappingLuts, TonemappingPipeline};
+use super::{get_lut_image, Tonemapping, TonemappingLuts, TonemappingPipeline};
 
 #[derive(Default)]
 pub struct TonemappingNode {
@@ -44,8 +44,6 @@ impl ViewNode for TonemappingNode {
         let gpu_images = world.get_resource::<RenderAssets<GpuImage>>().unwrap();
         let fallback_image = world.resource::<FallbackImage>();
         let view_uniforms_resource = world.resource::<ViewUniforms>();
-        let view_uniforms = &view_uniforms_resource.uniforms;
-        let _view_uniforms_id = view_uniforms.buffer().unwrap().id();
 
         if *tonemapping == Tonemapping::None {
             return Ok(());
@@ -79,31 +77,30 @@ impl ViewNode for TonemappingNode {
 
         let tonemapping_luts = world.resource::<TonemappingLuts>();
 
-        let lut_bindings =
-            get_lut_bindings(gpu_images, tonemapping_luts, tonemapping, fallback_image);
+        let lut_image = get_lut_image(gpu_images, tonemapping_luts, tonemapping, fallback_image);
 
-        let mut pass_node_builder = frame_graph.create_pass_node_bulder("main_opaque_pass_2d");
+        let mut pass_node_builder = frame_graph.create_pass_node_bulder("tonemapping_pass");
 
         let bing_group = pass_node_builder
             .create_bind_group_drawing_builder(
                 None,
                 tonemapping_pipeline.texture_bind_group.clone(),
             )
-            .push_bind_group_entry(view_uniforms)
+            .push_bind_group_entry(&view_uniforms_resource.uniforms)
             .push_bind_group_entry(&source)
             .push_bind_group_entry(&tonemapping_pipeline.sampler_info)
-            .push_bind_group_entry(lut_bindings.0)
-            .push_bind_group_entry(lut_bindings.1)
+            .push_bind_group_entry(lut_image)
+            .push_bind_group_entry(&lut_image.sampler_info)
             .build();
 
-        let destination_read = pass_node_builder.read(destination);
+        let destination = pass_node_builder.read(destination);
 
         let mut builder = RenderPassBuilder::new(pass_node_builder);
 
         builder
             .add_color_attachment(ColorAttachmentDrawing {
                 view: TextureViewDrawing {
-                    texture: destination_read,
+                    texture: destination,
                     desc: TextureViewInfo::default(),
                 },
                 resolve_target: None,

@@ -6,7 +6,7 @@ use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
+        get_lut_bind_group_layout_entries, get_lut_image, DebandDither, Tonemapping,
         TonemappingLuts,
     },
 };
@@ -645,10 +645,9 @@ pub fn prepare_sprite_view_bind_groups(
     let view_binding_buffer_size = ViewUniform::min_size();
 
     for (entity, tonemapping) in &views {
-        let lut_bindings =
-            get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+        let lut_image = get_lut_image(&images, &tonemapping_luts, tonemapping, &fallback_image);
 
-        let lut_binding_texture_handle = lut_bindings.0.make_resource_handle(&mut frame_graph);
+        let lut_binding_texture_handle = lut_image.texture.make_resource_handle(&mut frame_graph);
 
         let view_bind_group = BindGroupHandle {
             label: Some("mesh2d_view_bind_group".into()),
@@ -656,7 +655,7 @@ pub fn prepare_sprite_view_bind_groups(
             entries: DynamicBindGroupEntryHandles::sequential((
                 (&view_binding_buffer_handle, view_binding_buffer_size),
                 &lut_binding_texture_handle,
-                lut_bindings.1,
+                &lut_image.sampler_info,
             ))
             .to_vec(),
         };

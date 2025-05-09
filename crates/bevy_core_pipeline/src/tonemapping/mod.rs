@@ -403,12 +403,12 @@ pub enum DebandDither {
     Enabled,
 }
 
-pub fn get_lut_bindings<'a>(
+pub fn get_lut_image<'a>(
     images: &'a RenderAssets<GpuImage>,
     tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
     fallback_image: &'a FallbackImage,
-) -> (&'a Texture, &'a SamplerInfo) {
+) -> &'a GpuImage {
     let image = match tonemapping {
         // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
         Tonemapping::None
@@ -421,7 +421,7 @@ pub fn get_lut_bindings<'a>(
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
     };
     let lut_image = images.get(image).unwrap_or(&fallback_image.d3);
-    (&lut_image.texture, &lut_image.sampler_info)
+    lut_image
 }
 
 
