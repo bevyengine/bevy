@@ -864,7 +864,7 @@ mod tests {
     #[test]
     fn run_system_invalid_params() {
         use crate::system::RegisteredSystemError;
-        use alloc::{format, string::ToString};
+        use alloc::string::ToString;
 
         struct T;
         impl Resource for T {}
