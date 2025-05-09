@@ -110,16 +110,13 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 }
 
+/// Represents the row of an [`Entity`] within a [`ComponentSparseSet`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 // SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
-pub(crate) struct SparseSetRow(NonMaxU32);
+pub struct SparseSetRow(NonMaxU32);
 
 impl SparseSetRow {
-    /// Index indicating an invalid archetype row.
-    /// This is meant to be used as a placeholder.
-    pub const INVALID: SparseSetRow = SparseSetRow(NonMaxU32::MAX);
-
     /// Creates a `SparseSetRow`.
     #[inline]
     pub const fn new(index: NonMaxU32) -> Self {
@@ -403,14 +400,62 @@ impl ComponentSparseSet {
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).
     #[must_use = "The returned pointer must be used to drop the removed component."]
-    pub(crate) fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {}
+    pub(crate) fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
+        self.get_row_of(entity).map(|row| {
+            self.free_rows.push(row);
+            // SAFETY: The entity row must be in bounds or it wouldn't have had a sparse set row.
+            unsafe {
+                *self
+                    .entity_to_row
+                    .get_unchecked_mut(entity.index() as usize) = None;
+            }
+            // SAFETY: row is correct. We just freed this row, so nothing will ever access this value again.
+            unsafe { self.column.data.get_unchecked_mut(row.index()).promote() }
+        })
+    }
 
     /// Removes (and drops) the entity's component value from the sparse set.
     ///
     /// Returns `true` if `entity` had a component value in the sparse set.
-    pub(crate) fn remove(&mut self, entity: Entity) -> bool {}
+    pub(crate) fn remove(&mut self, entity: Entity) -> bool {
+        let dropper = self.get_drop();
+        match self.remove_and_forget(entity) {
+            Some(to_drop) => {
+                if let Some(dropper) = dropper {
+                    // SAFETY: We have authority to drop this.
+                    unsafe { dropper(to_drop) }
+                }
+                true
+            }
+            None => false,
+        }
+    }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {}
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+        let Self {
+            entity_to_row,
+            free_rows: _,
+            buffer_len: _,
+            buffer_capacity: _,
+            column,
+        } = self;
+        for row in entity_to_row.iter().filter_map(|row| row.map(|row| row.0)) {
+            // SAFETY: We have &mut and the row is in bounds
+            unsafe {
+                column
+                    .added_ticks
+                    .get_unchecked_mut(row.index())
+                    .get_mut()
+                    .check_tick(change_tick);
+
+                column
+                    .changed_ticks
+                    .get_unchecked_mut(row.index())
+                    .get_mut()
+                    .check_tick(change_tick);
+            }
+        }
+    }
 }
 
 /// A data structure that blends dense and sparse storage
