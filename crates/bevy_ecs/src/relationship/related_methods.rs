@@ -6,6 +6,7 @@ use crate::{
     },
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
+    hierarchy::{ChildOf, Children}
 };
 use bevy_platform::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
@@ -305,12 +306,10 @@ impl<'w> EntityWorldMut<'w> {
     /// Despawns last entity that relate to this one via the given [`RelationshipTarget`].
     /// This entity will not be despawned.
     pub fn despawn_last_related<S: RelationshipTarget>(&mut self) -> &mut Self {
-        if let Some(sources) = self.take::<S>() {
+        if let Some(last_child) = self.get::<Children>().and_then(|c| c.iter().last()) {
             self.world_scope(|world| {
-                if let Some(entity) = sources.iter().last() {
-                    if let Ok(entity_mut) = world.get_entity_mut(entity) {
-                        entity_mut.despawn();
-                    }
+                if let Ok(entity_mut) = world.get_entity_mut(last_child) {
+                    entity_mut.despawn();
                 }
             })
         }
@@ -320,12 +319,10 @@ impl<'w> EntityWorldMut<'w> {
     /// Despawns first entity that relate to this one via the given [`RelationshipTarget`].
     /// This entity will not be despawned.
     pub fn despawn_first_related<S: RelationshipTarget>(&mut self) -> &mut Self {
-        if let Some(sources) = self.take::<S>() {
+        if let Some(first_child) = self.get::<Children>().and_then(|c| c.iter().next()) {
             self.world_scope(|world| {
-                if let Some(entity) = sources.iter().next() {
-                    if let Ok(entity_mut) = world.get_entity_mut(entity) {
-                        entity_mut.despawn();
-                    }
+                if let Ok(entity_mut) = world.get_entity_mut(first_child) {
+                    entity_mut.despawn();
                 }
             })
         }
@@ -333,13 +330,11 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Remove the last related entity via the given [`RelationshipTarget`]
-    pub fn pop_related<S: RelationshipTarget>(&mut self) -> &mut Self {
-        if let Some(sources) = self.take::<S>() {
+    pub fn pop_related(&mut self) -> &mut Self {
+        if let Some(last_child) = self.get::<Children>().and_then(|c| c.iter().last()) {
             self.world_scope(|world| {
-                if let Some(entity) = sources.iter().last() {
-                    if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-                        entity_mut.remove::<S>();
-                    }
+                if let Ok(mut entity_mut) = world.get_entity_mut(last_child) {
+                    entity_mut.remove::<ChildOf>();
                 }
             })
         }
@@ -457,9 +452,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Remove the last related entity via the given [`RelationshipTarget`]
-    pub fn pop_related<S: RelationshipTarget>(&mut self) -> &mut Self {
+    pub fn pop_related(&mut self) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| {
-            entity.pop_related::<S>();
+            entity.pop_related();
         })
     }
 
@@ -712,11 +707,11 @@ mod tests {
         let c = world.spawn(ChildOf(a)).id();
         let d = world.spawn(ChildOf(a)).id();
 
-        world.entity_mut(a).pop_related::<Children>();
+        world.entity_mut(a).pop_related();
 
         assert_eq!(world.entity(d).get::<ChildOf>(), None);
-        assert!(world.entity(b).get::<ChildOf>().is_some());
-        assert!(world.entity(c).get::<ChildOf>().is_some());
+        assert_eq!(world.entity(b).get::<ChildOf>().is_some(), true);
+        assert_eq!(world.entity(c).get::<ChildOf>().is_some(), true);
     }
 
     #[test]

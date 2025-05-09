@@ -327,7 +327,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Remove the relationship between this entity and its last child.
     pub fn pop_child(&mut self) -> &mut Self {
-        self.pop_related::<Children>()
+        self.pop_related()
     }
 
     /// Spawns the passed bundle and adds it to this entity as a child.
@@ -383,7 +383,7 @@ impl<'a> EntityCommands<'a> {
 
     /// Remove the relationship between this entity and its last child.
     pub fn pop_child(&mut self) -> &mut Self {
-        self.pop_related::<Children>()
+        self.pop_related()
     }
 
     /// Replaces the children on this entity with a new list of children.
@@ -675,10 +675,7 @@ mod tests {
         let root = root.id();
 
         let hierarchy = get_hierarchy(&world, root);
-        assert_eq!(
-            hierarchy,
-            Node::new_with(root, vec![Node::new(child1)])
-        );
+        assert_eq!(hierarchy, Node::new_with(root, vec![Node::new(child1)]));
     }
 
     #[test]
