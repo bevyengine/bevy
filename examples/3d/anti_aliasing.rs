@@ -370,6 +370,6 @@ fn uv_debug_texture() -> Image {
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
     );
-    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
+    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::nearest());
     img
 }
