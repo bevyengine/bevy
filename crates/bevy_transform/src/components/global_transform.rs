@@ -161,7 +161,7 @@ impl GlobalTransform {
     ///
     /// ```
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
-    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
+    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands, ChildOf};
     /// #[derive(Component)]
     /// struct ToReparent {
     ///     new_parent: Entity,
@@ -176,7 +176,7 @@ impl GlobalTransform {
     ///             *transform = initial.reparented_to(parent_transform);
     ///             commands.entity(entity)
     ///                 .remove::<ToReparent>()
-    ///                 .set_parent(to_reparent.new_parent);
+    ///                 .insert(ChildOf(to_reparent.new_parent));
     ///         }
     ///     }
     /// }
