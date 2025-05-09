@@ -1997,7 +1997,7 @@ pub fn queue_shadows<M: Material>(
 
                 let camera_layers = camera_layers.unwrap_or_default();
 
-                if !camera_layers.intersects(&mesh_layers) {
+                if !camera_layers.intersects(mesh_layers) {
                     continue;
                 }
 
