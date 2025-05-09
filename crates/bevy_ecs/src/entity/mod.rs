@@ -191,8 +191,8 @@ impl SparseSetIndex for EntityRow {
 ///
 /// This should be treated as a opaque identifier, and it's internal representation may be subject to change.
 ///
-/// Note that ordering doesn not nescesarily represent which generation is earlier than another, as aliasing can prevent this.
-/// Ordering should only be used to provide some form of determanism or algorithm.
+/// Note that ordering doesn not necessarily represent which generation is earlier than another, as aliasing can prevent this.
+/// Ordering should only be used to provide some form of determinism or algorithm.
 /// It should not be used to check if a generation is younger than another.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
