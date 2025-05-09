@@ -165,8 +165,8 @@ pub struct GltfPlugin {
 
 impl Default for GltfPlugin {
     fn default() -> Self {
-        GltfPlugin {
-            default_sampler: ImageSamplerDescriptor::anisotropic(),
+        Self {
+            default_sampler: ImageSamplerDescriptor::trilinear(),
             custom_vertex_attributes: HashMap::default(),
         }
     }
