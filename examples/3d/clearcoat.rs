@@ -26,6 +26,7 @@ use bevy::{
     math::vec3,
     prelude::*,
 };
+use bevy_asset::AssetPath;
 
 /// The size of each sphere.
 const SPHERE_SCALE: f32 = 0.9;
@@ -101,9 +102,13 @@ fn spawn_car_paint_sphere(
             MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
-                normal_map_texture: Some(asset_server.load_with_settings(
-                    "textures/BlueNoise-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+                normal_map_texture: Some(asset_server.load(
+                    AssetPath::from("textures/BlueNoise-Normal.png").with_settings(
+                        ImageLoaderSettings {
+                            is_srgb: false,
+                            ..Default::default()
+                        },
+                    ),
                 )),
                 metallic: 0.9,
                 perceptual_roughness: 0.5,
@@ -167,9 +172,13 @@ fn spawn_scratched_gold_ball(
             MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.3,
-                clearcoat_normal_texture: Some(asset_server.load_with_settings(
-                    "textures/ScratchedGold-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+                clearcoat_normal_texture: Some(asset_server.load(
+                    AssetPath::from("textures/ScratchedGold-Normal.png").with_settings(
+                        ImageLoaderSettings {
+                            is_srgb: false,
+                            ..Default::default()
+                        },
+                    ),
                 )),
                 metallic: 0.9,
                 perceptual_roughness: 0.1,

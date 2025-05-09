@@ -159,9 +159,7 @@ impl AssetLoader for CoolTextLoader {
         for (path, settings_override) in ron.dependencies_with_settings {
             let loaded = load_context
                 .loader()
-                .with_settings(move |settings| {
-                    *settings = settings_override.clone();
-                })
+                .with_settings(settings_override)
                 .immediate()
                 .load::<Text>(&path)
                 .await?;
