@@ -2,6 +2,9 @@
 
 extern crate alloc;
 
+use alloc::sync::Arc;
+use std::sync::Mutex;
+
 pub use clipboard::*;
 
 /// Clipboard plugin
@@ -14,36 +17,46 @@ impl bevy_app::Plugin for ClipboardPlugin {
     }
 }
 
+/// Contents of the clipboard.
+#[derive(Debug)]
+pub enum ClipboardContents {
+    /// The clipboard contents are ready to be accessed.
+    Ready(Result<String, ClipboardError>),
+    /// The clipboard contents are still being fetched.
+    Pending(Arc<Mutex<Option<Result<String, ClipboardError>>>>),
+}
+
+impl ClipboardContents {
+    /// Returns the contents of the clipboard if they are ready.
+    pub fn try_get(&self) -> Option<Result<String, ClipboardError>> {
+        match self {
+            ClipboardContents::Ready(result) => Some(result.clone()),
+            ClipboardContents::Pending(shared) => shared.lock().unwrap().clone(),
+        }
+    }
+}
+
 #[cfg(windows)]
 mod clipboard {
+    use crate::ClipboardContents;
     use crate::ClipboardError;
-
     use bevy_ecs::resource::Resource;
 
     /// Resource providing access to the clipboard
     #[derive(Resource, Default)]
     pub struct Clipboard;
-
-    pub struct ClipboardText(Option<String>);
-
-    impl ClipboardText {
-        pub fn poll(&mut self) -> Option<String> {
-            self.0.take()
-        }
-    }
-
     impl Clipboard {
         /// Fetches UTF-8 text from the clipboard and returns it.
         ///
         /// # Errors
         ///
         /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn get_text(&mut self) -> Result<ClipboardText, ClipboardError> {
-            arboard::Clipboard::new()
-                .and_then(|mut clipboard| {
-                    clipboard.get_text().map(|text| ClipboardText(Some(text)))
-                })
-                .map_err(ClipboardError::from)
+        pub fn get_text(&mut self) -> ClipboardContents {
+            ClipboardContents::Ready({
+                arboard::Clipboard::new()
+                    .and_then(|mut clipboard| clipboard.get_text())
+                    .map_err(ClipboardError::from)
+            })
         }
 
         /// Places the text onto the clipboard. Any valid UTF-8 string is accepted.
@@ -64,7 +77,8 @@ mod clipboard {
 
 #[cfg(unix)]
 mod clipboard {
-    use crate::ClipboardError;
+    use super::*;
+
     use bevy_ecs::resource::Resource;
 
     /// Resource providing access to the clipboard
@@ -77,29 +91,18 @@ mod clipboard {
         }
     }
 
-    pub struct ClipboardText(Option<String>);
-
-    impl ClipboardText {
-        pub fn poll(&mut self) -> Option<String> {
-            self.0.take()
-        }
-    }
-
     impl Clipboard {
         /// Fetches UTF-8 text from the clipboard and returns it.
         ///
         /// # Errors
         ///
         /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn get_text(&mut self) -> Result<ClipboardText, ClipboardError> {
-            if let Some(clipboard) = self.0.as_mut() {
-                clipboard
-                    .get_text()
-                    .and_then(|mut clipboard| clipboard.set_text(text))
-                    .map_err(ClipboardError::from)
+        pub fn get_text(&mut self) -> ClipboardContents {
+            ClipboardContents::Ready(if let Some(clipboard) = self.0.as_mut() {
+                clipboard.get_text().map_err(ClipboardError::from)
             } else {
                 Err(ClipboardError::ClipboardNotSupported)
-            }
+            })
         }
 
         /// Places the text onto the clipboard. Any valid UTF-8 string is accepted.
@@ -122,6 +125,7 @@ mod clipboard {
 
 #[cfg(target_arch = "wasm32")]
 mod clipboard {
+    use super::*;
     use crate::ClipboardError;
     use bevy_ecs::resource::Resource;
     use futures::task::noop_waker;
@@ -129,49 +133,35 @@ mod clipboard {
     use futures::task::Poll;
     use futures::FutureExt;
     use std::pin::Pin;
+    use std::sync::Arc;
+    use std::sync::Mutex;
     use wasm_bindgen_futures::JsFuture;
 
     /// Resource providing access to the clipboard
     #[derive(Resource, Default)]
     pub struct Clipboard;
 
-    pub struct ClipboardText(Option<JsFuture>);
-
-    fn poll_future<F: Future + Unpin>(fut: &mut F) -> Poll<F::Output> {
-        // create a dummy waker & context
-        let waker = noop_waker();
-        let mut cx = Context::from_waker(&waker);
-        // poll by mutable reference—doesn't consume the future
-        Pin::new(fut).poll(&mut cx)
-    }
-
-    impl ClipboardText {
-        pub fn poll(&mut self) -> Option<Result<String, ClipboardError>> {
-            let mut f = self.0.take().unwrap();
-
-            match poll_future(&mut f) {
-                Poll::Ready(Ok(js_val)) => {
-                    let text = js_val
-                        .as_string()
-                        .ok_or(ClipboardError::ContentNotAvailable);
-                    Some(text)
-                }
-                Poll::Ready(Err(_)) => Some(Err(ClipboardError::ContentNotAvailable)),
-                Poll::Pending => {
-                    // still pending, put it back
-                    self.0 = Some(f);
-                    None
-                }
-            }
-        }
-    }
-
     impl Clipboard {
-        pub fn get_text(&mut self) -> Result<ClipboardText, ClipboardError> {
+        /// Fetches UTF-8 text from the clipboard and returns it.
+        ///
+        /// # Errors
+        ///
+        /// Returns error if clipboard is empty or contents are not UTF-8 text.
+        pub fn get_text(&mut self) -> ClipboardContents {
             if let Some(clipboard) = web_sys::window().map(|w| w.navigator().clipboard()) {
-                Ok(ClipboardText(Some(JsFuture::from(clipboard.read_text()))))
+                let shared = Arc::new(Mutex::new(None));
+                let shared_clone = shared.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let text = JsFuture::from(clipboard.read_text()).await;
+                    let text = match text {
+                        Ok(text) => text.as_string().ok_or(ClipboardError::ConversionFailure),
+                        Err(_) => Err(ClipboardError::ContentNotAvailable),
+                    };
+                    shared.lock().unwrap().replace(text);
+                });
+                ClipboardContents::Pending(shared_clone)
             } else {
-                Err(ClipboardError::ClipboardNotSupported)
+                ClipboardContents::Ready(Err(ClipboardError::ClipboardNotSupported))
             }
         }
 
@@ -206,21 +196,13 @@ mod clipboard {
     #[derive(Resource, Default)]
     pub struct Clipboard;
 
-    pub struct ClipboardText;
-
-    impl ClipboardText {
-        pub fn poll(&self) -> Option<String> {
-            None
-        }
-    }
-
     impl Clipboard {
         /// Fetches UTF-8 text from the clipboard and returns it.
         ///
         /// # Errors
         ///
         /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn get_text(&mut self) -> Result<ClipboardText, ClipboardError> {
+        pub fn get_text(&mut self) -> Result<ClipboardContents, ClipboardError> {
             Err(ClipboardError::ClipboardNotSupported)
         }
 
@@ -246,7 +228,7 @@ mod clipboard {
 ///
 /// Copied from `arboard::Error`
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ClipboardError {
     /// The clipboard contents were not available in the requested format.
     /// This could either be due to the clipboard being empty or the clipboard contents having
