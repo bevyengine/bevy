@@ -20,7 +20,7 @@ If you were implementing a fallible system and had set `type Out = Result<T, Bev
 
 If you have a system function that returns `Result` or `!` and are not restricting the return type, you may get type inference failures like this:
 
-```
+```text
 error[E0283]: type annotations needed
     --> lib.rs:100:5
      |
