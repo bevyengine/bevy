@@ -121,7 +121,8 @@ pub struct AssetPath<'a> {
     path: CowArc<'a, Path>,
     label: Option<CowArc<'a, str>>,
     // XXX TODO: This is an Arc for now to simplify the implementation. Should
-    // consider changing to CowArc.
+    // consider changing to CowArc, although I'm not sure if that actually has
+    // any benefits.
     settings: Option<Arc<ErasedSettings>>,
 }
 
