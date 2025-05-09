@@ -155,6 +155,27 @@ impl<'a> AssetPath<'a> {
         })
     }
 
+    /// Normalizes a string-based path by collapsing all occurrences of '.' and '..' dot-segments where possible
+    /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+    fn normalize_path<'b>(path: &'b [&'b str]) -> Vec<&'b str> {
+        let mut result_path = Vec::new();
+        for &elt in path {
+            if elt == "." {
+                // Skip
+            } else if elt == ".." {
+                if result_path.is_empty() {
+                    // Preserve ".." if insufficient matches (per RFC 1808).
+                    result_path.push(elt);
+                } else {
+                    result_path.pop();
+                }
+            } else {
+                result_path.push(elt);
+            }
+        }
+        result_path
+    }
+
     // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and `AssetPath::label` components.
     fn parse_internal(
         asset_path: &str,
@@ -454,7 +475,7 @@ impl<'a> AssetPath<'a> {
             Ok(self.clone_owned().with_label(label.to_owned()))
         } else {
             let (source, rpath, rlabel) = AssetPath::parse_internal(path)?;
-            let mut base_path = PathBuf::from(self.path());
+            let mut base_path: Vec<_> = self.path_components().filter(|s| !s.is_empty()).collect();
             if replace && !self.path.ends_with('/') {
                 // No error if base is empty (per RFC 1808).
                 base_path.pop();
@@ -473,17 +494,17 @@ impl<'a> AssetPath<'a> {
             let mut result_path = if !is_absolute && source.is_none() {
                 base_path
             } else {
-                PathBuf::new()
+                Vec::new()
             };
-            result_path.push(rpath);
-            result_path = normalize_path(result_path.as_path());
+            result_path.extend(rpath.split("/").filter(|s| !s.is_empty()));
+            let result_path = Self::normalize_path(&result_path).join("/");
 
             Ok(AssetPath {
                 source: match source {
                     Some(source) => AssetSourceId::Name(CowArc::Owned(source.into())),
                     None => self.source.clone_owned(),
                 },
-                path: CowArc::new_owned_from_arc(result_path.to_string_lossy()),
+                path: CowArc::new_owned_from_arc(result_path),
                 label: rlabel.map(|l| CowArc::Owned(l.into())),
             })
         }
@@ -720,8 +741,6 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
 mod tests {
     use crate::AssetPath;
     use alloc::string::ToString;
-    use std::path::Path;
-
     #[test]
     fn parse_asset_path() {
         let result = AssetPath::parse_internal("a/b.test");
