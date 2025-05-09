@@ -103,7 +103,7 @@ derive_more = { version = "1", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1.11", default-features = false, optional = true }
-glam = { version = "0.30", default-features = false, features = [
+glam = { version = "0.30.1", default-features = false, features = [
   "serde",
 ], optional = true }
 petgraph = { version = "0.7", features = ["serde-1"], optional = true }
