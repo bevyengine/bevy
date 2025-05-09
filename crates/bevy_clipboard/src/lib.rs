@@ -28,7 +28,7 @@ pub enum ClipboardContents {
 
 impl ClipboardContents {
     /// Returns the contents of the clipboard if they are ready.
-    pub fn try_get(&self) -> Option<Result<String, ClipboardError>> {
+    pub fn get_or_poll(&self) -> Option<Result<String, ClipboardError>> {
         match self {
             ClipboardContents::Ready(result) => Some(result.clone()),
             ClipboardContents::Pending(shared) => shared.lock().unwrap().clone(),
@@ -45,13 +45,14 @@ mod clipboard {
     /// Resource providing access to the clipboard
     #[derive(Resource, Default)]
     pub struct Clipboard;
+
     impl Clipboard {
         /// Fetches UTF-8 text from the clipboard and returns it.
         ///
         /// # Errors
         ///
         /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn get_text(&mut self) -> ClipboardContents {
+        pub fn fetch_text(&mut self) -> ClipboardContents {
             ClipboardContents::Ready({
                 arboard::Clipboard::new()
                     .and_then(|mut clipboard| clipboard.get_text())
@@ -97,7 +98,7 @@ mod clipboard {
         /// # Errors
         ///
         /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn get_text(&mut self) -> ClipboardContents {
+        pub fn fetch_text(&mut self) -> ClipboardContents {
             ClipboardContents::Ready(if let Some(clipboard) = self.0.as_mut() {
                 clipboard.get_text().map_err(ClipboardError::from)
             } else {
@@ -147,7 +148,7 @@ mod clipboard {
         /// # Errors
         ///
         /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn get_text(&mut self) -> ClipboardContents {
+        pub fn fetch_text(&mut self) -> ClipboardContents {
             if let Some(clipboard) = web_sys::window().map(|w| w.navigator().clipboard()) {
                 let shared = Arc::new(Mutex::new(None));
                 let shared_clone = shared.clone();
@@ -202,7 +203,7 @@ mod clipboard {
         /// # Errors
         ///
         /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn get_text(&mut self) -> Result<ClipboardContents, ClipboardError> {
+        pub fn fetch_text(&mut self) -> Result<ClipboardContents, ClipboardError> {
             Err(ClipboardError::ClipboardNotSupported)
         }
 
