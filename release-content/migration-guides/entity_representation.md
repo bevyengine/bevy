@@ -58,7 +58,7 @@ Again, this is still subject to change, and serialized scenes may break between 
 
 ### Length Representation
 
-Because the maximum index of an entity is now `NonZeroU32::MAX`, the maximum number of entities (and length of unique entity row colections) is `u32::MAX`.
+Because the maximum index of an entity is now `NonZeroU32::MAX`, the maximum number of entities (and length of unique entity row collections) is `u32::MAX`.
 As a result, a lot of APIs that returned `usize` have been changed to `u32`.
 
 These include:
@@ -69,6 +69,8 @@ These include:
 ### Other kinds of entity rows
 
 Since the `EntityRow` is a `NonMaxU32`, `TableRow` and `ArchetypeRow` have been given the same treatment.
+They now wrap a `NonMaxU32`, allowing more performance optimizations.
+
 Additionally, they have been given new, standardized interfaces:
 
  - `fn new(NonMaxU32)`
