@@ -40,7 +40,6 @@ pub mod error;
 pub mod event;
 pub mod fragmenting_value;
 pub mod hierarchy;
-pub mod identifier;
 pub mod intern;
 pub mod label;
 pub mod name;
@@ -65,10 +64,6 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(
-        deprecated,
-        reason = "`crate::schedule::apply_deferred` is considered deprecated; however, it may still be used by crates which consume `bevy_ecs`, so its removal here may cause confusion. It is intended to be removed in the Bevy 0.17 cycle."
-    )]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -81,21 +76,21 @@ pub mod prelude {
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
         observer::{Observer, Trigger},
-        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs,
-            IntoSystemSet, Schedule, Schedules, SystemSet,
+            common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs, IntoSystemSet,
+            Schedule, Schedules, SystemSet,
         },
         spawn::{Spawn, SpawnRelated},
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction,
+            SystemParamFunction, When,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
@@ -153,7 +148,6 @@ mod tests {
     use core::{
         any::TypeId,
         marker::PhantomData,
-        num::NonZero,
         sync::atomic::{AtomicUsize, Ordering},
     };
     use std::sync::Mutex;
@@ -490,10 +484,9 @@ mod tests {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
@@ -511,10 +504,9 @@ mod tests {
             .par_iter(&world)
             .for_each(|(e, &SparseStored(i))| results.lock().unwrap().push((e, i)));
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
@@ -1544,8 +1536,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        let _ = query.get(&world_a, Entity::from_raw(0));
-        let _ = query.get(&world_b, Entity::from_raw(0));
+        let _ = query.get(&world_a, Entity::from_raw_u32(0).unwrap());
+        let _ = query.get(&world_b, Entity::from_raw_u32(0).unwrap());
     }
 
     #[test]
@@ -1699,97 +1691,6 @@ mod tests {
     }
 
     #[test]
-    fn insert_or_spawn_batch() {
-        let mut world = World::default();
-        let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
-
-        let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
-
-        #[expect(
-            deprecated,
-            reason = "This needs to be supported for now, and therefore still needs the test."
-        )]
-        world.insert_or_spawn_batch(values).unwrap();
-
-        assert_eq!(
-            world.get::<A>(e0),
-            Some(&A(0)),
-            "existing component was preserved"
-        );
-        assert_eq!(
-            world.get::<B>(e0),
-            Some(&B(0)),
-            "pre-existing entity received correct B component"
-        );
-        assert_eq!(
-            world.get::<B>(e1),
-            Some(&B(1)),
-            "new entity was spawned and received correct B component"
-        );
-        assert_eq!(
-            world.get::<C>(e0),
-            Some(&C),
-            "pre-existing entity received C component"
-        );
-        assert_eq!(
-            world.get::<C>(e1),
-            Some(&C),
-            "new entity was spawned and received C component"
-        );
-    }
-
-    #[test]
-    fn insert_or_spawn_batch_invalid() {
-        let mut world = World::default();
-        let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
-        let e2 = world.spawn_empty().id();
-        let invalid_e2 =
-            Entity::from_raw_and_generation(e2.index(), NonZero::<u32>::new(2).unwrap());
-
-        let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
-
-        #[expect(
-            deprecated,
-            reason = "This needs to be supported for now, and therefore still needs the test."
-        )]
-        let result = world.insert_or_spawn_batch(values);
-
-        assert_eq!(
-            result,
-            Err(vec![invalid_e2]),
-            "e2 failed to be spawned or inserted into"
-        );
-
-        assert_eq!(
-            world.get::<A>(e0),
-            Some(&A(0)),
-            "existing component was preserved"
-        );
-        assert_eq!(
-            world.get::<B>(e0),
-            Some(&B(0)),
-            "pre-existing entity received correct B component"
-        );
-        assert_eq!(
-            world.get::<B>(e1),
-            Some(&B(1)),
-            "new entity was spawned and received correct B component"
-        );
-        assert_eq!(
-            world.get::<C>(e0),
-            Some(&C),
-            "pre-existing entity received C component"
-        );
-        assert_eq!(
-            world.get::<C>(e1),
-            Some(&C),
-            "new entity was spawned and received C component"
-        );
-    }
-
-    #[test]
     fn insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
@@ -1877,7 +1778,7 @@ mod tests {
     fn try_insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -1901,7 +1802,7 @@ mod tests {
     fn try_insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -2844,4 +2745,27 @@ mod tests {
     )]
     #[derive(Component)]
     struct MyEntitiesTuple(#[entities] Vec<Entity>, #[entities] Entity, usize);
+
+    #[test]
+    fn clone_entities() {
+        use crate::entity::{ComponentCloneCtx, SourceComponent};
+
+        #[derive(Component)]
+        #[component(clone_behavior = Ignore)]
+        struct IgnoreClone;
+
+        #[derive(Component)]
+        #[component(clone_behavior = Default)]
+        struct DefaultClone;
+
+        #[derive(Component)]
+        #[component(clone_behavior = Custom(custom_clone))]
+        struct CustomClone;
+
+        #[derive(Component, Clone)]
+        #[component(clone_behavior = clone::<Self>())]
+        struct CloneFunction;
+
+        fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
+    }
 }

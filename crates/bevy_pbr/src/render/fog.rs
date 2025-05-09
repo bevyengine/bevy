@@ -8,7 +8,7 @@ use bevy_render::{
     render_resource::{DynamicUniformBuffer, Shader, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 use crate::{DistanceFog, FogFalloff};
@@ -142,7 +142,7 @@ impl Plugin for FogPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<FogMeta>()
-                .add_systems(Render, prepare_fog.in_set(RenderSet::PrepareResources));
+                .add_systems(Render, prepare_fog.in_set(RenderSystems::PrepareResources));
         }
     }
 }

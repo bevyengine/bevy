@@ -323,18 +323,11 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// Here's an example of how to do it using [`clone_behavior`](Component::clone_behavior):
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::component::{StorageType, ComponentCloneBehavior, Mutable, NoKey};
-/// #[derive(Clone)]
+/// # use bevy_ecs::component::{StorageType, ComponentCloneBehavior, Mutable};
+/// #[derive(Clone, Component)]
+/// #[component(clone_behavior = clone::<Self>())]
 /// struct SomeComponent;
 ///
-/// impl Component for SomeComponent {
-///     const STORAGE_TYPE: StorageType = StorageType::Table;
-///     type Mutability = Mutable;
-///     type Key = NoKey<Self>;
-///     fn clone_behavior() -> ComponentCloneBehavior {
-///         ComponentCloneBehavior::clone::<Self>()
-///     }
-/// }
 /// ```
 ///
 /// # Clone Behaviors

@@ -441,7 +441,7 @@ use core::{
 /// |[`get_many`]|O(k)|
 /// |[`get_many_mut`]|O(k<sup>2</sup>)|
 /// |Archetype-based filtering ([`With`], [`Without`], [`Or`])|O(a)|
-/// |Change detection filtering ([`Added`], [`Changed`])|O(a + n)|
+/// |Change detection filtering ([`Added`], [`Changed`], [`Spawned`])|O(a + n)|
 ///
 /// [component storage types]: crate::component::StorageType
 /// [`Table`]: crate::storage::Table
@@ -450,6 +450,7 @@ use core::{
 /// [`Or`]: crate::query::Or
 /// [`Added`]: crate::query::Added
 /// [`Changed`]: crate::query::Changed
+/// [`Spawned`]: crate::query::Spawned
 ///
 /// # `Iterator::for_each`
 ///
@@ -934,7 +935,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     type Item = &'a Entity;
     ///     type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
-    ///  
+    ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
     ///        unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
@@ -1415,7 +1416,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(
     ///     match query.get_many([wrong_entity]).unwrap_err() {
@@ -1430,7 +1431,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_many_mut`](Self::get_many_mut) to get mutable query items.
     /// - [`get_many_unique`](Self::get_many_unique) to only handle unique inputs.
-    /// - [`many`](Self::many) for the panicking version.
     #[inline]
     pub fn get_many<const N: usize>(
         &self,
@@ -1467,7 +1467,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(
     ///     match query.get_many_unique(UniqueEntityArray::from([wrong_entity])).unwrap_err() {
@@ -1488,60 +1488,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entities: UniqueEntityArray<N>,
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
         self.as_readonly().get_many_unique_inner(entities)
-    }
-
-    /// Returns the read-only query items for the given array of [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch or a non-existing entity.
-    ///
-    /// # Examples
-    /// ``` no_run
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Targets([Entity; 3]);
-    ///
-    /// #[derive(Component)]
-    /// struct Position{
-    ///     x: i8,
-    ///     y: i8
-    /// };
-    ///
-    /// impl Position {
-    ///     fn distance(&self, other: &Position) -> i8 {
-    ///         // Manhattan distance is way easier to compute!
-    ///         (self.x - other.x).abs() + (self.y - other.y).abs()
-    ///     }
-    /// }
-    ///
-    /// fn check_all_targets_in_range(targeting_query: Query<(Entity, &Targets, &Position)>, targets_query: Query<&Position>){
-    ///     for (targeting_entity, targets, origin) in &targeting_query {
-    ///         // We can use "destructuring" to unpack the results nicely
-    ///         let [target_1, target_2, target_3] = targets_query.many(targets.0);
-    ///
-    ///         assert!(target_1.distance(origin) <= 5);
-    ///         assert!(target_2.distance(origin) <= 5);
-    ///         assert!(target_3.distance(origin) <= 5);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many`](Self::get_many) for the non-panicking version.
-    #[inline]
-    #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use `get_many` instead and handle the Result."
-    )]
-    pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
-        match self.get_many(entities) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get query results: {error}"),
-        }
     }
 
     /// Returns the query item for the given [`Entity`].
@@ -1666,7 +1612,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let entities: [Entity; 3] = entities.try_into().unwrap();
     ///
     /// world.spawn(A(73));
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     ///
@@ -1713,7 +1659,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
-    /// - [`many_mut`](Self::many_mut) for the panicking version.
     #[inline]
     pub fn get_many_mut<const N: usize>(
         &mut self,
@@ -1741,7 +1686,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let entity_set: UniqueEntityArray<3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     ///
@@ -1883,67 +1828,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         Ok(values.map(|x| unsafe { x.assume_init() }))
     }
 
-    /// Returns the query items for the given array of [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch, a non-existing entity, or the same `Entity` is included more than once in the array.
-    ///
-    /// # Examples
-    ///
-    /// ``` no_run
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Spring{
-    ///     connected_entities: [Entity; 2],
-    ///     strength: f32,
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///     x: f32,
-    ///     y: f32,
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Force {
-    ///     x: f32,
-    ///     y: f32,
-    /// }
-    ///
-    /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
-    ///     for spring in &spring_query {
-    ///          // We can use "destructuring" to unpack our query items nicely
-    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
-    ///
-    ///          force_1.x += spring.strength * (position_1.x - position_2.x);
-    ///          force_1.y += spring.strength * (position_1.y - position_2.y);
-    ///
-    ///          // Silence borrow-checker: I have split your mutable borrow!
-    ///          force_2.x += spring.strength * (position_2.x - position_1.x);
-    ///          force_2.y += spring.strength * (position_2.y - position_1.y);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many_mut`](Self::get_many_mut) for the non panicking version.
-    /// - [`many`](Self::many) to get read-only query items.
-    #[inline]
-    #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use `get_many_mut` instead and handle the Result."
-    )]
-    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
-        match self.get_many_mut(entities) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get query result: {error}"),
-        }
-    }
-
     /// Returns the query item for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
@@ -1999,12 +1883,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.as_readonly().single_inner()
     }
 
-    /// A deprecated alias for [`single`](Self::single).
-    #[deprecated(since = "0.16.0", note = "Please use `single` instead")]
-    pub fn get_single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
-        self.single()
-    }
-
     /// Returns a single query item when there is exactly one entity matching the query.
     ///
     /// If the number of query items is not exactly one, a [`QuerySingleError`] is returned instead.
@@ -2032,12 +1910,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub fn single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
         self.reborrow().single_inner()
-    }
-
-    /// A deprecated alias for [`single_mut`](Self::single_mut).
-    #[deprecated(since = "0.16.0", note = "Please use `single_mut` instead")]
-    pub fn get_single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
-        self.single_mut()
     }
 
     /// Returns a single query item when there is exactly one entity matching the query.
@@ -2086,8 +1958,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
     /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
-    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
-    /// result for a match.
+    /// on non-archetypal filters such as [`Added`], [`Changed`] or [`Spawned`] which must individually check
+    /// each query result for a match.
     ///
     /// # Example
     ///
@@ -2110,6 +1982,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// [`Added`]: crate::query::Added
     /// [`Changed`]: crate::query::Changed
+    /// [`Spawned`]: crate::query::Spawned
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.as_nop().iter().next().is_none()
@@ -2148,9 +2021,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
     /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
-    /// terms see [`Self::transmute_lens_filtered`]
+    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will not be
+    /// respected. To maintain or change filter terms see [`Self::transmute_lens_filtered`]
     ///
     /// ## Panics
     ///
@@ -2205,12 +2078,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * Tuples of query data and `#[derive(QueryData)]` structs have the union of the access of their subqueries
     /// * [`EntityMut`](crate::world::EntityMut) has read and write access to all components, but no required access
     /// * [`EntityRef`](crate::world::EntityRef) has read access to all components, but no required access
-    /// * [`Entity`], [`EntityLocation`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
+    /// * [`Entity`], [`EntityLocation`], [`SpawnDetails`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
     ///   so can be added to any query
     /// * [`FilteredEntityRef`](crate::world::FilteredEntityRef) and [`FilteredEntityMut`](crate::world::FilteredEntityMut)
     ///   have access determined by the [`QueryBuilder`](crate::query::QueryBuilder) used to construct them.
-    ///   Any query can be transmuted to them, and they will receive the access of the source query,
-    ///   but only if they are the top-level query and not nested
+    ///   Any query can be transmuted to them, and they will receive the access of the source query.
+    ///   When combined with other `QueryData`, they will receive any access of the source query that does not conflict with the other data.
     /// * [`Added<T>`](crate::query::Added) and [`Changed<T>`](crate::query::Changed) filters have read and required access to `T`
     /// * [`With<T>`](crate::query::With) and [`Without<T>`](crate::query::Without) filters have no access at all,
     ///   so can be added to any query
@@ -2282,9 +2155,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// // Anything can be transmuted to `FilteredEntityRef` or `FilteredEntityMut`
     /// // This will create a `FilteredEntityMut` that only has read access to `T`
     /// assert_valid_transmute::<&T, FilteredEntityMut>();
-    /// // This transmute will succeed, but the `FilteredEntityMut` will have no access!
-    /// // It must be the top-level query to be given access, but here it is nested in a tuple.
-    /// assert_valid_transmute::<&T, (Entity, FilteredEntityMut)>();
+    /// // This will create a `FilteredEntityMut` that has no access to `T`,
+    /// // read access to `U`, and write access to `V`.
+    /// assert_valid_transmute::<(&mut T, &mut U, &mut V), (&mut T, &U, FilteredEntityMut)>();
     ///
     /// // `Added<T>` and `Changed<T>` filters have the same access as `&T` data
     /// // Remember that they are only evaluated on the transmuted query, not the original query!
@@ -2295,6 +2168,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ```
     ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
+    /// [`SpawnDetails`]: crate::query::SpawnDetails
     /// [`&Archetype`]: crate::archetype::Archetype
     /// [`Has<T>`]: crate::query::Has
     #[track_caller]
@@ -2307,9 +2181,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
     /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
-    /// terms see [`Self::transmute_lens_filtered`]
+    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will not be
+    /// respected. To maintain or change filter terms see [`Self::transmute_lens_filtered`]
     ///
     /// ## Panics
     ///
@@ -2364,7 +2238,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
+    ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
     ///
@@ -2380,8 +2254,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
-    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
+    /// are in the type signature.
     #[track_caller]
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
@@ -2394,8 +2269,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
-    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
     ///
     /// # See also
     ///
@@ -2431,7 +2306,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
+    /// are dropped, non-archetypal filters like `Added`, `Changed` and `Spawned` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Example
@@ -2493,7 +2368,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
+    /// are dropped, non-archetypal filters like `Added`, `Changed` and `Spawned` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Panics
@@ -2520,8 +2395,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
-    /// terms like `Added` and `Changed` will only be respected if they are in
-    /// the type signature.
+    /// terms like `Added`, `Changed` and `Spawned` will only be respected if they
+    /// are in the type signature.
     pub fn join_filtered<
         'a,
         OtherD: QueryData,
@@ -2541,8 +2416,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
-    /// terms like `Added` and `Changed` will only be respected if they are in
-    /// the type signature.
+    /// terms like `Added`, `Changed` and `Spawned` will only be respected if they
+    /// are in the type signature.
     ///
     /// # See also
     ///
@@ -2764,8 +2639,9 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// This will cause the system to be skipped, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
-/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)
-/// which must individually check each query result for a match.
+/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added),
+/// [`Changed`](crate::query::Changed) of [`Spawned`](crate::query::Spawned) which must individually check each query
+/// result for a match.
 ///
 /// See [`Query`] for more details.
 ///
