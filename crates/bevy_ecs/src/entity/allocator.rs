@@ -16,7 +16,7 @@ use super::{Entity, EntityRow, EntitySetIterator};
 /// This is the item we store in the free list.
 /// Effectively, this is a `MaybeUninit<Entity>` where uninit is represented by `Entity::PLACEHOLDER`.
 ///
-/// We use atomics internally not for special ordering but for *a* ordering.
+/// We don't use atomics to achieve any particular ordering: we just need *some* ordering.
 /// Conceptually, this could just be `SyncCell<Entity>`,
 /// but accessing that requires additional unsafe justification, and could cause unsound optimizations by the compiler.
 ///
