@@ -9,6 +9,7 @@ use atomicow::CowArc;
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
+    any::TypeId,
     fmt::{Debug, Display},
     hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
@@ -18,7 +19,18 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 #[derive(Eq, PartialEq, Hash, Copy, Clone)]
-pub struct AssetPathSettingsId(u64);
+pub struct AssetPathSettingsId {
+    // XXX TODO: Unclear if we want type id? Does make debugging a bit easier.
+    type_id: TypeId,
+    hash: u64,
+}
+
+impl Display for AssetPathSettingsId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // XXX TODO: Reconsider formatting. Also we're using Debug for type_id...
+        write!(f, "{:?}/{}", self.type_id, self.hash)
+    }
+}
 
 pub struct AssetPathSettings {
     pub value: Box<dyn Settings>,
@@ -32,7 +44,10 @@ impl AssetPathSettings {
 
         // XXX TODO: What's the appropriate hasher?
         // XXX TODO: Should we hash the type id as well?
-        let id = AssetPathSettingsId(FixedHasher.hash_one(&string));
+        let id = AssetPathSettingsId {
+            type_id: TypeId::of::<S>(),
+            hash: FixedHasher.hash_one(&string),
+        };
 
         AssetPathSettings {
             value: Box::new(settings),
@@ -54,6 +69,12 @@ impl PartialEq for AssetPathSettings {
 }
 
 impl Eq for AssetPathSettings {}
+
+impl Display for AssetPathSettings {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.id.fmt(f)
+    }
+}
 
 /// Represents a path to an asset in a "virtual filesystem".
 ///
@@ -99,6 +120,8 @@ pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
     label: Option<CowArc<'a, str>>,
+    // XXX TODO: This is an Arc for now to simplify the implementation. Should
+    // consider changing to CowArc.
     settings: Option<Arc<AssetPathSettings>>,
 }
 
@@ -116,6 +139,11 @@ impl<'a> Display for AssetPath<'a> {
         write!(f, "{}", self.path.display())?;
         if let Some(label) = &self.label {
             write!(f, "#{label}")?;
+        }
+        // XXX TODO: This might need a rethink as I'm not sure if the output
+        // needs to be parseable. Also see comments on AssetPathSettingsId::fmt.
+        if let Some(settings) = &self.settings {
+            write!(f, " (settings: {settings})")?;
         }
         Ok(())
     }
