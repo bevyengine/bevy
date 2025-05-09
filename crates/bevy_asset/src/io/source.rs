@@ -545,7 +545,9 @@ impl AssetSource {
                 if path.exists() {
                     Some(Box::new(
                         super::file::FileWatcher::new(
-                            path.to_string_lossy().to_string(),
+                            path.to_str()
+                                .expect("non unicode characters found in path")
+                                .to_string(),
                             sender,
                             file_debounce_wait_time,
                         )
