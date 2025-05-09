@@ -842,12 +842,14 @@ unsafe fn evaluate_and_fold_conditions(
             // - `update_archetype_component_access` has been called for condition.
             unsafe { condition.validate_param_unsafe(world) }
                 .map_err(From::from)
-                .and_then(|()| unsafe {
+                .and_then(|()| {
                     // SAFETY:
                     // - The caller ensures that `world` has permission to read any data
                     //   required by the condition.
                     // - `update_archetype_component_access` has been called for condition.
-                    __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
+                    unsafe {
+                        __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
+                    }
                 })
                 .unwrap_or_else(|err| {
                     if let RunSystemError::Failed(err) = err {
@@ -857,7 +859,7 @@ unsafe fn evaluate_and_fold_conditions(
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                             },
-                        )
+                        );
                     };
                     false
                 })

@@ -179,7 +179,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                             },
-                        )
+                        );
                     };
                     false
                 },

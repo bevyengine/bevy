@@ -186,10 +186,10 @@ where
             // Additionally, `update_archetype_component_access` has been called,
             // which forwards to the implementations for `self.a` and `self.b`.
             |input| unsafe { self.a.run_unsafe(input, world) },
+            // `Self::validate_param_unsafe` already validated the first system,
+            // but we still need to validate the second system once the first one runs.
+            // SAFETY: See the comment above.
             |input| unsafe {
-                // `Self::validate_param_unsafe` already validated the first system,
-                // but we still need to validate the second system once the first one runs.
-                // SAFETY: See the comment above.
                 self.b.validate_param_unsafe(world)?;
                 self.b.run_unsafe(input, world)
             },
