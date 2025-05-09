@@ -293,13 +293,20 @@ impl ComponentSparseSet {
 
     /// Returns `true` if the sparse set has a component value for the provided `entity`.
     #[inline]
-    pub fn contains(&self, entity: Entity) -> bool {}
+    pub fn contains(&self, entity: Entity) -> bool {
+        self.get_row_of(entity).is_some()
+    }
 
     /// Returns a reference to the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {}
+    pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct.
+            unsafe { self.column.data.get_unchecked(row.index()) }
+        })
+    }
 
     /// Returns references to the entity's component value and its added and changed ticks.
     ///
@@ -313,25 +320,62 @@ impl ComponentSparseSet {
         TickCells<'_>,
         MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
     )> {
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct.
+            unsafe {
+                (
+                    self.column.data.get_unchecked(row.index()),
+                    TickCells {
+                        added: self.column.added_ticks.get_unchecked(row.index()),
+                        changed: self.column.changed_ticks.get_unchecked(row.index()),
+                    },
+                    self.column
+                        .changed_by
+                        .as_ref()
+                        .map(|changed_by| changed_by.get_unchecked(row.index())),
+                )
+            }
+        })
     }
 
     /// Returns a reference to the "added" tick of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get_added_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {}
+    pub fn get_added_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct.
+            unsafe { self.column.added_ticks.get_unchecked(row.index()) }
+        })
+    }
 
     /// Returns a reference to the "changed" tick of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get_changed_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {}
+    pub fn get_changed_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct.
+            unsafe { self.column.changed_ticks.get_unchecked(row.index()) }
+        })
+    }
 
     /// Returns a reference to the "added" and "changed" ticks of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get_ticks(&self, entity: Entity) -> Option<ComponentTicks> {}
+    pub fn get_ticks(&self, entity: Entity) -> Option<ComponentTicks> {
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct. We only change ticks with &mut self, and we have &self.
+            unsafe {
+                TickCells {
+                    added: self.column.added_ticks.get_unchecked(row.index()),
+                    changed: self.column.changed_ticks.get_unchecked(row.index()),
+                }
+                .read()
+            }
+        })
+    }
 
     /// Returns a reference to the calling location that last changed the entity's component value.
     ///
@@ -341,12 +385,20 @@ impl ComponentSparseSet {
         &self,
         entity: Entity,
     ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
+        self.column.changed_by.as_ref().map(|changed_by| {
+            self.get_row_of(entity).map(|row| {
+                // SAFETY: row is correct.
+                unsafe { changed_by.get_unchecked(row.index()) }
+            })
+        })
     }
 
     /// Returns the drop function for the component type stored in the sparse set,
     /// or `None` if it doesn't need to be dropped.
     #[inline]
-    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {}
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.column.data.drop
+    }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).

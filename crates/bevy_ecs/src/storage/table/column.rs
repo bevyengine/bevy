@@ -17,9 +17,10 @@ use core::panic::Location;
 /// instead of working directly with [`ThinColumn`].
 pub struct ThinColumn {
     pub(in crate::storage) data: BlobArray,
-    pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    pub(in crate::storage) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
+    pub(in crate::storage) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
+    pub(in crate::storage) changed_by:
+        MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
 }
 
 impl ThinColumn {
