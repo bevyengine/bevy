@@ -63,6 +63,12 @@ impl ArchetypeRow {
     pub const fn index(self) -> usize {
         self.0.get() as usize
     }
+
+    /// Gets the index of the row.
+    #[inline]
+    pub const fn index_u32(self) -> u32 {
+        self.0.get()
+    }
 }
 
 /// An opaque unique ID for a single [`Archetype`] within a [`World`].
