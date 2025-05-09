@@ -302,6 +302,50 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Despawns last entity that relate to this one via the given [`RelationshipTarget`].
+    /// This entity will not be despawned.
+    pub fn despawn_last_related<S: RelationshipTarget>(&mut self) -> &mut Self {
+        if let Some(sources) = self.take::<S>() {
+            self.world_scope(|world| {
+                if let Some(entity) = sources.iter().last() {
+                    if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                        entity_mut.despawn();
+                    }
+                }
+            })
+        }
+        self
+    }
+
+    /// Despawns first entity that relate to this one via the given [`RelationshipTarget`].
+    /// This entity will not be despawned.
+    pub fn despawn_first_related<S: RelationshipTarget>(&mut self) -> &mut Self {
+        if let Some(sources) = self.take::<S>() {
+            self.world_scope(|world| {
+                if let Some(entity) = sources.iter().next() {
+                    if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                        entity_mut.despawn();
+                    }
+                }
+            })
+        }
+        self
+    }
+
+    /// Remove the last related entity via the given [`RelationshipTarget`]
+    pub fn pop_related<S: RelationshipTarget>(&mut self) -> &mut Self {
+        if let Some(sources) = self.take::<S>() {
+            self.world_scope(|world| {
+                if let Some(entity) = sources.iter().last() {
+                    if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
+                        entity_mut.remove::<S>();
+                    }
+                }
+            })
+        }
+        self
+    }
+
     /// Inserts a component or bundle of components into the entity and all related entities,
     /// traversing the relationship tracked in `S` in a breadth-first manner.
     ///
@@ -412,6 +456,13 @@ impl<'a> EntityCommands<'a> {
         self.add_related::<R>(&[entity])
     }
 
+    /// Remove the last related entity via the given [`RelationshipTarget`]
+    pub fn pop_related<S: RelationshipTarget>(&mut self) -> &mut Self {
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.pop_related::<S>();
+        })
+    }
+
     /// Removes the relation `R` between this entity and the given entities.
     pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let related: Box<[Entity]> = related.into();
@@ -464,6 +515,22 @@ impl<'a> EntityCommands<'a> {
     pub fn despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| {
             entity.despawn_related::<S>();
+        })
+    }
+
+    /// Despawns last entity that relate to this one via the given [`RelationshipTarget`].
+    /// This entity will not be despawned.
+    pub fn despawn_last_related<S: RelationshipTarget>(&mut self) -> &mut Self {
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.despawn_last_related::<S>();
+        })
+    }
+
+    /// Despawns first entity that relate to this one via the given [`RelationshipTarget`].
+    /// This entity will not be despawned.
+    pub fn despawn_first_related<S: RelationshipTarget>(&mut self) -> &mut Self {
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.despawn_first_related::<S>();
         })
     }
 
@@ -634,6 +701,39 @@ mod tests {
         for entity in [a, b, c, d] {
             assert!(!world.entity(entity).contains::<TestComponent>());
         }
+    }
+
+    #[test]
+    fn test_pop_related() {
+        let mut world = World::new();
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(a)).id();
+        let d = world.spawn(ChildOf(a)).id();
+
+        world.entity_mut(a).pop_related::<Children>();
+
+        assert_eq!(world.entity(d).get::<ChildOf>(), None);
+        assert!(world.entity(b).get::<ChildOf>().is_some());
+        assert!(world.entity(c).get::<ChildOf>().is_some());
+    }
+
+    #[test]
+    fn test_despawn_first_and_last_related() {
+        let mut world = World::new();
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(a)).id();
+        let d = world.spawn(ChildOf(a)).id();
+
+        world.entity_mut(a).despawn_first_related::<Children>();
+        world.entity_mut(a).despawn_last_related::<Children>();
+
+        assert!(world.get_entity(b).is_err());
+        assert!(world.get_entity(c).is_ok());
+        assert!(world.get_entity(d).is_err());
     }
 
     #[test]
