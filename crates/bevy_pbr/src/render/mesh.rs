@@ -838,10 +838,7 @@ pub struct MeshesToReextractNextFrame(MainEntityHashSet);
 
 impl RenderMeshInstanceShared {
     /// A gpu builder will provide the mesh instance id
-    /// during `RenderMeshGpuBuilder::update`.
-    ///
-    /// Therefore, this does not need to be queried.
-    #[inline]
+    /// during [`RenderMeshInstanceGpuBuilder::update`].
     fn for_gpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
@@ -859,14 +856,7 @@ impl RenderMeshInstanceShared {
         )
     }
 
-    /// Build a struct with common properties between gpu and cpu builders for cpu builders.
-    ///
-    /// Unlike the gpu builder, the cpu builder does not have an equivalent
-    /// [`RenderMeshGpuBuilder::update`]. Therefore, we need to have
-    /// the [`MaterialBindingId`] ahead of time.
-    ///
-    /// Otherwise, a mesh with a handle to a base color texture will all appear identical
-    /// based on the most recently inserted mesh.
+    /// The cpu builder does not have an equivalent [`RenderMeshInstanceGpuBuilder::update`].
     fn for_cpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
