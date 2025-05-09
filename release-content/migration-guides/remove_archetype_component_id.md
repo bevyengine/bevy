@@ -1,6 +1,6 @@
 ---
 title: Remove `ArchetypeComponentId`
-pull_requests: [TODO]
+pull_requests: [19143]
 ---
 
 Scheduling no longer uses `archetype_component_access` or `ArchetypeComponentId`.
