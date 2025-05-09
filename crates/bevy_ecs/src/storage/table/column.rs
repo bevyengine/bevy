@@ -270,6 +270,23 @@ impl ThinColumn {
             .map(|changed_by| changed_by.drop(cap, len));
     }
 
+    /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
+    /// The owner of this [`ThinColumn`] must call this method with the correct information.
+    /// This drops everything except for the contents of the data.
+    ///
+    /// # Safety
+    /// - `len` is indeed the length of the column
+    /// - `cap` is indeed the capacity of the column
+    /// - the data stored in `self` will never be used again
+    pub(crate) unsafe fn drop_and_forget_data(&mut self, cap: usize, len: usize) {
+        self.added_ticks.drop(cap, len);
+        self.changed_ticks.drop(cap, len);
+        self.data.drop(cap, 0);
+        self.changed_by
+            .as_mut()
+            .map(|changed_by| changed_by.drop(cap, len));
+    }
+
     /// Drops the last component in this column.
     ///
     /// # Safety

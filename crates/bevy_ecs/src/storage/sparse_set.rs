@@ -211,16 +211,27 @@ impl ComponentSparseSet {
 
     /// Reserves `additional` elements worth of capacity within the column buffer.
     #[inline]
-    fn reserve_buffer(&mut self, additional: usize) {
-        if self.buffer_len + additional <= self.buffer_capacity {
+    fn extend_buffer(&mut self, additional: usize) {
+        self.buffer_len += additional;
+        if self.buffer_len <= self.buffer_capacity {
             return;
         }
-        let new_capacity = self.buffer_capacity * 2;
 
         if self.buffer_capacity == 0 {
+            const STARTING_CAPACITY: usize = 256;
             // SAFETY: the current capacity is 0
-            unsafe { self.column.alloc(NonZeroUsize::new_unchecked(new_capacity)) };
+            unsafe {
+                self.column
+                    .alloc(NonZeroUsize::new_unchecked(STARTING_CAPACITY));
+            }
+            self.buffer_capacity = STARTING_CAPACITY;
         } else {
+            let mut new_capacity = self.buffer_capacity;
+            while self.buffer_len > new_capacity {
+                new_capacity *= 2;
+            }
+            self.buffer_capacity = new_capacity;
+
             // SAFETY:
             // - `column_cap` is indeed the columns' capacity
             unsafe {
@@ -230,7 +241,6 @@ impl ComponentSparseSet {
                 );
             };
         }
-        self.buffer_capacity = new_capacity;
     }
 
     /// Inserts the `entity` key and component `value` pair into this sparse
@@ -276,7 +286,7 @@ impl ComponentSparseSet {
                     // SAFETY: There are never more than u32::MAX entity rows and this row was not present.
                     let row = unsafe { SparseSetRow::new(NonMaxU32::new_unchecked(idx)) };
                     self.set_row_of(entity, row);
-                    self.reserve_buffer(1);
+                    self.extend_buffer(1);
                     // SAFETY: Caller ensures value is correct, and we just made the row in bounds.
                     unsafe {
                         self.column
@@ -454,6 +464,30 @@ impl ComponentSparseSet {
                     .get_mut()
                     .check_tick(change_tick);
             }
+        }
+    }
+}
+
+impl Drop for ComponentSparseSet {
+    fn drop(&mut self) {
+        let Self {
+            entity_to_row,
+            free_rows: _,
+            buffer_len,
+            buffer_capacity,
+            column,
+        } = self;
+
+        if let Some(drop) = column.data.drop {
+            for row in entity_to_row.iter().filter_map(|row| row.map(|row| row.0)) {
+                // SAFETY: We have &mut and are being dropped
+                unsafe { drop(column.data.get_unchecked_mut(row.index()).promote()) }
+            }
+        }
+
+        // SAFETY: Values are correct, and it is being dropped.
+        unsafe {
+            column.drop_and_forget_data(*buffer_capacity, *buffer_len);
         }
     }
 }
