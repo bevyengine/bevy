@@ -1000,7 +1000,7 @@ pub fn prepare_lights(
         let render_layers = maybe_layers.unwrap_or_default();
 
         for (_light_entity, _, light) in directional_lights.iter() {
-            if light.shadows_enabled && light.render_layers.intersects(&render_layers) {
+            if light.shadows_enabled && light.render_layers.intersects(render_layers) {
                 num_directional_cascades_for_this_view += light
                     .cascade_shadow_config
                     .bounds
@@ -1162,15 +1162,10 @@ pub fn prepare_lights(
         let mut num_directional_lights_for_this_view = 0usize;
         for (index, (_light_entity, _, light)) in directional_lights
             .iter()
-            .filter(|(_light_entity, _, light)| light.render_layers.intersects(&view_layers))
+            .filter(|(_light_entity, _, light)| light.render_layers.intersects(view_layers))
             .enumerate()
             .take(MAX_DIRECTIONAL_LIGHTS)
         {
-            println!(
-                "view {view_layers:?} checking light {:?}",
-                light.render_layers
-            );
-
             num_directional_lights_for_this_view += 1;
 
             let mut flags = DirectionalLightFlags::NONE;
@@ -1467,7 +1462,7 @@ pub fn prepare_lights(
         // clear entities for lights that don't intersect the layer
         for &(light_entity, _, _) in directional_lights
             .iter()
-            .filter(|(_, _, light)| !light.render_layers.intersects(&view_layers))
+            .filter(|(_, _, light)| !light.render_layers.intersects(view_layers))
         {
             let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;
@@ -1480,7 +1475,7 @@ pub fn prepare_lights(
         let mut directional_depth_texture_array_index = 0u32;
         for (light_index, &(light_entity, light_main_entity, light)) in directional_lights
             .iter()
-            .filter(|(_, _, light)| light.render_layers.intersects(&view_layers))
+            .filter(|(_, _, light)| light.render_layers.intersects(view_layers))
             .enumerate()
             .take(MAX_DIRECTIONAL_LIGHTS)
         {
