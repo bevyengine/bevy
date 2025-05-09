@@ -31,15 +31,10 @@ pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
+#[derive(Default)]
 pub struct ImagePlugin {
     /// The default image sampler to use when [`bevy_image::ImageSampler`] is set to `Default`.
     pub default_sampler: ImageSamplerDescriptor,
-}
-
-impl Default for ImagePlugin {
-    fn default() -> Self {
-        Self::default_trilinear()
-    }
 }
 
 impl ImagePlugin {
