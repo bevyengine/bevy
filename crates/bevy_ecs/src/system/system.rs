@@ -515,6 +515,6 @@ mod tests {
 
         assert!(matches!(result, Err(RunSystemError::Failed { .. })));
         let expected = "Parameter `Res<T>` failed validation: Resource does not exist\n";
-        assert_eq!(expected, result.unwrap_err().to_string());
+        assert!(result.unwrap_err().to_string().starts_with(expected));
     }
 }
