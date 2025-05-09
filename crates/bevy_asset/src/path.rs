@@ -167,27 +167,6 @@ impl<'a> AssetPath<'a> {
         })
     }
 
-    /// Normalizes a string-based path by collapsing all occurrences of '.' and '..' dot-segments where possible
-    /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
-    fn normalize_path<'b>(path: &'b [&'b str]) -> Vec<&'b str> {
-        let mut result_path = Vec::new();
-        for &elt in path {
-            if elt == "." {
-                // Skip
-            } else if elt == ".." {
-                if result_path.is_empty() {
-                    // Preserve ".." if insufficient matches (per RFC 1808).
-                    result_path.push(elt);
-                } else {
-                    result_path.pop();
-                }
-            } else {
-                result_path.push(elt);
-            }
-        }
-        result_path
-    }
-
     // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and `AssetPath::label` components.
     fn parse_internal(
         asset_path: &str,
@@ -509,7 +488,7 @@ impl<'a> AssetPath<'a> {
                 Vec::new()
             };
             result_path.extend(rpath.split("/").filter(|s| !s.is_empty()));
-            let result_path = Self::normalize_path(&result_path).join("/");
+            let result_path = normalize_path(&result_path).join("/");
 
             Ok(AssetPath {
                 source: match source {
@@ -732,15 +711,17 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
 
 /// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
 /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
-pub(crate) fn normalize_path(path: &Path) -> PathBuf {
-    let mut result_path = PathBuf::new();
-    for elt in path.iter() {
+pub(crate) fn normalize_path<'b>(path: &'b [&'b str]) -> Vec<&'b str> {
+    let mut result_path = Vec::new();
+    for &elt in path {
         if elt == "." {
             // Skip
         } else if elt == ".." {
-            if !result_path.pop() {
+            if result_path.is_empty() {
                 // Preserve ".." if insufficient matches (per RFC 1808).
                 result_path.push(elt);
+            } else {
+                result_path.pop();
             }
         } else {
             result_path.push(elt);
@@ -748,7 +729,6 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     }
     result_path
 }
-
 #[cfg(test)]
 mod tests {
     use crate::AssetPath;
