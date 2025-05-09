@@ -1,14 +1,11 @@
-use bevy_asset::LoadContext;
-
+use bevy_asset::Handle;
+use bevy_image::Image;
 use gltf::{Document, Material};
 
 use serde_json::Value;
 
 #[cfg(feature = "pbr_multi_layer_material_textures")]
-use {
-    crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_asset::Handle,
-    bevy_image::Image, bevy_pbr::UvChannel,
-};
+use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_pbr::UvChannel};
 
 /// Parsed data from the `KHR_materials_clearcoat` extension.
 ///
@@ -42,7 +39,7 @@ impl ClearcoatExtension {
         reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
     )]
     pub(crate) fn parse(
-        load_context: &mut LoadContext,
+        _texture_handles: &[Handle<Image>],
         document: &Document,
         material: &Material,
     ) -> Option<ClearcoatExtension> {
@@ -54,7 +51,7 @@ impl ClearcoatExtension {
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         let (clearcoat_channel, clearcoat_texture) = parse_material_extension_texture(
             material,
-            load_context,
+            _texture_handles,
             document,
             extension,
             "clearcoatTexture",
@@ -65,7 +62,7 @@ impl ClearcoatExtension {
         let (clearcoat_roughness_channel, clearcoat_roughness_texture) =
             parse_material_extension_texture(
                 material,
-                load_context,
+                _texture_handles,
                 document,
                 extension,
                 "clearcoatRoughnessTexture",
@@ -75,7 +72,7 @@ impl ClearcoatExtension {
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         let (clearcoat_normal_channel, clearcoat_normal_texture) = parse_material_extension_texture(
             material,
-            load_context,
+            _texture_handles,
             document,
             extension,
             "clearcoatNormalTexture",

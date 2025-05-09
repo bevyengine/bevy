@@ -1,11 +1,8 @@
-use bevy_asset::{Handle, LoadContext};
+use bevy_asset::Handle;
 use bevy_image::{Image, ImageAddressMode, ImageFilterMode, ImageSamplerDescriptor};
 use bevy_math::Affine2;
 
-use gltf::{
-    image::Source,
-    texture::{MagFilter, MinFilter, Texture, TextureTransform, WrappingMode},
-};
+use gltf::texture::{MagFilter, MinFilter, Texture, TextureTransform, WrappingMode};
 
 #[cfg(any(
     feature = "pbr_anisotropy_texture",
@@ -14,28 +11,12 @@ use gltf::{
 ))]
 use gltf::{json::texture::Info, Document};
 
-use crate::{loader::DataUri, GltfAssetLabel};
-
 pub(crate) fn texture_handle(
     texture: &Texture<'_>,
-    load_context: &mut LoadContext,
+    texture_handles: &[Handle<Image>],
 ) -> Handle<Image> {
-    match texture.source().source() {
-        Source::View { .. } => load_context.get_label_handle(texture_label(texture).to_string()),
-        Source::Uri { uri, .. } => {
-            let uri = percent_encoding::percent_decode_str(uri)
-                .decode_utf8()
-                .unwrap();
-            let uri = uri.as_ref();
-            if let Ok(_data_uri) = DataUri::parse(uri) {
-                load_context.get_label_handle(texture_label(texture).to_string())
-            } else {
-                let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
-                load_context.load(image_path)
-            }
-        }
-    }
+    // XXX TODO: Handle out of range request?
+    texture_handles[texture.index()].clone()
 }
 
 /// Extracts the texture sampler data from the glTF [`Texture`].
@@ -83,10 +64,6 @@ pub(crate) fn texture_sampler(
     sampler
 }
 
-pub(crate) fn texture_label(texture: &Texture<'_>) -> GltfAssetLabel {
-    GltfAssetLabel::Texture(texture.index())
-}
-
 pub(crate) fn address_mode(wrapping_mode: &WrappingMode) -> ImageAddressMode {
     match wrapping_mode {
         WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
@@ -116,11 +93,11 @@ pub(crate) fn texture_transform_to_affine2(texture_transform: TextureTransform) 
 pub(crate) fn texture_handle_from_info(
     info: &Info,
     document: &Document,
-    load_context: &mut LoadContext,
+    texture_handles: &[Handle<Image>],
 ) -> Handle<Image> {
     let texture = document
         .textures()
         .nth(info.index.value())
         .expect("Texture info references a nonexistent texture");
-    texture_handle(&texture, load_context)
+    texture_handle(&texture, texture_handles)
 }

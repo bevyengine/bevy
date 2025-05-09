@@ -1,14 +1,11 @@
-use bevy_asset::LoadContext;
-
+use bevy_asset::Handle;
+use bevy_image::Image;
 use gltf::{Document, Material};
 
 use serde_json::Value;
 
 #[cfg(feature = "pbr_specular_textures")]
-use {
-    crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_asset::Handle,
-    bevy_image::Image, bevy_pbr::UvChannel,
-};
+use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_pbr::UvChannel};
 
 /// Parsed data from the `KHR_materials_specular` extension.
 ///
@@ -42,7 +39,7 @@ pub(crate) struct SpecularExtension {
 
 impl SpecularExtension {
     pub(crate) fn parse(
-        _load_context: &mut LoadContext,
+        _texture_handles: &[Handle<Image>],
         _document: &Document,
         material: &Material,
     ) -> Option<Self> {
@@ -54,7 +51,7 @@ impl SpecularExtension {
         #[cfg(feature = "pbr_specular_textures")]
         let (_specular_channel, _specular_texture) = parse_material_extension_texture(
             material,
-            _load_context,
+            _texture_handles,
             _document,
             extension,
             "specularTexture",
@@ -64,7 +61,7 @@ impl SpecularExtension {
         #[cfg(feature = "pbr_specular_textures")]
         let (_specular_color_channel, _specular_color_texture) = parse_material_extension_texture(
             material,
-            _load_context,
+            _texture_handles,
             _document,
             extension,
             "specularColorTexture",
