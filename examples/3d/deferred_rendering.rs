@@ -13,6 +13,7 @@ use bevy::{
     },
     prelude::*,
 };
+use bevy_asset::AssetPath;
 
 fn main() {
     App::new()
@@ -222,14 +223,15 @@ fn setup_parallax(
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
-    let normal_handle = asset_server.load_with_settings(
-        "textures/parallax_example/cube_normal.png",
-        // The normal map texture is in linear color space. Lighting won't look correct
-        // if `is_srgb` is `true`, which is the default.
-        ImageLoaderSettings {
-            is_srgb: false,
-            ..Default::default()
-        },
+    let normal_handle = asset_server.load(
+        AssetPath::from("textures/parallax_example/cube_normal.png").with_settings(
+            // The normal map texture is in linear color space. Lighting won't look correct
+            // if `is_srgb` is `true`, which is the default.
+            ImageLoaderSettings {
+                is_srgb: false,
+                ..Default::default()
+            },
+        ),
     );
 
     let mut cube = Mesh::from(Cuboid::new(0.15, 0.15, 0.15));

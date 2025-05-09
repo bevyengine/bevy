@@ -4,6 +4,7 @@ use bevy::{
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
 };
+use bevy_asset::AssetPath;
 
 fn main() {
     App::new()
@@ -62,12 +63,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // same one as without a .meta file.
     commands.spawn((
         Sprite {
-            image: asset_server.load_with_settings(
-                "bevy_pixel_dark_with_settings.png",
-                ImageLoaderSettings {
-                    sampler: ImageSampler::nearest(),
-                    ..Default::default()
-                },
+            image: asset_server.load(
+                AssetPath::from("bevy_pixel_dark_with_settings.png").with_settings(
+                    ImageLoaderSettings {
+                        sampler: ImageSampler::nearest(),
+                        ..Default::default()
+                    },
+                ),
             ),
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()

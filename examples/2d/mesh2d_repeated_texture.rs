@@ -7,6 +7,7 @@ use bevy::{
     math::Affine2,
     prelude::*,
 };
+use bevy_asset::AssetPath;
 
 /// How much to move some rectangles away from the center
 const RECTANGLE_OFFSET: f32 = 250.0;
@@ -32,17 +33,18 @@ fn setup(
     // settings
     let image_with_default_sampler =
         asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
-    let image_with_repeated_sampler = asset_server.load_with_settings(
-        "textures/fantasy_ui_borders/panel-border-010-repeated.png",
-        ImageLoaderSettings {
-            sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
-                // rewriting mode to repeat image,
-                address_mode_u: ImageAddressMode::Repeat,
-                address_mode_v: ImageAddressMode::Repeat,
+    let image_with_repeated_sampler = asset_server.load(
+        AssetPath::from("textures/fantasy_ui_borders/panel-border-010-repeated.png").with_settings(
+            ImageLoaderSettings {
+                sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+                    // rewriting mode to repeat image,
+                    address_mode_u: ImageAddressMode::Repeat,
+                    address_mode_v: ImageAddressMode::Repeat,
+                    ..default()
+                }),
                 ..default()
-            }),
-            ..default()
-        },
+            },
+        ),
     );
 
     // central rectangle with not repeated texture

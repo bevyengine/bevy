@@ -4,6 +4,7 @@ use bevy::{
     image::ImageLoaderSettings, input::common_conditions::input_just_pressed, prelude::*,
     render::render_asset::RenderAssetUsages,
 };
+use bevy_asset::AssetPath;
 
 fn main() {
     App::new()
@@ -50,26 +51,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let bird_right = Bird::Normal;
     commands.spawn(Camera2d);
 
-    let texture_left = asset_server.load_with_settings(
-        bird_left.get_texture_path(),
-        // `RenderAssetUsages::all()` is already the default, so the line below could be omitted.
-        // It's helpful to know it exists, however.
-        //
-        // `RenderAssetUsages` tell Bevy whether to keep the data around:
-        //   - for the GPU (`RenderAssetUsages::RENDER_WORLD`),
-        //   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
-        //   - or both.
-        // `RENDER_WORLD` is necessary to render the image, `MAIN_WORLD` is necessary to inspect
-        // and modify the image (via `ResMut<Assets<Image>>`).
-        //
-        // Since most games will not need to modify textures at runtime, many developers opt to pass
-        // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
-        // RAM. For this example however, this would not work, as we need to inspect and modify the
-        // image at runtime.
-        ImageLoaderSettings {
-            asset_usage: RenderAssetUsages::all(),
-            ..Default::default()
-        },
+    let texture_left = asset_server.load(
+        AssetPath::from(bird_left.get_texture_path())
+            // `RenderAssetUsages::all()` is already the default, so the line below could be omitted.
+            // It's helpful to know it exists, however.
+            //
+            // `RenderAssetUsages` tell Bevy whether to keep the data around:
+            //   - for the GPU (`RenderAssetUsages::RENDER_WORLD`),
+            //   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
+            //   - or both.
+            // `RENDER_WORLD` is necessary to render the image, `MAIN_WORLD` is necessary to inspect
+            // and modify the image (via `ResMut<Assets<Image>>`).
+            //
+            // Since most games will not need to modify textures at runtime, many developers opt to pass
+            // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
+            // RAM. For this example however, this would not work, as we need to inspect and modify the
+            // image at runtime.
+            .with_settings(ImageLoaderSettings {
+                asset_usage: RenderAssetUsages::all(),
+                ..Default::default()
+            }),
     );
 
     commands.spawn((

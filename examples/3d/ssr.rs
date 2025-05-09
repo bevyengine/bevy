@@ -4,6 +4,7 @@ use std::ops::Range;
 
 use bevy::{
     anti_aliasing::fxaa::Fxaa,
+    asset::AssetPath,
     color::palettes::css::{BLACK, WHITE},
     core_pipeline::Skybox,
     image::{
@@ -188,19 +189,20 @@ fn spawn_water(
                 ..default()
             },
             extension: Water {
-                normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                    "textures/water_normals.png",
-                    ImageLoaderSettings {
-                        is_srgb: false,
-                        sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
-                            address_mode_u: ImageAddressMode::Repeat,
-                            address_mode_v: ImageAddressMode::Repeat,
-                            mag_filter: ImageFilterMode::Linear,
-                            min_filter: ImageFilterMode::Linear,
-                            ..default()
-                        }),
-                        ..Default::default()
-                    },
+                normals: asset_server.load::<Image>(
+                    AssetPath::from("textures/water_normals.png").with_settings(
+                        ImageLoaderSettings {
+                            is_srgb: false,
+                            sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+                                address_mode_u: ImageAddressMode::Repeat,
+                                address_mode_v: ImageAddressMode::Repeat,
+                                mag_filter: ImageFilterMode::Linear,
+                                min_filter: ImageFilterMode::Linear,
+                                ..default()
+                            }),
+                            ..Default::default()
+                        },
+                    ),
                 ),
                 // These water settings are just random values to create some
                 // variety.

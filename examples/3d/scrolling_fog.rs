@@ -20,6 +20,7 @@ use bevy::{
     pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
+use bevy_asset::AssetPath;
 
 /// Initializes the example.
 fn main() {
@@ -94,8 +95,7 @@ fn setup(
     // Load a repeating 3d noise texture. Make sure to set ImageAddressMode to Repeat
     // so that the texture wraps around as the density texture offset is moved along.
     // Also set ImageFilterMode to Linear so that the fog isn't pixelated.
-    let noise_texture = assets.load_with_settings(
-        "volumes/fog_noise.ktx2",
+    let noise_texture = assets.load(AssetPath::from("volumes/fog_noise.ktx2").with_settings(
         ImageLoaderSettings {
             sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
                 address_mode_u: ImageAddressMode::Repeat,
@@ -108,7 +108,7 @@ fn setup(
             }),
             ..default()
         },
-    );
+    ));
 
     // Spawn a FogVolume and use the repeating noise texture as its density texture.
     commands.spawn((
