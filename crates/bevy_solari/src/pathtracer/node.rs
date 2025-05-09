@@ -85,7 +85,7 @@ impl ViewNode for PathtracerNode {
         pass.set_pipeline(pipeline);
         pass.set_bind_group(0, scene_bindings, &[]);
         pass.set_bind_group(1, &bind_group, &[view_uniform_offset.offset]);
-        pass.dispatch_workgroups((viewport.x + 7) / 8, (viewport.y + 7) / 8, 1);
+        pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
 
         Ok(())
     }
