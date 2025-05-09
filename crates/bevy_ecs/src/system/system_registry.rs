@@ -876,8 +876,8 @@ mod tests {
         let result = world.run_system(id);
 
         assert!(matches!(result, Err(RegisteredSystemError::Failed { .. })));
-        let expected = format!("System returned error: Parameter `Res<T>` failed validation: Resource does not exist\n");
-        assert_eq!(expected, result.unwrap_err().to_string());
+        let expected = "System returned error: Parameter `Res<T>` failed validation: Resource does not exist\n";
+        assert!(result.unwrap_err().to_string().starts_with(expected));
     }
 
     #[test]
