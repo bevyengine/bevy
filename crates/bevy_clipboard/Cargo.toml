@@ -21,7 +21,6 @@ arboard = { version = "3.5.0", default-features = false }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Navigator", "Clipboard"] }
 wasm-bindgen-futures = "0.4"
-futures = "0.3"
 
 [lints]
 workspace = true
