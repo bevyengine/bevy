@@ -166,7 +166,7 @@ impl ComponentSparseSet {
             free_rows: Vec::new(),
             column: ThinColumn::with_capacity(component_info, capacity),
             buffer_len: 0,
-            buffer_capacity: 0,
+            buffer_capacity: capacity,
         }
     }
 
@@ -249,7 +249,6 @@ impl ComponentSparseSet {
             while self.buffer_len > new_capacity {
                 new_capacity *= 2;
             }
-            self.buffer_capacity = new_capacity;
 
             // SAFETY:
             // - `column_cap` is indeed the columns' capacity
@@ -259,6 +258,8 @@ impl ComponentSparseSet {
                     NonZeroUsize::new_unchecked(new_capacity),
                 );
             };
+
+            self.buffer_capacity = new_capacity;
         }
     }
 
