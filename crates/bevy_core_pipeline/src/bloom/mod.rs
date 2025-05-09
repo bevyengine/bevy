@@ -302,7 +302,7 @@ impl ViewNode for BloomNode {
         // This is very similar to the above upsampling passes with the only difference
         // being the pipeline (which itself is barely different) and the color attachment
         {
-            let mip = bloom_texture.mip_count - 1;
+            let mip = 0;
 
             let resource_meta = bloom_texture.get_resource_meta(entity, mip);
 
