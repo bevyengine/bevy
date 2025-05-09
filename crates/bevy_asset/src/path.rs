@@ -2,6 +2,7 @@ use crate::io::AssetSourceId;
 use alloc::{
     borrow::ToOwned,
     string::{String, ToString},
+    vec::Vec,
 };
 use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -10,6 +11,7 @@ use core::{
     hash::Hash,
     ops::Deref,
 };
+use itertools::Itertools;
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -51,13 +53,32 @@ use thiserror::Error;
 /// This means that the common case of `asset_server.load("my_scene.scn")` when it creates and
 /// clones internal owned [`AssetPaths`](AssetPath).
 /// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
-#[derive(Eq, PartialEq, Hash, Clone, Default, Reflect)]
+#[derive(Eq, Hash, Clone, Default, Reflect)]
 #[reflect(opaque)]
 #[reflect(Debug, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
-    path: CowArc<'a, Path>,
+    path: CowArc<'a, str>,
     label: Option<CowArc<'a, str>>,
+}
+
+/// PartialEq needs to be derived manually for backwards compatibility.
+/// As `path` used to be `std::path::Path`, equality was tricky with a trailing slash.
+/// For example, "martin/stephan#dave" should be equal to "martin/stephan/#dave".
+impl<'a> PartialEq for AssetPath<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        let base_equality = self.source == other.source && self.label == other.label;
+        if !base_equality {
+            return false;
+        }
+        let self_trailing_slash = self.path.len() > 1
+            && self.path.ends_with("/")
+            && self.path[..self.path.len() - 1] == other.path[..other.path.len()];
+        let other_trailing_slash = other.path.len() > 1
+            && other.path.ends_with("/")
+            && self.path[..self.path.len()] == other.path[..other.path.len() - 1];
+        self.path == other.path || self_trailing_slash || other_trailing_slash
+    }
 }
 
 impl<'a> Debug for AssetPath<'a> {
@@ -71,7 +92,7 @@ impl<'a> Display for AssetPath<'a> {
         if let AssetSourceId::Name(name) = self.source() {
             write!(f, "{name}://")?;
         }
-        write!(f, "{}", self.path.display())?;
+        f.write_str(self.path.as_ref())?;
         if let Some(label) = &self.label {
             write!(f, "#{label}")?;
         }
@@ -137,7 +158,7 @@ impl<'a> AssetPath<'a> {
     // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and `AssetPath::label` components.
     fn parse_internal(
         asset_path: &str,
-    ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
+    ) -> Result<(Option<&str>, &str, Option<&str>), ParseAssetPathError> {
         let chars = asset_path.char_indices();
         let mut source_range = None;
         let mut path_range = 0..asset_path.len();
@@ -219,7 +240,7 @@ impl<'a> AssetPath<'a> {
             None => None,
         };
 
-        let path = Path::new(&asset_path[path_range]);
+        let path = &asset_path[path_range];
         Ok((source, path, label))
     }
 
@@ -237,7 +258,7 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
         AssetPath {
-            path: CowArc::Borrowed(path),
+            path: CowArc::Borrowed(path.to_str().unwrap()),
             source: AssetSourceId::Default,
             label: None,
         }
@@ -265,7 +286,7 @@ impl<'a> AssetPath<'a> {
     /// Gets the path to the asset in the "virtual filesystem".
     #[inline]
     pub fn path(&self) -> &Path {
-        self.path.deref()
+        Path::new(self.path.as_ref())
     }
 
     /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
@@ -312,17 +333,24 @@ impl<'a> AssetPath<'a> {
         }
     }
 
+    /// Splits the internal path into components
+    #[inline]
+    pub fn path_components(&self) -> impl Iterator<Item = &str> {
+        self.path.split('/')
+    }
+
     /// Returns an [`AssetPath`] for the parent folder of this path, if there is a parent folder in the path.
     pub fn parent(&self) -> Option<AssetPath<'a>> {
-        let path = match &self.path {
-            CowArc::Borrowed(path) => CowArc::Borrowed(path.parent()?),
-            CowArc::Static(path) => CowArc::Static(path.parent()?),
-            CowArc::Owned(path) => path.parent()?.to_path_buf().into(),
-        };
+        if self.path.as_ref() == "/" || self.path.starts_with('#') || self.path.is_empty() {
+            return None;
+        }
+        let mut path: alloc::vec::Vec<_> = self.path_components().map(|s| s.to_string()).collect();
+        path.pop();
+        let path = path.join("/");
         Some(AssetPath {
             source: self.source.clone(),
             label: None,
-            path,
+            path: CowArc::Owned(path.into()),
         })
     }
 
@@ -427,7 +455,7 @@ impl<'a> AssetPath<'a> {
         } else {
             let (source, rpath, rlabel) = AssetPath::parse_internal(path)?;
             let mut base_path = PathBuf::from(self.path());
-            if replace && !self.path.to_str().unwrap().ends_with('/') {
+            if replace && !self.path.ends_with('/') {
                 // No error if base is empty (per RFC 1808).
                 base_path.pop();
             }
@@ -435,7 +463,7 @@ impl<'a> AssetPath<'a> {
             // Strip off leading slash
             let mut is_absolute = false;
             let rpath = match rpath.strip_prefix("/") {
-                Ok(p) => {
+                Some(p) => {
                     is_absolute = true;
                     p
                 }
@@ -455,7 +483,7 @@ impl<'a> AssetPath<'a> {
                     Some(source) => AssetSourceId::Name(CowArc::Owned(source.into())),
                     None => self.source.clone_owned(),
                 },
-                path: CowArc::Owned(result_path.into()),
+                path: CowArc::new_owned_from_arc(result_path.to_string_lossy()),
                 label: rlabel.map(|l| CowArc::Owned(l.into())),
             })
         }
@@ -516,18 +544,21 @@ impl<'a> AssetPath<'a> {
     /// assert!(path.is_unapproved());
     /// ```
     pub fn is_unapproved(&self) -> bool {
-        use std::path::Component;
-        let mut simplified = PathBuf::new();
-        for component in self.path.components() {
+        if self.path.starts_with("/") {
+            return true;
+        }
+        let mut simplified = Vec::new();
+        for component in self.path_components() {
             match component {
-                Component::Prefix(_) | Component::RootDir => return true,
-                Component::CurDir => {}
-                Component::ParentDir => {
-                    if !simplified.pop() {
+                "." => {}
+                ".." => {
+                    if simplified.pop().is_none() {
                         return true;
                     }
                 }
-                Component::Normal(os_str) => simplified.push(os_str),
+                _ => {
+                    simplified.push(component);
+                }
             }
         }
 
@@ -595,7 +626,7 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
     fn from(path: &'a Path) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: CowArc::Borrowed(path),
+            path: CowArc::from(path.to_string_lossy().to_string()),
             label: None,
         }
     }
@@ -606,7 +637,7 @@ impl From<PathBuf> for AssetPath<'static> {
     fn from(path: PathBuf) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: path.into(),
+            path: CowArc::from(path.to_string_lossy().to_string()),
             label: None,
         }
     }
@@ -694,30 +725,24 @@ mod tests {
     #[test]
     fn parse_asset_path() {
         let result = AssetPath::parse_internal("a/b.test");
-        assert_eq!(result, Ok((None, Path::new("a/b.test"), None)));
+        assert_eq!(result, Ok((None, "a/b.test", None)));
 
         let result = AssetPath::parse_internal("http://a/b.test");
-        assert_eq!(result, Ok((Some("http"), Path::new("a/b.test"), None)));
+        assert_eq!(result, Ok((Some("http"), "a/b.test", None)));
 
         let result = AssetPath::parse_internal("http://a/b.test#Foo");
-        assert_eq!(
-            result,
-            Ok((Some("http"), Path::new("a/b.test"), Some("Foo")))
-        );
+        assert_eq!(result, Ok((Some("http"), "a/b.test", Some("Foo"))));
 
         let result = AssetPath::parse_internal("localhost:80/b.test");
-        assert_eq!(result, Ok((None, Path::new("localhost:80/b.test"), None)));
+        assert_eq!(result, Ok((None, "localhost:80/b.test", None)));
 
         let result = AssetPath::parse_internal("http://localhost:80/b.test");
-        assert_eq!(
-            result,
-            Ok((Some("http"), Path::new("localhost:80/b.test"), None))
-        );
+        assert_eq!(result, Ok((Some("http"), "localhost:80/b.test", None)));
 
         let result = AssetPath::parse_internal("http://localhost:80/b.test#Foo");
         assert_eq!(
             result,
-            Ok((Some("http"), Path::new("localhost:80/b.test"), Some("Foo")))
+            Ok((Some("http"), "localhost:80/b.test", Some("Foo")))
         );
 
         let result = AssetPath::parse_internal("#insource://a/b.test");
@@ -733,7 +758,7 @@ mod tests {
         );
 
         let result = AssetPath::parse_internal("http://");
-        assert_eq!(result, Ok((Some("http"), Path::new(""), None)));
+        assert_eq!(result, Ok((Some("http"), "", None)));
 
         let result = AssetPath::parse_internal("://x");
         assert_eq!(result, Err(crate::ParseAssetPathError::MissingSource));
@@ -1035,5 +1060,11 @@ mod tests {
 
         let result = AssetPath::from("asset.Custom");
         assert_eq!(result.get_full_extension(), Some("Custom".to_string()));
+    }
+
+    #[test]
+    fn test_trailing_slash_equality() {
+        assert_eq!(AssetPath::from("a/b/"), AssetPath::from("a/b"));
+        assert_eq!(AssetPath::from("a/b/#c"), AssetPath::from("a/b#c"));
     }
 }
