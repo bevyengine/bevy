@@ -6,6 +6,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use core::hash::Hasher;
 use core::{
     fmt::{Debug, Display},
     hash::Hash,
@@ -51,7 +52,7 @@ use thiserror::Error;
 /// This means that the common case of `asset_server.load("my_scene.scn")` when it creates and
 /// clones internal owned [`AssetPaths`](AssetPath).
 /// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
-#[derive(Eq, Hash, Clone, Default, Reflect)]
+#[derive(Eq, Clone, Default, Reflect)]
 #[reflect(opaque)]
 #[reflect(Debug, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
@@ -60,7 +61,7 @@ pub struct AssetPath<'a> {
     label: Option<CowArc<'a, str>>,
 }
 
-/// PartialEq needs to be derived manually for backwards compatibility.
+/// `PartialEq` needs to be derived manually for backwards compatibility.
 /// As `path` used to be `std::path::Path`, equality was tricky with a trailing slash.
 /// For example, "martin/stephan#dave" should be equal to "martin/stephan/#dave".
 impl<'a> PartialEq for AssetPath<'a> {
@@ -76,6 +77,19 @@ impl<'a> PartialEq for AssetPath<'a> {
             && other.path.ends_with("/")
             && self.path[..self.path.len()] == other.path[..other.path.len() - 1];
         self.path == other.path || self_trailing_slash || other_trailing_slash
+    }
+}
+
+impl<'a> Hash for AssetPath<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let path = if self.path.ends_with('/') {
+            &self.path[..self.path.len() - 1]
+        } else {
+            &self.path
+        };
+        self.source.hash(state);
+        state.write(path.as_bytes());
+        self.label.hash(state);
     }
 }
 
@@ -363,7 +377,7 @@ impl<'a> AssetPath<'a> {
         if self.path.as_ref() == "/" || self.path.starts_with('#') || self.path.is_empty() {
             return None;
         }
-        let mut path: Vec<_> = self.path_components().map(|s| s.to_string()).collect();
+        let mut path: Vec<_> = self.path_components().map(ToString::to_string).collect();
         path.pop();
         let path = path.join("/");
         Some(AssetPath {
