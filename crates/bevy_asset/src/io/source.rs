@@ -545,7 +545,7 @@ impl AssetSource {
                 if path.exists() {
                     Some(Box::new(
                         super::file::FileWatcher::new(
-                            path.clone(),
+                            path.to_string_lossy().to_string(),
                             sender,
                             file_debounce_wait_time,
                         )
