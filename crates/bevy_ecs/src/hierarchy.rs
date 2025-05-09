@@ -614,7 +614,7 @@ mod tests {
 
         let mut entity_world_mut = world.spawn_empty();
 
-        let first_children = entity_world_mut.add_children(&[child1, child2]);
+        let first_children = entity_world_mut.insert_children(0, &[child1, child2]);
 
         let root = first_children.insert_children(1, &[child3, child4]).id();
 
