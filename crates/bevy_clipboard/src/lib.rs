@@ -129,13 +129,6 @@ mod clipboard {
     use super::*;
     use crate::ClipboardError;
     use bevy_ecs::resource::Resource;
-    use futures::task::noop_waker;
-    use futures::task::Context;
-    use futures::task::Poll;
-    use futures::FutureExt;
-    use std::pin::Pin;
-    use std::sync::Arc;
-    use std::sync::Mutex;
     use wasm_bindgen_futures::JsFuture;
 
     /// Resource providing access to the clipboard
