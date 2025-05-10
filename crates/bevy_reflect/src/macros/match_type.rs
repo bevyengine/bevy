@@ -286,6 +286,8 @@ mod tests {
     use alloc::string::{String, ToString};
     use alloc::vec::Vec;
     use alloc::{format, vec};
+    use core::fmt::Debug;
+    use core::ops::MulAssign;
 
     #[test]
     fn should_allow_empty() {
@@ -482,5 +484,77 @@ mod tests {
         test(Box::new(123_u32));
         test(Box::new(0_u32));
         test(Box::new(0_u64));
+    }
+
+    #[test]
+    fn should_downcast_from_generic() {
+        fn immutable<T: PartialReflect>(value: &T) {
+            match_type! {value,
+                &i32 => {
+                    assert_eq!(*value, 1);
+                },
+                _ => panic!("unexpected type"),
+            }
+        }
+
+        fn mutable<T: PartialReflect>(value: &mut T) {
+            match_type! {value,
+                &mut i32 => {
+                    *value = 2;
+                },
+                _ => panic!("unexpected type"),
+            }
+        }
+
+        fn owned<T: PartialReflect>(value: T) {
+            let value = Box::new(value);
+            match_type! {value,
+                i32 => {
+                    assert_eq!(value, 2);
+                },
+                _ => panic!("unexpected type"),
+            }
+        }
+
+        let mut value = 1_i32;
+        immutable(&value);
+        mutable(&mut value);
+        owned(value);
+    }
+
+    #[test]
+    fn should_downcast_to_generic() {
+        fn immutable<T: PartialReflect, U: PartialReflect + Debug + PartialEq<i32>>(value: &T) {
+            match_type! {value,
+                &U => {
+                    assert_eq!(*value, 1);
+                },
+                _ => panic!("unexpected type"),
+            }
+        }
+
+        fn mutable<T: PartialReflect, U: PartialReflect + MulAssign<i32>>(value: &mut T) {
+            match_type! {value,
+                &mut U => {
+                    *value *= 2;
+                },
+                _ => panic!("unexpected type"),
+            }
+        }
+
+        fn owned<T: PartialReflect, U: PartialReflect + Debug + PartialEq<i32>>(value: T) {
+            let value = Box::new(value);
+            match_type! {value,
+                U => {
+                    assert_eq!(value, 2);
+                },
+                _ => panic!("unexpected type"),
+            }
+        }
+
+        let mut value = 1_i32;
+        immutable::<_, i32>(&value);
+        mutable::<_, i32>(&mut value);
+        owned::<_, i32>(value);
     }
 }
