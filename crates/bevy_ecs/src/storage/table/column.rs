@@ -20,6 +20,7 @@ pub struct ThinColumn {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    /// Will be updated when inserting or replacing an element.
     change_tick: Tick,
 }
 
@@ -147,20 +148,20 @@ impl ThinColumn {
         &mut self,
         row: TableRow,
         data: OwningPtr<'_>,
-        tick: Tick,
+        change_tick: Tick,
         caller: MaybeLocation,
     ) {
         self.data.initialize_unchecked(row.as_usize(), data);
-        *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = tick;
+        *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = change_tick;
         *self
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
-            .get_mut() = tick;
+            .get_mut() = change_tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
-        self.change_tick = tick;
+        self.change_tick = change_tick;
     }
 
     /// Writes component data to the column at given row. Assumes the slot is initialized, drops the previous value.
@@ -173,19 +174,19 @@ impl ThinColumn {
         &mut self,
         row: TableRow,
         data: OwningPtr<'_>,
-        tick: Tick,
+        change_tick: Tick,
         caller: MaybeLocation,
     ) {
         self.data.replace_unchecked(row.as_usize(), data);
         *self
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
-            .get_mut() = tick;
+            .get_mut() = change_tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
-        self.change_tick = tick;
+        self.change_tick = change_tick;
     }
 
     /// Removes the element from `other` at `src_row` and inserts it
@@ -205,7 +206,7 @@ impl ThinColumn {
         other_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
-        tick: Tick,
+        change_tick: Tick,
     ) {
         debug_assert!(self.data.layout() == other.data.layout());
         // Init the data
@@ -232,7 +233,7 @@ impl ThinColumn {
                 self_changed_by.initialize_unchecked(dst_row.as_usize(), changed_by);
             },
         );
-        self.change_tick = tick;
+        self.change_tick = change_tick;
     }
 
     /// Call [`Tick::check_tick`] on all of the ticks stored in this column.
@@ -397,7 +398,7 @@ impl Column {
         &mut self,
         row: TableRow,
         data: OwningPtr<'_>,
-        tick: Tick,
+        change_tick: Tick,
         caller: MaybeLocation,
     ) {
         debug_assert!(row.as_usize() < self.len());
@@ -405,12 +406,12 @@ impl Column {
         *self
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
-            .get_mut() = tick;
+            .get_mut() = change_tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
-        self.change_tick = tick;
+        self.change_tick = change_tick;
     }
 
     /// Gets the current number of elements stored in the column.

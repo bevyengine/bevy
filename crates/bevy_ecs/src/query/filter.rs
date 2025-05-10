@@ -108,10 +108,16 @@ pub unsafe trait QueryFilter: WorldQuery {
         table_row: TableRow,
     ) -> bool;
 
+    /// Return false if the provided [`Table`] should be skipped from the result. If true, each record of the table
+    /// will be continued to be filtered with `filter_fetch`.
+    ///
+    /// This currently only be used for [`Added`] and [`Changed`] filters.
+    ///
     /// # Safety
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`].
     /// `table` and `state` must be matched
+    #[inline(always)]
     unsafe fn archetype_filter_fetch(
         _fetch: &mut Self::Fetch<'_>,
         _state: &Self::State,
