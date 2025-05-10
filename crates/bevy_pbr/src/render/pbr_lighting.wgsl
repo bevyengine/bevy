@@ -278,7 +278,23 @@ fn compute_specular_layer_values_for_point_light(
 
     // Representative Point Area Lights.
     // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
-    let centerToRay = dot(light_to_frag, R) * R - light_to_frag;
+    var LtFdotR = dot(light_to_frag, R);
+
+    // HACK: the following line is an amendment to fix a discontinuity when a surface
+    // intersects the light sphere. See https://github.com/bevyengine/bevy/issues/13318
+    //
+    // This sentence in the reference is crux of the problem: "We approximate finding the point with the
+    // smallest angle to the reflection ray by finding the point with the smallest distance to the ray."
+    // This approximation turns out to be completely wrong for points inside or near the sphere.
+    // Clamping this dot product to be positive ensures `centerToRay` lies on ray and not behind it.
+    // Any non-zero epsilon works here, it just has to be positive to avoid a singularity at zero.
+    // However, this is still far from physically accurate. Deriving an exact solution would help,
+    // but really we should adopt a superior solution to area lighting, such as:
+    // Physically Based Area Lights by Michal Drobot, or
+    // Polygonal-Light Shading with Linearly Transformed Cosines by Eric Heitz et al.
+    LtFdotR = max(0.0001, LtFdotR);
+
+    let centerToRay = LtFdotR * R - light_to_frag;
     let closestPoint = light_to_frag + centerToRay * saturate(
         light_position_radius * inverseSqrt(dot(centerToRay, centerToRay)));
     let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
