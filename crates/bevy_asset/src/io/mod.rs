@@ -21,17 +21,19 @@ mod source;
 pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::future::Future;
+use alloc::{boxed::Box, vec::Vec};
 use core::{
+    future::Future,
     mem::size_of,
     pin::Pin,
     task::{Context, Poll},
 };
+use std::path::{Path, PathBuf};
+
+use bevy_platform::sync::Arc;
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
-use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Errors that occur while loading assets.
