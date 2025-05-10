@@ -5,7 +5,7 @@
 /// The syntax of the macro closely resembles a standard `match`, but with some subtle differences.
 ///
 /// ```text
-/// match_type! { <input>, <arms> }
+/// select_type! { <input>, <arms> }
 ///
 /// <input> := IDENT                          // the variable you’re matching
 ///
@@ -62,11 +62,11 @@
 /// # Examples
 ///
 /// ```
-/// # use bevy_reflect::macros::match_type;
+/// # use bevy_reflect::macros::select_type;
 /// # use bevy_reflect::PartialReflect;
 /// #
 /// fn stringify(mut value: Box<dyn PartialReflect>) -> String {
-///     match_type! { value,
+///     select_type! { value,
 ///         // Downcast to an owned type
 ///         f32 => format!("{:.1}", value),
 ///         // Downcast to a mutable reference
@@ -98,7 +98,7 @@
 /// [`PartialReflect`]: crate::PartialReflect
 /// [`Type`]: crate::Type
 #[macro_export]
-macro_rules! match_type {
+macro_rules! select_type {
 
     // === Entry Point === //
 
@@ -108,7 +108,7 @@ macro_rules! match_type {
         // cast to `dyn PartialReflect` or dereference manually
         use $crate::PartialReflect;
 
-        match_type!(@arm[[], $input] $($tt)*)
+        select_type!(@arm[[], $input] $($tt)*)
     }};
 
     // === Arm Parsing === //
@@ -123,39 +123,39 @@ macro_rules! match_type {
 
     // --- Custom Bindings --- //
     {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] $new_binding:tt @ $($tt:tt)+} => {
-        match_type!(@arm [[$($tys),*], $input as $new_binding] $($tt)+)
+        select_type!(@arm [[$($tys),*], $input as $new_binding] $($tt)+)
     };
 
     // --- Fallback Case --- //
     {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] _ $([$types:ident])? $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
-        match_type!(@else [[$($tys),*], $input $(as $binding)?, [$($types)?], [$($condition)?], $action] $($tt)+)
+        select_type!(@else [[$($tys),*], $input $(as $binding)?, [$($types)?], [$($condition)?], $action] $($tt)+)
     };
     {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] _ $([$types:ident])? $(where $condition:expr)? => $action:expr $(,)?} => {
-        match_type!(@else [[$($tys),*], $input $(as $binding)?, [$($types)?], [$($condition)?], $action])
+        select_type!(@else [[$($tys),*], $input $(as $binding)?, [$($types)?], [$($condition)?], $action])
     };
 
     // --- Mutable Downcast Case --- //
     {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] &mut $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
-        match_type!(@if [[$($tys,)* &mut $ty], $input $(as $binding)?, mut, $ty, [$($types)?], [$($condition)?], $action] $($tt)+)
+        select_type!(@if [[$($tys,)* &mut $ty], $input $(as $binding)?, mut, $ty, [$($types)?], [$($condition)?], $action] $($tt)+)
     };
     {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] &mut $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr $(,)?} => {
-        match_type!(@if [[$($tys,)* &mut $ty], $input $(as $binding)?, mut, $ty, [$($types)?], [$($condition)?], $action])
+        select_type!(@if [[$($tys,)* &mut $ty], $input $(as $binding)?, mut, $ty, [$($types)?], [$($condition)?], $action])
     };
 
     // --- Immutable Downcast Case --- //
     {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] & $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
-        match_type!(@if [[$($tys,)* &$ty], $input $(as $binding)?, ref, $ty, [$($types)?], [$($condition)?], $action] $($tt)+)
+        select_type!(@if [[$($tys,)* &$ty], $input $(as $binding)?, ref, $ty, [$($types)?], [$($condition)?], $action] $($tt)+)
     };
     {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] & $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr $(,)?} => {
-        match_type!(@if [[$($tys,)* &$ty], $input $(as $binding)?, ref, $ty, [$($types)?], [$($condition)?], $action])
+        select_type!(@if [[$($tys,)* &$ty], $input $(as $binding)?, ref, $ty, [$($types)?], [$($condition)?], $action])
     };
 
     // --- Owned Downcast Case --- //
     {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr, $($tt:tt)+} => {
-        match_type!(@if [[$($tys,)* $ty], $input $(as $binding)?, box, $ty, [$($types)?], [$($condition)?], $action] $($tt)+)
+        select_type!(@if [[$($tys,)* $ty], $input $(as $binding)?, box, $ty, [$($types)?], [$($condition)?], $action] $($tt)+)
     };
     {@arm [[$($tys:ty),*], $input:ident $(as $binding:tt)?] $ty:ty $([$types:ident])? $(where $condition:expr)? => $action:expr $(,)?} => {
-        match_type!(@if [[$($tys,)* $ty], $input $(as $binding)?, box, $ty, [$($types)?], [$($condition)?], $action])
+        select_type!(@if [[$($tys,)* $ty], $input $(as $binding)?, box, $ty, [$($types)?], [$($condition)?], $action])
     };
 
     // === Type Matching === //
@@ -170,9 +170,9 @@ macro_rules! match_type {
     // This rule handles the owned downcast case
     {@if [[$($tys:ty),*], $input:ident $(as $binding:tt)?, box, $ty:ty, [$($types:ident)?], [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
         #[allow(unused_parens, reason = "may be used for disambiguation")]
-        match match_type!(@downcast box, $ty, $input) {
-            Ok(match_type!(@bind [mut] $input $(as $binding)?)) $(if $condition)? => {
-                match_type!(@collect [$($tys),*] $(as $types)?);
+        match select_type!(@downcast box, $ty, $input) {
+            Ok(select_type!(@bind [mut] $input $(as $binding)?)) $(if $condition)? => {
+                select_type!(@collect [$($tys),*] $(as $types)?);
                 $action
             },
             $input => {
@@ -188,39 +188,39 @@ macro_rules! match_type {
                     Err($input) => $input
                 };
 
-                match_type!(@arm [[$($tys),*], $input] $($rest)*)
+                select_type!(@arm [[$($tys),*], $input] $($rest)*)
             }
         }
     };
     // This rule handles the mutable and immutable downcast cases
     {@if [[$($tys:ty),*], $input:ident $(as $binding:tt)?, $kind:tt, $ty:ty, [$($types:ident)?], [$($condition:expr)?], $action:expr] $($rest:tt)*} => {
         #[allow(unused_parens, reason = "may be used for disambiguation")]
-        match match_type!(@downcast $kind, $ty, $input) {
-            Some(match_type!(@bind [] $input $(as $binding)?)) $(if $condition)? => {
-                match_type!(@collect [$($tys),*] $(as $types)?);
+        match select_type!(@downcast $kind, $ty, $input) {
+            Some(select_type!(@bind [] $input $(as $binding)?)) $(if $condition)? => {
+                select_type!(@collect [$($tys),*] $(as $types)?);
                 $action
             },
             _ => {
-                match_type!(@arm [[$($tys),*], $input] $($rest)*)
+                select_type!(@arm [[$($tys),*], $input] $($rest)*)
             }
         }
     };
 
     // This rule handles the fallback case where a condition has been provided
     {@else [[$($tys:ty),*], $input:ident $(as $binding:tt)?, [$($types:ident)?], [$condition:expr], $action:expr] $($rest:tt)*} => {{
-        match_type!(@collect [$($tys),*] $(as $types)?);
-        let match_type!(@bind [mut] _ $(as $binding)?) = $input;
+        select_type!(@collect [$($tys),*] $(as $types)?);
+        let select_type!(@bind [mut] _ $(as $binding)?) = $input;
 
         if $condition {
             $action
         } else {
-            match_type!(@arm [[$($tys),*], $input] $($rest)*)
+            select_type!(@arm [[$($tys),*], $input] $($rest)*)
         }
     }};
     // This rule handles the fallback case where no condition has been provided
     {@else [[$($tys:ty),*], $input:ident $(as $binding:tt)?, [$($types:ident)?], [], $action:expr] $($rest:tt)*} => {{
-        match_type!(@collect [$($tys),*] $(as $types)?);
-        let match_type!(@bind [mut] _ $(as $binding)?) = $input;
+        select_type!(@collect [$($tys),*] $(as $types)?);
+        let select_type!(@bind [mut] _ $(as $binding)?) = $input;
 
         $action
     }};
@@ -269,7 +269,7 @@ macro_rules! match_type {
     };
 }
 
-pub use match_type;
+pub use select_type;
 
 #[cfg(test)]
 mod tests {
@@ -293,8 +293,8 @@ mod tests {
     #[test]
     fn should_allow_empty() {
         fn empty(_value: Box<dyn PartialReflect>) {
-            let _: () = match_type! {_value};
-            let _: () = match_type! {_value,};
+            let _: () = select_type! {_value};
+            let _: () = select_type! {_value,};
         }
 
         empty(Box::new(42));
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn should_downcast_ref() {
         fn to_string(value: &dyn PartialReflect) -> String {
-            match_type! {value,
+            select_type! {value,
                 &String => value.clone(),
                 &i32 => value.to_string(),
                 &f32 => format!("{:.2}", value),
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn should_downcast_mut() {
         fn push_value(container: &mut dyn PartialReflect, value: i32) -> bool {
-            match_type! {container,
+            select_type! {container,
                 &mut Vec<i32> => container.push(value),
                 &mut Vec<u32> => container.push(value as u32),
                 _ => return false
@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn should_downcast_owned() {
         fn into_string(value: Box<dyn PartialReflect>) -> Option<String> {
-            match_type! {value,
+            select_type! {value,
                 String => Some(value),
                 i32 => Some(value.to_string()),
                 _ => None
@@ -369,7 +369,7 @@ mod tests {
         let original_value = String::from("hello");
         let cloned_value = original_value.clone();
 
-        let value = match_type! {cloned_value,
+        let value = select_type! {cloned_value,
             _ @ Option<String> => panic!("unexpected type"),
             _ => cloned_value
         };
@@ -380,7 +380,7 @@ mod tests {
     #[test]
     fn should_allow_mixed_borrows() {
         fn process(value: Box<dyn PartialReflect>) {
-            match_type! {value,
+            select_type! {value,
                 Option<f32> => {
                     let value = value.unwrap();
                     assert_eq!(value, 1.0);
@@ -410,7 +410,7 @@ mod tests {
     #[test]
     fn should_allow_custom_bindings() {
         fn process(mut value: Box<dyn PartialReflect>) {
-            match_type! {value,
+            select_type! {value,
                 foo @ &mut i32 => {
                     *foo *= 2;
                     assert_eq!(*foo, 246);
@@ -438,7 +438,7 @@ mod tests {
     fn should_handle_slice_types() {
         let _value = "hello world";
 
-        match_type! {_value,
+        select_type! {_value,
             (&str) => {},
             _ => panic!("unexpected type"),
         }
@@ -447,7 +447,7 @@ mod tests {
     #[test]
     fn should_capture_types() {
         fn test(mut value: Box<dyn PartialReflect>) {
-            match_type! {value,
+            select_type! {value,
                 _ @ &mut u8 [types] => {
                     assert_eq!(types.len(), 1);
                     assert_eq!(types[0], Type::of::<&mut u8>());
@@ -490,7 +490,7 @@ mod tests {
     #[test]
     fn should_downcast_from_generic() {
         fn immutable<T: PartialReflect>(value: &T) {
-            match_type! {value,
+            select_type! {value,
                 &i32 => {
                     assert_eq!(*value, 1);
                 },
@@ -499,7 +499,7 @@ mod tests {
         }
 
         fn mutable<T: PartialReflect>(value: &mut T) {
-            match_type! {value,
+            select_type! {value,
                 &mut i32 => {
                     *value = 2;
                 },
@@ -508,7 +508,7 @@ mod tests {
         }
 
         fn owned<T: PartialReflect>(value: T) {
-            match_type! {value,
+            select_type! {value,
                 i32 => {
                     assert_eq!(value, 2);
                 },
@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn should_downcast_to_generic() {
         fn immutable<T: PartialReflect, U: PartialReflect + Debug + PartialEq<i32>>(value: &T) {
-            match_type! {value,
+            select_type! {value,
                 &U => {
                     assert_eq!(*value, 1);
                 },
@@ -534,7 +534,7 @@ mod tests {
         }
 
         fn mutable<T: PartialReflect, U: PartialReflect + MulAssign<i32>>(value: &mut T) {
-            match_type! {value,
+            select_type! {value,
                 &mut U => {
                     *value *= 2;
                 },
@@ -543,7 +543,7 @@ mod tests {
         }
 
         fn owned<T: PartialReflect, U: PartialReflect + Debug + PartialEq<i32>>(value: T) {
-            match_type! {value,
+            select_type! {value,
                 U => {
                     assert_eq!(value, 2);
                 },
