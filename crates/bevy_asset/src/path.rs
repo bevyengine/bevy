@@ -6,7 +6,7 @@ use alloc::{
     sync::Arc,
 };
 use atomicow::CowArc;
-use bevy_platform::hash::FixedHasher;
+use bevy_platform::hash::{DefaultHasher, FixedHasher};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
     any::TypeId,
@@ -20,6 +20,7 @@ use thiserror::Error;
 
 /// Identifies an erased settings value. This is used to compare and hash values
 /// without having to read the underlying value.
+/// XXX TODO: Maybe this should be `ErasedSettingsType`?
 #[derive(Eq, PartialEq, Hash, Copy, Clone)]
 pub struct ErasedSettingsId {
     // XXX TODO: Should we store the type id separately or just include it in the
@@ -41,32 +42,59 @@ pub struct ErasedSettings {
     id: ErasedSettingsId,
 }
 
+// XXX TODO: This should go somewhere more shared?
+struct HashWriter {
+    hasher: DefaultHasher,
+}
+
+impl HashWriter {
+    fn new() -> Self {
+        HashWriter {
+            hasher: FixedHasher.build_hasher(),
+        }
+    }
+
+    fn finish(self) -> u64 {
+        self.hasher.finish()
+    }
+}
+
+impl std::io::Write for HashWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.hasher.write(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 impl ErasedSettings {
     pub fn new<S: Settings + Serialize>(settings: S) -> ErasedSettings {
-        // XXX TODO: Hash by serializing to a string. This is bad but
-        // convenient - Settings are already required to implement serialize
-        // (for meta filesupport) and this avoids them having to implement Hash.
-        // XXX TODO: More efficient to serialize to a writer that hashes?
-        let string = ron::ser::to_string(&settings).unwrap(); // XXX TODO: Avoid unwrap?
-
-        // XXX TODO: What's the appropriate hasher?
-        let id = ErasedSettingsId {
-            type_id: TypeId::of::<S>(),
-            hash: FixedHasher.hash_one(&string),
-        };
+        // Hash by serializing to RON. This means settings are not required to
+        // implement Hash.
+        // XXX TODO: Hashing via RON serialization is very debatable.
+        // XXX TODO: Could do ron::ser::to_string? Simpler but probably(?) slower.
+        let mut hash_writer = HashWriter::new();
+        ron::ser::to_writer(&mut hash_writer, &settings).expect("XXX TODO?");
+        let hash = hash_writer.finish();
 
         ErasedSettings {
             value: Box::new(settings),
-            id,
+            id: ErasedSettingsId {
+                type_id: TypeId::of::<S>(),
+                hash,
+            },
         }
     }
 }
 
 impl<'a> ErasedSettings {
     pub fn value(&'a self) -> &'a dyn Settings {
-        // The `deref` means we're returning the underlying type and not Box's
-        // implementation. This is required so that the value can be downcast
-        // by `AssetMeta::apply_settings`.
+        // The `deref` means we're returning the underlying type's implementation
+        // of Settings - not Box's wrapper. This is required so that the value
+        // can be downcast by `AssetMeta::apply_settings`.
         //
         // XXX TODO: Maybe this should all be done in `AssetMeta::apply_settings`?
         // Then everything's in one place.
