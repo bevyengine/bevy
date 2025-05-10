@@ -782,7 +782,7 @@ mod tests {
 
         assert_eq!(world.entity(d).get::<ChildOf>(), None);
         assert_eq!(world.entity(b).get::<ChildOf>(), None);
-        assert_eq!(world.entity(c).get::<ChildOf>().is_some(), true);
+        assert!(world.entity(c).get::<ChildOf>().is_some());
     }
 
     #[test]
