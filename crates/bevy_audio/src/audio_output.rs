@@ -86,6 +86,37 @@ impl<'w, 's> EarPositions<'w, 's> {
     }
 }
 
+/// Iterates "active" audio and updates their volume based on their [`PlaybackSettings`] and the updated [`GlobalVolume`]
+///
+/// "Active" audio is any entity with an [`AudioSink`]/[`SpatialAudioSink`]
+///
+/// This system triggers only on [`GlobalVolume`] updates
+pub(crate) fn update_playing_audio_volume(
+    mut query_playing_audio_sinks: Query<
+        (&mut AudioSink, &PlaybackSettings),
+        (
+            Without<PlaybackDespawnMarker>,
+            Without<PlaybackRemoveMarker>,
+        ),
+    >,
+    mut query_playing_spatial_audio_sinks: Query<
+        (&mut SpatialAudioSink, &PlaybackSettings),
+        (
+            Without<PlaybackDespawnMarker>,
+            Without<PlaybackRemoveMarker>,
+        ),
+    >,
+    global_volume: Res<GlobalVolume>,
+) {
+    for (mut sink, settings) in query_playing_audio_sinks.iter_mut() {
+        sink.set_volume(settings.volume * global_volume.volume);
+    }
+
+    for (mut sink, settings) in query_playing_spatial_audio_sinks.iter_mut() {
+        sink.set_volume(settings.volume * global_volume.volume);
+    }
+}
+
 /// Plays "queued" audio through the [`AudioOutput`] resource.
 ///
 /// "Queued" audio is any audio entity (with an [`AudioPlayer`] component) that does not have an

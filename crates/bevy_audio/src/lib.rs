@@ -118,7 +118,11 @@ impl AddAudioSource for App {
     {
         self.init_asset::<T>().add_systems(
             PostUpdate,
-            (play_queued_audio_system::<T>, cleanup_finished_audio::<T>)
+            (
+                update_playing_audio_volume.run_if(resource_changed::<GlobalVolume>),
+                play_queued_audio_system::<T>,
+                cleanup_finished_audio::<T>,
+            )
                 .in_set(AudioPlaybackSystems),
         );
         self
