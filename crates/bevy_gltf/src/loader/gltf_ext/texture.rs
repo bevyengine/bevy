@@ -51,7 +51,7 @@ pub(crate) fn texture_sampler(
 
     // Shouldn't parse filters when anisotropic filtering is on, because trilinear is then required by wgpu.
     // We also trust user to have provided a valid sampler.
-    if sampler.anisotropy_clamp != 1 {
+    if sampler.anisotropy_clamp == 1 {
         if let Some(mag_filter) = gltf_sampler.mag_filter().map(|mf| match mf {
             MagFilter::Nearest => ImageFilterMode::Nearest,
             MagFilter::Linear => ImageFilterMode::Linear,
