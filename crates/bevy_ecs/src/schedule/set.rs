@@ -13,8 +13,8 @@ use crate::{
     define_label,
     intern::Interned,
     system::{
-        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
-        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FallibleFunctionSystem,
+        FunctionSystem, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
     },
 };
 
@@ -190,13 +190,13 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
     Marker: 'static,
-    F: SystemParamFunction<Marker>,
+    FallibleFunctionSystem<F>: SystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<FunctionSystem<Marker, F>>;
+    type Set = SystemTypeSet<FunctionSystem<Marker, FallibleFunctionSystem<F>>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<FunctionSystem<Marker, F>>::new()
+        SystemTypeSet::<FunctionSystem<Marker, FallibleFunctionSystem<F>>>::new()
     }
 }
 
@@ -204,13 +204,13 @@ where
 impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
 where
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<Marker>,
+    FallibleFunctionSystem<F>: ExclusiveSystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, F>>;
+    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, FallibleFunctionSystem<F>>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<ExclusiveFunctionSystem<Marker, F>>::new()
+        SystemTypeSet::<ExclusiveFunctionSystem<Marker, FallibleFunctionSystem<F>>>::new()
     }
 }
 
@@ -219,6 +219,7 @@ mod tests {
     use crate::{
         resource::Resource,
         schedule::{tests::ResMut, Schedule},
+        system::{IntoSystem, System},
     };
 
     use super::*;
@@ -444,5 +445,23 @@ mod tests {
             GenericSet::<u32>(PhantomData).intern(),
             GenericSet::<u64>(PhantomData).intern()
         );
+    }
+
+    #[test]
+    fn system_set_matches_default_system_set() {
+        fn system() {}
+        let set_from_into_system_set = IntoSystemSet::into_system_set(system).intern();
+        let system = IntoSystem::into_system(system);
+        let set_from_system = system.default_system_sets()[0];
+        assert_eq!(set_from_into_system_set, set_from_system);
+    }
+
+    #[test]
+    fn system_set_matches_default_system_set_exclusive() {
+        fn system(_: &mut crate::world::World) {}
+        let set_from_into_system_set = IntoSystemSet::into_system_set(system).intern();
+        let system = IntoSystem::into_system(system);
+        let set_from_system = system.default_system_sets()[0];
+        assert_eq!(set_from_into_system_set, set_from_system);
     }
 }
