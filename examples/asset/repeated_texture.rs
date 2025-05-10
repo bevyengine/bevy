@@ -6,7 +6,6 @@ use bevy::{
     math::Affine2,
     prelude::*,
 };
-use bevy_asset::AssetPath;
 
 fn main() {
     App::new()
@@ -37,31 +36,25 @@ fn setup(
     // left cube with repeated texture
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(
-            materials.add(StandardMaterial {
-                base_color_texture: Some(
-                    asset_server.load(
-                        AssetPath::from(
-                            "textures/fantasy_ui_borders/panel-border-010-repeated.png",
-                        )
-                        .with_settings(ImageLoaderSettings {
-                            sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
-                                // rewriting mode to repeat image,
-                                address_mode_u: ImageAddressMode::Repeat,
-                                address_mode_v: ImageAddressMode::Repeat,
-                                ..default()
-                            }),
-                            ..default()
-                        }),
-                    ),
-                ),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load_with_settings(
+                "textures/fantasy_ui_borders/panel-border-010-repeated.png",
+                ImageLoaderSettings {
+                    sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+                        // rewriting mode to repeat image,
+                        address_mode_u: ImageAddressMode::Repeat,
+                        address_mode_v: ImageAddressMode::Repeat,
+                        ..default()
+                    }),
+                    ..default()
+                },
+            )),
 
-                // uv_transform used here for proportions only, but it is full Affine2
-                // that's why you can use rotation and shift also
-                uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
-                ..default()
-            }),
-        ),
+            // uv_transform used here for proportions only, but it is full Affine2
+            // that's why you can use rotation and shift also
+            uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
+            ..default()
+        })),
         Transform::from_xyz(-1.5, 0.0, 0.0),
     ));
 

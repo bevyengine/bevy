@@ -9,7 +9,7 @@ use crate::{
         MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
-    meta::{AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal},
+    meta::{AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal, Settings},
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
@@ -366,6 +366,74 @@ impl AssetServer {
         guard: G,
     ) -> Handle<A> {
         self.load_with_meta_transform(path, guard, true)
+    }
+
+    /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
+    /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
+    /// will be ignored and an error will be printed to the log.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_with_settings<'a, A: Asset, S: Settings + serde::Serialize>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: S,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path.into().with_settings(settings), (), false)
+    }
+
+    /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_with_settings_override<'a, A: Asset, S: Settings + serde::Serialize>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: S,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path.into().with_settings(settings), (), true)
+    }
+
+    /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
+    /// The guard item is dropped when either the asset is loaded or loading has failed.
+    ///
+    /// This function only guarantees the asset referenced by the [`Handle`] is loaded. If your asset is separated into
+    /// multiple files, sub-assets referenced by the main asset might still be loading, depend on the implementation of the [`AssetLoader`].
+    ///
+    /// The given `settings` function will override the asset's
+    /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
+    /// will be ignored and an error will be printed to the log.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_acquire_with_settings<
+        'a,
+        A: Asset,
+        S: Settings + serde::Serialize,
+        G: Send + Sync + 'static,
+    >(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: S,
+        guard: G,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path.into().with_settings(settings), guard, false)
+    }
+
+    /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
+    ///
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
+    pub fn load_acquire_with_settings_override<
+        'a,
+        A: Asset,
+        S: Settings + serde::Serialize,
+        G: Send + Sync + 'static,
+    >(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: S,
+        guard: G,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path.into().with_settings(settings), guard, true)
     }
 
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(

@@ -6,7 +6,6 @@ use bevy::{
     ui::widget::NodeImageMode,
     winit::WinitSettings,
 };
-use bevy_asset::AssetPath;
 
 fn main() {
     App::new()
@@ -19,14 +18,13 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let image = asset_server.load(
-        AssetPath::from("textures/fantasy_ui_borders/numbered_slices.png").with_settings(
-            ImageLoaderSettings {
-                // Need to use nearest filtering to avoid bleeding between the slices with tiling
-                sampler: ImageSampler::nearest(),
-                ..Default::default()
-            },
-        ),
+    let image = asset_server.load_with_settings(
+        "textures/fantasy_ui_borders/numbered_slices.png",
+        ImageLoaderSettings {
+            // Need to use nearest filtering to avoid bleeding between the slices with tiling
+            sampler: ImageSampler::nearest(),
+            ..Default::default()
+        },
     );
 
     let slicer = TextureSlicer {
