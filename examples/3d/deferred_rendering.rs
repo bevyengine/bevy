@@ -226,10 +226,7 @@ fn setup_parallax(
         "textures/parallax_example/cube_normal.png",
         // The normal map texture is in linear color space. Lighting won't look correct
         // if `is_srgb` is `true`, which is the default.
-        ImageLoaderSettings {
-            is_srgb: false,
-            ..Default::default()
-        },
+        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
     );
 
     let mut cube = Mesh::from(Cuboid::new(0.15, 0.15, 0.15));

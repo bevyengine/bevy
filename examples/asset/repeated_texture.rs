@@ -39,14 +39,16 @@ fn setup(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color_texture: Some(asset_server.load_with_settings(
                 "textures/fantasy_ui_borders/panel-border-010-repeated.png",
-                ImageLoaderSettings {
-                    sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
-                        // rewriting mode to repeat image,
-                        address_mode_u: ImageAddressMode::Repeat,
-                        address_mode_v: ImageAddressMode::Repeat,
+                |s: &mut _| {
+                    *s = ImageLoaderSettings {
+                        sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+                            // rewriting mode to repeat image,
+                            address_mode_u: ImageAddressMode::Repeat,
+                            address_mode_v: ImageAddressMode::Repeat,
+                            ..default()
+                        }),
                         ..default()
-                    }),
-                    ..default()
+                    }
                 },
             )),
 

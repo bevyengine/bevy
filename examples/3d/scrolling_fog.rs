@@ -94,9 +94,8 @@ fn setup(
     // Load a repeating 3d noise texture. Make sure to set ImageAddressMode to Repeat
     // so that the texture wraps around as the density texture offset is moved along.
     // Also set ImageFilterMode to Linear so that the fog isn't pixelated.
-    let noise_texture = assets.load_with_settings(
-        "volumes/fog_noise.ktx2",
-        ImageLoaderSettings {
+    let noise_texture = assets.load_with_settings("volumes/fog_noise.ktx2", |settings: &mut _| {
+        *settings = ImageLoaderSettings {
             sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
                 address_mode_u: ImageAddressMode::Repeat,
                 address_mode_v: ImageAddressMode::Repeat,
@@ -107,8 +106,8 @@ fn setup(
                 ..default()
             }),
             ..default()
-        },
-    );
+        }
+    });
 
     // Spawn a FogVolume and use the repeating noise texture as its density texture.
     commands.spawn((
