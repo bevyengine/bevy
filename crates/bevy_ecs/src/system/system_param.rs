@@ -1675,7 +1675,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 /// Component change ticks that are more recent than `last_run` will be detected by the system.
 /// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
 /// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](ResMut).
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SystemChangeTick {
     last_run: Tick,
     this_run: Tick,
