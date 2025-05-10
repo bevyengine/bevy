@@ -1,4 +1,4 @@
-use crate::{io::AssetSourceId, meta::Settings};
+use crate::{hash_writer::HashWriter, io::AssetSourceId, meta::Settings};
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
@@ -6,45 +6,16 @@ use alloc::{
     sync::Arc,
 };
 use atomicow::CowArc;
-use bevy_platform::hash::{DefaultHasher, FixedHasher};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
     any::TypeId,
     fmt::{Debug, Display},
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{Hash, Hasher},
     ops::Deref,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-
-// XXX TODO: This should go somewhere more shared?
-struct HashWriter {
-    hasher: DefaultHasher,
-}
-
-impl HashWriter {
-    fn new() -> Self {
-        HashWriter {
-            hasher: FixedHasher.build_hasher(),
-        }
-    }
-
-    fn finish(self) -> u64 {
-        self.hasher.finish()
-    }
-}
-
-impl std::io::Write for HashWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.hasher.write(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
 
 /// Identifies an erased settings value. This is used to compare and hash values
 /// without having to read the underlying value.

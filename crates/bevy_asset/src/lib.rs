@@ -178,6 +178,7 @@ mod direct_access_ext;
 mod event;
 mod folder;
 mod handle;
+mod hash_writer;
 mod id;
 mod loader;
 mod loader_builders;
