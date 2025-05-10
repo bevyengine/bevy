@@ -162,11 +162,11 @@ pub struct GltfLoader {
 /// # use bevy_asset::{AssetPath, AssetServer, Handle};
 /// # use bevy_gltf::*;
 /// # let asset_server: AssetServer = panic!();
-/// let gltf_handle: Handle<Gltf> = asset_server.load(
-///     AssetPath::from("my.gltf").with_settings(GltfLoaderSettings {
-///         load_cameras: false,
-///         ..Default::default()
-///     })
+/// let gltf_handle: Handle<Gltf> = asset_server.load_with_settings(
+///     "my.gltf",
+///     |s: &mut GltfLoaderSettings| {
+///         s.load_cameras = false;
+///     }
 /// );
 /// ```
 #[derive(Serialize, Deserialize, Clone)]
