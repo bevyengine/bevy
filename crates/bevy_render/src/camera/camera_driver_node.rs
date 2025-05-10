@@ -1,9 +1,8 @@
+use std::ops::Deref;
+
 use crate::{
     camera::{ClearColor, ExtractedCamera, NormalizedRenderTarget, SortedCameras},
-    frame_graph::{
-        ColorAttachmentDrawing, FrameGraph, FrameGraphTexture, RenderPass, TextureViewInfo,
-        TextureViewDrawing,
-    },
+    frame_graph::{ColorAttachment, FrameGraph, RenderPass},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     view::ExtractedWindows,
 };
@@ -81,28 +80,16 @@ impl Node for CameraDriverNode {
                 continue;
             }
 
-            let Some(surface) = &window.swap_chain_texture else {
+            let Some(swap_chain_texture_view) = &window.swap_chain_texture_view else {
                 continue;
             };
 
-            let swap_chain_texture = FrameGraphTexture::new_arc_with_surface(surface);
-
             let mut builder = frame_graph.create_pass_node_bulder("no_camera_clear_pass");
-
-            let swap_chain_texture_key = Self::get_swap_chain_texture_key(*id);
-
-            let swap_chain_texture_handle =
-                builder.import(&swap_chain_texture_key, swap_chain_texture);
-
-            let swap_chain_texture_read = builder.read(swap_chain_texture_handle);
 
             let mut render_pass = RenderPass::default();
 
-            render_pass.add_color_attachment(ColorAttachmentDrawing {
-                view: TextureViewDrawing {
-                    texture: swap_chain_texture_read,
-                    desc: TextureViewInfo::default(),
-                },
+            render_pass.add_raw_color_attachment(ColorAttachment {
+                view: swap_chain_texture_view.deref().clone(),
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(clear_color_global.to_linear().into()),

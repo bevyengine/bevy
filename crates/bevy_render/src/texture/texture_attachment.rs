@@ -30,18 +30,18 @@ impl ColorAttachmentHandle {
 
         if self.resolve_target.is_none() {
             view = TextureViewDrawing {
-                texture: pass_node_builder.read_from_board(&self.texture)?,
+                texture: pass_node_builder.write_from_board(&self.texture)?,
                 desc: TextureViewInfo::default(),
             };
         } else {
             view = TextureViewDrawing {
                 texture: pass_node_builder
-                    .read_from_board(self.resolve_target.as_ref().unwrap())?,
+                    .write_from_board(self.resolve_target.as_ref().unwrap())?,
                 desc: TextureViewInfo::default(),
             };
 
             resolve_target = Some(TextureViewDrawing {
-                texture: pass_node_builder.read_from_board(&self.texture)?,
+                texture: pass_node_builder.write_from_board(&self.texture)?,
                 desc: TextureViewInfo::default(),
             })
         }

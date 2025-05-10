@@ -93,7 +93,7 @@ impl ViewNode for TonemappingNode {
             .push_bind_group_entry(&lut_image.sampler_info)
             .build();
 
-        let destination = pass_node_builder.read(destination);
+        let destination = pass_node_builder.write(destination);
 
         let mut builder = RenderPassBuilder::new(pass_node_builder);
 

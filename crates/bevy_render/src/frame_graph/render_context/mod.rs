@@ -1,20 +1,20 @@
-pub mod encoder_context;
 pub mod compute_pass_context;
+pub mod encoder;
+pub mod encoder_context;
 pub mod parameter;
 pub mod render_pass_context;
-pub mod encoder;
 
 pub use compute_pass_context::*;
+pub use encoder::*;
+pub use encoder_context::*;
 pub use parameter::*;
 pub use render_pass_context::*;
-pub use encoder_context::*;
-pub use encoder::*;
 
 use wgpu::{AdapterInfo, CommandEncoder};
 
 use super::{
     ComputePassInfo, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo,
-    ResourceRead, ResourceRef, ResourceTable, TransientResourceCache,
+    ResourceRead, ResourceRef, ResourceTable, ResourceView, TransientResourceCache,
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
@@ -36,7 +36,7 @@ pub struct RenderContext<'a> {
     // #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
     // force_serial: bool,
     diagnostics_recorder: Option<Arc<DiagnosticsRecorder>>,
-    command_encoder: Option<wgpu::CommandEncoder>,
+    command_encoder: Option<CommandEncoder>,
 }
 
 impl<'a> RenderContext<'a> {
@@ -134,9 +134,9 @@ impl<'a> RenderContext<'a> {
             .ok_or(FrameGraphError::ResourceNotFound)
     }
 
-    pub fn get_resource<ResourceType: GraphResource>(
+    pub fn get_resource<ResourceType: GraphResource, View: ResourceView>(
         &self,
-        resource_ref: &ResourceRef<ResourceType, ResourceRead>,
+        resource_ref: &ResourceRef<ResourceType, View>,
     ) -> Result<&ResourceType, FrameGraphError> {
         self.resource_table
             .get_resource(resource_ref)
@@ -147,12 +147,12 @@ impl<'a> RenderContext<'a> {
         self.command_buffer_queue.push(command_buffer);
     }
 
-    pub fn create_command_encoder(&mut self) -> wgpu::CommandEncoder {
+    pub fn create_command_encoder(&mut self) -> CommandEncoder {
         self.render_device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
     }
 
-    pub fn command_encoder(&mut self) -> &mut wgpu::CommandEncoder {
+    pub fn command_encoder(&mut self) -> &mut CommandEncoder {
         self.command_encoder.get_or_insert_with(|| {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())

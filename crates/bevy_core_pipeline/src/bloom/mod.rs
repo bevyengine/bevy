@@ -160,7 +160,7 @@ impl ViewNode for BloomNode {
             let mut pass_node_builder =
                 frame_graph.create_pass_node_bulder("bloom_downsampling_first_pass");
 
-            let bloom_texture_read = pass_node_builder.read(bloom_texture_handle);
+            let bloom_texture_write = pass_node_builder.write(bloom_texture_handle);
 
             let downsampling_first_bind_group = pass_node_builder
                 .create_bind_group_drawing_builder(
@@ -177,7 +177,7 @@ impl ViewNode for BloomNode {
             builder
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
-                        texture: bloom_texture_read,
+                        texture: bloom_texture_write,
                         desc: bloom_texture.get_texture_view_info(0),
                     },
                     resolve_target: None,
@@ -204,7 +204,7 @@ impl ViewNode for BloomNode {
             let mut pass_node_builder =
                 frame_graph.create_pass_node_bulder("bloom_downsampling_pass");
 
-            let bloom_texture_read = pass_node_builder.read(bloom_texture_handle);
+            let bloom_texture_write = pass_node_builder.write(bloom_texture_handle);
 
             let bind_group_bloom_texture_read =
                 pass_node_builder.read(bind_group_bloom_texture_handle);
@@ -227,7 +227,7 @@ impl ViewNode for BloomNode {
             builder
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
-                        texture: bloom_texture_read,
+                        texture: bloom_texture_write,
                         desc: bloom_texture.get_texture_view_info(mip),
                     },
                     resolve_target: None,
@@ -257,7 +257,7 @@ impl ViewNode for BloomNode {
             let mut pass_node_builder =
                 frame_graph.create_pass_node_bulder("bloom_upsampling_pass");
 
-            let bloom_texture_read = pass_node_builder.read(bloom_texture_handle);
+            let bloom_texture_write = pass_node_builder.write(bloom_texture_handle);
             let bind_group_bloom_texture_read =
                 pass_node_builder.read(bind_group_bloom_texture_handle);
 
@@ -283,7 +283,7 @@ impl ViewNode for BloomNode {
             builder
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
-                        texture: bloom_texture_read,
+                        texture: bloom_texture_write,
                         desc: bloom_texture.get_texture_view_info(mip - 1),
                     },
                     resolve_target: None,
@@ -314,7 +314,7 @@ impl ViewNode for BloomNode {
 
             let bloom_texture_read = pass_node_builder.read(bloom_texture_handle);
 
-            let view_texture_read = pass_node_builder.read(view_texture);
+            let view_texture_write = pass_node_builder.write(view_texture);
 
             let upsampling_bind_group = pass_node_builder
                 .create_bind_group_drawing_builder(
@@ -336,7 +336,7 @@ impl ViewNode for BloomNode {
             builder
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
-                        texture: view_texture_read,
+                        texture: view_texture_write,
                         desc: TextureViewInfo::default(),
                     },
                     resolve_target: None,

@@ -10,9 +10,8 @@ use bevy_ecs::resource::Resource;
 
 use super::{
     AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, DevicePass, FrameGraphError,
-    GraphRawResourceNodeHandle, GraphResourceNodeHandle, ImportedResource, PassNode,
-    PassNodeBuilder, RenderContext, ResourceBoard, ResourceBoardKey, ResourceNode, TypeHandle,
-    VirtualResource,
+    GraphResourceNodeHandle, ImportedResource, PassNode, PassNodeBuilder, RenderContext,
+    ResourceBoard, ResourceBoardKey, ResourceNode, TypeHandle, VirtualResource,
 };
 
 pub trait ImportToFrameGraph
@@ -155,7 +154,7 @@ impl FrameGraph {
 }
 
 impl FrameGraph {
-    pub fn put(&mut self, key: &str, handle: GraphRawResourceNodeHandle) {
+    pub fn put(&mut self, key: &str, handle: TypeHandle<ResourceNode>) {
         let key = key.into();
         self.resource_board.put(key, handle);
     }
@@ -168,7 +167,10 @@ impl FrameGraph {
 
         self.resource_board
             .get(&key)
-            .map(|raw| GraphResourceNodeHandle::new(raw.handle, raw.version))
+            .map(|raw| {
+                let version = self.resource_nodes[raw.index].version();
+                GraphResourceNodeHandle::new(raw.clone(), version)
+            })
             .ok_or(FrameGraphError::ResourceBoardKey { key })
     }
 
@@ -213,7 +215,8 @@ impl FrameGraph {
     {
         let key = name.into();
         if let Some(raw_handle) = self.resource_board.get(&key) {
-            return GraphResourceNodeHandle::new(raw_handle.handle, raw_handle.version);
+            let version = self.resource_nodes[raw_handle.index].version();
+            return GraphResourceNodeHandle::new(raw_handle.clone(), version);
         }
 
         let resource_node_handle = TypeHandle::new(self.resource_nodes.len());
@@ -225,7 +228,7 @@ impl FrameGraph {
         self.resource_nodes.push(resource_node);
 
         let handle = GraphResourceNodeHandle::new(resource_node_handle, version);
-        self.put(name, handle.raw());
+        self.put(name, handle.handle);
 
         handle
     }
@@ -239,12 +242,14 @@ impl FrameGraph {
     {
         let key = name.into();
         if let Some(raw_handle) = self.resource_board.get(&key) {
-            return GraphResourceNodeHandle::new(raw_handle.handle, raw_handle.version);
+            let version = self.resource_nodes[raw_handle.index].version();
+
+            return GraphResourceNodeHandle::new(raw_handle.clone(), version);
         }
 
         let handle = self.create(name, desc);
 
-        self.resource_board.put(key, handle.raw());
+        self.resource_board.put(key, handle.handle);
 
         handle
     }

@@ -1,7 +1,7 @@
 use alloc::borrow::Cow;
 
 use crate::frame_graph::{
-    FrameGraphError, FrameGraphTexture, RenderContext, ResourceRead, ResourceRef,
+    FrameGraphError, FrameGraphTexture, RenderContext, ResourceRef, ResourceWrite,
 };
 
 use super::ResourceDrawing;
@@ -37,7 +37,7 @@ impl TextureViewInfo {
 
 #[derive(Clone)]
 pub struct TextureViewDrawing {
-    pub texture: ResourceRef<FrameGraphTexture, ResourceRead>,
+    pub texture: ResourceRef<FrameGraphTexture, ResourceWrite>,
     pub desc: TextureViewInfo,
 }
 
@@ -50,7 +50,7 @@ impl ResourceDrawing for TextureViewDrawing {
     ) -> Result<Self::Resource, FrameGraphError> {
         render_context
             .resource_table
-            .get_resource::<FrameGraphTexture>(&self.texture)
+            .get_resource(&self.texture)
             .map(|texture| {
                 texture
                     .resource

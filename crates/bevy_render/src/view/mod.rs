@@ -854,7 +854,7 @@ impl ViewDepthTexture {
         pass_node_builder: &mut PassNodeBuilder,
         store_op: StoreOp,
     ) -> Result<DepthStencilAttachmentDrawing, FrameGraphError> {
-        let depth_texture_read = pass_node_builder.read_from_board(self.get_depth_texture_key())?;
+        let depth_texture_read = pass_node_builder.write_from_board(self.get_depth_texture_key())?;
 
         Ok(DepthStencilAttachmentDrawing {
             view: TextureViewDrawing {

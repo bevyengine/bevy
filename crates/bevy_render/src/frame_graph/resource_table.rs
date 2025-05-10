@@ -4,7 +4,7 @@ use crate::renderer::RenderDevice;
 
 use super::{
     AnyFrameGraphResource, FrameGraphResourceCreator, GraphResource, ImportedResource,
-    ResourceNode, ResourceRead, ResourceRef, ResourceRelease, ResourceRequese,
+    ResourceNode, ResourceRef, ResourceRelease, ResourceRequese, ResourceView,
     TransientResourceCache, TypeHandle, VirtualResource,
 };
 
@@ -14,9 +14,9 @@ pub struct ResourceTable {
 }
 
 impl ResourceTable {
-    pub fn get_resource<ResourceType: GraphResource>(
+    pub fn get_resource<ResourceType: GraphResource, ViewType: ResourceView>(
         &self,
-        resource_ref: &ResourceRef<ResourceType, ResourceRead>,
+        resource_ref: &ResourceRef<ResourceType, ViewType>,
     ) -> Option<&ResourceType> {
         self.resources
             .get(&resource_ref.handle)

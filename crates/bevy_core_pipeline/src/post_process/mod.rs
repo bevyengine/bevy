@@ -406,7 +406,7 @@ impl ViewNode for PostProcessingNode {
 
         let mut pass_node_builder = frame_graph.create_pass_node_bulder("postprocessing pass");
 
-        let destination = pass_node_builder.read(destination);
+        let destination = pass_node_builder.write(destination);
 
         let bind_group = pass_node_builder
             .create_bind_group_drawing_builder(

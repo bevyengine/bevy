@@ -34,10 +34,10 @@ impl RenderPass {
     }
 
     pub fn finish(&mut self) {
-        let sub_render_pass = take(&mut self.current_logic_render_pass);
+        let logic_render_pass = take(&mut self.current_logic_render_pass);
 
-        if self.current_logic_render_pass.vaild {
-            self.logic_render_passes.push(sub_render_pass);
+        if logic_render_pass.vaild {
+            self.logic_render_passes.push(logic_render_pass);
         }
     }
 

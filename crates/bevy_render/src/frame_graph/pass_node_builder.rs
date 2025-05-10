@@ -51,6 +51,16 @@ impl<'a> PassNodeBuilder<'a> {
         Ok(read)
     }
 
+    pub fn write_from_board<ResourceType: GraphResource, Key: Into<ResourceBoardKey>>(
+        &mut self,
+        key: Key,
+    ) -> Result<ResourceRef<ResourceType, ResourceWrite>, FrameGraphError> {
+        let key: ResourceBoardKey = key.into();
+        let handle = self.graph.get(&key)?;
+        let write = self.write(handle);
+        Ok(write)
+    }
+
     pub fn import_and_read_buffer(
         &mut self,
         buffer: &Buffer,
