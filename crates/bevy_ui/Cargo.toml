@@ -41,7 +41,7 @@ thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 nonmax = "0.5"
 smallvec = "1.11"
-accesskit = "0.18"
+accesskit = "0.19"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]
