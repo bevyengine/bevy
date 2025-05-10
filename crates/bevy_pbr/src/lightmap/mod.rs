@@ -107,7 +107,7 @@ pub struct Lightmap {
     ///
     /// Bicubic sampling is higher quality, but slower, and may lead to light leaks.
     ///
-    /// If true, the lightmap texture's sampler must be set to [`bevy_image::ImageSampler::linear`].
+    /// If true, the lightmap texture's sampler must be set to [`bevy_image::ImageSampler::trilinear`].
     pub bicubic_sampling: bool,
 }
 
