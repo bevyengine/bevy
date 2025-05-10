@@ -1,17 +1,17 @@
 use core::fmt::Display;
 use serde::de::Error;
 
-#[cfg(feature = "debug_stack")]
-use std::thread_local;
+crate::cfg::debug_stack! {
+    use std::thread_local;
 
-#[cfg(feature = "debug_stack")]
-thread_local! {
-    /// The thread-local [`TypeInfoStack`] used for debugging.
-    ///
-    /// [`TypeInfoStack`]: crate::type_info_stack::TypeInfoStack
-    pub(super) static TYPE_INFO_STACK: core::cell::RefCell<crate::type_info_stack::TypeInfoStack> = const { core::cell::RefCell::new(
-        crate::type_info_stack::TypeInfoStack::new()
-    ) };
+    thread_local! {
+        /// The thread-local [`TypeInfoStack`] used for debugging.
+        ///
+        /// [`TypeInfoStack`]: crate::type_info_stack::TypeInfoStack
+        pub(super) static TYPE_INFO_STACK: core::cell::RefCell<crate::type_info_stack::TypeInfoStack> = const { core::cell::RefCell::new(
+            crate::type_info_stack::TypeInfoStack::new()
+        ) };
+    }
 }
 
 /// A helper function for generating a custom deserialization error message.
@@ -21,9 +21,12 @@ thread_local! {
 ///
 /// [type info stack]: crate::type_info_stack::TypeInfoStack
 pub(super) fn make_custom_error<E: Error>(msg: impl Display) -> E {
-    #[cfg(feature = "debug_stack")]
-    return TYPE_INFO_STACK
-        .with_borrow(|stack| E::custom(format_args!("{} (stack: {:?})", msg, stack)));
-    #[cfg(not(feature = "debug_stack"))]
-    return E::custom(msg);
+    crate::cfg::switch! {
+        crate::cfg::debug_stack => {
+            TYPE_INFO_STACK.with_borrow(|stack| E::custom(format_args!("{} (stack: {:?})", msg, stack)))
+        }
+        _ => {
+            E::custom(msg)
+        }
+    }
 }
