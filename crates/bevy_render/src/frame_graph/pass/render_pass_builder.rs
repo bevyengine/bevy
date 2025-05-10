@@ -23,6 +23,8 @@ pub struct RenderPassBuilder<'a> {
 
 impl<'a> Drop for RenderPassBuilder<'a> {
     fn drop(&mut self) {
+        self.render_pass.finish();
+
         let render_pass = take(&mut self.render_pass);
 
         if render_pass.is_vaild() {
@@ -41,10 +43,6 @@ impl<'a> RenderPassBuilder<'a> {
             render_pass,
             pass_node_builder,
         }
-    }
-
-    pub fn pass_node_builder(&mut self) -> &mut PassNodeBuilder<'a> {
-        &mut self.pass_node_builder
     }
 
     pub fn end_pipeline_statistics_query(&mut self) -> &mut Self {

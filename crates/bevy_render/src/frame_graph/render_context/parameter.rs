@@ -12,8 +12,8 @@ use crate::{
 };
 
 use super::{
-    command_encoder_context::{CommandEncoderContext, ErasedCommandEncoderCommand},
-    ComputePassContext, ErasedComputePassCommand, ErasedRenderPassCommand,
+    encoder_context::{EncoderContext, ErasedEncoderPassCommand},
+    ComputePassContext, ErasedComputePassCommand, ErasedEncoderCommand, ErasedRenderPassCommand,
 };
 
 pub struct DispatchWorkgroupsParameter {
@@ -57,11 +57,8 @@ impl ErasedRenderPassCommand for CopyTextureToTextureParameter {
     }
 }
 
-impl ErasedCommandEncoderCommand for CopyTextureToTextureParameter {
-    fn draw(
-        &self,
-        command_encoder_context: &mut CommandEncoderContext,
-    ) -> Result<(), FrameGraphError> {
+impl ErasedEncoderPassCommand for CopyTextureToTextureParameter {
+    fn draw(&self, command_encoder_context: &mut EncoderContext) -> Result<(), FrameGraphError> {
         command_encoder_context.copy_texture_to_texture(
             self.source.clone(),
             self.destination.clone(),
@@ -228,6 +225,11 @@ impl ErasedRenderPassCommand for InsertDebugMarkerParameter {
 pub struct PushDebugGroupParameter {
     pub label: String,
 }
+impl ErasedEncoderCommand for PushDebugGroupParameter {
+    fn draw(&self, command_encoder: &mut wgpu::CommandEncoder) {
+        command_encoder.push_debug_group(&self.label);
+    }
+}
 
 impl ErasedComputePassCommand for PushDebugGroupParameter {
     fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
@@ -244,6 +246,12 @@ impl ErasedRenderPassCommand for PushDebugGroupParameter {
 }
 
 pub struct PopDebugGroupParameter;
+
+impl ErasedEncoderCommand for PopDebugGroupParameter {
+    fn draw(&self, command_encoder: &mut wgpu::CommandEncoder) {
+        command_encoder.pop_debug_group();
+    }
+}
 
 impl ErasedComputePassCommand for PopDebugGroupParameter {
     fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {

@@ -30,8 +30,4 @@ impl PassTrait for ComputePass {
 
         Ok(())
     }
-
-    fn set_pass_name(&mut self, name: &str) {
-        self.compute_pass.label = Some(name.to_string().into());
-    }
 }

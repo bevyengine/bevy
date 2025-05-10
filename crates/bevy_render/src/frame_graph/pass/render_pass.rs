@@ -1,9 +1,11 @@
+use std::mem::take;
+
 use crate::{
     camera::Viewport,
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing,
-        FrameGraphError, RenderContext, RenderPassDrawing, RenderPassCommand,
-        RenderPassCommandBuilder, ResourceDrawing,
+        ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraphError,
+        RenderContext, RenderPassCommand, RenderPassCommandBuilder, RenderPassDrawing,
+        ResourceDrawing,
     },
 };
 
@@ -11,14 +13,32 @@ use super::PassTrait;
 
 #[derive(Default)]
 pub struct RenderPass {
-    render_pass: RenderPassDrawing,
+    logic_render_passes: Vec<LogicRenderPass>,
+    current_logic_render_pass: LogicRenderPass,
+}
+
+#[derive(Default)]
+pub struct LogicRenderPass {
+    render_pass_drawing: RenderPassDrawing,
     commands: Vec<RenderPassCommand>,
     vaild: bool,
 }
 
 impl RenderPass {
     pub fn is_vaild(&self) -> bool {
-        self.vaild
+        if self.logic_render_passes.is_empty() {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    pub fn finish(&mut self) {
+        let sub_render_pass = take(&mut self.current_logic_render_pass);
+
+        if self.current_logic_render_pass.vaild {
+            self.logic_render_passes.push(sub_render_pass);
+        }
     }
 
     pub fn set_camera_viewport(&mut self, viewport: Option<Viewport>) {
@@ -38,41 +58,53 @@ impl RenderPass {
         &mut self,
         depth_stencil_attachment: DepthStencilAttachmentDrawing,
     ) {
-        self.render_pass.depth_stencil_attachment = Some(depth_stencil_attachment);
+        self.current_logic_render_pass
+            .render_pass_drawing
+            .depth_stencil_attachment = Some(depth_stencil_attachment);
     }
 
     pub fn add_raw_color_attachment(&mut self, color_attachment: ColorAttachment) {
-        self.render_pass
+        self.current_logic_render_pass
+            .render_pass_drawing
             .raw_color_attachments
             .push(color_attachment);
 
-        self.vaild = true;
+        self.current_logic_render_pass.vaild = true;
     }
 
     pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentDrawing) {
-        self.render_pass.color_attachments.push(color_attachment);
+        self.current_logic_render_pass
+            .render_pass_drawing
+            .color_attachments
+            .push(color_attachment);
 
-        self.vaild = true;
+        self.current_logic_render_pass.vaild = true;
     }
 }
 
 impl RenderPassCommandBuilder for RenderPass {
     fn add_render_pass_command(&mut self, value: RenderPassCommand) {
-        self.commands.push(value);
+        self.current_logic_render_pass.commands.push(value);
     }
 }
 
 impl PassTrait for RenderPass {
     fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
-        let render_pass_info = self.render_pass.make_resource(render_context)?;
-        let render_pass_context = render_context.begin_render_pass(&render_pass_info)?;
+        let mut command_encoder = render_context.create_command_encoder();
 
-        render_pass_context.execute(&self.commands)?;
+        for logic_render_pass in self.logic_render_passes.iter() {
+            let render_pass_info = logic_render_pass
+                .render_pass_drawing
+                .make_resource(render_context)?;
+            let render_pass_context =
+                render_context.begin_render_pass(&mut command_encoder, &render_pass_info)?;
 
+            render_pass_context.execute(&logic_render_pass.commands)?;
+        }
+
+        let command_buffer = command_encoder.finish();
+
+        render_context.add_command_buffer(command_buffer);
         Ok(())
-    }
-
-    fn set_pass_name(&mut self, name: &str) {
-        self.render_pass.label = Some(name.to_string().into());
     }
 }

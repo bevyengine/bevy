@@ -287,15 +287,15 @@ pub trait ErasedRenderPassCommand: Sync + Send + 'static {
 }
 
 pub struct RenderPassContext<'a, 'b> {
-    command_encoder: wgpu::CommandEncoder,
-    render_pass: wgpu::RenderPass<'static>,
+    command_encoder: &'b mut wgpu::CommandEncoder,
+    render_pass: wgpu::RenderPass<'b>,
     render_context: &'b mut RenderContext<'a>,
 }
 
 impl<'a, 'b> RenderPassContext<'a, 'b> {
     pub fn new(
-        command_encoder: wgpu::CommandEncoder,
-        render_pass: wgpu::RenderPass<'static>,
+        command_encoder: &'b mut wgpu::CommandEncoder,
+        render_pass: wgpu::RenderPass<'b>,
         render_context: &'b mut RenderContext<'a>,
     ) -> Self {
         RenderPassContext {
@@ -565,14 +565,6 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
             command.draw(&mut self)?;
         }
 
-        self.end();
-
         Ok(())
-    }
-
-    fn end(self) {
-        drop(self.render_pass);
-        let command_buffer = self.command_encoder.finish();
-        self.render_context.add_command_buffer(command_buffer);
     }
 }

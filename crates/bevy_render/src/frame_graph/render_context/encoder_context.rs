@@ -4,8 +4,8 @@ use crate::frame_graph::{FrameGraphError, TexelCopyTextureInfo};
 
 use super::{CopyTextureToTextureParameter, RenderContext};
 
-pub trait CommandEncoderCommandBuilder {
-    fn add_render_pass_command(&mut self, value: CommandEncoderCommand);
+pub trait EncoderPassCommandBuilder {
+    fn add_encoder_pass_command(&mut self, value:EncoderPassCommand);
 
     fn copy_texture_to_texture(
         &mut self,
@@ -13,7 +13,7 @@ pub trait CommandEncoderCommandBuilder {
         destination: TexelCopyTextureInfo,
         copy_size: Extent3d,
     ) {
-        self.add_render_pass_command(CommandEncoderCommand::new(CopyTextureToTextureParameter {
+        self.add_encoder_pass_command(EncoderPassCommand::new(CopyTextureToTextureParameter {
             source,
             destination,
             copy_size,
@@ -21,34 +21,34 @@ pub trait CommandEncoderCommandBuilder {
     }
 }
 
-pub struct CommandEncoderCommand(Box<dyn ErasedCommandEncoderCommand>);
+pub struct EncoderPassCommand(Box<dyn ErasedEncoderPassCommand>);
 
-impl CommandEncoderCommand {
-    pub fn new<T: ErasedCommandEncoderCommand>(value: T) -> Self {
+impl EncoderPassCommand {
+    pub fn new<T: ErasedEncoderPassCommand>(value: T) -> Self {
         Self(Box::new(value))
     }
 
     pub fn draw(
         &self,
-        command_encoder_context: &mut CommandEncoderContext,
+        command_encoder_context: &mut EncoderContext,
     ) -> Result<(), FrameGraphError> {
         self.0.draw(command_encoder_context)
     }
 }
 
-pub trait ErasedCommandEncoderCommand: Sync + Send + 'static {
+pub trait ErasedEncoderPassCommand: Sync + Send + 'static {
     fn draw(
         &self,
-        command_encoder_context: &mut CommandEncoderContext,
+        command_encoder_context: &mut EncoderContext,
     ) -> Result<(), FrameGraphError>;
 }
 
-pub struct CommandEncoderContext<'a, 'b> {
+pub struct EncoderContext<'a, 'b> {
     command_encoder: wgpu::CommandEncoder,
     render_context: &'b mut RenderContext<'a>,
 }
 
-impl<'a, 'b> CommandEncoderContext<'a, 'b> {
+impl<'a, 'b> EncoderContext<'a, 'b> {
     pub fn copy_texture_to_texture(
         &mut self,
         source: TexelCopyTextureInfo,
@@ -77,7 +77,7 @@ impl<'a, 'b> CommandEncoderContext<'a, 'b> {
         Ok(())
     }
 
-    pub fn execute(mut self, commands: &Vec<CommandEncoderCommand>) -> Result<(), FrameGraphError> {
+    pub fn execute(mut self, commands: &Vec<EncoderPassCommand>) -> Result<(), FrameGraphError> {
         for command in commands {
             command.draw(&mut self)?;
         }
@@ -89,7 +89,7 @@ impl<'a, 'b> CommandEncoderContext<'a, 'b> {
         command_encoder: wgpu::CommandEncoder,
         render_context: &'b mut RenderContext<'a>,
     ) -> Self {
-        CommandEncoderContext {
+       EncoderContext {
             command_encoder,
             render_context,
         }

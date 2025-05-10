@@ -1,13 +1,14 @@
-pub mod render_pass;
-pub mod command_encoder;
-pub mod render_pass_builder;
+pub mod encoder_pass;
 pub mod compute_pass;
 pub mod compute_pass_builder;
+pub mod render_pass;
+pub mod render_pass_builder;
 
-pub use render_pass::*;
-pub use render_pass_builder::*;
 pub use compute_pass::*;
 pub use compute_pass_builder::*;
+pub use render_pass::*;
+pub use render_pass_builder::*;
+pub use encoder_pass::*;
 
 use super::{FrameGraphError, RenderContext};
 
@@ -31,8 +32,6 @@ impl Pass {
 
 pub trait PassTrait: 'static + Send + Sync {
     fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError>;
-
-    fn set_pass_name(&mut self, _name: &str) {}
 }
 
 pub struct EmptyPass;

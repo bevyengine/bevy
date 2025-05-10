@@ -1,14 +1,16 @@
-pub mod command_encoder_context;
+pub mod encoder_context;
 pub mod compute_pass_context;
 pub mod parameter;
 pub mod render_pass_context;
+pub mod encoder;
 
-use command_encoder_context::CommandEncoderContext;
 pub use compute_pass_context::*;
 pub use parameter::*;
 pub use render_pass_context::*;
+pub use encoder_context::*;
+pub use encoder::*;
 
-use wgpu::AdapterInfo;
+use wgpu::{AdapterInfo, CommandEncoder};
 
 use super::{
     ComputePassInfo, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo,
@@ -96,25 +98,22 @@ impl<'a> RenderContext<'a> {
 
     pub fn begin_render_pass<'b>(
         &'b mut self,
+        command_encoder: &'b mut CommandEncoder,
         render_pass_info: &RenderPassInfo,
     ) -> Result<RenderPassContext<'a, 'b>, FrameGraphError> {
         self.flush_encoder();
 
-        let mut command_encoder = self
-            .render_device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-
-        let render_pass = render_pass_info.create_render_pass(&mut command_encoder)?;
+        let render_pass = render_pass_info.create_render_pass(command_encoder)?;
 
         Ok(RenderPassContext::new(command_encoder, render_pass, self))
     }
 
-    pub fn begin_command_encoder<'b>(&'b mut self) -> CommandEncoderContext<'a, 'b> {
+    pub fn begin_encoder<'b>(&'b mut self) -> EncoderContext<'a, 'b> {
         let command_encoder = self
             .render_device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-        CommandEncoderContext::new(command_encoder, self)
+        EncoderContext::new(command_encoder, self)
     }
 
     pub fn get_compute_pipeline(
@@ -146,6 +145,11 @@ impl<'a> RenderContext<'a> {
 
     pub fn add_command_buffer(&mut self, command_buffer: wgpu::CommandBuffer) {
         self.command_buffer_queue.push(command_buffer);
+    }
+
+    pub fn create_command_encoder(&mut self) -> wgpu::CommandEncoder {
+        self.render_device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
     }
 
     pub fn command_encoder(&mut self) -> &mut wgpu::CommandEncoder {
