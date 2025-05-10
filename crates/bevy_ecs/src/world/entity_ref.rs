@@ -2415,10 +2415,6 @@ impl<'w> EntityWorldMut<'w> {
             world.removed_components.send(component_id, self.entity);
         }
 
-        // Observers and on_remove hooks may reserve new entities, which
-        // requires a flush before Entities::free may be called.
-        world.flush_entities();
-
         let location = world
             .entities
             .free(self.entity)
@@ -2758,6 +2754,7 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
 
         let entity_clone = self.world.entities.reserve_entity();
+        // If there is a command that could change what we are cloning, apply it.
         self.world.flush();
 
         let mut builder = EntityCloner::build(self.world);
@@ -5772,33 +5769,31 @@ mod tests {
                 commands.queue(count_flush);
             },
         );
-        world.commands().queue(count_flush);
         let entity = world.spawn_empty().id();
-        assert_eq!(world.resource::<TestFlush>().0, 1);
         world.commands().queue(count_flush);
         let mut a = world.entity_mut(entity);
         a.trigger(TestEvent);
+        assert_eq!(a.world().resource::<TestFlush>().0, 1);
+        a.insert(TestComponent(0));
         assert_eq!(a.world().resource::<TestFlush>().0, 2);
-        a.insert(TestComponent(0));
-        assert_eq!(a.world().resource::<TestFlush>().0, 3);
         a.remove::<TestComponent>();
+        assert_eq!(a.world().resource::<TestFlush>().0, 3);
+        a.insert(TestComponent(0));
         assert_eq!(a.world().resource::<TestFlush>().0, 4);
-        a.insert(TestComponent(0));
-        assert_eq!(a.world().resource::<TestFlush>().0, 5);
         let _ = a.take::<TestComponent>();
+        assert_eq!(a.world().resource::<TestFlush>().0, 5);
+        a.insert(TestComponent(0));
         assert_eq!(a.world().resource::<TestFlush>().0, 6);
-        a.insert(TestComponent(0));
-        assert_eq!(a.world().resource::<TestFlush>().0, 7);
         a.retain::<()>();
+        assert_eq!(a.world().resource::<TestFlush>().0, 7);
+        a.insert(TestComponent(0));
         assert_eq!(a.world().resource::<TestFlush>().0, 8);
-        a.insert(TestComponent(0));
-        assert_eq!(a.world().resource::<TestFlush>().0, 9);
         a.clear();
-        assert_eq!(a.world().resource::<TestFlush>().0, 10);
+        assert_eq!(a.world().resource::<TestFlush>().0, 9);
         a.insert(TestComponent(0));
-        assert_eq!(a.world().resource::<TestFlush>().0, 11);
+        assert_eq!(a.world().resource::<TestFlush>().0, 10);
         a.despawn();
-        assert_eq!(world.resource::<TestFlush>().0, 12);
+        assert_eq!(world.resource::<TestFlush>().0, 11);
     }
 
     #[derive(Resource)]
