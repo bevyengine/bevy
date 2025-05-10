@@ -86,7 +86,7 @@ impl<'w> EntityWorldMut<'w> {
         let id = self.id();
         self.world_scope(|world| {
             for (offset, related) in related.iter().enumerate() {
-                let index = index + offset;
+                let index = index.saturating_add(offset);
                 if world
                     .get::<R>(*related)
                     .is_some_and(|relationship| relationship.get() == id)
@@ -530,6 +530,16 @@ impl<'w, R: Relationship> RelatedSpawner<'w, R> {
     /// Returns the "target entity" used when spawning entities with an `R` [`Relationship`].
     pub fn target_entity(&self) -> Entity {
         self.target
+    }
+
+    /// Returns a reference to the underlying [`World`].
+    pub fn world(&self) -> &World {
+        self.world
+    }
+
+    /// Returns a mutable reference to the underlying [`World`].
+    pub fn world_mut(&mut self) -> &mut World {
+        self.world
     }
 }
 

@@ -7,7 +7,7 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
-use crate::widget::ImageNode;
+use crate::widget::{ImageNode, ViewportNode};
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
     ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
@@ -36,7 +36,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderSet,
+    Extract, RenderApp, RenderSystems,
 };
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
@@ -51,7 +51,9 @@ pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
+use bevy_text::{
+    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
+};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
@@ -98,17 +100,23 @@ pub mod stack_z_offsets {
 pub const UI_SHADER_HANDLE: Handle<Shader> = weak_handle!("7d190d05-545b-42f5-bd85-22a0da85b0f6");
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderUiSystem {
+pub enum RenderUiSystems {
     ExtractCameraViews,
     ExtractBoxShadows,
     ExtractBackgrounds,
     ExtractImages,
     ExtractTextureSlice,
     ExtractBorders,
+    ExtractViewportNodes,
+    ExtractTextBackgrounds,
     ExtractTextShadows,
     ExtractText,
     ExtractDebug,
 }
+
+/// Deprecated alias for [`RenderUiSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RenderUiSystems`.")]
+pub type RenderUiSystem = RenderUiSystems;
 
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
@@ -129,37 +137,40 @@ pub fn build_ui_render(app: &mut App) {
         .configure_sets(
             ExtractSchedule,
             (
-                RenderUiSystem::ExtractCameraViews,
-                RenderUiSystem::ExtractBoxShadows,
-                RenderUiSystem::ExtractBackgrounds,
-                RenderUiSystem::ExtractImages,
-                RenderUiSystem::ExtractTextureSlice,
-                RenderUiSystem::ExtractBorders,
-                RenderUiSystem::ExtractTextShadows,
-                RenderUiSystem::ExtractText,
-                RenderUiSystem::ExtractDebug,
+                RenderUiSystems::ExtractCameraViews,
+                RenderUiSystems::ExtractBoxShadows,
+                RenderUiSystems::ExtractBackgrounds,
+                RenderUiSystems::ExtractImages,
+                RenderUiSystems::ExtractTextureSlice,
+                RenderUiSystems::ExtractBorders,
+                RenderUiSystems::ExtractTextBackgrounds,
+                RenderUiSystems::ExtractTextShadows,
+                RenderUiSystems::ExtractText,
+                RenderUiSystems::ExtractDebug,
             )
                 .chain(),
         )
         .add_systems(
             ExtractSchedule,
             (
-                extract_ui_camera_view.in_set(RenderUiSystem::ExtractCameraViews),
-                extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
-                extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
-                extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
-                extract_text_shadows.in_set(RenderUiSystem::ExtractTextShadows),
-                extract_text_sections.in_set(RenderUiSystem::ExtractText),
+                extract_ui_camera_view.in_set(RenderUiSystems::ExtractCameraViews),
+                extract_uinode_background_colors.in_set(RenderUiSystems::ExtractBackgrounds),
+                extract_uinode_images.in_set(RenderUiSystems::ExtractImages),
+                extract_uinode_borders.in_set(RenderUiSystems::ExtractBorders),
+                extract_viewport_nodes.in_set(RenderUiSystems::ExtractViewportNodes),
+                extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
+                extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
+                extract_text_sections.in_set(RenderUiSystems::ExtractText),
                 #[cfg(feature = "bevy_ui_debug")]
-                debug_overlay::extract_debug_overlay.in_set(RenderUiSystem::ExtractDebug),
+                debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
             ),
         )
         .add_systems(
             Render,
             (
-                queue_uinodes.in_set(RenderSet::Queue),
-                sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
-                prepare_uinodes.in_set(RenderSet::PrepareBindGroups),
+                queue_uinodes.in_set(RenderSystems::Queue),
+                sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
+                prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
             ),
         );
 
@@ -692,6 +703,69 @@ pub fn extract_ui_camera_view(
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
+pub fn extract_viewport_nodes(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    camera_query: Extract<Query<&Camera>>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedNodeTarget,
+            &ViewportNode,
+        )>,
+    >,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut camera_mapper = camera_map.get_mapper();
+    for (entity, uinode, transform, inherited_visibility, clip, camera, viewport_node) in
+        &uinode_query
+    {
+        // Skip invisible images
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        let Some(image) = camera_query
+            .get(viewport_node.camera)
+            .ok()
+            .and_then(|camera| camera.target.as_image())
+        else {
+            continue;
+        };
+
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            stack_index: uinode.stack_index,
+            color: LinearRgba::WHITE,
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: uinode.size,
+            },
+            clip: clip.map(|clip| clip.clip),
+            image: image.id(),
+            extracted_camera_entity,
+            item: ExtractedUiItem::Node {
+                atlas_scaling: None,
+                transform: transform.compute_matrix(),
+                flip_x: false,
+                flip_y: false,
+                border: uinode.border(),
+                border_radius: uinode.border_radius(),
+                node_type: NodeType::Rect,
+            },
+            main_entity: entity.into(),
+        });
+    }
+}
+
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -875,6 +949,70 @@ pub fn extract_text_shadows(
             }
 
             end += 1;
+        }
+    }
+}
+
+pub fn extract_text_background_colors(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedNodeTarget,
+            &TextLayoutInfo,
+        )>,
+    >,
+    text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut camera_mapper = camera_map.get_mapper();
+    for (entity, uinode, global_transform, inherited_visibility, clip, camera, text_layout_info) in
+        &uinode_query
+    {
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        let transform = global_transform.affine()
+            * bevy_math::Affine3A::from_translation(-0.5 * uinode.size().extend(0.));
+
+        for &(section_entity, rect) in text_layout_info.section_rects.iter() {
+            let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
+                continue;
+            };
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: text_background_color.0.to_linear(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: rect.size(),
+                },
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    transform: transform * Mat4::from_translation(rect.center().extend(0.)),
+                    flip_x: false,
+                    flip_y: false,
+                    border: uinode.border(),
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
         }
     }
 }
