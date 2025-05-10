@@ -76,11 +76,18 @@ pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
+    component::Tick,
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
 use bevy_platform::sync::atomic::Ordering;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use core::{
+    fmt,
+    hash::Hash,
+    mem::{self, MaybeUninit},
+    num::NonZero,
+    panic::Location,
+};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -899,7 +906,10 @@ impl Entities {
     }
 
     /// Updates the location of an [`Entity`]. This must be called when moving the components of
-    /// the entity around in storage.
+    /// the existing entity around in storage.
+    ///
+    /// For spawning and despawning entities, [`set_spawn_despawn`](Self::set_spawn_despawn) must
+    /// be used instead.
     ///
     /// # Safety
     ///  - `index` must be a valid entity index.
@@ -910,6 +920,27 @@ impl Entities {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
+    }
+
+    /// Updates the location of an [`Entity`]. This must be called when moving the components of
+    /// the spawned or despawned entity around in storage.
+    ///
+    /// # Safety
+    ///  - `index` must be a valid entity index.
+    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
+    ///    before handing control to unknown code.
+    #[inline]
+    pub(crate) unsafe fn set_spawn_despawn(
+        &mut self,
+        index: u32,
+        location: EntityLocation,
+        by: MaybeLocation,
+        at: Tick,
+    ) {
+        // SAFETY: Caller guarantees that `index` a valid entity index
+        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+        meta.location = location;
+        meta.spawned_or_despawned = MaybeUninit::new(SpawnedOrDespawned { by, at });
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
@@ -1052,19 +1083,6 @@ impl Entities {
         self.len() == 0
     }
 
-    /// Sets the source code location from which this entity has last been spawned
-    /// or despawned.
-    #[inline]
-    pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: MaybeLocation) {
-        caller.map(|caller| {
-            let meta = self
-                .meta
-                .get_mut(index as usize)
-                .expect("Entity index invalid");
-            meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
-        });
-    }
-
     /// Returns the source code location from which this entity has last been spawned
     /// or despawned. Returns `None` if its index has been reused by another entity
     /// or if this entity has never existed.
@@ -1073,16 +1091,67 @@ impl Entities {
         entity: Entity,
     ) -> MaybeLocation<Option<&'static Location<'static>>> {
         MaybeLocation::new_with_flattened(|| {
-            self.meta
-                .get(entity.index() as usize)
-                .filter(|meta|
-                // Generation is incremented immediately upon despawn
-                (meta.generation == entity.generation)
-                || (meta.location.archetype_id == ArchetypeId::INVALID)
-                && (meta.generation == entity.generation.after_versions(1)))
-                .map(|meta| meta.spawned_or_despawned_by)
+            self.entity_get_spawned_or_despawned(entity)
+                .map(|spawned_or_despawned| spawned_or_despawned.by)
         })
-        .map(Option::flatten)
+    }
+
+    /// Returns the [`Tick`] at which this entity has last been spawned or despawned.
+    /// Returns `None` if its index has been reused by another entity or if this entity
+    /// has never existed.
+    pub fn entity_get_spawned_or_despawned_at(&self, entity: Entity) -> Option<Tick> {
+        self.entity_get_spawned_or_despawned(entity)
+            .map(|spawned_or_despawned| spawned_or_despawned.at)
+    }
+
+    /// Returns the [`SpawnedOrDespawned`] related to the entity's last spawn or
+    /// respawn. Returns `None` if its index has been reused by another entity or if
+    /// this entity has never existed.
+    #[inline]
+    fn entity_get_spawned_or_despawned(&self, entity: Entity) -> Option<SpawnedOrDespawned> {
+        self.meta
+            .get(entity.index() as usize)
+            .filter(|meta|
+            // Generation is incremented immediately upon despawn
+            (meta.generation == entity.generation)
+            || (meta.location.archetype_id == ArchetypeId::INVALID)
+            && (meta.generation == entity.generation.after_versions(1)))
+            .map(|meta| {
+                // SAFETY: valid archetype or non-min generation is proof this is init
+                unsafe { meta.spawned_or_despawned.assume_init() }
+            })
+    }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned and the Tick of when that happened.
+    ///
+    /// # Safety
+    ///
+    /// The entity index must belong to an entity that is currently alive or, if it
+    /// despawned, was not overwritten by a new entity of the same index.
+    #[inline]
+    pub(crate) unsafe fn entity_get_spawned_or_despawned_unchecked(
+        &self,
+        entity: Entity,
+    ) -> (MaybeLocation, Tick) {
+        // SAFETY: caller ensures entity is allocated
+        let meta = unsafe { self.meta.get_unchecked(entity.index() as usize) };
+        // SAFETY: caller ensures entities of this index were at least spawned
+        let spawned_or_despawned = unsafe { meta.spawned_or_despawned.assume_init() };
+        (spawned_or_despawned.by, spawned_or_despawned.at)
+    }
+
+    #[inline]
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+        for meta in &mut self.meta {
+            if meta.generation != EntityGeneration::FIRST
+                || meta.location.archetype_id != ArchetypeId::INVALID
+            {
+                // SAFETY: non-min generation or valid archetype is proof this is init
+                let spawned_or_despawned = unsafe { meta.spawned_or_despawned.assume_init_mut() };
+                spawned_or_despawned.at.check_tick(change_tick);
+            }
+        }
     }
 
     /// Constructs a message explaining why an entity does not exist, if known.
@@ -1145,7 +1214,13 @@ struct EntityMeta {
     /// The current location of the [`EntityRow`]
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
-    spawned_or_despawned_by: MaybeLocation<Option<&'static Location<'static>>>,
+    spawned_or_despawned: MaybeUninit<SpawnedOrDespawned>,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct SpawnedOrDespawned {
+    by: MaybeLocation,
+    at: Tick,
 }
 
 impl EntityMeta {
@@ -1153,7 +1228,7 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: EntityGeneration::FIRST,
         location: EntityLocation::INVALID,
-        spawned_or_despawned_by: MaybeLocation::new(None),
+        spawned_or_despawned: MaybeUninit::uninit(),
     };
 }
 

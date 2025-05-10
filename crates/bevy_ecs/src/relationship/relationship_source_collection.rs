@@ -220,15 +220,14 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
 
     fn place_most_recent(&mut self, index: usize) {
         if let Some(entity) = self.pop() {
-            let index = index.min(self.len().saturating_sub(1));
+            let index = index.min(self.len());
             self.insert(index, entity);
         }
     }
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
-            // The len is at least 1, so the subtraction is safe.
-            let index = index.min(self.len().saturating_sub(1));
+            let index = index.min(self.len());
             Vec::remove(self, current);
             self.insert(index, entity);
         };
