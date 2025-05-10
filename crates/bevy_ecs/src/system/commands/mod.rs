@@ -131,11 +131,13 @@ const _: () = {
         fn init_access(
             state: &Self::State,
             system_meta: &mut bevy_ecs::system::SystemMeta,
+            component_access_set: &mut bevy_ecs::query::FilteredAccessSet<ComponentId>,
             world: &mut World,
         ) {
             <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_access(
                 &state.state,
                 system_meta,
+                component_access_set,
                 world,
             );
         }

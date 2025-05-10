@@ -1,6 +1,7 @@
 use crate::{
-    component::Tick,
+    component::{ComponentId, Tick},
     prelude::World,
+    query::FilteredAccessSet,
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -59,7 +60,13 @@ unsafe impl SystemParam for SystemName {
 
     fn init_state(_world: &mut World) -> Self::State {}
 
-    fn init_access(_state: &Self::State, _system_meta: &mut SystemMeta, _world: &mut World) {}
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet<ComponentId>,
+        _world: &mut World,
+    ) {
+    }
 
     #[inline]
     unsafe fn get_param<'w, 's>(

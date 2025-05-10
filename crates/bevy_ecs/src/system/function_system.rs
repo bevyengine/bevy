@@ -23,10 +23,6 @@ use super::{IntoSystem, ReadOnlySystem, SystemParamBuilder, SystemParamValidatio
 #[derive(Clone)]
 pub struct SystemMeta {
     pub(crate) name: Cow<'static, str>,
-    /// The set of component accesses for this system. This is used to determine
-    /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
-    /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
-    pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
@@ -43,7 +39,6 @@ impl SystemMeta {
         let name = core::any::type_name::<T>();
         Self {
             name: name.into(),
-            component_access_set: FilteredAccessSet::default(),
             is_send: true,
             has_deferred: false,
             last_run: Tick::new(0),
@@ -100,24 +95,6 @@ impl SystemMeta {
     #[inline]
     pub fn set_has_deferred(&mut self) {
         self.has_deferred = true;
-    }
-
-    /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
-    /// Used to check if systems and/or system params have conflicting access.
-    #[inline]
-    pub fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.component_access_set
-    }
-
-    /// Returns a mutable reference to the [`FilteredAccessSet`] for [`ComponentId`].
-    /// Used internally to statically check if systems have conflicting access.
-    ///
-    /// # Safety
-    ///
-    /// No access can be removed from the returned [`FilteredAccessSet`].
-    #[inline]
-    pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
-        &mut self.component_access_set
     }
 }
 
@@ -215,6 +192,7 @@ impl SystemMeta {
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
+    component_access_set: FilteredAccessSet<ComponentId>,
     param_state: Param::State,
     world_id: WorldId,
 }
@@ -278,11 +256,13 @@ impl<Param: SystemParam> SystemState<Param> {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = Param::init_state(world);
+        let mut component_access_set = FilteredAccessSet::new();
         // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
         // even though we don't use the calculated access.
-        Param::init_access(&param_state, &mut meta, world);
+        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
         Self {
             meta,
+            component_access_set,
             param_state,
             world_id: world.id(),
         }
@@ -293,11 +273,13 @@ impl<Param: SystemParam> SystemState<Param> {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = builder.build(world);
+        let mut component_access_set = FilteredAccessSet::new();
         // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
         // even though we don't use the calculated access.
-        Param::init_access(&param_state, &mut meta, world);
+        Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
         Self {
             meta,
+            component_access_set,
             param_state,
             world_id: world.id(),
         }
@@ -317,6 +299,7 @@ impl<Param: SystemParam> SystemState<Param> {
                 world_id: self.world_id,
             }),
             system_meta: self.meta,
+            component_access_set: self.component_access_set,
             marker: PhantomData,
         }
     }
@@ -497,8 +480,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Modifying the system param states may have unintended consequences.
     /// The param state is generally considered to be owned by the [`SystemParam`]. Modifications
     /// should respect any invariants as required by the [`SystemParam`].
-    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) without also
-    /// updating [`SystemMeta::component_access_set`] will obviously create issues.
+    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) will obviously create issues.
     pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
         &mut self.param_state
     }
@@ -526,6 +508,10 @@ where
 {
     func: F,
     state: Option<FunctionSystemState<F::Param>>,
+    /// The set of component accesses for this system. This is used to determine
+    /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
+    /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
+    component_access_set: FilteredAccessSet<ComponentId>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> Marker>,
@@ -566,6 +552,7 @@ where
             func: self.func.clone(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
+            component_access_set: FilteredAccessSet::new(),
             marker: PhantomData,
         }
     }
@@ -586,6 +573,7 @@ where
             func,
             state: None,
             system_meta: SystemMeta::new::<F>(),
+            component_access_set: FilteredAccessSet::new(),
             marker: PhantomData,
         }
     }
@@ -617,12 +605,12 @@ where
 
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
+        self.component_access_set.combined_access()
     }
 
     #[inline]
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.system_meta.component_access_set
+        &self.component_access_set
     }
 
     #[inline]
@@ -700,7 +688,12 @@ where
             );
         } else {
             let param = F::Param::init_state(world);
-            F::Param::init_access(&param, &mut self.system_meta, world);
+            F::Param::init_access(
+                &param,
+                &mut self.system_meta,
+                &mut self.component_access_set,
+                world,
+            );
             self.state = Some(FunctionSystemState {
                 param,
                 world_id: world.id(),
