@@ -92,7 +92,7 @@ pub(crate) fn world_query_impl(
                 }
             }
 
-        // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
+        // SAFETY: `update_component_access` is called on every field
         unsafe impl #user_impl_generics #path::query::WorldQuery
             for #struct_name #user_ty_generics #user_where_clauses {
 

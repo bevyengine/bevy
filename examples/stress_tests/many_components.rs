@@ -157,11 +157,6 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
         }
     }
 
-    println!(
-        "Number of Archetype-Components: {}",
-        world.archetypes().archetype_components_len()
-    );
-
     // overwrite Update schedule in the app
     app.add_schedule(schedule);
     app.add_plugins(MinimalPlugins)

@@ -107,7 +107,7 @@ mod tests {
     use crate::{
         archetype::Archetype,
         component::{Component, ComponentId, Components, Tick},
-        prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, Resource, With, Without},
         query::{
             ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
             ReadOnlyQueryData, WorldQuery,
@@ -818,7 +818,6 @@ mod tests {
 
     /// SAFETY:
     /// `update_component_access` adds resource read access for `R`.
-    /// `update_archetype_component_access` does nothing, as this accesses no components.
     unsafe impl WorldQuery for ReadsRData {
         type Fetch<'w> = ();
         type State = ComponentId;
@@ -903,29 +902,5 @@ mod tests {
     fn read_res_read_res_no_conflict() {
         fn system(_q1: Query<ReadsRData, With<A>>, _q2: Query<ReadsRData, Without<A>>) {}
         assert_is_system(system);
-    }
-
-    #[test]
-    fn read_res_sets_archetype_component_access() {
-        let mut world = World::new();
-
-        fn read_query(_q: Query<ReadsRData, With<A>>) {}
-        let mut read_query = IntoSystem::into_system(read_query);
-        read_query.initialize(&mut world);
-
-        fn read_res(_r: Res<R>) {}
-        let mut read_res = IntoSystem::into_system(read_res);
-        read_res.initialize(&mut world);
-
-        fn write_res(_r: ResMut<R>) {}
-        let mut write_res = IntoSystem::into_system(write_res);
-        write_res.initialize(&mut world);
-
-        assert!(read_query
-            .archetype_component_access()
-            .is_compatible(read_res.archetype_component_access()));
-        assert!(!read_query
-            .archetype_component_access()
-            .is_compatible(write_res.archetype_component_access()));
     }
 }
