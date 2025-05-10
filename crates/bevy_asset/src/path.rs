@@ -18,29 +18,6 @@ use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-/// Identifies an erased settings value. This is used to compare and hash values
-/// without having to read the underlying value.
-#[derive(Eq, PartialEq, Hash, Copy, Clone)]
-pub struct ErasedSettingsId {
-    // XXX TODO: Should we store the type id separately or just include it in the
-    // hash? Separately might be nicer for debugging.
-    type_id: TypeId,
-    hash: u64,
-}
-
-impl Display for ErasedSettingsId {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // XXX TODO: Reconsider formatting. Also we're using Debug for type_id...
-        write!(f, "{:?}/{}", self.type_id, self.hash)
-    }
-}
-
-/// An erased settings value and its id.
-pub struct ErasedSettings {
-    value: Box<dyn Settings>,
-    id: ErasedSettingsId,
-}
-
 // XXX TODO: This should go somewhere more shared?
 struct HashWriter {
     hasher: DefaultHasher,
@@ -67,6 +44,33 @@ impl std::io::Write for HashWriter {
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
+}
+
+/// Identifies an erased settings value. This is used to compare and hash values
+/// without having to read the underlying value.
+///
+/// XXX TODO: Reconsider auto-deriving Hash. This currently means we hash our
+/// own hash + type id. Could be avoided if hash includes the type id. This
+/// also starts to look suspiciously like `bevy_platform::Hashed`...
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+pub struct ErasedSettingsId {
+    // XXX TODO: Should we store the type id separately or just include it in the
+    // hash? Separately might be nicer for debugging.
+    type_id: TypeId,
+    hash: u64,
+}
+
+impl Display for ErasedSettingsId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // XXX TODO: Reconsider formatting. Also we're using Debug for type_id...
+        write!(f, "{:?}/{}", self.type_id, self.hash)
+    }
+}
+
+/// An erased settings value and its id.
+pub struct ErasedSettings {
+    value: Box<dyn Settings>,
+    id: ErasedSettingsId,
 }
 
 impl ErasedSettings {
