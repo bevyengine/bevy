@@ -381,8 +381,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
         };
 
         if let Some(settings) = path.settings() {
-            // XXX TODO: Does this need the same deref hack as `load_internal`?
-            meta.apply_settings(settings);
+            meta.apply_settings(settings.value());
         }
 
         let asset = self

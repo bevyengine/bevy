@@ -644,10 +644,7 @@ impl AssetServer {
             })?;
 
         if let Some(settings) = path.settings() {
-            // Deref to avoid `apply_settings` downcast failing because the type
-            // is `Box<T>` when it expected `T`. XXX TODO: Better solution.
-            let settings = core::ops::Deref::deref(&settings.value);
-            meta.apply_settings(settings);
+            meta.apply_settings(settings.value());
         }
         // downgrade the input handle so we don't keep the asset alive just because we're loading it
         // note we can't just pass a weak handle in, as only strong handles contain the asset meta transform

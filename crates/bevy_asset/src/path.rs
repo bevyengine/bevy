@@ -18,9 +18,12 @@ use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+/// Identifies an erased settings value. This is used to compare and hash values
+/// without having to read the underlying value.
 #[derive(Eq, PartialEq, Hash, Copy, Clone)]
 pub struct ErasedSettingsId {
-    // XXX TODO: Unclear if we want type id? Does make debugging a bit easier.
+    // XXX TODO: Should we store the type id separately or just include it in the
+    // hash? Separately might be nicer for debugging.
     type_id: TypeId,
     hash: u64,
 }
@@ -32,18 +35,21 @@ impl Display for ErasedSettingsId {
     }
 }
 
+/// An erased settings value and its id.
 pub struct ErasedSettings {
-    pub value: Box<dyn Settings>,
-    pub id: ErasedSettingsId,
+    value: Box<dyn Settings>,
+    id: ErasedSettingsId,
 }
 
 impl ErasedSettings {
     pub fn new<S: Settings + Serialize>(settings: S) -> ErasedSettings {
-        // XXX TODO: Serializing to string is probably not the right solution.
-        let string = ron::ser::to_string(&settings).unwrap(); // XXX TODO: Avoid unwrap.
+        // XXX TODO: Hash by serializing to a string. This is bad but
+        // convenient - Settings are already required to implement serialize
+        // (for meta filesupport) and this avoids them having to implement Hash.
+        // XXX TODO: More efficient to serialize to a writer that hashes?
+        let string = ron::ser::to_string(&settings).unwrap(); // XXX TODO: Avoid unwrap?
 
         // XXX TODO: What's the appropriate hasher?
-        // XXX TODO: Should we hash the type id as well?
         let id = ErasedSettingsId {
             type_id: TypeId::of::<S>(),
             hash: FixedHasher.hash_one(&string),
@@ -53,6 +59,18 @@ impl ErasedSettings {
             value: Box::new(settings),
             id,
         }
+    }
+}
+
+impl<'a> ErasedSettings {
+    pub fn value(&'a self) -> &'a dyn Settings {
+        // The `deref` means we're returning the underlying type and not Box's
+        // implementation. This is required so that the value can be downcast
+        // by `AssetMeta::apply_settings`.
+        //
+        // XXX TODO: Maybe this should all be done in `AssetMeta::apply_settings`?
+        // Then everything's in one place.
+        self.value.deref()
     }
 }
 
