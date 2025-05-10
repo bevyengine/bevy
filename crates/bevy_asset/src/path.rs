@@ -20,7 +20,6 @@ use thiserror::Error;
 
 /// Identifies an erased settings value. This is used to compare and hash values
 /// without having to read the underlying value.
-/// XXX TODO: Maybe this should be `ErasedSettingsType`?
 #[derive(Eq, PartialEq, Hash, Copy, Clone)]
 pub struct ErasedSettingsId {
     // XXX TODO: Should we store the type id separately or just include it in the
@@ -75,7 +74,9 @@ impl ErasedSettings {
         // Hash by serializing to RON. This means settings are not required to
         // implement Hash.
         // XXX TODO: Hashing via RON serialization is very debatable.
-        // XXX TODO: Could do ron::ser::to_string? Simpler but probably(?) slower.
+        // XXX TODO: Could do ron::ser::to_string? Simpler and avoids needing
+        // HashWriter, but probably slower?
+        // XXX TODO: Could get fancy and implement a Serializer that hashes.
         let mut hash_writer = HashWriter::new();
         ron::ser::to_writer(&mut hash_writer, &settings).expect("XXX TODO?");
         let hash = hash_writer.finish();
