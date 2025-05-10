@@ -11,7 +11,7 @@ use std::{
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
+    io::Reader, AssetLoadError, AssetLoader, AssetPath, Handle, LoadContext, ReadAssetBytesError,
     RenderAssetUsages,
 };
 use bevy_color::{Color, LinearRgba};
@@ -1719,12 +1719,11 @@ impl ImageOrPath {
                 sampler_descriptor,
             } => load_context
                 .loader()
-                .with_settings(ImageLoaderSettings {
+                .load(AssetPath::from(path).with_settings(ImageLoaderSettings {
                     is_srgb,
                     sampler: ImageSampler::Descriptor(sampler_descriptor.clone()),
                     ..Default::default()
-                })
-                .load(path),
+                })),
         };
         handles.push(handle);
     }

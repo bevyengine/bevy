@@ -394,19 +394,6 @@ impl<'a> AssetPath<'a> {
         }
     }
 
-    // XXX TODO: This shouldn't be an Option.
-    // XXX TODO: Should this take an Arc? Potential optimization if the input
-    // settings are already Arc'd. Or can we do Into<Arc>?
-    #[inline]
-    pub fn with_erased_settings(self, settings: Option<ErasedSettings>) -> AssetPath<'a> {
-        AssetPath {
-            source: self.source,
-            path: self.path,
-            label: self.label,
-            settings: settings.map(Arc::new),
-        }
-    }
-
     #[inline]
     pub fn with_settings_fn<S: Settings + Serialize + Default>(
         self,
