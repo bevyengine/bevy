@@ -238,7 +238,8 @@ macro_rules! match_type {
         $input.as_partial_reflect().try_downcast_ref::<$ty>()
     };
     {@downcast box, $ty:ty, $input:ident} => {
-        $input.into_partial_reflect().try_take::<$ty>()
+        // We eagerly box here so that we can support non-boxed values.
+        $crate::__macro_exports::alloc_utils::Box::new($input).into_partial_reflect().try_take::<$ty>()
     };
 
     // --- Binding --- //
@@ -365,7 +366,7 @@ mod tests {
 
     #[test]
     fn should_retrieve_owned() {
-        let original_value = Box::new(String::from("hello"));
+        let original_value = String::from("hello");
         let cloned_value = original_value.clone();
 
         let value = match_type! {cloned_value,
@@ -435,7 +436,7 @@ mod tests {
 
     #[test]
     fn should_handle_slice_types() {
-        let _value = Box::new("hello world");
+        let _value = "hello world";
 
         match_type! {_value,
             (&str) => {},
@@ -507,7 +508,6 @@ mod tests {
         }
 
         fn owned<T: PartialReflect>(value: T) {
-            let value = Box::new(value);
             match_type! {value,
                 i32 => {
                     assert_eq!(value, 2);
@@ -543,7 +543,6 @@ mod tests {
         }
 
         fn owned<T: PartialReflect, U: PartialReflect + Debug + PartialEq<i32>>(value: T) {
-            let value = Box::new(value);
             match_type! {value,
                 U => {
                     assert_eq!(value, 2);
