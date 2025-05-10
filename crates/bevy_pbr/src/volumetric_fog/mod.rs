@@ -51,7 +51,7 @@ use bevy_render::{
     render_resource::{Shader, SpecializedRenderPipelines},
     sync_component::SyncComponentPlugin,
     view::Visibility,
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::Transform;
 use render::{
@@ -216,10 +216,10 @@ impl Plugin for VolumetricFogPlugin {
             .add_systems(
                 Render,
                 (
-                    render::prepare_volumetric_fog_pipelines.in_set(RenderSet::Prepare),
-                    render::prepare_volumetric_fog_uniforms.in_set(RenderSet::Prepare),
+                    render::prepare_volumetric_fog_pipelines.in_set(RenderSystems::Prepare),
+                    render::prepare_volumetric_fog_uniforms.in_set(RenderSystems::Prepare),
                     render::prepare_view_depth_textures_for_volumetric_fog
-                        .in_set(RenderSet::Prepare)
+                        .in_set(RenderSystems::Prepare)
                         .before(prepare_core_3d_depth_textures),
                 ),
             );

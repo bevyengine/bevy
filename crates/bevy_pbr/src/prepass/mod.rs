@@ -19,7 +19,7 @@ use bevy_render::{
     renderer::RenderAdapter,
     sync_world::RenderEntity,
     view::{RenderVisibilityRanges, RetainedViewEntity, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 pub use prepass_bindings::*;
 
@@ -60,7 +60,7 @@ use bevy_ecs::system::SystemChangeTick;
 use bevy_platform::collections::HashMap;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
-use bevy_render::RenderSet::{PrepareAssets, PrepareResources};
+use bevy_render::RenderSystems::{PrepareAssets, PrepareResources};
 use core::{hash::Hash, marker::PhantomData};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> =
@@ -126,7 +126,7 @@ where
         render_app
             .add_systems(
                 Render,
-                prepare_prepass_view_bind_group::<M>.in_set(RenderSet::PrepareBindGroups),
+                prepare_prepass_view_bind_group::<M>.in_set(RenderSystems::PrepareBindGroups),
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
@@ -216,13 +216,13 @@ where
                 (
                     check_prepass_views_need_specialization.in_set(PrepareAssets),
                     specialize_prepass_material_meshes::<M>
-                        .in_set(RenderSet::PrepareMeshes)
+                        .in_set(RenderSystems::PrepareMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
                         .after(prepare_assets::<RenderMesh>)
                         .after(collect_meshes_for_gpu_building)
                         .after(set_mesh_motion_vector_flags),
                     queue_prepass_material_meshes::<M>
-                        .in_set(RenderSet::QueueMeshes)
+                        .in_set(RenderSystems::QueueMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
                         // queue_material_meshes only writes to `material_bind_group_id`, which `queue_prepass_material_meshes` doesn't read
                         .ambiguous_with(queue_material_meshes::<StandardMaterial>),
@@ -233,7 +233,7 @@ where
         render_app.add_systems(
             Render,
             prepare_material_meshlet_meshes_prepass::<M>
-                .in_set(RenderSet::QueueMeshes)
+                .in_set(RenderSystems::QueueMeshes)
                 .after(prepare_assets::<PreparedMaterial<M>>)
                 .before(queue_material_meshlet_meshes::<M>)
                 .run_if(resource_exists::<InstanceManager>),

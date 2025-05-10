@@ -67,12 +67,6 @@ pub trait Set: PartialReflect {
     /// After calling this function, `self` will be empty.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Clones the set, producing a [`DynamicSet`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_set` instead")]
-    fn clone_dynamic(&self) -> DynamicSet {
-        self.to_dynamic_set()
-    }
-
     /// Creates a new [`DynamicSet`] from this set.
     fn to_dynamic_set(&self) -> DynamicSet {
         let mut set = DynamicSet::default();

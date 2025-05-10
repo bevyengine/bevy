@@ -697,4 +697,11 @@ impl Column {
             changed_by.get_unchecked(row.as_usize())
         })
     }
+
+    /// Returns the drop function for elements of the column,
+    /// or `None` if they don't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.data.get_drop()
+    }
 }
