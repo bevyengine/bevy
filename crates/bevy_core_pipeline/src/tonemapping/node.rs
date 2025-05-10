@@ -98,6 +98,7 @@ impl ViewNode for TonemappingNode {
         let mut builder = RenderPassBuilder::new(pass_node_builder);
 
         builder
+            .set_pass_name("tonemapping_pass")
             .add_color_attachment(ColorAttachmentDrawing {
                 view: TextureViewDrawing {
                     texture: destination,

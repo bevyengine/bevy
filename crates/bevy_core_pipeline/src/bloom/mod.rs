@@ -175,6 +175,7 @@ impl ViewNode for BloomNode {
             let mut builder = RenderPassBuilder::new(pass_node_builder);
 
             builder
+                .set_pass_name("bloom_downsampling_first_pass")
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
                         texture: bloom_texture_write,
@@ -225,6 +226,7 @@ impl ViewNode for BloomNode {
             let mut builder = RenderPassBuilder::new(pass_node_builder);
 
             builder
+                .set_pass_name("bloom_downsampling_pass")
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
                         texture: bloom_texture_write,
@@ -281,6 +283,7 @@ impl ViewNode for BloomNode {
                 (bloom_texture.mip_count - 1) as f32,
             );
             builder
+                .set_pass_name("bloom_upsampling_pass")
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
                         texture: bloom_texture_write,
@@ -334,6 +337,7 @@ impl ViewNode for BloomNode {
                 compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
 
             builder
+                .set_pass_name("bloom_upsampling_final_pass")
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
                         texture: view_texture_write,

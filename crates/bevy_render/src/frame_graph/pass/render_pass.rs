@@ -54,6 +54,10 @@ impl RenderPass {
         }
     }
 
+    pub fn set_pass_name(&mut self, name: &str) {
+        self.current_logic_render_pass.render_pass_drawing.label = Some(name.to_string().into());
+    }
+
     pub fn set_depth_stencil_attachment(
         &mut self,
         depth_stencil_attachment: DepthStencilAttachmentDrawing,

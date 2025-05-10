@@ -59,6 +59,7 @@ impl ViewNode for MainOpaquePass2dNode {
         let mut builder = RenderPassBuilder::new(pass_node_builder);
 
         builder
+            .set_pass_name("main_opaque_pass_2d")
             .add_color_attachment(color_attachment)
             .set_depth_stencil_attachment(depth_stencil_attachment)
             .set_camera_viewport(camera.viewport.clone());

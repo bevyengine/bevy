@@ -854,7 +854,8 @@ impl ViewDepthTexture {
         pass_node_builder: &mut PassNodeBuilder,
         store_op: StoreOp,
     ) -> Result<DepthStencilAttachmentDrawing, FrameGraphError> {
-        let depth_texture_read = pass_node_builder.write_from_board(self.get_depth_texture_key())?;
+        let depth_texture_read =
+            pass_node_builder.write_from_board(self.get_depth_texture_key())?;
 
         Ok(DepthStencilAttachmentDrawing {
             view: TextureViewDrawing {
@@ -1079,10 +1080,22 @@ pub fn prepare_view_targets(
         };
 
         let a_key = ViewTarget::get_main_texture_a(entity);
-        frame_graph.get_or_create(&a_key, descriptor.clone());
+        frame_graph.get_or_create(
+            &a_key,
+            TextureInfo {
+                label: Some("main_texture_a".into()),
+                ..descriptor.clone()
+            },
+        );
 
         let b_key = ViewTarget::get_main_texture_b(entity);
-        frame_graph.get_or_create(&b_key, descriptor.clone());
+        frame_graph.get_or_create(
+            &b_key,
+            TextureInfo {
+                label: Some("main_texture_b".into()),
+                ..descriptor.clone()
+            },
+        );
 
         let mut sampled_key = None;
 
@@ -1091,6 +1104,7 @@ pub fn prepare_view_targets(
             frame_graph.get_or_create(
                 &temp_key,
                 TextureInfo {
+                    label: Some("main_texture_sampled".into()),
                     size,
                     mip_level_count: 1,
                     sample_count: msaa.samples(),

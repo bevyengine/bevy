@@ -62,6 +62,7 @@ impl ViewNode for MainTransparentPass3dNode {
             let mut builder = RenderPassBuilder::new(pass_node_builder);
 
             builder
+                .set_pass_name("main_transparent_pass_3d")
                 .add_color_attachment(color_attachment)
                 .set_depth_stencil_attachment(depth_stencil_attachment)
                 .set_camera_viewport(camera.viewport.clone());
@@ -85,7 +86,9 @@ impl ViewNode for MainTransparentPass3dNode {
                 frame_graph.create_pass_node_bulder("reset_viewport_pass_3d");
             let color_attachment = target.get_color_attachment(&mut pass_node_builder)?;
             let mut builder = RenderPassBuilder::new(pass_node_builder);
-            builder.add_color_attachment(color_attachment);
+            Builder
+                .set_pass_name("reset_viewport_pass_3d")
+                .add_color_attachment(color_attachment);
         }
 
         Ok(())

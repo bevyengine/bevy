@@ -70,6 +70,7 @@ impl ViewNode for UpscalingNode {
         let mut builder = RenderPassBuilder::new(pass_node_builder);
 
         builder
+            .set_pass_name("upscaling_pass")
             .add_raw_color_attachment(target.out_texture_color_attachment(converted_clear_color))
             .set_render_pipeline(upscaling_target.0)
             .set_bind_group(0, bind_group, &[])

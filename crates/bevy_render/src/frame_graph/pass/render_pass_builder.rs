@@ -45,6 +45,18 @@ impl<'a> RenderPassBuilder<'a> {
         }
     }
 
+    pub fn finish(&mut self) -> &mut Self {
+        self.render_pass.finish();
+
+        self
+    }
+
+    pub fn set_pass_name(&mut self, name: &str) -> &mut Self {
+        self.render_pass.set_pass_name(name);
+
+        self
+    }
+
     pub fn end_pipeline_statistics_query(&mut self) -> &mut Self {
         self.render_pass.end_pipeline_statistics_query();
 

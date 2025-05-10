@@ -32,9 +32,9 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
         ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, Operations,
-        PipelineCache, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
-        Shader, ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureDimension, TextureFormat, TextureSampleType,
+        PipelineCache, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
+        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDimension,
+        TextureFormat, TextureSampleType,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::GpuImage,
@@ -422,6 +422,7 @@ impl ViewNode for PostProcessingNode {
         let mut builder = RenderPassBuilder::new(pass_node_builder);
 
         builder
+            .set_pass_name("postprocessing pass")
             .add_color_attachment(ColorAttachmentDrawing {
                 view: TextureViewDrawing {
                     texture: destination,
