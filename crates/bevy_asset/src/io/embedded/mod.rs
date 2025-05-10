@@ -168,7 +168,7 @@ pub fn _embedded_asset_path(
     file_path: &Path,
     asset_path: &Path,
 ) -> PathBuf {
-    let file_path = if cfg!(target_family = "wasm") {
+    let file_path = if cfg!(not(target_family = "windows")) {
         // Work around bug: https://github.com/bevyengine/bevy/issues/14246
         // Note, this will break any paths on Linux/Mac containing "\"
         PathBuf::from(file_path.to_str().unwrap().replace("\\", "/"))
