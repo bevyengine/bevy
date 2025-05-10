@@ -372,12 +372,12 @@ impl AssetServer {
     /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
     /// will be ignored and an error will be printed to the log.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn load_with_settings<'a, A: Asset, S: Settings + serde::Serialize>(
+    pub fn load_with_settings<'a, A: Asset, S: Settings + serde::Serialize + Default>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: S,
+        settings: impl FnOnce(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path.into().with_settings(settings), (), false)
+        self.load_with_meta_transform(path.into().with_settings_fn(settings), (), false)
     }
 
     /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unaproved paths
@@ -385,12 +385,12 @@ impl AssetServer {
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
     /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
-    pub fn load_with_settings_override<'a, A: Asset, S: Settings + serde::Serialize>(
+    pub fn load_with_settings_override<'a, A: Asset, S: Settings + serde::Serialize + Default>(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: S,
+        settings: impl FnOnce(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path.into().with_settings(settings), (), true)
+        self.load_with_meta_transform(path.into().with_settings_fn(settings), (), true)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -406,15 +406,15 @@ impl AssetServer {
     pub fn load_acquire_with_settings<
         'a,
         A: Asset,
-        S: Settings + serde::Serialize,
+        S: Settings + serde::Serialize + Default,
         G: Send + Sync + 'static,
     >(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: S,
+        settings: impl FnOnce(&mut S) + Send + Sync + 'static,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path.into().with_settings(settings), guard, false)
+        self.load_with_meta_transform(path.into().with_settings_fn(settings), guard, false)
     }
 
     /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unaproved paths
@@ -425,15 +425,15 @@ impl AssetServer {
     pub fn load_acquire_with_settings_override<
         'a,
         A: Asset,
-        S: Settings + serde::Serialize,
+        S: Settings + serde::Serialize + Default,
         G: Send + Sync + 'static,
     >(
         &self,
         path: impl Into<AssetPath<'a>>,
-        settings: S,
+        settings: impl FnOnce(&mut S) + Send + Sync + 'static,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path.into().with_settings(settings), guard, true)
+        self.load_with_meta_transform(path.into().with_settings_fn(settings), guard, true)
     }
 
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
