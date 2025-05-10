@@ -49,13 +49,13 @@ impl ThinColumn {
         row: TableRow,
     ) {
         self.data
-            .swap_remove_and_drop_unchecked_nonoverlapping(row.as_usize(), last_element_index);
+            .swap_remove_and_drop_unchecked_nonoverlapping(row.index(), last_element_index);
         self.added_ticks
-            .swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
+            .swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         self.changed_ticks
-            .swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
+            .swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         self.changed_by.as_mut().map(|changed_by| {
-            changed_by.swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
+            changed_by.swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         });
     }
 
@@ -71,13 +71,13 @@ impl ThinColumn {
         row: TableRow,
     ) {
         self.data
-            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_and_drop_unchecked(row.index(), last_element_index);
         self.added_ticks
-            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_and_drop_unchecked(row.index(), last_element_index);
         self.changed_ticks
-            .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_and_drop_unchecked(row.index(), last_element_index);
         self.changed_by.as_mut().map(|changed_by| {
-            changed_by.swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
+            changed_by.swap_remove_and_drop_unchecked(row.index(), last_element_index);
         });
     }
 
@@ -94,14 +94,14 @@ impl ThinColumn {
     ) {
         let _ = self
             .data
-            .swap_remove_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_unchecked(row.index(), last_element_index);
         self.added_ticks
-            .swap_remove_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_unchecked(row.index(), last_element_index);
         self.changed_ticks
-            .swap_remove_unchecked(row.as_usize(), last_element_index);
+            .swap_remove_unchecked(row.index(), last_element_index);
         self.changed_by
             .as_mut()
-            .map(|changed_by| changed_by.swap_remove_unchecked(row.as_usize(), last_element_index));
+            .map(|changed_by| changed_by.swap_remove_unchecked(row.index(), last_element_index));
     }
 
     /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
@@ -148,15 +148,12 @@ impl ThinColumn {
         tick: Tick,
         caller: MaybeLocation,
     ) {
-        self.data.initialize_unchecked(row.as_usize(), data);
-        *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = tick;
-        *self
-            .changed_ticks
-            .get_unchecked_mut(row.as_usize())
-            .get_mut() = tick;
+        self.data.initialize_unchecked(row.index(), data);
+        *self.added_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
+        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
         self.changed_by
             .as_mut()
-            .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
+            .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
     }
 
@@ -173,14 +170,11 @@ impl ThinColumn {
         change_tick: Tick,
         caller: MaybeLocation,
     ) {
-        self.data.replace_unchecked(row.as_usize(), data);
-        *self
-            .changed_ticks
-            .get_unchecked_mut(row.as_usize())
-            .get_mut() = change_tick;
+        self.data.replace_unchecked(row.index(), data);
+        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = change_tick;
         self.changed_by
             .as_mut()
-            .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
+            .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
     }
 
@@ -206,25 +200,25 @@ impl ThinColumn {
         // Init the data
         let src_val = other
             .data
-            .swap_remove_unchecked(src_row.as_usize(), other_last_element_index);
-        self.data.initialize_unchecked(dst_row.as_usize(), src_val);
+            .swap_remove_unchecked(src_row.index(), other_last_element_index);
+        self.data.initialize_unchecked(dst_row.index(), src_val);
         // Init added_ticks
         let added_tick = other
             .added_ticks
-            .swap_remove_unchecked(src_row.as_usize(), other_last_element_index);
+            .swap_remove_unchecked(src_row.index(), other_last_element_index);
         self.added_ticks
-            .initialize_unchecked(dst_row.as_usize(), added_tick);
+            .initialize_unchecked(dst_row.index(), added_tick);
         // Init changed_ticks
         let changed_tick = other
             .changed_ticks
-            .swap_remove_unchecked(src_row.as_usize(), other_last_element_index);
+            .swap_remove_unchecked(src_row.index(), other_last_element_index);
         self.changed_ticks
-            .initialize_unchecked(dst_row.as_usize(), changed_tick);
+            .initialize_unchecked(dst_row.index(), changed_tick);
         self.changed_by.as_mut().zip(other.changed_by.as_mut()).map(
             |(self_changed_by, other_changed_by)| {
                 let changed_by = other_changed_by
-                    .swap_remove_unchecked(src_row.as_usize(), other_last_element_index);
-                self_changed_by.initialize_unchecked(dst_row.as_usize(), changed_by);
+                    .swap_remove_unchecked(src_row.index(), other_last_element_index);
+                self_changed_by.initialize_unchecked(dst_row.index(), changed_by);
             },
         );
     }
@@ -384,15 +378,12 @@ impl Column {
         change_tick: Tick,
         caller: MaybeLocation,
     ) {
-        debug_assert!(row.as_usize() < self.len());
-        self.data.replace_unchecked(row.as_usize(), data);
-        *self
-            .changed_ticks
-            .get_unchecked_mut(row.as_usize())
-            .get_mut() = change_tick;
+        debug_assert!(row.index() < self.len());
+        self.data.replace_unchecked(row.index(), data);
+        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = change_tick;
         self.changed_by
             .as_mut()
-            .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
+            .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
     }
 
@@ -419,12 +410,12 @@ impl Column {
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) {
-        self.data.swap_remove_and_drop_unchecked(row.as_usize());
-        self.added_ticks.swap_remove(row.as_usize());
-        self.changed_ticks.swap_remove(row.as_usize());
+        self.data.swap_remove_and_drop_unchecked(row.index());
+        self.added_ticks.swap_remove(row.index());
+        self.changed_ticks.swap_remove(row.index());
         self.changed_by
             .as_mut()
-            .map(|changed_by| changed_by.swap_remove(row.as_usize()));
+            .map(|changed_by| changed_by.swap_remove(row.index()));
     }
 
     /// Removes an element from the [`Column`] and returns it and its change detection ticks.
@@ -444,13 +435,13 @@ impl Column {
         &mut self,
         row: TableRow,
     ) -> (OwningPtr<'_>, ComponentTicks, MaybeLocation) {
-        let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
-        let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
-        let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
+        let data = self.data.swap_remove_and_forget_unchecked(row.index());
+        let added = self.added_ticks.swap_remove(row.index()).into_inner();
+        let changed = self.changed_ticks.swap_remove(row.index()).into_inner();
         let caller = self
             .changed_by
             .as_mut()
-            .map(|changed_by| changed_by.swap_remove(row.as_usize()).into_inner());
+            .map(|changed_by| changed_by.swap_remove(row.index()).into_inner());
         (data, ComponentTicks { added, changed }, caller)
     }
 
@@ -520,15 +511,15 @@ impl Column {
     /// Returns `None` if `row` is out of bounds.
     #[inline]
     pub fn get(&self, row: TableRow) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        (row.as_usize() < self.data.len())
+        (row.index() < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
             .then(|| unsafe {
                 (
-                    self.data.get_unchecked(row.as_usize()),
+                    self.data.get_unchecked(row.index()),
                     TickCells {
-                        added: self.added_ticks.get_unchecked(row.as_usize()),
-                        changed: self.changed_ticks.get_unchecked(row.as_usize()),
+                        added: self.added_ticks.get_unchecked(row.index()),
+                        changed: self.changed_ticks.get_unchecked(row.index()),
                     },
                 )
             })
@@ -539,10 +530,10 @@ impl Column {
     /// Returns `None` if `row` is out of bounds.
     #[inline]
     pub fn get_data(&self, row: TableRow) -> Option<Ptr<'_>> {
-        (row.as_usize() < self.data.len()).then(|| {
+        (row.index() < self.data.len()).then(|| {
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
-            unsafe { self.data.get_unchecked(row.as_usize()) }
+            unsafe { self.data.get_unchecked(row.index()) }
         })
     }
 
@@ -554,8 +545,8 @@ impl Column {
     /// - no other mutable reference to the data of the same row can exist at the same time
     #[inline]
     pub unsafe fn get_data_unchecked(&self, row: TableRow) -> Ptr<'_> {
-        debug_assert!(row.as_usize() < self.data.len());
-        self.data.get_unchecked(row.as_usize())
+        debug_assert!(row.index() < self.data.len());
+        self.data.get_unchecked(row.index())
     }
 
     /// Fetches a mutable reference to the data at `row`.
@@ -563,10 +554,10 @@ impl Column {
     /// Returns `None` if `row` is out of bounds.
     #[inline]
     pub fn get_data_mut(&mut self, row: TableRow) -> Option<PtrMut<'_>> {
-        (row.as_usize() < self.data.len()).then(|| {
+        (row.index() < self.data.len()).then(|| {
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through an exclusive reference to the column.
-            unsafe { self.data.get_unchecked_mut(row.as_usize()) }
+            unsafe { self.data.get_unchecked_mut(row.index()) }
         })
     }
 
@@ -579,7 +570,7 @@ impl Column {
     /// adhere to the safety invariants of [`UnsafeCell`].
     #[inline]
     pub fn get_added_tick(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
-        self.added_ticks.get(row.as_usize())
+        self.added_ticks.get(row.index())
     }
 
     /// Fetches the "changed" change detection tick for the value at `row`.
@@ -591,7 +582,7 @@ impl Column {
     /// adhere to the safety invariants of [`UnsafeCell`].
     #[inline]
     pub fn get_changed_tick(&self, row: TableRow) -> Option<&UnsafeCell<Tick>> {
-        self.changed_ticks.get(row.as_usize())
+        self.changed_ticks.get(row.index())
     }
 
     /// Fetches the change detection ticks for the value at `row`.
@@ -599,7 +590,7 @@ impl Column {
     /// Returns `None` if `row` is out of bounds.
     #[inline]
     pub fn get_ticks(&self, row: TableRow) -> Option<ComponentTicks> {
-        if row.as_usize() < self.data.len() {
+        if row.index() < self.data.len() {
             // SAFETY: The size of the column has already been checked.
             Some(unsafe { self.get_ticks_unchecked(row) })
         } else {
@@ -614,8 +605,8 @@ impl Column {
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_added_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
-        debug_assert!(row.as_usize() < self.added_ticks.len());
-        self.added_ticks.get_unchecked(row.as_usize())
+        debug_assert!(row.index() < self.added_ticks.len());
+        self.added_ticks.get_unchecked(row.index())
     }
 
     /// Fetches the "changed" change detection tick for the value at `row`. Unlike [`Column::get_changed_tick`]
@@ -625,8 +616,8 @@ impl Column {
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_changed_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
-        debug_assert!(row.as_usize() < self.changed_ticks.len());
-        self.changed_ticks.get_unchecked(row.as_usize())
+        debug_assert!(row.index() < self.changed_ticks.len());
+        self.changed_ticks.get_unchecked(row.index())
     }
 
     /// Fetches the change detection ticks for the value at `row`. Unlike [`Column::get_ticks`]
@@ -636,11 +627,11 @@ impl Column {
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_ticks_unchecked(&self, row: TableRow) -> ComponentTicks {
-        debug_assert!(row.as_usize() < self.added_ticks.len());
-        debug_assert!(row.as_usize() < self.changed_ticks.len());
+        debug_assert!(row.index() < self.added_ticks.len());
+        debug_assert!(row.index() < self.changed_ticks.len());
         ComponentTicks {
-            added: self.added_ticks.get_unchecked(row.as_usize()).read(),
-            changed: self.changed_ticks.get_unchecked(row.as_usize()).read(),
+            added: self.added_ticks.get_unchecked(row.index()).read(),
+            changed: self.changed_ticks.get_unchecked(row.index()).read(),
         }
     }
 
@@ -678,7 +669,7 @@ impl Column {
     ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
         self.changed_by
             .as_ref()
-            .map(|changed_by| changed_by.get(row.as_usize()))
+            .map(|changed_by| changed_by.get(row.index()))
     }
 
     /// Fetches the calling location that last changed the value at `row`.
@@ -693,8 +684,8 @@ impl Column {
         row: TableRow,
     ) -> MaybeLocation<&UnsafeCell<&'static Location<'static>>> {
         self.changed_by.as_ref().map(|changed_by| {
-            debug_assert!(row.as_usize() < changed_by.len());
-            changed_by.get_unchecked(row.as_usize())
+            debug_assert!(row.index() < changed_by.len());
+            changed_by.get_unchecked(row.index())
         })
     }
 
