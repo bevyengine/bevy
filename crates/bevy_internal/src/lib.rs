@@ -25,6 +25,8 @@ pub use bevy_app as app;
 pub use bevy_asset as asset;
 #[cfg(feature = "bevy_audio")]
 pub use bevy_audio as audio;
+#[cfg(feature = "bevy_clipboard")]
+pub use bevy_clipboard as clipboard;
 #[cfg(feature = "bevy_color")]
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]

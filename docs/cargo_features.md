@@ -19,6 +19,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_anti_aliasing|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
+|bevy_clipboard|Clipboard access|
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_gilrs|Adds gamepad support|
