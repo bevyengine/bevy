@@ -10,7 +10,7 @@ use crate::{
     ViewLightsUniformOffset,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     deferred::{
@@ -33,9 +33,6 @@ use bevy_render::{
 };
 
 pub struct DeferredPbrLightingPlugin;
-
-pub const DEFERRED_LIGHTING_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("f4295279-8890-4748-b654-ca4d2183df1c");
 
 pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 
@@ -100,12 +97,7 @@ impl Plugin for DeferredPbrLightingPlugin {
         ))
         .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
 
-        load_internal_asset!(
-            app,
-            DEFERRED_LIGHTING_SHADER_HANDLE,
-            "deferred_lighting.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "deferred_lighting.wgsl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -237,6 +229,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 pub struct DeferredLightingLayout {
     mesh_pipeline: MeshPipeline,
     bind_group_layout_1: BindGroupLayout,
+    deferred_lighting_shader: Handle<Shader>,
 }
 
 #[derive(Component)]
@@ -360,13 +353,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
                 self.bind_group_layout_1.clone(),
             ],
             vertex: VertexState {
-                shader: DEFERRED_LIGHTING_SHADER_HANDLE,
+                shader: self.deferred_lighting_shader.clone(),
                 shader_defs: shader_defs.clone(),
                 entry_point: "vertex".into(),
                 buffers: Vec::new(),
             },
             fragment: Some(FragmentState {
-                shader: DEFERRED_LIGHTING_SHADER_HANDLE,
+                shader: self.deferred_lighting_shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -416,6 +409,7 @@ impl FromWorld for DeferredLightingLayout {
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             bind_group_layout_1: layout,
+            deferred_lighting_shader: load_embedded_asset!(world, "deferred_lighting.wgsl"),
         }
     }
 }
