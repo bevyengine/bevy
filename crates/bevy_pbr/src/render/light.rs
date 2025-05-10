@@ -27,7 +27,6 @@ use bevy_render::{
 };
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    mesh::RenderMesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -1718,23 +1717,15 @@ pub fn check_views_lights_need_specialization(
 }
 
 pub fn specialize_shadows<M: Material>(
+    params: SpecializeMeshParams<M, RenderMeshInstances>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    (
-        render_meshes,
-        render_mesh_instances,
-        render_materials,
-        render_material_instances,
-        material_bind_group_allocator,
-    ): (
-        Res<RenderAssets<RenderMesh>>,
-        Res<RenderMeshInstances>,
+    (render_materials, render_material_instances, material_bind_group_allocator): (
         Res<RenderAssets<PreparedMaterial<M>>>,
         Res<RenderMaterialInstances>,
         Res<MaterialBindGroupAllocator<M>>,
     ),
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
@@ -1747,8 +1738,6 @@ pub fn specialize_shadows<M: Material>(
     light_key_cache: Res<LightKeyCache>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache<M>>,
     light_specialization_ticks: Res<LightSpecializationTicks>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
-    ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1817,18 +1806,22 @@ pub fn specialize_shadows<M: Material>(
                 let Ok(material_asset_id) = material_instances.asset_id.try_typed::<M>() else {
                     continue;
                 };
-                let Some(mesh_instance) =
-                    render_mesh_instances.render_mesh_queue_data(visible_entity)
+                let Some(mesh_instance) = params
+                    .render_mesh_instances
+                    .render_mesh_queue_data(visible_entity)
                 else {
                     continue;
                 };
-                let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
+                let entity_tick = params
+                    .entity_specialization_ticks
+                    .get(&visible_entity)
+                    .unwrap();
                 let last_specialized_tick = view_specialized_material_pipeline_cache
                     .get(&visible_entity)
                     .map(|(tick, _)| *tick);
                 let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                    view_tick.is_newer_than(tick, ticks.this_run())
-                        || entity_tick.is_newer_than(tick, ticks.this_run())
+                    view_tick.is_newer_than(tick, params.ticks.this_run())
+                        || entity_tick.is_newer_than(tick, params.ticks.this_run())
                 });
                 if !needs_specialization {
                     continue;
@@ -1847,7 +1840,7 @@ pub fn specialize_shadows<M: Material>(
                 else {
                     continue;
                 };
-                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                let Some(mesh) = params.render_meshes.get(mesh_instance.mesh_asset_id) else {
                     continue;
                 };
 
@@ -1875,7 +1868,7 @@ pub fn specialize_shadows<M: Material>(
                     _ => MeshPipelineKey::NONE,
                 };
                 let pipeline_id = pipelines.specialize(
-                    &pipeline_cache,
+                    &params.pipeline_cache,
                     &prepass_pipeline,
                     MaterialPipelineKey {
                         mesh_key,
@@ -1895,7 +1888,7 @@ pub fn specialize_shadows<M: Material>(
                 };
 
                 view_specialized_material_pipeline_cache
-                    .insert(visible_entity, (ticks.this_run(), pipeline_id));
+                    .insert(visible_entity, (params.ticks.this_run(), pipeline_id));
             }
         }
     }
