@@ -82,7 +82,7 @@ impl Slot {
         #[cfg(target_has_atomic = "64")]
         // SAFETY: This is always sourced from a proper entity.
         return unsafe {
-            Entity::try_from_bits(self.inner_entity.load(Ordering::Relaxed)).unwrap_unchecked()
+            Entity::try_from_bits(self.inner_entity.load(Ordering::Relaxed)).debug_checked_unwrap()
         };
     }
 }
@@ -262,7 +262,7 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// This must not be called concurrently with itself.
-    /// Access does not conflict with another [`Self::get`].
+    /// Access must not conflict with another [`Self::get`].
     #[inline]
     unsafe fn set(&self, full_index: u32, entity: Entity) {
         let (chunk, index, chunk_capacity) = self.index_in_chunk(full_index);
