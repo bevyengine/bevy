@@ -18,7 +18,11 @@ impl EncoderPassCommandBuilder for EncoderPass {
 
 impl PassTrait for EncoderPass {
     fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
-        let encoder_context = render_context.begin_encoder();
+        render_context.flush_encoder();
+
+        let mut command_encoder = render_context.create_command_encoder();
+
+        let encoder_context = render_context.begin_encoder(&mut command_encoder);
 
         encoder_context.execute(&self.commands)?;
 

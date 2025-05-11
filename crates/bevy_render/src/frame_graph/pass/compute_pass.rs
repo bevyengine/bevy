@@ -24,7 +24,10 @@ impl ComputePassCommandBuilder for ComputePass {
 
 impl PassTrait for ComputePass {
     fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
-        let render_pass_context = render_context.begin_compute_pass(&self.compute_pass)?;
+        render_context.flush_encoder();
+        let mut command_encoder = render_context.create_command_encoder();
+       
+        let render_pass_context = render_context.begin_compute_pass(&mut command_encoder,&self.compute_pass)?;
 
         render_pass_context.execute(&self.commands)?;
 

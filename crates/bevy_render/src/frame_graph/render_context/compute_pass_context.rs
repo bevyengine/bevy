@@ -114,15 +114,15 @@ pub trait ErasedComputePassCommand: Sync + Send + 'static {
 }
 
 pub struct ComputePassContext<'a, 'b> {
-    command_encoder: wgpu::CommandEncoder,
-    compute_pass: wgpu::ComputePass<'static>,
+    command_encoder: &'b mut wgpu::CommandEncoder,
+    compute_pass: wgpu::ComputePass<'b>,
     render_context: &'b mut RenderContext<'a>,
 }
 
 impl<'a, 'b> ComputePassContext<'a, 'b> {
     pub fn new(
-        command_encoder: wgpu::CommandEncoder,
-        compute_pass: wgpu::ComputePass<'static>,
+        command_encoder: &'b mut wgpu::CommandEncoder,
+        compute_pass: wgpu::ComputePass<'b>,
         render_context: &'b mut RenderContext<'a>,
     ) -> Self {
         ComputePassContext {
@@ -232,14 +232,6 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
             command.draw(&mut self)?;
         }
 
-        self.end();
-
         Ok(())
-    }
-
-    fn end(self) {
-        drop(self.compute_pass);
-        let command_buffer = self.command_encoder.finish();
-        self.render_context.add_command_buffer(command_buffer);
     }
 }

@@ -94,6 +94,7 @@ impl RenderPassCommandBuilder for RenderPass {
 
 impl PassTrait for RenderPass {
     fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+        render_context.flush_encoder();
         let mut command_encoder = render_context.create_command_encoder();
 
         for logic_render_pass in self.logic_render_passes.iter() {

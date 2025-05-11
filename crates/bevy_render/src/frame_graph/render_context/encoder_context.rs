@@ -44,7 +44,7 @@ pub trait ErasedEncoderPassCommand: Sync + Send + 'static {
 }
 
 pub struct EncoderContext<'a, 'b> {
-    command_encoder: wgpu::CommandEncoder,
+    command_encoder: &'b mut wgpu::CommandEncoder,
     render_context: &'b mut RenderContext<'a>,
 }
 
@@ -86,7 +86,7 @@ impl<'a, 'b> EncoderContext<'a, 'b> {
     }
 
     pub fn new(
-        command_encoder: wgpu::CommandEncoder,
+        command_encoder:&'b mut wgpu::CommandEncoder,
         render_context: &'b mut RenderContext<'a>,
     ) -> Self {
        EncoderContext {

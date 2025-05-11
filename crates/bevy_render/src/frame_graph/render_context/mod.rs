@@ -75,7 +75,7 @@ impl<'a> RenderContext<'a> {
         }
     }
 
-    fn flush_encoder(&mut self) {
+    pub fn flush_encoder(&mut self) {
         if let Some(encoder) = self.command_encoder.take() {
             self.command_buffer_queue.push(encoder.finish());
         }
@@ -83,15 +83,10 @@ impl<'a> RenderContext<'a> {
 
     pub fn begin_compute_pass<'b>(
         &'b mut self,
+        command_encoder: &'b mut CommandEncoder,
         compute_pass_info: &ComputePassInfo,
     ) -> Result<ComputePassContext<'a, 'b>, FrameGraphError> {
-        self.flush_encoder();
-
-        let mut command_encoder = self
-            .render_device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-
-        let compute_pass = compute_pass_info.create_render_pass(&mut command_encoder)?;
+        let compute_pass = compute_pass_info.create_render_pass(command_encoder)?;
 
         Ok(ComputePassContext::new(command_encoder, compute_pass, self))
     }
@@ -101,18 +96,15 @@ impl<'a> RenderContext<'a> {
         command_encoder: &'b mut CommandEncoder,
         render_pass_info: &RenderPassInfo,
     ) -> Result<RenderPassContext<'a, 'b>, FrameGraphError> {
-        self.flush_encoder();
-
         let render_pass = render_pass_info.create_render_pass(command_encoder)?;
 
         Ok(RenderPassContext::new(command_encoder, render_pass, self))
     }
 
-    pub fn begin_encoder<'b>(&'b mut self) -> EncoderContext<'a, 'b> {
-        let command_encoder = self
-            .render_device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-
+    pub fn begin_encoder<'b>(
+        &'b mut self,
+        command_encoder: &'b mut CommandEncoder,
+    ) -> EncoderContext<'a, 'b> {
         EncoderContext::new(command_encoder, self)
     }
 
