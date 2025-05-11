@@ -83,7 +83,7 @@ pub fn update_hits(
     pickables: Query<&Pickable>,
     marked_targets: Query<&Pickable>,
     layers: Query<&RenderLayers>,
-    mut ray_cast: MeshRayCast,
+    ray_cast: MeshRayCast,
     mut output: EventWriter<PointerHits>,
 ) {
     for (&ray_id, &ray) in ray_map.iter() {
