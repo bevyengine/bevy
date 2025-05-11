@@ -45,16 +45,14 @@ fn bouncing_raycast(
 }
 
 // Bounces a ray off of surfaces `MAX_BOUNCES` times.
-fn bounce_ray(mut ray: Ray3d, ray_cast: &mut MeshRayCast, gizmos: &mut Gizmos, color: Color) {
+fn bounce_ray(mut ray: Ray3d, ray_cast: &MeshRayCast, gizmos: &mut Gizmos, color: Color) {
     let mut intersections = Vec::with_capacity(MAX_BOUNCES + 1);
     intersections.push((ray.origin, Color::srgb(30.0, 0.0, 0.0)));
 
     for i in 0..MAX_BOUNCES {
         // Cast the ray and get the first hit
-        let Some((_, hit)) = ray_cast
-            .cast_ray(ray, &MeshRayCastSettings::default())
-            .first()
-        else {
+        let hits = ray_cast.cast_ray(ray, &MeshRayCastSettings::default());
+        let Some((_, hit)) = hits.first() else {
             break;
         };
 
