@@ -1,40 +1,46 @@
 pub mod bind_group;
 pub mod color_attachment;
+pub mod compute_pass_info;
 pub mod depth_stencil_attachment;
 pub mod render_pass_info;
+pub mod resource_meta;
 pub mod sampler_info;
 pub mod texel_copy_texture_info;
 pub mod texture_view;
-pub mod compute_pass_info;
-pub mod resource_meta;
 
 pub use bind_group::*;
 pub use color_attachment::*;
+pub use compute_pass_info::*;
 pub use depth_stencil_attachment::*;
 pub use render_pass_info::*;
+pub use resource_meta::*;
 pub use sampler_info::*;
 pub use texel_copy_texture_info::*;
 pub use texture_view::*;
-pub use compute_pass_info::*;
-pub use resource_meta::*;
 
 use crate::render_resource::{Buffer, Texture};
 
 use super::{
-    FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResourceNodeHandle,
-    PassNodeBuilder, RenderContext,
+    FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource,
+    GraphResourceNodeHandle, PassNodeBuilder, RenderContext,
 };
 
 pub trait ResourceMaterial {
-    type Handle;
+    type ResourceType: GraphResource;
 
-    fn make_resource_handle(&self, frame_graph: &mut FrameGraph) -> Self::Handle;
+    fn make_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> GraphResourceNodeHandle<Self::ResourceType>;
 }
 
 impl ResourceMaterial for Buffer {
-    type Handle = GraphResourceNodeHandle<FrameGraphBuffer>;
+    type ResourceType = FrameGraphBuffer;
 
-    fn make_resource_handle(&self, frame_graph: &mut FrameGraph) -> Self::Handle {
+    fn make_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> GraphResourceNodeHandle<FrameGraphBuffer> {
         let key = format!("buffer_{:?}", self.id());
         let buffer = FrameGraphBuffer::new_arc_with_buffer(self);
         let handle = frame_graph.import(&key, buffer);
@@ -43,9 +49,12 @@ impl ResourceMaterial for Buffer {
 }
 
 impl ResourceMaterial for Texture {
-    type Handle = GraphResourceNodeHandle<FrameGraphTexture>;
+    type ResourceType = FrameGraphTexture;
 
-    fn make_resource_handle(&self, frame_graph: &mut FrameGraph) -> Self::Handle {
+    fn make_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> GraphResourceNodeHandle<FrameGraphTexture> {
         let key = format!("texture_{:?}", self.id());
         let texture = FrameGraphTexture::new_arc_with_texture(self);
         let handle = frame_graph.import(&key, texture);

@@ -9,7 +9,7 @@ use std::{borrow::Cow, mem::take};
 use crate::{
     frame_graph::{
         BindGroupDrawingBuilder, EncoderCommand, EncoderCommandBuilder, FrameGraphError,
-        PassNodeBuilder, RenderContext,
+        PassNodeBuilder, RenderContext, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
     },
     render_resource::BindGroupLayout,
 };
@@ -50,7 +50,7 @@ impl PassTrait for DynamicPass {
 }
 
 pub struct PassBuilder<'a> {
-    pass_node_builder: PassNodeBuilder<'a>,
+    pub(crate) pass_node_builder: PassNodeBuilder<'a>,
     pass: DynamicPass,
 }
 
@@ -81,6 +81,20 @@ impl<'a> PassBuilder<'a> {
             pass_node_builder,
             pass: DynamicPass::default(),
         }
+    }
+
+    pub fn read_material<M: ResourceMaterial>(
+        &mut self,
+        material: &M,
+    ) -> ResourceRef<M::ResourceType, ResourceRead> {
+        self.pass_node_builder.read_material(material)
+    }
+
+    pub fn write_material<M: ResourceMaterial>(
+        &mut self,
+        material: &M,
+    ) -> ResourceRef<M::ResourceType, ResourceWrite> {
+        self.pass_node_builder.write_material(material)
     }
 
     pub fn create_bind_group_builder<'b>(

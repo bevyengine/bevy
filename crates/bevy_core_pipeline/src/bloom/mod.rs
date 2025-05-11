@@ -159,13 +159,8 @@ impl ViewNode for BloomNode {
 
         // First downsample pass
         {
-            let resource_meta = bloom_texture.get_resource_meta(entity, 0);
-
-            let bloom_texture_handle = pass_builder
-                .pass_node_builder()
-                .get_or_create(&resource_meta.key, resource_meta.desc);
-
-            let bloom_texture_write = pass_builder.pass_node_builder().write(bloom_texture_handle);
+            let bloom_texture_write =
+                pass_builder.write_material(&bloom_texture.get_resource_meta(entity, 0));
 
             let downsampling_first_bind_group = pass_builder
                 .create_bind_group_builder(
@@ -197,22 +192,11 @@ impl ViewNode for BloomNode {
         for mip in 1..bloom_texture.mip_count {
             let bind_group_mip = mip - 1;
 
-            let resource_meta = bloom_texture.get_resource_meta(entity, mip);
-            let bind_group_resource_meta = bloom_texture.get_resource_meta(entity, bind_group_mip);
-
-            let bind_group_bloom_texture_handle = pass_builder
-                .pass_node_builder()
-                .get_or_create(&bind_group_resource_meta.key, bind_group_resource_meta.desc);
-
-            let bloom_texture_handle = pass_builder
-                .pass_node_builder()
-                .get_or_create(&resource_meta.key, resource_meta.desc);
-
-            let bloom_texture_write = pass_builder.pass_node_builder().write(bloom_texture_handle);
+            let bloom_texture_write =
+                pass_builder.write_material(&bloom_texture.get_resource_meta(entity, mip));
 
             let bind_group_bloom_texture_read = pass_builder
-                .pass_node_builder()
-                .read(bind_group_bloom_texture_handle);
+                .read_material(&bloom_texture.get_resource_meta(entity, bind_group_mip));
 
             let downsampling_bind_group = pass_builder
                 .create_bind_group_builder(
@@ -247,23 +231,11 @@ impl ViewNode for BloomNode {
         for mip in (1..bloom_texture.mip_count).rev() {
             let bind_group_mip = mip;
 
-            let resource_meta = bloom_texture.get_resource_meta(entity, mip - 1);
-            let bind_group_mip_resource_meta =
-                bloom_texture.get_resource_meta(entity, bind_group_mip);
+            let bloom_texture_write =
+                pass_builder.write_material(&bloom_texture.get_resource_meta(entity, mip - 1));
 
-            let bloom_texture_handle = pass_builder
-                .pass_node_builder()
-                .get_or_create(&resource_meta.key, resource_meta.desc);
-
-            let bind_group_bloom_texture_handle = pass_builder.pass_node_builder().get_or_create(
-                &bind_group_mip_resource_meta.key,
-                bind_group_mip_resource_meta.desc,
-            );
-
-            let bloom_texture_write = pass_builder.pass_node_builder().write(bloom_texture_handle);
             let bind_group_bloom_texture_read = pass_builder
-                .pass_node_builder()
-                .read(bind_group_bloom_texture_handle);
+                .read_material(&bloom_texture.get_resource_meta(entity, bind_group_mip));
 
             let upsampling_bind_group = pass_builder
                 .create_bind_group_builder(
@@ -310,13 +282,8 @@ impl ViewNode for BloomNode {
         {
             let mip = 0;
 
-            let resource_meta = bloom_texture.get_resource_meta(entity, mip);
-
-            let bloom_texture_handle = pass_builder
-                .pass_node_builder()
-                .get_or_create(&resource_meta.key, resource_meta.desc);
-
-            let bloom_texture_read = pass_builder.pass_node_builder().read(bloom_texture_handle);
+            let bloom_texture_read =
+                pass_builder.read_material(&bloom_texture.get_resource_meta(entity, mip));
 
             let upsampling_bind_group = pass_builder
                 .create_bind_group_builder(

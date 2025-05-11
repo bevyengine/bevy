@@ -1,16 +1,13 @@
 use alloc::sync::Arc;
 
-use crate::render_resource::{Buffer, Texture};
-
 use super::{
-    FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphRawResourceNodeHandle,
-    GraphResource, GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass,
-    PassTrait, ResourceBoardKey, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
-    TypeEquals,
+    FrameGraph, FrameGraphError, GraphRawResourceNodeHandle, GraphResource,
+    GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass, PassTrait,
+    ResourceBoardKey, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite, TypeEquals,
 };
 
 pub struct PassNodeBuilder<'a> {
-    graph: &'a mut FrameGraph,
+    pub(crate) graph: &'a mut FrameGraph,
     name: String,
     writes: Vec<GraphRawResourceNodeHandle>,
     reads: Vec<GraphRawResourceNodeHandle>,
@@ -61,21 +58,21 @@ impl<'a> PassNodeBuilder<'a> {
         self.graph.get_or_create(name, desc)
     }
 
-    pub fn import_and_read_buffer(
+    pub fn read_material<M: ResourceMaterial>(
         &mut self,
-        buffer: &Buffer,
-    ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
-        let handle = buffer.make_resource_handle(self.graph);
+        material: &M,
+    ) -> ResourceRef<M::ResourceType, ResourceRead> {
+        let handle = material.make_resource_handle(self.graph);
         let read = self.read(handle);
         read
     }
 
-    pub fn import_and_read_texture(
+    pub fn write_material<M: ResourceMaterial>(
         &mut self,
-        texture: &Texture,
-    ) -> ResourceRef<FrameGraphTexture, ResourceRead> {
-        let handle = texture.make_resource_handle(self.graph);
-        let read = self.read(handle);
+        material: &M,
+    ) -> ResourceRef<M::ResourceType, ResourceWrite> {
+        let handle = material.make_resource_handle(self.graph);
+        let read = self.write(handle);
         read
     }
 

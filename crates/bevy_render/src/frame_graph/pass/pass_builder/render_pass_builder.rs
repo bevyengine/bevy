@@ -41,18 +41,14 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
         &mut self,
         buffer: &Buffer,
     ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
-        self.pass_builder
-            .pass_node_builder()
-            .import_and_read_buffer(buffer)
+        self.pass_builder.read_material(buffer)
     }
 
     pub fn import_and_read_texture(
         &mut self,
         texture: &Texture,
     ) -> ResourceRef<FrameGraphTexture, ResourceRead> {
-        self.pass_builder
-            .pass_node_builder()
-            .import_and_read_texture(texture)
+        self.pass_builder.read_material(texture)
     }
 
     pub fn set_bind_group<T>(&mut self, index: u32, bind_group: T, offsets: &[u32]) -> &mut Self

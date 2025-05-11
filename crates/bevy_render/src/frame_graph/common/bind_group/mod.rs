@@ -116,7 +116,7 @@ impl BindingResourceHandleHelper for Buffer {
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef {
-        let buffer = pass_node_builder.import_and_read_buffer(self);
+        let buffer = pass_node_builder.read_material(self);
         BindingResourceRef::Buffer { buffer, size: None }
     }
 }
@@ -134,7 +134,7 @@ impl BindingResourceHandleHelper for Texture {
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef {
-        let texture = pass_node_builder.import_and_read_texture(&self);
+        let texture = pass_node_builder.read_material(self);
 
         BindingResourceRef::TextureView {
             texture,
@@ -156,7 +156,7 @@ impl BindingResourceHandleHelper for GpuImage {
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef {
-        let texture = pass_node_builder.import_and_read_texture(&self.texture);
+        let texture = pass_node_builder.read_material(&self.texture);
 
         BindingResourceRef::TextureView {
             texture,
@@ -183,7 +183,7 @@ impl<T: ShaderType + WriteInto> BindingResourceHandleHelper for StorageBuffer<T>
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef {
         let buffer = self.buffer().expect("buffer must have");
-        let buffer_ref = pass_node_builder.import_and_read_buffer(buffer);
+        let buffer_ref = pass_node_builder.read_material(buffer);
 
         let size = T::min_size();
         BindingResourceRef::Buffer {
@@ -211,7 +211,7 @@ impl<T: ShaderType + WriteInto> BindingResourceHandleHelper for UniformBuffer<T>
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef {
         let buffer = self.buffer().expect("buffer must have");
-        let buffer_ref = pass_node_builder.import_and_read_buffer(buffer);
+        let buffer_ref = pass_node_builder.read_material(buffer);
 
         let size = T::min_size();
         BindingResourceRef::Buffer {
@@ -239,7 +239,7 @@ impl<T: ShaderType + WriteInto> BindingResourceHandleHelper for DynamicUniformBu
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef {
         let buffer = self.buffer().expect("buffer must have");
-        let buffer_ref = pass_node_builder.import_and_read_buffer(buffer);
+        let buffer_ref = pass_node_builder.read_material(buffer);
 
         let size = T::min_size();
         BindingResourceRef::Buffer {
