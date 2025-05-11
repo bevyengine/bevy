@@ -264,12 +264,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     type ItemQuery = Read<InstanceBuffer>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         item: &P,
         _view: (),
         instance_buffer: Option<&'w InstanceBuffer>,
         (meshes, render_mesh_instances, mesh_allocator): SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         // A borrow check workaround.
         let mesh_allocator = mesh_allocator.into_inner();
