@@ -546,7 +546,7 @@ impl AssetSource {
                     Some(Box::new(
                         super::file::FileWatcher::new(
                             path.to_str()
-                                .expect("non unicode characters found in path")
+                                .expect("non UTF-8 characters found in path")
                                 .to_string(),
                             sender,
                             file_debounce_wait_time,

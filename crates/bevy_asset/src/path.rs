@@ -15,6 +15,9 @@ use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+pub(crate) const PATH_SEPARATOR: char = '/';
+pub(crate) const PATH_SEPARATOR_STR: &str = "/";
+
 /// Represents a path to an asset in a "virtual filesystem".
 ///
 /// Asset paths consist of three main parts:
@@ -71,10 +74,10 @@ impl<'a> PartialEq for AssetPath<'a> {
             return false;
         }
         let self_trailing_slash = self.path.len() > 1
-            && self.path.ends_with("/")
+            && self.path.ends_with(PATH_SEPARATOR)
             && self.path[..self.path.len() - 1] == other.path[..other.path.len()];
         let other_trailing_slash = other.path.len() > 1
-            && other.path.ends_with("/")
+            && other.path.ends_with(PATH_SEPARATOR)
             && self.path[..self.path.len()] == other.path[..other.path.len() - 1];
         self.path == other.path || self_trailing_slash || other_trailing_slash
     }
@@ -82,7 +85,7 @@ impl<'a> PartialEq for AssetPath<'a> {
 
 impl<'a> Hash for AssetPath<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let path = if self.path.ends_with('/') {
+        let path = if self.path.ends_with(PATH_SEPARATOR) {
             &self.path[..self.path.len() - 1]
         } else {
             &self.path
@@ -191,7 +194,7 @@ impl<'a> AssetPath<'a> {
                 ':' => {
                     source_delimiter_chars_matched = 1;
                 }
-                '/' => {
+                PATH_SEPARATOR => {
                     match source_delimiter_chars_matched {
                         1 => {
                             source_delimiter_chars_matched = 2;
@@ -348,17 +351,20 @@ impl<'a> AssetPath<'a> {
     /// Splits the internal path into components
     #[inline]
     pub fn path_components(&self) -> impl Iterator<Item = &str> {
-        self.path.split('/')
+        self.path.split(PATH_SEPARATOR)
     }
 
     /// Returns an [`AssetPath`] for the parent folder of this path, if there is a parent folder in the path.
     pub fn parent(&self) -> Option<AssetPath<'a>> {
-        if self.path.as_ref() == "/" || self.path.starts_with('#') || self.path.is_empty() {
+        if self.path.as_ref() == PATH_SEPARATOR_STR
+            || self.path.starts_with('#')
+            || self.path.is_empty()
+        {
             return None;
         }
         let mut path: Vec<_> = self.path_components().map(ToString::to_string).collect();
         path.pop();
-        let path = path.join("/");
+        let path = path.join(PATH_SEPARATOR_STR);
         Some(AssetPath {
             source: self.source.clone(),
             label: None,
@@ -467,14 +473,14 @@ impl<'a> AssetPath<'a> {
         } else {
             let (source, rpath, rlabel) = AssetPath::parse_internal(path)?;
             let mut base_path: Vec<_> = self.path_components().filter(|s| !s.is_empty()).collect();
-            if replace && !self.path.ends_with('/') {
+            if replace && !self.path.ends_with(PATH_SEPARATOR) {
                 // No error if base is empty (per RFC 1808).
                 base_path.pop();
             }
 
             // Strip off leading slash
             let mut is_absolute = false;
-            let rpath = match rpath.strip_prefix("/") {
+            let rpath = match rpath.strip_prefix(PATH_SEPARATOR) {
                 Some(p) => {
                     is_absolute = true;
                     p
@@ -487,8 +493,8 @@ impl<'a> AssetPath<'a> {
             } else {
                 Vec::new()
             };
-            result_path.extend(rpath.split("/").filter(|s| !s.is_empty()));
-            let result_path = normalize_path(&result_path).join("/");
+            result_path.extend(rpath.split(PATH_SEPARATOR).filter(|s| !s.is_empty()));
+            let result_path = normalize_path(&result_path).join(PATH_SEPARATOR_STR);
 
             Ok(AssetPath {
                 source: match source {
@@ -556,7 +562,7 @@ impl<'a> AssetPath<'a> {
     /// assert!(path.is_unapproved());
     /// ```
     pub fn is_unapproved(&self) -> bool {
-        if self.path.starts_with("/") {
+        if self.path.starts_with(PATH_SEPARATOR_STR) {
             return true;
         }
         let mut simplified = Vec::new();
@@ -640,7 +646,7 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
             source: AssetSourceId::Default,
             path: CowArc::from(
                 path.to_str()
-                    .expect("non unicode characters found in file path")
+                    .expect("non utf-8 characters found in file path")
                     .to_string(),
             ),
             label: None,
@@ -655,7 +661,7 @@ impl From<PathBuf> for AssetPath<'static> {
             source: AssetSourceId::Default,
             path: CowArc::from(
                 path.to_str()
-                    .expect("non unicode characters found in file path")
+                    .expect("non UTF-8 characters found in file path")
                     .to_string(),
             ),
             label: None,
@@ -1085,6 +1091,11 @@ mod tests {
     fn test_trailing_slash_equality() {
         assert_eq!(AssetPath::from("a/b/"), AssetPath::from("a/b"));
         assert_eq!(AssetPath::from("a/b/#c"), AssetPath::from("a/b#c"));
+    }
+
+    #[test]
+    fn test_slash_inequality_to_empty() {
+        assert_ne!(AssetPath::from(""), AssetPath::from("/"));
     }
 
     #[test]
