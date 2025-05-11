@@ -46,9 +46,9 @@ pub trait AudioSinkPlayback {
     ///
     /// This takes into account any speedup or delay applied.
     ///
-    /// Example: if you [`set_speed(2.0)`](Self::set_speed) and [`get_pos()`](Self::get_pos) returns *5s*,
+    /// Example: if you [`set_speed(2.0)`](Self::set_speed) and [`position()`](Self::position) returns *5s*,
     /// then the position in the recording is *10s* from its start.
-    fn get_pos(&self) -> Duration;
+    fn position(&self) -> Duration;
 
     /// Attempts to seek to a given position in the current source.
     ///
@@ -189,7 +189,7 @@ impl AudioSinkPlayback for AudioSink {
         self.sink.play();
     }
 
-    fn get_pos(&self) -> Duration {
+    fn position(&self) -> Duration {
         self.sink.get_pos()
     }
 
@@ -293,7 +293,7 @@ impl AudioSinkPlayback for SpatialAudioSink {
         self.sink.play();
     }
 
-    fn get_pos(&self) -> Duration {
+    fn position(&self) -> Duration {
         self.sink.get_pos()
     }
 

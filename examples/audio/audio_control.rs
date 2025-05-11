@@ -55,7 +55,7 @@ fn update_progress_text(
     music_controller: Single<&AudioSink, With<MyMusic>>,
     mut progress_text: Single<&mut Text, With<ProgressText>>,
 ) {
-    progress_text.0 = format!("Progress: {}s", music_controller.get_pos().as_secs_f32());
+    progress_text.0 = format!("Progress: {}s", music_controller.position().as_secs_f32());
 }
 
 fn update_speed(music_controller: Query<&AudioSink, With<MyMusic>>, time: Res<Time>) {
