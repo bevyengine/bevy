@@ -24,7 +24,7 @@ const MAX_BOUNCES: usize = 64;
 const LASER_SPEED: f32 = 0.03;
 
 fn bouncing_raycast(
-    mut ray_cast: MeshRayCast,
+    ray_cast: MeshRayCast,
     mut gizmos: Gizmos,
     time: Res<Time>,
     // The ray map stores rays cast by the cursor
@@ -36,11 +36,11 @@ fn bouncing_raycast(
     let ray_dir = Dir3::new(-ray_pos).unwrap();
     let ray = Ray3d::new(ray_pos, ray_dir);
     gizmos.sphere(ray_pos, 0.1, Color::WHITE);
-    bounce_ray(ray, &mut ray_cast, &mut gizmos, Color::from(css::RED));
+    bounce_ray(ray, &ray_cast, &mut gizmos, Color::from(css::RED));
 
     // Cast a ray from the cursor and bounce it off of surfaces
     for (_, ray) in ray_map.iter() {
-        bounce_ray(*ray, &mut ray_cast, &mut gizmos, Color::from(css::GREEN));
+        bounce_ray(*ray, &ray_cast, &mut gizmos, Color::from(css::GREEN));
     }
 }
 
