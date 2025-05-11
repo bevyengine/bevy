@@ -2,7 +2,7 @@ use crate::skybox::{SkyboxBindGroup, SkyboxPipelineId};
 use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::{FrameGraph, RenderPassBuilder},
+    frame_graph::{FrameGraph, PassBuilder},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{PipelineCache, StoreOp},
@@ -59,13 +59,14 @@ impl ViewNode for MainOpaquePass3dNode {
             return Ok(());
         };
 
-        let mut pass_node_builder = frame_graph.create_pass_node_bulder("main_opaque_pass_3d");
+        let mut pass_builder =
+            PassBuilder::new(frame_graph.create_pass_node_bulder("main_opaque_pass_3d"));
 
-        let color_attachment = target.get_color_attachment(&mut pass_node_builder)?;
+        let color_attachment = target.get_color_attachment(pass_builder.pass_node_builder())?;
         let depth_stencil_attachment =
-            depth.get_depth_stencil_attachment(&mut pass_node_builder, StoreOp::Store)?;
+            depth.get_depth_stencil_attachment(pass_builder.pass_node_builder(), StoreOp::Store)?;
 
-        let mut builder = RenderPassBuilder::new(pass_node_builder);
+        let mut builder = pass_builder.create_render_pass_builder();
 
         builder
             .set_pass_name("main_opaque_pass_3d")

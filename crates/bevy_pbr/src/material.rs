@@ -560,7 +560,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     type ItemQuery = ();
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         item: &P,
         _view: (),
         _item_query: Option<()>,
@@ -569,7 +569,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
             '_,
             Self::Param,
         >,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();

@@ -299,12 +299,12 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
     type ItemQuery = ();
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         item: &P,
         _view: (),
         _item_query: Option<()>,
         (wireframe_instances, wireframe_assets): SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let Some(wireframe_material) = wireframe_instances.get(&item.main_entity()) else {
             return RenderCommandResult::Failure("No wireframe material found for entity");

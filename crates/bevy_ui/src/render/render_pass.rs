@@ -132,12 +132,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
     type ViewQuery = Read<ViewUniformOffset>;
     type ItemQuery = ();
 
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
         _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let Some(view_bind_group) = ui_meta.into_inner().view_bind_group.as_ref() else {
             return RenderCommandResult::Failure("view_bind_group not available");
@@ -153,12 +153,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     type ItemQuery = Read<UiBatch>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         _view: (),
         batch: Option<&'w UiBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         let Some(batch) = batch else {
@@ -177,12 +177,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type ItemQuery = Read<UiBatch>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         _view: (),
         batch: Option<&'w UiBatch>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
             return RenderCommandResult::Skip;

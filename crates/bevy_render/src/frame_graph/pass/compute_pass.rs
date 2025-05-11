@@ -1,8 +1,10 @@
+use wgpu::CommandEncoder;
+
 use crate::frame_graph::{
     ComputePassCommand, ComputePassCommandBuilder, ComputePassInfo, FrameGraphError, RenderContext,
 };
 
-use super::PassTrait;
+use super::EncoderExecutor;
 
 #[derive(Default)]
 pub struct ComputePass {
@@ -14,6 +16,8 @@ impl ComputePass {
     pub fn is_vaild(&self) -> bool {
         !self.commands.is_empty()
     }
+
+    pub fn finish(&mut self) {}
 }
 
 impl ComputePassCommandBuilder for ComputePass {
@@ -22,12 +26,14 @@ impl ComputePassCommandBuilder for ComputePass {
     }
 }
 
-impl PassTrait for ComputePass {
-    fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
-        render_context.flush_encoder();
-        let mut command_encoder = render_context.create_command_encoder();
-       
-        let render_pass_context = render_context.begin_compute_pass(&mut command_encoder,&self.compute_pass)?;
+impl EncoderExecutor for ComputePass {
+    fn execute(
+        &self,
+        command_encoder: &mut CommandEncoder,
+        render_context: &mut RenderContext,
+    ) -> Result<(), FrameGraphError> {
+        let render_pass_context =
+            render_context.begin_compute_pass(command_encoder, &self.compute_pass)?;
 
         render_pass_context.execute(&self.commands)?;
 

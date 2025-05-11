@@ -632,12 +632,12 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     type ItemQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
         uniform_index: Option<ROQueryItem<'w, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let Some(uniform_index) = uniform_index else {
             return RenderCommandResult::Skip;
@@ -663,12 +663,12 @@ impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> 
     type ItemQuery = Read<GizmoMeshConfig>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
         config: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let Some(config) = config else {
             return RenderCommandResult::Skip;
@@ -726,12 +726,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type ItemQuery = Read<GizmoMeshConfig>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
         config: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let Some(config) = config else {
             return RenderCommandResult::Skip;

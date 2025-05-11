@@ -25,13 +25,25 @@ use bevy_render::{
             InstanceInputUniformBuffer, UntypedPhaseIndirectParametersBuffers,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
-    }, camera::Camera, frame_graph::SamplerInfo, mesh::{skinning::SkinnedMesh, *}, primitives::Aabb, render_asset::RenderAssets, render_phase::{
+    },
+    camera::Camera,
+    frame_graph::SamplerInfo,
+    mesh::{skinning::SkinnedMesh, *},
+    primitives::Aabb,
+    render_asset::RenderAssets,
+    render_phase::{
         BinnedRenderPhasePlugin, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, RenderCommand,
         RenderCommandResult, SortedRenderPhasePlugin, TrackedRenderPass,
-    }, render_resource::*, renderer::{RenderAdapter, RenderDevice, RenderQueue}, sync_world::MainEntityHashSet, texture::{DefaultImageSampler, GpuImage}, view::{
+    },
+    render_resource::*,
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    sync_world::MainEntityHashSet,
+    texture::{DefaultImageSampler, GpuImage},
+    view::{
         self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
         ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
-    }, Extract
+    },
+    Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel, TypeIdMap};
@@ -1791,9 +1803,10 @@ impl FromWorld for MeshPipeline {
 
             let sampler_info = match &image.sampler {
                 ImageSampler::Default => SamplerInfo::default(),
-                ImageSampler::Descriptor(descriptor) => SamplerInfo::new_image_sampler_descriptor(descriptor),
+                ImageSampler::Descriptor(descriptor) => {
+                    SamplerInfo::new_image_sampler_descriptor(descriptor)
+                }
             };
-    
 
             let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
@@ -1822,7 +1835,7 @@ impl FromWorld for MeshPipeline {
                 sampler,
                 size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
-                sampler_info
+                sampler_info,
             }
         };
 
@@ -2858,7 +2871,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     type ItemQuery = ();
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         (
             view_uniform,
@@ -2872,7 +2885,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         ): ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let mut offsets: SmallVec<[u32; 8]> = smallvec![
             view_uniform.offset,
@@ -2905,7 +2918,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     type ItemQuery = ();
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         item: &P,
         has_motion_vector_prepass: bool,
         _item_query: Option<()>,
@@ -2917,7 +2930,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             morph_indices,
             lightmaps,
         ): SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let bind_groups = bind_groups.into_inner();
         let mesh_instances = mesh_instances.into_inner();
@@ -3029,7 +3042,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type ViewQuery = Has<PreprocessBindGroups>;
     type ItemQuery = ();
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         item: &P,
         has_preprocess_bind_group: ROQueryItem<Self::ViewQuery>,
         _item_query: Option<()>,
@@ -3042,7 +3055,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             preprocess_pipelines,
             preprocessing_support,
         ): SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         // If we're using GPU preprocessing, then we're dependent on that
         // compute shader having been run, which of course can only happen if

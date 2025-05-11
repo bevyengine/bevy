@@ -1,14 +1,14 @@
-pub mod encoder_pass;
 pub mod compute_pass;
-pub mod compute_pass_builder;
+pub mod encoder_pass;
+pub mod pass_builder;
 pub mod render_pass;
-pub mod render_pass_builder;
 
 pub use compute_pass::*;
-pub use compute_pass_builder::*;
-pub use render_pass::*;
-pub use render_pass_builder::*;
 pub use encoder_pass::*;
+pub use render_pass::*;
+pub use pass_builder::*;
+
+use wgpu::CommandEncoder;
 
 use super::{FrameGraphError, RenderContext};
 
@@ -26,18 +26,44 @@ impl Pass {
     }
 
     pub fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
-        self.0.execute(render_context)
+        self.0.render(render_context)
+    }
+}
+
+pub trait EncoderExecutor: 'static + Send + Sync {
+    fn execute(
+        &self,
+        command_encoder: &mut CommandEncoder,
+        render_context: &mut RenderContext,
+    ) -> Result<(), FrameGraphError>;
+}
+
+impl<T: EncoderExecutor> PassTrait for T {
+    fn render(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+        render_context.flush_encoder();
+
+        let mut command_encoder = render_context.create_command_encoder();
+
+        self.execute(&mut command_encoder, render_context)?;
+
+        let command_buffer = command_encoder.finish();
+
+        render_context.add_command_buffer(command_buffer);
+
+        Ok(())
     }
 }
 
 pub trait PassTrait: 'static + Send + Sync {
-    fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError>;
+    fn render(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError>;
 }
 
 pub struct EmptyPass;
 
 impl PassTrait for EmptyPass {
-    fn execute(&self, _render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+    fn render(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+        render_context.flush_encoder();
+
         Ok(())
     }
 }

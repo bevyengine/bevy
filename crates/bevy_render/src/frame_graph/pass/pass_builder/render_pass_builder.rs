@@ -8,47 +8,80 @@ use crate::{
     camera::Viewport,
     frame_graph::{
         BindGroupDrawing, ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing,
-        FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource, PassNodeBuilder,
-        RenderPassCommandBuilder, ResourceBoardKey, ResourceHandle, ResourceRead, ResourceRef,
+        FrameGraphBuffer, FrameGraphTexture, RenderPass, RenderPassCommandBuilder, ResourceHandle,
+        ResourceRead, ResourceRef,
     },
     render_resource::{BindGroup, Buffer, CachedRenderPipelineId, Texture},
 };
 
-use super::RenderPass;
+use super::PassBuilder;
 
-pub struct RenderPassBuilder<'a> {
+pub struct RenderPassBuilder<'a, 'b> {
     render_pass: RenderPass,
-    pass_node_builder: PassNodeBuilder<'a>,
+    pass_builder: &'b mut PassBuilder<'a>,
 }
 
-impl<'a> Drop for RenderPassBuilder<'a> {
+impl<'a, 'b> Drop for RenderPassBuilder<'a, 'b> {
     fn drop(&mut self) {
+        self.finish();
+    }
+}
+
+impl<'a, 'b> RenderPassBuilder<'a, 'b> {
+    pub fn new(pass_builder: &'b mut PassBuilder<'a>) -> Self {
+        let render_pass = RenderPass::default();
+
+        Self {
+            render_pass,
+            pass_builder,
+        }
+    }
+
+    pub fn import_and_read_buffer(
+        &mut self,
+        buffer: &Buffer,
+    ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
+        self.pass_builder
+            .pass_node_builder()
+            .import_and_read_buffer(buffer)
+    }
+
+    pub fn import_and_read_texture(
+        &mut self,
+        texture: &Texture,
+    ) -> ResourceRef<FrameGraphTexture, ResourceRead> {
+        self.pass_builder
+            .pass_node_builder()
+            .import_and_read_texture(texture)
+    }
+
+    pub fn set_bind_group<T>(&mut self, index: u32, bind_group: T, offsets: &[u32]) -> &mut Self
+    where
+        T: ResourceHandle<Drawing = BindGroupDrawing>,
+    {
+        let bind_group =
+            bind_group.make_resource_drawing(&mut self.pass_builder.pass_node_builder());
+
+        self.render_pass.set_bind_group(index, &bind_group, offsets);
+        self
+    }
+
+    pub fn create_render_pass_builder(&mut self) -> &mut Self {
+        self.finish();
+
+        self
+    }
+
+    fn finish(&mut self) {
         self.render_pass.finish();
 
         let render_pass = take(&mut self.render_pass);
 
         if render_pass.is_vaild() {
-            self.pass_node_builder.set_pass(render_pass);
+            self.pass_builder.add_executor(render_pass);
         } else {
             warn!("render pass must is vaild");
         }
-    }
-}
-
-impl<'a> RenderPassBuilder<'a> {
-    pub fn new(pass_node_builder: PassNodeBuilder<'a>) -> Self {
-        let render_pass = RenderPass::default();
-
-        Self {
-            render_pass,
-            pass_node_builder,
-        }
-    }
-
-    pub fn finish(&mut self) -> &mut Self {
-        self.render_pass.finish();
-
-        self
     }
 
     pub fn set_pass_name(&mut self, name: &str) -> &mut Self {
@@ -272,41 +305,9 @@ impl<'a> RenderPassBuilder<'a> {
         self
     }
 
-    pub fn read_from_board<ResourceType: GraphResource, Key: Into<ResourceBoardKey>>(
-        &mut self,
-        key: Key,
-    ) -> Result<ResourceRef<ResourceType, ResourceRead>, FrameGraphError> {
-        self.pass_node_builder.read_from_board(key)
-    }
-
-    pub fn import_and_read_buffer(
-        &mut self,
-        buffer: &Buffer,
-    ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
-        self.pass_node_builder.import_and_read_buffer(buffer)
-    }
-
-    pub fn import_and_read_texture(
-        &mut self,
-        texture: &Texture,
-    ) -> ResourceRef<FrameGraphTexture, ResourceRead> {
-        self.pass_node_builder.import_and_read_texture(texture)
-    }
-
     pub fn set_camera_viewport(&mut self, viewport: Option<Viewport>) -> &mut Self {
         self.render_pass.set_camera_viewport(viewport);
 
-        self
-    }
-
-    pub fn set_bind_group<T>(&mut self, index: u32, bind_group: T, offsets: &[u32]) -> &mut Self
-    where
-        T: ResourceHandle<Drawing = BindGroupDrawing>,
-    {
-        let bind_group_ref = bind_group.make_resource_drawing(&mut self.pass_node_builder);
-
-        self.render_pass
-            .set_bind_group(index, &bind_group_ref, offsets);
         self
     }
 

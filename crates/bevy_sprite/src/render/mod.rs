@@ -923,12 +923,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
     type ViewQuery = (Read<ViewUniformOffset>, Read<SpriteViewBindGroup>);
     type ItemQuery = ();
 
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         (view_uniform, sprite_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         pass.set_bind_group_handle(I, &sprite_view_bind_group.value, &[view_uniform.offset]);
         RenderCommandResult::Success
@@ -940,12 +940,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     type ViewQuery = Read<ExtractedView>;
     type ItemQuery = ();
 
-    fn render<'w>(
+    fn render<'w, 'b>(
         item: &P,
         view: ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
         (image_bind_groups, batches): SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         let Some(batch) = batches.get(&(view.retained_view_entity, item.entity())) else {
@@ -970,12 +970,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type ViewQuery = Read<ExtractedView>;
     type ItemQuery = ();
 
-    fn render<'w>(
+    fn render<'w, 'b>(
         item: &P,
         view: ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
         (sprite_meta, batches): SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
         let Some(batch) = batches.get(&(view.retained_view_entity, item.entity())) else {

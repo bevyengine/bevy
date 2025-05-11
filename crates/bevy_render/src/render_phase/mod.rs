@@ -597,9 +597,9 @@ where
     }
 
     /// Encodes the GPU commands needed to render all entities in this phase.
-    pub fn render<'w>(
+    pub fn render<'w, 'b>(
         &self,
-        render_pass: &mut TrackedRenderPass<'w>,
+        render_pass: &mut TrackedRenderPass<'w, 'b>,
         world: &'w World,
         view: Entity,
     ) -> Result<(), DrawError> {
@@ -619,9 +619,9 @@ where
     }
 
     /// Renders all batchable meshes queued in this phase.
-    fn render_batchable_meshes<'w>(
+    fn render_batchable_meshes<'w, 'b>(
         &self,
-        render_pass: &mut TrackedRenderPass<'w>,
+        render_pass: &mut TrackedRenderPass<'w, 'b>,
         world: &'w World,
         view: Entity,
     ) -> Result<(), DrawError> {
@@ -738,9 +738,9 @@ where
     }
 
     /// Renders all unbatchable meshes queued in this phase.
-    fn render_unbatchable_meshes<'w>(
+    fn render_unbatchable_meshes<'w, 'b>(
         &self,
-        render_pass: &mut TrackedRenderPass<'w>,
+        render_pass: &mut TrackedRenderPass<'w, 'b>,
         world: &'w World,
         view: Entity,
     ) -> Result<(), DrawError> {
@@ -804,9 +804,9 @@ where
     /// Renders all objects of type [`BinnedRenderPhaseType::NonMesh`].
     ///
     /// These will have been added by plugins or the application.
-    fn render_non_meshes<'w>(
+    fn render_non_meshes<'w, 'b>(
         &self,
-        render_pass: &mut TrackedRenderPass<'w>,
+        render_pass: &mut TrackedRenderPass<'w, 'b>,
         world: &'w World,
         view: Entity,
     ) -> Result<(), DrawError> {
@@ -1418,9 +1418,9 @@ where
     }
 
     /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
-    pub fn render<'w>(
+    pub fn render<'w, 'b>(
         &self,
-        render_pass: &mut TrackedRenderPass<'w>,
+        render_pass: &mut TrackedRenderPass<'w, 'b>,
         world: &'w World,
         view: Entity,
     ) -> Result<(), DrawError> {
@@ -1428,9 +1428,9 @@ where
     }
 
     /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
-    pub fn render_range<'w>(
+    pub fn render_range<'w, 'b>(
         &self,
-        render_pass: &mut TrackedRenderPass<'w>,
+        render_pass: &mut TrackedRenderPass<'w, 'b>,
         world: &'w World,
         view: Entity,
         range: impl SliceIndex<[I], Output = [I]>,
@@ -1699,12 +1699,12 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type ViewQuery = ();
     type ItemQuery = ();
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         item: &P,
         _view: (),
         _entity: Option<()>,
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         if let Some(_) = pipeline_cache
             .into_inner()

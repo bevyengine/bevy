@@ -1,16 +1,17 @@
 use super::{PopDebugGroupParameter, PushDebugGroupParameter};
 
-pub trait EncoderCommandBuilder {
-    fn add_encoder_command(&mut self, value: EncoderCommand);
+pub trait EncoderCommandBuilder: Sized {
+    fn add_begin_encoder_command(&mut self, value: EncoderCommand) -> &mut Self;
+    fn add_end_encoder_command(&mut self, value: EncoderCommand) -> &mut Self;
 
-    fn push_debug_group(&mut self, label: &str) {
-        self.add_encoder_command(EncoderCommand::new(PushDebugGroupParameter {
+    fn push_debug_group(&mut self, label: &str) -> &mut Self {
+        self.add_begin_encoder_command(EncoderCommand::new(PushDebugGroupParameter {
             label: label.to_string(),
-        }));
+        }))
     }
 
-    fn pop_debug_group(&mut self) {
-        self.add_encoder_command(EncoderCommand::new(PopDebugGroupParameter));
+    fn pop_debug_group(&mut self) -> &mut Self {
+        self.add_end_encoder_command(EncoderCommand::new(PopDebugGroupParameter))
     }
 }
 

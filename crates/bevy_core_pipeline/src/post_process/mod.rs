@@ -22,7 +22,7 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     frame_graph::{
         ColorAttachmentDrawing, FrameGraph, FrameGraphTexture, GraphResourceNodeHandle,
-        RenderPassBuilder, SamplerInfo, TextureViewDrawing, TextureViewInfo,
+        PassBuilder, SamplerInfo, TextureViewDrawing, TextureViewInfo,
     },
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{
@@ -404,12 +404,11 @@ impl ViewNode for PostProcessingNode {
         let source: GraphResourceNodeHandle<FrameGraphTexture> =
             frame_graph.get(post_process.source)?;
 
-        let mut pass_node_builder = frame_graph.create_pass_node_bulder("postprocessing pass");
+        let mut pass_builder =
+            PassBuilder::new(frame_graph.create_pass_node_bulder("postprocessing pass"));
 
-        let destination = pass_node_builder.write(destination);
-
-        let bind_group = pass_node_builder
-            .create_bind_group_drawing_builder(
+        let bind_group = pass_builder
+            .create_bind_group_builder(
                 Some("postprocessing bind group".into()),
                 post_processing_pipeline.bind_group_layout.clone(),
             )
@@ -419,7 +418,9 @@ impl ViewNode for PostProcessingNode {
             .push_bind_group_entry(&post_processing_uniform_buffers.chromatic_aberration)
             .build();
 
-        let mut builder = RenderPassBuilder::new(pass_node_builder);
+        let destination = pass_builder.pass_node_builder().write(destination);
+
+        let mut builder = pass_builder.create_render_pass_builder();
 
         builder
             .set_pass_name("postprocessing pass")

@@ -1,13 +1,10 @@
 use crate::{
     camera::Viewport,
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
-    frame_graph::{
-        render_pass_builder::RenderPassBuilder, BindGroupHandle, FrameGraphBuffer,
-        FrameGraphTexture, ResourceRead, ResourceRef,
-    },
+    frame_graph::{BindGroupHandle, RenderPassBuilder},
     render_resource::{
         BindGroup, BindGroupId, BindGroupLayoutId, Buffer, BufferId, BufferSlice,
-        CachedRenderPipelineId, ShaderStages, Texture,
+        CachedRenderPipelineId, ShaderStages, 
     },
     renderer::RenderDevice,
 };
@@ -144,28 +141,14 @@ impl DrawState {
 ///
 /// It is used to set the current [`RenderPipeline`], [`BindGroup`]s and [`Buffer`]s.
 /// After all requirements are specified, draw calls can be issued.
-pub struct TrackedRenderPass<'a> {
-    pass: RenderPassBuilder<'a>,
+pub struct TrackedRenderPass<'a, 'b> {
+    pass: RenderPassBuilder<'a, 'b>,
     state: DrawState,
 }
 
-impl<'a> TrackedRenderPass<'a> {
-    pub fn import_and_read_buffer(
-        &mut self,
-        buffer: &Buffer,
-    ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
-        self.pass.import_and_read_buffer(buffer)
-    }
-
-    pub fn import_and_read_texture(
-        &mut self,
-        texture: &Texture,
-    ) -> ResourceRef<FrameGraphTexture, ResourceRead> {
-        self.pass.import_and_read_texture(texture)
-    }
-
+impl<'a, 'b> TrackedRenderPass<'a, 'b> {
     /// Tracks the supplied render pass.
-    pub fn new(device: &RenderDevice, pass: RenderPassBuilder<'a>) -> Self {
+    pub fn new(device: &RenderDevice, pass: RenderPassBuilder<'a, 'b>) -> Self {
         let limits = device.limits();
         let max_bind_groups = limits.max_bind_groups as usize;
         let max_vertex_buffers = limits.max_vertex_buffers as usize;
@@ -739,13 +722,13 @@ impl<'a> TrackedRenderPass<'a> {
     }
 }
 
-impl WriteTimestamp for TrackedRenderPass<'_> {
+impl<'a, 'b> WriteTimestamp for TrackedRenderPass<'a, 'b> {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
         self.pass.write_timestamp(query_set, index);
     }
 }
 
-impl WritePipelineStatistics for TrackedRenderPass<'_> {
+impl<'a, 'b> WritePipelineStatistics for TrackedRenderPass<'a, 'b> {
     fn begin_pipeline_statistics_query(&mut self, query_set: &QuerySet, index: u32) {
         self.pass.begin_pipeline_statistics_query(query_set, index);
     }
@@ -755,6 +738,6 @@ impl WritePipelineStatistics for TrackedRenderPass<'_> {
     }
 }
 
-impl Pass for TrackedRenderPass<'_> {
+impl<'a, 'b> Pass for TrackedRenderPass<'a, 'b> {
     const KIND: PassKind = PassKind::Render;
 }

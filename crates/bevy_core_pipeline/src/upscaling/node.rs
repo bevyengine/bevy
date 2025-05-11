@@ -3,10 +3,7 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
-    frame_graph::{
-        render_pass_builder::RenderPassBuilder, FrameGraph, FrameGraphTexture,
-        GraphResourceNodeHandle,
-    },
+    frame_graph::{FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, PassBuilder},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::PipelineCache,
     view::ViewTarget,
@@ -59,22 +56,21 @@ impl ViewNode for UpscalingNode {
         let main_texture: GraphResourceNodeHandle<FrameGraphTexture> =
             frame_graph.get(target.get_main_texture_key())?;
 
-        let mut pass_node_builder = frame_graph.create_pass_node_bulder("upscaling_pass");
+        let mut pass_builder =
+            PassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_pass"));
 
-        let bind_group = pass_node_builder
-            .create_bind_group_drawing_builder(None, blit_pipeline.texture_bind_group.clone())
+        let bind_group = pass_builder
+            .create_bind_group_builder(None, blit_pipeline.texture_bind_group.clone())
             .push_bind_group_entry(&main_texture)
             .push_bind_group_entry(&blit_pipeline.sampler_info)
             .build();
 
-        let mut builder = RenderPassBuilder::new(pass_node_builder);
-
-        builder
+        pass_builder
+            .create_render_pass_builder()
             .set_pass_name("upscaling_pass")
             .add_raw_color_attachment(target.out_texture_color_attachment(converted_clear_color))
-            .set_render_pipeline(upscaling_target.0)
             .set_bind_group(0, bind_group, &[])
-            .set_camera_viewport(camera.and_then(|camera| camera.viewport.clone()))
+            .set_render_pipeline(upscaling_target.0)
             .draw(0..3, 0..1);
 
         Ok(())

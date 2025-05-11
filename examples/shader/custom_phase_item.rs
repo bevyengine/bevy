@@ -71,12 +71,12 @@ where
 
     type ItemQuery = ();
 
-    fn render<'w>(
+    fn render<'w, 'b>(
         _: &P,
         _: ROQueryItem<'w, Self::ViewQuery>,
         _: Option<ROQueryItem<'w, Self::ItemQuery>>,
         custom_phase_item_buffers: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         // Borrow check workaround.
         let custom_phase_item_buffers = custom_phase_item_buffers.into_inner();

@@ -1,5 +1,7 @@
 use std::mem::take;
 
+use wgpu::CommandEncoder;
+
 use crate::{
     camera::Viewport,
     frame_graph::{
@@ -9,7 +11,7 @@ use crate::{
     },
 };
 
-use super::PassTrait;
+use super::EncoderExecutor;
 
 #[derive(Default)]
 pub struct RenderPass {
@@ -92,24 +94,22 @@ impl RenderPassCommandBuilder for RenderPass {
     }
 }
 
-impl PassTrait for RenderPass {
-    fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
-        render_context.flush_encoder();
-        let mut command_encoder = render_context.create_command_encoder();
-
+impl EncoderExecutor for RenderPass {
+    fn execute(
+        &self,
+        command_encoder: &mut CommandEncoder,
+        render_context: &mut RenderContext,
+    ) -> Result<(), FrameGraphError> {
         for logic_render_pass in self.logic_render_passes.iter() {
             let render_pass_info = logic_render_pass
                 .render_pass_drawing
                 .make_resource(render_context)?;
             let render_pass_context =
-                render_context.begin_render_pass(&mut command_encoder, &render_pass_info)?;
+                render_context.begin_render_pass(command_encoder, &render_pass_info)?;
 
             render_pass_context.execute(&logic_render_pass.commands)?;
         }
 
-        let command_buffer = command_encoder.finish();
-
-        render_context.add_command_buffer(command_buffer);
         Ok(())
     }
 }

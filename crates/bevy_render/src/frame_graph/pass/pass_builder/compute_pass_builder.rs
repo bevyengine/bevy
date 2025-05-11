@@ -4,39 +4,47 @@ use tracing::warn;
 use wgpu::QuerySet;
 
 use crate::{
-    frame_graph::{BindGroupDrawing, ComputePassCommandBuilder, PassNodeBuilder, ResourceHandle},
+    frame_graph::{
+        BindGroupDrawing, ComputePass, ComputePassCommandBuilder, PassNodeBuilder, ResourceHandle,
+    },
     render_resource::{BindGroup, CachedComputePipelineId},
 };
 
-use super::ComputePass;
+use super::PassBuilder;
 
-pub struct ComputePassBuilder<'a> {
+pub struct ComputePassBuilder<'a, 'b> {
     compute_pass: ComputePass,
-    pass_node_builder: PassNodeBuilder<'a>,
+    pass_builder: &'b mut PassBuilder<'a>,
 }
 
-impl<'a> Drop for ComputePassBuilder<'a> {
+impl<'a, 'b> Drop for ComputePassBuilder<'a, 'b> {
     fn drop(&mut self) {
-        let compute_pass = take(&mut self.compute_pass);
-
-        if compute_pass.is_vaild() {
-            self.pass_node_builder.set_pass(compute_pass);
-        } else {
-            warn!("render pass must is vaild");
-        }
+        self.finish();
     }
 }
 
-impl<'a> ComputePassBuilder<'a> {
-    pub fn new(pass_node_builder: PassNodeBuilder<'a>) -> Self {
+impl<'a, 'b> ComputePassBuilder<'a, 'b> {
+    pub fn new(pass_builder: &'b mut PassBuilder<'a>) -> Self {
         let compute_pass = ComputePass::default();
 
         Self {
             compute_pass,
-            pass_node_builder,
+            pass_builder,
         }
     }
-    
+
+    fn finish(&mut self) {
+        self.compute_pass.finish();
+
+        let compute_pass = take(&mut self.compute_pass);
+
+        if compute_pass.is_vaild() {
+            self.pass_builder.add_executor(compute_pass);
+        } else {
+            warn!("render pass must is vaild");
+        }
+    }
+
     pub fn dispatch_workgroups(&mut self, x: u32, y: u32, z: u32) -> &mut Self {
         self.compute_pass.dispatch_workgroups(x, y, z);
 
@@ -50,7 +58,7 @@ impl<'a> ComputePassBuilder<'a> {
     }
 
     pub fn pass_node_builder(&mut self) -> &mut PassNodeBuilder<'a> {
-        &mut self.pass_node_builder
+        &mut self.pass_builder.pass_node_builder
     }
 
     pub fn end_pipeline_statistics_query(&mut self) -> &mut Self {
@@ -110,7 +118,7 @@ impl<'a> ComputePassBuilder<'a> {
     where
         T: ResourceHandle<Drawing = BindGroupDrawing>,
     {
-        let bind_group_ref = bind_group.make_resource_drawing(&mut self.pass_node_builder);
+        let bind_group_ref = bind_group.make_resource_drawing(&mut self.pass_node_builder());
 
         self.compute_pass
             .set_bind_group(index, &bind_group_ref, offsets);

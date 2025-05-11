@@ -269,12 +269,12 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiV
     type ViewQuery = Read<ViewUniformOffset>;
     type ItemQuery = ();
 
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
         _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         pass.set_bind_group(
             I,
@@ -293,12 +293,12 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     type ViewQuery = ();
     type ItemQuery = Read<UiMaterialBatch<M>>;
 
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         _view: (),
         material_handle: Option<ROQueryItem<'_, Self::ItemQuery>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let Some(material_handle) = material_handle else {
             return RenderCommandResult::Skip;
@@ -318,12 +318,12 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
     type ItemQuery = Read<UiMaterialBatch<M>>;
 
     #[inline]
-    fn render<'w>(
+    fn render<'w, 'b>(
         _item: &P,
         _view: (),
         batch: Option<&'w UiMaterialBatch<M>>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w, 'b>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
             return RenderCommandResult::Skip;

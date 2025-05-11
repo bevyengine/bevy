@@ -9,7 +9,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    frame_graph::{ComputePassBuilder, FrameGraph, FrameGraphTexture, GraphResourceNodeHandle},
+    frame_graph::{FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, PassBuilder},
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::*,
@@ -93,10 +93,11 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let mut pass_node_builder = frame_graph.create_pass_node_bulder("auto_exposure_pass");
+        let mut pass_builder =
+            PassBuilder::new(frame_graph.create_pass_node_bulder("auto_exposure_pass"));
 
-        let compute_bind_group = pass_node_builder
-            .create_bind_group_drawing_builder(None, pipeline.histogram_layout.clone())
+        let compute_bind_group = pass_builder
+            .create_bind_group_builder(None, pipeline.histogram_layout.clone())
             .push_bind_group_entry(&globals_buffer.buffer)
             .push_bind_group_entry(&auto_exposure_buffers.settings)
             .push_bind_group_entry(&source)
@@ -108,7 +109,7 @@ impl Node for AutoExposureNode {
             .push_bind_group_entry(&view_uniforms_resource.uniforms)
             .build();
 
-        let mut builder = ComputePassBuilder::new(pass_node_builder);
+        let mut builder = pass_builder.create_compute_pass_builder();
 
         builder
             .set_bind_group(0, compute_bind_group, &[view_uniform_offset.offset])

@@ -1,14 +1,12 @@
-use std::borrow::Cow;
-
 use alloc::sync::Arc;
 
-use crate::render_resource::{BindGroupLayout, Buffer, Texture};
+use crate::render_resource::{Buffer, Texture};
 
 use super::{
-    BindGroupDrawingBuilder, FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture,
-    GraphRawResourceNodeHandle, GraphResource, GraphResourceDescriptor, GraphResourceNodeHandle,
-    ImportToFrameGraph, Pass, PassTrait, ResourceBoardKey, ResourceMaterial, ResourceRead,
-    ResourceRef, ResourceWrite, TypeEquals,
+    FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphRawResourceNodeHandle,
+    GraphResource, GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass,
+    PassTrait, ResourceBoardKey, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
+    TypeEquals,
 };
 
 pub struct PassNodeBuilder<'a> {
@@ -29,16 +27,8 @@ impl<'a> Drop for PassNodeBuilder<'a> {
 }
 
 impl<'a> PassNodeBuilder<'a> {
-    pub fn set_pass<T: PassTrait>(&mut self, mut pass: T) {
+    pub fn set_pass<T: PassTrait>(&mut self, pass: T) {
         self.pass = Some(Pass::new(pass))
-    }
-
-    pub fn create_bind_group_drawing_builder<'b>(
-        &'b mut self,
-        label: Option<Cow<'static, str>>,
-        layout: BindGroupLayout,
-    ) -> BindGroupDrawingBuilder<'a, 'b> {
-        BindGroupDrawingBuilder::new(label, layout, self)
     }
 
     pub fn read_from_board<ResourceType: GraphResource, Key: Into<ResourceBoardKey>>(
@@ -59,6 +49,16 @@ impl<'a> PassNodeBuilder<'a> {
         let handle = self.graph.get(&key)?;
         let write = self.write(handle);
         Ok(write)
+    }
+
+    pub fn get_or_create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
+    where
+        DescriptorType: GraphResourceDescriptor
+            + TypeEquals<
+                Other = <<DescriptorType as GraphResourceDescriptor>::Resource as GraphResource>::Descriptor,
+            >,
+    {
+        self.graph.get_or_create(name, desc)
     }
 
     pub fn import_and_read_buffer(

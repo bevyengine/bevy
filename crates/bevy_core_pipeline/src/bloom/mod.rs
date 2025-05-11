@@ -21,9 +21,9 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
     frame_graph::{
-        BindingResourceRef, ColorAttachmentDrawing, FrameGraph, FrameGraphTexture,
-        GraphResourceNodeHandle, RenderPassBuilder, ResourceMeta, TextureInfo, TextureViewDrawing,
-        TextureViewInfo,
+        BindingResourceRef, ColorAttachmentDrawing, EncoderCommandBuilder, FrameGraph,
+        FrameGraphTexture, GraphResourceNodeHandle, PassBuilder, ResourceMeta, TextureInfo,
+        TextureViewDrawing, TextureViewInfo,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
@@ -150,20 +150,22 @@ impl ViewNode for BloomNode {
         let view_texture: GraphResourceNodeHandle<FrameGraphTexture> =
             frame_graph.get(view_target.get_main_texture_key())?;
 
+        let mut pass_builder = PassBuilder::new(frame_graph.create_pass_node_bulder("bloom"));
+
+        pass_builder.push_debug_group("bloom");
+
         // First downsample pass
         {
             let resource_meta = bloom_texture.get_resource_meta(entity, 0);
 
-            let bloom_texture_handle =
-                frame_graph.get_or_create(&resource_meta.key, resource_meta.desc);
+            let bloom_texture_handle = pass_builder
+                .pass_node_builder()
+                .get_or_create(&resource_meta.key, resource_meta.desc);
 
-            let mut pass_node_builder =
-                frame_graph.create_pass_node_bulder("bloom_downsampling_first_pass");
+            let bloom_texture_write = pass_builder.pass_node_builder().write(bloom_texture_handle);
 
-            let bloom_texture_write = pass_node_builder.write(bloom_texture_handle);
-
-            let downsampling_first_bind_group = pass_node_builder
-                .create_bind_group_drawing_builder(
+            let downsampling_first_bind_group = pass_builder
+                .create_bind_group_builder(
                     Some("bloom_downsampling_first_bind_group".into()),
                     downsampling_pipeline_res.bind_group_layout.clone(),
                 )
@@ -172,9 +174,8 @@ impl ViewNode for BloomNode {
                 .push_bind_group_entry(uniforms.deref())
                 .build();
 
-            let mut builder = RenderPassBuilder::new(pass_node_builder);
-
-            builder
+            pass_builder
+                .create_render_pass_builder()
                 .set_pass_name("bloom_downsampling_first_pass")
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
@@ -196,26 +197,26 @@ impl ViewNode for BloomNode {
             let resource_meta = bloom_texture.get_resource_meta(entity, mip);
             let bind_group_resource_meta = bloom_texture.get_resource_meta(entity, bind_group_mip);
 
-            let bind_group_bloom_texture_handle = frame_graph
+            let bind_group_bloom_texture_handle = pass_builder
+                .pass_node_builder()
                 .get_or_create(&bind_group_resource_meta.key, bind_group_resource_meta.desc);
 
-            let bloom_texture_handle =
-                frame_graph.get_or_create(&resource_meta.key, resource_meta.desc);
+            let bloom_texture_handle = pass_builder
+                .pass_node_builder()
+                .get_or_create(&resource_meta.key, resource_meta.desc);
 
-            let mut pass_node_builder =
-                frame_graph.create_pass_node_bulder("bloom_downsampling_pass");
+            let bloom_texture_write = pass_builder.pass_node_builder().write(bloom_texture_handle);
 
-            let bloom_texture_write = pass_node_builder.write(bloom_texture_handle);
+            let bind_group_bloom_texture_read = pass_builder
+                .pass_node_builder()
+                .read(bind_group_bloom_texture_handle);
 
-            let bind_group_bloom_texture_read =
-                pass_node_builder.read(bind_group_bloom_texture_handle);
-
-            let downsampling_bind_group = pass_node_builder
-                .create_bind_group_drawing_builder(
+            let downsampling_bind_group = pass_builder
+                .create_bind_group_builder(
                     Some("bloom_downsampling_bind_group".into()),
                     downsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_group_resource_ref(BindingResourceRef::TextureView {
+                .push_bind_resource_ref(BindingResourceRef::TextureView {
                     texture: bind_group_bloom_texture_read.clone(),
                     texture_view_info: bloom_texture.get_texture_view_info(bind_group_mip),
                 })
@@ -223,9 +224,8 @@ impl ViewNode for BloomNode {
                 .push_bind_group_entry(uniforms.deref())
                 .build();
 
-            let mut builder = RenderPassBuilder::new(pass_node_builder);
-
-            builder
+            pass_builder
+                .create_render_pass_builder()
                 .set_pass_name("bloom_downsampling_pass")
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
@@ -248,27 +248,26 @@ impl ViewNode for BloomNode {
             let bind_group_mip_resource_meta =
                 bloom_texture.get_resource_meta(entity, bind_group_mip);
 
-            let bloom_texture_handle =
-                frame_graph.get_or_create(&resource_meta.key, resource_meta.desc);
+            let bloom_texture_handle = pass_builder
+                .pass_node_builder()
+                .get_or_create(&resource_meta.key, resource_meta.desc);
 
-            let bind_group_bloom_texture_handle = frame_graph.get_or_create(
+            let bind_group_bloom_texture_handle = pass_builder.pass_node_builder().get_or_create(
                 &bind_group_mip_resource_meta.key,
                 bind_group_mip_resource_meta.desc,
             );
 
-            let mut pass_node_builder =
-                frame_graph.create_pass_node_bulder("bloom_upsampling_pass");
+            let bloom_texture_write = pass_builder.pass_node_builder().write(bloom_texture_handle);
+            let bind_group_bloom_texture_read = pass_builder
+                .pass_node_builder()
+                .read(bind_group_bloom_texture_handle);
 
-            let bloom_texture_write = pass_node_builder.write(bloom_texture_handle);
-            let bind_group_bloom_texture_read =
-                pass_node_builder.read(bind_group_bloom_texture_handle);
-
-            let upsampling_bind_group = pass_node_builder
-                .create_bind_group_drawing_builder(
+            let upsampling_bind_group = pass_builder
+                .create_bind_group_builder(
                     Some("bloom_upsampling_bind_group".into()),
                     upsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_group_resource_ref(BindingResourceRef::TextureView {
+                .push_bind_resource_ref(BindingResourceRef::TextureView {
                     texture: bind_group_bloom_texture_read.clone(),
                     texture_view_info: bloom_texture.get_texture_view_info(bind_group_mip),
                 })
@@ -276,13 +275,14 @@ impl ViewNode for BloomNode {
                 .push_bind_group_entry(uniforms.deref())
                 .build();
 
-            let mut builder = RenderPassBuilder::new(pass_node_builder);
             let blend = compute_blend_factor(
                 bloom_settings,
                 mip as f32,
                 (bloom_texture.mip_count - 1) as f32,
             );
-            builder
+
+            pass_builder
+                .create_render_pass_builder()
                 .set_pass_name("bloom_upsampling_pass")
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
@@ -309,22 +309,20 @@ impl ViewNode for BloomNode {
 
             let resource_meta = bloom_texture.get_resource_meta(entity, mip);
 
-            let bloom_texture_handle =
-                frame_graph.get_or_create(&resource_meta.key, resource_meta.desc);
+            let bloom_texture_handle = pass_builder
+                .pass_node_builder()
+                .get_or_create(&resource_meta.key, resource_meta.desc);
 
-            let mut pass_node_builder =
-                frame_graph.create_pass_node_bulder("bloom_upsampling_final_pass");
+            let bloom_texture_read = pass_builder.pass_node_builder().read(bloom_texture_handle);
 
-            let bloom_texture_read = pass_node_builder.read(bloom_texture_handle);
+            let view_texture_write = pass_builder.pass_node_builder().write(view_texture);
 
-            let view_texture_write = pass_node_builder.write(view_texture);
-
-            let upsampling_bind_group = pass_node_builder
-                .create_bind_group_drawing_builder(
+            let upsampling_bind_group = pass_builder
+                .create_bind_group_builder(
                     Some("bloom_upsampling_bind_group".into()),
                     upsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_group_resource_ref(BindingResourceRef::TextureView {
+                .push_bind_resource_ref(BindingResourceRef::TextureView {
                     texture: bloom_texture_read.clone(),
                     texture_view_info: bloom_texture.get_texture_view_info(mip),
                 })
@@ -332,11 +330,11 @@ impl ViewNode for BloomNode {
                 .push_bind_group_entry(uniforms.deref())
                 .build();
 
-            let mut builder = RenderPassBuilder::new(pass_node_builder);
             let blend =
                 compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
 
-            builder
+            pass_builder
+                .create_render_pass_builder()
                 .set_pass_name("bloom_upsampling_final_pass")
                 .add_color_attachment(ColorAttachmentDrawing {
                     view: TextureViewDrawing {
@@ -352,6 +350,9 @@ impl ViewNode for BloomNode {
                 .set_camera_viewport(camera.viewport.clone())
                 .draw(0..3, 0..1);
         }
+
+        pass_builder.pop_debug_group();
+        
         Ok(())
     }
 }
