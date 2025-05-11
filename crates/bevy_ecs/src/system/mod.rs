@@ -1163,10 +1163,12 @@ mod tests {
         let mut world = World::default();
         let mut x = IntoSystem::into_system(sys_x);
         let mut y = IntoSystem::into_system(sys_y);
-        x.initialize(&mut world);
-        y.initialize(&mut world);
+        let x_access = x.initialize(&mut world);
+        let y_access = y.initialize(&mut world);
 
-        let conflicts = x.component_access().get_conflicts(y.component_access());
+        let conflicts = x_access
+            .combined_access()
+            .get_conflicts(y_access.combined_access());
         let b_id = world
             .components()
             .get_resource_id(TypeId::of::<B>())

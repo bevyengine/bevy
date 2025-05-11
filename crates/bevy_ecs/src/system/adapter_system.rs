@@ -127,16 +127,6 @@ where
         self.name.clone()
     }
 
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(
-        &self,
-    ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
-        self.system.component_access_set()
-    }
-
     fn is_send(&self) -> bool {
         self.system.is_send()
     }
@@ -180,8 +170,11 @@ where
         unsafe { self.system.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut crate::prelude::World) {
-        self.system.initialize(world);
+    fn initialize(
+        &mut self,
+        world: &mut crate::prelude::World,
+    ) -> crate::query::FilteredAccessSet<crate::component::ComponentId> {
+        self.system.initialize(world)
     }
 
     fn check_change_tick(&mut self, change_tick: crate::component::Tick) {

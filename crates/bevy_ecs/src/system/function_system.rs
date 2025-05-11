@@ -1,7 +1,7 @@
 use crate::{
     component::{ComponentId, Tick},
     prelude::FromWorld,
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
@@ -192,7 +192,6 @@ impl SystemMeta {
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
-    component_access_set: FilteredAccessSet<ComponentId>,
     param_state: Param::State,
     world_id: WorldId,
 }
@@ -262,7 +261,6 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
         Self {
             meta,
-            component_access_set,
             param_state,
             world_id: world.id(),
         }
@@ -279,7 +277,6 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::init_access(&param_state, &mut meta, &mut component_access_set, world);
         Self {
             meta,
-            component_access_set,
             param_state,
             world_id: world.id(),
         }
@@ -299,7 +296,6 @@ impl<Param: SystemParam> SystemState<Param> {
                 world_id: self.world_id,
             }),
             system_meta: self.meta,
-            component_access_set: self.component_access_set,
             marker: PhantomData,
         }
     }
@@ -508,10 +504,6 @@ where
 {
     func: F,
     state: Option<FunctionSystemState<F::Param>>,
-    /// The set of component accesses for this system. This is used to determine
-    /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
-    /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
-    component_access_set: FilteredAccessSet<ComponentId>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> Marker>,
@@ -552,7 +544,6 @@ where
             func: self.func.clone(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
-            component_access_set: FilteredAccessSet::new(),
             marker: PhantomData,
         }
     }
@@ -573,7 +564,6 @@ where
             func,
             state: None,
             system_meta: SystemMeta::new::<F>(),
-            component_access_set: FilteredAccessSet::new(),
             marker: PhantomData,
         }
     }
@@ -601,16 +591,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.component_access_set.combined_access()
-    }
-
-    #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        &self.component_access_set
     }
 
     #[inline]
@@ -679,27 +659,27 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,
                 world.id(),
                 "System built with a different world than the one it was added to.",
             );
-        } else {
-            let param = F::Param::init_state(world);
-            F::Param::init_access(
-                &param,
-                &mut self.system_meta,
-                &mut self.component_access_set,
-                world,
-            );
-            self.state = Some(FunctionSystemState {
-                param,
-                world_id: world.id(),
-            });
         }
+        let state = self.state.get_or_insert_with(|| FunctionSystemState {
+            param: F::Param::init_state(world),
+            world_id: world.id(),
+        });
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        let mut component_access_set = FilteredAccessSet::new();
+        F::Param::init_access(
+            &state.param,
+            &mut self.system_meta,
+            &mut component_access_set,
+            world,
+        );
+        component_access_set
     }
 
     #[inline]

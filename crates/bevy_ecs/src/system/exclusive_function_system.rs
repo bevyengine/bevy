@@ -1,6 +1,6 @@
 use crate::{
     component::{ComponentId, Tick},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
@@ -81,16 +81,6 @@ where
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        const { &Access::new() }
-    }
-
-    #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        const { &FilteredAccessSet::new() }
-    }
-
-    #[inline]
     fn is_send(&self) -> bool {
         // exclusive systems should have access to non-send resources
         // the executor runs exclusive systems on the main thread, so this
@@ -158,9 +148,10 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
+        FilteredAccessSet::new()
     }
 
     #[inline]

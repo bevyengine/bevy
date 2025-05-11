@@ -8,7 +8,7 @@ use thiserror::Error;
 
 use crate::{
     component::{ComponentId, Tick},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -44,12 +44,6 @@ pub trait System: Send + Sync + 'static {
         TypeId::of::<Self>()
     }
 
-    /// Returns the system's component [`Access`].
-    fn component_access(&self) -> &Access<ComponentId>;
-
-    /// Returns the system's component [`FilteredAccessSet`].
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId>;
-
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
 
@@ -69,7 +63,7 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `component_access_set`. There must be no conflicting
+    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
     ///   [`UnsafeWorldCell::world_mut`] on `world`.
@@ -126,7 +120,7 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `component_access_set`. There must be no conflicting
+    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     unsafe fn validate_param_unsafe(
         &mut self,
@@ -143,7 +137,9 @@ pub trait System: Send + Sync + 'static {
     }
 
     /// Initialize the system.
-    fn initialize(&mut self, _world: &mut World);
+    ///
+    /// Returns a [`FilteredAccessSet`] with the access required to run the system.
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId>;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
