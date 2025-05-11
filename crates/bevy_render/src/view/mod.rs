@@ -738,6 +738,21 @@ impl ViewTarget {
         })
     }
 
+    pub fn get_unsampled_attachment(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> Result<ColorAttachmentDrawing, FrameGraphError> {
+        if self.main_texture.load(Ordering::SeqCst) == 0 {
+            self.main_textures
+                .a
+                .get_unsampled_attachment(pass_node_builder)
+        } else {
+            self.main_textures
+                .b
+                .get_unsampled_attachment(pass_node_builder)
+        }
+    }
+
     pub fn get_color_attachment(
         &self,
         pass_node_builder: &mut PassNodeBuilder,

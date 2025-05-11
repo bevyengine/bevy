@@ -152,6 +152,9 @@ impl ViewNode for BloomNode {
 
         let mut pass_builder = PassBuilder::new(frame_graph.create_pass_node_bulder("bloom"));
 
+        let color_attachment =
+            view_target.get_unsampled_attachment(pass_builder.pass_node_builder())?;
+
         pass_builder.push_debug_group("bloom");
 
         // First downsample pass
@@ -315,8 +318,6 @@ impl ViewNode for BloomNode {
 
             let bloom_texture_read = pass_builder.pass_node_builder().read(bloom_texture_handle);
 
-            let view_texture_write = pass_builder.pass_node_builder().write(view_texture);
-
             let upsampling_bind_group = pass_builder
                 .create_bind_group_builder(
                     Some("bloom_upsampling_bind_group".into()),
@@ -336,14 +337,7 @@ impl ViewNode for BloomNode {
             pass_builder
                 .create_render_pass_builder()
                 .set_pass_name("bloom_upsampling_final_pass")
-                .add_color_attachment(ColorAttachmentDrawing {
-                    view: TextureViewDrawing {
-                        texture: view_texture_write,
-                        desc: TextureViewInfo::default(),
-                    },
-                    resolve_target: None,
-                    ops: Operations::default(),
-                })
+                .add_color_attachment(color_attachment)
                 .set_render_pipeline(upsampling_pipeline_ids.id_final)
                 .set_bind_group(0, upsampling_bind_group, &[uniform_index.index()])
                 .set_blend_constant(LinearRgba::gray(blend).into())
@@ -352,7 +346,7 @@ impl ViewNode for BloomNode {
         }
 
         pass_builder.pop_debug_group();
-        
+
         Ok(())
     }
 }

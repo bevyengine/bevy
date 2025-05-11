@@ -20,6 +20,29 @@ pub struct ColorAttachmentHandle {
 }
 
 impl ColorAttachmentHandle {
+    pub fn get_unsampled_attachment(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> Result<ColorAttachmentDrawing, FrameGraphError> {
+        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+        let view = TextureViewDrawing {
+            texture: pass_node_builder.write_from_board(&self.texture)?,
+            desc: TextureViewInfo::default(),
+        };
+
+        Ok(ColorAttachmentDrawing {
+            view,
+            resolve_target: None,
+            ops: Operations {
+                load: match (self.clear_color, first_call) {
+                    (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                    (None, _) | (Some(_), false) => LoadOp::Load,
+                },
+                store: StoreOp::Store,
+            },
+        })
+    }
+
     pub fn get_color_attachment(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
