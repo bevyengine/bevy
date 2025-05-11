@@ -984,8 +984,8 @@ pub fn specialize_prepass_material_meshes<M>(
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
                 | AlphaMode::Multiply => {
-                    // In case this material was previously in a valid alpha_mode, remove it so
-                    // that the queue system doesn't assume its cache to be valid.
+                    // In case this material was previously in a valid alpha_mode, remove it to
+                    // stop the queue system from assuming its retained cache to be valid.
                     view_specialized_material_pipeline_cache.remove(visible_entity);
                     continue;
                 }
