@@ -774,7 +774,7 @@ fn parse_examples() -> Vec<Example> {
 
             let source_code = fs::read_to_string(val["path"].as_str().unwrap()).unwrap();
             let shader_regex =
-                Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
+                Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)|(shaders\/\w+\.wesl)")
                     .unwrap();
 
             // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
