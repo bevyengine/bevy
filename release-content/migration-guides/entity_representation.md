@@ -79,4 +79,4 @@ Additionally, they have been given new, standardized interfaces:
 
 The other interfaces for these types have been removed.
 Although it's not usually recommended to be creating these types manually, if you run into any issues migrating here, please open an issue.
-If all else fails, `TableRow` and `ArchetypeRow` are `repr(transparent)`, allowing careful tranumations.
+If all else fails, `TableRow` and `ArchetypeRow` are `repr(transparent)`, allowing careful transmutations.
