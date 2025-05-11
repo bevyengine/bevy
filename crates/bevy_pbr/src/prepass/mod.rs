@@ -983,12 +983,18 @@ pub fn specialize_prepass_material_meshes<M>(
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
-                | AlphaMode::Multiply => continue,
+                | AlphaMode::Multiply => {
+                    // In case this material was previously in a valid alpha_mode, remove it so
+                    // that the queue system doesn't assume its cache to be valid.
+                    view_specialized_material_pipeline_cache.remove(visible_entity);
+                    continue;
+                }
             }
 
             if material.properties.reads_view_transmission_texture {
                 // No-op: Materials reading from `ViewTransmissionTexture` are not rendered in the `Opaque3d`
                 // phase, and are therefore also excluded from the prepass much like alpha-blended materials.
+                view_specialized_material_pipeline_cache.remove(visible_entity);
                 continue;
             }
 
