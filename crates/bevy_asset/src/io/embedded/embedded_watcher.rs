@@ -41,7 +41,7 @@ impl EmbeddedWatcher {
         };
         let watcher = new_asset_event_debouncer(
             root.to_str()
-                .expect("non unicode characters found in path")
+                .expect("non UTF-8 characters found in path")
                 .to_string(),
             debounce_wait_time,
             handler,
