@@ -6,7 +6,10 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_speed, pause, mute, volume))
+        .add_systems(
+            Update,
+            (update_progress_text, update_speed, pause, mute, volume),
+        )
         .run();
 }
 
@@ -14,6 +17,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         MyMusic,
+    ));
+
+    commands.spawn((
+        Text::new(""),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+        ProgressText,
     ));
 
     // example instructions
@@ -33,6 +47,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 #[derive(Component)]
 struct MyMusic;
+
+#[derive(Component)]
+struct ProgressText;
+
+fn update_progress_text(
+    music_controller: Single<&AudioSink, With<MyMusic>>,
+    mut progress_text: Single<&mut Text, With<ProgressText>>,
+) {
+    progress_text.0 = format!("Progress: {}s", music_controller.get_pos().as_secs_f32());
+}
 
 fn update_speed(music_controller: Query<&AudioSink, With<MyMusic>>, time: Res<Time>) {
     let Ok(sink) = music_controller.single() else {
