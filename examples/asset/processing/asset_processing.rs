@@ -1,6 +1,7 @@
 //! This example illustrates how to define custom `AssetLoader`s, `AssetTransformer`s, and `AssetSaver`s, how to configure them, and how to register asset processors.
 
 use bevy::{
+    asset::AssetPath,
     asset::{
         embedded_asset,
         io::{Reader, Writer},
@@ -12,7 +13,6 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
 };
-use bevy_asset::AssetPath;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use thiserror::Error;
