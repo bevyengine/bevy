@@ -153,6 +153,7 @@ fn setup(mut commands: Commands) {
                             },
                             BorderRadius::all(Val::Px(20.)),
                             BackgroundGradient::from(ConicGradient {
+                                start: TAU / 8.,
                                 stops: stops
                                     .iter()
                                     .map(|stop| AngularColorStop::auto(stop.color))

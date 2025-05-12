@@ -2,8 +2,10 @@
 #import bevy_ui::ui_node::{
     draw_uinode_background,
     draw_uinode_border,
-
 }
+
+const PI: f32 = 3.14159265358979323846;
+const TAU: f32 = 2. * PI;
 
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
@@ -85,7 +87,7 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     if enabled(in.flags, RADIAL) {
         g_distance = radial_distance(in.point, in.g_start, in.dir.x);
     } else if enabled(in.flags, CONIC) {
-        g_distance = conic_distance(in.point, in.g_start);
+        g_distance = conic_distance(in.dir.x, in.point, in.g_start);
     } else {
         g_distance = linear_distance(in.point, in.g_start, in.dir);
     }
@@ -117,7 +119,6 @@ fn mix_linear_rgb_in_srgb_space(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32>
 
 // These functions are used to calculate the distance in gradient space from the start of the gradient to the point.
 // The distance in gradient space is then used to interpolate between the start and end colors.
-
 fn linear_distance(
     point: vec2<f32>,
     g_start: vec2<f32>,
@@ -136,11 +137,13 @@ fn radial_distance(
 }
 
 fn conic_distance(
+    start: f32,
     point: vec2<f32>,
     center: vec2<f32>,
 ) -> f32 {
     let d = point - center;
-    return atan2(-d.x, d.y) + 3.1415926535;
+    let angle = atan2(-d.x, d.y) + PI;
+    return (((angle - start) % TAU) + TAU) % TAU;
 }
 
 fn interpolate_gradient(

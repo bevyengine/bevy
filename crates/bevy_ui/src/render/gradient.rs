@@ -32,8 +32,6 @@ use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use super::shader_flags::{FILL_END, FILL_START};
-
 pub const UI_GRADIENT_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("10116113-aac4-47fa-91c8-35cbe80dddcb");
 
@@ -57,7 +55,9 @@ impl Plugin for GradientPlugin {
                 .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_gradients.in_set(RenderUiSystems::ExtractGradient),
+                    extract_gradients
+                        .in_set(RenderUiSystems::ExtractGradient)
+                        .after(extract_uinode_background_colors),
                 )
                 .add_systems(
                     Render,
@@ -234,7 +234,7 @@ impl SpecializedRenderPipeline for GradientPipeline {
 
 pub enum ResolvedGradient {
     Linear { angle: f32 },
-    Conic { center: Vec2 },
+    Conic { center: Vec2, start: f32 },
     Radial { center: Vec2, size: Vec2 },
 }
 
@@ -505,20 +505,22 @@ pub fn extract_gradients(
                         });
                     }
                     Gradient::Conic(ConicGradient {
+                        start,
                         position: center,
                         stops,
                     }) => {
                         let g_start = center.resolve(
-                            target.scale_factor,
+                            target.scale_factor(),
                             uinode.size,
-                            target.physical_size.as_vec2(),
+                            target.physical_size().as_vec2(),
                         );
                         let range_start = extracted_color_stops.0.len();
 
                         // sort the explicit stops
                         sorted_stops.extend(stops.iter().filter_map(|stop| {
-                            stop.angle
-                                .map(|angle| (stop.color.to_linear(), angle, stop.hint))
+                            stop.angle.map(|angle| {
+                                (stop.color.to_linear(), angle.clamp(0., TAU), stop.hint)
+                            })
                         }));
                         sorted_stops.sort_by_key(|(_, angle, _)| FloatOrd(*angle));
                         let mut sorted_stops_drain = sorted_stops.drain(..);
@@ -531,12 +533,6 @@ pub fn extract_gradients(
                                 sorted_stops_drain.next().unwrap()
                             }
                         }));
-
-                        interpolate_color_stops(
-                            &mut extracted_color_stops.0[range_start..],
-                            0.,
-                            TAU,
-                        );
 
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -553,7 +549,10 @@ pub fn extract_gradients(
                             node_type,
                             border_radius: uinode.border_radius,
                             border: uinode.border,
-                            resolved_gradient: ResolvedGradient::Conic { center: g_start },
+                            resolved_gradient: ResolvedGradient::Conic {
+                                start: *start,
+                                center: g_start,
+                            },
                         });
                     }
                 }
@@ -753,8 +752,8 @@ pub fn prepare_gradient(
                                 0,
                             )
                         }
-                        ResolvedGradient::Conic { center } => {
-                            (center.into(), Vec2::ZERO.into(), shader_flags::CONIC)
+                        ResolvedGradient::Conic { center, start } => {
+                            (center.into(), [start, 0.], shader_flags::CONIC)
                         }
                         ResolvedGradient::Radial { center, size } => (
                             center.into(),
@@ -766,19 +765,30 @@ pub fn prepare_gradient(
                     flags |= g_flags;
 
                     let range = gradient.stops_range.start..gradient.stops_range.end - 1;
-                    let segment_count = range.len() as u32;
+                    let mut segment_count = 0;
 
                     for stop_index in range {
-                        let start_stop = extracted_color_stops.0[stop_index];
+                        let mut start_stop = extracted_color_stops.0[stop_index];
                         let end_stop = extracted_color_stops.0[stop_index + 1];
+                        if start_stop.1 == end_stop.1 {
+                            if stop_index == gradient.stops_range.end - 2 {
+                                if 0 < segment_count {
+                                    start_stop.0 = LinearRgba::NONE;
+                                }
+                            } else {
+                                continue;
+                            }
+                        }
                         let start_color = start_stop.0.to_f32_array();
                         let end_color = end_stop.0.to_f32_array();
                         let mut stop_flags = flags;
-                        if stop_index == gradient.stops_range.start {
-                            stop_flags |= FILL_START;
+                        if 0. < start_stop.1
+                            && (stop_index == gradient.stops_range.start || segment_count == 0)
+                        {
+                            stop_flags |= shader_flags::FILL_START;
                         }
                         if stop_index == gradient.stops_range.end - 2 {
-                            stop_flags |= FILL_END;
+                            stop_flags |= shader_flags::FILL_END;
                         }
 
                         for i in 0..4 {
@@ -814,18 +824,21 @@ pub fn prepare_gradient(
                             ui_meta.indices.push(indices_index + i as u32);
                         }
                         indices_index += 4;
+                        segment_count += 1;
                     }
 
-                    let vertices_count = 6 * segment_count;
+                    if 0 < segment_count {
+                        let vertices_count = 6 * segment_count;
 
-                    batches.push((
-                        item.entity(),
-                        GradientBatch {
-                            range: vertices_index..(vertices_index + vertices_count),
-                        },
-                    ));
+                        batches.push((
+                            item.entity(),
+                            GradientBatch {
+                                range: vertices_index..(vertices_index + vertices_count),
+                            },
+                        ));
 
-                    vertices_index += vertices_count;
+                        vertices_index += vertices_count;
+                    }
                 }
             }
         }

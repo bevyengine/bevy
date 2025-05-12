@@ -43,6 +43,7 @@ fn setup(mut commands: Commands) {
                     ])
                     .into(),
                     ConicGradient {
+                        start: 0.,
                         position: Position::CENTER,
                         stops: vec![
                             AngularColorStop::auto(YELLOW.with_alpha(0.)),

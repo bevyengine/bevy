@@ -104,6 +104,26 @@ pub struct AngularColorStop {
     /// The angle of the stop.
     /// Angles are relative to the start of the gradient and not other stops.
     /// If set to `None` the angle of the stop will be interpolated between the explicit stops or 0 and 2 PI degrees if there no explicit stops.
+    /// Given angles are clamped to between `0.`, and [`TAU`].
+    /// This means that a list of stops:
+    /// ```
+    /// [
+    ///     ColorStop::new(Color::WHITE, 0.),
+    ///     ColorStop::new(Color::BLACK, -1.),
+    ///     ColorStop::new(RED, 2. * TAU),
+    ///     ColorStop::new(BLUE, TAU),
+    /// ]
+    /// ```
+    /// is equivalent to:
+    /// ```
+    /// [
+    ///     ColorStop::new(Color::WHITE, 0.),
+    ///     ColorStop::new(Color::BLACK, 0.),
+    ///     ColorStop::new(RED, TAU),
+    ///     ColorStop::new(BLUE, TAU),
+    /// ]
+    /// ```
+    /// Resulting in a black to red gradient, not white to blue.
     pub angle: Option<f32>,
     /// Normalized angle between this and the following stop of the interpolation midpoint.
     pub hint: f32,
@@ -301,6 +321,8 @@ impl Default for RadialGradient {
     reflect(Serialize, Deserialize)
 )]
 pub struct ConicGradient {
+    /// The starting angle of the gradient in radians
+    pub start: f32,
     /// The center of the conic gradient
     pub position: Position,
     /// The list of color stops
@@ -310,7 +332,23 @@ pub struct ConicGradient {
 impl ConicGradient {
     /// create a new conic gradient
     pub fn new(position: Position, stops: Vec<AngularColorStop>) -> Self {
-        Self { position, stops }
+        Self {
+            start: 0.,
+            position,
+            stops,
+        }
+    }
+
+    /// Sets the starting angle of the gradient
+    pub fn with_start(mut self, start: f32) -> Self {
+        self.start = start;
+        self
+    }
+
+    /// Sets the position of the gradient
+    pub fn with_position(mut self, position: Position) -> Self {
+        self.position = position;
+        self
     }
 }
 
