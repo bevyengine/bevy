@@ -1386,13 +1386,9 @@ pub fn extract_meshes_for_cpu_building(
 
             let mesh_material = mesh_material_ids.mesh_material(MainEntity::from(entity));
 
-            let material_bindings_index = (mesh_material != DUMMY_MESH_MATERIAL.untyped())
-                .then(|| {
-                    render_material_bindings
-                        .get(&mesh_material)
-                        .copied()
-                        .unwrap_or_default()
-                })
+            let material_bindings_index = render_material_bindings
+                .get(&mesh_material)
+                .copied()
                 .unwrap_or_default();
 
             let shared = RenderMeshInstanceShared::for_cpu_building(
