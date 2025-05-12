@@ -1,24 +1,24 @@
-//! This example shows some of the distance-based fog
-//! effects available in Bevy.
+//! Distance-based fog visual effects are used in many games to give
+//! a soft falloff of visibility to the player for performance and/or
+//! visual design reasons. The further away something in a 3D world is
+//! from the camera, the more it's mixed or completely overwritten by
+//! a given color.
 //! 
-//! Distance-based fog visual effects are used in many games
-//! to give a soft falloff of visibility to the player, for 
-//! performance and/or visual design reasons. The further away
-//! something in a 3D world is from the camera, the more it is 
-//! tinted or completely obscured by a given color.
-//! 
-//! In Bevy, we use `DistanceFog` as a component that we 
-//! attach to the same entity as our `Camera3d`. It has fields 
-//! for color, directional light parameters, and how the fog 
-//! "falls off" over distance. That's it! Most of the parameters
-//! for the behavior of how the fog works (besides color and light)
-//! is in that `FogFalloff` enum.
-//! 
-//! The bulk of this example is spent building a scene that 
-//! suites showing off that the fog is working as intended 
-//! by creating a pyramid (a 3D structure with clear delineations), 
-//! a light source, input handling to modify fog settings, and 
-//! UI to show what the current fog settings are.
+//! In Bevy we can add the `DistanceFog` component to the same entity
+//! as our camera to apply a distance fog effect. It has fields for
+//! color, directional light parameters, and how the fog falls off 
+//! over distance. And that's it! The distance fog is now applied to
+//! the camera.
+//!
+//! Most of the parameters for the behavior of how the fog works 
+//! (besides color and light) is in that `falloff: FogFalloff` field. 
+//! This covers how different falloff curves behave.
+
+//! The bulk of this example is spent building a scene that suites
+//! showing off that the fog is working as intended by creating a 
+//! pyramid (a 3D structure with clear delineations), a light source, 
+//! input handling to modify fog settings, and UI to show what the 
+//! current fog settings are.
 //!
 //! ## Controls
 //!
