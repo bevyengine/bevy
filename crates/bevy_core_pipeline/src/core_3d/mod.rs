@@ -74,14 +74,9 @@ use bevy_color::LinearRgba;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     experimental::occlusion_culling::OcclusionCulling,
-    frame_graph::{
-        FrameGraph, FrameGraphError, FrameGraphTexture, PassBuilder, PassNodeBuilder,
-        ResourceBoardKey, ResourceMeta, ResourceRead, ResourceWrite, SamplerInfo,
-        TexelCopyTextureInfo, TextureInfo,
-    },
+    frame_graph::{FrameGraphTexture, ResourceMeta, SamplerInfo, TextureInfo},
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
-    render_resource::{Origin3d, TextureAspect},
     texture::ColorAttachmentHandle,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
@@ -809,7 +804,7 @@ pub fn prepare_core_3d_depth_textures(
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
-        let key = ViewDepthTexture::get_depth_texture(entity);
+        let key = ViewDepthTexture::get_depth_texture_key(entity);
         let size = Extent3d {
             depth_or_array_layers: 1,
             width: physical_target_size.x,
@@ -853,38 +848,6 @@ pub struct ViewTransmissionTexture {
 impl ViewTransmissionTexture {
     pub fn get_view_transmission_texture_key(entity: Entity) -> String {
         format!("view_transmission_texture_{}", entity)
-    }
-
-    pub fn get_view_transmission_texture(&self) -> &ResourceMeta<FrameGraphTexture> {
-        &self.texture
-    }
-
-    pub fn get_image_copy_info_write(
-        &self,
-        pass_builder: &mut PassBuilder,
-    ) -> TexelCopyTextureInfo<ResourceWrite> {
-        let texture = pass_builder.write_material(self.get_view_transmission_texture());
-
-        TexelCopyTextureInfo {
-            mip_level: 0,
-            texture,
-            origin: Origin3d::ZERO,
-            aspect: TextureAspect::All,
-        }
-    }
-
-    pub fn get_image_copy_info_read(
-        &self,
-        pass_builder: &mut PassBuilder,
-    ) -> TexelCopyTextureInfo<ResourceRead> {
-        let texture = pass_builder.read_material(self.get_view_transmission_texture());
-
-        TexelCopyTextureInfo {
-            mip_level: 0,
-            texture,
-            origin: Origin3d::ZERO,
-            aspect: TextureAspect::All,
-        }
     }
 }
 

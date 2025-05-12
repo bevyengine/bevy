@@ -146,7 +146,7 @@ impl ViewNode for BloomNode {
             return Ok(());
         };
 
-        let view_texture = view_target.get_main_texture_key();
+        let view_texture = view_target.get_main_texture();
 
         let mut pass_builder = frame_graph.create_pass_builder("bloom");
 

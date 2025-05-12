@@ -467,7 +467,7 @@ pub fn prepare_core_2d_depth_textures(
             continue;
         };
 
-        let key = ViewDepthTexture::get_depth_texture(view);
+        let key = ViewDepthTexture::get_depth_texture_key(view);
 
         let size = Extent3d {
             depth_or_array_layers: 1,

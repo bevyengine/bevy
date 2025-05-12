@@ -53,7 +53,7 @@ impl ViewNode for UpscalingNode {
 
         let converted_clear_color: Option<LinearRgba> = clear_color.map(|color| color.to_linear());
 
-        let main_texture = target.get_main_texture_key();
+        let main_texture = target.get_main_texture();
 
         let mut pass_builder =
             PassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_pass"));

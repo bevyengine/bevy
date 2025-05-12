@@ -724,31 +724,6 @@ pub struct NoCpuCulling;
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
-    pub fn get_main_texture_copy_info_read(
-        &self,
-        pass_builder: &mut PassBuilder,
-    ) -> TexelCopyTextureInfo<ResourceRead> {
-        let texture = pass_builder.read_material(self.get_main_texture_key());
-        TexelCopyTextureInfo {
-            mip_level: 0,
-            texture,
-            origin: Origin3d::ZERO,
-            aspect: TextureAspect::All,
-        }
-    }
-
-    pub fn get_main_texture_copy_info_write(
-        &self,
-        pass_builder: &mut PassBuilder,
-    ) -> TexelCopyTextureInfo<ResourceWrite> {
-        let texture = pass_builder.write_material(self.get_main_texture_key());
-        TexelCopyTextureInfo {
-            mip_level: 0,
-            texture,
-            origin: Origin3d::ZERO,
-            aspect: TextureAspect::All,
-        }
-    }
 
     pub fn get_unsampled_attachment(
         &self,
@@ -777,7 +752,7 @@ impl ViewTarget {
         format!("main_texture_b_{}", entity)
     }
 
-    pub fn get_main_texture_sampled(entity: Entity) -> String {
+    pub fn get_main_texture_sampled_key(entity: Entity) -> String {
         format!("main_texture_sampled_{}", entity)
     }
 
@@ -785,7 +760,7 @@ impl ViewTarget {
         &self.main_textures.desc
     }
 
-    pub fn get_main_texture_key(&self) -> &ResourceMeta<FrameGraphTexture> {
+    pub fn get_main_texture(&self) -> &ResourceMeta<FrameGraphTexture> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.a.texture
         } else {
@@ -793,7 +768,7 @@ impl ViewTarget {
         }
     }
 
-    pub fn get_main_texture_sampled_key(&self) -> &ResourceMeta<FrameGraphTexture> {
+    pub fn get_main_texture_sampled(&self) -> &ResourceMeta<FrameGraphTexture> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.resolve_target.as_ref().unwrap()
         } else {
@@ -858,13 +833,13 @@ impl ViewTarget {
 
 #[derive(Component)]
 pub struct ViewDepthTexture {
-    texture: ResourceMeta<FrameGraphTexture>,
+    pub texture: ResourceMeta<FrameGraphTexture>,
     clear_value: Option<f32>,
     is_first_call: Arc<AtomicBool>,
 }
 
 impl ViewDepthTexture {
-    pub fn get_depth_texture(entity: Entity) -> String {
+    pub fn get_depth_texture_key(entity: Entity) -> String {
         format!("depth_texture_{}", entity)
     }
 
@@ -909,7 +884,7 @@ impl ViewDepthTexture {
         })
     }
 
-    pub fn get_depth_texture_key(&self) -> &ResourceMeta<FrameGraphTexture> {
+    pub fn get_depth_texture(&self) -> &ResourceMeta<FrameGraphTexture> {
         &self.texture
     }
 }
@@ -1106,7 +1081,7 @@ pub fn prepare_view_targets(
         let mut sampled: Option<ResourceMeta<FrameGraphTexture>> = None;
 
         if msaa.samples() > 1 {
-            let temp_key = ViewTarget::get_main_texture_sampled(entity);
+            let temp_key = ViewTarget::get_main_texture_sampled_key(entity);
 
             sampled = Some(ResourceMeta {
                 key: temp_key,

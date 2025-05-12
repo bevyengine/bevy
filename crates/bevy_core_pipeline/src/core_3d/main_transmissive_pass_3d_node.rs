@@ -2,7 +2,7 @@ use super::{Camera3d, Transmissive3d, ViewTransmissionTexture};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::{EncoderPass, EncoderPassCommandBuilder, FrameGraph, PassBuilder},
+    frame_graph::{FrameGraph, PassBuilder},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
     render_resource::{Extent3d, StoreOp},
@@ -79,8 +79,11 @@ impl ViewNode for MainTransmissivePass3dNode {
                         let mut pass_builder =
                             frame_graph.create_pass_builder("main_transmissive_command_encoder_3d");
 
-                        let source = target.get_main_texture_copy_info_read(&mut pass_builder);
-                        let destination = transmission.get_image_copy_info_write(&mut pass_builder);
+                        let source = target
+                            .get_main_texture()
+                            .get_image_copy_read(&mut pass_builder);
+                        let destination =
+                            transmission.texture.get_image_copy_write(&mut pass_builder);
 
                         pass_builder
                             .create_encoder_pass_builder()

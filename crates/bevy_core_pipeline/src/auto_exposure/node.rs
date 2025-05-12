@@ -9,7 +9,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    frame_graph::{FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, ResourceMaterial},
+    frame_graph::FrameGraph,
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::*,
@@ -77,9 +77,7 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let source: GraphResourceNodeHandle<FrameGraphTexture> = view_target
-            .get_main_texture_key()
-            .make_resource_handle(frame_graph);
+        let source = view_target.get_main_texture();
 
         let fallback = world.resource::<FallbackImage>();
         let mask = world
@@ -100,7 +98,7 @@ impl Node for AutoExposureNode {
             .create_bind_group_builder(None, pipeline.histogram_layout.clone())
             .push_bind_group_entry(&globals_buffer.buffer)
             .push_bind_group_entry(&auto_exposure_buffers.settings)
-            .push_bind_group_entry(&source)
+            .push_bind_group_entry(source)
             .push_bind_group_entry(mask)
             .push_bind_group_entry(&compensation_curve.texture)
             .push_bind_group_entry(&compensation_curve.extents)
