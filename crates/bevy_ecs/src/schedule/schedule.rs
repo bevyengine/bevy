@@ -392,7 +392,10 @@ impl Schedule {
     pub fn add_build_pass<T: ScheduleBuildPass>(&mut self, pass: T) -> &mut Self {
         match self.graph.passes.entry(TypeId::of::<T>()) {
             Entry::Vacant(vacant) => {
-                vacant.insert(BoxedScheduleBuildPass::new(pass));
+                vacant.insert(BoxedScheduleBuildPass {
+                    inner: Box::new(pass),
+                    enabled: true,
+                });
             }
             Entry::Occupied(mut occupied) => {
                 let occupied = occupied.get_mut();
@@ -1578,15 +1581,6 @@ struct BoxedScheduleBuildPass {
     pub enabled: bool,
 }
 
-impl BoxedScheduleBuildPass {
-    fn new(pass: impl ScheduleBuildPass) -> Self {
-        Self {
-            inner: Box::new(pass),
-            enabled: true,
-        }
-    }
-}
-
 /// Values returned by [`ScheduleGraph::process_configs`]
 struct ProcessConfigsResult {
     /// All nodes contained inside this `process_configs` call's [`ScheduleConfigs`] hierarchy,
@@ -2117,7 +2111,7 @@ mod tests {
     struct Resource2;
 
     #[test]
-    fn changing_auto_sync_points_to_true_keeps_originally_disabled_edges() {
+    fn changing_auto_sync_points_to_true_keeps_originally_sync_point_ignoring_edges() {
         use alloc::{vec, vec::Vec};
 
         #[derive(PartialEq, Debug)]
