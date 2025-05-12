@@ -79,7 +79,7 @@ use bevy_render::{
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{self, prepare_view_targets, Msaa, Visibility, VisibilityClass},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::Transform;
 use derive_more::From;
@@ -277,12 +277,12 @@ impl Plugin for MeshletPlugin {
             .add_systems(
                 Render,
                 (
-                    perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
+                    perform_pending_meshlet_mesh_writes.in_set(RenderSystems::PrepareAssets),
                     configure_meshlet_views
                         .after(prepare_view_targets)
-                        .in_set(RenderSet::ManageViews),
-                    prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
-                    prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        .in_set(RenderSystems::ManageViews),
+                    prepare_meshlet_per_frame_resources.in_set(RenderSystems::PrepareResources),
+                    prepare_meshlet_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             );
     }
