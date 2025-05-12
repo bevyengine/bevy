@@ -407,6 +407,30 @@ impl TextColor {
     pub const WHITE: Self = TextColor(Color::WHITE);
 }
 
+/// The background color of the text for this section.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct TextBackgroundColor(pub Color);
+
+impl Default for TextBackgroundColor {
+    fn default() -> Self {
+        Self(Color::BLACK)
+    }
+}
+
+impl<T: Into<Color>> From<T> for TextBackgroundColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
+
+impl TextBackgroundColor {
+    /// Black background
+    pub const BLACK: Self = TextBackgroundColor(Color::BLACK);
+    /// White background
+    pub const WHITE: Self = TextBackgroundColor(Color::WHITE);
+}
+
 /// Determines how lines will be broken when preventing text from running out of bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
@@ -524,7 +548,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
             ));
             continue;
         };
-        let mut parent: Entity = span_child_of.parent;
+        let mut parent: Entity = span_child_of.parent();
 
         // Search for the nearest ancestor with ComputedTextBlock.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
@@ -555,7 +579,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 ));
                 break;
             };
-            parent = next_child_of.parent;
+            parent = next_child_of.parent();
         }
     }
 }

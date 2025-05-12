@@ -1,8 +1,8 @@
 use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::entity::Entity;
 
-use bevy_ecs::entity::hash_map::EntityHashMap;
-use bevy_platform_support::collections::HashMap;
+use bevy_ecs::entity::EntityHashMap;
+use bevy_platform::collections::HashMap;
 use bevy_window::{
     CursorGrabMode, MonitorSelection, VideoModeSelection, Window, WindowMode, WindowPosition,
     WindowResolution, WindowWrapper,
@@ -42,6 +42,16 @@ pub struct WinitWindows {
 }
 
 impl WinitWindows {
+    /// Creates a new instance of `WinitWindows`.
+    pub const fn new() -> Self {
+        Self {
+            windows: HashMap::new(),
+            entity_to_winit: EntityHashMap::new(),
+            winit_to_entity: HashMap::new(),
+            _not_send_sync: core::marker::PhantomData,
+        }
+    }
+
     /// Creates a `winit` window and associates it with our entity.
     pub fn create_window(
         &mut self,
@@ -145,7 +155,14 @@ impl WinitWindows {
 
         #[cfg(target_os = "ios")]
         {
+            use crate::converters::convert_screen_edge;
             use winit::platform::ios::WindowAttributesExtIOS;
+
+            let preferred_edge =
+                convert_screen_edge(window.preferred_screen_edges_deferring_system_gestures);
+
+            winit_window_attributes = winit_window_attributes
+                .with_preferred_screen_edges_deferring_system_gestures(preferred_edge);
             winit_window_attributes = winit_window_attributes
                 .with_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
             winit_window_attributes = winit_window_attributes
@@ -278,6 +295,7 @@ impl WinitWindows {
         let winit_window = event_loop.create_window(winit_window_attributes).unwrap();
         let name = window.title.clone();
         prepare_accessibility_for_window(
+            event_loop,
             &winit_window,
             entity,
             name,

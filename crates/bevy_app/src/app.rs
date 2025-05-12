@@ -16,7 +16,7 @@ use bevy_ecs::{
     schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -117,7 +117,7 @@ impl Default for App {
         app.add_systems(
             First,
             event_update_system
-                .in_set(bevy_ecs::event::EventUpdates)
+                .in_set(bevy_ecs::event::EventUpdateSystems)
                 .run_if(bevy_ecs::event::event_update_condition),
         );
         app.add_event::<AppExit>();

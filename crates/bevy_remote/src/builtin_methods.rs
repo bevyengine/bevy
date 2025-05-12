@@ -14,7 +14,7 @@ use bevy_ecs::{
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     GetPath, PartialReflect, TypeRegistration, TypeRegistry,
@@ -28,7 +28,7 @@ use crate::{
     BrpError, BrpResult,
 };
 
-#[cfg(feature = "http")]
+#[cfg(all(feature = "http", not(target_family = "wasm")))]
 use {crate::schemas::open_rpc::ServerObject, bevy_utils::default};
 
 /// The method path for a `bevy/get` request.
@@ -821,7 +821,7 @@ pub fn process_remote_list_methods_request(
 ) -> BrpResult {
     let remote_methods = world.resource::<crate::RemoteMethods>();
 
-    #[cfg(feature = "http")]
+    #[cfg(all(feature = "http", not(target_family = "wasm")))]
     let servers = match (
         world.get_resource::<crate::http::HostAddress>(),
         world.get_resource::<crate::http::HostPort>(),
@@ -839,7 +839,7 @@ pub fn process_remote_list_methods_request(
         _ => None,
     };
 
-    #[cfg(not(feature = "http"))]
+    #[cfg(any(not(feature = "http"), target_family = "wasm"))]
     let servers = None;
 
     let doc = OpenRpcDocument {
@@ -1490,13 +1490,14 @@ mod tests {
             "Deserialized value does not match original"
         );
     }
+
     use super::*;
 
     #[test]
     fn serialization_tests() {
         test_serialize_deserialize(BrpQueryRow {
             components: Default::default(),
-            entity: Entity::from_raw(0),
+            entity: Entity::from_raw_u32(0).unwrap(),
             has: Default::default(),
         });
         test_serialize_deserialize(BrpListWatchingResponse::default());
@@ -1510,7 +1511,7 @@ mod tests {
             ..Default::default()
         });
         test_serialize_deserialize(BrpListParams {
-            entity: Entity::from_raw(0),
+            entity: Entity::from_raw_u32(0).unwrap(),
         });
     }
 }

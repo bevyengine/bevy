@@ -29,7 +29,7 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 pub struct DeferredPbrLightingPlugin;
@@ -115,7 +115,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
             .add_systems(
                 Render,
-                (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
+                (prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),),
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
                 Core3d,
@@ -344,6 +344,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("SHADOW_FILTER_METHOD_GAUSSIAN".into());
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
+        }
+        if self.mesh_pipeline.binding_arrays_are_usable {
+            shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+            shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
         }
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]

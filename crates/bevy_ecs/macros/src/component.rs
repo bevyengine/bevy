@@ -3,14 +3,14 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
-    parenthesized,
+    braced, parenthesized,
     parse::Parse,
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
-    token::{Comma, Paren},
-    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprClosure, ExprPath, Field, Fields,
-    Ident, LitStr, Member, Path, Result, Token, Type, Visibility,
+    token::{Brace, Comma, Paren},
+    Data, DataEnum, DataStruct, DeriveInput, Expr, ExprCall, ExprPath, Field, Fields, Ident,
+    LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
 pub const EVENT: &str = "event";
@@ -207,17 +207,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 );
             });
             match &require.func {
-                Some(RequireFunc::Path(func)) => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            || { let x: #ident = #func().into(); x },
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
-                Some(RequireFunc::Closure(func)) => {
+                Some(func) => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
                             required_components,
@@ -261,6 +251,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let clone_behavior = if relationship_target.is_some() {
         quote!(#bevy_ecs_path::component::ComponentCloneBehavior::Custom(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
+    } else if let Some(behavior) = attrs.clone_behavior {
+        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::#behavior)
     } else {
         quote!(
             use #bevy_ecs_path::component::{DefaultCloneBehaviorBase, DefaultCloneBehaviorViaClone};
@@ -406,6 +398,7 @@ pub const ON_REMOVE: &str = "on_remove";
 pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
+pub const CLONE_BEHAVIOR: &str = "clone_behavior";
 
 /// All allowed attribute value expression kinds for component hooks
 #[derive(Debug)]
@@ -468,6 +461,7 @@ struct Attrs {
     relationship: Option<Relationship>,
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
+    clone_behavior: Option<Expr>,
 }
 
 #[derive(Clone, Copy)]
@@ -478,12 +472,7 @@ enum StorageTy {
 
 struct Require {
     path: Path,
-    func: Option<RequireFunc>,
-}
-
-enum RequireFunc {
-    Path(Path),
-    Closure(ExprClosure),
+    func: Option<TokenStream2>,
 }
 
 struct Relationship {
@@ -511,6 +500,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         relationship: None,
         relationship_target: None,
         immutable: false,
+        clone_behavior: None,
     };
 
     let mut require_paths = HashSet::new();
@@ -546,6 +536,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;
                     Ok(())
+                } else if nested.path.is_ident(CLONE_BEHAVIOR) {
+                    attrs.clone_behavior = Some(nested.value()?.parse()?);
+                    Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
                 }
@@ -575,30 +568,76 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         }
     }
 
+    if attrs.relationship_target.is_some() && attrs.clone_behavior.is_some() {
+        return Err(syn::Error::new(
+                attrs.clone_behavior.span(),
+                "A Relationship Target already has its own clone behavior, please remove `clone_behavior = ...`",
+            ));
+    }
+
     Ok(attrs)
 }
 
 impl Parse for Require {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let path = input.parse::<Path>()?;
-        let func = if input.peek(Paren) {
+        let mut path = input.parse::<Path>()?;
+        let mut last_segment_is_lower = false;
+        let mut is_constructor_call = false;
+
+        // Use the case of the type name to check if it's an enum
+        // This doesn't match everything that can be an enum according to the rust spec
+        // but it matches what clippy is OK with
+        let is_enum = {
+            let mut first_chars = path
+                .segments
+                .iter()
+                .rev()
+                .filter_map(|s| s.ident.to_string().chars().next());
+            if let Some(last) = first_chars.next() {
+                if last.is_uppercase() {
+                    if let Some(last) = first_chars.next() {
+                        last.is_uppercase()
+                    } else {
+                        false
+                    }
+                } else {
+                    last_segment_is_lower = true;
+                    false
+                }
+            } else {
+                false
+            }
+        };
+
+        let func = if input.peek(Token![=]) {
+            // If there is an '=', then this is a "function style" require
+            input.parse::<Token![=]>()?;
+            let expr: Expr = input.parse()?;
+            Some(quote!(|| #expr ))
+        } else if input.peek(Brace) {
+            // This is a "value style" named-struct-like require
+            let content;
+            braced!(content in input);
+            let content = content.parse::<TokenStream2>()?;
+            Some(quote!(|| #path { #content }))
+        } else if input.peek(Paren) {
+            // This is a "value style" tuple-struct-like require
             let content;
             parenthesized!(content in input);
-            if let Ok(func) = content.parse::<ExprClosure>() {
-                Some(RequireFunc::Closure(func))
-            } else {
-                let func = content.parse::<Path>()?;
-                Some(RequireFunc::Path(func))
-            }
-        } else if input.peek(Token![=]) {
-            let _t: syn::Token![=] = input.parse()?;
-            let label: Ident = input.parse()?;
-            let tokens: TokenStream = quote::quote! (|| #path::#label).into();
-            let func = syn::parse(tokens).unwrap();
-            Some(RequireFunc::Closure(func))
+            let content = content.parse::<TokenStream2>()?;
+            is_constructor_call = last_segment_is_lower;
+            Some(quote!(|| #path (#content)))
+        } else if is_enum {
+            // if this is an enum, then it is an inline enum component declaration
+            Some(quote!(|| #path))
         } else {
+            // if this isn't any of the above, then it is a component ident, which will use Default
             None
         };
+        if is_enum || is_constructor_call {
+            path.segments.pop();
+            path.segments.pop_punct();
+        }
         Ok(Require { path, func })
     }
 }
@@ -715,7 +754,7 @@ fn derive_relationship(
             #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
                 Self {
-                    #(#members: core::default::Default::default(),),*
+                    #(#members: core::default::Default::default(),)*
                     #relationship_member: entity
                 }
             }
@@ -778,7 +817,7 @@ fn derive_relationship_target(
             #[inline]
             fn from_collection_risky(collection: Self::Collection) -> Self {
                 Self {
-                    #(#members: core::default::Default::default(),),*
+                    #(#members: core::default::Default::default(),)*
                     #relationship_member: collection
                 }
             }

@@ -23,7 +23,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::{Component, HookContext},
-    entity::{Entity, EntityBorrow},
+    entity::{ContainsEntity, Entity},
     event::EventReader,
     prelude::With,
     query::Has,
@@ -34,7 +34,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};

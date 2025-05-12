@@ -4,6 +4,8 @@ use super::basis::*;
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+#[cfg(not(feature = "bevy_reflect"))]
+use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -338,13 +340,14 @@ impl ImageFormat {
     derive(Reflect),
     reflect(opaque, Default, Debug, Clone)
 )]
+#[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub struct Image {
     /// Raw pixel data.
     /// If the image is being used as a storage texture which doesn't need to be initialized by the
-    /// CPU, then this should be `None`
-    /// Otherwise, it should always be `Some`
+    /// CPU, then this should be `None`.
+    /// Otherwise, it should always be `Some`.
     pub data: Option<Vec<u8>>,
-    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
+    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
@@ -928,7 +931,6 @@ impl Image {
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
     pub fn from_buffer(
-        #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
         #[cfg_attr(
@@ -954,13 +956,7 @@ impl Image {
                 basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(
-                #[cfg(debug_assertions)]
-                name,
-                buffer,
-                supported_compressed_formats,
-                is_srgb,
-            )?,
+            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
