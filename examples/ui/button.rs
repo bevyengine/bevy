@@ -27,13 +27,16 @@ fn button_system(
             &Interaction,
             &mut BackgroundColor,
             &mut BorderColor,
+            &mut Button,
             &Children,
         ),
-        (Changed<Interaction>, With<Button>),
+        Changed<Interaction>,
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (entity, interaction, mut color, mut border_color, children) in &mut interaction_query {
+    for (entity, interaction, mut color, mut border_color, mut button, children) in
+        &mut interaction_query
+    {
         let mut text = text_query.get_mut(children[0]).unwrap();
 
         match *interaction {
@@ -42,12 +45,16 @@ fn button_system(
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
+
+                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
+                button.set_changed();
             }
             Interaction::Hovered => {
                 input_focus.set(entity);
                 **text = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
                 border_color.0 = Color::WHITE;
+                button.set_changed();
             }
             Interaction::None => {
                 input_focus.clear();
