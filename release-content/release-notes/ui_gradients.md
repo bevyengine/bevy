@@ -11,7 +11,7 @@ To draw a UI node with a gradient insert the components `BackgroundGradient` and
 The are three gradient structs corresponding to the three types of gradients supported: `LinearGradient`, `ConicGradient` and `RadialGradient`. These are then wrapped by the `Gradient` enum discriminator which has `Linear`, `Conic` and `Radial` variants.
 
 Each gradient type consists of the geometric properties for that gradient and a list of color stops.
-Color stops consist of a color, a position or angle and an optional hint. If no position is specified for a stop, it's evenly spaced between the previous and following stops. Color stop postions are absolute. With the list of stops:
+Color stops consist of a color, a position or angle and an optional hint. If no position is specified for a stop, it's evenly spaced between the previous and following stops. Color stop positions are absolute. With the list of stops:
 ```
 vec![vec![ColorStop::new(RED, Val::Percent(90.), ColorStop::new(Color::GREEN, Val::Percent(10.))
 ```
