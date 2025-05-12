@@ -114,14 +114,16 @@
 //! | `KHR_materials_variants`          | ❌        |                                     |
 //! | `KHR_materials_volume`            | ✅        |                                     |
 //! | `KHR_mesh_quantization`           | ❌        |                                     |
-//! | `KHR_texture_basisu`              | ❌        |                                     |
-//! | `KHR_texture_transform`           | ✅\*      |                                     |
+//! | `KHR_texture_basisu`              | ❌\*      |                                     |
+//! | `KHR_texture_transform`           | ✅\**     |                                     |
 //! | `KHR_xmp_json_ld`                 | ❌        |                                     |
 //! | `EXT_mesh_gpu_instancing`         | ❌        |                                     |
 //! | `EXT_meshopt_compression`         | ❌        |                                     |
-//! | `EXT_texture_webp`                | ❌        |                                     |
+//! | `EXT_texture_webp`                | ❌\*      |                                     |
 //!
-//! \*`KHR_texture_transform` is only supported on `base_color_texture`, see [#15310](https://github.com/bevyengine/bevy/issues/15310).
+//! \*Bevy supports ktx2 and webp formats but doesn't support the extension's syntax, see [#19104](https://github.com/bevyengine/bevy/issues/19104).
+//!
+//! \**`KHR_texture_transform` is only supported on `base_color_texture`, see [#15310](https://github.com/bevyengine/bevy/issues/15310).
 //!
 //! See the [glTF Extension Registry](https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md) for more information on extensions.
 
