@@ -156,6 +156,46 @@ impl AngularColorStop {
     }
 }
 
+impl From<(Color, f32)> for AngularColorStop {
+    fn from((color, angle): (Color, f32)) -> Self {
+        Self {
+            color,
+            angle: Some(angle),
+            hint: 0.5,
+        }
+    }
+}
+
+impl From<Color> for AngularColorStop {
+    fn from(color: Color) -> Self {
+        Self {
+            color,
+            angle: None,
+            hint: 0.5,
+        }
+    }
+}
+
+impl From<Srgba> for AngularColorStop {
+    fn from(color: Srgba) -> Self {
+        Self {
+            color: color.into(),
+            angle: None,
+            hint: 0.5,
+        }
+    }
+}
+
+impl Default for AngularColorStop {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE,
+            angle: None,
+            hint: 0.5,
+        }
+    }
+}
+
 /// A linear gradient
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/linear-gradient>
@@ -421,7 +461,7 @@ impl From<ConicGradient> for Gradient {
     }
 }
 
-#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[derive(Component, Clone, PartialEq, Debug, Default, Reflect)]
 #[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -437,7 +477,7 @@ impl<T: Into<Gradient>> From<T> for BackgroundGradient {
     }
 }
 
-#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[derive(Component, Clone, PartialEq, Debug, Default, Reflect)]
 #[reflect(PartialEq)]
 #[cfg_attr(
     feature = "serialize",
