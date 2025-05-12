@@ -105,9 +105,9 @@ use bevy_platform::collections::HashMap;
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::Resource;
-use bevy_image::{CompressedImageFormats, ImageSamplerDescriptor};
+use bevy_image::ImageSamplerDescriptor;
 use bevy_mesh::MeshVertexAttribute;
-use bevy_render::renderer::RenderDevice;
+use bevy_render::texture::get_supported_compressed_image_formats;
 
 /// The glTF prelude.
 ///
@@ -204,10 +204,7 @@ impl Plugin for GltfPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-            None => CompressedImageFormats::NONE,
-        };
+        let supported_compressed_formats = get_supported_compressed_image_formats(app.world());
         let default_sampler_resource = DefaultGltfImageSampler::new(&self.default_sampler);
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);

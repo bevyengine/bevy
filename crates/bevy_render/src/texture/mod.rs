@@ -58,6 +58,24 @@ impl ImagePlugin {
     }
 }
 
+/// For explicitly defining which compressed image formats are supported so they can be used without a `RenderDevice`.
+#[derive(Resource)]
+pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
+
+/// Query for which compressed image formats are supported. First the `CompressedImageFormatSupport` resource is checked
+/// if that doesn't exist, it falls back to checking the render device features, and if that also doesn't exist it is
+/// assumed no compressed image formats are supported.
+pub fn get_supported_compressed_image_formats(world: &World) -> CompressedImageFormats {
+    let supported_compressed_formats = match world.get_resource::<CompressedImageFormatSupport>() {
+        Some(compressed_image_format_support) => compressed_image_format_support.0,
+        None => match world.get_resource::<RenderDevice>() {
+            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+            None => CompressedImageFormats::NONE,
+        },
+    };
+    supported_compressed_formats
+}
+
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "exr")]
@@ -111,13 +129,9 @@ impl Plugin for ImagePlugin {
 
     fn finish(&self, app: &mut App) {
         if !ImageLoader::SUPPORTED_FORMATS.is_empty() {
-            let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
-                Some(render_device) => {
-                    CompressedImageFormats::from_features(render_device.features())
-                }
-                None => CompressedImageFormats::NONE,
-            };
-            app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
+            app.register_asset_loader(ImageLoader::new(get_supported_compressed_image_formats(
+                app.world(),
+            )));
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
