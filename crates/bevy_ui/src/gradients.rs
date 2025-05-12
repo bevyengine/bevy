@@ -91,7 +91,7 @@ impl Default for ColorStop {
 }
 
 /// An angular color stop for a conic gradient
-#[derive(Default, Debug, Copy, Clone, PartialEq, Reflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
