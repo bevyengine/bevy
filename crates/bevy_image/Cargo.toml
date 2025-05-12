@@ -66,7 +66,7 @@ futures-lite = "2.0.1"
 guillotiere = "0.6.0"
 rectangle-pack = "0.4"
 ddsfile = { version = "0.5.2", optional = true }
-ktx2 = { version = "0.3.0", optional = true }
+ktx2 = { version = "0.4.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.8.0", optional = true }

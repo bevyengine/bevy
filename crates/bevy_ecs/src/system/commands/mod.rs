@@ -12,12 +12,11 @@ pub use parallel_scope::*;
 
 use alloc::boxed::Box;
 use core::marker::PhantomData;
-use log::error;
 
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode, NoBundleEffect},
-    change_detection::{MaybeLocation, Mut},
+    change_detection::Mut,
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
@@ -624,57 +623,6 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating entities, if needed,
-    /// and for adding a bundle to each entity.
-    ///
-    /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
-    /// (it can also be a collection).
-    ///
-    /// When the command is applied,
-    /// for each (`Entity`, `Bundle`) pair in the given `bundles_iter`,
-    /// the `Entity` is spawned, if it does not exist already.
-    /// Then, the `Bundle` is added to the entity.
-    ///
-    /// This method is equivalent to iterating `bundles_iter`,
-    /// calling [`spawn`](Self::spawn) for each bundle,
-    /// and passing it to [`insert`](EntityCommands::insert),
-    /// but it is faster due to memory pre-allocation.
-    ///
-    /// # Note
-    ///
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an ID space (which doesn't happen by default).
-    #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
-    )]
-    pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
-    where
-        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
-    {
-        let caller = MaybeLocation::caller();
-        self.queue(move |world: &mut World| {
-
-            #[expect(
-                deprecated,
-                reason = "This needs to be supported for now, and the outer item is deprecated too."
-            )]
-            if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
-                bundles_iter,
-                caller,
-            ) {
-                error!(
-                    "{caller}: Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
-                    core::any::type_name::<B>(),
-                    invalid_entities
-                );
-            }
-        });
-    }
-
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
     /// based on a batch of `(Entity, Bundle)` pairs.
     ///
@@ -1123,6 +1071,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// **Calling [`observe`](EntityCommands::observe) on the returned
     /// [`EntityCommands`] will observe the observer itself, which you very
     /// likely do not want.**
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given system is an exclusive system.
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -1796,14 +1748,6 @@ impl<'a> EntityCommands<'a> {
     #[track_caller]
     pub fn despawn(&mut self) {
         self.queue_handled(entity_command::despawn(), warn);
-    }
-    /// Despawns the provided entity and its descendants.
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use entity.despawn(), which now automatically despawns recursively."
-    )]
-    pub fn despawn_recursive(&mut self) {
-        self.despawn();
     }
 
     /// Despawns the entity.

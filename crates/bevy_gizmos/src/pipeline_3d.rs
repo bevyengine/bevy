@@ -1,7 +1,7 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
+    DrawLineJointGizmo, GizmoRenderSystems, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
     SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
@@ -30,7 +30,7 @@ use bevy_render::{
     },
     render_resource::*,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use tracing::error;
 
@@ -49,14 +49,14 @@ impl Plugin for LineGizmo3dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos3d
-                    .in_set(RenderSet::Queue)
+                GizmoRenderSystems::QueueLineGizmos3d
+                    .in_set(RenderSystems::Queue)
                     .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
             )
             .add_systems(
                 Render,
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
-                    .in_set(GizmoRenderSystem::QueueLineGizmos3d)
+                    .in_set(GizmoRenderSystems::QueueLineGizmos3d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
     }
