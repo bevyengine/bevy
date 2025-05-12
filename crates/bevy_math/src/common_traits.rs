@@ -120,7 +120,6 @@ pub trait ScalarField:
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
     + Neg<Output = Self>
-    + PartialOrd
     + Default
     + Debug
     + Clone

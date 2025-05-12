@@ -285,7 +285,7 @@ impl ShapeSample for Cuboid {
 fn sample_triangle_interior<P, R>(vertices: [P; 3], rng: &mut R) -> P
 where
     P: NormedVectorSpace,
-    P::Scalar: SampleUniform,
+    P::Scalar: SampleUniform + PartialOrd,
     R: Rng + ?Sized,
 {
     let [a, b, c] = vertices;
@@ -310,7 +310,7 @@ where
 fn sample_triangle_boundary<P, R>(vertices: [P; 3], rng: &mut R) -> P
 where
     P: NormedVectorSpace,
-    P::Scalar: SampleUniform + for<'a> ::core::ops::AddAssign<&'a P::Scalar>,
+    P::Scalar: SampleUniform + PartialOrd + for<'a> ::core::ops::AddAssign<&'a P::Scalar>,
     R: Rng + ?Sized,
 {
     let [a, b, c] = vertices;
