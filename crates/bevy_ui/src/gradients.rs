@@ -107,6 +107,7 @@ pub struct AngularColorStop {
     /// Given angles are clamped to between `0.`, and [`TAU`].
     /// This means that a list of stops:
     /// ```
+    /// # use std::f32::consts::TAU;
     /// [
     ///     ColorStop::new(Color::WHITE, 0.),
     ///     ColorStop::new(Color::BLACK, -1.),
@@ -116,6 +117,7 @@ pub struct AngularColorStop {
     /// ```
     /// is equivalent to:
     /// ```
+    /// # use std::f32::consts::TAU;
     /// [
     ///     ColorStop::new(Color::WHITE, 0.),
     ///     ColorStop::new(Color::BLACK, 0.),
