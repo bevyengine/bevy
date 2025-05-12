@@ -10,8 +10,8 @@ use bevy_ecs::resource::Resource;
 
 use super::{
     AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, DevicePass, FrameGraphError,
-    GraphResourceNodeHandle, ImportedResource, PassNode, PassNodeBuilder, RenderContext,
-    ResourceBoard, ResourceBoardKey, ResourceNode, TypeHandle, VirtualResource,
+    GraphResourceNodeHandle, ImportedResource, PassBuilder, PassNode, PassNodeBuilder,
+    RenderContext, ResourceBoard, ResourceBoardKey, ResourceNode, TypeHandle, VirtualResource,
 };
 
 pub trait ImportToFrameGraph
@@ -176,6 +176,10 @@ impl FrameGraph {
 
     pub fn create_pass_node_bulder(&mut self, name: &str) -> PassNodeBuilder {
         PassNodeBuilder::new(name, self)
+    }
+
+    pub fn create_pass_builder(&mut self, name: &str) -> PassBuilder {
+        PassBuilder::new(self.create_pass_node_bulder(name))
     }
 
     pub fn pass_node(&mut self, name: &str) -> &mut PassNode {

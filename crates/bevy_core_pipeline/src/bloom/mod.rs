@@ -149,7 +149,7 @@ impl ViewNode for BloomNode {
 
         let view_texture = view_target.get_main_texture_key();
 
-        let mut pass_builder = PassBuilder::new(frame_graph.create_pass_node_bulder("bloom"));
+        let mut pass_builder = frame_graph.create_pass_builder("bloom");
 
         let color_attachment = view_target.get_unsampled_attachment(&mut pass_builder);
 

@@ -96,8 +96,7 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let mut pass_builder =
-            PassBuilder::new(frame_graph.create_pass_node_bulder("auto_exposure_pass"));
+        let mut pass_builder = frame_graph.create_pass_builder("frame_graph");
 
         let compute_bind_group = pass_builder
             .create_bind_group_builder(None, pipeline.histogram_layout.clone())

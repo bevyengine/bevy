@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_render::{
-    camera::ExtractedCamera, frame_graph::PassBuilder, render_graph::*, render_phase::*,
+    camera::ExtractedCamera, render_graph::*, render_phase::*,
     render_resource::CachedRenderPipelineId, renderer::RenderDevice, view::*,
 };
 use bevy_render::{frame_graph::FrameGraph, sync_world::MainEntity};
@@ -81,11 +81,9 @@ impl Node for UiPassNode {
             input_view_entity
         };
 
-        let mut pass_builder = PassBuilder::new(frame_graph.create_pass_node_bulder("ui_pass"));
+        let mut pass_builder = frame_graph.create_pass_builder("ui_pass");
 
         let color_attachment = target.get_unsampled_attachment(&mut pass_builder);
-
-        let render_device = world.resource::<RenderDevice>();
 
         let mut render_pass_builder = pass_builder.create_render_pass_builder();
 
@@ -94,6 +92,7 @@ impl Node for UiPassNode {
             .add_color_attachment(color_attachment)
             .set_camera_viewport(camera.viewport.clone());
 
+        let render_device = world.resource::<RenderDevice>();
         let mut tracked_render_pass = TrackedRenderPass::new(&render_device, render_pass_builder);
 
         if let Err(err) = transparent_phase.render(&mut tracked_render_pass, world, view_entity) {

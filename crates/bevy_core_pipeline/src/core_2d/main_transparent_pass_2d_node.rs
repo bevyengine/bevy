@@ -46,8 +46,7 @@ impl ViewNode for MainTransparentPass2dNode {
 
         let render_device = world.resource::<RenderDevice>();
 
-        let mut pass_builder =
-            PassBuilder::new(frame_graph.create_pass_node_bulder("main_transparent_pass_2d"));
+        let mut pass_builder = frame_graph.create_pass_builder("main_transparent_pass_2d");
 
         let color_attachment = target.get_color_attachment(&mut pass_builder);
         let depth_stencil_attachment =
