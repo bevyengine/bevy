@@ -1,6 +1,5 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::{ComponentCloneBehavior, Mutable, StorageType};
 use bevy_ecs::entity::EntityHash;
 use bevy_ecs::{
     component::Component,
@@ -127,22 +126,13 @@ pub struct SyncToRenderWorld;
 /// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
 ///
 /// Can also be used as a newtype wrapper for render world entities.
-#[derive(Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, Component)]
+#[component(clone_behavior = Ignore)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     #[inline]
     pub fn id(&self) -> Entity {
         self.0
-    }
-}
-
-impl Component for RenderEntity {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-
-    type Mutability = Mutable;
-
-    fn clone_behavior() -> ComponentCloneBehavior {
-        ComponentCloneBehavior::Ignore
     }
 }
 

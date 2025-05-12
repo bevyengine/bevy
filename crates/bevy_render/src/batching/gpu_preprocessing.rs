@@ -36,7 +36,7 @@ use crate::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    Render, RenderApp, RenderDebugFlags, RenderSet,
+    Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 
 use super::{BatchMeta, GetBatchData, GetFullBatchData};
@@ -60,11 +60,11 @@ impl Plugin for BatchingPlugin {
             ))
             .add_systems(
                 Render,
-                write_indirect_parameters_buffers.in_set(RenderSet::PrepareResourcesFlush),
+                write_indirect_parameters_buffers.in_set(RenderSystems::PrepareResourcesFlush),
             )
             .add_systems(
                 Render,
-                clear_indirect_parameters_buffers.in_set(RenderSet::ManageViews),
+                clear_indirect_parameters_buffers.in_set(RenderSystems::ManageViews),
             );
     }
 
