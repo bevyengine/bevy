@@ -5,7 +5,7 @@
 use alloc::borrow::Cow;
 use alloc::{
     boxed::Box,
-    collections::{BTreeMap, BTreeSet},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
     format,
     string::{String, ToString},
     vec,
@@ -323,7 +323,7 @@ impl Schedule {
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
         };
-        // Call `set_build_settings` to add any default build passes
+        // Call `set_build_settings` to add any default build passes besides AutoInsertApplyDeferredPass
         this.set_build_settings(Default::default());
         this
     }
@@ -383,15 +383,31 @@ impl Schedule {
         self
     }
 
-    /// Add a custom build pass to the schedule.
+    /// Add a custom build pass to the schedule and enables it.
+    ///
+    /// If a build pass of this type already exists, they get combined.
+    ///
+    /// Use this method with an "empty" pass value to enable a
+    /// [previously disabled](Self::disable_build_pass) pass.
     pub fn add_build_pass<T: ScheduleBuildPass>(&mut self, pass: T) -> &mut Self {
-        self.graph.passes.insert(TypeId::of::<T>(), Box::new(pass));
+        match self.graph.passes.entry(TypeId::of::<T>()) {
+            Entry::Vacant(vacant) => {
+                vacant.insert(BoxedScheduleBuildPass::new(pass));
+            }
+            Entry::Occupied(mut occupied) => {
+                let occupied = occupied.get_mut();
+                occupied.enabled = true;
+                occupied.inner.combine(Box::new(pass));
+            }
+        }
         self
     }
 
-    /// Remove a custom build pass.
-    pub fn remove_build_pass<T: ScheduleBuildPass>(&mut self) {
-        self.graph.passes.remove(&TypeId::of::<T>());
+    /// Disable a custom build pass.
+    pub fn disable_build_pass<T: ScheduleBuildPass>(&mut self) {
+        if let Some(pass) = self.graph.passes.get_mut(&TypeId::of::<T>()) {
+            pass.enabled = false;
+        }
     }
 
     /// Changes miscellaneous build settings.
@@ -399,7 +415,7 @@ impl Schedule {
         if settings.auto_insert_apply_deferred {
             self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
         } else {
-            self.remove_build_pass::<passes::AutoInsertApplyDeferredPass>();
+            self.disable_build_pass::<passes::AutoInsertApplyDeferredPass>();
         }
         self.graph.settings = settings;
         self
@@ -685,7 +701,7 @@ pub struct ScheduleGraph {
     changed: bool,
     settings: ScheduleBuildSettings,
 
-    passes: BTreeMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
+    passes: BTreeMap<TypeId, BoxedScheduleBuildPass>,
 }
 
 impl ScheduleGraph {
@@ -926,11 +942,13 @@ impl ScheduleGraph {
                                     .add_edge(*previous_node, *current_node);
 
                                 for pass in self.passes.values_mut() {
-                                    pass.add_dependency(
-                                        *previous_node,
-                                        *current_node,
-                                        chain_options,
-                                    );
+                                    if pass.enabled {
+                                        pass.inner.add_dependency(
+                                            *previous_node,
+                                            *current_node,
+                                            chain_options,
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -1120,7 +1138,9 @@ impl ScheduleGraph {
             };
             self.dependency.graph.add_edge(lhs, rhs);
             for pass in self.passes.values_mut() {
-                pass.add_dependency(lhs, rhs, &options);
+                if pass.enabled {
+                    pass.inner.add_dependency(lhs, rhs, &options);
+                }
             }
 
             // ensure set also appears in hierarchy graph
@@ -1207,7 +1227,9 @@ impl ScheduleGraph {
         // modify graph with build passes
         let mut passes = core::mem::take(&mut self.passes);
         for pass in passes.values_mut() {
-            pass.build(world, self, &mut dependency_flattened)?;
+            if pass.enabled {
+                pass.inner.build(world, self, &mut dependency_flattened)?;
+            }
         }
         self.passes = passes;
 
@@ -1289,7 +1311,10 @@ impl ScheduleGraph {
         let mut temp = Vec::new();
         for (&set, systems) in set_systems {
             for pass in self.passes.values_mut() {
-                pass.collapse_set(set, systems, &dependency_flattened, &mut temp);
+                if pass.enabled {
+                    pass.inner
+                        .collapse_set(set, systems, &dependency_flattened, &mut temp);
+                }
             }
             if systems.is_empty() {
                 // collapse dependencies for empty sets
@@ -1545,6 +1570,20 @@ impl ScheduleGraph {
         }
 
         Ok(())
+    }
+}
+
+struct BoxedScheduleBuildPass {
+    pub inner: Box<dyn ScheduleBuildPassObj>,
+    pub enabled: bool,
+}
+
+impl BoxedScheduleBuildPass {
+    fn new(pass: impl ScheduleBuildPass) -> Self {
+        Self {
+            inner: Box::new(pass),
+            enabled: true,
+        }
     }
 }
 
@@ -2076,6 +2115,51 @@ mod tests {
 
     #[derive(Resource)]
     struct Resource2;
+
+    #[test]
+    fn disabling_auto_sync_points_keeps_disabled_edges() {
+        #[derive(PartialEq, Debug)]
+        enum Entry {
+            System(usize),
+            SyncPoint(usize),
+        }
+
+        #[derive(Resource, Default)]
+        struct Log(alloc::vec::Vec<Entry>);
+
+        fn system<const N: usize>(mut res: ResMut<Log>, mut commands: Commands) {
+            res.0.push(Entry::System(N));
+            commands
+                .queue(|world: &mut World| world.resource_mut::<Log>().0.push(Entry::SyncPoint(N)));
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Log>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system::<1>, system::<2>).chain_ignore_deferred());
+
+        // this should not clear the edges in the default pass
+        schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_apply_deferred: false,
+            ..Default::default()
+        });
+
+        schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_apply_deferred: true,
+            ..Default::default()
+        });
+        schedule.run(&mut world);
+        let log = world.remove_resource::<Log>().unwrap().0;
+        assert_eq!(
+            log,
+            alloc::vec![
+                Entry::System(1),
+                Entry::System(2),
+                Entry::SyncPoint(1),
+                Entry::SyncPoint(2)
+            ]
+        );
+    }
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]

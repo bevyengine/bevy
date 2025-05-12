@@ -11,6 +11,9 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
     /// Custom options for dependencies between sets or systems.
     type EdgeOptions: 'static;
 
+    /// Combines this build pass with one of the same type.
+    fn combine(&mut self, other: Self);
+
     /// Called when a dependency between sets or systems was explicitly added to the graph.
     fn add_dependency(&mut self, from: NodeId, to: NodeId, options: Option<&Self::EdgeOptions>);
 
@@ -34,7 +37,9 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
 }
 
 /// Object safe version of [`ScheduleBuildPass`].
-pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
+pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug + Any {
+    fn combine(&mut self, other: Box<dyn ScheduleBuildPassObj>);
+
     fn build(
         &mut self,
         world: &mut World,
@@ -52,6 +57,13 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
     fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &TypeIdMap<Box<dyn Any>>);
 }
 impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
+    fn combine(&mut self, other: Box<dyn ScheduleBuildPassObj>) {
+        let other = (other as Box<dyn Any>)
+            .downcast()
+            .expect("ScheduleBuildPassObj::combine should be used with the same type");
+        self.combine(*other);
+    }
+
     fn build(
         &mut self,
         world: &mut World,
