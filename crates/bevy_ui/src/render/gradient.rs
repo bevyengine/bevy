@@ -534,6 +534,12 @@ pub fn extract_gradients(
                             }
                         }));
 
+                        interpolate_color_stops(
+                            &mut extracted_color_stops.0[range_start..],
+                            0.,
+                            TAU,
+                        );
+
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
