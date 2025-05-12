@@ -21,8 +21,8 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
-use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },

@@ -28,12 +28,14 @@ use bevy_ecs::{
 };
 use bevy_render::{
     batching::gpu_preprocessing::{
-        BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingSupport,
-        IndirectBatchSet, IndirectParametersBuffers, IndirectParametersCpuMetadata,
-        IndirectParametersIndexed, IndirectParametersNonIndexed,
-        LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem, PreprocessWorkItemBuffers,
-        UntypedPhaseBatchedInstanceBuffers,
+        BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
+        GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
+        IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, IndirectParametersIndexed,
+        IndirectParametersNonIndexed, LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem,
+        PreprocessWorkItemBuffers, UntypedPhaseBatchedInstanceBuffers,
+        UntypedPhaseIndirectParametersBuffers,
     },
+    diagnostic::RecordDiagnostics,
     experimental::occlusion_culling::OcclusionCulling,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
@@ -48,12 +50,6 @@ use bevy_render::{
     settings::WgpuFeatures,
     view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSystems,
-};
-use bevy_render::{
-    batching::gpu_preprocessing::{
-        GpuPreprocessingMode, IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
-    },
-    diagnostic::RecordDiagnostics,
 };
 use bevy_utils::TypeIdMap;
 use bitflags::bitflags;
