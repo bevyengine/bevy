@@ -15,8 +15,8 @@ use crate::{
     extract_component::ExtractComponentPlugin,
     frame_graph::{
         ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraph,
-        FrameGraphTexture, PassBuilder, ResourceMeta, ResourceRead, ResourceWrite,
-        TexelCopyTextureInfo, TextureInfo, TextureViewDrawing, TextureViewInfo,
+        FrameGraphTexture, PassBuilder, ResourceMeta, TextureInfo, TextureViewDrawing,
+        TextureViewInfo,
     },
     prelude::Shader,
     primitives::Frustum,
@@ -45,8 +45,8 @@ use core::{
 };
 use std::sync::atomic::AtomicBool;
 use wgpu::{
-    BufferUsages, Color, Extent3d, LoadOp, Operations, Origin3d, StoreOp, TextureAspect,
-    TextureDimension, TextureFormat, TextureUsages,
+    BufferUsages, Color, Extent3d, LoadOp, Operations, StoreOp, TextureDimension, TextureFormat,
+    TextureUsages,
 };
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
@@ -723,7 +723,6 @@ pub struct NoCpuCulling;
 
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
-
 
     pub fn get_unsampled_attachment(
         &self,

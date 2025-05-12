@@ -62,6 +62,12 @@ pub trait IntoBindingResourceHandle {
     fn into_binding(self) -> BindingResourceHandle;
 }
 
+impl IntoBindingResourceHandle for BindingResourceHandle {
+    fn into_binding(self) -> BindingResourceHandle {
+        self.clone()
+    }
+}
+
 impl IntoBindingResourceHandle for &GraphResourceNodeHandle<FrameGraphBuffer> {
     fn into_binding(self) -> BindingResourceHandle {
         BindingResourceHandle::Buffer {
