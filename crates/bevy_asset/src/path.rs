@@ -1,4 +1,4 @@
-use crate::{hash_writer::HashWriter, io::AssetSourceId, meta::Settings};
+use crate::{io::AssetSourceId, meta::Settings};
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
@@ -6,11 +6,12 @@ use alloc::{
     sync::Arc,
 };
 use atomicow::CowArc;
+use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
     any::TypeId,
     fmt::{Debug, Display},
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
@@ -49,12 +50,9 @@ impl ErasedSettings {
         // Hash by serializing to RON. This means settings are not required to
         // implement Hash.
         // XXX TODO: Hashing via RON serialization is very debatable.
-        // XXX TODO: Could do ron::ser::to_string? Simpler and avoids needing
-        // HashWriter, but probably slower?
-        // XXX TODO: Could get fancy and implement a Serializer that hashes.
-        let mut hash_writer = HashWriter::default();
-        ron::ser::to_writer(&mut hash_writer, &settings).expect("XXX TODO?");
-        let hash = hash_writer.finish();
+        // XXX TODO: Allocating a string is bad. Should consider a small vec or
+        // hashing directly through the serializer.
+        let hash = FixedHasher.hash_one(ron::ser::to_string(&settings).expect("XXX TODO?"));
 
         ErasedSettings {
             value: Box::new(settings),
