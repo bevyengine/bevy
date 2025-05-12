@@ -4,7 +4,7 @@ authors: ["@Ickshonpe"]
 pull_requests: [18139]
 ---
 
-Support for UI node's that display a gradient that transitions smoothly between two or more colors. 
+Support for UI node's that display a gradient that transitions smoothly between two or more colors.
 
 To draw a UI node with a gradient insert the components `BackgroundGradient` and `BorderGradient`, which both newtype a vector of `Gradient`s. If you set a background color, the background color is drawn first and the gradient(s) are drawn on top.
 
