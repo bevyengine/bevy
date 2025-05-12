@@ -26,7 +26,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::TemporaryRenderEntity,
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
@@ -57,13 +57,13 @@ impl Plugin for GradientPlugin {
                 .init_resource::<SpecializedRenderPipelines<GradientPipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_gradients.in_set(RenderUiSystem::ExtractGradient),
+                    extract_gradients.in_set(RenderUiSystems::ExtractGradient),
                 )
                 .add_systems(
                     Render,
                     (
-                        queue_gradient.in_set(RenderSet::Queue),
-                        prepare_gradient.in_set(RenderSet::PrepareBindGroups),
+                        queue_gradient.in_set(RenderSystems::Queue),
+                        prepare_gradient.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
         }

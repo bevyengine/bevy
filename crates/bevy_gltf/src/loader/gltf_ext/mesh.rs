@@ -1,4 +1,4 @@
-use bevy_render::mesh::PrimitiveTopology;
+use bevy_mesh::PrimitiveTopology;
 
 use gltf::mesh::{Mesh, Mode, Primitive};
 
@@ -14,9 +14,12 @@ pub(crate) fn primitive_name(mesh: &Mesh<'_>, primitive: &Primitive) -> String {
 }
 
 /// Maps the `primitive_topology` from glTF to `wgpu`.
-#[expect(
-    clippy::result_large_err,
-    reason = "`GltfError` is only barely past the threshold for large errors."
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::result_large_err,
+        reason = "`GltfError` is only barely past the threshold for large errors."
+    )
 )]
 pub(crate) fn primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {

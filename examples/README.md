@@ -329,6 +329,7 @@ Example | Description
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
 [Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
+[State Scoped](../examples/ecs/state_scoped.rs) | Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states.
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
@@ -453,6 +454,7 @@ Example | Description
 [Custom Render Phase](../examples/shader/custom_render_phase.rs) | Shows how to make a complete render phase
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
 [Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
+[Extended Bindless Material](../examples/shader/extended_material_bindless.rs) | Demonstrates bindless `ExtendedMaterial`
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
@@ -557,6 +559,7 @@ Example | Description
 [Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
 [Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
+[Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
@@ -568,6 +571,7 @@ Example | Description
 [UI Texture Slice Flipping and Tiling](../examples/ui/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
+[Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
 
 ## Window

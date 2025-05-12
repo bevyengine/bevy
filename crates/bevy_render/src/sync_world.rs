@@ -3,7 +3,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHash;
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityBorrow, TrustedEntityBorrow},
+    entity::{ContainsEntity, Entity, EntityEquivalent},
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{Local, Query, ResMut, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
@@ -126,7 +126,8 @@ pub struct SyncToRenderWorld;
 /// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
 ///
 /// Can also be used as a newtype wrapper for render world entities.
-#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, Component)]
+#[component(clone_behavior = Ignore)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     #[inline]
@@ -141,14 +142,14 @@ impl From<Entity> for RenderEntity {
     }
 }
 
-impl EntityBorrow for RenderEntity {
+impl ContainsEntity for RenderEntity {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
-unsafe impl TrustedEntityBorrow for RenderEntity {}
+unsafe impl EntityEquivalent for RenderEntity {}
 
 /// Component added on the render world entities to keep track of the corresponding main world entity.
 ///
@@ -168,14 +169,14 @@ impl From<Entity> for MainEntity {
     }
 }
 
-impl EntityBorrow for MainEntity {
+impl ContainsEntity for MainEntity {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
-unsafe impl TrustedEntityBorrow for MainEntity {}
+unsafe impl EntityEquivalent for MainEntity {}
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
 pub type MainEntityHashMap<V> = HashMap<MainEntity, V, EntityHash>;

@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::{ComponentId, Tick},
-    entity::{unique_array::UniqueEntityArray, Entity, EntityBorrow, EntitySet},
+    entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::entity::{unique_slice::UniqueEntitySlice, TrustedEntityBorrow};
+use crate::entity::UniqueEntityEquivalentSlice;
 
 use alloc::vec::Vec;
 use core::{fmt, ptr};
@@ -287,7 +287,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
         let mut fetch_state = D::init_state(builder.world_mut());
         let filter_state = F::init_state(builder.world_mut());
-        D::set_access(&mut fetch_state, builder.access());
+
+        let mut component_access = FilteredAccess::default();
+        D::update_component_access(&fetch_state, &mut component_access);
+        D::provide_extra_access(
+            &mut fetch_state,
+            component_access.access_mut(),
+            builder.access().access(),
+        );
 
         let mut component_access = builder.access().clone();
 
@@ -452,8 +459,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
     /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
-    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
-    /// result for a match.
+    /// on non-archetypal filters such as [`Added`], [`Changed`] or [`Spawned`] which must individually check
+    /// each query result for a match.
     ///
     /// # Panics
     ///
@@ -461,6 +468,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// [`Added`]: crate::query::Added
     /// [`Changed`]: crate::query::Changed
+    /// [`Spawned`]: crate::query::Spawned
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
         self.validate_world(world.id());
@@ -753,29 +761,27 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut fetch_state = NewD::get_state(world.components()).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
         let filter_state = NewF::get_state(world.components()).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
-        fn to_readonly(mut access: FilteredAccess<ComponentId>) -> FilteredAccess<ComponentId> {
-            access.access_mut().clear_writes();
-            access
-        }
-
-        let self_access = if D::IS_READ_ONLY && self.component_access.access().has_any_write() {
+        let mut self_access = self.component_access.clone();
+        if D::IS_READ_ONLY {
             // The current state was transmuted from a mutable
             // `QueryData` to a read-only one.
             // Ignore any write access in the current state.
-            &to_readonly(self.component_access.clone())
-        } else {
-            &self.component_access
-        };
+            self_access.access_mut().clear_writes();
+        }
 
-        NewD::set_access(&mut fetch_state, self_access);
         NewD::update_component_access(&fetch_state, &mut component_access);
+        NewD::provide_extra_access(
+            &mut fetch_state,
+            component_access.access_mut(),
+            self_access.access(),
+        );
 
         let mut filter_component_access = FilteredAccess::default();
         NewF::update_component_access(&filter_state, &mut filter_component_access);
 
         component_access.extend(&filter_component_access);
         assert!(
-            component_access.is_subset(self_access),
+            component_access.is_subset(&self_access),
             "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
             core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>()
         );
@@ -787,7 +793,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             is_dense: self.is_dense,
             fetch_state,
             filter_state,
-            component_access: self.component_access.clone(),
+            component_access: self_access,
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
             #[cfg(feature = "trace")]
@@ -881,8 +887,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             }
         }
 
-        NewD::set_access(&mut new_fetch_state, &joined_component_access);
         NewD::update_component_access(&new_fetch_state, &mut component_access);
+        NewD::provide_extra_access(
+            &mut new_fetch_state,
+            component_access.access_mut(),
+            joined_component_access.access(),
+        );
 
         let mut new_filter_component_access = FilteredAccess::default();
         NewF::update_component_access(&new_filter_state, &mut new_filter_component_access);
@@ -984,7 +994,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
     /// ```
@@ -1005,7 +1015,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -1022,7 +1032,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
     /// ```
@@ -1078,7 +1088,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
@@ -1100,7 +1110,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// returned instead.
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -1124,7 +1134,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
@@ -1273,7 +1283,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s mut self,
         world: &'w World,
         entities: EntityList,
@@ -1296,7 +1306,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - [`iter_many`](Self::iter_many) to update archetypes.
     /// - [`iter_manual`](Self::iter_manual) to iterate over all query items.
     #[inline]
-    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s self,
         world: &'w World,
         entities: EntityList,
@@ -1309,7 +1319,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
     #[inline]
-    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s mut self,
         world: &'w mut World,
         entities: EntityList,
@@ -1452,7 +1462,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
-    /// # let wrong_entity = Entity::from_raw(57);
+    /// # let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// # let invalid_entity = world.spawn_empty().id();
     ///
     /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
@@ -1606,7 +1616,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
-        entity_list: &UniqueEntitySlice<E>,
+        entity_list: &UniqueEntityEquivalentSlice<E>,
         batch_size: usize,
         mut func: FN,
         last_run: Tick,
@@ -1614,7 +1624,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) where
         FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
-        E: TrustedEntityBorrow + Sync,
+        E: EntityEquivalent + Sync,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
@@ -1677,7 +1687,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
     ) where
         FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
-        E: EntityBorrow + Sync,
+        E: EntityEquivalent + Sync,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
@@ -1773,7 +1783,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// fn my_system(query: Query<&A>) -> Result {
     ///  let a = query.single()?;
-    ///  
+    ///
     ///  // Do something with `a`
     ///  Ok(())
     /// }
@@ -1791,16 +1801,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query(world).single_inner()
     }
 
-    /// A deprecated alias for [`QueryState::single`].
-    #[deprecated(since = "0.16.0", note = "Please use `single` instead.")]
-    #[inline]
-    pub fn get_single<'w>(
-        &mut self,
-        world: &'w World,
-    ) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
-        self.single(world)
-    }
-
     /// Returns a single mutable query result when there is exactly one entity matching
     /// the query.
     ///
@@ -1816,15 +1816,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &'w mut World,
     ) -> Result<D::Item<'w>, QuerySingleError> {
         self.query_mut(world).single_inner()
-    }
-
-    /// A deprecated alias for [`QueryState::single_mut`].
-    #[deprecated(since = "0.16.0", note = "Please use `single` instead.")]
-    pub fn get_single_mut<'w>(
-        &mut self,
-        world: &'w mut World,
-    ) -> Result<D::Item<'w>, QuerySingleError> {
-        self.single_mut(world)
     }
 
     /// Returns a query result when there is exactly one entity matching the query.
@@ -1894,7 +1885,7 @@ mod tests {
         let world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
-        let _panics = query_state.get(&world_2, Entity::from_raw(0));
+        let _panics = query_state.get(&world_2, Entity::from_raw_u32(0).unwrap());
     }
 
     #[test]
@@ -2062,12 +2053,12 @@ mod tests {
     fn can_transmute_filtered_entity() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
-        let query =
-            QueryState::<(Entity, &A, &B)>::new(&mut world).transmute::<FilteredEntityRef>(&world);
+        let query = QueryState::<(Entity, &A, &B)>::new(&mut world)
+            .transmute::<(Entity, FilteredEntityRef)>(&world);
 
         let mut query = query;
         // Our result is completely untyped
-        let entity_ref = query.single(&world).unwrap();
+        let (_entity, entity_ref) = query.single(&world).unwrap();
 
         assert_eq!(entity, entity_ref.id());
         assert_eq!(0, entity_ref.get::<A>().unwrap().0);
@@ -2285,11 +2276,11 @@ mod tests {
 
         let query_1 = QueryState::<&mut A>::new(&mut world);
         let query_2 = QueryState::<&mut B>::new(&mut world);
-        let mut new_query: QueryState<FilteredEntityMut> = query_1.join(&world, &query_2);
+        let mut new_query: QueryState<(Entity, FilteredEntityMut)> = query_1.join(&world, &query_2);
 
-        let mut entity = new_query.single_mut(&mut world).unwrap();
-        assert!(entity.get_mut::<A>().is_some());
-        assert!(entity.get_mut::<B>().is_some());
+        let (_entity, mut entity_mut) = new_query.single_mut(&mut world).unwrap();
+        assert!(entity_mut.get_mut::<A>().is_some());
+        assert!(entity_mut.get_mut::<B>().is_some());
     }
 
     #[test]
@@ -2313,6 +2304,10 @@ mod tests {
 
         // Has should bypass the filter entirely
         let mut query = QueryState::<Has<C>>::new(&mut world);
+        assert_eq!(3, query.iter(&world).count());
+
+        // Allows should bypass the filter entirely
+        let mut query = QueryState::<(), Allows<C>>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
         // Other filters should still be respected

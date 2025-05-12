@@ -1,14 +1,14 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{Entity, EntityHashMap},
     event::{Event, EventCursor, Events},
     hierarchy::ChildOf,
     reflect::AppTypeRegistry,
     resource::Resource,
     world::{Mut, World},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
 use thiserror::Error;
 use uuid::Uuid;
@@ -331,10 +331,7 @@ impl SceneSpawner {
                 Ok(_) => {
                     self.spawned_instances
                         .insert(instance_id, InstanceInfo { entity_map });
-                    let spawned = self
-                        .spawned_dynamic_scenes
-                        .entry(handle.id())
-                        .or_insert_with(HashSet::default);
+                    let spawned = self.spawned_dynamic_scenes.entry(handle.id()).or_default();
                     spawned.insert(instance_id);
 
                     // Scenes with parents need more setup before they are ready.
@@ -892,30 +889,15 @@ mod tests {
         // Spawn entities with different parent first before parenting them to the actual root, allowing us
         // to decouple child order from archetype-creation-order
         let child1 = scene_world
-            .spawn((
-                ChildOf {
-                    parent: temporary_root,
-                },
-                ComponentA { x: 1.0, y: 1.0 },
-            ))
+            .spawn((ChildOf(temporary_root), ComponentA { x: 1.0, y: 1.0 }))
             .id();
         let child2 = scene_world
-            .spawn((
-                ChildOf {
-                    parent: temporary_root,
-                },
-                ComponentA { x: 2.0, y: 2.0 },
-            ))
+            .spawn((ChildOf(temporary_root), ComponentA { x: 2.0, y: 2.0 }))
             .id();
         // the "first" child is intentionally spawned with a different component to force it into a "newer" archetype,
         // meaning it will be iterated later in the spawn code.
         let child0 = scene_world
-            .spawn((
-                ChildOf {
-                    parent: temporary_root,
-                },
-                ComponentF,
-            ))
+            .spawn((ChildOf(temporary_root), ComponentF))
             .id();
 
         scene_world
@@ -930,7 +912,7 @@ mod tests {
         app.update();
         let world = app.world_mut();
 
-        let spawned_root = world.entity(spawned).get::<Children>().unwrap()[0];
+        let spawned_root = world.entity(spawned).get::<Children>().unwrap()[1];
         let children = world.entity(spawned_root).get::<Children>().unwrap();
         assert_eq!(children.len(), 3);
         assert!(world.entity(children[0]).get::<ComponentF>().is_some());

@@ -13,7 +13,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-dds = ["bevy_render/dds", "bevy_image/dds"]
 trace = []
 webgl = []
 webgpu = []
@@ -34,7 +33,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
   "serialize",
 ] }

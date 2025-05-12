@@ -214,7 +214,7 @@ impl_reflect_opaque!(::core::time::Duration(
     Deserialize,
     Default
 ));
-impl_reflect_opaque!(::bevy_platform_support::time::Instant(
+impl_reflect_opaque!(::bevy_platform::time::Instant(
     Clone, Debug, Hash, PartialEq
 ));
 impl_reflect_opaque!(::core::num::NonZeroI128(
@@ -315,7 +315,7 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
 ));
 impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>(Clone));
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>(Clone));
-impl_reflect_opaque!(::bevy_platform_support::sync::Arc<T: Send + Sync + ?Sized>(Clone));
+impl_reflect_opaque!(::bevy_platform::sync::Arc<T: Send + Sync + ?Sized>(Clone));
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
@@ -990,10 +990,23 @@ crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
     >
 );
 
-impl_reflect_for_hashmap!(bevy_platform_support::collections::HashMap<K, V, S>);
-impl_type_path!(::bevy_platform_support::collections::HashMap<K, V, S>);
+impl_reflect_for_hashmap!(bevy_platform::collections::HashMap<K, V, S>);
+impl_type_path!(::bevy_platform::collections::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashMap<K, V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform::collections::HashMap<K, V, S>;
+    <
+        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
+
+#[cfg(feature = "hashbrown")]
+impl_reflect_for_hashmap!(hashbrown::hash_map::HashMap<K, V, S>);
+#[cfg(feature = "hashbrown")]
+impl_type_path!(::hashbrown::hash_map::HashMap<K, V, S>);
+#[cfg(all(feature = "functions", feature = "hashbrown"))]
+crate::func::macros::impl_function_traits!(::hashbrown::hash_map::HashMap<K, V, S>;
     <
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
         V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1206,8 +1219,17 @@ macro_rules! impl_reflect_for_hashset {
     };
 }
 
-impl_type_path!(::bevy_platform_support::hash::NoOpHash);
-impl_type_path!(::bevy_platform_support::hash::FixedHasher);
+impl_type_path!(::bevy_platform::hash::NoOpHash);
+impl_type_path!(::bevy_platform::hash::FixedHasher);
+impl_type_path!(::bevy_platform::hash::PassHash);
+impl_reflect_opaque!(::core::net::SocketAddr(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
 
 #[cfg(feature = "std")]
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
@@ -1221,10 +1243,22 @@ crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
     >
 );
 
-impl_reflect_for_hashset!(::bevy_platform_support::collections::HashSet<V,S>);
-impl_type_path!(::bevy_platform_support::collections::HashSet<V, S>);
+impl_reflect_for_hashset!(::bevy_platform::collections::HashSet<V,S>);
+impl_type_path!(::bevy_platform::collections::HashSet<V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashSet<V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform::collections::HashSet<V, S>;
+    <
+        V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
+
+#[cfg(feature = "hashbrown")]
+impl_reflect_for_hashset!(::hashbrown::hash_set::HashSet<V,S>);
+#[cfg(feature = "hashbrown")]
+impl_type_path!(::hashbrown::hash_set::HashSet<V, S>);
+#[cfg(all(feature = "functions", feature = "hashbrown"))]
+crate::func::macros::impl_function_traits!(::hashbrown::hash_set::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
@@ -1283,21 +1317,6 @@ where
             ));
         }
         result
-    }
-
-    fn clone_dynamic(&self) -> DynamicMap {
-        let mut dynamic_map = DynamicMap::default();
-        dynamic_map.set_represented_type(self.get_represented_type_info());
-        for (k, v) in self {
-            let key = K::from_reflect(k).unwrap_or_else(|| {
-                panic!(
-                    "Attempted to clone invalid key of type {}.",
-                    k.reflect_type_path()
-                )
-            });
-            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
-        }
-        dynamic_map
     }
 
     fn insert_boxed(
@@ -2588,8 +2607,8 @@ mod tests {
         Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
-    use bevy_platform_support::collections::HashMap;
-    use bevy_platform_support::time::Instant;
+    use bevy_platform::collections::HashMap;
+    use bevy_platform::time::Instant;
     use core::{
         f32::consts::{PI, TAU},
         time::Duration,
@@ -2839,5 +2858,16 @@ mod tests {
         let expected = "Hello, World!";
         let output = <&'static str as FromReflect>::from_reflect(&expected).unwrap();
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_reflect_hashmaps() {
+        assert_impl_all!(std::collections::HashMap<u32, f32>: Reflect);
+        assert_impl_all!(bevy_platform::collections::HashMap<u32, f32>: Reflect);
+
+        // We specify `foldhash::fast::RandomState` directly here since without the `default-hasher`
+        // feature, hashbrown uses an empty enum to force users to specify their own
+        #[cfg(feature = "hashbrown")]
+        assert_impl_all!(hashbrown::HashMap<u32, f32, foldhash::fast::RandomState>: Reflect);
     }
 }

@@ -152,7 +152,7 @@ for more information about `devShells`.
 Note that this template does not add Rust to the environment because there are many ways to do it.
 For example, to use stable Rust from nixpkgs, you can add `cargo` and `rustc` to `nativeBuildInputs`.
 
-[Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ju/jumpy/package.nix)
+[Here]([https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ju/jumpy/package.nix](https://github.com/NixOS/nixpkgs/blob/0da3c44a9460a26d2025ec3ed2ec60a895eb1114/pkgs/games/jumpy/default.nix))
 is an example of packaging a Bevy program in nix.
 
 ## [OpenSUSE](https://www.opensuse.org/)

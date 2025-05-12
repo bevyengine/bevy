@@ -132,7 +132,7 @@ pub fn ui_layout_system(
                 // Note: This does not cover the case where a parent's Node component was removed.
                 // Users are responsible for fixing hierarchies if they do that (it is not recommended).
                 // Detecting it here would be a permanent perf burden on the hot path.
-                if child_of.is_changed() && !ui_children.is_ui_node(child_of.parent) {
+                if child_of.is_changed() && !ui_children.is_ui_node(child_of.parent()) {
                     warn!(
                         "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, your UI layout may be broken."
@@ -353,11 +353,12 @@ mod tests {
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
+    use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::{
         prelude::GlobalTransform,
-        systems::{compute_transform_leaves, propagate_parent_transforms, sync_simple_transforms},
+        systems::{propagate_parent_transforms, sync_simple_transforms},
     };
     use bevy_utils::prelude::default;
     use bevy_window::{
@@ -410,9 +411,9 @@ mod tests {
                 update_ui_context_system,
                 ApplyDeferred,
                 ui_layout_system,
+                mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
             )
                 .chain(),
         );
@@ -1040,7 +1041,7 @@ mod tests {
 
         let (mut world, ..) = setup_ui_test_world();
 
-        let root_node_entity = Entity::from_raw(1);
+        let root_node_entity = Entity::from_raw_u32(1).unwrap();
 
         struct TestSystemParam {
             root_node_entity: Entity,
