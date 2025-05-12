@@ -52,7 +52,7 @@ impl ErasedSettings {
         // XXX TODO: Could do ron::ser::to_string? Simpler and avoids needing
         // HashWriter, but probably slower?
         // XXX TODO: Could get fancy and implement a Serializer that hashes.
-        let mut hash_writer = HashWriter::new();
+        let mut hash_writer = HashWriter::default();
         ron::ser::to_writer(&mut hash_writer, &settings).expect("XXX TODO?");
         let hash = hash_writer.finish();
 

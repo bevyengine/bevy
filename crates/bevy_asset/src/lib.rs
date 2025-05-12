@@ -153,6 +153,8 @@ extern crate std;
 extern crate self as bevy_asset;
 
 pub mod io;
+// XXX TODO: Would prefer this not to be pub. See comment at top of `hash_writer.rs`.
+pub mod hash_writer;
 pub mod meta;
 pub mod processor;
 pub mod saver;
@@ -178,7 +180,6 @@ mod direct_access_ext;
 mod event;
 mod folder;
 mod handle;
-mod hash_writer;
 mod id;
 mod loader;
 mod loader_builders;
