@@ -66,15 +66,15 @@ pub mod prelude {
     };
 }
 
-use bevy_app::{prelude::*, Animation};
+use bevy_app::{prelude::*, AnimationSystems};
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
-use bevy_asset::{AssetApp, AssetEvents};
+use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
+    camera::CameraUpdateSystems, view::VisibilitySystems, ExtractSchedule, RenderApp,
 };
-use bevy_sprite::SpriteSystem;
+use bevy_sprite::SpriteSystems;
 
 /// The raw data for the default font used by `bevy_text`
 #[cfg(feature = "default_font")]
@@ -89,7 +89,11 @@ pub struct TextPlugin;
 
 /// System set in [`PostUpdate`] where all 2d text update systems are executed.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct Update2dText;
+pub struct Text2dUpdateSystems;
+
+/// Deprecated alias for [`Text2dUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
+pub type Update2dText = Text2dUpdateSystems;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
@@ -113,26 +117,26 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    remove_dropped_font_atlas_sets.before(AssetEvents),
+                    remove_dropped_font_atlas_sets.before(AssetEventSystems),
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout
                         // Potential conflict: `Assets<Image>`
                         // In practice, they run independently since `bevy_render::camera_update_system`
                         // will only ever observe its own render target, and `update_text2d_layout`
                         // will never modify a pre-existing `Image` asset.
-                        .ambiguous_with(CameraUpdateSystem),
+                        .ambiguous_with(CameraUpdateSystems),
                     calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
                 )
                     .chain()
-                    .in_set(Update2dText)
-                    .after(Animation),
+                    .in_set(Text2dUpdateSystems)
+                    .after(AnimationSystems),
             )
             .add_systems(Last, trim_cosmic_cache);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 ExtractSchedule,
-                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+                extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
             );
         }
 

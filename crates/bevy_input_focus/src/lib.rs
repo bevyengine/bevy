@@ -136,7 +136,7 @@ pub struct InputFocusVisible(pub bool);
 /// If no entity has input focus, then the event is dispatched to the main window.
 ///
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
-/// in the [`InputFocusSet::Dispatch`] system set during [`PreUpdate`].
+/// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct FocusedInput<E: Event + Clone> {
@@ -195,7 +195,7 @@ impl Plugin for InputDispatchPlugin {
                     dispatch_focused_input::<GamepadButtonChangedEvent>,
                     dispatch_focused_input::<MouseWheel>,
                 )
-                    .in_set(InputFocusSet::Dispatch),
+                    .in_set(InputFocusSystems::Dispatch),
             );
 
         #[cfg(feature = "bevy_reflect")]
@@ -209,10 +209,14 @@ impl Plugin for InputDispatchPlugin {
 ///
 /// These systems run in the [`PreUpdate`] schedule.
 #[derive(SystemSet, Debug, PartialEq, Eq, Hash, Clone)]
-pub enum InputFocusSet {
+pub enum InputFocusSystems {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     Dispatch,
 }
+
+/// Deprecated alias for [`InputFocusSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `InputFocusSystems`.")]
+pub type InputFocusSet = InputFocusSystems;
 
 /// Sets the initial focus to the primary window, if any.
 pub fn set_initial_focus(

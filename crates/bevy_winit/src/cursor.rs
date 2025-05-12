@@ -39,6 +39,13 @@ use tracing::warn;
 #[cfg(feature = "custom_cursor")]
 pub use crate::custom_cursor::{CustomCursor, CustomCursorImage};
 
+#[cfg(all(
+    feature = "custom_cursor",
+    target_family = "wasm",
+    target_os = "unknown"
+))]
+pub use crate::custom_cursor::CustomCursorUrl;
+
 pub(crate) struct CursorPlugin;
 
 impl Plugin for CursorPlugin {

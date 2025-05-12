@@ -24,7 +24,7 @@ use bevy_math::{
 };
 use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 
 use crate::{
     config::{GizmoConfigGroup, GizmoConfigStore},
@@ -126,7 +126,7 @@ impl Plugin for LightGizmoPlugin {
                         config.config::<LightGizmoConfigGroup>().1.draw_all
                     }),
                 )
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystems::Propagate),
             );
     }
 }
