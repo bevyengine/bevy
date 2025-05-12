@@ -62,6 +62,9 @@ fn update_speed(music_controller: Query<&AudioSink, With<MyMusic>>, time: Res<Ti
     let Ok(sink) = music_controller.single() else {
         return;
     };
+    if sink.is_paused() {
+        return;
+    }
 
     sink.set_speed((ops::sin(time.elapsed_secs() / 5.0) + 1.0).max(0.1));
 }
