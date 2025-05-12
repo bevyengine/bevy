@@ -262,6 +262,7 @@ macro_rules! impl_componentwise_vector_space {
         }
 
         impl bevy_math::VectorSpace for $ty {
+            type Scalar = f32;
             const ZERO: Self = Self {
                 $($element: 0.0,)+
             };
