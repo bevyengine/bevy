@@ -8,10 +8,11 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_render::{
-    camera::ExtractedCamera, render_graph::*, render_phase::*,
-    render_resource::CachedRenderPipelineId, view::*,
+    camera::ExtractedCamera, frame_graph::PassBuilder, render_graph::*, render_phase::*,
+    render_resource::CachedRenderPipelineId, renderer::RenderDevice, view::*,
 };
 use bevy_render::{frame_graph::FrameGraph, sync_world::MainEntity};
+use tracing::error;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,
@@ -38,10 +39,67 @@ impl Node for UiPassNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        _render_context: &mut FrameGraph,
-        _world: &World,
+        graph: &mut RenderGraphContext,
+        frame_graph: &mut FrameGraph,
+        world: &World,
     ) -> Result<(), NodeRunError> {
+        let input_view_entity = graph.view_entity();
+
+        let Some(transparent_render_phases) =
+            world.get_resource::<ViewSortedRenderPhases<TransparentUi>>()
+        else {
+            return Ok(());
+        };
+
+        let Ok((view, ui_view_target)) = self.ui_view_query.get_manual(world, input_view_entity)
+        else {
+            return Ok(());
+        };
+
+        let Ok((target, camera)) = self
+            .ui_view_target_query
+            .get_manual(world, ui_view_target.0)
+        else {
+            return Ok(());
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get(&view.retained_view_entity)
+        else {
+            return Ok(());
+        };
+
+        if transparent_phase.items.is_empty() {
+            return Ok(());
+        }
+
+        let view_entity = if let Ok(ui_camera_view) = self
+            .ui_camera_view_query
+            .get_manual(world, input_view_entity)
+        {
+            ui_camera_view.0
+        } else {
+            input_view_entity
+        };
+
+        let mut pass_builder = PassBuilder::new(frame_graph.create_pass_node_bulder("ui_pass"));
+
+        let color_attachment = target.get_unsampled_attachment(&mut pass_builder);
+
+        let render_device = world.resource::<RenderDevice>();
+
+        let mut render_pass_builder = pass_builder.create_render_pass_builder();
+
+        render_pass_builder
+            .set_pass_name("ui_pass")
+            .add_color_attachment(color_attachment)
+            .set_camera_viewport(camera.viewport.clone());
+
+        let mut tracked_render_pass = TrackedRenderPass::new(&render_device, render_pass_builder);
+
+        if let Err(err) = transparent_phase.render(&mut tracked_render_pass, world, view_entity) {
+            error!("Error encountered while rendering the ui phase {err:?}");
+        }
+
         Ok(())
     }
 }
