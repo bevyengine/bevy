@@ -108,26 +108,26 @@ pub struct AngularColorStop {
     /// This means that a list of stops:
     /// ```
     /// # use std::f32::consts::TAU;
-    /// # use bevy_ui::ColorStop;
+    /// # use bevy_ui::AngularColorStop;
     /// # use bevy_color::{Color, palettes::css::{RED, BLUE}};
-    /// [
-    ///     ColorStop::new(Color::WHITE, 0.),
-    ///     ColorStop::new(Color::BLACK, -1.),
-    ///     ColorStop::new(RED, 2. * TAU),
-    ///     ColorStop::new(BLUE, TAU),
-    /// ]
+    /// let stops = [
+    ///     AngularColorStop::new(Color::WHITE, 0.),
+    ///     AngularColorStop::new(Color::BLACK, -1.),
+    ///     AngularColorStop::new(RED, 2. * TAU),
+    ///     AngularColorStop::new(BLUE, TAU),
+    /// ];
     /// ```
     /// is equivalent to:
     /// ```
     /// # use std::f32::consts::TAU;
-    /// # use bevy_ui::ColorStop;
+    /// # use bevy_ui::AngularColorStop;
     /// # use bevy_color::{Color, palettes::css::{RED, BLUE}};
-    /// [
-    ///     ColorStop::new(Color::WHITE, 0.),
-    ///     ColorStop::new(Color::BLACK, 0.),
-    ///     ColorStop::new(RED, TAU),
-    ///     ColorStop::new(BLUE, TAU),
-    /// ]
+    /// let stops = [
+    ///     AngularColorStop::new(Color::WHITE, 0.),
+    ///     AngularColorStop::new(Color::BLACK, 0.),
+    ///     AngularColorStop::new(RED, TAU),
+    ///     AngularColorStop::new(BLUE, TAU),
+    /// ];
     /// ```
     /// Resulting in a black to red gradient, not white to blue.
     pub angle: Option<f32>,
