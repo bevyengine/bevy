@@ -6,8 +6,9 @@ use bevy_core_pipeline::{
     prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
+use bevy_derive::Deref;
 use bevy_ecs::{
-    prelude::{Component, Entity},
+    prelude::{not, resource_exists, Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
@@ -15,6 +16,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
@@ -31,7 +33,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
-    texture::{CachedTexture, TextureCache},
+    texture::{CachedTexture, FallbackImageMsaa, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -107,6 +109,12 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         render_app
             .init_resource::<SsaoPipelines>()
             .init_resource::<SpecializedComputePipelines<SsaoPipelines>>()
+            .add_systems(
+                ExtractSchedule,
+                build_ssao_fallback_image.run_if(not(resource_exists::<
+                    ScreenSpaceAmbientOcclusionFallbackImage,
+                >)),
+            )
             .add_systems(ExtractSchedule, extract_ssao_settings)
             .add_systems(
                 Render,
@@ -786,4 +794,15 @@ fn hilbert_index(mut x: u16, mut y: u16) -> u16 {
     }
 
     index
+}
+
+#[derive(Resource, Deref)]
+pub struct ScreenSpaceAmbientOcclusionFallbackImage(TextureView);
+
+fn build_ssao_fallback_image(mut commands: Commands, mut fallback_images: FallbackImageMsaa) {
+    let fallback_ssao = fallback_images
+        .image_for_samplecount(1, TextureFormat::bevy_default())
+        .texture_view
+        .clone();
+    commands.insert_resource(ScreenSpaceAmbientOcclusionFallbackImage(fallback_ssao));
 }

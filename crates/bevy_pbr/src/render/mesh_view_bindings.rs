@@ -1,7 +1,19 @@
-use alloc::sync::Arc;
+use alloc::{collections::BTreeMap, sync::Arc};
+use core::{
+    array,
+    error::Error,
+    fmt::Display,
+    num::NonZero,
+    ops::{Deref, RangeInclusive},
+};
+use smallvec::SmallVec;
+
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
-    oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
+    oit::{
+        resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings,
+        OrderIndependentTransparencySettingsOffset,
+    },
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -11,32 +23,36 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::Has,
+    name::Name,
+    query::With,
     resource::Resource,
     system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::Vec4;
+use bevy_platform::collections::HashSet;
+#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+use bevy_render::render_resource::binding_types::texture_cube;
 use bevy_render::{
+    camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderAdapter, RenderDevice},
-    texture::{FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
+    texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
-        Msaa, RenderVisibilityRanges, ViewUniform, ViewUniforms,
+        ExtractedView, Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
-use core::{array, num::NonZero};
-use environment_map::EnvironmentMapLight;
+use bevy_tasks::{ComputeTaskPool, TaskPool};
 
 use crate::{
     decal::{
         self,
         clustered::{
-            DecalsBuffer, RenderClusteredDecals, RenderViewClusteredDecalBindGroupEntries,
+            clustered_decals_are_usable, DecalsBuffer, RenderClusteredDecals,
+            RenderViewClusteredDecalBindGroupEntries,
         },
     },
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
@@ -46,16 +62,18 @@ use crate::{
     },
     prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
-    MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
-    ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
-    ViewClusterBindings, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionFallbackImage,
+    ScreenSpaceAmbientOcclusionResources, ScreenSpaceReflectionsBuffer,
+    ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
-
-#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-use bevy_render::render_resource::binding_types::texture_cube;
 
 #[cfg(debug_assertions)]
 use {crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, tracing::warn};
+
+use environment_map::EnvironmentMapLight;
 
 #[derive(Clone)]
 pub struct MeshPipelineViewLayout {
@@ -499,127 +517,641 @@ pub fn generate_view_layouts(
 #[derive(Component)]
 pub struct MeshViewBindGroup {
     pub value: BindGroup,
+    pub offsets: SmallVec<[u32; 8]>,
 }
+
+pub type MeshViewBindGroupFetcher =
+    for<'b> fn(
+        &'b World,
+        Entity,
+    ) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>>;
+
+pub type MeshViewBindGroupOffsetFetcher =
+    for<'b> fn(&'b World, Entity) -> Vec<Result<u32, MeshViewBindGroupFetchError>>;
+
+pub struct MeshViewBindGroupBindingsBlock {
+    range: RangeInclusive<u32>,
+    bindings: MeshViewBindGroupFetcher,
+    offset: MeshViewBindGroupOffsetFetcher,
+}
+
+impl MeshViewBindGroupBindingsBlock {
+    fn fetch<'b>(
+        &self,
+        world: &'b World,
+        view: Entity,
+    ) -> Vec<Result<(u32, WrappedBindingResource<'b>, Option<u32>), MeshViewBindGroupFetchError>>
+    {
+        let bindings = (self.bindings)(world, view);
+        assert_eq!(
+            bindings.len(),
+            (self.range.end() - self.range.start() + 1) as usize,
+            "Fetcher must return the same number of bindings as the block range."
+        );
+        let offsets = (self.offset)(world, view);
+        assert_eq!(
+            offsets.len(),
+            (self.range.end() - self.range.start() + 1) as usize,
+            "Fetcher must return the same number of offsets as the block range."
+        );
+
+        self.range
+            .clone()
+            .zip(bindings)
+            .zip(offsets)
+            .map(|((binding_id, binding), offset)| {
+                let offset = match offset {
+                    Ok(offset) => Some(offset),
+                    Err(MeshViewBindGroupFetchError::Skipped) => None,
+                    Err(err @ MeshViewBindGroupFetchError::Missing(_)) => return Err(err),
+                };
+                binding.map(|wrapped| (binding_id, wrapped, offset))
+            })
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeshViewBindGroupFetchError {
+    // TODO add binding
+    Missing(&'static str),
+    Skipped,
+}
+
+impl Display for MeshViewBindGroupFetchError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Missing(resource_or_component) => write!(
+                f,
+                "Binding group could not be built because could not fetch {}.",
+                resource_or_component
+            ),
+            Self::Skipped => write!(f, "Binding can be skipped."),
+        }
+    }
+}
+
+impl Error for MeshViewBindGroupFetchError {}
+
+pub enum WrappedBindingResource<'b> {
+    BindingResource(BindingResource<'b>),
+    OwnedTextureView(TextureView),
+    OwnedTextureViewArray(Vec<&'b <TextureView as Deref>::Target>),
+}
+
+impl<'b> From<BindingResource<'b>> for WrappedBindingResource<'b> {
+    fn from(value: BindingResource<'b>) -> Self {
+        Self::BindingResource(value)
+    }
+}
+
+#[derive(Resource)]
+pub struct MeshViewBindGroupSources<T> {
+    state: T,
+    layout_key: Vec<fn(&World, Entity) -> MeshPipelineViewLayoutKey>,
+    fetchers: Vec<MeshViewBindGroupBindingsBlock>,
+}
+
+#[derive(Default)]
+pub struct LockedMeshViewBindGroupSources;
+
+#[derive(Default)]
+pub struct BuildingMeshViewBindGroupSource {
+    used_bindings: HashSet<u32>,
+}
+
+impl<T: Default> MeshViewBindGroupSources<T> {
+    pub fn new() -> Self {
+        Self {
+            state: T::default(),
+            layout_key: Vec::new(),
+            fetchers: Vec::new(),
+        }
+    }
+}
+
+impl MeshViewBindGroupSources<BuildingMeshViewBindGroupSource> {
+    pub fn push_key(&mut self, layout_key: fn(&World, Entity) -> MeshPipelineViewLayoutKey) {
+        self.layout_key.push(layout_key);
+    }
+
+    pub fn push_source(
+        &mut self,
+        block: RangeInclusive<u32>,
+        bindings: MeshViewBindGroupFetcher,
+        offset: MeshViewBindGroupOffsetFetcher,
+    ) -> Result<(), BindingsAlreadyInUse> {
+        let bindings_block = MeshViewBindGroupBindingsBlock {
+            range: block,
+            bindings,
+            offset,
+        };
+
+        let reused = bindings_block
+            .range
+            .clone()
+            .filter(|binding| self.state.used_bindings.contains(binding))
+            .collect::<Vec<_>>();
+
+        if reused.is_empty() {
+            self.state
+                .used_bindings
+                .extend(bindings_block.range.clone());
+            self.fetchers.push(bindings_block);
+            Ok(())
+        } else {
+            Err(BindingsAlreadyInUse(reused))
+        }
+    }
+}
+
+impl<T: Default> Default for MeshViewBindGroupSources<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug)]
+pub struct BindingsAlreadyInUse(Vec<u32>);
+
+impl Display for BindingsAlreadyInUse {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Bindings {:?} already in use.", self.0)
+    }
+}
+
+impl Error for BindingsAlreadyInUse {}
 
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
-    (render_device, render_adapter): (Res<RenderDevice>, Res<RenderAdapter>),
+    world: &World,
+    views: Query<Entity, (With<ExtractedView>, With<ExtractedCamera>)>,
+    names: Query<&Name, (With<ExtractedView>, With<ExtractedCamera>)>,
+    sources: Res<MeshViewBindGroupSources<LockedMeshViewBindGroupSources>>,
     mesh_pipeline: Res<MeshPipeline>,
-    shadow_samplers: Res<ShadowSamplers>,
-    (light_meta, global_light_meta): (Res<LightMeta>, Res<GlobalClusterableObjectMeta>),
-    fog_meta: Res<FogMeta>,
-    (view_uniforms, environment_map_uniform): (Res<ViewUniforms>, Res<EnvironmentMapUniformBuffer>),
-    views: Query<(
-        Entity,
-        &ViewShadowBindings,
-        &ViewClusterBindings,
-        &Msaa,
-        Option<&ScreenSpaceAmbientOcclusionResources>,
-        Option<&ViewPrepassTextures>,
-        Option<&ViewTransmissionTexture>,
-        &Tonemapping,
-        Option<&RenderViewLightProbes<EnvironmentMapLight>>,
-        Option<&RenderViewLightProbes<IrradianceVolume>>,
-        Has<OrderIndependentTransparencySettings>,
-    )>,
-    (images, mut fallback_images, fallback_image, fallback_image_zero): (
-        Res<RenderAssets<GpuImage>>,
-        FallbackImageMsaa,
-        Res<FallbackImage>,
-        Res<FallbackImageZero>,
-    ),
-    globals_buffer: Res<GlobalsBuffer>,
-    tonemapping_luts: Res<TonemappingLuts>,
-    light_probes_buffer: Res<LightProbesBuffer>,
-    visibility_ranges: Res<RenderVisibilityRanges>,
-    ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
-    oit_buffers: Res<OitBuffers>,
-    (decals_buffer, render_decals): (Res<DecalsBuffer>, Res<RenderClusteredDecals>),
+    render_device: Res<RenderDevice>,
 ) {
-    if let (
-        Some(view_binding),
-        Some(light_binding),
-        Some(clusterable_objects_binding),
-        Some(globals),
-        Some(fog_binding),
-        Some(light_probes_binding),
-        Some(visibility_ranges_buffer),
-        Some(ssr_binding),
-        Some(environment_map_binding),
-    ) = (
-        view_uniforms.uniforms.binding(),
-        light_meta.view_gpu_lights.binding(),
-        global_light_meta.gpu_clusterable_objects.binding(),
-        globals_buffer.buffer.binding(),
-        fog_meta.gpu_fogs.binding(),
-        light_probes_buffer.binding(),
-        visibility_ranges.buffer().buffer(),
-        ssr_buffer.binding(),
-        environment_map_uniform.binding(),
-    ) {
-        for (
-            entity,
-            shadow_bindings,
-            cluster_bindings,
-            msaa,
-            ssao_resources,
-            prepass_textures,
-            transmission_texture,
-            tonemapping,
-            render_view_environment_maps,
-            render_view_irradiance_volumes,
-            has_oit,
-        ) in &views
-        {
-            let fallback_ssao = fallback_images
-                .image_for_samplecount(1, TextureFormat::bevy_default())
-                .texture_view
-                .clone();
-            let ssao_view = ssao_resources
-                .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
-                .unwrap_or(&fallback_ssao);
+    const MIN_VIEW_FOR_PARALLEL: usize = 4;
 
-            let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
-                | MeshPipelineViewLayoutKey::from(prepass_textures);
-            if has_oit {
-                layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+    if views.iter().len() <= MIN_VIEW_FOR_PARALLEL {
+        for view in views {
+            if let Some((view, view_bind_group)) = prepare_mesh_bind_groups_task(
+                world,
+                view,
+                &sources,
+                &mesh_pipeline,
+                &render_device,
+                &names,
+            ) {
+                commands.entity(view).insert(view_bind_group);
             }
+        }
+    } else {
+        let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
+        commands.insert_batch(
+            task_pool
+                .scope(|scope| {
+                    for view in views {
+                        let mesh_pipeline_ref = &mesh_pipeline;
+                        let names_ref = &names;
+                        let sources_ref = &sources;
+                        let render_device_ref = &render_device;
 
-            let layout = &mesh_pipeline.get_view_layout(layout_key);
+                        scope.spawn(async move {
+                            prepare_mesh_bind_groups_task(
+                                world,
+                                view,
+                                sources_ref,
+                                mesh_pipeline_ref,
+                                render_device_ref,
+                                names_ref,
+                            )
+                        });
+                    }
+                })
+                .into_iter()
+                .flatten(),
+        );
+    }
+}
 
-            let mut entries = DynamicBindGroupEntries::new_with_indices((
-                (0, view_binding.clone()),
-                (1, light_binding.clone()),
-                (2, &shadow_bindings.point_light_depth_texture_view),
-                (3, &shadow_samplers.point_light_comparison_sampler),
-                #[cfg(feature = "experimental_pbr_pcss")]
-                (4, &shadow_samplers.point_light_linear_sampler),
-                (5, &shadow_bindings.directional_light_depth_texture_view),
-                (6, &shadow_samplers.directional_light_comparison_sampler),
-                #[cfg(feature = "experimental_pbr_pcss")]
-                (7, &shadow_samplers.directional_light_linear_sampler),
-                (8, clusterable_objects_binding.clone()),
-                (
-                    9,
-                    cluster_bindings
-                        .clusterable_object_index_lists_binding()
-                        .unwrap(),
-                ),
-                (10, cluster_bindings.offsets_and_counts_binding().unwrap()),
-                (11, globals.clone()),
-                (12, fog_binding.clone()),
-                (13, light_probes_binding.clone()),
-                (14, visibility_ranges_buffer.as_entire_binding()),
-                (15, ssr_binding.clone()),
-                (16, ssao_view),
-            ));
+fn prepare_mesh_bind_groups_task(
+    world: &World,
+    view: Entity,
+    sources: &MeshViewBindGroupSources<LockedMeshViewBindGroupSources>,
+    mesh_pipeline: &MeshPipeline,
+    render_device: &RenderDevice,
+    names: &Query<&Name, (With<ExtractedView>, With<ExtractedCamera>)>,
+) -> Option<(Entity, MeshViewBindGroup)> {
+    let layout_key = sources
+        .layout_key
+        .iter()
+        .map(|key_source| key_source(world, view))
+        .reduce(|key, cur| key | cur)
+        .unwrap_or_else(MeshPipelineViewLayoutKey::empty);
+    let layout = mesh_pipeline.get_view_layout(layout_key);
 
+    let bind_groups = sources
+        .fetchers
+        .iter()
+        .flat_map(|block| block.fetch(world, view))
+        .filter(|res| !matches!(res, Err(MeshViewBindGroupFetchError::Skipped)))
+        .collect::<Result<Vec<_>, _>>()
+        .inspect_err(|err| {
+            tracing::error!(
+                "{}: {}",
+                names
+                    .get(view)
+                    .map(|name| format!("{}({})", name, view))
+                    .unwrap_or(view.to_string()),
+                err
+            );
+        })
+        .ok()?;
+
+    // BTreeMap because it already sorts keys
+    let mut entries = BTreeMap::new();
+    let mut offsets = BTreeMap::new();
+    for (binding, resource, offset) in &bind_groups {
+        let br = match resource {
+            WrappedBindingResource::BindingResource(br) => br.clone(),
+            WrappedBindingResource::OwnedTextureView(tv) => tv.into_binding(),
+            WrappedBindingResource::OwnedTextureViewArray(v) => v.into_binding(),
+        };
+        entries.insert(*binding, br);
+        if let Some(offset) = offset {
+            offsets.insert(*binding, *offset);
+        }
+    }
+
+    let entries = entries.into_iter().fold(
+        DynamicBindGroupEntries::default(),
+        |mut entries, (binding, resource)| {
+            entries.push(binding, resource);
+            entries
+        },
+    );
+
+    Some((
+        view,
+        MeshViewBindGroup {
+            value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
+            offsets: offsets.into_values().collect(),
+        },
+    ))
+}
+
+pub fn mesh_view_bind_group_no_offset<'b, const LEN: usize>(
+    _world: &'b World,
+    _view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    [MeshViewBindGroupFetchError::Skipped; LEN].map(Err).into()
+}
+
+pub(super) fn lock_bind_group_sources(world: &mut World) {
+    let Some(sources) =
+        world.remove_resource::<MeshViewBindGroupSources<BuildingMeshViewBindGroupSource>>()
+    else {
+        unreachable!(
+            "MeshViewBindGroupSources<BuildingMeshViewBindGroupSource> must exist at this point."
+        );
+    };
+    world.insert_resource(MeshViewBindGroupSources {
+        state: LockedMeshViewBindGroupSources,
+        layout_key: sources.layout_key,
+        fetchers: sources.fetchers,
+    });
+}
+
+pub(super) fn set_msaa_mesh_pipeline_view_layout_key(
+    world: &World,
+    view: Entity,
+) -> MeshPipelineViewLayoutKey {
+    world
+        .entity(view)
+        .get::<Msaa>()
+        .map(|msaa| MeshPipelineViewLayoutKey::from(*msaa))
+        .unwrap_or_else(MeshPipelineViewLayoutKey::empty)
+}
+
+pub(super) fn set_prepass_mesh_pipeline_view_layout_key(
+    world: &World,
+    view: Entity,
+) -> MeshPipelineViewLayoutKey {
+    let prepass_textures = world.entity(view).get::<ViewPrepassTextures>();
+    MeshPipelineViewLayoutKey::from(prepass_textures)
+}
+
+pub(super) fn set_oit_mesh_pipeline_view_layout_key(
+    world: &World,
+    view: Entity,
+) -> MeshPipelineViewLayoutKey {
+    let has_oit = world
+        .entity(view)
+        .contains::<OrderIndependentTransparencySettings>();
+    if has_oit {
+        MeshPipelineViewLayoutKey::OIT_ENABLED
+    } else {
+        MeshPipelineViewLayoutKey::empty()
+    }
+}
+
+pub(super) fn fetch_view_uniforms_bind_group<'b>(
+    world: &'b World,
+    _view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    vec![world
+        .get_resource::<ViewUniforms>()
+        .and_then(|view_uniforms| view_uniforms.uniforms.binding())
+        .map(WrappedBindingResource::from)
+        .ok_or(MeshViewBindGroupFetchError::Missing("ViewUniforms"))]
+}
+
+pub(super) fn fetch_view_uniforms_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewUniformOffset>()
+        .map(|view_uniforms| view_uniforms.offset)
+        .ok_or(MeshViewBindGroupFetchError::Missing("ViewUniformOffset"))]
+}
+
+pub(super) fn fetch_light_meta_bind_group<'b>(
+    world: &'b World,
+    _view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    vec![world
+        .get_resource::<LightMeta>()
+        .and_then(|light_meta| light_meta.view_gpu_lights.binding())
+        .map(WrappedBindingResource::from)
+        .ok_or(MeshViewBindGroupFetchError::Missing("LightMeta"))]
+}
+
+pub(super) fn fetch_view_light_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewLightsUniformOffset>()
+        .map(|view_light_uniform_offset| view_light_uniform_offset.offset)
+        .ok_or(MeshViewBindGroupFetchError::Missing(
+            "ViewLightsUniformOffset",
+        ))]
+}
+
+pub(super) fn fetch_global_light_meta_bind_group<'b>(
+    world: &'b World,
+    _view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    vec![world
+        .get_resource::<GlobalClusterableObjectMeta>()
+        .and_then(|global_light_meta| global_light_meta.gpu_clusterable_objects.binding())
+        .map(WrappedBindingResource::from)
+        .ok_or(MeshViewBindGroupFetchError::Missing(
+            "GlobalClusterableObjectMeta",
+        ))]
+}
+
+pub(super) fn fetch_global_buffers_bind_group<'b>(
+    world: &'b World,
+    _view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    vec![world
+        .get_resource::<GlobalsBuffer>()
+        .and_then(|globals_buffer| globals_buffer.buffer.binding())
+        .map(WrappedBindingResource::from)
+        .ok_or(MeshViewBindGroupFetchError::Missing("GlobalsBuffer"))]
+}
+
+pub(super) fn fetch_fog_meta_bind_group<'b>(
+    world: &'b World,
+    _view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    vec![world
+        .get_resource::<FogMeta>()
+        .and_then(|fog_meta| fog_meta.gpu_fogs.binding())
+        .map(WrappedBindingResource::from)
+        .ok_or(MeshViewBindGroupFetchError::Missing("FogMeta"))]
+}
+
+pub(super) fn fetch_view_fog_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewFogUniformOffset>()
+        .map(|view_fog_uniform_offset| view_fog_uniform_offset.offset)
+        .ok_or(MeshViewBindGroupFetchError::Missing("ViewFogUniformOffset"))]
+}
+
+pub(super) fn fetch_light_probes_bind_group<'b>(
+    world: &'b World,
+    _view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    vec![world
+        .get_resource::<LightProbesBuffer>()
+        .and_then(|light_probes| light_probes.binding())
+        .map(WrappedBindingResource::from)
+        .ok_or(MeshViewBindGroupFetchError::Missing("LightProbesBuffer"))]
+}
+
+pub(super) fn fetch_light_probes_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewLightProbesUniformOffset>()
+        .map(|light_probes| **light_probes)
+        .ok_or(MeshViewBindGroupFetchError::Missing(
+            "ViewLightProbesUniformOffset",
+        ))]
+}
+
+pub(super) fn fetch_visibility_ranges_bind_group<'b>(
+    world: &'b World,
+    _view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    vec![world
+        .get_resource::<RenderVisibilityRanges>()
+        .and_then(|visibility_ranges| {
+            visibility_ranges
+                .buffer()
+                .buffer()
+                .map(|buffer| buffer.as_entire_binding())
+        })
+        .map(WrappedBindingResource::from)
+        .ok_or(MeshViewBindGroupFetchError::Missing(
+            "RenderVisibilityRanges",
+        ))]
+}
+
+pub(super) fn fetch_screen_space_reflection_buffer_bind_group<'b>(
+    world: &'b World,
+    _view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    vec![world
+        .get_resource::<ScreenSpaceReflectionsBuffer>()
+        .and_then(|ssr_buffer| ssr_buffer.binding())
+        .map(WrappedBindingResource::from)
+        .ok_or(MeshViewBindGroupFetchError::Missing(
+            "ScreenSpaceReflectionsBuffer",
+        ))]
+}
+
+pub(super) fn fetch_screen_space_reflection_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![world
+        .entity(view)
+        .get::<ViewScreenSpaceReflectionsUniformOffset>()
+        .map(|ssr_uniform_offset| **ssr_uniform_offset)
+        .ok_or(MeshViewBindGroupFetchError::Missing(
+            "ViewScreenSpaceReflectionsUniformOffset",
+        ))]
+}
+
+pub(super) fn fetch_ssao_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let ssao_resources = world
+        .entity(view)
+        .get::<ScreenSpaceAmbientOcclusionResources>();
+    let ssao_view = ssao_resources
+        .map(|t| {
+            t.screen_space_ambient_occlusion_texture
+                .default_view
+                .into_binding()
+        })
+        .unwrap_or_else(|| {
+            let fallback_image = world.resource::<ScreenSpaceAmbientOcclusionFallbackImage>();
+            fallback_image.into_binding()
+        });
+
+    vec![Ok(ssao_view.into())]
+}
+
+pub(super) fn fetch_point_light_shadow_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let mut bindings: Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> =
+        Vec::with_capacity(3);
+    if let Some(view_shadow_bindings) = world.entity(view).get::<ViewShadowBindings>() {
+        bindings.push(Ok(view_shadow_bindings
+            .point_light_depth_texture_view
+            .into_binding()
+            .into()));
+    } else {
+        bindings.push(Err(MeshViewBindGroupFetchError::Missing(
+            "ViewShadowBindings",
+        )));
+    }
+    if let Some(shadow_samplers) = world.get_resource::<ShadowSamplers>() {
+        bindings.push(Ok(shadow_samplers
+            .point_light_comparison_sampler
+            .into_binding()
+            .into()));
+        #[cfg(feature = "experimental_pbr_pcss")]
+        bindings.push(Ok(shadow_samplers
+            .point_light_linear_sampler
+            .into_binding()
+            .into()));
+        #[cfg(not(feature = "experimental_pbr_pcss"))]
+        bindings.push(Err(MeshViewBindGroupFetchError::Skipped));
+    } else {
+        bindings.extend([MeshViewBindGroupFetchError::Missing("ShadowSamplers"); 2].map(Err));
+    }
+
+    bindings
+}
+
+pub(super) fn fetch_directional_light_shadow_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let mut bindings: Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> =
+        Vec::with_capacity(3);
+    if let Some(view_shadow_bindings) = world.entity(view).get::<ViewShadowBindings>() {
+        bindings.push(Ok(view_shadow_bindings
+            .directional_light_depth_texture_view
+            .into_binding()
+            .into()));
+    } else {
+        bindings.push(Err(MeshViewBindGroupFetchError::Missing(
+            "ViewShadowBindings",
+        )));
+    }
+    if let Some(shadow_samplers) = world.get_resource::<ShadowSamplers>() {
+        bindings.push(Ok(shadow_samplers
+            .directional_light_comparison_sampler
+            .into_binding()
+            .into()));
+        #[cfg(feature = "experimental_pbr_pcss")]
+        bindings.push(Ok(shadow_samplers
+            .directional_light_linear_sampler
+            .into_binding()
+            .into()));
+        #[cfg(not(feature = "experimental_pbr_pcss"))]
+        bindings.push(Err(MeshViewBindGroupFetchError::Skipped));
+    } else {
+        bindings.extend([MeshViewBindGroupFetchError::Missing("ShadowSamplers"); 2].map(Err));
+    }
+
+    bindings
+}
+
+pub(super) fn fetch_cluster_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    if let Some(view_cluster_bindings) = world.entity(view).get::<ViewClusterBindings>() {
+        vec![
+            view_cluster_bindings
+                .clusterable_object_index_lists_binding()
+                .map(WrappedBindingResource::from)
+                .ok_or(MeshViewBindGroupFetchError::Missing("ViewClusterBindings")),
+            view_cluster_bindings
+                .offsets_and_counts_binding()
+                .map(WrappedBindingResource::from)
+                .ok_or(MeshViewBindGroupFetchError::Missing("ViewClusterBindings")),
+        ]
+    } else {
+        vec![
+            Err(MeshViewBindGroupFetchError::Missing("ViewClusterBindings")),
+            Err(MeshViewBindGroupFetchError::Missing("ViewClusterBindings")),
+        ]
+    }
+}
+
+pub(super) fn fetch_environment_map_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let mut bindings = Vec::with_capacity(4);
+
+    match (
+        world.get_resource::<RenderAssets<GpuImage>>(),
+        world.get_resource::<FallbackImage>(),
+        world.get_resource::<RenderDevice>(),
+        world.get_resource::<RenderAdapter>(),
+    ) {
+        (Some(images), Some(fallback_image), Some(render_device), Some(render_adapter)) => {
+            let render_view_environment_maps = world
+                .entity(view)
+                .get::<RenderViewLightProbes<EnvironmentMapLight>>();
             let environment_map_bind_group_entries = RenderViewEnvironmentMapBindGroupEntries::get(
                 render_view_environment_maps,
-                &images,
-                &fallback_image,
-                &render_device,
-                &render_adapter,
+                images,
+                fallback_image,
+                render_device,
+                render_adapter,
             );
 
             match environment_map_bind_group_entries {
@@ -628,138 +1160,397 @@ pub fn prepare_mesh_view_bind_groups(
                     specular_texture_view,
                     sampler,
                 } => {
-                    entries = entries.extend_with_indices((
-                        (17, diffuse_texture_view),
-                        (18, specular_texture_view),
-                        (19, sampler),
-                        (20, environment_map_binding.clone()),
-                    ));
+                    bindings.push(Ok(diffuse_texture_view.into_binding().into()));
+                    bindings.push(Ok(specular_texture_view.into_binding().into()));
+                    bindings.push(Ok(sampler.into_binding().into()));
                 }
                 RenderViewEnvironmentMapBindGroupEntries::Multiple {
-                    ref diffuse_texture_views,
-                    ref specular_texture_views,
+                    diffuse_texture_views,
+                    specular_texture_views,
                     sampler,
                 } => {
-                    entries = entries.extend_with_indices((
-                        (17, diffuse_texture_views.as_slice()),
-                        (18, specular_texture_views.as_slice()),
-                        (19, sampler),
-                        (20, environment_map_binding.clone()),
-                    ));
+                    bindings.push(Ok(WrappedBindingResource::OwnedTextureViewArray(
+                        diffuse_texture_views,
+                    )));
+                    bindings.push(Ok(WrappedBindingResource::OwnedTextureViewArray(
+                        specular_texture_views,
+                    )));
+                    bindings.push(Ok(sampler.into_binding().into()));
                 }
             }
+        }
+        (None, _, _, _) => {
+            bindings.extend(
+                [MeshViewBindGroupFetchError::Missing("RenderAssets<GpuImage>"); 3].map(Err),
+            );
+        }
+        (_, None, _, _) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("FallbackImage"); 3].map(Err));
+        }
+        (_, _, None, _) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("RenderDevice"); 3].map(Err));
+        }
+        (_, _, _, None) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("RenderAdapter"); 3].map(Err));
+        }
+    }
+    if let Some(environment_map_uniform) = world.get_resource::<EnvironmentMapUniformBuffer>() {
+        bindings.push(Ok(environment_map_uniform.0.into_binding().into()));
+    } else {
+        bindings.push(Err(MeshViewBindGroupFetchError::Missing(
+            "EnvironmentMapUniformBuffer",
+        )));
+    }
 
-            let irradiance_volume_bind_group_entries = if IRRADIANCE_VOLUMES_ARE_USABLE {
-                Some(RenderViewIrradianceVolumeBindGroupEntries::get(
+    bindings
+}
+
+pub(super) fn fetch_environment_map_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    vec![
+        // Order of non-`Skipped` should be the same as the order that it appears on the layout,
+        world
+            .entity(view)
+            .get::<ViewEnvironmentMapUniformOffset>()
+            .map(|environment_map_uniform_offset| **environment_map_uniform_offset)
+            .ok_or(MeshViewBindGroupFetchError::Missing(
+                "ViewEnvironmentMapUniformOffset",
+            )),
+        Err(MeshViewBindGroupFetchError::Skipped),
+        Err(MeshViewBindGroupFetchError::Skipped),
+        Err(MeshViewBindGroupFetchError::Skipped),
+    ]
+}
+
+pub(super) fn fetch_irradiance_volume_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let mut bindings = Vec::with_capacity(2);
+    match (
+        world.get_resource::<RenderAssets<GpuImage>>(),
+        world.get_resource::<FallbackImage>(),
+        world.get_resource::<RenderDevice>(),
+        world.get_resource::<RenderAdapter>(),
+    ) {
+        (Some(images), Some(fallback_image), Some(render_device), Some(render_adapter)) => {
+            let render_view_irradiance_volumes = world
+                .entity(view)
+                .get::<RenderViewLightProbes<IrradianceVolume>>();
+            let irradiance_volume_bind_group_entries =
+                RenderViewIrradianceVolumeBindGroupEntries::get(
                     render_view_irradiance_volumes,
-                    &images,
-                    &fallback_image,
-                    &render_device,
-                    &render_adapter,
-                ))
-            } else {
-                None
-            };
+                    images,
+                    fallback_image,
+                    render_device,
+                    render_adapter,
+                );
 
             match irradiance_volume_bind_group_entries {
-                Some(RenderViewIrradianceVolumeBindGroupEntries::Single {
+                RenderViewIrradianceVolumeBindGroupEntries::Single {
                     texture_view,
                     sampler,
-                }) => {
-                    entries = entries.extend_with_indices(((21, texture_view), (22, sampler)));
+                } => {
+                    bindings.push(Ok(texture_view.into_binding().into()));
+                    bindings.push(Ok(sampler.into_binding().into()));
                 }
-                Some(RenderViewIrradianceVolumeBindGroupEntries::Multiple {
-                    ref texture_views,
+                RenderViewIrradianceVolumeBindGroupEntries::Multiple {
+                    texture_views,
                     sampler,
-                }) => {
-                    entries = entries
-                        .extend_with_indices(((21, texture_views.as_slice()), (22, sampler)));
-                }
-                None => {}
-            }
-
-            let decal_bind_group_entries = RenderViewClusteredDecalBindGroupEntries::get(
-                &render_decals,
-                &decals_buffer,
-                &images,
-                &fallback_image,
-                &render_device,
-                &render_adapter,
-            );
-
-            // Add the decal bind group entries.
-            if let Some(ref render_view_decal_bind_group_entries) = decal_bind_group_entries {
-                entries = entries.extend_with_indices((
-                    // `clustered_decals`
-                    (
-                        23,
-                        render_view_decal_bind_group_entries
-                            .decals
-                            .as_entire_binding(),
-                    ),
-                    // `clustered_decal_textures`
-                    (
-                        24,
-                        render_view_decal_bind_group_entries
-                            .texture_views
-                            .as_slice(),
-                    ),
-                    // `clustered_decal_sampler`
-                    (25, render_view_decal_bind_group_entries.sampler),
-                ));
-            }
-
-            let lut_bindings =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
-            entries = entries.extend_with_indices(((26, lut_bindings.0), (27, lut_bindings.1)));
-
-            // When using WebGL, we can't have a depth texture with multisampling
-            let prepass_bindings;
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
-            {
-                prepass_bindings = prepass::get_bindings(prepass_textures);
-                for (binding, index) in prepass_bindings
-                    .iter()
-                    .map(Option::as_ref)
-                    .zip([28, 29, 30, 31])
-                    .flat_map(|(b, i)| b.map(|b| (b, i)))
-                {
-                    entries = entries.extend_with_indices(((index, binding),));
-                }
-            };
-
-            let transmission_view = transmission_texture
-                .map(|transmission| &transmission.view)
-                .unwrap_or(&fallback_image_zero.texture_view);
-
-            let transmission_sampler = transmission_texture
-                .map(|transmission| &transmission.sampler)
-                .unwrap_or(&fallback_image_zero.sampler);
-
-            entries =
-                entries.extend_with_indices(((32, transmission_view), (33, transmission_sampler)));
-
-            if has_oit {
-                if let (
-                    Some(oit_layers_binding),
-                    Some(oit_layer_ids_binding),
-                    Some(oit_settings_binding),
-                ) = (
-                    oit_buffers.layers.binding(),
-                    oit_buffers.layer_ids.binding(),
-                    oit_buffers.settings.binding(),
-                ) {
-                    entries = entries.extend_with_indices((
-                        (34, oit_layers_binding.clone()),
-                        (35, oit_layer_ids_binding.clone()),
-                        (36, oit_settings_binding.clone()),
-                    ));
+                } => {
+                    bindings.push(Ok(WrappedBindingResource::OwnedTextureViewArray(
+                        texture_views,
+                    )));
+                    bindings.push(Ok(sampler.into_binding().into()));
                 }
             }
-
-            commands.entity(entity).insert(MeshViewBindGroup {
-                value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
-            });
         }
+        (None, _, _, _) => {
+            bindings.extend(
+                [MeshViewBindGroupFetchError::Missing("RenderAssets<GpuImage>"); 2].map(Err),
+            );
+        }
+        (_, None, _, _) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("FallbackImage"); 2].map(Err));
+        }
+        (_, _, None, _) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("RenderDevice"); 2].map(Err));
+        }
+        (_, _, _, None) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("RenderAdapter"); 2].map(Err));
+        }
+    }
+
+    bindings
+}
+
+pub(super) fn fetch_decals_bind_group<'b>(
+    world: &'b World,
+    _view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let mut bindings = Vec::with_capacity(3);
+    match (
+        world.get_resource::<RenderClusteredDecals>(),
+        world.get_resource::<DecalsBuffer>(),
+        world.get_resource::<RenderAssets<GpuImage>>(),
+        world.get_resource::<FallbackImage>(),
+        world.get_resource::<RenderDevice>(),
+        world.get_resource::<RenderAdapter>(),
+    ) {
+        (
+            Some(clustered_decals),
+            Some(decals_buffer),
+            Some(images),
+            Some(fallback_image),
+            Some(render_device),
+            Some(render_adapter),
+        ) => {
+            if let Some(decal_bind_group_entries) = RenderViewClusteredDecalBindGroupEntries::get(
+                clustered_decals,
+                decals_buffer,
+                images,
+                fallback_image,
+                render_device,
+                render_adapter,
+            ) {
+                bindings.push(Ok(decal_bind_group_entries
+                    .decals
+                    .as_entire_binding()
+                    .into()));
+                bindings.push(Ok(WrappedBindingResource::OwnedTextureViewArray(
+                    decal_bind_group_entries.texture_views,
+                )));
+                bindings.push(Ok(decal_bind_group_entries.sampler.into_binding().into()));
+            } else if clustered_decals_are_usable(render_device, render_adapter) {
+                bindings.extend([MeshViewBindGroupFetchError::Missing("Decals"); 3].map(Err));
+            } else {
+                bindings.extend([MeshViewBindGroupFetchError::Skipped; 3].map(Err));
+            }
+        }
+        (None, _, _, _, _, _) => {
+            bindings.extend(
+                [MeshViewBindGroupFetchError::Missing("RenderClusteredDecals"); 3].map(Err),
+            );
+        }
+        (_, None, _, _, _, _) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("DecalsBuffer"); 3].map(Err));
+        }
+        (_, _, None, _, _, _) => {
+            bindings.extend(
+                [MeshViewBindGroupFetchError::Missing("RenderAssets<GpuImage>"); 3].map(Err),
+            );
+        }
+        (_, _, _, None, _, _) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("FallbackImage"); 3].map(Err));
+        }
+        (_, _, _, _, None, _) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("RenderDevice"); 3].map(Err));
+        }
+        (_, _, _, _, _, None) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("RenderAdapter"); 3].map(Err));
+        }
+    }
+
+    bindings
+}
+
+pub(super) fn fetch_tonemapping_luts_view_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let mut bindings = Vec::with_capacity(2);
+
+    match (
+        world.get_resource::<TonemappingLuts>(),
+        world.entity(view).get::<Tonemapping>(),
+        world.get_resource::<RenderAssets<GpuImage>>(),
+        world.get_resource::<FallbackImage>(),
+    ) {
+        (Some(tonemapping_luts), Some(tonemapping), Some(images), Some(fallback_image)) => {
+            let lut_bindings =
+                get_lut_bindings(images, tonemapping_luts, tonemapping, fallback_image);
+
+            bindings.push(Ok(lut_bindings.0.into_binding().into()));
+            bindings.push(Ok(lut_bindings.1.into_binding().into()));
+        }
+        (None, _, _, _) => {
+            bindings.extend(
+                [MeshViewBindGroupFetchError::Missing("RenderClusteredDecals"); 3].map(Err),
+            );
+        }
+        (_, None, _, _) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("DecalsBuffer"); 3].map(Err));
+        }
+        (_, _, None, _) => {
+            bindings.extend(
+                [MeshViewBindGroupFetchError::Missing("RenderAssets<GpuImage>"); 3].map(Err),
+            );
+        }
+        (_, _, _, None) => {
+            bindings.extend([MeshViewBindGroupFetchError::Missing("FallbackImage"); 3].map(Err));
+        }
+    }
+
+    bindings
+}
+
+pub(super) fn fetch_depth_texture_view_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let Some(msaa) = world.entity(view).get::<Msaa>() else {
+        return vec![Err(MeshViewBindGroupFetchError::Missing("Msaa"))];
+    };
+    let prepass_textures = world.entity(view).get::<ViewPrepassTextures>();
+    // When using WebGL, we can't have a depth texture with multisampling
+    if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1 {
+        vec![prepass::get_bindings(prepass_textures)[0]
+            .clone()
+            .map(WrappedBindingResource::OwnedTextureView)
+            .ok_or(MeshViewBindGroupFetchError::Skipped)]
+    } else {
+        vec![Err(MeshViewBindGroupFetchError::Skipped)]
+    }
+}
+
+pub(super) fn fetch_normal_texture_view_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let Some(msaa) = world.entity(view).get::<Msaa>() else {
+        return vec![Err(MeshViewBindGroupFetchError::Missing("Msaa"))];
+    };
+    let prepass_textures = world.entity(view).get::<ViewPrepassTextures>();
+    // When using WebGL, we can't have a depth texture with multisampling
+    if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1 {
+        vec![prepass::get_bindings(prepass_textures)[1]
+            .clone()
+            .map(WrappedBindingResource::OwnedTextureView)
+            .ok_or(MeshViewBindGroupFetchError::Skipped)]
+    } else {
+        vec![Err(MeshViewBindGroupFetchError::Skipped)]
+    }
+}
+
+pub(super) fn fetch_motion_vector_texture_view_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let Some(msaa) = world.entity(view).get::<Msaa>() else {
+        return vec![Err(MeshViewBindGroupFetchError::Missing("Msaa"))];
+    };
+    let prepass_textures = world.entity(view).get::<ViewPrepassTextures>();
+    // When using WebGL, we can't have a depth texture with multisampling
+    if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1 {
+        vec![prepass::get_bindings(prepass_textures)[2]
+            .clone()
+            .map(WrappedBindingResource::OwnedTextureView)
+            .ok_or(MeshViewBindGroupFetchError::Skipped)]
+    } else {
+        vec![Err(MeshViewBindGroupFetchError::Skipped)]
+    }
+}
+
+pub(super) fn fetch_deferred_texture_view_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let Some(msaa) = world.entity(view).get::<Msaa>() else {
+        return vec![Err(MeshViewBindGroupFetchError::Missing("Msaa"))];
+    };
+    let prepass_textures = world.entity(view).get::<ViewPrepassTextures>();
+    // When using WebGL, we can't have a depth texture with multisampling
+    if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1 {
+        vec![prepass::get_bindings(prepass_textures)[3]
+            .clone()
+            .map(WrappedBindingResource::OwnedTextureView)
+            .ok_or(MeshViewBindGroupFetchError::Skipped)]
+    } else {
+        vec![Err(MeshViewBindGroupFetchError::Skipped)]
+    }
+}
+
+pub(super) fn fetch_transmission_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let transmission_texture = world.entity(view).get::<ViewTransmissionTexture>();
+    let Some(fallback_image_zero) = world.get_resource::<FallbackImageZero>() else {
+        return vec![
+            Err(MeshViewBindGroupFetchError::Missing("FallbackImageZero")),
+            Err(MeshViewBindGroupFetchError::Missing("FallbackImageZero")),
+        ];
+    };
+
+    let transmission_view = transmission_texture
+        .map(|transmission| &transmission.view)
+        .unwrap_or(&fallback_image_zero.texture_view);
+    let transmission_sampler = transmission_texture
+        .map(|transmission| &transmission.sampler)
+        .unwrap_or(&fallback_image_zero.sampler);
+
+    vec![
+        Ok(transmission_view.into_binding().into()),
+        Ok(transmission_sampler.into_binding().into()),
+    ]
+}
+
+pub(super) fn fetch_order_independent_transparency_bind_group<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<WrappedBindingResource<'b>, MeshViewBindGroupFetchError>> {
+    let has_oit = world
+        .entity(view)
+        .contains::<OrderIndependentTransparencySettings>();
+    if has_oit {
+        let Some(oit_buffers) = world.get_resource::<OitBuffers>() else {
+            unreachable!("If view has OrderIndependentTransparencySettings then resource OitBuffers must exist");
+        };
+        if let (Some(layers), Some(layer_ids), Some(settings)) = (
+            oit_buffers.layers.binding(),
+            oit_buffers.layer_ids.binding(),
+            oit_buffers.settings.binding(),
+        ) {
+            vec![Ok(layers.into()), Ok(layer_ids.into()), Ok(settings.into())]
+        } else {
+            vec![
+                Err(MeshViewBindGroupFetchError::Skipped),
+                Err(MeshViewBindGroupFetchError::Skipped),
+                Err(MeshViewBindGroupFetchError::Skipped),
+            ]
+        }
+    } else {
+        vec![
+            Err(MeshViewBindGroupFetchError::Skipped),
+            Err(MeshViewBindGroupFetchError::Skipped),
+            Err(MeshViewBindGroupFetchError::Skipped),
+        ]
+    }
+}
+
+pub(super) fn fetch_order_independent_transparency_uniform_offset<'b>(
+    world: &'b World,
+    view: Entity,
+) -> Vec<Result<u32, MeshViewBindGroupFetchError>> {
+    let has_oit = world
+        .entity(view)
+        .contains::<OrderIndependentTransparencySettings>();
+    if has_oit {
+        vec![
+            // Order of non-`Skipped` should be the same as the order that it appears on the layout,
+            world
+                .entity(view)
+                .get::<OrderIndependentTransparencySettingsOffset>()
+                .map(|oit_settings_offset| oit_settings_offset.offset)
+                .ok_or(MeshViewBindGroupFetchError::Missing(
+                    "OrderIndependentTransparencySettingsOffset",
+                )),
+            Err(MeshViewBindGroupFetchError::Skipped),
+            Err(MeshViewBindGroupFetchError::Skipped),
+        ]
+    } else {
+        mesh_view_bind_group_no_offset::<3>(world, view)
     }
 }

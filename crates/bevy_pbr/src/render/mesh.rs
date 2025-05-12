@@ -4,7 +4,7 @@ use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
+    oit::prepare_oit_buffers,
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -40,7 +40,7 @@ use bevy_render::{
     texture::{DefaultImageSampler, GpuImage},
     view::{
         self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
-        ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
+        ViewTarget, ViewVisibility, VisibilityRange,
     },
     Extract,
 };
@@ -49,6 +49,22 @@ use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
+use render::{
+    fetch_cluster_bind_group, fetch_decals_bind_group, fetch_deferred_texture_view_bind_group,
+    fetch_depth_texture_view_bind_group, fetch_directional_light_shadow_bind_group,
+    fetch_environment_map_bind_group, fetch_environment_map_uniform_offset,
+    fetch_fog_meta_bind_group, fetch_global_buffers_bind_group, fetch_global_light_meta_bind_group,
+    fetch_irradiance_volume_bind_group, fetch_light_meta_bind_group, fetch_light_probes_bind_group,
+    fetch_light_probes_uniform_offset, fetch_motion_vector_texture_view_bind_group,
+    fetch_normal_texture_view_bind_group, fetch_order_independent_transparency_bind_group,
+    fetch_order_independent_transparency_uniform_offset, fetch_point_light_shadow_bind_group,
+    fetch_screen_space_reflection_buffer_bind_group, fetch_screen_space_reflection_uniform_offset,
+    fetch_ssao_bind_group, fetch_tonemapping_luts_view_bind_group, fetch_transmission_bind_group,
+    fetch_view_fog_offset, fetch_view_light_uniform_offset, fetch_view_uniforms_bind_group,
+    fetch_view_uniforms_offset, fetch_visibility_ranges_bind_group, lock_bind_group_sources,
+    set_msaa_mesh_pipeline_view_layout_key, set_oit_mesh_pipeline_view_layout_key,
+    set_prepass_mesh_pipeline_view_layout_key,
+};
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
@@ -77,7 +93,6 @@ use bevy_render::view::ExtractedView;
 use bevy_render::RenderSystems::PrepareAssets;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
-use smallvec::{smallvec, SmallVec};
 use static_assertions::const_assert_eq;
 
 /// Provides support for rendering 3D meshes.
@@ -189,6 +204,173 @@ impl Plugin for MeshRenderPlugin {
         ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let mut bind_group_sources = MeshViewBindGroupSources::new();
+
+            bind_group_sources.push_key(set_msaa_mesh_pipeline_view_layout_key);
+            bind_group_sources.push_key(set_prepass_mesh_pipeline_view_layout_key);
+            bind_group_sources.push_key(set_oit_mesh_pipeline_view_layout_key);
+
+            bind_group_sources
+                .push_source(
+                    0..=0,
+                    fetch_view_uniforms_bind_group,
+                    fetch_view_uniforms_offset,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    1..=1,
+                    fetch_light_meta_bind_group,
+                    fetch_view_light_uniform_offset,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    2..=4,
+                    fetch_point_light_shadow_bind_group,
+                    mesh_view_bind_group_no_offset::<3>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    5..=7,
+                    fetch_directional_light_shadow_bind_group,
+                    mesh_view_bind_group_no_offset::<3>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    8..=8,
+                    fetch_global_light_meta_bind_group,
+                    mesh_view_bind_group_no_offset::<1>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    9..=10,
+                    fetch_cluster_bind_group,
+                    mesh_view_bind_group_no_offset::<2>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    11..=11,
+                    fetch_global_buffers_bind_group,
+                    mesh_view_bind_group_no_offset::<1>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(12..=12, fetch_fog_meta_bind_group, fetch_view_fog_offset)
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    13..=13,
+                    fetch_light_probes_bind_group,
+                    fetch_light_probes_uniform_offset,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    14..=14,
+                    fetch_visibility_ranges_bind_group,
+                    mesh_view_bind_group_no_offset::<1>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    15..=15,
+                    fetch_screen_space_reflection_buffer_bind_group,
+                    fetch_screen_space_reflection_uniform_offset,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    16..=16,
+                    fetch_ssao_bind_group,
+                    mesh_view_bind_group_no_offset::<1>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    17..=20,
+                    fetch_environment_map_bind_group,
+                    fetch_environment_map_uniform_offset,
+                )
+                .unwrap();
+            if IRRADIANCE_VOLUMES_ARE_USABLE {
+                bind_group_sources
+                    .push_source(
+                        21..=22,
+                        fetch_irradiance_volume_bind_group,
+                        mesh_view_bind_group_no_offset::<2>,
+                    )
+                    .unwrap();
+            }
+            bind_group_sources
+                .push_source(
+                    23..=25,
+                    fetch_decals_bind_group,
+                    mesh_view_bind_group_no_offset::<3>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    26..=27,
+                    fetch_tonemapping_luts_view_bind_group,
+                    mesh_view_bind_group_no_offset::<2>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    28..=28,
+                    fetch_depth_texture_view_bind_group,
+                    mesh_view_bind_group_no_offset::<1>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    29..=29,
+                    fetch_normal_texture_view_bind_group,
+                    mesh_view_bind_group_no_offset::<1>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    30..=30,
+                    fetch_motion_vector_texture_view_bind_group,
+                    mesh_view_bind_group_no_offset::<1>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    31..=31,
+                    fetch_deferred_texture_view_bind_group,
+                    mesh_view_bind_group_no_offset::<1>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    32..=33,
+                    fetch_transmission_bind_group,
+                    mesh_view_bind_group_no_offset::<2>,
+                )
+                .unwrap();
+            bind_group_sources
+                .push_source(
+                    34..=36,
+                    fetch_order_independent_transparency_bind_group,
+                    fetch_order_independent_transparency_uniform_offset,
+                )
+                .unwrap();
+            render_app.insert_resource(bind_group_sources);
+
+            render_app.add_systems(
+                ExtractSchedule,
+                lock_bind_group_sources.run_if(
+                    resource_exists::<MeshViewBindGroupSources<BuildingMeshViewBindGroupSource>>,
+                ),
+            );
+
             render_app
                 .init_resource::<MorphUniforms>()
                 .init_resource::<MorphIndices>()
@@ -2882,47 +3064,22 @@ fn prepare_mesh_bind_groups_for_phase(
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
-    type ViewQuery = (
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Read<ViewFogUniformOffset>,
-        Read<ViewLightProbesUniformOffset>,
-        Read<ViewScreenSpaceReflectionsUniformOffset>,
-        Read<ViewEnvironmentMapUniformOffset>,
-        Read<MeshViewBindGroup>,
-        Option<Read<OrderIndependentTransparencySettingsOffset>>,
-    );
+    type ViewQuery = (Read<MeshViewBindGroup>,);
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (
-            view_uniform,
-            view_lights,
-            view_fog,
-            view_light_probes,
-            view_ssr,
-            view_environment_map,
-            mesh_view_bind_group,
-            maybe_oit_layers_count_offset,
-        ): ROQueryItem<'w, Self::ViewQuery>,
+        (mesh_view_bind_group,): ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mut offsets: SmallVec<[u32; 8]> = smallvec![
-            view_uniform.offset,
-            view_lights.offset,
-            view_fog.offset,
-            **view_light_probes,
-            **view_ssr,
-            **view_environment_map,
-        ];
-        if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
-            offsets.push(layers_count_offset.offset);
-        }
-        pass.set_bind_group(I, &mesh_view_bind_group.value, &offsets);
+        pass.set_bind_group(
+            I,
+            &mesh_view_bind_group.value,
+            &mesh_view_bind_group.offsets,
+        );
 
         RenderCommandResult::Success
     }
