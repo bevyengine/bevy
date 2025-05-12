@@ -68,7 +68,7 @@ impl<P: VectorSpace> CubicBezier<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicBezier<P> {
     type Error = CubicBezierError;
 
     #[inline]
@@ -176,7 +176,7 @@ impl<P: VectorSpace> CubicHermite<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -202,7 +202,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
+impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -313,7 +313,7 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -351,7 +351,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -471,7 +471,7 @@ impl<P: VectorSpace> CubicBSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -494,7 +494,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
+impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -620,7 +620,7 @@ pub struct CubicNurbs<P: VectorSpace> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicNurbs<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
     ///
     /// If provided, weights must be the same length as the control points. Defaults to equal weights.
@@ -781,7 +781,7 @@ impl<P: VectorSpace> CubicNurbs<P> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
+impl<P: VectorSpace<Scalar = f32>> RationalGenerator<P> for CubicNurbs<P> {
     type Error = InsufficientDataError;
 
     #[inline]
@@ -962,7 +962,7 @@ pub struct CubicSegment<P: VectorSpace> {
     pub coeff: [P; 4],
 }
 
-impl<P: VectorSpace> CubicSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicSegment<P> {
     /// Instantaneous position of a point at parametric value `t`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -1184,7 +1184,7 @@ pub struct CubicCurve<P: VectorSpace> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> CubicCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> CubicCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
     pub fn from_segments(segments: impl IntoIterator<Item = CubicSegment<P>>) -> Option<Self> {
@@ -1347,7 +1347,7 @@ pub struct RationalSegment<P: VectorSpace> {
     /// The width of the domain of this segment.
     pub knot_span: f32,
 }
-impl<P: VectorSpace> RationalSegment<P> {
+impl<P: VectorSpace<Scalar = f32>> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -1484,7 +1484,7 @@ pub struct RationalCurve<P: VectorSpace> {
 }
 
 #[cfg(feature = "alloc")]
-impl<P: VectorSpace> RationalCurve<P> {
+impl<P: VectorSpace<Scalar = f32>> RationalCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
     pub fn from_segments(segments: impl IntoIterator<Item = RationalSegment<P>>) -> Option<Self> {
