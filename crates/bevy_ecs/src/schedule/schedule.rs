@@ -2117,7 +2117,7 @@ mod tests {
     struct Resource2;
 
     #[test]
-    fn disabling_auto_sync_points_keeps_disabled_edges() {
+    fn changing_auto_sync_points_to_true_keeps_originally_disabled_edges() {
         use alloc::{vec, vec::Vec};
 
         #[derive(PartialEq, Debug)]
@@ -2147,7 +2147,7 @@ mod tests {
                     ..Default::default()
                 });
             }
-            
+
             schedule.run(&mut world);
             world.remove_resource::<Log>().unwrap().0
         }
@@ -2156,11 +2156,16 @@ mod tests {
             Entry::System(1),
             Entry::System(2),
             Entry::SyncPoint(1),
-            Entry::SyncPoint(2)
+            Entry::SyncPoint(2),
         ];
 
+        // do not change anything
         assert_eq!(get_log(vec![]), expected);
+
+        // add on enabled setting
         assert_eq!(get_log(vec![true]), expected);
+
+        // disable and enable setting
         assert_eq!(get_log(vec![false, true]), expected);
     }
 
