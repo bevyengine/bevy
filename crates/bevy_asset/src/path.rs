@@ -222,7 +222,7 @@ impl<'a> AssetPath<'a> {
             },
             path: CowArc::Borrowed(path),
             label: label.map(CowArc::Borrowed),
-            settings: None, // XXX TODO: Do we need to document this behaviour?
+            settings: None, // XXX TODO: Do we need to document this behavior?
         })
     }
 
@@ -440,7 +440,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.clone(),
             label: None,
             path,
-            settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behaviour.
+            settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behavior.
         })
     }
 
@@ -454,7 +454,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.into_owned(),
             path: self.path.into_owned(),
             label: self.label.map(CowArc::into_owned),
-            settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behaviour.
+            settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behavior.
         }
     }
 
@@ -576,7 +576,7 @@ impl<'a> AssetPath<'a> {
                 },
                 path: CowArc::Owned(result_path.into()),
                 label: rlabel.map(|l| CowArc::Owned(l.into())),
-                settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behaviour.
+                settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behavior.
             })
         }
     }
