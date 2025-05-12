@@ -18,7 +18,7 @@ use crate::{
 };
 use encase::{internal::WriteInto, ShaderType};
 
-use super::{SamplerInfo, TextureViewInfo};
+use super::{ResourceMeta, SamplerInfo, TextureViewInfo};
 
 pub trait BindingResourceHandleHelper {
     fn make_binding_resource_handle(&self, frame_graph: &mut FrameGraph) -> BindingResourceHandle;
@@ -27,6 +27,27 @@ pub trait BindingResourceHandleHelper {
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef;
+}
+
+impl BindingResourceHandleHelper for ResourceMeta<FrameGraphTexture> {
+    fn make_binding_resource_handle(&self, frame_graph: &mut FrameGraph) -> BindingResourceHandle {
+        let texture = self.make_resource_handle(frame_graph);
+        BindingResourceHandle::TextureView {
+            texture,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        let texture = pass_node_builder.read_material(self);
+        BindingResourceRef::TextureView {
+            texture,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
 }
 
 impl BindingResourceHandleHelper for SamplerInfo {

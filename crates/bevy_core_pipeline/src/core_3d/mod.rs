@@ -75,7 +75,7 @@ use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     experimental::occlusion_culling::OcclusionCulling,
     frame_graph::{
-        FrameGraph, FrameGraphError, PassNodeBuilder, ResourceBoardKey, SamplerInfo,
+        FrameGraph, FrameGraphError, PassNodeBuilder, ResourceBoardKey, ResourceMeta, SamplerInfo,
         TexelCopyTextureInfo, TextureInfo,
     },
     mesh::allocator::SlabId,
@@ -781,7 +781,6 @@ pub fn prepare_core_3d_depth_textures(
         &Camera3d,
         &Msaa,
     )>,
-    mut framge_graph: ResMut<FrameGraph>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
     for (_, camera, extracted_view, depth_prepass, camera_3d, _msaa) in &views_3d {
@@ -831,11 +830,11 @@ pub fn prepare_core_3d_depth_textures(
             view_formats: vec![],
         };
 
-        framge_graph.get_or_create(&key, texture_info.clone());
-
         commands.entity(entity).insert(ViewDepthTexture::new(
-            texture_info,
-            key.into(),
+            ResourceMeta {
+                key,
+                desc: texture_info,
+            },
             match camera_3d.depth_load_op {
                 Camera3dDepthLoadOp::Clear(v) => Some(v),
                 Camera3dDepthLoadOp::Load => None,
@@ -1008,7 +1007,6 @@ pub fn prepare_prepass_textures(
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
     )>,
-    mut framge_graph: ResMut<FrameGraph>,
 ) {
     let mut depth_textures = <HashMap<_, _>>::default();
     let mut normal_textures = <HashMap<_, _>>::default();
@@ -1064,9 +1062,10 @@ pub fn prepare_prepass_textures(
 
                     let key = ViewPrepassTextures::get_prepass_depth_texture(entity);
 
-                    framge_graph.get_or_create(&key, texture_info.clone());
-
-                    (key, texture_info)
+                    ResourceMeta {
+                        key,
+                        desc: texture_info,
+                    }
                 })
                 .clone()
         });
@@ -1089,9 +1088,10 @@ pub fn prepare_prepass_textures(
 
                     let key = ViewPrepassTextures::get_prepass_normal_texture(entity);
 
-                    framge_graph.get_or_create(&key, texture_info.clone());
-
-                    (key, texture_info)
+                    ResourceMeta {
+                        key,
+                        desc: texture_info,
+                    }
                 })
                 .clone()
         });
@@ -1113,9 +1113,10 @@ pub fn prepare_prepass_textures(
 
                     let key = ViewPrepassTextures::get_prepass_motion_vectors_texture(entity);
 
-                    framge_graph.get_or_create(&key, texture_info.clone());
-
-                    (key, texture_info)
+                    ResourceMeta {
+                        key,
+                        desc: texture_info,
+                    }
                 })
                 .clone()
         });
@@ -1137,9 +1138,10 @@ pub fn prepare_prepass_textures(
 
                     let key = ViewPrepassTextures::get_prepass_deferred_texture(entity);
 
-                    framge_graph.get_or_create(&key, texture_info.clone());
-
-                    (key, texture_info)
+                    ResourceMeta {
+                        key,
+                        desc: texture_info,
+                    }
                 })
                 .clone()
         });
@@ -1161,27 +1163,28 @@ pub fn prepare_prepass_textures(
 
                     let key = ViewPrepassTextures::get_deferred_lighting_pass_id_texture(entity);
 
-                    framge_graph.get_or_create(&key, texture_info.clone());
-
-                    (key, texture_info)
+                    ResourceMeta {
+                        key,
+                        desc: texture_info,
+                    }
                 })
                 .clone()
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
             depth: cached_depth_texture
-                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachmentHandle::new(t, None, Some(LinearRgba::BLACK))),
             normal: cached_normals_texture
-                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachmentHandle::new(t, None, Some(LinearRgba::BLACK))),
             // Red and Green channels are X and Y components of the motion vectors
             // Blue channel doesn't matter, but set to 0.0 for possible faster clear
             // https://gpuopen.com/performance/#clears
             motion_vectors: cached_motion_vectors_texture
-                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachmentHandle::new(t, None, Some(LinearRgba::BLACK))),
             deferred: cached_deferred_texture
-                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachmentHandle::new(t, None, Some(LinearRgba::BLACK))),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
-                .map(|t| ColorAttachmentHandle::new(t.0.into(), None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachmentHandle::new(t, None, Some(LinearRgba::BLACK))),
             size,
         });
     }

@@ -9,7 +9,9 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    frame_graph::{FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, PassBuilder},
+    frame_graph::{
+        FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, PassBuilder, ResourceMaterial,
+    },
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::*,
@@ -77,8 +79,9 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let source: GraphResourceNodeHandle<FrameGraphTexture> =
-            frame_graph.get(view_target.get_main_texture_key())?;
+        let source: GraphResourceNodeHandle<FrameGraphTexture> = view_target
+            .get_main_texture_key()
+            .make_resource_handle(frame_graph);
 
         let fallback = world.resource::<FallbackImage>();
         let mask = world

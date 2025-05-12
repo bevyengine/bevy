@@ -3,7 +3,7 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
-    frame_graph::{FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, PassBuilder},
+    frame_graph::{FrameGraph, PassBuilder},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::PipelineCache,
     view::ViewTarget,
@@ -53,15 +53,14 @@ impl ViewNode for UpscalingNode {
 
         let converted_clear_color: Option<LinearRgba> = clear_color.map(|color| color.to_linear());
 
-        let main_texture: GraphResourceNodeHandle<FrameGraphTexture> =
-            frame_graph.get(target.get_main_texture_key())?;
+        let main_texture = target.get_main_texture_key();
 
         let mut pass_builder =
             PassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_pass"));
 
         let bind_group = pass_builder
             .create_bind_group_builder(None, blit_pipeline.texture_bind_group.clone())
-            .push_bind_group_entry(&main_texture)
+            .push_bind_group_entry(main_texture)
             .push_bind_group_entry(&blit_pipeline.sampler_info)
             .build();
 

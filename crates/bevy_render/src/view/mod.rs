@@ -15,8 +15,8 @@ use crate::{
     extract_component::ExtractComponentPlugin,
     frame_graph::{
         ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraph,
-        FrameGraphError, PassNodeBuilder, ResourceBoardKey, TexelCopyTextureInfo, TextureInfo,
-        TextureViewDrawing, TextureViewInfo,
+        FrameGraphTexture, PassBuilder, PassNodeBuilder, ResourceMeta, TexelCopyTextureInfo,
+        TextureInfo, TextureViewDrawing, TextureViewInfo,
     },
     prelude::Shader,
     primitives::Frustum,
@@ -618,8 +618,8 @@ pub struct ViewTarget {
 pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAttachment>);
 
 pub struct PostProcessWrite<'a> {
-    pub source: &'a ResourceBoardKey,
-    pub destination: &'a ResourceBoardKey,
+    pub source: &'a ResourceMeta<FrameGraphTexture>,
+    pub destination: &'a ResourceMeta<FrameGraphTexture>,
 }
 
 impl From<ColorGrading> for ColorGradingUniform {
@@ -727,40 +727,32 @@ impl ViewTarget {
     pub fn get_main_texture_image_copy(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<TexelCopyTextureInfo, FrameGraphError> {
-        let main_texture_read = pass_node_builder.read_from_board(self.get_main_texture_key())?;
-
-        Ok(TexelCopyTextureInfo {
+    ) -> TexelCopyTextureInfo {
+        let main_texture_read = pass_node_builder.read_material(self.get_main_texture_key());
+        TexelCopyTextureInfo {
             mip_level: 0,
             texture: main_texture_read,
             origin: Origin3d::ZERO,
             aspect: TextureAspect::All,
-        })
+        }
     }
 
     pub fn get_unsampled_attachment(
         &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<ColorAttachmentDrawing, FrameGraphError> {
+        pass_builder: &mut PassBuilder,
+    ) -> ColorAttachmentDrawing {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            self.main_textures
-                .a
-                .get_unsampled_attachment(pass_node_builder)
+            self.main_textures.a.get_unsampled_attachment(pass_builder)
         } else {
-            self.main_textures
-                .b
-                .get_unsampled_attachment(pass_node_builder)
+            self.main_textures.b.get_unsampled_attachment(pass_builder)
         }
     }
 
-    pub fn get_color_attachment(
-        &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<ColorAttachmentDrawing, FrameGraphError> {
+    pub fn get_color_attachment(&self, pass_builder: &mut PassBuilder) -> ColorAttachmentDrawing {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            self.main_textures.a.get_color_attachment(pass_node_builder)
+            self.main_textures.a.get_color_attachment(pass_builder)
         } else {
-            self.main_textures.b.get_color_attachment(pass_node_builder)
+            self.main_textures.b.get_color_attachment(pass_builder)
         }
     }
 
@@ -780,7 +772,7 @@ impl ViewTarget {
         &self.main_textures.desc
     }
 
-    pub fn get_main_texture_key(&self) -> &ResourceBoardKey {
+    pub fn get_main_texture_key(&self) -> &ResourceMeta<FrameGraphTexture> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.a.texture
         } else {
@@ -788,7 +780,7 @@ impl ViewTarget {
         }
     }
 
-    pub fn get_main_texture_sampled_key(&self) -> &ResourceBoardKey {
+    pub fn get_main_texture_sampled_key(&self) -> &ResourceMeta<FrameGraphTexture> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.resolve_target.as_ref().unwrap()
         } else {
@@ -853,10 +845,9 @@ impl ViewTarget {
 
 #[derive(Component)]
 pub struct ViewDepthTexture {
-    texture: ResourceBoardKey,
+    texture: ResourceMeta<FrameGraphTexture>,
     clear_value: Option<f32>,
     is_first_call: Arc<AtomicBool>,
-    pub texture_info: TextureInfo,
 }
 
 impl ViewDepthTexture {
@@ -866,29 +857,23 @@ impl ViewDepthTexture {
 
     pub fn get_depth_stencil_attachment(
         &self,
-        pass_node_builder: &mut PassNodeBuilder,
+        pass_builder: &mut PassBuilder,
         store_op: StoreOp,
-    ) -> Result<DepthStencilAttachmentDrawing, FrameGraphError> {
-        let depth_texture_read =
-            pass_node_builder.write_from_board(self.get_depth_texture_key())?;
+    ) -> DepthStencilAttachmentDrawing {
+        let texture = pass_builder.write_material(&self.texture);
 
-        Ok(DepthStencilAttachmentDrawing {
+        DepthStencilAttachmentDrawing {
             view: TextureViewDrawing {
-                texture: depth_texture_read,
+                texture,
                 desc: TextureViewInfo::default(),
             },
             depth_ops: self.get_depth_ops(store_op),
             stencil_ops: None,
-        })
+        }
     }
 
-    pub fn new(
-        texture_info: TextureInfo,
-        texture: ResourceBoardKey,
-        clear_value: Option<f32>,
-    ) -> Self {
+    pub fn new(texture: ResourceMeta<FrameGraphTexture>, clear_value: Option<f32>) -> Self {
         Self {
-            texture_info,
             texture,
             clear_value,
             is_first_call: Arc::new(AtomicBool::new(true)),
@@ -911,7 +896,7 @@ impl ViewDepthTexture {
         })
     }
 
-    pub fn get_depth_texture_key(&self) -> &ResourceBoardKey {
+    pub fn get_depth_texture_key(&self) -> &ResourceMeta<FrameGraphTexture> {
         &self.texture
     }
 }
@@ -1095,13 +1080,6 @@ pub fn prepare_view_targets(
         };
 
         let a_key = ViewTarget::get_main_texture_a(entity);
-        frame_graph.get_or_create(
-            &a_key,
-            TextureInfo {
-                label: Some("main_texture_a".into()),
-                ..descriptor.clone()
-            },
-        );
 
         let b_key = ViewTarget::get_main_texture_b(entity);
         frame_graph.get_or_create(
@@ -1112,13 +1090,14 @@ pub fn prepare_view_targets(
             },
         );
 
-        let mut sampled_key = None;
+        let mut sampled: Option<ResourceMeta<FrameGraphTexture>> = None;
 
         if msaa.samples() > 1 {
             let temp_key = ViewTarget::get_main_texture_sampled(entity);
-            frame_graph.get_or_create(
-                &temp_key,
-                TextureInfo {
+
+            sampled = Some(ResourceMeta {
+                key: temp_key,
+                desc: TextureInfo {
                     label: Some("main_texture_sampled".into()),
                     size,
                     mip_level_count: 1,
@@ -1128,9 +1107,7 @@ pub fn prepare_view_targets(
                     usage: TextureUsages::RENDER_ATTACHMENT,
                     ..descriptor.clone()
                 },
-            );
-
-            sampled_key = Some(temp_key);
+            });
         }
         let main_texture = Arc::new(AtomicUsize::new(0));
 
@@ -1138,13 +1115,25 @@ pub fn prepare_view_targets(
 
         let main_textures = MainTargetTextures {
             a: ColorAttachmentHandle::new(
-                a_key.into(),
-                sampled_key.as_ref().map(|key| key.into()),
+                ResourceMeta {
+                    key: a_key,
+                    desc: TextureInfo {
+                        label: Some("main_texture_a".into()),
+                        ..descriptor.clone()
+                    },
+                },
+                sampled.clone(),
                 converted_clear_color,
             ),
             b: ColorAttachmentHandle::new(
-                b_key.into(),
-                sampled_key.as_ref().map(|key| key.into()),
+                ResourceMeta {
+                    key: b_key,
+                    desc: TextureInfo {
+                        label: Some("main_texture_b".into()),
+                        ..descriptor.clone()
+                    },
+                },
+                sampled,
                 converted_clear_color,
             ),
             main_texture: main_texture.clone(),

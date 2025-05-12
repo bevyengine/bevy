@@ -37,7 +37,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_platform::collections::HashSet;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
-    frame_graph::{FrameGraph, TextureInfo},
+    frame_graph::{FrameGraph, ResourceMeta, TextureInfo},
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
@@ -455,7 +455,6 @@ pub fn prepare_core_2d_depth_textures(
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa), (With<Camera2d>,)>,
-    mut frame_graph: ResMut<FrameGraph>,
 ) {
     for (view, camera, extracted_view, msaa) in &views_2d {
         if !opaque_2d_phases.contains_key(&extracted_view.retained_view_entity)
@@ -486,10 +485,12 @@ pub fn prepare_core_2d_depth_textures(
             view_formats: vec![],
         };
 
-        frame_graph.get_or_create(&key, texture_info.clone());
-
-        commands
-            .entity(view)
-            .insert(ViewDepthTexture::new(texture_info, key.into(), Some(0.0)));
+        commands.entity(view).insert(ViewDepthTexture::new(
+            ResourceMeta {
+                key,
+                desc: texture_info,
+            },
+            Some(0.0),
+        ));
     }
 }

@@ -1,7 +1,7 @@
 use crate::{
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, FrameGraphError, PassNodeBuilder,
-        ResourceBoardKey, TextureViewDrawing, TextureViewInfo,
+        ColorAttachment, ColorAttachmentDrawing, FrameGraphTexture, PassBuilder, ResourceMeta,
+        TextureViewDrawing, TextureViewInfo,
     },
     render_resource::{TextureFormat, TextureView},
 };
@@ -13,8 +13,8 @@ use wgpu::{Color, LoadOp, Operations, RenderPassDepthStencilAttachment, StoreOp}
 
 #[derive(Clone)]
 pub struct ColorAttachmentHandle {
-    pub texture: ResourceBoardKey,
-    pub resolve_target: Option<ResourceBoardKey>,
+    pub texture: ResourceMeta<FrameGraphTexture>,
+    pub resolve_target: Option<ResourceMeta<FrameGraphTexture>>,
     clear_color: Option<LinearRgba>,
     is_first_call: Arc<AtomicBool>,
 }
@@ -22,15 +22,15 @@ pub struct ColorAttachmentHandle {
 impl ColorAttachmentHandle {
     pub fn get_unsampled_attachment(
         &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<ColorAttachmentDrawing, FrameGraphError> {
+        pass_builder: &mut PassBuilder,
+    ) -> ColorAttachmentDrawing {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
         let view = TextureViewDrawing {
-            texture: pass_node_builder.write_from_board(&self.texture)?,
+            texture: pass_builder.write_material(&self.texture),
             desc: TextureViewInfo::default(),
         };
 
-        Ok(ColorAttachmentDrawing {
+        ColorAttachmentDrawing {
             view,
             resolve_target: None,
             ops: Operations {
@@ -40,38 +40,34 @@ impl ColorAttachmentHandle {
                 },
                 store: StoreOp::Store,
             },
-        })
+        }
     }
 
-    pub fn get_color_attachment(
-        &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<ColorAttachmentDrawing, FrameGraphError> {
+    pub fn get_color_attachment(&self, pass_builder: &mut PassBuilder) -> ColorAttachmentDrawing {
         let view;
 
         let mut resolve_target = None;
 
         if self.resolve_target.is_none() {
             view = TextureViewDrawing {
-                texture: pass_node_builder.write_from_board(&self.texture)?,
+                texture: pass_builder.write_material(&self.texture),
                 desc: TextureViewInfo::default(),
             };
         } else {
             view = TextureViewDrawing {
-                texture: pass_node_builder
-                    .write_from_board(self.resolve_target.as_ref().unwrap())?,
+                texture: pass_builder.write_material(self.resolve_target.as_ref().unwrap()),
                 desc: TextureViewInfo::default(),
             };
 
             resolve_target = Some(TextureViewDrawing {
-                texture: pass_node_builder.write_from_board(&self.texture)?,
+                texture: pass_builder.write_material(&self.texture),
                 desc: TextureViewInfo::default(),
             })
         }
 
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
-        Ok(ColorAttachmentDrawing {
+        ColorAttachmentDrawing {
             view,
             resolve_target,
             ops: Operations {
@@ -81,12 +77,12 @@ impl ColorAttachmentHandle {
                 },
                 store: StoreOp::Store,
             },
-        })
+        }
     }
 
     pub fn new(
-        texture: ResourceBoardKey,
-        resolve_target: Option<ResourceBoardKey>,
+        texture: ResourceMeta<FrameGraphTexture>,
+        resolve_target: Option<ResourceMeta<FrameGraphTexture>>,
         clear_color: Option<LinearRgba>,
     ) -> Self {
         Self {

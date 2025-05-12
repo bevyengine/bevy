@@ -5,8 +5,7 @@ use crate::tonemapping::ViewTonemappingPipeline;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     frame_graph::{
-        ColorAttachmentDrawing, FrameGraph, FrameGraphTexture, GraphResourceNodeHandle,
-        PassBuilder, TextureViewDrawing, TextureViewInfo,
+        ColorAttachmentDrawing, FrameGraph, PassBuilder, TextureViewDrawing, TextureViewInfo,
     },
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -59,10 +58,8 @@ impl ViewNode for TonemappingNode {
 
         let post_process = target.post_process_write();
 
-        let source: GraphResourceNodeHandle<FrameGraphTexture> =
-            frame_graph.get(post_process.source)?;
-        let destination: GraphResourceNodeHandle<FrameGraphTexture> =
-            frame_graph.get(post_process.destination)?;
+        let source = post_process.source;
+        let destination = post_process.destination;
 
         let mut last_tonemapping = self.last_tonemapping.lock().unwrap();
 
@@ -85,13 +82,13 @@ impl ViewNode for TonemappingNode {
         let bing_group = pass_builder
             .create_bind_group_builder(None, tonemapping_pipeline.texture_bind_group.clone())
             .push_bind_group_entry(&view_uniforms_resource.uniforms)
-            .push_bind_group_entry(&source)
+            .push_bind_group_entry(source)
             .push_bind_group_entry(&tonemapping_pipeline.sampler_info)
             .push_bind_group_entry(lut_image)
             .push_bind_group_entry(&lut_image.sampler_info)
             .build();
 
-        let destination = pass_builder.pass_node_builder().write(destination);
+        let destination = pass_builder.write_material(destination);
 
         let mut builder = pass_builder.create_render_pass_builder();
 

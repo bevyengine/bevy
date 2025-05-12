@@ -1,10 +1,21 @@
-use crate::frame_graph::{FrameGraph, FrameGraphBuffer, FrameGraphTexture, GraphResource, GraphResourceNodeHandle};
+use crate::frame_graph::{
+    FrameGraph, FrameGraphBuffer, FrameGraphTexture, GraphResource, GraphResourceNodeHandle,
+};
 
 use super::ResourceMaterial;
 
 pub struct ResourceMeta<ResourceType: GraphResource> {
     pub key: String,
     pub desc: <ResourceType as GraphResource>::Descriptor,
+}
+
+impl<ResourceType: GraphResource> Clone for ResourceMeta<ResourceType> {
+    fn clone(&self) -> Self {
+        ResourceMeta {
+            key: self.key.clone(),
+            desc: self.desc.clone(),
+        }
+    }
 }
 
 impl ResourceMaterial for ResourceMeta<FrameGraphTexture> {

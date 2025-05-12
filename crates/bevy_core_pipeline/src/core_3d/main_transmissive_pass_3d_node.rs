@@ -79,7 +79,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                         let mut pass_node_builder = frame_graph
                             .create_pass_node_bulder("main_transmissive_command_encoder_3d");
 
-                        let source = target.get_main_texture_image_copy(&mut pass_node_builder)?;
+                        let source = target.get_main_texture_image_copy(&mut pass_node_builder);
                         let destination = transmission.get_image_copy(&mut pass_node_builder)?;
 
                         let mut pass = EncoderPass::default();
@@ -101,12 +101,9 @@ impl ViewNode for MainTransmissivePass3dNode {
                         frame_graph.create_pass_node_bulder("main_transmissive_pass_3d"),
                     );
 
-                    let color_attachment =
-                        target.get_color_attachment(pass_builder.pass_node_builder())?;
-                    let depth_stencil_attachment = depth.get_depth_stencil_attachment(
-                        pass_builder.pass_node_builder(),
-                        StoreOp::Store,
-                    )?;
+                    let color_attachment = target.get_color_attachment(&mut pass_builder);
+                    let depth_stencil_attachment =
+                        depth.get_depth_stencil_attachment(&mut pass_builder, StoreOp::Store);
 
                     let mut builder = pass_builder.create_render_pass_builder();
 
@@ -133,12 +130,9 @@ impl ViewNode for MainTransmissivePass3dNode {
                     frame_graph.create_pass_node_bulder("main_transmissive_pass_3d"),
                 );
 
-                let color_attachment =
-                    target.get_color_attachment(pass_builder.pass_node_builder())?;
-                let depth_stencil_attachment = depth.get_depth_stencil_attachment(
-                    pass_builder.pass_node_builder(),
-                    StoreOp::Store,
-                )?;
+                let color_attachment = target.get_color_attachment(&mut pass_builder);
+                let depth_stencil_attachment =
+                    depth.get_depth_stencil_attachment(&mut pass_builder, StoreOp::Store);
 
                 let mut builder = pass_builder.create_render_pass_builder();
 

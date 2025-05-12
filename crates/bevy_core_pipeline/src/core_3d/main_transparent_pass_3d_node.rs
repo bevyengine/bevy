@@ -55,9 +55,9 @@ impl ViewNode for MainTransparentPass3dNode {
             let mut pass_builder =
                 PassBuilder::new(frame_graph.create_pass_node_bulder("main_transparent_pass_3d"));
 
-            let color_attachment = target.get_color_attachment(pass_builder.pass_node_builder())?;
+            let color_attachment = target.get_color_attachment(&mut pass_builder);
             let depth_stencil_attachment = depth
-                .get_depth_stencil_attachment(pass_builder.pass_node_builder(), StoreOp::Store)?;
+                .get_depth_stencil_attachment(&mut pass_builder, StoreOp::Store);
 
             let mut builder = pass_builder.create_render_pass_builder();
 

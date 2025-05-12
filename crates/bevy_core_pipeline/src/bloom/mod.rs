@@ -22,8 +22,8 @@ use bevy_render::{
     },
     frame_graph::{
         BindingResourceRef, ColorAttachmentDrawing, EncoderCommandBuilder, FrameGraph,
-        FrameGraphTexture, GraphResourceNodeHandle, PassBuilder, ResourceMeta, TextureInfo,
-        TextureViewDrawing, TextureViewInfo,
+        FrameGraphTexture, PassBuilder, ResourceMeta, TextureInfo, TextureViewDrawing,
+        TextureViewInfo,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
@@ -147,13 +147,11 @@ impl ViewNode for BloomNode {
             return Ok(());
         };
 
-        let view_texture: GraphResourceNodeHandle<FrameGraphTexture> =
-            frame_graph.get(view_target.get_main_texture_key())?;
+        let view_texture = view_target.get_main_texture_key();
 
         let mut pass_builder = PassBuilder::new(frame_graph.create_pass_node_bulder("bloom"));
 
-        let color_attachment =
-            view_target.get_unsampled_attachment(pass_builder.pass_node_builder())?;
+        let color_attachment = view_target.get_unsampled_attachment(&mut pass_builder);
 
         pass_builder.push_debug_group("bloom");
 
@@ -167,7 +165,7 @@ impl ViewNode for BloomNode {
                     Some("bloom_downsampling_first_bind_group".into()),
                     downsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_group_entry(&view_texture)
+                .push_bind_group_entry(view_texture)
                 .push_bind_group_entry(&downsampling_pipeline_res.sampler_info)
                 .push_bind_group_entry(uniforms.deref())
                 .build();
