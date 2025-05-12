@@ -12,6 +12,7 @@ use bevy_ecs::{
 use bevy_math::{ops, UVec2};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::*,
     renderer::RenderContext,
@@ -99,6 +100,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let first_node = meshlet_view_bind_groups
             .first_node
             .fetch_and(false, Ordering::SeqCst);
@@ -109,6 +112,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         render_context
             .command_encoder()
             .push_debug_group("meshlet_visibility_buffer_raster");
+        let time_span = diagnostics.time_span(
+            render_context.command_encoder(),
+            "meshlet_visibility_buffer_raster",
+        );
         if first_node {
             fill_cluster_buffers_pass(
                 render_context,
@@ -242,6 +249,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 "meshlet_visibility_buffer_raster: {}",
                 shadow_view.pass_name
             ));
+            let pass_span = diagnostics.time_span(
+                render_context.command_encoder(),
+                shadow_view.pass_name.clone(),
+            );
             clear_visibility_buffer_pass(
                 render_context,
                 &meshlet_view_bind_groups.clear_visibility_buffer,
@@ -335,7 +346,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 downsample_depth_second_shadow_view_pipeline,
             );
             render_context.command_encoder().pop_debug_group();
+            pass_span.end(render_context.command_encoder());
         }
+
+        time_span.end(render_context.command_encoder());
 
         Ok(())
     }

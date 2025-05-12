@@ -27,6 +27,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
@@ -393,6 +394,8 @@ impl ViewNode for Wireframe2dNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("wireframe_2d_pass"),
             color_attachments: &[Some(target.get_color_attachment())],
@@ -400,6 +403,7 @@ impl ViewNode for Wireframe2dNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_2d_pass");
 
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);
@@ -409,6 +413,8 @@ impl ViewNode for Wireframe2dNode {
             error!("Error encountered while rendering the stencil phase {err:?}");
             return Err(NodeRunError::DrawError(err));
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

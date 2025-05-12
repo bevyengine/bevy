@@ -32,6 +32,7 @@ use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
+    diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
@@ -359,6 +360,8 @@ impl ViewNode for DepthOfFieldNode {
         let view_uniforms = world.resource::<ViewUniforms>();
         let global_bind_group = world.resource::<DepthOfFieldGlobalBindGroup>();
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         // We can be in either Gaussian blur or bokeh mode here. Both modes are
         // similar, consisting of two passes each. We factor out the information
         // specific to each pass into
@@ -451,6 +454,9 @@ impl ViewNode for DepthOfFieldNode {
             let mut render_pass = render_context
                 .command_encoder()
                 .begin_render_pass(&render_pass_descriptor);
+            let pass_span =
+                diagnostics.pass_span(&mut render_pass, pipeline_render_info.pass_label);
+
             render_pass.set_pipeline(render_pipeline);
             // Set the per-view bind group.
             render_pass.set_bind_group(0, &view_bind_group, &[view_uniform_offset.offset]);
@@ -462,6 +468,8 @@ impl ViewNode for DepthOfFieldNode {
             );
             // Render the full-screen pass.
             render_pass.draw(0..3, 0..1);
+
+            pass_span.end(&mut render_pass);
         }
 
         Ok(())

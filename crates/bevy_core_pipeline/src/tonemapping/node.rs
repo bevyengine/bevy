@@ -4,6 +4,7 @@ use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPi
 
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
@@ -59,6 +60,8 @@ impl ViewNode for TonemappingNode {
         let Some(pipeline) = pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) else {
             return Ok(());
         };
+
+        let diagnostics = render_context.diagnostic_recorder();
 
         let post_process = target.post_process_write();
         let source = post_process.source;
@@ -131,10 +134,13 @@ impl ViewNode for TonemappingNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "tonemapping_pass");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[view_uniform_offset.offset]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

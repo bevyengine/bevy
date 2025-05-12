@@ -20,6 +20,7 @@ use bevy_ecs::{
 use bevy_image::{BevyDefault, Image};
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     mesh::{
         allocator::MeshAllocator, Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
     },
@@ -370,6 +371,13 @@ impl ViewNode for VolumetricFogNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+        render_context
+            .command_encoder()
+            .push_debug_group("volumetric lighting pass");
+        let time_span =
+            diagnostics.time_span(render_context.command_encoder(), "volumetric lighting pass");
+
         let render_meshes = world.resource::<RenderAssets<RenderMesh>>();
 
         for view_fog_volume in view_fog_volumes.iter() {
@@ -502,6 +510,9 @@ impl ViewNode for VolumetricFogNode {
                 }
             }
         }
+
+        time_span.end(render_context.command_encoder());
+        render_context.command_encoder().pop_debug_group();
 
         Ok(())
     }

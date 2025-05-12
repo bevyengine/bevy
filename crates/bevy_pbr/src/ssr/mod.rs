@@ -23,7 +23,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::render_graph::RenderGraph;
+use bevy_render::{diagnostic::RecordDiagnostics, render_graph::RenderGraph};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -296,6 +296,8 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         // Set up a standard pair of postprocessing textures.
         let postprocess = view_target.post_process_write();
 
@@ -324,6 +326,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "SSR pass");
 
         // Set bind groups.
         render_pass.set_render_pipeline(render_pipeline);
@@ -343,6 +346,8 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         // Perform the SSR render pass.
         render_pass.set_bind_group(1, &ssr_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

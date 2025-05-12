@@ -7,7 +7,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::FloatOrd;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
@@ -16,6 +15,7 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
+use bevy_render::{diagnostic::RecordDiagnostics, sync_world::MainEntity};
 use tracing::error;
 
 pub struct UiPassNode {
@@ -78,6 +78,8 @@ impl Node for UiPassNode {
             return Ok(());
         }
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         // use the UI view entity if it is defined
         let view_entity = if let Ok(ui_camera_view) = self
             .ui_camera_view_query
@@ -94,12 +96,16 @@ impl Node for UiPassNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "ui_pass");
+
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);
         }
         if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
             error!("Error encountered while rendering the ui phase {err:?}");
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

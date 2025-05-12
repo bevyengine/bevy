@@ -21,6 +21,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
@@ -192,6 +193,8 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let bind_group_1 = render_context.render_device().create_bind_group(
             "deferred_lighting_layout_group_1",
             &deferred_lighting_layout.bind_group_layout_1,
@@ -212,6 +215,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "deferred_lighting_pass");
 
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(
@@ -228,6 +232,8 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         );
         render_pass.set_bind_group(1, &bind_group_1, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
