@@ -131,7 +131,7 @@ pub trait ScalarField:
     const ONE: Self;
 
     /// The multiplicative inverse of this element. This is equivalent to `1.0 / self`.
-    fn inverse(self) -> Self {
+    fn recip(self) -> Self {
         Self::ONE / self
     }
 }
