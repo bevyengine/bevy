@@ -22,8 +22,7 @@ use bevy_render::{
     },
     frame_graph::{
         BindingResourceRef, ColorAttachmentDrawing, EncoderCommandBuilder, FrameGraph,
-        FrameGraphTexture, PassBuilder, ResourceMeta, TextureInfo, TextureViewDrawing,
-        TextureViewInfo,
+        FrameGraphTexture, ResourceMeta, TextureInfo, TextureViewDrawing, TextureViewInfo,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,

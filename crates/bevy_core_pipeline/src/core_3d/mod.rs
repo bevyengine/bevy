@@ -75,7 +75,8 @@ use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     experimental::occlusion_culling::OcclusionCulling,
     frame_graph::{
-        FrameGraph, FrameGraphError, PassNodeBuilder, ResourceBoardKey, ResourceMeta, SamplerInfo,
+        FrameGraph, FrameGraphError, FrameGraphTexture, PassBuilder, PassNodeBuilder,
+        ResourceBoardKey, ResourceMeta, ResourceRead, ResourceWrite, SamplerInfo,
         TexelCopyTextureInfo, TextureInfo,
     },
     mesh::allocator::SlabId,
@@ -846,32 +847,44 @@ pub fn prepare_core_3d_depth_textures(
 #[derive(Component)]
 pub struct ViewTransmissionTexture {
     pub sample_info: SamplerInfo,
-    pub texture_info: TextureInfo,
-    pub texture_key: ResourceBoardKey,
+    pub texture: ResourceMeta<FrameGraphTexture>,
 }
 
 impl ViewTransmissionTexture {
-    pub fn get_view_transmission_texture(entity: Entity) -> String {
+    pub fn get_view_transmission_texture_key(entity: Entity) -> String {
         format!("view_transmission_texture_{}", entity)
     }
 
-    pub fn get_view_transmission_texture_key(&self) -> &ResourceBoardKey {
-        &self.texture_key
+    pub fn get_view_transmission_texture(&self) -> &ResourceMeta<FrameGraphTexture> {
+        &self.texture
     }
 
-    pub fn get_image_copy(
+    pub fn get_image_copy_info_write(
         &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> Result<TexelCopyTextureInfo, FrameGraphError> {
-        let main_texture_read =
-            pass_node_builder.read_from_board(self.get_view_transmission_texture_key())?;
+        pass_builder: &mut PassBuilder,
+    ) -> TexelCopyTextureInfo<ResourceWrite> {
+        let texture = pass_builder.write_material(self.get_view_transmission_texture());
 
-        Ok(TexelCopyTextureInfo {
+        TexelCopyTextureInfo {
             mip_level: 0,
-            texture: main_texture_read,
+            texture,
             origin: Origin3d::ZERO,
             aspect: TextureAspect::All,
-        })
+        }
+    }
+
+    pub fn get_image_copy_info_read(
+        &self,
+        pass_builder: &mut PassBuilder,
+    ) -> TexelCopyTextureInfo<ResourceRead> {
+        let texture = pass_builder.read_material(self.get_view_transmission_texture());
+
+        TexelCopyTextureInfo {
+            mip_level: 0,
+            texture,
+            origin: Origin3d::ZERO,
+            aspect: TextureAspect::All,
+        }
     }
 }
 
@@ -882,7 +895,6 @@ pub fn prepare_core_3d_transmission_textures(
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
-    mut frame_graph: ResMut<FrameGraph>,
 ) {
     for (entity, camera, camera_3d, view) in &views_3d {
         if !opaque_3d_phases.contains_key(&view.retained_view_entity)
@@ -926,7 +938,7 @@ pub fn prepare_core_3d_transmission_textures(
             TextureFormat::bevy_default()
         };
 
-        let key = ViewTransmissionTexture::get_view_transmission_texture(entity);
+        let key = ViewTransmissionTexture::get_view_transmission_texture_key(entity);
 
         let texture_info = TextureInfo {
             label: Some("view_transmission_texture".into()),
@@ -939,8 +951,6 @@ pub fn prepare_core_3d_transmission_textures(
             view_formats: vec![],
         };
 
-        frame_graph.get_or_create(&key, texture_info.clone());
-
         let sample_info = SamplerInfo {
             label: Some("view_transmission_sampler".into()),
             mag_filter: FilterMode::Linear,
@@ -950,8 +960,10 @@ pub fn prepare_core_3d_transmission_textures(
 
         commands.entity(entity).insert(ViewTransmissionTexture {
             sample_info,
-            texture_info,
-            texture_key: key.into(),
+            texture: ResourceMeta {
+                key,
+                desc: texture_info,
+            },
         });
     }
 }

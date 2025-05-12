@@ -15,8 +15,8 @@ use crate::{
     extract_component::ExtractComponentPlugin,
     frame_graph::{
         ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraph,
-        FrameGraphTexture, PassBuilder, PassNodeBuilder, ResourceMeta, TexelCopyTextureInfo,
-        TextureInfo, TextureViewDrawing, TextureViewInfo,
+        FrameGraphTexture, PassBuilder, ResourceMeta, ResourceRead, ResourceWrite,
+        TexelCopyTextureInfo, TextureInfo, TextureViewDrawing, TextureViewInfo,
     },
     prelude::Shader,
     primitives::Frustum,
@@ -724,14 +724,27 @@ pub struct NoCpuCulling;
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
-    pub fn get_main_texture_image_copy(
+    pub fn get_main_texture_copy_info_read(
         &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> TexelCopyTextureInfo {
-        let main_texture_read = pass_node_builder.read_material(self.get_main_texture_key());
+        pass_builder: &mut PassBuilder,
+    ) -> TexelCopyTextureInfo<ResourceRead> {
+        let texture = pass_builder.read_material(self.get_main_texture_key());
         TexelCopyTextureInfo {
             mip_level: 0,
-            texture: main_texture_read,
+            texture,
+            origin: Origin3d::ZERO,
+            aspect: TextureAspect::All,
+        }
+    }
+
+    pub fn get_main_texture_copy_info_write(
+        &self,
+        pass_builder: &mut PassBuilder,
+    ) -> TexelCopyTextureInfo<ResourceWrite> {
+        let texture = pass_builder.write_material(self.get_main_texture_key());
+        TexelCopyTextureInfo {
+            mip_level: 0,
+            texture,
             origin: Origin3d::ZERO,
             aspect: TextureAspect::All,
         }

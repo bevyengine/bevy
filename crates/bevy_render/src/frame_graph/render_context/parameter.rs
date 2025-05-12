@@ -1,18 +1,18 @@
 use std::ops::Range;
 
 use bevy_color::LinearRgba;
-use wgpu::{Extent3d, QuerySet, ShaderStages};
+use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
 
 use crate::{
     frame_graph::{
-        BindGroupDrawing, FrameGraphBuffer, FrameGraphError, RenderPassContext, ResourceRead,
-        ResourceRef, TexelCopyTextureInfo,
+        BindGroupDrawing, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, RenderPassContext,
+        ResourceRead, ResourceRef, ResourceWrite, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedComputePipelineId, CachedRenderPipelineId},
 };
 
 use super::{
-    encoder_context::{EncoderContext, ErasedEncoderPassCommand},
+    encoder_pass_context::{EncoderPassContext, ErasedEncoderPassCommand},
     ComputePassContext, ErasedComputePassCommand, ErasedEncoderCommand, ErasedRenderPassCommand,
 };
 
@@ -29,9 +29,38 @@ impl ErasedComputePassCommand for DispatchWorkgroupsParameter {
     }
 }
 
+pub struct ClearTextureParameter {
+    pub texture_ref: ResourceRef<FrameGraphTexture, ResourceWrite>,
+    pub subresource_range: ImageSubresourceRange,
+}
+
+impl ErasedComputePassCommand for ClearTextureParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.clear_texture(&self.texture_ref, &self.subresource_range)?;
+        Ok(())
+    }
+}
+
+impl ErasedRenderPassCommand for ClearTextureParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.clear_texture(&self.texture_ref, &self.subresource_range)?;
+        Ok(())
+    }
+}
+
+impl ErasedEncoderPassCommand for ClearTextureParameter {
+    fn draw(
+        &self,
+        command_encoder_context: &mut EncoderPassContext,
+    ) -> Result<(), FrameGraphError> {
+        command_encoder_context.clear_texture(&self.texture_ref, &self.subresource_range)?;
+        Ok(())
+    }
+}
+
 pub struct CopyTextureToTextureParameter {
-    pub source: TexelCopyTextureInfo,
-    pub destination: TexelCopyTextureInfo,
+    pub source: TexelCopyTextureInfo<ResourceRead>,
+    pub destination: TexelCopyTextureInfo<ResourceWrite>,
     pub copy_size: Extent3d,
 }
 
@@ -58,7 +87,7 @@ impl ErasedRenderPassCommand for CopyTextureToTextureParameter {
 }
 
 impl ErasedEncoderPassCommand for CopyTextureToTextureParameter {
-    fn draw(&self, command_encoder_context: &mut EncoderContext) -> Result<(), FrameGraphError> {
+    fn draw(&self, command_encoder_context: &mut EncoderPassContext) -> Result<(), FrameGraphError> {
         command_encoder_context.copy_texture_to_texture(
             self.source.clone(),
             self.destination.clone(),

@@ -1,20 +1,34 @@
-use wgpu::{Extent3d, QuerySet};
+use wgpu::{Extent3d, ImageSubresourceRange, QuerySet};
 
 use super::{
-    BeginPipelineStatisticsQueryParameter, CopyTextureToTextureParameter,
+    BeginPipelineStatisticsQueryParameter, ClearTextureParameter, CopyTextureToTextureParameter,
     DispatchWorkgroupsParameter, EndPipelineStatisticsQueryParameter, FrameGraphError,
     InsertDebugMarkerParameter, PopDebugGroupParameter, PushDebugGroupParameter, RenderContext,
     SetBindGroupParameter, SetComputePipelineParameter, SetRawBindGroupParameter,
     WriteTimestampParameter,
 };
 use crate::{
-    frame_graph::{BindGroupDrawing, ResourceDrawing, TexelCopyTextureInfo},
+    frame_graph::{
+        BindGroupDrawing, FrameGraphTexture, ResourceDrawing, ResourceRead, ResourceRef,
+        ResourceWrite, TexelCopyTextureInfo,
+    },
     render_resource::{BindGroup, CachedComputePipelineId},
 };
 use std::ops::Deref;
 
 pub trait ComputePassCommandBuilder {
     fn add_compute_pass_command(&mut self, value: ComputePassCommand);
+
+    fn clear_texture(
+        &mut self,
+        texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
+        subresource_range: ImageSubresourceRange,
+    ) {
+        self.add_compute_pass_command(ComputePassCommand::new(ClearTextureParameter {
+            texture_ref: texture_ref.clone(),
+            subresource_range,
+        }));
+    }
 
     fn dispatch_workgroups(&mut self, x: u32, y: u32, z: u32) {
         self.add_compute_pass_command(ComputePassCommand::new(DispatchWorkgroupsParameter {
@@ -30,8 +44,8 @@ pub trait ComputePassCommandBuilder {
 
     fn copy_texture_to_texture(
         &mut self,
-        source: TexelCopyTextureInfo,
-        destination: TexelCopyTextureInfo,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
     ) {
         self.add_compute_pass_command(ComputePassCommand::new(CopyTextureToTextureParameter {
@@ -132,6 +146,19 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
         }
     }
 
+    pub fn clear_texture(
+        &mut self,
+        texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
+        subresource_range: &ImageSubresourceRange,
+    ) -> Result<(), FrameGraphError> {
+        let texture = self.render_context.get_resource(&texture_ref)?;
+
+        self.command_encoder
+            .clear_texture(&texture.resource, subresource_range);
+
+        Ok(())
+    }
+
     pub fn dispatch_workgroups(&mut self, x: u32, y: u32, z: u32) {
         self.compute_pass.dispatch_workgroups(x, y, z);
     }
@@ -148,8 +175,8 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
 
     pub fn copy_texture_to_texture(
         &mut self,
-        source: TexelCopyTextureInfo,
-        destination: TexelCopyTextureInfo,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
     ) -> Result<(), FrameGraphError> {
         let source_texture = self.render_context.get_resource(&source.texture)?;

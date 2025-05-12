@@ -76,30 +76,27 @@ impl ViewNode for MainTransmissivePass3dNode {
                     // previous step (or of the `Opaque3d` phase, for the first step) as a transmissive color input
 
                     {
-                        let mut pass_node_builder = frame_graph
-                            .create_pass_node_bulder("main_transmissive_command_encoder_3d");
+                        let mut pass_builder =
+                            frame_graph.create_pass_builder("main_transmissive_command_encoder_3d");
 
-                        let source = target.get_main_texture_image_copy(&mut pass_node_builder);
-                        let destination = transmission.get_image_copy(&mut pass_node_builder)?;
+                        let source = target.get_main_texture_copy_info_read(&mut pass_builder);
+                        let destination = transmission.get_image_copy_info_write(&mut pass_builder);
 
-                        let mut pass = EncoderPass::default();
-
-                        pass.copy_texture_to_texture(
-                            source,
-                            destination,
-                            Extent3d {
-                                width: physical_target_size.x,
-                                height: physical_target_size.y,
-                                depth_or_array_layers: 1,
-                            },
-                        );
-
-                        pass_node_builder.set_pass(pass);
+                        pass_builder
+                            .create_encoder_pass_builder()
+                            .copy_texture_to_texture(
+                                source,
+                                destination,
+                                Extent3d {
+                                    width: physical_target_size.x,
+                                    height: physical_target_size.y,
+                                    depth_or_array_layers: 1,
+                                },
+                            );
                     }
 
-                    let mut pass_builder = PassBuilder::new(
-                        frame_graph.create_pass_node_bulder("main_transmissive_pass_3d"),
-                    );
+                    let mut pass_builder =
+                        frame_graph.create_pass_builder("main_transmissive_pass_3d");
 
                     let color_attachment = target.get_color_attachment(&mut pass_builder);
                     let depth_stencil_attachment =

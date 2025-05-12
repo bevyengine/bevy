@@ -1,12 +1,12 @@
 pub mod compute_pass_context;
 pub mod encoder;
-pub mod encoder_context;
+pub mod encoder_pass_context;
 pub mod parameter;
 pub mod render_pass_context;
 
 pub use compute_pass_context::*;
 pub use encoder::*;
-pub use encoder_context::*;
+pub use encoder_pass_context::*;
 pub use parameter::*;
 pub use render_pass_context::*;
 
@@ -101,11 +101,11 @@ impl<'a> RenderContext<'a> {
         Ok(RenderPassContext::new(command_encoder, render_pass, self))
     }
 
-    pub fn begin_encoder<'b>(
+    pub fn begin_encoder_pass<'b>(
         &'b mut self,
         command_encoder: &'b mut CommandEncoder,
-    ) -> EncoderContext<'a, 'b> {
-        EncoderContext::new(command_encoder, self)
+    ) -> EncoderPassContext<'a, 'b> {
+        EncoderPassContext::new(command_encoder, self)
     }
 
     pub fn get_compute_pipeline(

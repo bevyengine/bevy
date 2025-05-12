@@ -1,7 +1,9 @@
 pub mod compute_pass_builder;
+pub mod encoder_pass_builder;
 pub mod render_pass_builder;
 
 pub use compute_pass_builder::*;
+pub use encoder_pass_builder::*;
 pub use render_pass_builder::*;
 
 use std::{borrow::Cow, mem::take};
@@ -119,5 +121,9 @@ impl<'a> PassBuilder<'a> {
 
     pub fn create_compute_pass_builder<'b>(&'b mut self) -> ComputePassBuilder<'a, 'b> {
         ComputePassBuilder::new(self)
+    }
+
+    pub fn create_encoder_pass_builder<'b>(&'b mut self) -> EncoderPassBuilder<'a, 'b> {
+        EncoderPassBuilder::new(self)
     }
 }

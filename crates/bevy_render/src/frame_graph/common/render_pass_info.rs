@@ -10,14 +10,14 @@ use super::{
 #[derive(Default)]
 pub struct RenderPassDrawing {
     pub label: Option<Cow<'static, str>>,
-    pub color_attachments: Vec<ColorAttachmentDrawing>,
+    pub color_attachments: Vec<Option<ColorAttachmentDrawing>>,
     pub depth_stencil_attachment: Option<DepthStencilAttachmentDrawing>,
-    pub raw_color_attachments: Vec<ColorAttachment>,
+    pub raw_color_attachments: Vec<Option<ColorAttachment>>,
 }
 
 pub struct RenderPassInfo {
     pub label: Option<Cow<'static, str>>,
-    pub color_attachments: Vec<ColorAttachment>,
+    pub color_attachments: Vec<Option<ColorAttachment>>,
     pub depth_stencil_attachment: Option<DepthStencilAttachment>,
 }
 
@@ -31,7 +31,16 @@ impl ResourceDrawing for RenderPassDrawing {
         let mut color_attachments = self.raw_color_attachments.clone();
 
         for color_attachment in self.color_attachments.iter() {
-            color_attachments.push(color_attachment.make_resource(render_context)?);
+            if color_attachment.is_none() {
+                color_attachments.push(None);
+            } else {
+                color_attachments.push(Some(
+                    color_attachment
+                        .as_ref()
+                        .unwrap()
+                        .make_resource(render_context)?,
+                ));
+            }
         }
 
         let mut depth_stencil_attachment = None;
@@ -66,7 +75,11 @@ impl RenderPassInfo {
             color_attachments: &self
                 .color_attachments
                 .iter()
-                .map(|color_attachment| Some(color_attachment.get_render_pass_color_attachment()))
+                .map(|color_attachment| {
+                    color_attachment.as_ref().and_then(|color_attachment| {
+                        Some(color_attachment.get_render_pass_color_attachment())
+                    })
+                })
                 .collect::<Vec<_>>(),
             depth_stencil_attachment,
             ..Default::default()

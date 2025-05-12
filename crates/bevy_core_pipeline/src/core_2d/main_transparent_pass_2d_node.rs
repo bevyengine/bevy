@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::{FrameGraph, PassBuilder},
+    frame_graph::FrameGraph,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
     render_resource::StoreOp,

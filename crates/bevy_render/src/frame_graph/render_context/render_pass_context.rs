@@ -1,8 +1,8 @@
 use bevy_color::LinearRgba;
-use wgpu::{Extent3d, QuerySet, ShaderStages};
+use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
 
 use super::{
-    BeginPipelineStatisticsQueryParameter, CopyTextureToTextureParameter,
+    BeginPipelineStatisticsQueryParameter, ClearTextureParameter, CopyTextureToTextureParameter,
     DrawIndexedIndirectParameter, DrawIndexedParameter, DrawIndirectParameter, DrawParameter,
     EndPipelineStatisticsQueryParameter, FrameGraphBuffer, FrameGraphError,
     InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
@@ -14,7 +14,9 @@ use super::{
     WriteTimestampParameter,
 };
 use crate::{
-    frame_graph::{BindGroupDrawing, ResourceDrawing, TexelCopyTextureInfo},
+    frame_graph::{
+        BindGroupDrawing, FrameGraphTexture, ResourceDrawing, ResourceWrite, TexelCopyTextureInfo,
+    },
     render_resource::{BindGroup, CachedRenderPipelineId},
 };
 use core::ops::Range;
@@ -23,10 +25,21 @@ use std::ops::Deref;
 pub trait RenderPassCommandBuilder {
     fn add_render_pass_command(&mut self, value: RenderPassCommand);
 
+    fn clear_texture(
+        &mut self,
+        texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
+        subresource_range: ImageSubresourceRange,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(ClearTextureParameter {
+            texture_ref: texture_ref.clone(),
+            subresource_range,
+        }));
+    }
+
     fn copy_texture_to_texture(
         &mut self,
-        source: TexelCopyTextureInfo,
-        destination: TexelCopyTextureInfo,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
     ) {
         self.add_render_pass_command(RenderPassCommand::new(CopyTextureToTextureParameter {
@@ -305,10 +318,23 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         }
     }
 
+    pub fn clear_texture(
+        &mut self,
+        texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
+        subresource_range: &ImageSubresourceRange,
+    ) -> Result<(), FrameGraphError> {
+        let texture = self.render_context.get_resource(&texture_ref)?;
+
+        self.command_encoder
+            .clear_texture(&texture.resource, subresource_range);
+
+        Ok(())
+    }
+
     pub fn copy_texture_to_texture(
         &mut self,
-        source: TexelCopyTextureInfo,
-        destination: TexelCopyTextureInfo,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
     ) -> Result<(), FrameGraphError> {
         let source_texture = self.render_context.get_resource(&source.texture)?;

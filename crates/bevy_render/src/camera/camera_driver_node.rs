@@ -88,14 +88,14 @@ impl Node for CameraDriverNode {
 
             let mut render_pass = RenderPass::default();
 
-            render_pass.add_raw_color_attachment(ColorAttachment {
+            render_pass.add_raw_color_attachment(Some(ColorAttachment {
                 view: swap_chain_texture_view.deref().clone(),
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(clear_color_global.to_linear().into()),
                     store: StoreOp::Store,
                 },
-            });
+            }));
 
             builder.set_pass(render_pass);
         }

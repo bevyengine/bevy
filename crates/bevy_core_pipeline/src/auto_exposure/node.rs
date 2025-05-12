@@ -9,9 +9,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    frame_graph::{
-        FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, PassBuilder, ResourceMaterial,
-    },
+    frame_graph::{FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, ResourceMaterial},
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::*,

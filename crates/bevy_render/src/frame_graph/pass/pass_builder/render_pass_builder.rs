@@ -318,12 +318,23 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
     }
 
     pub fn add_raw_color_attachment(&mut self, color_attachment: ColorAttachment) -> &mut Self {
-        self.render_pass.add_raw_color_attachment(color_attachment);
+        self.render_pass
+            .add_raw_color_attachment(Some(color_attachment));
+        self
+    }
+
+    pub fn add_color_attachments(
+        &mut self,
+        color_attachments: Vec<Option<ColorAttachmentDrawing>>,
+    ) -> &mut Self {
+        self.render_pass.add_color_attachments(color_attachments);
+
         self
     }
 
     pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentDrawing) -> &mut Self {
-        self.render_pass.add_color_attachment(color_attachment);
+        self.render_pass
+            .add_color_attachment(Some(color_attachment));
 
         self
     }

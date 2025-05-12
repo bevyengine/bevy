@@ -37,7 +37,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_platform::collections::HashSet;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
-    frame_graph::{FrameGraph, ResourceMeta, TextureInfo},
+    frame_graph::{ResourceMeta, TextureInfo},
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };

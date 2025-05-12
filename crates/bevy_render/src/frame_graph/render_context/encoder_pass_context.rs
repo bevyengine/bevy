@@ -1,16 +1,30 @@
-use wgpu::Extent3d;
+use wgpu::{Extent3d, ImageSubresourceRange};
 
-use crate::frame_graph::{FrameGraphError, TexelCopyTextureInfo};
+use crate::frame_graph::{
+    FrameGraphError, FrameGraphTexture, ResourceRead, ResourceRef, ResourceWrite,
+    TexelCopyTextureInfo,
+};
 
-use super::{CopyTextureToTextureParameter, RenderContext};
+use super::{ClearTextureParameter, CopyTextureToTextureParameter, RenderContext};
 
 pub trait EncoderPassCommandBuilder {
-    fn add_encoder_pass_command(&mut self, value:EncoderPassCommand);
+    fn add_encoder_pass_command(&mut self, value: EncoderPassCommand);
+
+    fn clear_texture(
+        &mut self,
+        texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
+        subresource_range: ImageSubresourceRange,
+    ) {
+        self.add_encoder_pass_command(EncoderPassCommand::new(ClearTextureParameter {
+            texture_ref: texture_ref.clone(),
+            subresource_range,
+        }));
+    }
 
     fn copy_texture_to_texture(
         &mut self,
-        source: TexelCopyTextureInfo,
-        destination: TexelCopyTextureInfo,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
     ) {
         self.add_encoder_pass_command(EncoderPassCommand::new(CopyTextureToTextureParameter {
@@ -30,29 +44,40 @@ impl EncoderPassCommand {
 
     pub fn draw(
         &self,
-        command_encoder_context: &mut EncoderContext,
+        command_encoder_context: &mut EncoderPassContext,
     ) -> Result<(), FrameGraphError> {
         self.0.draw(command_encoder_context)
     }
 }
 
 pub trait ErasedEncoderPassCommand: Sync + Send + 'static {
-    fn draw(
-        &self,
-        command_encoder_context: &mut EncoderContext,
-    ) -> Result<(), FrameGraphError>;
+    fn draw(&self, command_encoder_context: &mut EncoderPassContext)
+        -> Result<(), FrameGraphError>;
 }
 
-pub struct EncoderContext<'a, 'b> {
+pub struct EncoderPassContext<'a, 'b> {
     command_encoder: &'b mut wgpu::CommandEncoder,
     render_context: &'b mut RenderContext<'a>,
 }
 
-impl<'a, 'b> EncoderContext<'a, 'b> {
+impl<'a, 'b> EncoderPassContext<'a, 'b> {
+    pub fn clear_texture(
+        &mut self,
+        texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
+        subresource_range: &ImageSubresourceRange,
+    ) -> Result<(), FrameGraphError> {
+        let texture = self.render_context.get_resource(&texture_ref)?;
+
+        self.command_encoder
+            .clear_texture(&texture.resource, subresource_range);
+
+        Ok(())
+    }
+
     pub fn copy_texture_to_texture(
         &mut self,
-        source: TexelCopyTextureInfo,
-        destination: TexelCopyTextureInfo,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
     ) -> Result<(), FrameGraphError> {
         let source_texture = self.render_context.get_resource(&source.texture)?;
@@ -86,10 +111,10 @@ impl<'a, 'b> EncoderContext<'a, 'b> {
     }
 
     pub fn new(
-        command_encoder:&'b mut wgpu::CommandEncoder,
+        command_encoder: &'b mut wgpu::CommandEncoder,
         render_context: &'b mut RenderContext<'a>,
     ) -> Self {
-       EncoderContext {
+        EncoderPassContext {
             command_encoder,
             render_context,
         }

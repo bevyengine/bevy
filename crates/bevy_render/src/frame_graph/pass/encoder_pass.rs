@@ -1,7 +1,7 @@
 use wgpu::CommandEncoder;
 
 use crate::frame_graph::{
-    encoder_context::{EncoderPassCommand, EncoderPassCommandBuilder},
+    encoder_pass_context::{EncoderPassCommand, EncoderPassCommandBuilder},
     FrameGraphError, RenderContext,
 };
 
@@ -10,6 +10,14 @@ use super::EncoderExecutor;
 #[derive(Default)]
 pub struct EncoderPass {
     commands: Vec<EncoderPassCommand>,
+}
+
+impl EncoderPass {
+    pub fn is_vaild(&self) -> bool {
+        !self.commands.is_empty()
+    }
+
+    pub fn finish(&mut self) {}
 }
 
 impl EncoderPassCommandBuilder for EncoderPass {
@@ -24,7 +32,7 @@ impl EncoderExecutor for EncoderPass {
         command_encoder: &mut CommandEncoder,
         render_context: &mut RenderContext,
     ) -> Result<(), FrameGraphError> {
-        let encoder_context = render_context.begin_encoder(command_encoder);
+        let encoder_context = render_context.begin_encoder_pass(command_encoder);
 
         encoder_context.execute(&self.commands)?;
 
