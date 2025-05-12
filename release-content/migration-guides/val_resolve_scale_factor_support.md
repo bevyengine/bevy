@@ -1,5 +1,5 @@
 ---
-title: Val resolve scale factor support
+title: `Val::resolve` scale factor support
 pull_requests: [18164]
 ---
 
