@@ -529,7 +529,7 @@ async fn load_gltf<'a, 'b, 'c>(
     // later in the loader when looking up handles for materials. However this would mean
     // that the material's load context would no longer track those images as dependencies.
     //
-    // XXX TODO: This has been changed to use texture handles. But the comment above suggests that will break something.
+    // XXX TODO: Don't reuse texture handles. Should calculate `AssetPath` once.
     let mut texture_handles = Vec::new();
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
         for texture in gltf.textures() {
@@ -1053,7 +1053,7 @@ fn load_material(
     texture_handles: &[Handle<Image>],
 ) -> Handle<StandardMaterial> {
     let material_label = material_label(material, is_scale_inverted);
-    // XXX TODO: Unclear if this is needed assume we follow through on using texture handles?
+    // XXX TODO: Double check this works correctly if we rearrange texture loading.
     load_context.labeled_asset_scope(material_label.to_string(), |_| {
         let pbr = material.pbr_metallic_roughness();
 

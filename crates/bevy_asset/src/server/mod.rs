@@ -436,8 +436,9 @@ impl AssetServer {
         self.load_with_meta_transform(path.into().with_settings_fn(settings), guard, true)
     }
 
-    // XXX TODO: This should probably be renamed, but I'm not sure what to.
-    // `load_internal` is taken. `load_with_params`?
+    // XXX TODO: This should probably be renamed if `MetaTransform` is removed,
+    // but I'm not sure what would be a good name. `load_internal` is taken.
+    // Maybe `load_with_params`?
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,

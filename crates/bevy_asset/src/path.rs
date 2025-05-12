@@ -23,7 +23,7 @@ use thiserror::Error;
 ///
 /// XXX TODO: Reconsider auto-deriving Hash. This currently means we hash our
 /// own hash + type id. Could be avoided if hash includes the type id. This
-/// also starts to look suspiciously like `bevy_platform::Hashed`...
+/// also starts to look suspiciously like `bevy_platform::Hashed`.
 #[derive(Eq, PartialEq, Hash, Copy, Clone)]
 pub struct ErasedSettingsId {
     // XXX TODO: Should we store the type id separately or just include it in the
@@ -34,7 +34,7 @@ pub struct ErasedSettingsId {
 
 impl Display for ErasedSettingsId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // XXX TODO: Reconsider formatting. Also we're using Debug for type_id...
+        // XXX TODO: Reconsider formatting. Also we're using Debug for type_id.
         write!(f, "{:?}/{}", self.type_id, self.hash)
     }
 }
@@ -222,7 +222,7 @@ impl<'a> AssetPath<'a> {
             },
             path: CowArc::Borrowed(path),
             label: label.map(CowArc::Borrowed),
-            settings: None, // XXX TODO?
+            settings: None, // XXX TODO: Do we need to document this behaviour?
         })
     }
 
@@ -322,7 +322,7 @@ impl<'a> AssetPath<'a> {
             path: CowArc::Borrowed(path),
             source: AssetSourceId::Default,
             label: None,
-            settings: None, // XXX TODO?
+            settings: None,
         }
     }
 
@@ -440,7 +440,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.clone(),
             label: None,
             path,
-            settings: self.settings.clone(), // XXX TODO: Bit weird?
+            settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behaviour.
         })
     }
 
@@ -454,7 +454,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.into_owned(),
             path: self.path.into_owned(),
             label: self.label.map(CowArc::into_owned),
-            settings: self.settings.clone(), // XXX TODO?
+            settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behaviour.
         }
     }
 
@@ -576,7 +576,7 @@ impl<'a> AssetPath<'a> {
                 },
                 path: CowArc::Owned(result_path.into()),
                 label: rlabel.map(|l| CowArc::Owned(l.into())),
-                settings: self.settings.clone(), // XXX TODO?
+                settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behaviour.
             })
         }
     }

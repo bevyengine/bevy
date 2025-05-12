@@ -122,7 +122,7 @@ pub struct ProcessedInfoMinimal {
 pub trait AssetMetaDyn: Downcast + Send + Sync {
     /// Returns a reference to the [`AssetLoader`] settings, if they exist.
     fn loader_settings(&self) -> Option<&dyn Settings>;
-    /// XXX TODO.
+    /// XXX TODO: Document.
     fn apply_settings(&mut self, settings: &dyn Settings);
     /// Serializes the internal [`AssetMeta`].
     fn serialize(&self) -> Vec<u8>;
