@@ -2118,6 +2118,8 @@ mod tests {
 
     #[test]
     fn disabling_auto_sync_points_keeps_disabled_edges() {
+        use alloc::{vec, vec::Vec};
+
         #[derive(PartialEq, Debug)]
         enum Entry {
             System(usize),
@@ -2125,7 +2127,7 @@ mod tests {
         }
 
         #[derive(Resource, Default)]
-        struct Log(alloc::vec::Vec<Entry>);
+        struct Log(Vec<Entry>);
 
         fn system<const N: usize>(mut res: ResMut<Log>, mut commands: Commands) {
             res.0.push(Entry::System(N));
@@ -2133,32 +2135,33 @@ mod tests {
                 .queue(|world: &mut World| world.resource_mut::<Log>().0.push(Entry::SyncPoint(N)));
         }
 
-        let mut world = World::default();
-        world.init_resource::<Log>();
-        let mut schedule = Schedule::default();
-        schedule.add_systems((system::<1>, system::<2>).chain_ignore_deferred());
+        fn get_log(auto_insert_apply_deferred: Vec<bool>) -> Vec<Entry> {
+            let mut world = World::default();
+            world.init_resource::<Log>();
+            let mut schedule = Schedule::default();
+            schedule.add_systems((system::<1>, system::<2>).chain_ignore_deferred());
 
-        // this should not clear the edges in the default pass
-        schedule.set_build_settings(ScheduleBuildSettings {
-            auto_insert_apply_deferred: false,
-            ..Default::default()
-        });
+            for auto_insert_apply_deferred in auto_insert_apply_deferred {
+                schedule.set_build_settings(ScheduleBuildSettings {
+                    auto_insert_apply_deferred,
+                    ..Default::default()
+                });
+            }
+            
+            schedule.run(&mut world);
+            world.remove_resource::<Log>().unwrap().0
+        }
 
-        schedule.set_build_settings(ScheduleBuildSettings {
-            auto_insert_apply_deferred: true,
-            ..Default::default()
-        });
-        schedule.run(&mut world);
-        let log = world.remove_resource::<Log>().unwrap().0;
-        assert_eq!(
-            log,
-            alloc::vec![
-                Entry::System(1),
-                Entry::System(2),
-                Entry::SyncPoint(1),
-                Entry::SyncPoint(2)
-            ]
-        );
+        let expected = vec![
+            Entry::System(1),
+            Entry::System(2),
+            Entry::SyncPoint(1),
+            Entry::SyncPoint(2)
+        ];
+
+        assert_eq!(get_log(vec![]), expected);
+        assert_eq!(get_log(vec![true]), expected);
+        assert_eq!(get_log(vec![false, true]), expected);
     }
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
