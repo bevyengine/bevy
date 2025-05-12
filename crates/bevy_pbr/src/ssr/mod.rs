@@ -23,10 +23,12 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{diagnostic::RecordDiagnostics, render_graph::RenderGraph};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{
+        NodeRunError, RenderGraph, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
+    },
     render_resource::{
         binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,

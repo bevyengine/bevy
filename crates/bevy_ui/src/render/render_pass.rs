@@ -9,13 +9,14 @@ use bevy_ecs::{
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
     renderer::*,
+    sync_world::MainEntity,
     view::*,
 };
-use bevy_render::{diagnostic::RecordDiagnostics, sync_world::MainEntity};
 use tracing::error;
 
 pub struct UiPassNode {
