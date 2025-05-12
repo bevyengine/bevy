@@ -54,7 +54,7 @@ impl Default for SwashCache {
 /// Information about a font collected as part of preparing for text layout.
 #[derive(Clone)]
 pub struct FontFaceInfo {
-    /// Width class (https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass)
+    /// Width class: <https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>
     pub stretch: cosmic_text::fontdb::Stretch,
     /// Allows italic or oblique faces to be selected
     pub style: cosmic_text::fontdb::Style,
