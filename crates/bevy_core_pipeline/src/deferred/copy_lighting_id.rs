@@ -8,7 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::FrameGraph,
+    frame_graph::{DepthStencilAttachmentDrawing, FrameGraph, TextureViewDrawing, TextureViewInfo},
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
@@ -67,12 +67,56 @@ impl ViewNode for CopyDeferredLightingIdNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
-        (_view_target, _view_prepass_textures, _deferred_lighting_id_depth_texture): QueryItem<
+        frame_graph: &mut FrameGraph,
+        (_view_target, view_prepass_textures, _deferred_lighting_id_depth_texture): QueryItem<
             Self::ViewQuery,
         >,
-        _world: &World,
+        world: &World,
     ) -> Result<(), NodeRunError> {
+        let copy_deferred_lighting_id_pipeline = world.resource::<CopyDeferredLightingIdPipeline>();
+        let pipeline_cache = world.resource::<PipelineCache>();
+
+        let Some(_) =
+            pipeline_cache.get_render_pipeline(copy_deferred_lighting_id_pipeline.pipeline_id)
+        else {
+            return Ok(());
+        };
+        let Some(deferred_lighting_pass_id_texture) =
+            &view_prepass_textures.deferred_lighting_pass_id
+        else {
+            return Ok(());
+        };
+
+        let mut pass_builder = frame_graph.create_pass_builder("copy_deferred_lighting_id_pass");
+
+        let bind_group = pass_builder
+            .create_bind_group_builder(
+                Some("copy_deferred_lighting_id_bind_group".into()),
+                copy_deferred_lighting_id_pipeline.layout.clone(),
+            )
+            .push_bind_group_entry(&deferred_lighting_pass_id_texture.texture)
+            .build();
+
+        let deferred_lighting_id_depth_texture =
+            pass_builder.write_material(&deferred_lighting_pass_id_texture.texture);
+
+        pass_builder
+            .create_render_pass_builder()
+            .set_pass_name("copy_deferred_lighting_id_pass")
+            .set_depth_stencil_attachment(DepthStencilAttachmentDrawing {
+                view: TextureViewDrawing {
+                    texture: deferred_lighting_id_depth_texture,
+                    desc: TextureViewInfo::default(),
+                },
+                depth_ops: Some(Operations {
+                    load: LoadOp::Clear(0.0),
+                    store: StoreOp::Store,
+                }),
+                stencil_ops: None,
+            })
+            .set_bind_group(0, bind_group, &[])
+            .draw(0..3, 0..1);
+
         Ok(())
     }
 }
