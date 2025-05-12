@@ -455,7 +455,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                         <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
                             .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_messages, #field_names))?;
                     )*
-                    Ok(())
+                    Result::Ok(())
                 }
 
                 #[inline]

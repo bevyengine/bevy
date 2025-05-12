@@ -1,7 +1,7 @@
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
@@ -84,6 +84,11 @@ where
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.system_meta.component_access_set.combined_access()
+    }
+
+    #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.system_meta.component_access_set
     }
 
     #[inline]
@@ -284,6 +289,7 @@ macro_rules! impl_exclusive_system_function {
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
+                    _: PhantomData<In>,
                     mut f: impl FnMut(In::Param<'_>, &mut World, $($param,)*) -> Out,
                     input: In::Inner<'_>,
                     world: &mut World,
@@ -292,7 +298,7 @@ macro_rules! impl_exclusive_system_function {
                     f(In::wrap(input), world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, input, world, $($param),*)
+                call_inner(PhantomData::<In>, self, input, world, $($param),*)
             }
         }
     };

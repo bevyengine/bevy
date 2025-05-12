@@ -5,7 +5,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     prelude::World,
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn, SystemParamValidationError},
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -114,7 +114,7 @@ pub struct CombinatorSystem<Func, A, B> {
     a: A,
     b: B,
     name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
+    component_access_set: FilteredAccessSet<ComponentId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
@@ -122,13 +122,13 @@ impl<Func, A, B> CombinatorSystem<Func, A, B> {
     /// Creates a new system that combines two inner systems.
     ///
     /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
-    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             _marker: PhantomData,
             a,
             b,
             name,
-            component_access: Access::new(),
+            component_access_set: FilteredAccessSet::default(),
             archetype_component_access: Access::new(),
         }
     }
@@ -148,7 +148,11 @@ where
     }
 
     fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
+        self.component_access_set.combined_access()
+    }
+
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
@@ -211,8 +215,10 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.a.initialize(world);
         self.b.initialize(world);
-        self.component_access.extend(self.a.component_access());
-        self.component_access.extend(self.b.component_access());
+        self.component_access_set
+            .extend(self.a.component_access_set().clone());
+        self.component_access_set
+            .extend(self.b.component_access_set().clone());
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
@@ -343,7 +349,7 @@ pub struct PipeSystem<A, B> {
     a: A,
     b: B,
     name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
+    component_access_set: FilteredAccessSet<ComponentId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
@@ -354,12 +360,12 @@ where
     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
     /// Creates a new system that pipes two inner systems.
-    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             a,
             b,
             name,
-            component_access: Access::new(),
+            component_access_set: FilteredAccessSet::default(),
             archetype_component_access: Access::new(),
         }
     }
@@ -379,7 +385,11 @@ where
     }
 
     fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
+        self.component_access_set.combined_access()
+    }
+
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
@@ -417,25 +427,36 @@ where
         self.b.queue_deferred(world);
     }
 
+    /// This method uses "early out" logic: if the first system fails validation,
+    /// the second system is not validated.
+    ///
+    /// Because the system validation is performed upfront, this can lead to situations
+    /// where later systems pass validation, but fail at runtime due to changes made earlier
+    /// in the piped systems.
+    // TODO: ensure that systems are only validated just before they are run.
+    // Fixing this will require fundamentally rethinking how piped systems work:
+    // they're currently treated as a single system from the perspective of the scheduler.
+    // See https://github.com/bevyengine/bevy/issues/18796
     unsafe fn validate_param_unsafe(
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) }
-    }
+        // SAFETY: Delegate to the `System` implementation for `a`.
+        unsafe { self.a.validate_param_unsafe(world) }?;
 
-    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
-        self.a.validate_param(world)?;
-        self.b.validate_param(world)?;
+        // SAFETY: Delegate to the `System` implementation for `b`.
+        unsafe { self.b.validate_param_unsafe(world) }?;
+
         Ok(())
     }
 
     fn initialize(&mut self, world: &mut World) {
         self.a.initialize(world);
         self.b.initialize(world);
-        self.component_access.extend(self.a.component_access());
-        self.component_access.extend(self.b.component_access());
+        self.component_access_set
+            .extend(self.a.component_access_set().clone());
+        self.component_access_set
+            .extend(self.b.component_access_set().clone());
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
@@ -476,4 +497,28 @@ where
     B: ReadOnlySystem,
     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn exclusive_system_piping_is_possible() {
+        use crate::prelude::*;
+
+        fn my_exclusive_system(_world: &mut World) -> u32 {
+            1
+        }
+
+        fn out_pipe(input: In<u32>) {
+            assert!(input.0 == 1);
+        }
+
+        let mut world = World::new();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(my_exclusive_system.pipe(out_pipe));
+
+        schedule.run(&mut world);
+    }
 }

@@ -144,7 +144,7 @@ bitflags! {
 ///
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderSet {
+pub enum RenderSystems {
     /// This is used for applying the commands from the [`ExtractSchedule`]
     ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
@@ -156,9 +156,9 @@ pub enum RenderSet {
     /// Queue drawable entities as phase items in render phases ready for
     /// sorting (if necessary)
     Queue,
-    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSystems::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
     QueueMeshes,
-    /// A sub-set within [`Queue`](RenderSet::Queue) where meshes that have
+    /// A sub-set within [`Queue`](RenderSystems::Queue) where meshes that have
     /// become invisible or changed phases are removed from the bins.
     QueueSweep,
     // TODO: This could probably be moved in favor of a system ordering
@@ -169,14 +169,14 @@ pub enum RenderSet {
     /// Prepare render resources from extracted data for the GPU based on their sorted order.
     /// Create [`BindGroups`](render_resource::BindGroup) that depend on those data.
     Prepare,
-    /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
     /// Collect phase buffers after
-    /// [`PrepareResources`](RenderSet::PrepareResources) has run.
+    /// [`PrepareResources`](RenderSystems::PrepareResources) has run.
     PrepareResourcesCollectPhaseBuffers,
-    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before [`PrepareBindGroups`](RenderSet::PrepareBindGroups).
+    /// Flush buffers after [`PrepareResources`](RenderSystems::PrepareResources), but before [`PrepareBindGroups`](RenderSystems::PrepareBindGroups).
     PrepareResourcesFlush,
-    /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSystems::PrepareResources).
     PrepareBindGroups,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
@@ -185,9 +185,13 @@ pub enum RenderSet {
     Cleanup,
     /// Final cleanup occurs: all entities will be despawned.
     ///
-    /// Runs after [`Cleanup`](RenderSet::Cleanup).
+    /// Runs after [`Cleanup`](RenderSystems::Cleanup).
     PostCleanup,
 }
+
+/// Deprecated alias for [`RenderSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RenderSystems`.")]
+pub type RenderSet = RenderSystems;
 
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -198,7 +202,7 @@ impl Render {
     ///
     /// The sets defined in this enum are configured to run in order.
     pub fn base_schedule() -> Schedule {
-        use RenderSet::*;
+        use RenderSystems::*;
 
         let mut schedule = Schedule::new(Self);
 
@@ -293,7 +297,7 @@ pub const BINDLESS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("13f1baaa-41bf-448e-929e-258f9307a522");
 
 impl Plugin for RenderPlugin {
-    /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
+    /// Initializes the renderer, sets up the [`RenderSystems`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
@@ -417,7 +421,7 @@ impl Plugin for RenderPlugin {
                 .add_systems(ExtractSchedule, extract_render_asset_bytes_per_frame)
                 .add_systems(
                     Render,
-                    reset_render_asset_bytes_per_frame.in_set(RenderSet::Cleanup),
+                    reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
                 );
         }
 
@@ -528,11 +532,11 @@ unsafe fn initialize_render_app(app: &mut App) {
             (
                 // This set applies the commands from the extract schedule while the render schedule
                 // is running in parallel with the main app.
-                apply_extract_commands.in_set(RenderSet::ExtractCommands),
+                apply_extract_commands.in_set(RenderSystems::ExtractCommands),
                 (PipelineCache::process_pipeline_queue_system, render_system)
                     .chain()
-                    .in_set(RenderSet::Render),
-                despawn_temporary_render_entities.in_set(RenderSet::PostCleanup),
+                    .in_set(RenderSystems::Render),
+                despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
             ),
         );
 
@@ -583,4 +587,27 @@ pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
             .map_while(|c| c.to_digit(10))
             .fold(0, |acc, digit| acc * 10 + digit),
     )
+}
+
+/// Get the Mali driver version if the adapter is a Mali GPU.
+pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
+    if !cfg!(target_os = "android") {
+        return None;
+    }
+
+    let driver_name = adapter.get_info().name;
+    if !driver_name.contains("Mali") {
+        return None;
+    }
+    let driver_info = adapter.get_info().driver_info;
+    if let Some(start_pos) = driver_info.find("v1.r") {
+        if let Some(end_pos) = driver_info[start_pos..].find('p') {
+            let start_idx = start_pos + 4; // Skip "v1.r"
+            let end_idx = start_pos + end_pos;
+
+            return driver_info[start_idx..end_idx].parse::<u32>().ok();
+        }
+    }
+
+    None
 }

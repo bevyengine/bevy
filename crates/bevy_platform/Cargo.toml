@@ -1,8 +1,8 @@
 [package]
-name = "bevy_platform_support"
+name = "bevy_platform"
 version = "0.16.0-dev"
 edition = "2024"
-description = "Platform compatibility support for Bevy Engine"
+description = "Provides common platform agnostic APIs, as well as platform-specific features for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
@@ -46,9 +46,8 @@ critical-section = ["dep:critical-section", "portable-atomic/critical-section"]
 web = ["dep:web-time", "dep:getrandom"]
 
 [dependencies]
-cfg-if = "1.0.0"
 critical-section = { version = "1.2.0", default-features = false, optional = true }
-spin = { version = "0.9.8", default-features = false, features = [
+spin = { version = "0.10.0", default-features = false, features = [
   "mutex",
   "spin_mutex",
   "rwlock",
@@ -74,8 +73,8 @@ getrandom = { version = "0.2.0", default-features = false, optional = true, feat
 portable-atomic = { version = "1", default-features = false, features = [
   "fallback",
 ] }
-spin = { version = "0.9.8", default-features = false, features = [
-  "portable_atomic",
+spin = { version = "0.10.0", default-features = false, features = [
+  "portable-atomic",
 ] }
 
 [target.'cfg(not(target_has_atomic = "ptr"))'.dependencies]

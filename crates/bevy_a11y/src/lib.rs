@@ -137,10 +137,14 @@ impl From<Node> for AccessibilityNode {
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize, Clone)
 )]
-pub enum AccessibilitySystem {
+pub enum AccessibilitySystems {
     /// Update the accessibility tree
     Update,
 }
+
+/// Deprecated alias for [`AccessibilitySystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AccessibilitySystems`.")]
+pub type AccessibilitySystem = AccessibilitySystems;
 
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
 #[derive(Default)]

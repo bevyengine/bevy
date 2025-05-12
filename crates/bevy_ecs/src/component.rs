@@ -15,8 +15,8 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
-use bevy_platform_support::sync::Arc;
-use bevy_platform_support::{
+use bevy_platform::sync::Arc;
+use bevy_platform::{
     collections::{HashMap, HashSet},
     sync::PoisonError,
 };
@@ -418,6 +418,21 @@ use thiserror::Error;
 ///         println!("{message}");
 ///     }
 /// }
+///
+/// ```
+/// # Setting the clone behavior
+///
+/// You can specify how the [`Component`] is cloned when deriving it.
+///
+/// Your options are the functions and variants of [`ComponentCloneBehavior`]
+/// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Component)]
+/// #[component(clone_behavior = Ignore)]
+/// struct MyComponent;
+///
 /// ```
 ///
 /// # Implementing the trait for foreign types
@@ -494,15 +509,6 @@ pub trait Component: Send + Sync + 'static {
     /// * For a component to be immutable, this type must be [`Immutable`].
     type Mutability: ComponentMutability;
 
-    /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use the individual hook methods instead (e.g., `Component::on_add`, etc.)"
-    )]
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.update_from_component::<Self>();
-    }
-
     /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
     fn on_add() -> Option<ComponentHook> {
         None
@@ -559,6 +565,17 @@ pub trait Component: Send + Sync + 'static {
     /// ```
     ///
     /// Fields with `#[entities]` must implement [`MapEntities`](crate::entity::MapEntities).
+    ///
+    /// Bevy provides various implementations of [`MapEntities`](crate::entity::MapEntities), so that arbitrary combinations like these are supported with `#[entities]`:
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{component::Component, entity::Entity};
+    /// #[derive(Component)]
+    /// struct Inventory {
+    ///     #[entities]
+    ///     items: Vec<Option<Entity>>
+    /// }
+    /// ```
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
@@ -668,14 +685,14 @@ pub struct HookContext {
 /// This information is stored in the [`ComponentInfo`] of the associated component.
 ///
 /// There is two ways of configuring hooks for a component:
-/// 1. Defining the [`Component::register_component_hooks`] method (see [`Component`])
+/// 1. Defining the relevant hooks on the [`Component`] implementation
 /// 2. Using the [`World::register_component_hooks`] method
 ///
 /// # Example 2
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_platform_support::collections::HashSet;
+/// use bevy_platform::collections::HashSet;
 ///
 /// #[derive(Component)]
 /// struct MyTrackedComponent;
@@ -1305,7 +1322,7 @@ impl Debug for QueuedComponents {
 /// Generates [`ComponentId`]s.
 #[derive(Debug, Default)]
 pub struct ComponentIds {
-    next: bevy_platform_support::sync::atomic::AtomicUsize,
+    next: bevy_platform::sync::atomic::AtomicUsize,
 }
 
 impl ComponentIds {
@@ -1313,7 +1330,7 @@ impl ComponentIds {
     pub fn peek(&self) -> ComponentId {
         ComponentId(
             self.next
-                .load(bevy_platform_support::sync::atomic::Ordering::Relaxed),
+                .load(bevy_platform::sync::atomic::Ordering::Relaxed),
         )
     }
 
@@ -1321,7 +1338,7 @@ impl ComponentIds {
     pub fn next(&self) -> ComponentId {
         ComponentId(
             self.next
-                .fetch_add(1, bevy_platform_support::sync::atomic::Ordering::Relaxed),
+                .fetch_add(1, bevy_platform::sync::atomic::Ordering::Relaxed),
         )
     }
 
@@ -1784,12 +1801,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 .debug_checked_unwrap()
         };
 
-        #[expect(
-            deprecated,
-            reason = "need to use this method until it is removed to ensure user defined components register hooks correctly"
-        )]
-        // TODO: Replace with `info.hooks.update_from_component::<T>();` once `Component::register_component_hooks` is removed
-        T::register_component_hooks(&mut info.hooks);
+        info.hooks.update_from_component::<T>();
 
         info.required_components = required_components;
     }
@@ -1959,7 +1971,7 @@ pub struct Components {
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occor.
-    queued: bevy_platform_support::sync::RwLock<QueuedComponents>,
+    queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
 
 impl Components {
@@ -2049,7 +2061,7 @@ impl Components {
     }
 
     /// Gets the [`ComponentDescriptor`] of the component with this [`ComponentId`] if it is present.
-    /// This will return `None` only if the id is neither regisered nor queued to be registered.
+    /// This will return `None` only if the id is neither registered nor queued to be registered.
     ///
     /// Currently, the [`Cow`] will be [`Cow::Owned`] if and only if the component is queued. It will be [`Cow::Borrowed`] otherwise.
     ///
@@ -2073,7 +2085,7 @@ impl Components {
     }
 
     /// Gets the name of the component with this [`ComponentId`] if it is present.
-    /// This will return `None` only if the id is neither regisered nor queued to be registered.
+    /// This will return `None` only if the id is neither registered nor queued to be registered.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
@@ -2840,7 +2852,7 @@ impl RequiredComponents {
     ) {
         let entry = self.0.entry(component_id);
         match entry {
-            bevy_platform_support::collections::hash_map::Entry::Occupied(mut occupied) => {
+            bevy_platform::collections::hash_map::Entry::Occupied(mut occupied) => {
                 let current = occupied.get_mut();
                 if current.inheritance_depth > inheritance_depth {
                     *current = RequiredComponent {
@@ -2849,7 +2861,7 @@ impl RequiredComponents {
                     }
                 }
             }
-            bevy_platform_support::collections::hash_map::Entry::Vacant(vacant) => {
+            bevy_platform::collections::hash_map::Entry::Vacant(vacant) => {
                 vacant.insert(RequiredComponent {
                     constructor: constructor(),
                     inheritance_depth,

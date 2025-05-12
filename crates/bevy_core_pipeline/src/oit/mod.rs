@@ -4,8 +4,8 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
-use bevy_platform_support::collections::HashSet;
-use bevy_platform_support::time::Instant;
+use bevy_platform::collections::HashSet;
+use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -16,7 +16,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_window::PrimaryWindow;
 use resolve::{
@@ -126,7 +126,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 
         render_app.add_systems(
             Render,
-            prepare_oit_buffers.in_set(RenderSet::PrepareResources),
+            prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
         );
 
         render_app

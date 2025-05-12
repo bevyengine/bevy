@@ -42,7 +42,7 @@ pub use sprite::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetEvents, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetEventSystems, Assets, Handle};
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
@@ -53,7 +53,7 @@ use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
     view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
 /// Adds support for 2D sprite rendering.
@@ -67,10 +67,14 @@ pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum SpriteSystem {
+pub enum SpriteSystems {
     ExtractSprites,
     ComputeSlices,
 }
+
+/// Deprecated alias for [`SpriteSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
+pub type SpriteSystem = SpriteSystems;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
@@ -102,10 +106,10 @@ impl Plugin for SpritePlugin {
                 (
                     calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
                     (
-                        compute_slices_on_asset_event.before(AssetEvents),
+                        compute_slices_on_asset_event.before(AssetEventSystems),
                         compute_slices_on_sprite_change,
                     )
-                        .in_set(SpriteSystem::ComputeSlices),
+                        .in_set(SpriteSystems::ComputeSlices),
                 ),
             );
 
@@ -124,7 +128,7 @@ impl Plugin for SpritePlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_sprites.in_set(SpriteSystem::ExtractSprites),
+                        extract_sprites.in_set(SpriteSystems::ExtractSprites),
                         extract_sprite_events,
                     ),
                 )
@@ -132,12 +136,12 @@ impl Plugin for SpritePlugin {
                     Render,
                     (
                         queue_sprites
-                            .in_set(RenderSet::Queue)
+                            .in_set(RenderSystems::Queue)
                             .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                        prepare_sprite_image_bind_groups.in_set(RenderSet::PrepareBindGroups),
-                        prepare_sprite_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
-                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSet::PhaseSort),
-                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSet::PhaseSort),
+                        prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                        prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),
+                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSystems::PhaseSort),
                     ),
                 );
         };

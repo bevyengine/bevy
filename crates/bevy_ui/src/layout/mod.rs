@@ -351,7 +351,7 @@ mod tests {
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::{
@@ -1039,7 +1039,7 @@ mod tests {
 
         let (mut world, ..) = setup_ui_test_world();
 
-        let root_node_entity = Entity::from_raw(1);
+        let root_node_entity = Entity::from_raw_u32(1).unwrap();
 
         struct TestSystemParam {
             root_node_entity: Entity,
