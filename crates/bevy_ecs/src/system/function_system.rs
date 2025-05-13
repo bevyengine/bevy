@@ -259,7 +259,7 @@ impl SystemMeta {
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
     param_state: Param::State,
-    world_id: WorldId,
+    world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
 }
 
@@ -317,7 +317,7 @@ all_tuples!(
 );
 
 impl<Param: SystemParam> SystemState<Param> {
-    /// Creates a new [`SystemState`] with default state.
+    /// Creates and initializes a new [`SystemState`].
     ///
     /// ## Note
     /// For users of [`SystemState::get_manual`] or [`get_manual_mut`](SystemState::get_manual_mut):
@@ -332,9 +332,29 @@ impl<Param: SystemParam> SystemState<Param> {
         Self {
             meta,
             param_state,
-            world_id: world.id(),
+            world_id: Some(world.id()),
             archetype_generation: ArchetypeGeneration::initial(),
         }
+    }
+
+    /// Creates a new [`SystemState`].
+    /// The [`SystemState`] must be initialized with a [`World`] using [`SystemState::init`].
+    pub fn default() -> Self {
+        let meta = SystemMeta::new::<Param>();
+        let param_state: Param::State = Param::default_state();
+        Self {
+            meta,
+            param_state,
+            world_id: None,
+            archetype_generation: ArchetypeGeneration::initial(),
+        }
+    }
+
+    /// Initializes the [`SystemState`] with a [`World`].
+    pub fn init(&mut self, world: &mut World) {
+        self.meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        self.world_id = Some(world.id());
+        Param::init_state(world, &mut self.meta, &mut self.param_state);
     }
 
     /// Create a [`SystemState`] from a [`SystemParamBuilder`]
@@ -345,7 +365,7 @@ impl<Param: SystemParam> SystemState<Param> {
         Self {
             meta,
             param_state,
-            world_id: world.id(),
+            world_id: Some(world.id()),
             archetype_generation: ArchetypeGeneration::initial(),
         }
     }
@@ -361,7 +381,9 @@ impl<Param: SystemParam> SystemState<Param> {
             func,
             state: Some(FunctionSystemState {
                 param: self.param_state,
-                world_id: self.world_id,
+                world_id: self
+                    .world_id
+                    .expect("The SystemState must be initialized first"),
             }),
             system_meta: self.meta,
             archetype_generation: self.archetype_generation,
@@ -430,7 +452,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Otherwise, this returns false.
     #[inline]
     pub fn matches_world(&self, world_id: WorldId) -> bool {
-        self.world_id == world_id
+        self.world_id == Some(world_id)
     }
 
     /// Asserts that the [`SystemState`] matches the provided world.
@@ -445,7 +467,11 @@ impl<Param: SystemParam> SystemState<Param> {
         }
 
         if !self.matches_world(world_id) {
-            panic_mismatched(self.world_id, world_id);
+            panic_mismatched(
+                self.world_id
+                    .expect("The SystemState must be initialized first"),
+                world_id,
+            );
         }
     }
 
@@ -472,7 +498,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// This method only accesses world metadata.
     #[inline]
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
-        assert_eq!(self.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+        assert_eq!(self.world_id, Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
 
         let archetypes = world.archetypes();
         let old_generation =
