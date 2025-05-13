@@ -190,12 +190,10 @@ fn update_text(
 fn update_camera(_time: Res<Time>, mut query: Query<&mut Transform, With<Camera3d>>) {
     for mut transform in &mut query {
         #[cfg(feature = "bevy_ci_testing")]
-        let elapsed_secs = 0.0;
+        let height = 0.08;
 
         #[cfg(not(feature = "bevy_ci_testing"))]
-        let elapsed_secs = _time.elapsed_secs();
-
-        let height = (ops::sin(elapsed_secs) * 0.07) + 0.08;
+        let height = (ops::sin(_time.elapsed_secs()) * 0.07) + 0.08;
 
         *transform =
             Transform::from_xyz(0.2, height, 0.95).looking_at(Vec3::new(0.0, -0.1, 0.0), Vec3::Y);
