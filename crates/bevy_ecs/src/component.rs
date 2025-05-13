@@ -1049,6 +1049,10 @@ impl ComponentId {
         ComponentId(index)
     }
 
+    pub const fn invalid() -> Self {
+        ComponentId(usize::MAX)
+    }
+
     /// Returns the index of the current component.
     #[inline]
     pub fn index(self) -> usize {
