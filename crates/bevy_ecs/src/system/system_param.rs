@@ -227,6 +227,11 @@ pub unsafe trait SystemParam: Sized {
     /// and initialize this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta, state: &mut Self::State);
 
+    /// Configurate the system param.
+    /// This method will be called by [`System::configurate`](super::System::configurate) in order for all [`SystemParam`]s of a system.
+    /// Implementations should respond to configs that they recognize by calling [`downcast_mut`](<dyn Any>::downcast_mut)
+    fn configurate(_state: &mut Self::State, _config: &mut dyn Any) {}
+
     /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).a
     ///
     /// # Safety
@@ -715,6 +720,18 @@ macro_rules! impl_param_set {
 
             fn default_state() -> Self::State {
                 ($($param::default_state(),)*)
+            }
+
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is inside a macro meant for tuples; as such, `non_snake_case` won't always lint."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Certain variable names are provided by the caller, not by us."
+            )]
+            fn configurate(($($param,)*): &mut Self::State, config: &mut dyn Any) {
+                ($($param::configurate($param, config),)*);
             }
 
             #[expect(
@@ -1842,6 +1859,10 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
     }
+
+    fn configurate(state: &mut Self::State, config: &mut dyn Any) {
+        T::configurate(state, config);
+    }
 }
 
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
@@ -1886,6 +1907,9 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
+    }
+    fn configurate(state: &mut Self::State, config: &mut dyn Any) {
+        T::configurate(state, config);
     }
 }
 
@@ -1997,6 +2021,9 @@ unsafe impl<T: SystemParam> SystemParam for When<T> {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
     }
+    fn configurate(state: &mut Self::State, config: &mut dyn Any) {
+        T::configurate(state, config);
+    }
 }
 
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
@@ -2066,6 +2093,12 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
             T::queue(state, system_meta, world.reborrow());
         }
     }
+
+    fn configurate(state: &mut Self::State, config: &mut dyn Any) {
+        for state in state {
+            T::configurate(state, config);
+        }
+    }
 }
 
 // SAFETY: When initialized with `init_state`, `get_param` returns an empty `Vec` and does no access.
@@ -2118,6 +2151,12 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
 
     fn default_state() -> Self::State {
         Vec::new()
+    }
+
+    fn configurate(state: &mut Self::State, config: &mut dyn Any) {
+        for state in state {
+            T::configurate(state, config);
+        }
     }
 }
 
@@ -2181,6 +2220,11 @@ macro_rules! impl_system_param_tuple {
             #[inline]
             fn default_state() -> Self::State {
                 (($($param::default_state(),)*))
+            }
+
+            #[inline]
+            fn configurate(($($param,)*): &mut Self::State, config: &mut dyn Any) {
+                (($($param::configurate($param, config),)*));
             }
 
             #[inline]
@@ -2365,6 +2409,10 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
 
     fn default_state() -> Self::State {
         P::default_state()
+    }
+
+    fn configurate(state: &mut Self::State, config: &mut dyn Any) {
+        P::configurate(state, config);
     }
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta, state: &mut Self::State) {
