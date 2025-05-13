@@ -74,9 +74,11 @@ use bevy_color::LinearRgba;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     experimental::occlusion_culling::OcclusionCulling,
-    frame_graph::{FrameGraphTexture, ResourceMeta, SamplerInfo, TextureInfo},
+    frame_graph::{FrameGraphTexture, ResourceMeta, TextureInfo},
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
+    render_resource::{Sampler, SamplerDescriptor},
+    renderer::RenderDevice,
     texture::ColorAttachmentHandle,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
@@ -841,7 +843,7 @@ pub fn prepare_core_3d_depth_textures(
 
 #[derive(Component)]
 pub struct ViewTransmissionTexture {
-    pub sample_info: SamplerInfo,
+    pub sampler: Sampler,
     pub texture: ResourceMeta<FrameGraphTexture>,
 }
 
@@ -858,6 +860,7 @@ pub fn prepare_core_3d_transmission_textures(
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
+    render_device: Res<RenderDevice>,
 ) {
     for (entity, camera, camera_3d, view) in &views_3d {
         if !opaque_3d_phases.contains_key(&view.retained_view_entity)
@@ -914,15 +917,15 @@ pub fn prepare_core_3d_transmission_textures(
             view_formats: vec![],
         };
 
-        let sample_info = SamplerInfo {
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
             label: Some("view_transmission_sampler".into()),
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             ..Default::default()
-        };
+        });
 
         commands.entity(entity).insert(ViewTransmissionTexture {
-            sample_info,
+            sampler,
             texture: ResourceMeta {
                 key,
                 desc: texture_info,

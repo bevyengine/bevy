@@ -1,17 +1,45 @@
 use wgpu::{Origin3d, TextureAspect};
 
 use crate::frame_graph::{
-    FrameGraph, FrameGraphBuffer, FrameGraphTexture, GraphResource, GraphResourceNodeHandle, PassBuilder, ResourceRead, ResourceWrite,
+    FrameGraph, FrameGraphBuffer, FrameGraphTexture, GraphResource, GraphResourceNodeHandle,
+    PassBuilder, PassNodeBuilder, ResourceRead, ResourceWrite,
 };
 
-use super::{ResourceMaterial, TexelCopyTextureInfo};
+use super::{
+    BindingResourceHandle, BindingResourceHelper, BindingResourceRef, ResourceMaterial,
+    TexelCopyTextureInfo, TextureViewInfo,
+};
 
 pub struct ResourceMeta<ResourceType: GraphResource> {
     pub key: String,
     pub desc: <ResourceType as GraphResource>::Descriptor,
 }
 
+impl BindingResourceHelper for ResourceMeta<FrameGraphTexture> {
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> BindingResourceRef {
+        let texture = pass_node_builder.read_material(self);
+        BindingResourceRef::TextureView {
+            texture,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
+}
+
 impl ResourceMeta<FrameGraphTexture> {
+    pub fn make_binding_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> BindingResourceHandle {
+        let texture = self.make_resource_handle(frame_graph);
+        BindingResourceHandle::TextureView {
+            texture,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
+
     pub fn get_image_copy_read(
         &self,
         pass_builder: &mut PassBuilder,

@@ -1,7 +1,7 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_render::frame_graph::{
-    BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial, SamplerInfo,
+    BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial,
 };
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
@@ -363,13 +363,6 @@ impl FromWorld for Mesh2dPipeline {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
 
-            let sampler_info = match &image.sampler {
-                ImageSampler::Default => SamplerInfo::default(),
-                ImageSampler::Descriptor(descriptor) => {
-                    SamplerInfo::new_image_sampler_descriptor(descriptor)
-                }
-            };
-
             let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
@@ -397,7 +390,6 @@ impl FromWorld for Mesh2dPipeline {
                 sampler,
                 size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
-                sampler_info,
             }
         };
         Mesh2dPipeline {
@@ -815,7 +807,7 @@ pub fn prepare_mesh2d_view_bind_groups(
                 (&view_binding_buffer_handle, view_binding_buffer_size),
                 &globals_buffer_handle,
                 &lut_binding_texture_handle,
-                &lut_image.sampler_info,
+                &lut_image.sampler,
             ))
             .to_vec(),
         };

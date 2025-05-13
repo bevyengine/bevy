@@ -54,7 +54,7 @@ impl Node for AutoExposureNode {
         let pipeline = world.resource::<AutoExposurePipeline>();
         let resources = world.resource::<AutoExposureResources>();
 
-        let view_uniforms_resource = world.resource::<ViewUniforms>();
+        let view_uniforms = world.resource::<ViewUniforms>();
 
         let globals_buffer = world.resource::<GlobalsBuffer>();
         let auto_exposure_buffers = world.resource::<AutoExposureBuffers>();
@@ -70,10 +70,30 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let (Some(_), Some(_)) = (
+        let (
+            Some(_),
+            Some(_),
+            Some(globals_buffer_binding),
+            Some(auto_exposure_buffers_setting_binding),
+            Some(auto_exposure_buffers_state_binding),
+            Some(view_uniforms_binding),
+        ) = (
             pipeline_cache.get_compute_pipeline(auto_exposure.histogram_pipeline),
             pipeline_cache.get_compute_pipeline(auto_exposure.mean_luminance_pipeline),
-        ) else {
+            globals_buffer
+                .buffer
+                .make_binding_resource_handle(frame_graph),
+            auto_exposure_buffers
+                .settings
+                .make_binding_resource_handle(frame_graph),
+            auto_exposure_buffers
+                .state
+                .make_binding_resource_handle(frame_graph),
+            view_uniforms
+                .uniforms
+                .make_binding_resource_handle(frame_graph),
+        )
+        else {
             return Ok(());
         };
 
@@ -92,19 +112,26 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
+        let Some(compensation_curve_extents) = compensation_curve
+            .extents
+            .make_binding_resource_handle(frame_graph)
+        else {
+            return Ok(());
+        };
+
         let mut pass_builder = frame_graph.create_pass_builder("frame_graph");
 
         let compute_bind_group = pass_builder
             .create_bind_group_builder(None, pipeline.histogram_layout.clone())
-            .push_bind_group_entry(&globals_buffer.buffer)
-            .push_bind_group_entry(&auto_exposure_buffers.settings)
+            .push_bind_group_entry(&globals_buffer_binding)
+            .push_bind_group_entry(&auto_exposure_buffers_setting_binding)
             .push_bind_group_entry(source)
-            .push_bind_group_entry(mask)
+            .push_bind_group_entry(&mask.texture)
             .push_bind_group_entry(&compensation_curve.texture)
-            .push_bind_group_entry(&compensation_curve.extents)
+            .push_bind_group_entry(&compensation_curve_extents)
             .push_bind_group_entry(&resources.histogram)
-            .push_bind_group_entry(&auto_exposure_buffers.state)
-            .push_bind_group_entry(&view_uniforms_resource.uniforms)
+            .push_bind_group_entry(&auto_exposure_buffers_state_binding)
+            .push_bind_group_entry(&view_uniforms_binding)
             .build();
 
         let mut builder = pass_builder.create_compute_pass_builder();

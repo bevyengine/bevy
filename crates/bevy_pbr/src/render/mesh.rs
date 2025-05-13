@@ -27,7 +27,6 @@ use bevy_render::{
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
     camera::Camera,
-    frame_graph::SamplerInfo,
     mesh::{skinning::SkinnedMesh, *},
     primitives::Aabb,
     render_asset::RenderAssets,
@@ -1801,13 +1800,6 @@ impl FromWorld for MeshPipeline {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
 
-            let sampler_info = match &image.sampler {
-                ImageSampler::Default => SamplerInfo::default(),
-                ImageSampler::Descriptor(descriptor) => {
-                    SamplerInfo::new_image_sampler_descriptor(descriptor)
-                }
-            };
-
             let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
@@ -1835,7 +1827,6 @@ impl FromWorld for MeshPipeline {
                 sampler,
                 size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
-                sampler_info,
             }
         };
 
@@ -2898,7 +2889,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
             offsets.push(layers_count_offset.offset);
         }
-        pass.set_bind_group(I, &mesh_view_bind_group.value, &offsets);
+        pass.set_bind_group_handle(I, &mesh_view_bind_group.value, &offsets);
 
         RenderCommandResult::Success
     }

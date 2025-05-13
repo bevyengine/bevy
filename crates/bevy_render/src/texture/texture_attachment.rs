@@ -1,7 +1,7 @@
 use crate::{
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, FrameGraphTexture, PassBuilder, ResourceMeta,
-        TextureViewDrawing, TextureViewInfo,
+        ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraphTexture,
+        PassBuilder, ResourceMeta, TextureViewDrawing, TextureViewInfo,
     },
     render_resource::{TextureFormat, TextureView},
 };
@@ -9,7 +9,7 @@ use alloc::sync::Arc;
 use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
 use std::ops::Deref;
-use wgpu::{Color, LoadOp, Operations, RenderPassDepthStencilAttachment, StoreOp};
+use wgpu::{Color, LoadOp, Operations, StoreOp};
 
 #[derive(Clone)]
 pub struct ColorAttachmentHandle {
@@ -98,18 +98,23 @@ impl ColorAttachmentHandle {
     }
 }
 
-/// A wrapper for a [`TextureView`] that is used as a depth-only [`RenderPassDepthStencilAttachment`].
 #[derive(Clone)]
-pub struct DepthAttachment {
-    pub view: TextureView,
+pub struct DepthAttachmentHandle {
+    pub texture: ResourceMeta<FrameGraphTexture>,
+    pub texture_view_info: TextureViewInfo,
     clear_value: Option<f32>,
     is_first_call: Arc<AtomicBool>,
 }
 
-impl DepthAttachment {
-    pub fn new(view: TextureView, clear_value: Option<f32>) -> Self {
+impl DepthAttachmentHandle {
+    pub fn new(
+        texture: ResourceMeta<FrameGraphTexture>,
+        texture_view_info: TextureViewInfo,
+        clear_value: Option<f32>,
+    ) -> Self {
         Self {
-            view,
+            texture,
+            texture_view_info,
             clear_value,
             is_first_call: Arc::new(AtomicBool::new(clear_value.is_some())),
         }
@@ -131,16 +136,22 @@ impl DepthAttachment {
         })
     }
 
-    /// Get this texture view as an attachment. The attachment will be cleared with a value of
-    /// `clear_value` if this is the first time calling this function with `store` == [`StoreOp::Store`],
-    /// and a clear value was provided, otherwise it will be loaded.
-    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
+    pub fn get_attachment(
+        &self,
+        store: StoreOp,
+        pass_builder: &mut PassBuilder,
+    ) -> DepthStencilAttachmentDrawing {
         let first_call = self
             .is_first_call
             .fetch_and(store != StoreOp::Store, Ordering::SeqCst);
 
-        RenderPassDepthStencilAttachment {
-            view: &self.view,
+        let texture = pass_builder.write_material(&self.texture);
+
+        DepthStencilAttachmentDrawing {
+            view: TextureViewDrawing {
+                texture,
+                desc: self.texture_view_info.clone(),
+            },
             depth_ops: Some(Operations {
                 load: if first_call {
                     // If first_call is true, then a clear value will always have been provided in the constructor

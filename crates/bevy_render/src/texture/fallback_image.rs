@@ -1,5 +1,4 @@
 use crate::{
-    frame_graph::SamplerInfo,
     render_asset::RenderAssetUsages,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -127,11 +126,6 @@ fn fallback_image_new(
         ..TextureViewDescriptor::default()
     });
 
-    let sampler_info = match &image.sampler {
-        ImageSampler::Default => SamplerInfo::default(),
-        ImageSampler::Descriptor(descriptor) => SamplerInfo::new_image_sampler_descriptor(descriptor),
-    };
-
     let sampler = match image.sampler {
         ImageSampler::Default => (**default_sampler).clone(),
         ImageSampler::Descriptor(ref descriptor) => {
@@ -145,7 +139,6 @@ fn fallback_image_new(
         sampler,
         size: image.texture_descriptor.size,
         mip_level_count: image.texture_descriptor.mip_level_count,
-        sampler_info,
     }
 }
 

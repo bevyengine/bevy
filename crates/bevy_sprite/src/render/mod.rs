@@ -20,9 +20,7 @@ use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFo
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    frame_graph::{
-        BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial, SamplerInfo,
-    },
+    frame_graph::{BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial},
     view::{RenderVisibleEntities, RetainedViewEntity},
 };
 use bevy_render::{
@@ -97,13 +95,6 @@ impl FromWorld for SpritePipeline {
             let image = Image::default();
             let texture = render_device.create_texture(&image.texture_descriptor);
 
-            let sampler_info = match &image.sampler {
-                ImageSampler::Default => SamplerInfo::default(),
-                ImageSampler::Descriptor(descriptor) => {
-                    SamplerInfo::new_image_sampler_descriptor(descriptor)
-                }
-            };
-
             let sampler = match image.sampler {
                 ImageSampler::Default => (**default_sampler).clone(),
                 ImageSampler::Descriptor(ref descriptor) => {
@@ -130,7 +121,6 @@ impl FromWorld for SpritePipeline {
                 sampler,
                 size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
-                sampler_info,
             }
         };
 
@@ -655,7 +645,7 @@ pub fn prepare_sprite_view_bind_groups(
             entries: DynamicBindGroupEntryHandles::sequential((
                 (&view_binding_buffer_handle, view_binding_buffer_size),
                 &lut_binding_texture_handle,
-                &lut_image.sampler_info,
+                &lut_image.sampler,
             ))
             .to_vec(),
         };

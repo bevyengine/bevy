@@ -8,7 +8,6 @@ use bevy_ecs::{
 };
 use bevy_math::{Vec2, Vec4};
 use bevy_render::{
-    frame_graph::SamplerInfo,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
@@ -26,7 +25,7 @@ pub struct BloomDownsamplingPipelineIds {
 pub struct BloomDownsamplingPipeline {
     /// Layout with a texture, a sampler, and uniforms
     pub bind_group_layout: BindGroupLayout,
-    pub sampler_info: SamplerInfo,
+    pub sampler: Sampler,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -67,17 +66,17 @@ impl FromWorld for BloomDownsamplingPipeline {
             ),
         );
 
-        let sampler_info = SamplerInfo {
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             ..Default::default()
-        };
+        });
 
         BloomDownsamplingPipeline {
             bind_group_layout,
-            sampler_info,
+            sampler,
         }
     }
 }

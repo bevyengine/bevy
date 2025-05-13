@@ -18,8 +18,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
     render_resource::{
-        BindingResource, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
-        UniformBuffer,
+        BindingResource, Buffer, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer, UniformBuffer
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
@@ -492,6 +491,13 @@ impl GpuClusterableObjects {
             GpuClusterableObjects::Storage(buffer) => {
                 buffer.write_buffer(render_device, render_queue);
             }
+        }
+    }
+
+    pub fn buffer(&self) -> Option<&Buffer> {
+        match self {
+            GpuClusterableObjects::Uniform(buffer) => buffer.buffer(),
+            GpuClusterableObjects::Storage(buffer) => buffer.buffer(),
         }
     }
 

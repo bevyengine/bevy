@@ -1,7 +1,10 @@
 use std::num::NonZero;
 
-use crate::frame_graph::{
-    FrameGraphBuffer, FrameGraphTexture, ResourceRead, ResourceRef, SamplerInfo, TextureViewInfo,
+use crate::{
+    frame_graph::{
+        FrameGraphBuffer, FrameGraphTexture, ResourceRead, ResourceRef, TextureViewInfo,
+    },
+    render_resource::Sampler,
 };
 
 #[derive(Clone)]
@@ -16,7 +19,7 @@ pub enum BindingResourceRef {
         buffer: ResourceRef<FrameGraphBuffer, ResourceRead>,
         size: Option<NonZero<u64>>,
     },
-    Sampler(SamplerInfo),
+    Sampler(Sampler),
     TextureView {
         texture: ResourceRef<FrameGraphTexture, ResourceRead>,
         texture_view_info: TextureViewInfo,
@@ -36,7 +39,7 @@ impl IntoBindingResourceRef for &ResourceRef<FrameGraphBuffer, ResourceRead> {
     }
 }
 
-impl IntoBindingResourceRef for &SamplerInfo {
+impl IntoBindingResourceRef for &Sampler {
     fn into_binding(self) -> BindingResourceRef {
         BindingResourceRef::Sampler(self.clone())
     }

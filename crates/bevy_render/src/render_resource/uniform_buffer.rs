@@ -1,6 +1,9 @@
 use core::{marker::PhantomData, num::NonZero};
 
 use crate::{
+    frame_graph::{
+        BindingResourceHandle, BindingResourceRef, FrameGraph, PassNodeBuilder, ResourceMaterial,
+    },
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
@@ -82,6 +85,37 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
+    }
+
+    pub fn make_binding_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> Option<BindingResourceHandle> {
+        self.buffer().map(|buffer| {
+            let buffer = buffer.make_resource_handle(frame_graph);
+
+            let size = T::min_size();
+
+            BindingResourceHandle::Buffer {
+                buffer,
+                size: Some(size),
+            }
+        })
+    }
+
+    pub fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> Option<BindingResourceRef> {
+        self.buffer().map(|buffer| {
+            let buffer = pass_node_builder.read_material(buffer);
+
+            let size = T::min_size();
+            BindingResourceRef::Buffer {
+                buffer,
+                size: Some(size),
+            }
+        })
     }
 
     /// Set the data the buffer stores.
@@ -219,6 +253,37 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
             offset: 0,
             size: Some(T::min_size()),
         }))
+    }
+
+    pub fn make_binding_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> Option<BindingResourceHandle> {
+        self.buffer().map(|buffer| {
+            let buffer = buffer.make_resource_handle(frame_graph);
+
+            let size = T::min_size();
+
+            BindingResourceHandle::Buffer {
+                buffer,
+                size: Some(size),
+            }
+        })
+    }
+
+    fn make_binding_resource_ref(
+        &self,
+        pass_node_builder: &mut PassNodeBuilder,
+    ) -> Option<BindingResourceRef> {
+        self.buffer().map(|buffer| {
+            let buffer = pass_node_builder.read_material(buffer);
+
+            let size = T::min_size();
+            BindingResourceRef::Buffer {
+                buffer,
+                size: Some(size),
+            }
+        })
     }
 
     #[inline]

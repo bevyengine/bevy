@@ -17,9 +17,7 @@ use bevy_render::{
 use super::{get_lut_image, Tonemapping, TonemappingLuts, TonemappingPipeline};
 
 #[derive(Default)]
-pub struct TonemappingNode {
-    last_tonemapping: Mutex<Option<Tonemapping>>,
-}
+pub struct TonemappingNode;
 
 impl ViewNode for TonemappingNode {
     type ViewQuery = (
@@ -42,7 +40,7 @@ impl ViewNode for TonemappingNode {
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
         let gpu_images = world.get_resource::<RenderAssets<GpuImage>>().unwrap();
         let fallback_image = world.resource::<FallbackImage>();
-        let view_uniforms_resource = world.resource::<ViewUniforms>();
+        let view_uniforms = world.resource::<ViewUniforms>();
 
         if *tonemapping == Tonemapping::None {
             return Ok(());
@@ -52,7 +50,12 @@ impl ViewNode for TonemappingNode {
             return Ok(());
         }
 
-        let Some(_) = pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) else {
+        let (Some(_), Some(view_uniforms_binding)) = (
+            pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0),
+            view_uniforms
+                .uniforms
+                .make_binding_resource_handle(frame_graph),
+        ) else {
             return Ok(());
         };
 
@@ -60,17 +63,6 @@ impl ViewNode for TonemappingNode {
 
         let source = post_process.source;
         let destination = post_process.destination;
-
-        let mut last_tonemapping = self.last_tonemapping.lock().unwrap();
-
-        let tonemapping_changed = if let Some(last_tonemapping) = &*last_tonemapping {
-            tonemapping != last_tonemapping
-        } else {
-            true
-        };
-        if tonemapping_changed {
-            *last_tonemapping = Some(*tonemapping);
-        }
 
         let tonemapping_luts = world.resource::<TonemappingLuts>();
 
@@ -81,11 +73,11 @@ impl ViewNode for TonemappingNode {
 
         let bing_group = pass_builder
             .create_bind_group_builder(None, tonemapping_pipeline.texture_bind_group.clone())
-            .push_bind_group_entry(&view_uniforms_resource.uniforms)
+            .push_bind_group_entry(&view_uniforms_binding)
             .push_bind_group_entry(source)
-            .push_bind_group_entry(&tonemapping_pipeline.sampler_info)
-            .push_bind_group_entry(lut_image)
-            .push_bind_group_entry(&lut_image.sampler_info)
+            .push_bind_group_handle(&tonemapping_pipeline.sampler)
+            .push_bind_group_entry(&lut_image.texture)
+            .push_bind_group_handle(&lut_image.sampler)
             .build();
 
         let destination = pass_builder.write_material(destination);

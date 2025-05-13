@@ -8,7 +8,6 @@ use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    frame_graph::SamplerInfo,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
@@ -134,7 +133,7 @@ impl Plugin for TonemappingPlugin {
 #[derive(Resource)]
 pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
-    sampler_info: SamplerInfo,
+    sampler: Sampler,
 }
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
@@ -336,9 +335,11 @@ impl FromWorld for TonemappingPipeline {
         let tonemap_texture_bind_group = render_device
             .create_bind_group_layout("tonemapping_hdr_texture_bind_group_layout", &entries);
 
+        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+
         TonemappingPipeline {
             texture_bind_group: tonemap_texture_bind_group,
-            sampler_info: SamplerInfo::default(),
+            sampler,
         }
     }
 }
@@ -423,7 +424,6 @@ pub fn get_lut_image<'a>(
     let lut_image = images.get(image).unwrap_or(&fallback_image.d3);
     lut_image
 }
-
 
 pub fn get_lut_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 2] {
     [

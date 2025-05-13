@@ -36,9 +36,8 @@ use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     frame_graph::{
-        BindGroupHandle, BindingResourceHandleHelper, ColorAttachmentDrawing,
-        DynamicBindGroupEntryHandles, FrameGraph, FrameGraphTexture, ResourceMeta, SamplerInfo,
-        TextureInfo, TextureViewDrawing, TextureViewInfo,
+        BindGroupHandle, ColorAttachmentDrawing, DynamicBindGroupEntryHandles, FrameGraph,
+        FrameGraphTexture, ResourceMeta, TextureInfo, TextureViewDrawing, TextureViewInfo,
     },
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
@@ -49,9 +48,9 @@ use bevy_render::{
         },
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
         ColorWrites, FilterMode, FragmentState, LoadOp, Operations, PipelineCache,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
+        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::RenderDevice,
     sync_component::SyncComponentPlugin,
@@ -270,7 +269,7 @@ pub struct DepthOfFieldGlobalBindGroupLayout {
     /// The layout.
     layout: BindGroupLayout,
     /// The sampler used to sample from the color buffer or buffers.
-    color_texture_sampler_info: SamplerInfo,
+    color_texture_sampler: Sampler,
 }
 
 #[derive(Component)]
@@ -357,6 +356,16 @@ impl ViewNode for DepthOfFieldNode {
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let view_uniforms = world.resource::<ViewUniforms>();
+        let depth_of_field_uniforms = world.resource::<ComponentUniforms<DepthOfFieldUniform>>();
+
+        let (Some(view_uniforms_binding), Some(depth_of_field_uniforms_binding)) = (
+            view_uniforms
+                .uniforms
+                .make_binding_resource_handle(frame_graph),
+            depth_of_field_uniforms.make_binding_resource_handle(frame_graph),
+        ) else {
+            return Ok(());
+        };
 
         // We can be in either Gaussian blur or bokeh mode here. Both modes are
         // similar, consisting of two passes each. We factor out the information
@@ -388,11 +397,6 @@ impl ViewNode for DepthOfFieldNode {
                     continue;
                 };
 
-                // let d = DynamicBindGroupEntryHandles::sequential(entries)
-                let view_uniforms_binding = view_uniforms
-                    .uniforms
-                    .make_binding_resource_handle(frame_graph);
-
                 let view_depth_texture = view_depth_texture
                     .get_depth_texture()
                     .make_binding_resource_handle(frame_graph);
@@ -407,7 +411,7 @@ impl ViewNode for DepthOfFieldNode {
                     label: Some(pipeline_render_info.view_bind_group_label.into()),
                     layout: dual_input_bind_group_layout.clone(),
                     entries: DynamicBindGroupEntryHandles::sequential((
-                        view_uniforms_binding,
+                        &view_uniforms_binding,
                         view_depth_texture,
                         source,
                         auxiliary_dof_texture,
@@ -415,10 +419,6 @@ impl ViewNode for DepthOfFieldNode {
                     .to_vec(),
                 }
             } else {
-                let view_uniforms_binding = view_uniforms
-                    .uniforms
-                    .make_binding_resource_handle(frame_graph);
-
                 let view_depth_texture = view_depth_texture
                     .get_depth_texture()
                     .make_binding_resource_handle(frame_graph);
@@ -429,7 +429,7 @@ impl ViewNode for DepthOfFieldNode {
                     label: Some(pipeline_render_info.view_bind_group_label.into()),
                     layout: view_bind_group_layouts.single_input.clone(),
                     entries: DynamicBindGroupEntryHandles::sequential((
-                        view_uniforms_binding,
+                        &view_uniforms_binding,
                         view_depth_texture,
                         source,
                     ))
@@ -483,16 +483,13 @@ impl ViewNode for DepthOfFieldNode {
 
             let global_bind_group_layout = world.resource::<DepthOfFieldGlobalBindGroupLayout>();
 
-            let depth_of_field_uniforms =
-                world.resource::<ComponentUniforms<DepthOfFieldUniform>>();
-
             let global_bind_group = pass_builder
                 .create_bind_group_builder(
                     Some("depth of field global bind group".into()),
                     global_bind_group_layout.layout.clone(),
                 )
-                .push_bind_group_entry(depth_of_field_uniforms.deref())
-                .push_bind_group_entry(&global_bind_group_layout.color_texture_sampler_info)
+                .push_bind_group_entry(&depth_of_field_uniforms_binding)
+                .push_bind_group_handle(&global_bind_group_layout.color_texture_sampler)
                 .build();
 
             pass_builder
@@ -566,16 +563,16 @@ impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
             ),
         );
 
-        let color_texture_sampler_info = SamplerInfo {
+        let color_texture_sampler = render_device.create_sampler(&SamplerDescriptor {
             label: Some("depth of field sampler".into()),
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             ..default()
-        };
+        });
 
         DepthOfFieldGlobalBindGroupLayout {
             layout,
-            color_texture_sampler_info,
+            color_texture_sampler,
         }
     }
 }

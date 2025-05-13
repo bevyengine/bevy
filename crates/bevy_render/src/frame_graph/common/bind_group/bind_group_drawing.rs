@@ -7,7 +7,9 @@ use crate::{
     render_resource::BindGroupLayout,
 };
 
-use super::{BindGroupEntryRef, BindingResourceHandleHelper, BindingResourceRef};
+use super::{
+    BindGroupEntryRef, BindingResourceHelper, BindingResourceRef, IntoBindingResourceHandle,
+};
 
 pub struct BindGroupDrawingBuilder<'a, 'b> {
     label: Option<Cow<'static, str>>,
@@ -39,8 +41,14 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
         self
     }
 
-    pub fn push_bind_group_entry<T: BindingResourceHandleHelper>(self, value: &T) -> Self {
-        let bind_group_resource_ref = value.make_binding_resource_ref(self.pass_builder.pass_node_builder());
+    pub fn push_bind_group_handle<T: IntoBindingResourceHandle>(self, value: T) -> Self {
+        let handle = T::into_binding(value);
+        self.push_bind_group_entry(&handle)
+    }
+
+    pub fn push_bind_group_entry<T: BindingResourceHelper>(self, value: &T) -> Self {
+        let bind_group_resource_ref =
+            value.make_binding_resource_ref(self.pass_builder.pass_node_builder());
         self.push_bind_resource_ref(bind_group_resource_ref)
     }
 
@@ -97,12 +105,9 @@ impl ResourceDrawing for BindGroupDrawing {
         let mut resources = vec![];
         for entry in self.entries.iter() {
             let resource = match &entry.resource {
-                BindingResourceRef::Sampler(info) => BindingResource::Sampler(
-                    render_context
-                        .render_device
-                        .wgpu_device()
-                        .create_sampler(&info.get_sample_desc()),
-                ),
+                BindingResourceRef::Sampler(sampler) => {
+                    BindingResource::Sampler(sampler.deref().clone())
+                }
                 BindingResourceRef::TextureView {
                     texture,
                     texture_view_info,

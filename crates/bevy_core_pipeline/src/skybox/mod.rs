@@ -301,7 +301,7 @@ fn prepare_skybox_bind_groups(
                 layout: pipeline.bind_group_layout.clone(),
                 entries: DynamicBindGroupEntryHandles::sequential((
                     &skybox_read,
-                    &skybox.sampler_info,
+                    &skybox.sampler,
                     (&view_uniforms_read, view_uniform_size),
                     (&skybox_uniforms_read, skybox_uniforms_size),
                 ))

@@ -19,7 +19,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
-    frame_graph::FrameGraph,
+    frame_graph::{FrameGraph, FrameGraphTexture, ResourceMeta, TextureInfo},
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -32,11 +32,9 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
-    texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::prelude::default;
 use core::mem;
 use tracing::{error, warn};
 
@@ -455,16 +453,33 @@ fn extract_ssao_settings(
 
 #[derive(Component)]
 pub struct ScreenSpaceAmbientOcclusionResources {
-    preprocessed_depth_texture: CachedTexture,
-    ssao_noisy_texture: CachedTexture, // Pre-spatially denoised texture
-    pub screen_space_ambient_occlusion_texture: CachedTexture, // Spatially denoised texture
-    depth_differences_texture: CachedTexture,
-    thickness_buffer: Buffer,
+    pub preprocessed_depth_texture: ResourceMeta<FrameGraphTexture>,
+    pub ssao_noisy_texture: ResourceMeta<FrameGraphTexture>, // Pre-spatially denoised texture
+    pub screen_space_ambient_occlusion_texture: ResourceMeta<FrameGraphTexture>, // Spatially denoised texture
+    pub depth_differences_texture: ResourceMeta<FrameGraphTexture>,
+    pub thickness_buffer: Buffer,
+}
+
+impl ScreenSpaceAmbientOcclusionResources {
+    pub fn get_preprocessed_depth_texture_key(entity: Entity) -> String {
+        format!("preprocessed_depth_texture_{}", entity)
+    }
+
+    pub fn get_ssao_noisy_texture_key(entity: Entity) -> String {
+        format!("ssao_noisy_texture_{}", entity)
+    }
+
+    pub fn get_ssao_texture_key(entity: Entity) -> String {
+        format!("ssao_texture_{}", entity)
+    }
+
+    pub fn get_ssao_depth_differences_texture_key(entity: Entity) -> String {
+        format!("ssao_depth_differences_texture_{}", entity)
+    }
 }
 
 fn prepare_ssao_textures(
     mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
 ) {
@@ -478,61 +493,63 @@ fn prepare_ssao_textures(
             depth_or_array_layers: 1,
         };
 
-        let preprocessed_depth_texture = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("ssao_preprocessed_depth_texture"),
+        let preprocessed_depth_texture = ResourceMeta {
+            key: ScreenSpaceAmbientOcclusionResources::get_preprocessed_depth_texture_key(entity),
+            desc: TextureInfo {
+                label: Some("ssao_preprocessed_depth_texture".into()),
                 size,
                 mip_level_count: 5,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
-        let ssao_noisy_texture = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("ssao_noisy_texture"),
+        let ssao_noisy_texture = ResourceMeta {
+            key: ScreenSpaceAmbientOcclusionResources::get_ssao_noisy_texture_key(entity),
+            desc: TextureInfo {
+                label: Some("ssao_noisy_texture".into()),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
-        let ssao_texture = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("ssao_texture"),
+        let ssao_texture = ResourceMeta {
+            key: ScreenSpaceAmbientOcclusionResources::get_ssao_texture_key(entity),
+            desc: TextureInfo {
+                label: Some("ssao_texture".into()),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
-        let depth_differences_texture = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("ssao_depth_differences_texture"),
+        let depth_differences_texture = ResourceMeta {
+            key: ScreenSpaceAmbientOcclusionResources::get_ssao_depth_differences_texture_key(
+                entity,
+            ),
+            desc: TextureInfo {
+                label: Some("ssao_depth_differences_texture".into()),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R32Uint,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
         let thickness_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("thickness_buffer"),

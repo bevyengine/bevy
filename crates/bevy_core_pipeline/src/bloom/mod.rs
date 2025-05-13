@@ -2,8 +2,6 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
-use std::ops::Deref;
-
 use bevy_color::{Gray, LinearRgba};
 pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter};
 
@@ -136,8 +134,8 @@ impl ViewNode for BloomNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
 
-        let (Some(_), Some(_), Some(_), Some(_), Some(_)) = (
-            uniforms.binding(),
+        let (Some(uniforms_binding), Some(_), Some(_), Some(_), Some(_)) = (
+            uniforms.make_binding_resource_handle(frame_graph),
             pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.first),
             pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.main),
             pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
@@ -165,8 +163,8 @@ impl ViewNode for BloomNode {
                     downsampling_pipeline_res.bind_group_layout.clone(),
                 )
                 .push_bind_group_entry(view_texture)
-                .push_bind_group_entry(&downsampling_pipeline_res.sampler_info)
-                .push_bind_group_entry(uniforms.deref())
+                .push_bind_group_handle(&downsampling_pipeline_res.sampler)
+                .push_bind_group_entry(&uniforms_binding)
                 .build();
 
             pass_builder
@@ -204,8 +202,8 @@ impl ViewNode for BloomNode {
                     texture: bind_group_bloom_texture_read.clone(),
                     texture_view_info: bloom_texture.get_texture_view_info(bind_group_mip),
                 })
-                .push_bind_group_entry(&downsampling_pipeline_res.sampler_info)
-                .push_bind_group_entry(uniforms.deref())
+                .push_bind_group_handle(&downsampling_pipeline_res.sampler)
+                .push_bind_group_entry(&uniforms_binding)
                 .build();
 
             pass_builder
@@ -243,8 +241,8 @@ impl ViewNode for BloomNode {
                     texture: bind_group_bloom_texture_read.clone(),
                     texture_view_info: bloom_texture.get_texture_view_info(bind_group_mip),
                 })
-                .push_bind_group_entry(&downsampling_pipeline_res.sampler_info)
-                .push_bind_group_entry(uniforms.deref())
+                .push_bind_group_handle(&downsampling_pipeline_res.sampler)
+                .push_bind_group_entry(&uniforms_binding)
                 .build();
 
             let blend = compute_blend_factor(
@@ -291,8 +289,8 @@ impl ViewNode for BloomNode {
                     texture: bloom_texture_read.clone(),
                     texture_view_info: bloom_texture.get_texture_view_info(mip),
                 })
-                .push_bind_group_entry(&downsampling_pipeline_res.sampler_info)
-                .push_bind_group_entry(uniforms.deref())
+                .push_bind_group_handle(&downsampling_pipeline_res.sampler)
+                .push_bind_group_entry(&uniforms_binding)
                 .build();
 
             let blend =

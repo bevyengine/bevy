@@ -10,7 +10,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
 use crate::{
     extract_component::ExtractComponent,
-    render_resource::{Shader, TextureView},
+    frame_graph::{FrameGraphTexture, ResourceMeta, TextureViewInfo},
+    render_resource::Shader,
 };
 
 /// The handle to the `mesh_preprocess_types.wgsl` compute shader.
@@ -96,8 +97,9 @@ pub struct OcclusionCulling;
 /// mapping. You don't ordinarily need to add this component yourself.
 #[derive(Clone, Component)]
 pub struct OcclusionCullingSubview {
+    pub depth_texture: ResourceMeta<FrameGraphTexture>,
     /// A texture view of the Z-buffer.
-    pub depth_texture_view: TextureView,
+    pub depth_texture_view_info: TextureViewInfo,
     /// The size of the texture along both dimensions.
     ///
     /// Because [`OcclusionCullingSubview`] is only currently used for shadow

@@ -21,8 +21,7 @@ use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     frame_graph::{
-        ColorAttachmentDrawing, FrameGraph, PassBuilder, SamplerInfo, TextureViewDrawing,
-        TextureViewInfo,
+        ColorAttachmentDrawing, FrameGraph, PassBuilder, TextureViewDrawing, TextureViewInfo,
     },
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{
@@ -32,9 +31,9 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
         ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, Operations,
-        PipelineCache, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
-        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDimension,
-        TextureFormat, TextureSampleType,
+        PipelineCache, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
+        Shader, ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::GpuImage,
@@ -136,9 +135,9 @@ pub struct PostProcessingPipeline {
     /// The layout of bind group 0, containing the source, LUT, and settings.
     bind_group_layout: BindGroupLayout,
     /// Specifies how to sample the source framebuffer texture.
-    source_sampler_info: SamplerInfo,
+    source_sampler: Sampler,
     /// Specifies how to sample the chromatic aberration gradient.
-    chromatic_aberration_lut_sampler_info: SamplerInfo,
+    chromatic_aberration_lut_sampler: Sampler,
 }
 
 /// A key that uniquely identifies a built-in postprocessing pipeline.
@@ -306,24 +305,24 @@ impl FromWorld for PostProcessingPipeline {
         // Both source and chromatic aberration LUTs should be sampled
         // bilinearly.
 
-        let source_sampler_info = SamplerInfo {
+        let source_sampler = render_device.create_sampler(&SamplerDescriptor {
             mipmap_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             ..default()
-        };
+        });
 
-        let chromatic_aberration_lut_sampler_info = SamplerInfo {
+        let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
             mipmap_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             ..default()
-        };
+        });
 
         PostProcessingPipeline {
             bind_group_layout,
-            source_sampler_info,
-            chromatic_aberration_lut_sampler_info,
+            source_sampler,
+            chromatic_aberration_lut_sampler,
         }
     }
 }
@@ -391,9 +390,9 @@ impl ViewNode for PostProcessingNode {
         };
 
         // We need the postprocessing settings to be uploaded to the GPU.
-        let Some(_) = post_processing_uniform_buffers
+        let Some(chromatic_aberration_binding) = post_processing_uniform_buffers
             .chromatic_aberration
-            .buffer()
+            .make_binding_resource_handle(frame_graph)
         else {
             return Ok(());
         };
@@ -412,9 +411,9 @@ impl ViewNode for PostProcessingNode {
                 post_processing_pipeline.bind_group_layout.clone(),
             )
             .push_bind_group_entry(source)
-            .push_bind_group_entry(&post_processing_pipeline.source_sampler_info)
-            .push_bind_group_entry(&post_processing_pipeline.chromatic_aberration_lut_sampler_info)
-            .push_bind_group_entry(&post_processing_uniform_buffers.chromatic_aberration)
+            .push_bind_group_handle(&post_processing_pipeline.source_sampler)
+            .push_bind_group_handle(&post_processing_pipeline.chromatic_aberration_lut_sampler)
+            .push_bind_group_entry(&chromatic_aberration_binding)
             .build();
 
         let destination = pass_builder.write_material(destination);
