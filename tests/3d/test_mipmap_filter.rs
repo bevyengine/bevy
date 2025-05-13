@@ -11,16 +11,10 @@ use bevy::{
     prelude::*,
 };
 
-fn main() {
-    App::new()
-        .insert_resource(VisibleCombo(KeyCode::Digit1))
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .add_systems(Update, (update_controls, update_camera))
-        .run();
-}
+#[derive(Resource)]
+struct Combos(Vec<Combo>);
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn main() {
     let default_sampler = ImageSamplerDescriptor {
         address_mode_u: ImageAddressMode::Repeat,
         address_mode_v: ImageAddressMode::Repeat,
@@ -30,9 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     };
 
-    // Declare combinations of sampler settings linked to a key code.
-
-    let combos: &[Combo] = &[
+    let combos = Combos(vec![
         Combo {
             key: KeyCode::Digit1,
             label: "1: None",
@@ -63,11 +55,34 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default_sampler.clone()
             },
         },
-    ];
+    ]);
 
-    // Spawn each combination.
+    let mut app = App::new();
 
-    for combo in combos.iter() {
+    app.insert_resource(combos)
+        .insert_resource(VisibleCombo(KeyCode::Digit1))
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                update_controls,
+                update_visibility,
+                update_text,
+                update_camera,
+            ),
+        );
+
+    #[cfg(feature = "bevy_ci_testing")]
+    app.insert_resource(ci::Capture::default())
+        .add_systems(Startup, ci::setup)
+        .add_systems(Update, ci::update);
+
+    app.run();
+}
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, combos: Res<Combos>) {
+    for combo in combos.0.iter() {
         let asset = GltfAssetLabel::Scene(0).from_asset("models/checkerboard/checkerboard.gltf");
 
         let sampler = combo.sampler.clone();
@@ -82,8 +97,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             combo.clone(),
         ));
     }
-
-    // Spawn camera and text.
 
     commands.spawn((
         Camera3d::default(),
@@ -115,29 +128,16 @@ struct Combo {
 struct VisibleCombo(KeyCode);
 
 fn update_controls(
-    mut text: Single<&mut Text>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut time: ResMut<Time<Virtual>>,
-    mut combos: Query<(&Combo, &mut Visibility)>,
+    combos: Query<&Combo>,
     mut visible_combo: ResMut<VisibleCombo>,
 ) {
-    // Update combo visibility.
-
-    for (combo, _) in &combos {
+    for combo in &combos {
         if keyboard_input.just_pressed(combo.key) {
             *visible_combo = VisibleCombo(combo.key);
         }
     }
-
-    for (combo, mut visibility) in &mut combos {
-        *visibility = if *visible_combo == VisibleCombo(combo.key) {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-    }
-
-    // Update pause.
 
     if keyboard_input.just_pressed(KeyCode::Space) {
         if time.is_paused() {
@@ -146,9 +146,27 @@ fn update_controls(
             time.pause();
         }
     }
+}
 
-    // Update help text.
+fn update_visibility(
+    mut combos: Query<(&Combo, &mut Visibility)>,
+    visible_combo: Res<VisibleCombo>,
+) {
+    for (combo, mut visibility) in &mut combos {
+        *visibility = if *visible_combo == VisibleCombo(combo.key) {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+}
 
+fn update_text(
+    mut text: Single<&mut Text>,
+    time: Res<Time<Virtual>>,
+    combos: Query<(&Combo, &Visibility)>,
+    visible_combo: Res<VisibleCombo>,
+) {
     text.clear();
 
     text.push_str(&format!(
@@ -169,11 +187,61 @@ fn update_controls(
     }
 }
 
-fn update_camera(time: Res<Time>, mut query: Query<&mut Transform, With<Camera3d>>) {
+fn update_camera(_time: Res<Time>, mut query: Query<&mut Transform, With<Camera3d>>) {
     for mut transform in &mut query {
-        let height = (ops::sin(time.elapsed_secs()) * 0.07) + 0.08;
+        #[cfg(feature = "bevy_ci_testing")]
+        let elapsed_secs = 0.0;
+
+        #[cfg(not(feature = "bevy_ci_testing"))]
+        let elapsed_secs = _time.elapsed_secs();
+
+        let height = (ops::sin(elapsed_secs) * 0.07) + 0.08;
 
         *transform =
             Transform::from_xyz(0.2, height, 0.95).looking_at(Vec3::new(0.0, -0.1, 0.0), Vec3::Y);
+    }
+}
+
+#[cfg(feature = "bevy_ci_testing")]
+mod ci {
+    use super::*;
+    use bevy::{
+        dev_tools::ci_testing::{CiTestingConfig, CiTestingEvent, CiTestingEventOnFrame},
+        diagnostic::FrameCount,
+        render::view::screenshot::Captured,
+    };
+
+    #[derive(Resource, Default)]
+    pub struct Capture {
+        pending: bool,
+        remaining: Vec<KeyCode>,
+    }
+
+    pub fn setup(mut capture: ResMut<Capture>, combos: Res<Combos>) {
+        capture.remaining = combos.0.iter().map(|c| c.key).collect();
+    }
+
+    pub fn update(
+        mut ci_config: ResMut<CiTestingConfig>,
+        mut capture: ResMut<Capture>,
+        mut visible_combo: ResMut<VisibleCombo>,
+        frame_count: Res<FrameCount>,
+        removed_captures: RemovedComponents<Captured>,
+    ) {
+        if capture.pending {
+            capture.pending = removed_captures.is_empty();
+        } else if let Some(next) = capture.remaining.pop() {
+            ci_config.events.push(CiTestingEventOnFrame(
+                frame_count.0 + 100,
+                CiTestingEvent::NamedScreenshot(format!("{:?}", next)),
+            ));
+            visible_combo.0 = next;
+            capture.pending = true;
+        } else {
+            ci_config.events.push(CiTestingEventOnFrame(
+                frame_count.0 + 1,
+                CiTestingEvent::AppExit,
+            ));
+        }
     }
 }
