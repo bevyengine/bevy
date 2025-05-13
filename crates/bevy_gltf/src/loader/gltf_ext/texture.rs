@@ -1,4 +1,4 @@
-use bevy_asset::Handle;
+use bevy_asset::{Handle, LoadContext};
 use bevy_image::{Image, ImageAddressMode, ImageFilterMode, ImageSamplerDescriptor};
 use bevy_math::Affine2;
 
@@ -11,12 +11,25 @@ use gltf::texture::{MagFilter, MinFilter, Texture, TextureTransform, WrappingMod
 ))]
 use gltf::{json::texture::Info, Document};
 
+use crate::loader::{LabelOrAssetPath, LoadedTexture};
+
+// XXX TODO: Documentation.
 pub(crate) fn texture_handle(
     texture: &Texture<'_>,
-    texture_handles: &[Handle<Image>],
+    load_context: &mut LoadContext,
+    loaded_textures: &[LoadedTexture],
 ) -> Handle<Image> {
-    // XXX TODO: Handle out of range request?
-    texture_handles[texture.index()].clone()
+    let loaded_texture = &loaded_textures[texture.index()]; // XXX TODO: Guard against invalid indices?
+
+    let handle = match &loaded_texture.path {
+        LabelOrAssetPath::Label(label) => load_context.get_label_handle(label.to_string()),
+        LabelOrAssetPath::AssetPath(path) => load_context.load(path),
+    };
+
+    // XXX TODO: Document and decide on error handling.
+    assert_eq!(handle, loaded_texture.handle);
+
+    handle
 }
 
 /// Extracts the texture sampler data from the glTF [`Texture`].
@@ -93,11 +106,12 @@ pub(crate) fn texture_transform_to_affine2(texture_transform: TextureTransform) 
 pub(crate) fn texture_handle_from_info(
     info: &Info,
     document: &Document,
-    texture_handles: &[Handle<Image>],
+    load_context: &mut LoadContext,
+    loaded_textures: &[LoadedTexture],
 ) -> Handle<Image> {
     let texture = document
         .textures()
         .nth(info.index.value())
         .expect("Texture info references a nonexistent texture");
-    texture_handle(&texture, texture_handles)
+    texture_handle(&texture, load_context, loaded_textures)
 }

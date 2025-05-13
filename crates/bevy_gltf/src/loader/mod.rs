@@ -159,7 +159,7 @@ pub struct GltfLoader {
 ///
 /// To load a gltf but exclude the cameras, replace a call to `asset_server.load("my.gltf")` with
 /// ```no_run
-/// # use bevy_asset::{AssetPath, AssetServer, Handle};
+/// # use bevy_asset::{AssetServer, Handle};
 /// # use bevy_gltf::*;
 /// # let asset_server: AssetServer = panic!();
 /// let gltf_handle: Handle<Gltf> = asset_server.load_with_settings(
@@ -529,8 +529,8 @@ async fn load_gltf<'a, 'b, 'c>(
     // later in the loader when looking up handles for materials. However this would mean
     // that the material's load context would no longer track those images as dependencies.
     //
-    // XXX TODO: Don't reuse texture handles. Should calculate `AssetPath` once.
-    let mut texture_handles = Vec::new();
+    // XXX TODO: Update comment.
+    let mut loaded_textures: Vec<LoadedTexture> = Vec::new();
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
         for texture in gltf.textures() {
             let parent_path = load_context.path().parent().unwrap();
@@ -544,7 +544,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 settings,
             )
             .await?;
-            image.process_loaded_texture(load_context, &mut texture_handles);
+            image.process_loaded_texture(load_context, &mut loaded_textures);
         }
     } else {
         #[cfg(not(target_arch = "wasm32"))]
@@ -571,7 +571,7 @@ async fn load_gltf<'a, 'b, 'c>(
             .into_iter()
             .for_each(|result| match result {
                 Ok(image) => {
-                    image.process_loaded_texture(load_context, &mut texture_handles);
+                    image.process_loaded_texture(load_context, &mut loaded_textures);
                 }
                 Err(err) => {
                     warn!("Error loading glTF texture: {}", err);
@@ -590,7 +590,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 load_context,
                 &gltf.document,
                 false,
-                &texture_handles,
+                &loaded_textures,
             );
             if let Some(name) = material.name() {
                 named_materials.insert(name.into(), handle.clone());
@@ -893,7 +893,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         #[cfg(feature = "bevy_animation")]
                         None,
                         &gltf.document,
-                        &texture_handles,
+                        &loaded_textures,
                     );
                     if result.is_err() {
                         err = Some(result);
@@ -1050,11 +1050,10 @@ fn load_material(
     load_context: &mut LoadContext,
     document: &Document,
     is_scale_inverted: bool,
-    texture_handles: &[Handle<Image>],
+    loaded_textures: &[LoadedTexture],
 ) -> Handle<StandardMaterial> {
     let material_label = material_label(material, is_scale_inverted);
-    // XXX TODO: Double check this works correctly if we rearrange texture loading.
-    load_context.labeled_asset_scope(material_label.to_string(), |_| {
+    load_context.labeled_asset_scope(material_label.to_string(), |load_context| {
         let pbr = material.pbr_metallic_roughness();
 
         // TODO: handle missing label handle errors here?
@@ -1065,7 +1064,7 @@ fn load_material(
             .unwrap_or_default();
         let base_color_texture = pbr
             .base_color_texture()
-            .map(|info| texture_handle(&info.texture(), texture_handles));
+            .map(|info| texture_handle(&info.texture(), load_context, loaded_textures));
 
         let uv_transform = pbr
             .base_color_texture()
@@ -1079,7 +1078,7 @@ fn load_material(
         let normal_map_texture: Option<Handle<Image>> =
             material.normal_texture().map(|normal_texture| {
                 // TODO: handle normal_texture.scale
-                texture_handle(&normal_texture.texture(), texture_handles)
+                texture_handle(&normal_texture.texture(), load_context, loaded_textures)
             });
 
         let metallic_roughness_channel = pbr
@@ -1093,7 +1092,7 @@ fn load_material(
                 uv_transform,
                 "metallic/roughness",
             );
-            texture_handle(&info.texture(), texture_handles)
+            texture_handle(&info.texture(), load_context, loaded_textures)
         });
 
         let occlusion_channel = material
@@ -1102,7 +1101,7 @@ fn load_material(
             .unwrap_or_default();
         let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            texture_handle(&occlusion_texture.texture(), texture_handles)
+            texture_handle(&occlusion_texture.texture(), load_context, loaded_textures)
         });
 
         let emissive = material.emissive_factor();
@@ -1113,7 +1112,7 @@ fn load_material(
         let emissive_texture = material.emissive_texture().map(|info| {
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
             warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
-            texture_handle(&info.texture(), texture_handles)
+            texture_handle(&info.texture(), load_context, loaded_textures)
         });
 
         #[cfg(feature = "pbr_transmission_textures")]
@@ -1128,7 +1127,11 @@ fn load_material(
                     let transmission_texture: Option<Handle<Image>> = transmission
                         .transmission_texture()
                         .map(|transmission_texture| {
-                            texture_handle(&transmission_texture.texture(), texture_handles)
+                            texture_handle(
+                                &transmission_texture.texture(),
+                                load_context,
+                                loaded_textures,
+                            )
                         });
 
                     (
@@ -1159,7 +1162,7 @@ fn load_material(
                     .unwrap_or_default();
                 let thickness_texture: Option<Handle<Image>> =
                     volume.thickness_texture().map(|thickness_texture| {
-                        texture_handle(&thickness_texture.texture(), texture_handles)
+                        texture_handle(&thickness_texture.texture(), load_context, loaded_textures)
                     });
 
                 (
@@ -1188,19 +1191,23 @@ fn load_material(
 
         // Parse the `KHR_materials_clearcoat` extension data if necessary.
         let clearcoat =
-            ClearcoatExtension::parse(texture_handles, document, material).unwrap_or_default();
+            ClearcoatExtension::parse(load_context, loaded_textures, document, material)
+                .unwrap_or_default();
 
         // Parse the `KHR_materials_anisotropy` extension data if necessary.
         let anisotropy =
-            AnisotropyExtension::parse(texture_handles, document, material).unwrap_or_default();
+            AnisotropyExtension::parse(load_context, loaded_textures, document, material)
+                .unwrap_or_default();
 
         // Parse the `KHR_materials_specular` extension data if necessary.
-        let specular =
-            SpecularExtension::parse(texture_handles, document, material).unwrap_or_default();
+        let specular = SpecularExtension::parse(load_context, loaded_textures, document, material)
+            .unwrap_or_default();
 
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
         let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
+
+        // XXX TODO: Need some way to dump the load_context dependencies and confirm they're right.
 
         StandardMaterial {
             base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
@@ -1307,7 +1314,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
-    texture_handles: &[Handle<Image>],
+    loaded_textures: &[LoadedTexture],
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -1421,7 +1428,7 @@ fn load_node(
                             load_context,
                             document,
                             is_scale_inverted,
-                            texture_handles,
+                            loaded_textures,
                         );
                     }
 
@@ -1580,7 +1587,7 @@ fn load_node(
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
                 document,
-                texture_handles,
+                loaded_textures,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -1707,26 +1714,47 @@ impl ImageOrPath {
     fn process_loaded_texture(
         self,
         load_context: &mut LoadContext,
-        handles: &mut Vec<Handle<Image>>,
+        loaded: &mut Vec<LoadedTexture>,
     ) {
-        let handle = match self {
+        loaded.push(match self {
             ImageOrPath::Image { label, image } => {
-                load_context.add_labeled_asset(label.to_string(), image)
+                let handle = load_context.add_labeled_asset(label.to_string(), image);
+                LoadedTexture {
+                    handle,
+                    path: LabelOrAssetPath::Label(label),
+                }
             }
             ImageOrPath::Path {
                 path,
                 is_srgb,
                 sampler_descriptor,
-            } => load_context
-                .loader()
-                .load(AssetPath::from(path).with_settings(ImageLoaderSettings {
+            } => {
+                let path = AssetPath::from(path).with_settings(ImageLoaderSettings {
                     is_srgb,
                     sampler: ImageSampler::Descriptor(sampler_descriptor.clone()),
                     ..Default::default()
-                })),
-        };
-        handles.push(handle);
+                });
+                let handle = load_context.loader().load(path.clone());
+                LoadedTexture {
+                    handle,
+                    path: LabelOrAssetPath::AssetPath(path),
+                }
+            }
+        });
     }
+}
+
+// XXX TODO: Document.
+enum LabelOrAssetPath<'a> {
+    Label(GltfAssetLabel),
+    AssetPath(AssetPath<'a>),
+}
+
+// XXX TODO: Document.
+struct LoadedTexture<'a> {
+    handle: Handle<Image>,
+    // XXX TODO: Reconsider variable name?
+    path: LabelOrAssetPath<'a>,
 }
 
 struct PrimitiveMorphAttributesIter<'s>(
