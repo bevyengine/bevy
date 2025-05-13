@@ -323,7 +323,7 @@ impl Schedule {
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
         };
-        // Call `set_build_settings` to add any default build passes besides AutoInsertApplyDeferredPass
+        // Call `set_build_settings` to add any default build passes
         this.set_build_settings(Default::default());
         this
     }
