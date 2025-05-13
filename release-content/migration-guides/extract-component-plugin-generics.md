@@ -6,9 +6,9 @@ pull_requests: [19053]
 Removed unused second type argument of `ExtractComponentPlugin`
 
 ```rust
-// 0.16
+// was
 app.add_plugins(ExtractComponentPlugin::<MyComponent, _>::default());
 
-// 0.17
+// now
 app.add_plugins(ExtractComponentPlugin::<MyComponent>::default());
 ```
