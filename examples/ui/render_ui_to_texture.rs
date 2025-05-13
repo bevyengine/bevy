@@ -105,9 +105,11 @@ fn setup(
                     BackgroundColor(BLUE.into()),
                 ))
                 .observe(
-                    |pointer: Trigger<Pointer<Drag>>, mut nodes: Query<(&mut Node,&ComputedNode)>| {
+                    |pointer: Trigger<Pointer<Drag>>,
+                     mut nodes: Query<(&mut Node, &ComputedNode)>| {
                         let (mut node, computed) = nodes.get_mut(pointer.target()).unwrap();
-                        node.left = Val::Px(pointer.pointer_location.position.x - computed.size.x / 2.0);
+                        node.left =
+                            Val::Px(pointer.pointer_location.position.x - computed.size.x / 2.0);
                         node.top = Val::Px(pointer.pointer_location.position.y - 50.0);
                     },
                 )
@@ -128,7 +130,7 @@ fn setup(
                             font_size: 40.0,
                             ..default()
                         },
-                        TextColor::BLACK,
+                        TextColor::WHITE,
                     ));
                 });
         });
