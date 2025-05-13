@@ -1411,11 +1411,11 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "gltf_override_sampler"
-path = "tests/gltf/gltf_override_sampler.rs"
+name = "test_mipmap_filter"
+path = "tests/3d/test_mipmap_filter.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.gltf_override_sampler]
+[package.metadata.example.test_mipmap_filter]
 hidden = true
 
 # Animation

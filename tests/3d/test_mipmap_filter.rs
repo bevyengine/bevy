@@ -1,8 +1,9 @@
-//! Tests loading the same glTF multiple times but with different values for
-//! `GltfLoaderSettings::override_sampler` and `default_sampler`.
+//! Tests `ImageSamplerDescription::mipmap_filter`. Loads a checkerboard model
+//! and lets the user switch between various presets. This also serves as a test
+//! of `GltfLoaderSettings::override_sampler`.
 //!
 //! CAUTION: This test currently fails due to <https://github.com/bevyengine/bevy/issues/18267> -
-//! subsequent loads of the same gltf do not respect the loader settings.
+//! subsequent loads of the same gltf will ignore the test's custom sampler settings.
 
 use bevy::{
     gltf::GltfLoaderSettings,
@@ -17,13 +18,6 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, (update_controls, update_camera))
         .run();
-}
-
-#[derive(Component, Clone)]
-struct Combo {
-    key: KeyCode,
-    label: &'static str,
-    sampler: ImageSamplerDescriptor,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -108,6 +102,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         },
     ));
+}
+
+#[derive(Component, Clone)]
+struct Combo {
+    key: KeyCode,
+    label: &'static str,
+    sampler: ImageSamplerDescriptor,
 }
 
 #[derive(Resource, PartialEq)]
