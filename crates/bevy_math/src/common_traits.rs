@@ -96,8 +96,7 @@ impl<T: ScalarField> VectorSpace for T {
     const ZERO: Self = Self::ZERO;
 }
 
-/// A type that supports the operations of a scalar field. Every vector space is defined over a
-/// scalar field, which is a set of elements that supports:
+/// A type that supports the operations of a scalar field. An implementation should support:
 /// - Addition and subtraction
 /// - Multiplication and division
 /// - Negation
