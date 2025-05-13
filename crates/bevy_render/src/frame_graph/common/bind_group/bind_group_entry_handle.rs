@@ -40,6 +40,7 @@ pub enum BindingResourceHandle {
         texture: GraphResourceNodeHandle<FrameGraphTexture>,
         texture_view_info: TextureViewInfo,
     },
+    TextureViewArray(Vec<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)>),
 }
 
 impl BindingResourceHelper for BindingResourceHandle {
@@ -66,6 +67,15 @@ impl BindingResourceHelper for BindingResourceHandle {
                     texture_view_info: texture_view_info.clone(),
                 }
             }
+            BindingResourceHandle::TextureViewArray(handles) => {
+                let mut target = vec![];
+                for (handle, texture_view_info) in handles.iter() {
+                    let handle_read = pass_node_builder.read(handle.clone());
+                    target.push((handle_read, texture_view_info.clone()));
+                }
+
+                BindingResourceRef::TextureViewArray(target)
+            }
         }
     }
 }
@@ -83,6 +93,17 @@ impl IntoBindingResourceHandle for &BindingResourceHandle {
 impl IntoBindingResourceHandle for BindingResourceHandle {
     fn into_binding(self) -> BindingResourceHandle {
         self.clone()
+    }
+}
+
+impl IntoBindingResourceHandle for &[GraphResourceNodeHandle<FrameGraphTexture>] {
+    fn into_binding(self) -> BindingResourceHandle {
+        let target = self
+            .iter()
+            .map(|handle| (handle.clone(), TextureViewInfo::default()))
+            .collect();
+
+        BindingResourceHandle::TextureViewArray(target)
     }
 }
 

@@ -271,21 +271,6 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         })
     }
 
-    fn make_binding_resource_ref(
-        &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> Option<BindingResourceRef> {
-        self.buffer().map(|buffer| {
-            let buffer = pass_node_builder.read_material(buffer);
-
-            let size = T::min_size();
-            BindingResourceRef::Buffer {
-                buffer,
-                size: Some(size),
-            }
-        })
-    }
-
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.scratch.as_ref().is_empty()

@@ -1,6 +1,7 @@
 use core::{iter, marker::PhantomData};
 
 use crate::{
+    frame_graph::{BindingResourceHandle, FrameGraph, ResourceMaterial},
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
@@ -281,6 +282,17 @@ where
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
+    }
+
+    pub fn make_binding_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> Option<BindingResourceHandle> {
+        self.buffer().map(|buffer| {
+            let buffer = buffer.make_resource_handle(frame_graph);
+
+            BindingResourceHandle::Buffer { buffer, size: None }
+        })
     }
 
     /// Returns the binding for the buffer if the data has been uploaded.

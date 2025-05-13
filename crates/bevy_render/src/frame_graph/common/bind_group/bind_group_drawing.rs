@@ -1,5 +1,6 @@
 use std::{borrow::Cow, num::NonZero, ops::Deref};
 
+use bevy_platform::collections::HashMap;
 use wgpu::BufferBinding;
 
 use crate::{
@@ -75,21 +76,35 @@ pub enum BindingResource<'a> {
     },
     Sampler(wgpu::Sampler),
     TextureView(wgpu::TextureView),
+    TextureViewArray(Vec<wgpu::TextureView>),
 }
 
-impl<'a> BindingResource<'a> {
+pub enum BindingResourceTemp<'a> {
+    Buffer {
+        buffer: &'a FrameGraphBuffer,
+        size: Option<NonZero<u64>>,
+    },
+    Sampler(wgpu::Sampler),
+    TextureView(wgpu::TextureView),
+    TextureViewArray(Vec<&'a wgpu::TextureView>),
+}
+
+impl<'a> BindingResourceTemp<'a> {
     pub fn get_resource_binding(&self) -> wgpu::BindingResource {
-        match &self {
-            BindingResource::Sampler(sampler) => wgpu::BindingResource::Sampler(sampler),
-            BindingResource::TextureView(texture_view) => {
+        match self {
+            BindingResourceTemp::Sampler(sampler) => wgpu::BindingResource::Sampler(sampler),
+            BindingResourceTemp::TextureView(texture_view) => {
                 wgpu::BindingResource::TextureView(texture_view)
             }
-            BindingResource::Buffer { buffer, size } => {
+            BindingResourceTemp::Buffer { buffer, size } => {
                 wgpu::BindingResource::Buffer(BufferBinding {
                     buffer: &buffer.resource,
                     offset: 0,
                     size: *size,
                 })
+            }
+            BindingResourceTemp::TextureViewArray(texture_views) => {
+                wgpu::BindingResource::TextureViewArray(texture_views.as_slice())
             }
         }
     }
@@ -102,30 +117,64 @@ impl ResourceDrawing for BindGroupDrawing {
         &self,
         render_context: &RenderContext<'a>,
     ) -> Result<Self::Resource, FrameGraphError> {
-        let mut resources = vec![];
+        let mut resources = HashMap::new();
+
+        for entry in self.entries.iter() {
+            match &entry.resource {
+                BindingResourceRef::TextureViewArray(texture_view_handles) => {
+                    let mut texture_views = vec![];
+
+                    for (texture, texture_view_info) in texture_view_handles.iter() {
+                        let texture = render_context.get_resource(texture)?;
+
+                        texture_views.push(
+                            texture
+                                .resource
+                                .create_view(&texture_view_info.get_texture_view_desc()),
+                        );
+                    }
+                    resources.insert(entry.binding, texture_views);
+                }
+                _ => {}
+            };
+        }
+
+        let mut temp = vec![];
+
         for entry in self.entries.iter() {
             let resource = match &entry.resource {
                 BindingResourceRef::Sampler(sampler) => {
-                    BindingResource::Sampler(sampler.deref().clone())
+                    BindingResourceTemp::Sampler(sampler.deref().clone())
                 }
                 BindingResourceRef::TextureView {
                     texture,
                     texture_view_info,
                 } => {
                     let texture = render_context.get_resource(texture)?;
-                    BindingResource::TextureView(
+                    BindingResourceTemp::TextureView(
                         texture
                             .resource
                             .create_view(&texture_view_info.get_texture_view_desc()),
                     )
                 }
-                BindingResourceRef::Buffer { buffer, size } => BindingResource::Buffer {
+                BindingResourceRef::Buffer { buffer, size } => BindingResourceTemp::Buffer {
                     buffer: render_context.get_resource(buffer)?,
                     size: *size,
                 },
+                BindingResourceRef::TextureViewArray(_) => {
+                    let mut temp_texture_views = vec![];
+
+                    let texture_views = resources.get(&entry.binding).unwrap();
+
+                    for texture_view in texture_views {
+                        temp_texture_views.push(texture_view);
+                    }
+
+                    BindingResourceTemp::TextureViewArray(temp_texture_views)
+                }
             };
 
-            resources.push((entry.binding, resource));
+            temp.push((entry.binding, resource));
         }
 
         let bind_graoup = render_context
@@ -134,7 +183,7 @@ impl ResourceDrawing for BindGroupDrawing {
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: self.label.as_deref(),
                 layout: self.layout.deref(),
-                entries: &resources
+                entries: &temp
                     .iter()
                     .map(|(binding, resource)| wgpu::BindGroupEntry {
                         binding: *binding,

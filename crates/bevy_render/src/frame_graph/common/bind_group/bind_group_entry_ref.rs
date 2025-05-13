@@ -24,6 +24,12 @@ pub enum BindingResourceRef {
         texture: ResourceRef<FrameGraphTexture, ResourceRead>,
         texture_view_info: TextureViewInfo,
     },
+    TextureViewArray(
+        Vec<(
+            ResourceRef<FrameGraphTexture, ResourceRead>,
+            TextureViewInfo,
+        )>,
+    ),
 }
 
 pub trait IntoBindingResourceRef {

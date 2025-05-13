@@ -21,7 +21,7 @@ use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
-    render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
+    render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, Texture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
@@ -32,7 +32,7 @@ use bevy_render::{
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
-use core::{hash::Hash, ops::Deref};
+use core::hash::Hash;
 
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
@@ -742,8 +742,8 @@ where
 
 /// Adds a diffuse or specular texture view to the `texture_views` list, and
 /// populates `sampler` if this is the first such view.
-pub(crate) fn add_cubemap_texture_view<'a>(
-    texture_views: &mut Vec<&'a <TextureView as Deref>::Target>,
+pub(crate) fn add_cubemap_texture<'a>(
+    textures: &mut Vec<&'a Texture>,
     sampler: &mut Option<&'a Sampler>,
     image_id: AssetId<Image>,
     images: &'a RenderAssets<GpuImage>,
@@ -752,7 +752,7 @@ pub(crate) fn add_cubemap_texture_view<'a>(
     match images.get(image_id) {
         None => {
             // Use the fallback image if the cubemap isn't loaded yet.
-            texture_views.push(&*fallback_image.cube.texture_view);
+            textures.push(&fallback_image.cube.texture);
         }
         Some(image) => {
             // If this is the first texture view, populate `sampler`.
@@ -760,7 +760,7 @@ pub(crate) fn add_cubemap_texture_view<'a>(
                 *sampler = Some(&image.sampler);
             }
 
-            texture_views.push(&*image.texture_view);
+            textures.push(&image.texture);
         }
     }
 }

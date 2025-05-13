@@ -17,8 +17,10 @@ use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
+    frame_graph::{BindingResourceHandle, FrameGraph},
     render_resource::{
-        BindingResource, Buffer, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer, UniformBuffer
+        BindingResource, Buffer, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
+        UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
@@ -494,6 +496,20 @@ impl GpuClusterableObjects {
         }
     }
 
+    pub fn make_binding_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> Option<BindingResourceHandle> {
+        match self {
+            GpuClusterableObjects::Uniform(buffer) => {
+                buffer.make_binding_resource_handle(frame_graph)
+            }
+            GpuClusterableObjects::Storage(buffer) => {
+                buffer.make_binding_resource_handle(frame_graph)
+            }
+        }
+    }
+
     pub fn buffer(&self) -> Option<&Buffer> {
         match self {
             GpuClusterableObjects::Uniform(buffer) => buffer.buffer(),
@@ -741,6 +757,22 @@ impl ViewClusterBindings {
         }
     }
 
+    pub fn make_clusterable_object_index_lists_binding_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> Option<BindingResourceHandle> {
+        match &self.buffers {
+            ViewClusterBuffers::Uniform {
+                clusterable_object_index_lists,
+                ..
+            } => clusterable_object_index_lists.make_binding_resource_handle(frame_graph),
+            ViewClusterBuffers::Storage {
+                clusterable_object_index_lists,
+                ..
+            } => clusterable_object_index_lists.make_binding_resource_handle(frame_graph),
+        }
+    }
+
     pub fn clusterable_object_index_lists_binding(&self) -> Option<BindingResource> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
@@ -751,6 +783,22 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists,
                 ..
             } => clusterable_object_index_lists.binding(),
+        }
+    }
+
+    pub fn make_offsets_and_counts_binding_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> Option<BindingResourceHandle> {
+        match &self.buffers {
+            ViewClusterBuffers::Uniform {
+                cluster_offsets_and_counts,
+                ..
+            } => cluster_offsets_and_counts.make_binding_resource_handle(frame_graph),
+            ViewClusterBuffers::Storage {
+                cluster_offsets_and_counts,
+                ..
+            } => cluster_offsets_and_counts.make_binding_resource_handle(frame_graph),
         }
     }
 

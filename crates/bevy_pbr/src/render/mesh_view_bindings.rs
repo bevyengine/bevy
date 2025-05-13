@@ -35,7 +35,7 @@ use crate::{
         self,
         clustered::{DecalsBuffer, RenderClusteredDecals},
     },
-    environment_map::{self},
+    environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
     irradiance_volume::{self, IrradianceVolume, IRRADIANCE_VOLUMES_ARE_USABLE},
     prelude::EnvironmentMapLight,
     prepass, EnvironmentMapUniformBuffer, GlobalClusterableObjectMeta, GpuClusterableObjects,
@@ -534,13 +534,13 @@ pub fn prepare_mesh_view_bind_groups(
     if let (
         Some(view_uniforms_binding),
         Some(light_meta_binding),
-        Some(_),
-        Some(_),
-        Some(_),
-        Some(_),
-        Some(_),
-        Some(_),
-        Some(_),
+        Some(gpu_clusterable_objects_binding),
+        Some(globals_buffer_binding),
+        Some(fog_meta_binding),
+        Some(light_probes_buffer_binding),
+        Some(visibility_ranges_binding),
+        Some(ssr_buffer_binding),
+        Some(environment_map_uniform_binding),
     ) = (
         view_uniforms
             .uniforms
@@ -548,13 +548,21 @@ pub fn prepare_mesh_view_bind_groups(
         light_meta
             .view_gpu_lights
             .make_binding_resource_handle(&mut frame_graph),
-        global_light_meta.gpu_clusterable_objects.buffer(),
-        globals_buffer.buffer.buffer(),
-        fog_meta.gpu_fogs.buffer(),
-        light_probes_buffer.buffer(),
-        visibility_ranges.buffer().buffer(),
-        ssr_buffer.buffer(),
-        environment_map_uniform.buffer(),
+        global_light_meta
+            .gpu_clusterable_objects
+            .make_binding_resource_handle(&mut frame_graph),
+        globals_buffer
+            .buffer
+            .make_binding_resource_handle(&mut frame_graph),
+        fog_meta
+            .gpu_fogs
+            .make_binding_resource_handle(&mut frame_graph),
+        light_probes_buffer.make_binding_resource_handle(&mut frame_graph),
+        visibility_ranges
+            .buffer()
+            .make_binding_resource_handle(&mut frame_graph),
+        ssr_buffer.make_binding_resource_handle(&mut frame_graph),
+        environment_map_uniform.make_binding_resource_handle(&mut frame_graph),
     ) {
         for (
             entity,
@@ -593,6 +601,9 @@ pub fn prepare_mesh_view_bind_groups(
                 .point_light_depth_texture
                 .make_resource_handle(&mut frame_graph);
 
+            let directional_light_depth_texture = shadow_bindings
+                .directional_light_depth_texture
+                .make_resource_handle(&mut frame_graph);
             let mut entries = DynamicBindGroupEntryHandles::new_with_indices((
                 (0, &view_uniforms_binding),
                 (1, &light_meta_binding),
@@ -606,60 +617,92 @@ pub fn prepare_mesh_view_bind_groups(
                 (3, &shadow_samplers.point_light_comparison_sampler),
                 #[cfg(feature = "experimental_pbr_pcss")]
                 (4, &shadow_samplers.point_light_linear_sampler),
-                // (5, &shadow_bindings.directional_light_depth_texture_view),
-                // (6, &shadow_samplers.directional_light_comparison_sampler),
-                // #[cfg(feature = "experimental_pbr_pcss")]
-                // (7, &shadow_samplers.directional_light_linear_sampler),
-                // (8, clusterable_objects_binding.clone()),
-                // (
-                //     9,
-                //     cluster_bindings
-                //         .clusterable_object_index_lists_binding()
-                //         .unwrap(),
-                // ),
-                // (10, cluster_bindings.offsets_and_counts_binding().unwrap()),
-                // (11, globals.clone()),
-                // (12, fog_binding.clone()),
-                // (13, light_probes_binding.clone()),
-                // (14, visibility_ranges_buffer.as_entire_binding()),
-                // (15, ssr_binding.clone()),
-                // (16, ssao_view),
+                (
+                    5,
+                    (
+                        &directional_light_depth_texture,
+                        &shadow_bindings.directional_light_depth_texture_view_info,
+                    ),
+                ),
+                (6, &shadow_samplers.directional_light_comparison_sampler),
+                #[cfg(feature = "experimental_pbr_pcss")]
+                (7, &shadow_samplers.directional_light_linear_sampler),
+                (8, &gpu_clusterable_objects_binding),
+                (
+                    9,
+                    cluster_bindings
+                        .make_clusterable_object_index_lists_binding_resource_handle(
+                            &mut frame_graph,
+                        )
+                        .unwrap(),
+                ),
+                (
+                    10,
+                    cluster_bindings
+                        .make_offsets_and_counts_binding_resource_handle(&mut frame_graph)
+                        .unwrap(),
+                ),
+                (11, &globals_buffer_binding),
+                (12, &fog_meta_binding),
+                (13, &light_probes_buffer_binding),
+                (14, &visibility_ranges_binding),
+                (15, &ssr_buffer_binding),
+                (16, &ssao_view),
             ));
 
-            // let environment_map_bind_group_entries = RenderViewEnvironmentMapBindGroupEntries::get(
-            //     render_view_environment_maps,
-            //     &images,
-            //     &fallback_image,
-            //     &render_device,
-            //     &render_adapter,
-            // );
+            let environment_map_bind_group_entries = RenderViewEnvironmentMapBindGroupEntries::get(
+                render_view_environment_maps,
+                &images,
+                &fallback_image,
+                &render_device,
+                &render_adapter,
+            );
 
-            // match environment_map_bind_group_entries {
-            //     RenderViewEnvironmentMapBindGroupEntries::Single {
-            //         diffuse_texture_view,
-            //         specular_texture_view,
-            //         sampler,
-            //     } => {
-            //         entries = entries.extend_with_indices((
-            //             (17, diffuse_texture_view),
-            //             (18, specular_texture_view),
-            //             (19, sampler),
-            //             (20, environment_map_binding.clone()),
-            //         ));
-            //     }
-            //     RenderViewEnvironmentMapBindGroupEntries::Multiple {
-            //         ref diffuse_texture_views,
-            //         ref specular_texture_views,
-            //         sampler,
-            //     } => {
-            //         entries = entries.extend_with_indices((
-            //             (17, diffuse_texture_views.as_slice()),
-            //             (18, specular_texture_views.as_slice()),
-            //             (19, sampler),
-            //             (20, environment_map_binding.clone()),
-            //         ));
-            //     }
-            // }
+            match environment_map_bind_group_entries {
+                RenderViewEnvironmentMapBindGroupEntries::Single {
+                    diffuse_texture,
+                    specular_texture,
+                    sampler,
+                } => {
+                    let diffuse_texture_handle =
+                        diffuse_texture.make_resource_handle(&mut frame_graph);
+                    let specular_texture_handle =
+                        specular_texture.make_resource_handle(&mut frame_graph);
+
+                    entries = entries.extend_with_indices((
+                        (17, &diffuse_texture_handle),
+                        (18, &specular_texture_handle),
+                        (19, sampler),
+                        (20, &environment_map_uniform_binding),
+                    ));
+                }
+                RenderViewEnvironmentMapBindGroupEntries::Multiple {
+                    ref diffuse_textures,
+                    ref specular_textures,
+                    sampler,
+                } => {
+                    let diffuse_texture_handles = diffuse_textures
+                        .iter()
+                        .map(|diffuse_texture| {
+                            diffuse_texture.make_resource_handle(&mut frame_graph)
+                        })
+                        .collect::<Vec<_>>();
+
+                    let specular_texture_handles = specular_textures
+                        .iter()
+                        .map(|specular_texture| {
+                            specular_texture.make_resource_handle(&mut frame_graph)
+                        })
+                        .collect::<Vec<_>>();
+
+                    entries = entries.extend_with_indices((
+                        (17, diffuse_texture_handles.as_slice()),
+                        (18, specular_texture_handles.as_slice()),
+                        (19, sampler),
+                        (20, &environment_map_uniform_binding),
+                    ));
+                }
+            }
 
             // let irradiance_volume_bind_group_entries = if IRRADIANCE_VOLUMES_ARE_USABLE {
             //     Some(RenderViewIrradianceVolumeBindGroupEntries::get(

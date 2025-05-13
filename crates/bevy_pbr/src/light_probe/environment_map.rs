@@ -56,21 +56,18 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{self, uniform_buffer},
-        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
-        TextureSampleType, TextureView,
+        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages, Texture,
+        TextureSampleType,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
 };
 
-use core::{num::NonZero, ops::Deref};
+use core::num::NonZero;
 
-use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform,
-    MAX_VIEW_LIGHT_PROBES,
-};
+use crate::{binding_arrays_are_usable, EnvironmentMapUniform, MAX_VIEW_LIGHT_PROBES};
 
-use super::{LightProbeComponent, RenderViewLightProbes};
+use super::{add_cubemap_texture, LightProbeComponent, RenderViewLightProbes};
 
 /// A handle to the environment map helper shader.
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
@@ -145,10 +142,10 @@ pub(crate) enum RenderViewEnvironmentMapBindGroupEntries<'a> {
     /// platform.
     Single {
         /// The texture view of the view's diffuse cubemap.
-        diffuse_texture_view: &'a TextureView,
+        diffuse_texture: &'a Texture,
 
         /// The texture view of the view's specular cubemap.
-        specular_texture_view: &'a TextureView,
+        specular_texture: &'a Texture,
 
         /// The sampler used to sample elements of both `diffuse_texture_views` and
         /// `specular_texture_views`.
@@ -164,10 +161,10 @@ pub(crate) enum RenderViewEnvironmentMapBindGroupEntries<'a> {
         ///
         /// This is a vector of `wgpu::TextureView`s. But we don't want to import
         /// `wgpu` in this crate, so we refer to it indirectly like this.
-        diffuse_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+        diffuse_textures: Vec<&'a Texture>,
 
         /// As above, but for specular cubemaps.
-        specular_texture_views: Vec<&'a <TextureView as Deref>::Target>,
+        specular_textures: Vec<&'a Texture>,
 
         /// The sampler used to sample elements of both `diffuse_texture_views` and
         /// `specular_texture_views`.
@@ -236,21 +233,21 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
         render_adapter: &RenderAdapter,
     ) -> RenderViewEnvironmentMapBindGroupEntries<'a> {
         if binding_arrays_are_usable(render_device, render_adapter) {
-            let mut diffuse_texture_views = vec![];
-            let mut specular_texture_views = vec![];
+            let mut diffuse_textures = vec![];
+            let mut specular_textures = vec![];
             let mut sampler = None;
 
             if let Some(environment_maps) = render_view_environment_maps {
                 for &cubemap_id in &environment_maps.binding_index_to_textures {
-                    add_cubemap_texture_view(
-                        &mut diffuse_texture_views,
+                    add_cubemap_texture(
+                        &mut diffuse_textures,
                         &mut sampler,
                         cubemap_id.diffuse,
                         images,
                         fallback_image,
                     );
-                    add_cubemap_texture_view(
-                        &mut specular_texture_views,
+                    add_cubemap_texture(
+                        &mut diffuse_textures,
                         &mut sampler,
                         cubemap_id.specular,
                         images,
@@ -261,13 +258,12 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
 
             // Pad out the bindings to the size of the binding array using fallback
             // textures. This is necessary on D3D12 and Metal.
-            diffuse_texture_views.resize(MAX_VIEW_LIGHT_PROBES, &*fallback_image.cube.texture_view);
-            specular_texture_views
-                .resize(MAX_VIEW_LIGHT_PROBES, &*fallback_image.cube.texture_view);
+            diffuse_textures.resize(MAX_VIEW_LIGHT_PROBES, &fallback_image.cube.texture);
+            specular_textures.resize(MAX_VIEW_LIGHT_PROBES, &fallback_image.cube.texture);
 
             return RenderViewEnvironmentMapBindGroupEntries::Multiple {
-                diffuse_texture_views,
-                specular_texture_views,
+                diffuse_textures,
+                specular_textures,
                 sampler: sampler.unwrap_or(&fallback_image.cube.sampler),
             };
         }
@@ -278,8 +274,8 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
                     (images.get(cubemap.diffuse), images.get(cubemap.specular))
                 {
                     return RenderViewEnvironmentMapBindGroupEntries::Single {
-                        diffuse_texture_view: &diffuse_image.texture_view,
-                        specular_texture_view: &specular_image.texture_view,
+                        diffuse_texture: &diffuse_image.texture,
+                        specular_texture: &specular_image.texture,
                         sampler: &diffuse_image.sampler,
                     };
                 }
@@ -287,8 +283,8 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
         }
 
         RenderViewEnvironmentMapBindGroupEntries::Single {
-            diffuse_texture_view: &fallback_image.cube.texture_view,
-            specular_texture_view: &fallback_image.cube.texture_view,
+            diffuse_texture: &fallback_image.cube.texture,
+            specular_texture: &fallback_image.cube.texture,
             sampler: &fallback_image.cube.sampler,
         }
     }
