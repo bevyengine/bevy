@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     asset::uuid::Uuid,
-    color::palettes::css::{BLUE, GOLD, RED},
+    color::palettes::css::{BLUE, GRAY, RED},
     input::ButtonState,
     picking::{
         backend::ray::RayMap,
@@ -14,8 +14,6 @@ use bevy::{
     prelude::*,
     render::{
         camera::{ManualTextureViews, RenderTarget},
-        mesh::Indices,
-        mesh::VertexAttributeValues,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
@@ -87,7 +85,7 @@ fn setup(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(GOLD.into()),
+            BackgroundColor(GRAY.into()),
             UiTargetCamera(texture_camera),
         ))
         .with_children(|parent| {
@@ -135,23 +133,21 @@ fn setup(
                 });
         });
 
-    let cube_size = 4.0;
-    let cube_handle = meshes.add(Cuboid::new(cube_size, cube_size, cube_size));
+    let mesh_handle = meshes.add(Cylinder::new(3.0, 6.0));
 
     // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,
-
         ..default()
     });
 
     // Cube with material containing the rendered UI texture.
     commands.spawn((
-        Mesh3d(cube_handle),
+        Mesh3d(mesh_handle),
         MeshMaterial3d(material_handle),
-        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
+        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(PI)),
         Cube,
     ));
 
@@ -181,7 +177,6 @@ fn drive_diegetic_pointer(
     mut raycast: MeshRayCast,
     rays: Res<RayMap>,
     cubes: Query<&Mesh3d, With<Cube>>,
-    meshes: Res<Assets<Mesh>>,
     ui_camera: Query<&Camera, With<Camera2d>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
@@ -207,40 +202,8 @@ fn drive_diegetic_pointer(
     };
 
     for (_id, ray) in rays.iter() {
-        for (cube, hit) in raycast.cast_ray(*ray, &settings) {
-            let mesh = meshes.get(cubes.get(*cube)?).unwrap();
-            let uvs = mesh.attribute(Mesh::ATTRIBUTE_UV_0);
-            let Some(VertexAttributeValues::Float32x2(uvs)) = uvs else {
-                continue;
-            };
-
-            let uvs: [Vec2; 3] = if let Some(indices) = mesh.indices() {
-                let i = hit.triangle_index.unwrap() * 3;
-                match indices {
-                    Indices::U16(indices) => [
-                        Vec2::from(uvs[indices[i] as usize]),
-                        Vec2::from(uvs[indices[i + 1] as usize]),
-                        Vec2::from(uvs[indices[i + 2] as usize]),
-                    ],
-                    Indices::U32(indices) => [
-                        Vec2::from(uvs[indices[i] as usize]),
-                        Vec2::from(uvs[indices[i + 1] as usize]),
-                        Vec2::from(uvs[indices[i + 2] as usize]),
-                    ],
-                }
-            } else {
-                let i = hit.triangle_index.unwrap() * 3;
-                [
-                    Vec2::from(uvs[i]),
-                    Vec2::from(uvs[i + 1]),
-                    Vec2::from(uvs[i + 2]),
-                ]
-            };
-
-            let bc = hit.barycentric_coords.zxy();
-            let uv = bc.x * uvs[0] + bc.y * uvs[1] + bc.z * uvs[2];
-            let position = size * uv;
-
+        for (_cube, hit) in raycast.cast_ray(*ray, &settings) {
+            let position = size * hit.uv.unwrap();
             if position != *cursor_last {
                 pointer_input.write(PointerInput::new(
                     CUBE_POINTER_ID,

@@ -1,5 +1,5 @@
-use bevy_math::{bounding::Aabb3d, Dir3, Mat4, Ray3d, Vec3, Vec3A};
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
+use bevy_math::{bounding::Aabb3d, Dir3, Mat4, Ray3d, Vec2, Vec3, Vec3A};
+use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 use bevy_reflect::Reflect;
 
 use super::Backfaces;
@@ -18,6 +18,8 @@ pub struct RayMeshHit {
     pub distance: f32,
     /// The vertices of the triangle that was hit.
     pub triangle: Option<[Vec3; 3]>,
+    /// UV coordinate of the hit, if the mesh has UV attributes.
+    pub uv: Option<Vec2>,
     /// The index of the triangle that was hit.
     pub triangle_index: Option<usize>,
 }
@@ -26,6 +28,10 @@ pub struct RayMeshHit {
 #[derive(Default, Debug)]
 pub struct RayTriangleHit {
     pub distance: f32,
+    /// Note this uses the convention from the Moller-Trumbore algorithm:
+    /// P = (1 - u - v)A + uB + vC
+    /// This is different from the more common convention of
+    /// P = uA + vB + (1 - u - v)C
     pub barycentric_coords: (f32, f32),
 }
 
@@ -47,14 +53,35 @@ pub(super) fn ray_intersection_over_mesh(
         .attribute(Mesh::ATTRIBUTE_NORMAL)
         .and_then(|normal_values| normal_values.as_float3());
 
+    let uvs = mesh
+        .attribute(Mesh::ATTRIBUTE_UV_0)
+        .and_then(|uvs| match uvs {
+            VertexAttributeValues::Float32x2(uvs) => Some(uvs.as_slice()),
+            _ => None,
+        });
+
     match mesh.indices() {
-        Some(Indices::U16(indices)) => {
-            ray_mesh_intersection(ray, transform, positions, normals, Some(indices), culling)
+        Some(Indices::U16(indices)) => ray_mesh_intersection(
+            ray,
+            transform,
+            positions,
+            normals,
+            Some(indices),
+            uvs,
+            culling,
+        ),
+        Some(Indices::U32(indices)) => ray_mesh_intersection(
+            ray,
+            transform,
+            positions,
+            normals,
+            Some(indices),
+            uvs,
+            culling,
+        ),
+        None => {
+            ray_mesh_intersection::<usize>(ray, transform, positions, normals, None, uvs, culling)
         }
-        Some(Indices::U32(indices)) => {
-            ray_mesh_intersection(ray, transform, positions, normals, Some(indices), culling)
-        }
-        None => ray_mesh_intersection::<usize>(ray, transform, positions, normals, None, culling),
     }
 }
 
@@ -65,6 +92,7 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
     positions: &[[f32; 3]],
     vertex_normals: Option<&[[f32; 3]]>,
     indices: Option<&[I]>,
+    uvs: Option<&[[f32; 2]]>,
     backface_culling: Backfaces,
 ) -> Option<RayMeshHit> {
     let world_to_mesh = mesh_transform.inverse();
@@ -168,10 +196,12 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
         });
 
         let point = ray.get_point(hit.distance);
+        // Note that we need to convert from the Möller-Trumbore convention to the more common
+        // P = uA + vB + (1 - u - v)C convention.
         let u = hit.barycentric_coords.0;
         let v = hit.barycentric_coords.1;
         let w = 1.0 - u - v;
-        let barycentric = Vec3::new(u, v, w);
+        let barycentric = Vec3::new(w, u, v);
 
         let normal = if let Some(normals) = tri_normals {
             normals[1] * u + normals[2] * v + normals[0] * w
@@ -181,9 +211,29 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
                 .normalize()
         };
 
+        let uv = uvs.and_then(|uvs| {
+            let tri_uvs = if let Some(indices) = indices {
+                let i = tri_idx * 3;
+                [
+                    uvs[indices[i].try_into().ok()?],
+                    uvs[indices[i + 1].try_into().ok()?],
+                    uvs[indices[i + 2].try_into().ok()?],
+                ]
+            } else {
+                let i = tri_idx * 3;
+                [uvs[i], uvs[i + 1], uvs[i + 2]]
+            };
+            Some(
+                barycentric.x * Vec2::from(tri_uvs[0])
+                    + barycentric.y * Vec2::from(tri_uvs[1])
+                    + barycentric.z * Vec2::from(tri_uvs[2]),
+            )
+        });
+
         Some(RayMeshHit {
             point: mesh_transform.transform_point3(point),
             normal: mesh_transform.transform_vector3(normal),
+            uv,
             barycentric_coords: barycentric,
             distance: mesh_transform
                 .transform_vector3(ray.direction * hit.distance)
