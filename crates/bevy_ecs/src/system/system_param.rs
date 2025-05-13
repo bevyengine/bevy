@@ -1209,7 +1209,22 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     ) -> Self::Item<'w, 's> {
         Local(state.as_mut().unwrap().get())
     }
+
+    fn configurate(state: &mut Self::State, config: &mut dyn Any) {
+        if state.is_none() {
+            if let Some(config) = config.downcast_mut::<LocalConfig<T>>() {
+                if let Some(new_item) = config.0.take() {
+                    *state = Some(SyncCell::new(new_item));
+                }
+            }
+        }
+    }
 }
+
+/// Config token for [`Local`]. When [`LocalConfig<T>`] was passed to [`SystemParam::configurate`], this is going to
+/// update the first non-initialized [`Local<T>`] system param. If the system has multiple [`Local`] system params of
+/// the same type, pass this token to [`SystemParam::configurate`] multiple times.
+pub struct LocalConfig<T>(Option<T>);
 
 /// Types that can be used with [`Deferred<T>`] in systems.
 /// This allows storing system-local data which is used to defer [`World`] mutations.
@@ -2930,7 +2945,7 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::system::assert_is_system;
+    use crate::system::{assert_is_system, IntoSystem};
     use core::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
@@ -3189,5 +3204,22 @@ mod tests {
         schedule.run(&mut world);
 
         fn event_system(_: EventReader<MissingEvent>) {}
+    }
+
+    #[test]
+    fn local_config() {
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(
+            test_system
+                .with_config(&mut LocalConfig(Some(123_usize)))
+                .with_config(&mut LocalConfig(Some(456_usize))),
+        );
+        let mut world = World::new();
+        schedule.run(&mut world);
+
+        fn test_system(local: Local<usize>, local2: Local<usize>) {
+            assert_eq!(*local, 123);
+            assert_eq!(*local2, 456);
+        }
     }
 }
