@@ -252,9 +252,10 @@ unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
 // SAFETY: no component value access.
 unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     type State = ();
+    fn default_state() {}
     type Item<'w, 's> = &'w RemovedComponentEvents;
 
-    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta, _state: &mut Self::State) {}
 
     #[inline]
     unsafe fn get_param<'w, 's>(

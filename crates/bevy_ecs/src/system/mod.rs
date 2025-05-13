@@ -304,7 +304,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///
     /// In most cases, [`FunctionSystem`] relays the config token to each [`SystemParam`]
     /// by calling [`SystemParam::configurate`].
-    /// 
+    ///
     /// Example config tokens:
     /// [`LocalConfig`]
     fn with_config(self, config: &mut dyn core::any::Any) -> Self::System {

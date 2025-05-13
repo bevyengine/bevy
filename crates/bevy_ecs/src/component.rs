@@ -1049,6 +1049,7 @@ impl ComponentId {
         ComponentId(index)
     }
 
+    /// Returns an [`ComponentId`] with an invalid id, which _should_ never be assigned to.
     pub const fn invalid() -> Self {
         ComponentId(usize::MAX)
     }

@@ -327,7 +327,8 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let param_state = Param::init_state(world, &mut meta);
+        let mut param_state: Param::State = Param::default_state();
+        Param::init_state(world, &mut meta, &mut param_state);
         Self {
             meta,
             param_state,
@@ -777,10 +778,12 @@ where
                 "System built with a different world than the one it was added to.",
             );
         } else {
-            self.state = Some(FunctionSystemState {
-                param: F::Param::init_state(world, &mut self.system_meta),
+            let mut state: FunctionSystemState<F::Param> = FunctionSystemState {
+                param: F::Param::default_state(),
                 world_id: world.id(),
-            });
+            };
+            F::Param::init_state(world, &mut self.system_meta, &mut state.param);
+            self.state = Some(state);
         }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
     }
