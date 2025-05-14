@@ -148,6 +148,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
         app.add_plugins(AccessKitPlugin);
         app.add_plugins(cursor::CursorPlugin);
+
+        app.add_event::<WakeUp>();
     }
 }
 
