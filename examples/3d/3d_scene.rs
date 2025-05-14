@@ -4,9 +4,9 @@
 //!
 //! `Commands` are accessed through a System, which in Bevy is just a function that takes specific kinds of arguments and gets manually "registered" so that Bevy knows we want to run it. We'll also want this system to run once at the beginning of the program in the `Startup` schedule label.
 //!
-//! Cameras are necessary for rendering, and we want to be rendering in 3D so we will need to spawn a `Camera3D`. There's ways you can configure the camera for your specific needs, but for now we'll go for the default with `Camera3D::default()`.
+//! Cameras are necessary for rendering, and we want to be rendering in 3D so we will need to spawn a `Camera3d`. There's ways you can configure the camera for your specific needs, but for now we'll go for the default with `Camera3d::default()`.
 //!
-//! We also want to place the camera away from the center of the 3D space looking at that center, so that we can spawn 3D objects close to `(0, 0, 0)` and know the camera will be looking at them. Creating a transform that's at a translation away from the center and then calling `Transform::looking_at` on that transform achieves this, and we add that transform alongside our `Camera3D` in a tuple using the `commands.spawn` method to attach both components to a new entity.
+//! We also want to place the camera away from the center of the 3D space looking at that center, so that we can spawn 3D objects close to `(0, 0, 0)` and know the camera will be looking at them. Creating a transform that's at a translation away from the center and then calling `Transform::looking_at` on that transform achieves this, and we add that transform alongside our `Camera3d` in a tuple using the `commands.spawn` method to attach both components to a new entity.
 //!
 //! For spawning in 3D objects, at least ones generated from primitive shapes, we need access to how bevy stores meshes (the most common data for 3d objects) and materials (what colors, textures those objects have). We do this in bevy by getting Mutable access to Resources (`ResMut`) that store `Assets` that manage `Mesh` and `StandardMaterial` data, which are both Mesh Data and Material Data respectively.
 //!
