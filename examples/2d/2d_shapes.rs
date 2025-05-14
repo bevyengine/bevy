@@ -1,14 +1,14 @@
 //! Here we use shape primitives to build meshes in a 2D rendering context, making each mesh a certain color by giving that mesh's entity a material based off a `Color`.
 //!
-//! A shape primitive is a, it is not a mesh on its own. A circle can be defined with a radius, i.e. `Circle::new(50.0)`, but rendering tends to happen with triangles. So we need to turn shape descriptions into meshes.
+//! Meshes are better known for their use in 3D rendering, but we can use then in a 2D context too. Without a third dimension, the meshes we're building are flat – like paper on a table. These are still very useful for "vector-style" graphics, picking behavior, or as a foundation to build off of for where to apply a shader.
 //!
-//! Thankfully, we can add shape primitives directly to `Assets<Mesh>` because `Mesh` implements `From` for shape primitives and `Assets<T>::add` can be given any value that can be "turned into" `T`.
+//! A "shape definition" is not a mesh on its own. A circle can be defined with a radius, i.e. `Circle::new(50.0)`, but rendering tends to happen with meshes built out of triangles. So we need to turn shape descriptions into meshes.
 //!
-//! Meshes are better known for their use in 3D rendering, but we can use then in a 2D context too. Without a third dimension, the models we're building are flat shapes. These are still very useful for collision, "vector-style" graphics, or as a basis for where to apply a shader.
+//! Thankfully, we can add shape primitives directly to `Assets<Mesh>` because `Mesh` implements `From` for shape primitives and `Assets<T>::add` can be given any value that can be "turned into" `T`!
 //!
 //! We apply a material to the shape by first making a `Color` then calling `Assets<ColorMaterial>::add` with that color as its argument, which will create a material from that color through the same process `Assets<Mesh>::add` can take a shape primitive.
 //!
-//! Both the mesh and material need to be wrapped in respective "newtypes". The mesh and material are currently `Handle<Mesh>` and `Handle<ColorMaterial>` at the moment, which are not components. Handles are put behind "newtypes" to make it easier to them as required components or to give them new required components and side-step the orphan rule. All we need to do to make them components is wrap the mesh handle and the material handle in `Mesh2d` and `MeshMaterial2d` respectively.
+//! Both the mesh and material need to be wrapped in their own "newtypes". The mesh and material are currently `Handle<Mesh>` and `Handle<ColorMaterial>` at the moment, which are not components. Handles are put behind "newtypes" to prevent ambiguity, as some entities might want to have handles to meshes (or images, or materials etc.) for different purposes! All we need to do to make them rendering-relevant components is wrap the mesh handle and the material handle in `Mesh2d` and `MeshMaterial2d` respectively.
 //!
 //! You can toggle wireframes with the space bar except on wasm. Wasm does not support
 //! `POLYGON_MODE_LINE` on the gpu.
