@@ -71,7 +71,7 @@ impl<'a, 'b> ComputePassBuilder<'a, 'b> {
         if compute_pass.is_vaild() {
             self.pass_builder.add_executor(compute_pass);
         } else {
-            warn!("render pass must is vaild");
+            warn!("{:?} compute pass must is vaild", compute_pass.pass_name());
         }
     }
 

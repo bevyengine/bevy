@@ -1,4 +1,4 @@
-use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
+use wgpu::{Extent3d, ImageSubresourceRange, QuerySet};
 
 use super::{
     BeginPipelineStatisticsQueryParameter, ClearBufferParameter, ClearTextureParameter,

@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use crate::tonemapping::ViewTonemappingPipeline;
 
 use bevy_ecs::{prelude::*, query::QueryItem};
