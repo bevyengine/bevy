@@ -638,7 +638,7 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
 }
 
 macro_rules! impl_param_set {
-    ($(($index: tt, $param: ident, $access_set: ident, $fn_name: ident)),*) => {
+    ($(($index: tt, $param: ident, $fn_name: ident)),*) => {
         // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
         unsafe impl<'w, 's, $($param,)*> ReadOnlySystemParam for ParamSet<'w, 's, ($($param,)*)>
         where $($param: ReadOnlySystemParam,)*
@@ -674,15 +674,16 @@ macro_rules! impl_param_set {
             fn init_access(state: &Self::State, system_meta: &mut SystemMeta, component_access_set: &mut FilteredAccessSet<ComponentId>, world: &mut World) {
                 let ($($param,)*) = state;
                 $(
-                    // Pretend to add each param to the system alone, see if it conflicts
-                    let mut $access_set = FilteredAccessSet::new();
-                    // Call `init_access` on an empty access set to gather the new access
-                    $param::init_access($param, system_meta, &mut $access_set, world);
-                    // Call it again on a clone of the original access set to check for conflicts
-                    $param::init_access($param, system_meta, &mut component_access_set.clone(), world);
+                    // Call `init_access` on a clone of the original access set to check for conflicts
+                    let component_access_set_clone = &mut component_access_set.clone();
+                    $param::init_access($param, system_meta, component_access_set_clone, world);
                 )*
                 $(
-                    component_access_set.extend($access_set);
+                    // Pretend to add the param to the system alone to gather the new access,
+                    // then merge its access into the system.
+                    let mut access_set = FilteredAccessSet::new();
+                    $param::init_access($param, system_meta, &mut access_set, world);
+                    component_access_set.extend(access_set);
                 )*
             }
 
@@ -739,7 +740,7 @@ macro_rules! impl_param_set {
     }
 }
 
-all_tuples_enumerated!(impl_param_set, 1, 8, P, a, p);
+all_tuples_enumerated!(impl_param_set, 1, 8, P, p);
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
@@ -2011,20 +2012,16 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         component_access_set: &mut FilteredAccessSet<ComponentId>,
         world: &mut World,
     ) {
-        let access_sets = state
-            .iter()
-            .map(|state| {
-                // Pretend to add each param to the system alone, see if it conflicts
-                let mut access_set = FilteredAccessSet::new();
-                // Call `init_access` on an empty access set to gather the new access
-                T::init_access(state, system_meta, &mut access_set, world);
-                // Call it again on a clone of the original access set to check for conflicts
-                T::init_access(state, system_meta, &mut component_access_set.clone(), world);
-                access_set
-            })
-            .collect::<Vec<_>>();
-
-        for access_set in access_sets {
+        for state in state {
+            // Call `init_access` on a clone of the original access set to check for conflicts
+            let component_access_set_clone = &mut component_access_set.clone();
+            T::init_access(state, system_meta, component_access_set_clone, world);
+        }
+        for state in state {
+            // Pretend to add the param to the system alone to gather the new access,
+            // then merge its access into the system.
+            let mut access_set = FilteredAccessSet::new();
+            T::init_access(state, system_meta, &mut access_set, world);
             component_access_set.extend(access_set);
         }
     }
