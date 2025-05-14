@@ -17,7 +17,9 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
     },
-    frame_graph::{BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial},
+    frame_graph::{
+        BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, IntoBindingResourceHandle,
+    },
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_cube, uniform_buffer},
@@ -283,27 +285,29 @@ fn prepare_skybox_bind_groups(
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
     mut frame_graph: ResMut<FrameGraph>,
 ) {
-    for (entity, skybox, skybox_uniform_index) in &views {
-        if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (
-            images.get(&skybox.image),
-            view_uniforms.uniforms.buffer(),
-            skybox_uniforms.buffer(),
-        ) {
-            let skybox_read = skybox.texture.make_resource_handle(&mut frame_graph);
-            let view_uniforms_read = view_uniforms.make_resource_handle(&mut frame_graph);
-            let view_uniform_size = ViewUniform::min_size();
+    let (Some(view_uniforms_binding), Some(skybox_uniforms_binding)) = (
+        view_uniforms
+            .uniforms
+            .make_binding_resource_handle(&mut frame_graph),
+        skybox_uniforms.make_binding_resource_handle(&mut frame_graph),
+    ) else {
+        return;
+    };
 
-            let skybox_uniforms_read = skybox_uniforms.make_resource_handle(&mut frame_graph);
-            let skybox_uniforms_size = SkyboxUniforms::min_size();
+    for (entity, skybox, skybox_uniform_index) in &views {
+        if let Some(skybox) = images.get(&skybox.image) {
+            let skybox_binding = skybox
+                .make_texture_view_binding(&mut frame_graph)
+                .into_binding();
 
             let bind_group_handle = BindGroupHandle {
                 label: Some("skybox_bind_group".into()),
                 layout: pipeline.bind_group_layout.clone(),
                 entries: DynamicBindGroupEntryHandles::sequential((
-                    &skybox_read,
+                    &skybox_binding,
                     &skybox.sampler,
-                    (&view_uniforms_read, view_uniform_size),
-                    (&skybox_uniforms_read, skybox_uniforms_size),
+                    &view_uniforms_binding,
+                    &skybox_uniforms_binding,
                 ))
                 .to_vec(),
             };

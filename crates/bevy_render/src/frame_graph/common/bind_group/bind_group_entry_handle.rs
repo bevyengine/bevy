@@ -33,16 +33,19 @@ impl BindGroupEntryHandle {
 
 #[derive(Clone)]
 pub enum BindingResourceHandle {
-    Buffer {
-        buffer: GraphResourceNodeHandle<FrameGraphBuffer>,
-        size: Option<NonZero<u64>>,
-    },
+    Buffer(BufferHandle),
     Sampler(Sampler),
     TextureView {
         texture: GraphResourceNodeHandle<FrameGraphTexture>,
         texture_view_info: TextureViewInfo,
     },
     TextureViewArray(Vec<BindingResourceTextureViewHandle>),
+}
+
+#[derive(Clone)]
+pub struct BufferHandle {
+    pub buffer: GraphResourceNodeHandle<FrameGraphBuffer>,
+    pub size: Option<NonZero<u64>>,
 }
 
 #[derive(Clone)]
@@ -57,11 +60,11 @@ impl BindingResourceHelper for BindingResourceHandle {
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindingResourceRef {
         match &self {
-            BindingResourceHandle::Buffer { buffer, size } => {
-                let handle_read = pass_node_builder.read(buffer.clone());
+            BindingResourceHandle::Buffer(handle) => {
+                let handle_read = pass_node_builder.read(handle.buffer.clone());
                 BindingResourceRef::Buffer {
                     buffer: handle_read,
-                    size: *size,
+                    size: handle.size,
                 }
             }
             BindingResourceHandle::Sampler(info) => BindingResourceRef::Sampler(info.clone()),
@@ -103,7 +106,7 @@ impl IntoBindingResourceHandle for &BindingResourceHandle {
 
 impl IntoBindingResourceHandle for BindingResourceHandle {
     fn into_binding(self) -> BindingResourceHandle {
-        self.clone()
+        self
     }
 }
 
@@ -112,6 +115,7 @@ impl IntoBindingResourceHandle for &[BindingResourceTextureViewHandle] {
         BindingResourceHandle::TextureViewArray(self.to_vec())
     }
 }
+
 impl IntoBindingResourceHandle for &BindingResourceTextureViewHandle {
     fn into_binding(self) -> BindingResourceHandle {
         BindingResourceHandle::TextureView {
@@ -121,21 +125,18 @@ impl IntoBindingResourceHandle for &BindingResourceTextureViewHandle {
     }
 }
 
-impl IntoBindingResourceHandle for &GraphResourceNodeHandle<FrameGraphBuffer> {
+impl IntoBindingResourceHandle for GraphResourceNodeHandle<FrameGraphBuffer> {
     fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::Buffer {
-            buffer: self.clone(),
+        BindingResourceHandle::Buffer(BufferHandle {
+            buffer: self,
             size: None,
-        }
+        })
     }
 }
 
-impl IntoBindingResourceHandle for (&GraphResourceNodeHandle<FrameGraphBuffer>, NonZero<u64>) {
+impl IntoBindingResourceHandle for BufferHandle {
     fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::Buffer {
-            buffer: self.0.clone(),
-            size: Some(self.1),
-        }
+        BindingResourceHandle::Buffer(self)
     }
 }
 

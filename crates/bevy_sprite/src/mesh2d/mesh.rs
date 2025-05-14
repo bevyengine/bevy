@@ -786,17 +786,16 @@ pub fn prepare_mesh2d_view_bind_groups(
     fallback_image: Res<FallbackImage>,
     mut frame_graph: ResMut<FrameGraph>,
 ) {
-    let (Some(view_binding_buffer), Some(globals_buffer)) = (
-        view_uniforms.uniforms.buffer(),
-        globals_buffer.buffer.buffer(),
+    let (Some(view_uniforms_binding), Some(globals_buffer_binding)) = (
+        view_uniforms
+            .uniforms
+            .make_binding_resource_handle(&mut frame_graph),
+        globals_buffer
+            .buffer
+            .make_binding_resource_handle(&mut frame_graph),
     ) else {
         return;
     };
-
-    let view_binding_buffer_handle = view_binding_buffer.make_resource_handle(&mut frame_graph);
-    let view_binding_buffer_size = ViewUniform::min_size();
-
-    let globals_buffer_handle = globals_buffer.make_resource_handle(&mut frame_graph);
 
     for (entity, tonemapping) in &views {
         let lut_image = get_lut_image(&images, &tonemapping_luts, tonemapping, &fallback_image);
@@ -807,8 +806,8 @@ pub fn prepare_mesh2d_view_bind_groups(
             label: Some("mesh2d_view_bind_group".into()),
             layout: mesh2d_pipeline.view_layout.clone(),
             entries: DynamicBindGroupEntryHandles::sequential((
-                (&view_binding_buffer_handle, view_binding_buffer_size),
-                &globals_buffer_handle,
+                &view_uniforms_binding,
+                &globals_buffer_binding,
                 &lut_binding_texture_handle,
                 &lut_image.sampler,
             ))

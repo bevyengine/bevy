@@ -765,7 +765,7 @@ pub fn prepare_mesh_view_bind_groups(
 
                 entries = entries.extend_with_indices((
                     // `clustered_decals`
-                    (23, &decals),
+                    (23, decals),
                     // `clustered_decal_textures`
                     (24, texture_handles.as_slice()),
                     // `clustered_decal_sampler`

@@ -2,7 +2,9 @@ use core::marker::PhantomData;
 
 use super::Buffer;
 use crate::{
-    frame_graph::{BindingResourceHandle, BindingResourceRef, FrameGraph, PassNodeBuilder, ResourceMaterial},
+    frame_graph::{
+        BindingResourceHandle, BindingResourceRef, BufferHandle, FrameGraph, IntoBindingResourceHandle, PassNodeBuilder, ResourceMaterial
+    },
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
@@ -96,10 +98,11 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
             let size = T::min_size();
 
-            BindingResourceHandle::Buffer {
+            BufferHandle {
                 buffer,
                 size: Some(size),
             }
+            .into_binding()
         })
     }
 

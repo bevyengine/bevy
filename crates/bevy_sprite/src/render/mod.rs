@@ -20,7 +20,7 @@ use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFo
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    frame_graph::{BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial},
+    frame_graph::{BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph},
     view::{RenderVisibleEntities, RetainedViewEntity},
 };
 use bevy_render::{
@@ -630,24 +630,24 @@ pub fn prepare_sprite_view_bind_groups(
     fallback_image: Res<FallbackImage>,
     mut frame_graph: ResMut<FrameGraph>,
 ) {
-    let Some(view_binding_buffer) = view_uniforms.uniforms.buffer() else {
+    let Some(view_uniforms_binding) = view_uniforms
+        .uniforms
+        .make_binding_resource_handle(&mut frame_graph)
+    else {
         return;
     };
-
-    let view_binding_buffer_handle = view_binding_buffer.make_resource_handle(&mut frame_graph);
-    let view_binding_buffer_size = ViewUniform::min_size();
 
     for (entity, tonemapping) in &views {
         let lut_image = get_lut_image(&images, &tonemapping_luts, tonemapping, &fallback_image);
 
-        let lut_binding_texture_handle = lut_image.texture.make_resource_handle(&mut frame_graph);
+        let lut_texture_binding = lut_image.make_texture_view_binding(&mut frame_graph);
 
         let view_bind_group = BindGroupHandle {
             label: Some("mesh2d_view_bind_group".into()),
             layout: sprite_pipeline.view_layout.clone(),
             entries: DynamicBindGroupEntryHandles::sequential((
-                (&view_binding_buffer_handle, view_binding_buffer_size),
-                &lut_binding_texture_handle,
+                &view_uniforms_binding,
+                &lut_texture_binding,
                 &lut_image.sampler,
             ))
             .to_vec(),
