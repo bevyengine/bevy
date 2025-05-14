@@ -29,7 +29,7 @@ impl BindingResourceHelper for Buffer {
     ) -> BindingResourceRef {
         let buffer = pass_node_builder.read_material(self);
 
-        BindingResourceRef::Buffer { buffer, size: None }
+        BindingResourceBufferRef { buffer, size: None }.into_binding()
     }
 }
 

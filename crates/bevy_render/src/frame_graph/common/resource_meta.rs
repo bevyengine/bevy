@@ -6,8 +6,8 @@ use crate::frame_graph::{
 };
 
 use super::{
-    BindingResourceHandle, BindingResourceHelper, BindingResourceRef, ResourceMaterial,
-    TexelCopyTextureInfo, TextureViewInfo,
+    BindingResourceHandle, BindingResourceHelper, BindingResourceRef, IntoBindingResourceHandle,
+    ResourceMaterial, TexelCopyTextureInfo, TextureViewInfo,
 };
 
 pub struct ResourceMeta<ResourceType: GraphResource> {
@@ -34,10 +34,7 @@ impl ResourceMeta<FrameGraphTexture> {
         frame_graph: &mut FrameGraph,
     ) -> BindingResourceHandle {
         let texture = self.make_resource_handle(frame_graph);
-        BindingResourceHandle::TextureView {
-            texture,
-            texture_view_info: TextureViewInfo::default(),
-        }
+        texture.into_binding()
     }
 
     pub fn get_image_copy_read(

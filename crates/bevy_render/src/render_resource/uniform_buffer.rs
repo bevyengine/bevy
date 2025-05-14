@@ -2,8 +2,9 @@ use core::{marker::PhantomData, num::NonZero};
 
 use crate::{
     frame_graph::{
-        BindingResourceHandle, BindingResourceRef, BufferHandle, FrameGraph,
-        IntoBindingResourceHandle, PassNodeBuilder, ResourceMaterial,
+        BindingResourceBufferRef, BindingResourceHandle, BindingResourceRef, BindingResourceBufferHandle,
+        FrameGraph, IntoBindingResourceHandle, IntoBindingResourceRef, PassNodeBuilder,
+        ResourceMaterial,
     },
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
@@ -97,7 +98,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 
             let size = T::min_size();
 
-            BufferHandle {
+            BindingResourceBufferHandle {
                 buffer,
                 size: Some(size),
             }
@@ -113,10 +114,12 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
             let buffer = pass_node_builder.read_material(buffer);
 
             let size = T::min_size();
-            BindingResourceRef::Buffer {
+
+            BindingResourceBufferRef {
                 buffer,
                 size: Some(size),
             }
+            .into_binding()
         })
     }
 
@@ -266,7 +269,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 
             let size = T::min_size();
 
-            BufferHandle {
+            BindingResourceBufferHandle {
                 buffer,
                 size: Some(size),
             }

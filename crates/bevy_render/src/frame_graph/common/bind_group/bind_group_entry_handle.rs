@@ -11,7 +11,8 @@ use crate::{
 };
 
 use super::{
-    BindGroupEntryRef, BindingResourceHelper, BindingResourceRef, BindingResourceTextureViewRef,
+    BindGroupEntryBinding, BindingResourceBufferRef, BindingResourceHelper, BindingResourceRef,
+    BindingResourceTextureViewRef, IntoBindingResourceRef,
 };
 
 #[derive(Clone)]
@@ -21,10 +22,10 @@ pub struct BindGroupEntryHandle {
 }
 
 impl BindGroupEntryHandle {
-    pub fn get_ref(&self, pass_node_builder: &mut PassNodeBuilder) -> BindGroupEntryRef {
+    pub fn get_ref(&self, pass_node_builder: &mut PassNodeBuilder) -> BindGroupEntryBinding {
         let resource = self.resource.make_binding_resource_ref(pass_node_builder);
 
-        BindGroupEntryRef {
+        BindGroupEntryBinding {
             binding: self.binding,
             resource,
         }
@@ -33,17 +34,14 @@ impl BindGroupEntryHandle {
 
 #[derive(Clone)]
 pub enum BindingResourceHandle {
-    Buffer(BufferHandle),
+    Buffer(BindingResourceBufferHandle),
     Sampler(Sampler),
-    TextureView {
-        texture: GraphResourceNodeHandle<FrameGraphTexture>,
-        texture_view_info: TextureViewInfo,
-    },
+    TextureView(BindingResourceTextureViewHandle),
     TextureViewArray(Vec<BindingResourceTextureViewHandle>),
 }
 
 #[derive(Clone)]
-pub struct BufferHandle {
+pub struct BindingResourceBufferHandle {
     pub buffer: GraphResourceNodeHandle<FrameGraphBuffer>,
     pub size: Option<NonZero<u64>>,
 }
@@ -61,21 +59,19 @@ impl BindingResourceHelper for BindingResourceHandle {
     ) -> BindingResourceRef {
         match &self {
             BindingResourceHandle::Buffer(handle) => {
-                let handle_read = pass_node_builder.read(handle.buffer.clone());
-                BindingResourceRef::Buffer {
-                    buffer: handle_read,
+                let buffer = pass_node_builder.read(handle.buffer.clone());
+                BindingResourceBufferRef {
+                    buffer,
                     size: handle.size,
                 }
+                .into_binding()
             }
             BindingResourceHandle::Sampler(info) => BindingResourceRef::Sampler(info.clone()),
-            BindingResourceHandle::TextureView {
-                texture,
-                texture_view_info,
-            } => {
-                let handle_read = pass_node_builder.read(texture.clone());
+            BindingResourceHandle::TextureView(handle) => {
+                let texture = pass_node_builder.read(handle.texture.clone());
                 BindingResourceRef::TextureView {
-                    texture: handle_read,
-                    texture_view_info: texture_view_info.clone(),
+                    texture,
+                    texture_view_info: handle.texture_view_info.clone(),
                 }
             }
             BindingResourceHandle::TextureViewArray(handles) => {
@@ -116,27 +112,45 @@ impl IntoBindingResourceHandle for &[BindingResourceTextureViewHandle] {
     }
 }
 
+impl IntoBindingResourceHandle for BindingResourceTextureViewHandle {
+    fn into_binding(self) -> BindingResourceHandle {
+        BindingResourceHandle::TextureView(self)
+    }
+}
+
 impl IntoBindingResourceHandle for &BindingResourceTextureViewHandle {
     fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::TextureView {
-            texture: self.texture.clone(),
-            texture_view_info: self.texture_view_info.clone(),
-        }
+        BindingResourceHandle::TextureView(self.clone())
     }
 }
 
 impl IntoBindingResourceHandle for GraphResourceNodeHandle<FrameGraphBuffer> {
     fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::Buffer(BufferHandle {
+        BindingResourceHandle::Buffer(BindingResourceBufferHandle {
             buffer: self,
             size: None,
         })
     }
 }
 
-impl IntoBindingResourceHandle for BufferHandle {
+impl IntoBindingResourceHandle for &GraphResourceNodeHandle<FrameGraphBuffer> {
+    fn into_binding(self) -> BindingResourceHandle {
+        BindingResourceHandle::Buffer(BindingResourceBufferHandle {
+            buffer: self.clone(),
+            size: None,
+        })
+    }
+}
+
+impl IntoBindingResourceHandle for BindingResourceBufferHandle {
     fn into_binding(self) -> BindingResourceHandle {
         BindingResourceHandle::Buffer(self)
+    }
+}
+
+impl IntoBindingResourceHandle for Sampler {
+    fn into_binding(self) -> BindingResourceHandle {
+        BindingResourceHandle::Sampler(self)
     }
 }
 
@@ -146,12 +160,12 @@ impl IntoBindingResourceHandle for &Sampler {
     }
 }
 
-impl IntoBindingResourceHandle for &GraphResourceNodeHandle<FrameGraphTexture> {
+impl IntoBindingResourceHandle for GraphResourceNodeHandle<FrameGraphTexture> {
     fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::TextureView {
-            texture: self.clone(),
+        BindingResourceHandle::TextureView(BindingResourceTextureViewHandle {
+            texture: self,
             texture_view_info: TextureViewInfo::default(),
-        }
+        })
     }
 }
 
@@ -162,10 +176,10 @@ impl IntoBindingResourceHandle
     )
 {
     fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::TextureView {
+        BindingResourceHandle::TextureView(BindingResourceTextureViewHandle {
             texture: self.0.clone(),
             texture_view_info: self.1.clone(),
-        }
+        })
     }
 }
 

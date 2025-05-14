@@ -8,23 +8,26 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct BindGroupEntryRef {
+pub struct BindGroupEntryBinding {
     pub binding: u32,
     pub resource: BindingResourceRef,
 }
 
 #[derive(Clone)]
 pub enum BindingResourceRef {
-    Buffer {
-        buffer: ResourceRef<FrameGraphBuffer, ResourceRead>,
-        size: Option<NonZero<u64>>,
-    },
+    Buffer(BindingResourceBufferRef),
     Sampler(Sampler),
     TextureView {
         texture: ResourceRef<FrameGraphTexture, ResourceRead>,
         texture_view_info: TextureViewInfo,
     },
     TextureViewArray(Vec<BindingResourceTextureViewRef>),
+}
+
+#[derive(Clone)]
+pub struct BindingResourceBufferRef {
+    pub buffer: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub size: Option<NonZero<u64>>,
 }
 
 #[derive(Clone)]
@@ -37,12 +40,9 @@ pub trait IntoBindingResourceRef {
     fn into_binding(self) -> BindingResourceRef;
 }
 
-impl IntoBindingResourceRef for &ResourceRef<FrameGraphBuffer, ResourceRead> {
+impl IntoBindingResourceRef for BindingResourceBufferRef {
     fn into_binding(self) -> BindingResourceRef {
-        BindingResourceRef::Buffer {
-            buffer: self.clone(),
-            size: None,
-        }
+        BindingResourceRef::Buffer(self)
     }
 }
 

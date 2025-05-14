@@ -17,7 +17,10 @@ use bevy_ecs::{
 use bevy_image::BevyDefault;
 use bevy_math::Vec4;
 use bevy_render::{
-    frame_graph::{BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial},
+    frame_graph::{
+        BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, IntoBindingResourceHandle,
+        ResourceMaterial,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
@@ -585,12 +588,13 @@ pub fn prepare_mesh_view_bind_groups(
         {
             let fallback_ssao = fallback_images
                 .image_for_samplecount(1, TextureFormat::bevy_default())
-                .texture
-                .make_resource_handle(&mut frame_graph);
+                .make_texture_view_binding(&mut frame_graph)
+                .into_binding();
             let ssao_view = ssao_resources
                 .map(|t| {
                     t.screen_space_ambient_occlusion_texture
                         .make_resource_handle(&mut frame_graph)
+                        .into_binding()
                 })
                 .unwrap_or(fallback_ssao);
 
@@ -775,9 +779,10 @@ pub fn prepare_mesh_view_bind_groups(
 
             let lut_image = get_lut_image(&images, &tonemapping_luts, tonemapping, &fallback_image);
 
-            let lut_texture = lut_image.texture.make_resource_handle(&mut frame_graph);
+            let lut_texture_binding = lut_image.make_texture_view_binding(&mut frame_graph);
 
-            entries = entries.extend_with_indices(((26, &lut_texture), (27, &lut_image.sampler)));
+            entries =
+                entries.extend_with_indices(((26, &lut_texture_binding), (27, &lut_image.sampler)));
 
             // When using WebGL, we can't have a depth texture with multisampling
             let prepass_bindings;
@@ -795,11 +800,16 @@ pub fn prepare_mesh_view_bind_groups(
             };
 
             let transmission = transmission_texture
-                .map(|transmission| transmission.texture.make_resource_handle(&mut frame_graph))
+                .map(|transmission| {
+                    transmission
+                        .texture
+                        .make_resource_handle(&mut frame_graph)
+                        .into_binding()
+                })
                 .unwrap_or(
                     fallback_image_zero
-                        .texture
-                        .make_resource_handle(&mut frame_graph),
+                        .make_texture_view_binding(&mut frame_graph)
+                        .into_binding(),
                 );
 
             let transmission_sampler = transmission_texture

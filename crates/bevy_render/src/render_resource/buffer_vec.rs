@@ -1,7 +1,7 @@
 use core::{iter, marker::PhantomData};
 
 use crate::{
-    frame_graph::{BindingResourceHandle, BufferHandle, FrameGraph, IntoBindingResourceHandle, ResourceMaterial},
+    frame_graph::{BindingResourceHandle, BindingResourceBufferHandle, FrameGraph, IntoBindingResourceHandle, ResourceMaterial},
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
@@ -291,7 +291,7 @@ where
         self.buffer().map(|buffer| {
             let buffer = buffer.make_resource_handle(frame_graph);
 
-            BufferHandle { buffer, size: None }.into_binding()
+            BindingResourceBufferHandle { buffer, size: None }.into_binding()
         })
     }
 

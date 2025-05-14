@@ -9,13 +9,13 @@ use crate::{
 };
 
 use super::{
-    BindGroupEntryRef, BindingResourceHelper, BindingResourceRef, IntoBindingResourceHandle,
+    BindGroupEntryBinding, BindingResourceHelper, BindingResourceRef, IntoBindingResourceHandle,
 };
 
 pub struct BindGroupDrawingBuilder<'a, 'b> {
     label: Option<Cow<'static, str>>,
     layout: BindGroupLayout,
-    entries: Vec<BindGroupEntryRef>,
+    entries: Vec<BindGroupEntryBinding>,
     pass_builder: &'b mut PassBuilder<'a>,
 }
 
@@ -34,7 +34,7 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
     }
 
     pub fn push_bind_resource_ref(mut self, bind_resource_ref: BindingResourceRef) -> Self {
-        self.entries.push(BindGroupEntryRef {
+        self.entries.push(BindGroupEntryBinding {
             binding: self.entries.len() as u32,
             resource: bind_resource_ref,
         });
@@ -66,7 +66,7 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
 pub struct BindGroupDrawing {
     pub label: Option<Cow<'static, str>>,
     pub layout: BindGroupLayout,
-    pub entries: Vec<BindGroupEntryRef>,
+    pub entries: Vec<BindGroupEntryBinding>,
 }
 
 pub enum BindingResource<'a> {
@@ -127,11 +127,9 @@ impl ResourceDrawing for BindGroupDrawing {
                     for texture_view_ref in texture_view_refs.iter() {
                         let texture = render_context.get_resource(&texture_view_ref.texture)?;
 
-                        texture_views.push(
-                            texture
-                                .resource
-                                .create_view(&texture_view_ref.texture_view_info.get_texture_view_desc()),
-                        );
+                        texture_views.push(texture.resource.create_view(
+                            &texture_view_ref.texture_view_info.get_texture_view_desc(),
+                        ));
                     }
                     resources.insert(entry.binding, texture_views);
                 }
@@ -157,9 +155,9 @@ impl ResourceDrawing for BindGroupDrawing {
                             .create_view(&texture_view_info.get_texture_view_desc()),
                     )
                 }
-                BindingResourceRef::Buffer { buffer, size } => BindingResourceTemp::Buffer {
-                    buffer: render_context.get_resource(buffer)?,
-                    size: *size,
+                BindingResourceRef::Buffer(buffer_ref) => BindingResourceTemp::Buffer {
+                    buffer: render_context.get_resource(&buffer_ref.buffer)?,
+                    size: buffer_ref.size,
                 },
                 BindingResourceRef::TextureViewArray(_) => {
                     let mut temp_texture_views = vec![];

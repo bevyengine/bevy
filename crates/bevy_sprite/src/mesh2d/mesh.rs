@@ -800,7 +800,7 @@ pub fn prepare_mesh2d_view_bind_groups(
     for (entity, tonemapping) in &views {
         let lut_image = get_lut_image(&images, &tonemapping_luts, tonemapping, &fallback_image);
 
-        let lut_binding_texture_handle = lut_image.texture.make_resource_handle(&mut frame_graph);
+        let lut_texture_binding = lut_image.make_texture_view_binding(&mut frame_graph);
 
         let view_bind_group = BindGroupHandle {
             label: Some("mesh2d_view_bind_group".into()),
@@ -808,7 +808,7 @@ pub fn prepare_mesh2d_view_bind_groups(
             entries: DynamicBindGroupEntryHandles::sequential((
                 &view_uniforms_binding,
                 &globals_buffer_binding,
-                &lut_binding_texture_handle,
+                &lut_texture_binding,
                 &lut_image.sampler,
             ))
             .to_vec(),

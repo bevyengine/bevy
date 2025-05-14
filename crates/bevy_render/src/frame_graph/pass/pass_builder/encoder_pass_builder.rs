@@ -3,11 +3,9 @@ use std::mem::take;
 use tracing::warn;
 use wgpu::{Extent3d, ImageSubresourceRange};
 
-use crate::{
-    frame_graph::{
-        EncoderPass, EncoderPassCommandBuilder, FrameGraphBuffer, FrameGraphTexture, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite, TexelCopyTextureInfo
-    },
-    render_resource::Buffer,
+use crate::frame_graph::{
+    EncoderPass, EncoderPassCommandBuilder, FrameGraphBuffer, FrameGraphTexture, ResourceMaterial,
+    ResourceRead, ResourceRef, ResourceWrite, TexelCopyTextureInfo,
 };
 
 use super::PassBuilder;
