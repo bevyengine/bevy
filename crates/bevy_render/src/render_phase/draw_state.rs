@@ -250,7 +250,7 @@ impl<'a, 'b> TrackedRenderPass<'a, 'b> {
         buffer: &Buffer,
         bounds: impl RangeBounds<wgpu::BufferAddress>,
     ) {
-        let vertex_read = self.pass.import_and_read_buffer(buffer);
+        let vertex_read = self.pass.read_material(buffer);
 
         let buffer_slice = buffer.slice(bounds);
 
@@ -294,7 +294,7 @@ impl<'a, 'b> TrackedRenderPass<'a, 'b> {
         offset: u64,
         index_format: IndexFormat,
     ) {
-        let index_read = self.pass.import_and_read_buffer(buffer);
+        let index_read = self.pass.read_material(buffer);
         let buffer_slice = buffer.slice(bounds);
 
         if self
@@ -367,7 +367,7 @@ impl<'a, 'b> TrackedRenderPass<'a, 'b> {
         #[cfg(feature = "detailed_trace")]
         trace!("draw indirect: {:?} {}", indirect_buffer, indirect_offset);
 
-        let indirect_buffer_read = self.pass.import_and_read_buffer(indirect_buffer);
+        let indirect_buffer_read = self.pass.read_material(indirect_buffer);
 
         self.pass
             .draw_indirect(&indirect_buffer_read, indirect_offset);
@@ -400,7 +400,7 @@ impl<'a, 'b> TrackedRenderPass<'a, 'b> {
             indirect_offset
         );
 
-        let indirect_buffer_read = self.pass.import_and_read_buffer(indirect_buffer);
+        let indirect_buffer_read = self.pass.read_material(indirect_buffer);
 
         self.pass
             .draw_indexed_indirect(&indirect_buffer_read, indirect_offset);
@@ -437,7 +437,7 @@ impl<'a, 'b> TrackedRenderPass<'a, 'b> {
             count
         );
 
-        let indirect_buffer_read = self.pass.import_and_read_buffer(indirect_buffer);
+        let indirect_buffer_read = self.pass.read_material(indirect_buffer);
 
         self.pass
             .multi_draw_indirect(&indirect_buffer_read, indirect_offset, count);
@@ -483,8 +483,8 @@ impl<'a, 'b> TrackedRenderPass<'a, 'b> {
             max_count
         );
 
-        let indirect_buffer_read = self.pass.import_and_read_buffer(indirect_buffer);
-        let count_buffer_read = self.pass.import_and_read_buffer(count_buffer);
+        let indirect_buffer_read = self.pass.read_material(indirect_buffer);
+        let count_buffer_read = self.pass.read_material(count_buffer);
 
         self.pass.multi_draw_indirect_count(
             &indirect_buffer_read,
@@ -527,7 +527,7 @@ impl<'a, 'b> TrackedRenderPass<'a, 'b> {
             indirect_offset,
             count
         );
-        let indirect_buffer_read = self.pass.import_and_read_buffer(indirect_buffer);
+        let indirect_buffer_read = self.pass.read_material(indirect_buffer);
 
         self.pass
             .multi_draw_indexed_indirect(&indirect_buffer_read, indirect_offset, count);
@@ -575,8 +575,8 @@ impl<'a, 'b> TrackedRenderPass<'a, 'b> {
             max_count
         );
 
-        let indirect_buffer_read = self.pass.import_and_read_buffer(indirect_buffer);
-        let count_buffer_read = self.pass.import_and_read_buffer(count_buffer);
+        let indirect_buffer_read = self.pass.read_material(indirect_buffer);
+        let count_buffer_read = self.pass.read_material(count_buffer);
 
         self.pass.multi_draw_indexed_indirect_count(
             &indirect_buffer_read,

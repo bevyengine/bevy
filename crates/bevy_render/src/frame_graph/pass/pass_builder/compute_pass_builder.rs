@@ -6,9 +6,10 @@ use wgpu::QuerySet;
 use crate::{
     frame_graph::{
         BindGroupDrawing, ComputePass, ComputePassCommandBuilder, FrameGraphBuffer,
-        PassNodeBuilder, ResourceHandle, ResourceRead, ResourceRef,
+        PassNodeBuilder, ResourceHandle, ResourceMaterial, ResourceRead, ResourceRef,
+        ResourceWrite,
     },
-    render_resource::{BindGroup, Buffer, CachedComputePipelineId},
+    render_resource::{BindGroup, CachedComputePipelineId},
 };
 
 use super::PassBuilder;
@@ -34,11 +35,18 @@ impl<'a, 'b> ComputePassBuilder<'a, 'b> {
         }
     }
 
-    pub fn import_and_read_buffer(
+    pub fn read_material<M: ResourceMaterial>(
         &mut self,
-        buffer: &Buffer,
-    ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
-        self.pass_builder.read_material(buffer)
+        material: &M,
+    ) -> ResourceRef<M::ResourceType, ResourceRead> {
+        self.pass_builder.read_material(material)
+    }
+
+    pub fn write_material<M: ResourceMaterial>(
+        &mut self,
+        material: &M,
+    ) -> ResourceRef<M::ResourceType, ResourceWrite> {
+        self.pass_builder.write_material(material)
     }
 
     pub fn dispatch_workgroups_indirect(

@@ -8,10 +8,10 @@ use crate::{
     camera::Viewport,
     frame_graph::{
         BindGroupDrawing, ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing,
-        FrameGraphBuffer, FrameGraphTexture, RenderPass, RenderPassCommandBuilder, ResourceHandle,
-        ResourceRead, ResourceRef,
+        FrameGraphBuffer, RenderPass, RenderPassCommandBuilder, ResourceHandle, ResourceMaterial,
+        ResourceRead, ResourceRef, ResourceWrite,
     },
-    render_resource::{BindGroup, Buffer, CachedRenderPipelineId, Texture},
+    render_resource::{BindGroup, CachedRenderPipelineId},
 };
 
 use super::PassBuilder;
@@ -37,18 +37,18 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
         }
     }
 
-    pub fn import_and_read_buffer(
+    pub fn read_material<M: ResourceMaterial>(
         &mut self,
-        buffer: &Buffer,
-    ) -> ResourceRef<FrameGraphBuffer, ResourceRead> {
-        self.pass_builder.read_material(buffer)
+        material: &M,
+    ) -> ResourceRef<M::ResourceType, ResourceRead> {
+        self.pass_builder.read_material(material)
     }
 
-    pub fn import_and_read_texture(
+    pub fn write_material<M: ResourceMaterial>(
         &mut self,
-        texture: &Texture,
-    ) -> ResourceRef<FrameGraphTexture, ResourceRead> {
-        self.pass_builder.read_material(texture)
+        material: &M,
+    ) -> ResourceRef<M::ResourceType, ResourceWrite> {
+        self.pass_builder.write_material(material)
     }
 
     pub fn set_bind_group<T>(&mut self, index: u32, bind_group: T, offsets: &[u32]) -> &mut Self

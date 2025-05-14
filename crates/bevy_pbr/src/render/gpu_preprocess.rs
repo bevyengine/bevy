@@ -558,7 +558,7 @@ impl Node for ClearIndirectParametersMetadataNode {
             {
                 let mut encoder_pass_builder = pass_builder.create_encoder_pass_builder();
                 let buffer_ref =
-                    encoder_pass_builder.import_and_write_buffer(indexed_gpu_metadata_buffer);
+                    encoder_pass_builder.write_material(indexed_gpu_metadata_buffer);
 
                 encoder_pass_builder.clear_buffer(
                     &buffer_ref,
@@ -576,7 +576,7 @@ impl Node for ClearIndirectParametersMetadataNode {
             {
                 let mut encoder_pass_builder = pass_builder.create_encoder_pass_builder();
                 let buffer_ref =
-                    encoder_pass_builder.import_and_write_buffer(non_indexed_gpu_metadata_buffer);
+                    encoder_pass_builder.write_material(non_indexed_gpu_metadata_buffer);
 
                 encoder_pass_builder.clear_buffer(
                     &buffer_ref,
@@ -959,7 +959,7 @@ impl Node for LateGpuPreprocessNode {
                     );
 
                     let late_indexed_indirect_parameters_buffer_ref = compute_pass_builder
-                        .import_and_read_buffer(late_indexed_indirect_parameters_buffer);
+                        .read_material(late_indexed_indirect_parameters_buffer);
 
                     compute_pass_builder.dispatch_workgroups_indirect(
                         &late_indexed_indirect_parameters_buffer_ref,
@@ -982,7 +982,7 @@ impl Node for LateGpuPreprocessNode {
                     );
 
                     let late_non_indexed_indirect_parameters_buffer_ref = compute_pass_builder
-                        .import_and_read_buffer(late_non_indexed_indirect_parameters_buffer);
+                        .read_material(late_non_indexed_indirect_parameters_buffer);
 
                     compute_pass_builder.dispatch_workgroups_indirect(
                         &late_non_indexed_indirect_parameters_buffer_ref,
