@@ -1,4 +1,14 @@
-//! Shows how to render simple primitive shapes with a single color.
+//! Here we use shape primitives to build meshes in a 2D rendering context, making each mesh a certain color by giving that mesh's entity a material based off a `Color`.
+//!
+//! A shape primitive is a, it is not a mesh on its own. A circle can be defined with a radius, i.e. `Circle::new(50.0)`, but rendering tends to happen with triangles. So we need to turn shape descriptions into meshes.
+//!
+//! Thankfully, we can add shape primitives directly to `Assets<Mesh>` because `Mesh` implements `From` for shape primitives and `Assets<T>::add` can be given any value that can be "turned into" `T`.
+//!
+//! Meshes are better known for their use in 3D rendering, but we can use then in a 2D context too. Without a third dimension, the models we're building are flat shapes. These are still very useful for collision, "vector-style" graphics, or as a basis for where to apply a shader.
+//!
+//! We apply a material to the shape by first making a `Color` then calling `Assets<ColorMaterial>::add` with that color as its argument, which will create a material from that color through the same process `Assets<Mesh>::add` can take a shape primitive.
+//!
+//! Both the mesh and material need to be wrapped in respective "newtypes". The mesh and material are currently `Handle<Mesh>` and `Handle<ColorMaterial>` at the moment, which are not components. Handles are put behind "newtypes" to make it easier to them as required components or to give them new required components and side-step the orphan rule. All we need to do to make them components is wrap the mesh handle and the material handle in `Mesh2d` and `MeshMaterial2d` respectively.
 //!
 //! You can toggle wireframes with the space bar except on wasm. Wasm does not support
 //! `POLYGON_MODE_LINE` on the gpu.
