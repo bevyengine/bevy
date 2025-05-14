@@ -873,7 +873,7 @@ impl PipelineCache {
 
                 // TODO: Expose the rest of this somehow
                 let compilation_options = PipelineCompilationOptions {
-                    constants: &default(),
+                    constants: &[],
                     zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
                 };
 
@@ -955,7 +955,7 @@ impl PipelineCache {
                     entry_point: Some(&descriptor.entry_point),
                     // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &default(),
+                        constants: &[],
                         zero_initialize_workgroup_memory: descriptor
                             .zero_initialize_workgroup_memory,
                     },
@@ -1159,8 +1159,12 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
-        Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+        Capabilities::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    capabilities.set(
+        Capabilities::UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS)
     );
     // TODO: This needs a proper wgpu feature
     capabilities.set(

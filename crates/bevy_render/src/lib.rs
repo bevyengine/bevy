@@ -352,9 +352,13 @@ impl Plugin for RenderPlugin {
                             backend_options: wgpu::BackendOptions {
                                 gl: wgpu::GlBackendOptions {
                                     gles_minor_version: settings.gles3_minor_version,
+                                    fence_behavior: wgpu::GlFenceBehavior::Normal,
                                 },
                                 dx12: wgpu::Dx12BackendOptions {
                                     shader_compiler: settings.dx12_shader_compiler.clone(),
+                                },
+                                noop: wgpu::NoopBackendOptions {
+                                    enable: false,
                                 },
                             },
                         });
