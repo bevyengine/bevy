@@ -368,7 +368,6 @@ mod tests {
     #[derive(Component, Clone, Eq, PartialEq, Hash)]
     #[component(
         key=Self,
-        storage="SparseSet", 
         immutable,
     )]
     struct Fragmenting(u32);

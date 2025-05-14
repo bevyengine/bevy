@@ -261,28 +261,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
 
     let key = if let Some(key) = attrs.key {
-        // This check exists only to show better errors earlier and is not used for checking correctness,
-        // so it's okay for it to not work in 100% of cases.
-        if let Type::Path(type_path) = &key {
-            if let Some(ident) = type_path.path.get_ident() {
-                let ident = ident.to_string();
-                if (ident == "Self" || *struct_name == ident)
-                    && matches!(attrs.storage, StorageTy::Table)
-                {
-                    return syn::Error::new(
-                        ast.span(),
-                        "Component key must not have Table storage type.",
-                    )
-                    .into_compile_error()
-                    .into();
-                }
-            }
-            if !attrs.immutable {
-                return syn::Error::new(ast.span(), "Component key must be immutable.")
-                    .into_compile_error()
-                    .into();
-            }
-        }
         quote! {#bevy_ecs_path::component::OtherComponentKey<Self, #key>}
     } else {
         quote! {#bevy_ecs_path::component::NoKey<Self>}

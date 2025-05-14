@@ -676,11 +676,7 @@ impl<C, K> private::Seal for OtherComponentKey<C, K> {}
 impl<C: Component, K: FragmentingValue + Component> ComponentKey for OtherComponentKey<C, K> {
     type KeyType = K;
     type ValueType = C;
-    const INVARIANT_ASSERT: () = {
-        if matches!(K::STORAGE_TYPE, StorageType::Table) {
-            panic!("Key component must not have Table storage type")
-        }
-    };
+    const INVARIANT_ASSERT: () = ();
 }
 
 /// Set this component as the fragmenting key. This means every different value of this component (as defined by [`PartialEq::eq`])
