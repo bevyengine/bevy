@@ -27,7 +27,10 @@ use crate::{
 ///
 /// For dynamic components see [`DynamicFragmentingValue`] and [`FragmentingValueVtable`].
 pub trait FragmentingValue: Any {
-    /// Return `true` if `self` `==` `other`. Dynamic version of [`PartialEq::eq`].
+    /// Return `true` if `self == other`. Dynamic version of [`PartialEq::eq`].
+    ///
+    /// **NOTE**: This method must be implemented similarly [`PartialEq::eq`], however
+    /// when comparing `dyn FragmentingValue`s prefer to use `==` to support values created using [`DynamicFragmentingValue`].
     fn value_eq(&self, other: &dyn FragmentingValue) -> bool;
     /// Returns the hash value of `self`. Dynamic version of [`Hash::hash`].
     fn value_hash(&self) -> u64;
@@ -75,7 +78,7 @@ impl FragmentingValue for () {
 
 impl PartialEq for dyn FragmentingValue {
     fn eq(&self, other: &Self) -> bool {
-        FragmentingValue::value_eq(self, other)
+        Self::value_eq_dynamic(self, other)
     }
 }
 
@@ -85,6 +88,17 @@ impl Hash for dyn FragmentingValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let key_hash = FragmentingValue::value_hash(self);
         state.write_u64(key_hash);
+    }
+}
+
+impl dyn FragmentingValue {
+    /// Return `true` if `self == other`. This version supports values created using [`DynamicFragmentingValue`].
+    #[inline(always)]
+    fn value_eq_dynamic(&self, other: &dyn FragmentingValue) -> bool {
+        self.value_eq(other)
+            || (other as &dyn Any)
+                .downcast_ref::<DynamicFragmentingValueInner>()
+                .is_some_and(|other| other.value_eq(self))
     }
 }
 
@@ -185,7 +199,10 @@ impl<'a> Equivalent<FragmentingValuesOwned> for FragmentingValuesBorrowed<'a> {
                 .values
                 .iter()
                 .zip(key.values.iter())
-                .all(|((id1, v1), (id2, v2))| id1 == id2 && **v1 == **v2)
+                // We know that v2 is never an instance of DynamicFragmentingValue since it is from FragmentingValuesOwned.
+                // Because FragmentingValuesOwned is created by calling clone_boxed, it always creates Box<T> of a proper type that DynamicFragmentingValues abstracts.
+                // This means that we don't have to use value_eq_dynamic implementation and can compare with value_eq instead.
+                .all(|((id1, v1), (id2, v2))| id1 == id2 && v1.value_eq(&**v2))
     }
 }
 
@@ -251,6 +268,23 @@ impl DynamicFragmentingValue {
         self.0 = inner;
         Some(&self.0)
     }
+
+    /// Create a new `&dyn` [`FragmentingValue`] from passed component data and [`FragmentingValueVtable`].
+    ///
+    /// # Safety
+    /// - `vtable` must be usable for the data which `component` points to.
+    pub unsafe fn from_vtable<'a>(
+        &'a mut self,
+        vtable: FragmentingValueVtable,
+        component: Ptr<'a>,
+    ) -> &'a dyn FragmentingValue {
+        let inner = DynamicFragmentingValueInner::Borrowed {
+            value: NonNull::new_unchecked(component.as_ptr()),
+            vtable,
+        };
+        self.0 = inner;
+        &self.0
+    }
 }
 
 /// Dynamic vtable for [`FragmentingValue`].
@@ -283,7 +317,7 @@ impl FragmentingValueVtable {
         FragmentingValueVtable {
             eq: |ptr, other| {
                 // SAFETY: caller is responsible for using this vtable only with correct values
-                unsafe { ptr.cast::<T>().as_ref() }.value_eq(other)
+                *(unsafe { ptr.cast::<T>().as_ref() } as &dyn FragmentingValue) == *other
             },
             hash: |ptr| {
                 // SAFETY: caller is responsible for using this vtable only with correct values
@@ -322,13 +356,13 @@ mod tests {
     use crate::{
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
         entity::Entity,
-        fragmenting_value::{FragmentingValue, FragmentingValueVtable},
+        fragmenting_value::{DynamicFragmentingValue, FragmentingValue, FragmentingValueVtable},
         world::World,
     };
     use alloc::boxed::Box;
     use alloc::vec::Vec;
     use bevy_platform::hash::FixedHasher;
-    use bevy_ptr::OwningPtr;
+    use bevy_ptr::{OwningPtr, Ptr};
     use core::hash::Hash;
 
     #[derive(Component, Clone, Eq, PartialEq, Hash)]
@@ -575,5 +609,75 @@ mod tests {
         let [id1, id2, id3] = world.entity(entities).map(|e| e.archetype().id());
         assert_ne!(id1, id2);
         assert_ne!(id1, id3);
+    }
+
+    #[test]
+    fn fragmenting_component_compare_with_dynamic() {
+        let mut world = World::default();
+
+        let component_id = world.register_component::<Fragmenting>();
+
+        let e1 = world.spawn(Fragmenting(1)).id();
+        let e2 = world.spawn_empty().id();
+        OwningPtr::make(Fragmenting(1), |ptr|
+        // SAFETY: 
+        // - ComponentId is from the same world.
+        // - OwningPtr points to valid value of type represented by ComponentId
+        unsafe {
+            world.entity_mut(e2).insert_by_id(component_id, ptr);
+        });
+        let e3 = world.spawn_empty().id();
+        OwningPtr::make(Fragmenting(1), |ptr|
+        // SAFETY: 
+        // - ComponentId is from the same world.
+        // - OwningPtr points to valid value of type represented by ComponentId
+        unsafe {
+            world
+                .entity_mut(e3)
+                .insert_by_ids(&[component_id], [ptr].into_iter());
+        });
+
+        let e4 = world.spawn(Fragmenting(1)).id();
+        let e5 = world.spawn_empty().id();
+        OwningPtr::make(Fragmenting(1), |ptr|
+        // SAFETY: 
+        // - ComponentId is from the same world.
+        // - OwningPtr points to valid value of type represented by ComponentId
+        unsafe {
+            world.entity_mut(e5).insert_by_id(component_id, ptr);
+        });
+        let e6 = world.spawn_empty().id();
+        OwningPtr::make(Fragmenting(1), |ptr|
+        // SAFETY: 
+        // - ComponentId is from the same world.
+        // - OwningPtr points to valid value of type represented by ComponentId
+        unsafe {
+            world
+                .entity_mut(e6)
+                .insert_by_ids(&[component_id], [ptr].into_iter());
+        });
+
+        let [id1, id2, id3, id4, id5, id6] = world
+            .entity([e1, e2, e3, e4, e5, e6])
+            .map(|e| e.archetype().id());
+
+        assert_eq!(id1, id2);
+        assert_eq!(id1, id3);
+        assert_eq!(id1, id4);
+        assert_eq!(id1, id5);
+        assert_eq!(id1, id6);
+    }
+
+    #[test]
+    fn fragmenting_value_compare_with_dynamic() {
+        let value: &dyn FragmentingValue = &Fragmenting(1);
+        let mut dynamic_holder = DynamicFragmentingValue::default();
+        let vtable = FragmentingValueVtable::from_fragmenting_value::<Fragmenting>();
+        // SAFETY:
+        // - vtable matches component data
+        let dynamic = unsafe { dynamic_holder.from_vtable(vtable, Ptr::from(&Fragmenting(1))) };
+
+        assert!(*value == *dynamic);
+        assert!(*dynamic == *value);
     }
 }
