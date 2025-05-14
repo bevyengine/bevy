@@ -21,7 +21,7 @@ use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
-    render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, Texture, TextureView},
+    render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
@@ -743,7 +743,7 @@ where
 /// Adds a diffuse or specular texture view to the `texture_views` list, and
 /// populates `sampler` if this is the first such view.
 pub(crate) fn add_cubemap_texture<'a>(
-    textures: &mut Vec<&'a Texture>,
+    textures: &mut Vec<&'a GpuImage>,
     sampler: &mut Option<&'a Sampler>,
     image_id: AssetId<Image>,
     images: &'a RenderAssets<GpuImage>,
@@ -752,7 +752,7 @@ pub(crate) fn add_cubemap_texture<'a>(
     match images.get(image_id) {
         None => {
             // Use the fallback image if the cubemap isn't loaded yet.
-            textures.push(&fallback_image.cube.texture);
+            textures.push(&fallback_image.cube);
         }
         Some(image) => {
             // If this is the first texture view, populate `sampler`.
@@ -760,7 +760,7 @@ pub(crate) fn add_cubemap_texture<'a>(
                 *sampler = Some(&image.sampler);
             }
 
-            textures.push(&image.texture);
+            textures.push(&image);
         }
     }
 }

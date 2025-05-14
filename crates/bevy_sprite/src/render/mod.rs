@@ -114,6 +114,8 @@ impl FromWorld for SpritePipeline {
                 image.texture_descriptor.size,
             );
             let texture_view = texture.create_view(&TextureViewDescriptor::default());
+            let texture_view_info = TextureViewDescriptor::default().into();
+
             GpuImage {
                 texture,
                 texture_view,
@@ -121,6 +123,7 @@ impl FromWorld for SpritePipeline {
                 sampler,
                 size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
+                texture_view_info,
             }
         };
 

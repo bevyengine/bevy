@@ -1,4 +1,7 @@
 use crate::{
+    frame_graph::{
+        BindingResourceTextureViewHandle, FrameGraph, ResourceMaterial, TextureViewInfo,
+    },
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
@@ -15,6 +18,7 @@ use wgpu::{Extent3d, TextureFormat, TextureViewDescriptor};
 pub struct GpuImage {
     pub texture: Texture,
     pub texture_view: TextureView,
+    pub texture_view_info: TextureViewInfo,
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
     pub size: Extent3d,
@@ -57,6 +61,13 @@ impl RenderAsset for GpuImage {
             render_device.create_texture(&image.texture_descriptor)
         };
 
+        let texture_view_info = image
+            .texture_view_descriptor
+            .clone()
+            .or_else(|| Some(TextureViewDescriptor::default()))
+            .unwrap()
+            .into();
+
         let texture_view = texture.create_view(
             image
                 .texture_view_descriptor
@@ -79,6 +90,7 @@ impl RenderAsset for GpuImage {
             sampler,
             size: image.texture_descriptor.size,
             mip_level_count: image.texture_descriptor.mip_level_count,
+            texture_view_info,
         })
     }
 }
@@ -96,5 +108,17 @@ impl GpuImage {
     #[inline]
     pub fn size_2d(&self) -> UVec2 {
         UVec2::new(self.size.width, self.size.height)
+    }
+
+    pub fn make_texture_view_binding(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> BindingResourceTextureViewHandle {
+        let texture = self.texture.make_resource_handle(frame_graph);
+
+        BindingResourceTextureViewHandle {
+            texture,
+            texture_view_info: self.texture_view_info.clone(),
+        }
     }
 }

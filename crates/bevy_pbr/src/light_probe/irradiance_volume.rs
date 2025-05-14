@@ -137,20 +137,20 @@ use bevy_image::Image;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, Texture, TextureSampleType, TextureView
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
+        TextureSampleType,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
 };
 use bevy_utils::default;
-use core::{num::NonZero, ops::Deref};
+use core::num::NonZero;
 
 use bevy_asset::{weak_handle, AssetId, Handle};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
-    add_cubemap_texture, binding_arrays_are_usable, RenderViewLightProbes,
-    MAX_VIEW_LIGHT_PROBES,
+    add_cubemap_texture, binding_arrays_are_usable, RenderViewLightProbes, MAX_VIEW_LIGHT_PROBES,
 };
 
 use super::LightProbeComponent;
@@ -212,7 +212,7 @@ pub(crate) enum RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// The version used when binding arrays aren't available on the current platform.
     Single {
         /// The texture view of the closest light probe.
-        texture: &'a Texture,
+        texture: &'a GpuImage,
         /// A sampler used to sample voxels of the irradiance volume.
         sampler: &'a Sampler,
     },
@@ -226,7 +226,7 @@ pub(crate) enum RenderViewIrradianceVolumeBindGroupEntries<'a> {
         ///
         /// This is a vector of `wgpu::TextureView`s. But we don't want to import
         /// `wgpu` in this crate, so we refer to it indirectly like this.
-        textures: Vec<&'a Texture>,
+        textures: Vec<&'a GpuImage>,
 
         /// A sampler used to sample voxels of the irradiance volumes.
         sampler: &'a Sampler,
@@ -283,7 +283,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
 
         // Pad out the bindings to the size of the binding array using fallback
         // textures. This is necessary on D3D12 and Metal.
-        textures.resize(MAX_VIEW_LIGHT_PROBES, &fallback_image.d3.texture);
+        textures.resize(MAX_VIEW_LIGHT_PROBES, &fallback_image.d3);
 
         RenderViewIrradianceVolumeBindGroupEntries::Multiple {
             textures,
@@ -308,7 +308,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
                     {
                         if let Some(image) = images.get(*image_id) {
                             return RenderViewIrradianceVolumeBindGroupEntries::Single {
-                                texture: &image.texture,
+                                texture: &image,
                                 sampler: &image.sampler,
                             };
                         }
@@ -318,7 +318,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         }
 
         RenderViewIrradianceVolumeBindGroupEntries::Single {
-            texture: &fallback_image.d3.texture,
+            texture: &fallback_image.d3,
             sampler: &fallback_image.d3.sampler,
         }
     }

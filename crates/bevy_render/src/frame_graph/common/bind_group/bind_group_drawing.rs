@@ -121,16 +121,16 @@ impl ResourceDrawing for BindGroupDrawing {
 
         for entry in self.entries.iter() {
             match &entry.resource {
-                BindingResourceRef::TextureViewArray(texture_view_handles) => {
+                BindingResourceRef::TextureViewArray(texture_view_refs) => {
                     let mut texture_views = vec![];
 
-                    for (texture, texture_view_info) in texture_view_handles.iter() {
-                        let texture = render_context.get_resource(texture)?;
+                    for texture_view_ref in texture_view_refs.iter() {
+                        let texture = render_context.get_resource(&texture_view_ref.texture)?;
 
                         texture_views.push(
                             texture
                                 .resource
-                                .create_view(&texture_view_info.get_texture_view_desc()),
+                                .create_view(&texture_view_ref.texture_view_info.get_texture_view_desc()),
                         );
                     }
                     resources.insert(entry.binding, texture_views);

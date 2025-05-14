@@ -34,6 +34,9 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::frame_graph::{
+    FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, ResourceMaterial, TextureViewInfo,
+};
 use bevy_render::mesh::allocator::SlabId;
 use bevy_render::render_phase::PhaseItemBatchSetKey;
 use bevy_render::sync_world::MainEntity;
@@ -134,6 +137,36 @@ impl ViewPrepassTextures {
 
     pub fn get_deferred_lighting_pass_id_texture(entity: Entity) -> String {
         format!("deferred_lighting_pass_id_texture{}", entity)
+    }
+
+    pub fn normal(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> Option<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)> {
+        self.normal.as_ref().map(|texture| {
+            let texture = texture.texture.make_resource_handle(frame_graph);
+            (texture, TextureViewInfo::default())
+        })
+    }
+
+    pub fn motion_vectors(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> Option<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)> {
+        self.motion_vectors.as_ref().map(|texture| {
+            let texture = texture.texture.make_resource_handle(frame_graph);
+            (texture, TextureViewInfo::default())
+        })
+    }
+
+    pub fn deferred(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> Option<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)> {
+        self.deferred.as_ref().map(|texture| {
+            let texture = texture.texture.make_resource_handle(frame_graph);
+            (texture, TextureViewInfo::default())
+        })
     }
 }
 

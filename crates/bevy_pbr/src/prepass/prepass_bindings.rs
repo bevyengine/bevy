@@ -1,10 +1,16 @@
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
-use bevy_render::render_resource::{
-    binding_types::{
-        texture_2d, texture_2d_multisampled, texture_depth_2d, texture_depth_2d_multisampled,
+use bevy_render::{
+    frame_graph::{
+        FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, ResourceMaterial, TextureViewInfo,
     },
-    BindGroupLayoutEntryBuilder, TextureSampleType, TextureView,
+    render_resource::{
+        binding_types::{
+            texture_2d, texture_2d_multisampled, texture_depth_2d, texture_depth_2d_multisampled,
+        },
+        BindGroupLayoutEntryBuilder, TextureAspect, TextureSampleType,
+    },
 };
+use bevy_utils::default;
 
 use crate::MeshPipelineViewLayoutKey;
 
@@ -54,6 +60,26 @@ pub fn get_bind_group_layout_entries(
     entries
 }
 
-pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<TextureView>; 4] {
-    todo!()
+pub fn get_bindings(
+    prepass_textures: Option<&ViewPrepassTextures>,
+    frame_graph: &mut FrameGraph,
+) -> [Option<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)>; 4] {
+    let depth_desc = TextureViewInfo {
+        label: Some("prepass_depth".into()),
+        aspect: TextureAspect::DepthOnly,
+        ..default()
+    };
+    let depth_view = prepass_textures
+        .and_then(|x| x.depth.as_ref())
+        .map(|texture| {
+            let texture = texture.texture.make_resource_handle(frame_graph);
+            (texture, depth_desc.clone())
+        });
+
+    [
+        depth_view,
+        prepass_textures.and_then(|pt| pt.normal(frame_graph)),
+        prepass_textures.and_then(|pt| pt.motion_vectors(frame_graph)),
+        prepass_textures.and_then(|pt| pt.deferred(frame_graph)),
+    ]
 }

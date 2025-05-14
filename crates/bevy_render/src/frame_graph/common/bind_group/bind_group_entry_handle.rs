@@ -10,7 +10,9 @@ use crate::{
     render_resource::Sampler,
 };
 
-use super::{BindGroupEntryRef, BindingResourceHelper, BindingResourceRef};
+use super::{
+    BindGroupEntryRef, BindingResourceHelper, BindingResourceRef, BindingResourceTextureViewRef,
+};
 
 #[derive(Clone)]
 pub struct BindGroupEntryHandle {
@@ -40,7 +42,13 @@ pub enum BindingResourceHandle {
         texture: GraphResourceNodeHandle<FrameGraphTexture>,
         texture_view_info: TextureViewInfo,
     },
-    TextureViewArray(Vec<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)>),
+    TextureViewArray(Vec<BindingResourceTextureViewHandle>),
+}
+
+#[derive(Clone)]
+pub struct BindingResourceTextureViewHandle {
+    pub texture: GraphResourceNodeHandle<FrameGraphTexture>,
+    pub texture_view_info: TextureViewInfo,
 }
 
 impl BindingResourceHelper for BindingResourceHandle {
@@ -69,9 +77,12 @@ impl BindingResourceHelper for BindingResourceHandle {
             }
             BindingResourceHandle::TextureViewArray(handles) => {
                 let mut target = vec![];
-                for (handle, texture_view_info) in handles.iter() {
-                    let handle_read = pass_node_builder.read(handle.clone());
-                    target.push((handle_read, texture_view_info.clone()));
+                for handle in handles.iter() {
+                    let texture = pass_node_builder.read(handle.texture.clone());
+                    target.push(BindingResourceTextureViewRef {
+                        texture,
+                        texture_view_info: handle.texture_view_info.clone(),
+                    });
                 }
 
                 BindingResourceRef::TextureViewArray(target)
@@ -96,14 +107,17 @@ impl IntoBindingResourceHandle for BindingResourceHandle {
     }
 }
 
-impl IntoBindingResourceHandle for &[GraphResourceNodeHandle<FrameGraphTexture>] {
+impl IntoBindingResourceHandle for &[BindingResourceTextureViewHandle] {
     fn into_binding(self) -> BindingResourceHandle {
-        let target = self
-            .iter()
-            .map(|handle| (handle.clone(), TextureViewInfo::default()))
-            .collect();
-
-        BindingResourceHandle::TextureViewArray(target)
+        BindingResourceHandle::TextureViewArray(self.to_vec())
+    }
+}
+impl IntoBindingResourceHandle for &BindingResourceTextureViewHandle {
+    fn into_binding(self) -> BindingResourceHandle {
+        BindingResourceHandle::TextureView {
+            texture: self.texture.clone(),
+            texture_view_info: self.texture_view_info.clone(),
+        }
     }
 }
 

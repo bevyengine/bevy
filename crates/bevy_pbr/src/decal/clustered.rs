@@ -14,7 +14,7 @@
 //! clustered decal arbitrarily. See the documentation in `clustered.wgsl` for
 //! more information and the `clustered_decals` example for an example of use.
 
-use core::{num::NonZero, ops::Deref};
+use core::num::NonZero;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
@@ -37,7 +37,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
-        SamplerBindingType, Shader, ShaderType, TextureSampleType, TextureView,
+        SamplerBindingType, Shader, ShaderType, TextureSampleType,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
@@ -133,7 +133,7 @@ pub(crate) struct RenderViewClusteredDecalBindGroupEntries<'a> {
     pub(crate) decals: &'a Buffer,
     /// The list of textures, corresponding to
     /// `mesh_view_bindings::decal_textures` in the shader.
-    pub(crate) texture_views: Vec<&'a <TextureView as Deref>::Target>,
+    pub(crate) textures: Vec<&'a GpuImage>,
     /// The sampler that the shader uses to sample decals, corresponding to
     /// `mesh_view_bindings::decal_sampler` in the shader.
     pub(crate) sampler: &'a Sampler,
@@ -308,23 +308,23 @@ impl<'a> RenderViewClusteredDecalBindGroupEntries<'a> {
         };
 
         // Gather up the decal textures.
-        let mut texture_views = vec![];
+        let mut textures = vec![];
         for image_id in &render_decals.binding_index_to_textures {
             match images.get(*image_id) {
-                None => texture_views.push(&*fallback_image.d2.texture_view),
-                Some(gpu_image) => texture_views.push(&*gpu_image.texture_view),
+                None => textures.push(&fallback_image.d2),
+                Some(gpu_image) => textures.push(&gpu_image),
             }
         }
 
         // Pad out the binding array to its maximum length, which is
         // required on some platforms.
-        while texture_views.len() < MAX_VIEW_DECALS {
-            texture_views.push(&*fallback_image.d2.texture_view);
+        while textures.len() < MAX_VIEW_DECALS {
+            textures.push(&fallback_image.d2);
         }
 
         Some(RenderViewClusteredDecalBindGroupEntries {
             decals: decals_buffer.buffer()?,
-            texture_views,
+            textures,
             sampler,
         })
     }

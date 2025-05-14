@@ -6,7 +6,7 @@ use crate::frame_graph::{
 
 use super::ResourceDrawing;
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct TextureViewInfo {
     pub label: Option<Cow<'static, str>>,
     pub format: Option<wgpu::TextureFormat>,
@@ -17,6 +17,25 @@ pub struct TextureViewInfo {
     pub mip_level_count: Option<u32>,
     pub base_array_layer: u32,
     pub array_layer_count: Option<u32>,
+}
+
+impl From<wgpu::TextureViewDescriptor<'_>> for TextureViewInfo {
+    fn from(value: wgpu::TextureViewDescriptor) -> Self {
+        TextureViewInfo {
+            label: value
+                .label
+                .map(|label| label.to_string())
+                .map(|label| label.into()),
+            format: value.format,
+            dimension: value.dimension,
+            usage: value.usage,
+            aspect: value.aspect,
+            base_mip_level: value.base_mip_level,
+            mip_level_count: value.mip_level_count,
+            base_array_layer: value.base_array_layer,
+            array_layer_count: value.array_layer_count,
+        }
+    }
 }
 
 impl TextureViewInfo {

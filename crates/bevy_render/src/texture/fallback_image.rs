@@ -126,6 +126,13 @@ fn fallback_image_new(
         ..TextureViewDescriptor::default()
     });
 
+    let texture_view_info = TextureViewDescriptor {
+        dimension: Some(dimension),
+        array_layer_count: Some(extents.depth_or_array_layers),
+        ..TextureViewDescriptor::default()
+    }
+    .into();
+
     let sampler = match image.sampler {
         ImageSampler::Default => (**default_sampler).clone(),
         ImageSampler::Descriptor(ref descriptor) => {
@@ -139,6 +146,7 @@ fn fallback_image_new(
         sampler,
         size: image.texture_descriptor.size,
         mip_level_count: image.texture_descriptor.mip_level_count,
+        texture_view_info,
     }
 }
 
