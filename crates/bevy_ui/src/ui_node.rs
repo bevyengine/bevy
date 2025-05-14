@@ -2828,3 +2828,79 @@ impl Default for TextShadow {
         }
     }
 }
+
+pub(super) mod observers {
+    use bevy_app::Plugin;
+    use bevy_ecs::{
+        observer::Trigger,
+        system::Query,
+        world::{OnInsert, OnRemove},
+    };
+    use bevy_render::view::RenderLayers;
+
+    use super::{Node, UiTargetCamera};
+
+    const TARGET_CAMERA_WARNING: &str =
+        "`UiTargetCamera` has no effect on entities that are not Ui roots.";
+    const RENDER_LAYERS_WARNING: &str =
+        "`RenderLayers` has no effect on entities that are Ui nodes.";
+
+    pub struct NodeObserversPlugin;
+
+    impl Plugin for NodeObserversPlugin {
+        fn build(&self, app: &mut bevy_app::App) {
+            app.add_observer(verify_node_inserted_to_render_layers)
+                .add_observer(verify_node_removed_from_target_camera)
+                .add_observer(verify_render_layer_inserted_to_node)
+                .add_observer(verify_target_camera_added_to_node);
+        }
+    }
+
+    fn verify_target_camera_added_to_node(
+        trigger: Trigger<OnInsert, UiTargetCamera>,
+        nodes: Query<&Node>,
+    ) {
+        if !nodes.contains(trigger.target()) {
+            tracing::warn!(
+                "`UiTargetCamera` was inserted to entity without `Node`, {}",
+                TARGET_CAMERA_WARNING
+            );
+        }
+    }
+
+    fn verify_node_removed_from_target_camera(
+        trigger: Trigger<OnRemove, Node>,
+        target_cameras: Query<&UiTargetCamera>,
+    ) {
+        if target_cameras.contains(trigger.target()) {
+            tracing::warn!(
+                "`Node` was removed from entity with `UiTargetCamera`, {}",
+                TARGET_CAMERA_WARNING
+            );
+        }
+    }
+
+    fn verify_render_layer_inserted_to_node(
+        trigger: Trigger<OnInsert, RenderLayers>,
+        nodes: Query<&Node>,
+    ) {
+        if nodes.contains(trigger.target()) {
+            tracing::warn!(
+                "`RenderLayers` was inserted to entity with `Node`, {}",
+                RENDER_LAYERS_WARNING
+            );
+        }
+    }
+
+    fn verify_node_inserted_to_render_layers(
+        trigger: Trigger<OnInsert, Node>,
+        render_layers: Query<&RenderLayers>,
+    ) {
+        if render_layers.contains(trigger.target()) {
+            tracing::warn!(
+                "`Node` was inserted to entity with `RenderLayers`, {}",
+                RENDER_LAYERS_WARNING
+            );
+        }
+    }
+}
