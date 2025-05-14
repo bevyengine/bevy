@@ -2,16 +2,7 @@ use bevy_color::LinearRgba;
 use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
 
 use super::{
-    BeginPipelineStatisticsQueryParameter, ClearTextureParameter, CopyTextureToTextureParameter,
-    DrawIndexedIndirectParameter, DrawIndexedParameter, DrawIndirectParameter, DrawParameter,
-    EndPipelineStatisticsQueryParameter, FrameGraphBuffer, FrameGraphError,
-    InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
-    MultiDrawIndexedIndirectParameter, MultiDrawIndirectParameter, PopDebugGroupParameter,
-    PushDebugGroupParameter, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter,
-    SetBlendConstantParameter, SetIndexBufferParameter, SetPushConstantsParameter,
-    SetRawBindGroupParameter, SetRenderPipelineParameter, SetScissorRectParameter,
-    SetStencilReferenceParameter, SetVertexBufferParameter, SetViewportParameter,
-    WriteTimestampParameter,
+    BeginPipelineStatisticsQueryParameter, ClearBufferParameter, ClearTextureParameter, CopyTextureToTextureParameter, DrawIndexedIndirectParameter, DrawIndexedParameter, DrawIndirectParameter, DrawParameter, EndPipelineStatisticsQueryParameter, FrameGraphBuffer, FrameGraphError, InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter, MultiDrawIndexedIndirectParameter, MultiDrawIndirectParameter, PopDebugGroupParameter, PushDebugGroupParameter, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter, SetBlendConstantParameter, SetIndexBufferParameter, SetPushConstantsParameter, SetRawBindGroupParameter, SetRenderPipelineParameter, SetScissorRectParameter, SetStencilReferenceParameter, SetVertexBufferParameter, SetViewportParameter, WriteTimestampParameter
 };
 use crate::{
     frame_graph::{
@@ -24,6 +15,19 @@ use std::ops::Deref;
 
 pub trait RenderPassCommandBuilder {
     fn add_render_pass_command(&mut self, value: RenderPassCommand);
+
+    fn clear_buffer(
+        &mut self,
+        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        offset: u64,
+        size: Option<u64>,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(ClearBufferParameter {
+            buffer_ref: buffer_ref.clone(),
+            offset,
+            size,
+        }));
+    }
 
     fn clear_texture(
         &mut self,
@@ -318,6 +322,20 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         }
     }
 
+    pub fn clear_buffer(
+        &mut self,
+        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        offset: u64,
+        size: Option<u64>,
+    ) -> Result<(), FrameGraphError> {
+        let buffer = self.render_context.get_resource(&buffer_ref)?;
+
+        self.command_encoder
+            .clear_buffer(&buffer.resource, offset, size);
+
+        Ok(())
+    }
+
     pub fn clear_texture(
         &mut self,
         texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
@@ -401,6 +419,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         self.render_pass
             .set_viewport(x, y, width, height, min_depth, max_depth);
     }
+
     pub fn set_push_constants(&mut self, stages: ShaderStages, offset: u32, data: &[u8]) {
         self.render_pass.set_push_constants(stages, offset, data);
     }

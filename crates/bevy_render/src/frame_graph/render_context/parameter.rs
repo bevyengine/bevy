@@ -29,6 +29,36 @@ impl ErasedComputePassCommand for DispatchWorkgroupsParameter {
     }
 }
 
+pub struct ClearBufferParameter {
+    pub buffer_ref: ResourceRef<FrameGraphBuffer, ResourceWrite>,
+    pub offset: u64,
+    pub size: Option<u64>,
+}
+
+impl ErasedRenderPassCommand for ClearBufferParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+        render_pass_context.clear_buffer(&self.buffer_ref, self.offset, self.size)?;
+        Ok(())
+    }
+}
+
+impl ErasedComputePassCommand for ClearBufferParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.clear_buffer(&self.buffer_ref, self.offset, self.size)?;
+        Ok(())
+    }
+}
+
+impl ErasedEncoderPassCommand for ClearBufferParameter {
+    fn draw(
+        &self,
+        command_encoder_context: &mut EncoderPassContext,
+    ) -> Result<(), FrameGraphError> {
+        command_encoder_context.clear_buffer(&self.buffer_ref, self.offset, self.size)?;
+        Ok(())
+    }
+}
+
 pub struct ClearTextureParameter {
     pub texture_ref: ResourceRef<FrameGraphTexture, ResourceWrite>,
     pub subresource_range: ImageSubresourceRange,
@@ -87,12 +117,28 @@ impl ErasedRenderPassCommand for CopyTextureToTextureParameter {
 }
 
 impl ErasedEncoderPassCommand for CopyTextureToTextureParameter {
-    fn draw(&self, command_encoder_context: &mut EncoderPassContext) -> Result<(), FrameGraphError> {
+    fn draw(
+        &self,
+        command_encoder_context: &mut EncoderPassContext,
+    ) -> Result<(), FrameGraphError> {
         command_encoder_context.copy_texture_to_texture(
             self.source.clone(),
             self.destination.clone(),
             self.copy_size.clone(),
         )?;
+        Ok(())
+    }
+}
+
+pub struct DispatchWorkgroupsIndirectParameter {
+    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_offset: u64,
+}
+
+impl ErasedComputePassCommand for DispatchWorkgroupsIndirectParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context
+            .dispatch_workgroups_indirect(&self.indirect_buffer_ref, self.indirect_offset)?;
         Ok(())
     }
 }
@@ -201,6 +247,18 @@ pub struct SetPushConstantsParameter {
     pub stages: ShaderStages,
     pub offset: u32,
     pub data: Vec<u8>,
+}
+
+pub struct SetPushConstantsComputeParameter {
+    pub offset: u32,
+    pub data: Vec<u8>,
+}
+
+impl ErasedComputePassCommand for SetPushConstantsComputeParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
+        compute_pass_context.set_push_constants(self.offset, &self.data);
+        Ok(())
+    }
 }
 
 impl ErasedRenderPassCommand for SetPushConstantsParameter {

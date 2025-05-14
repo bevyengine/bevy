@@ -1,14 +1,29 @@
 use wgpu::{Extent3d, ImageSubresourceRange};
 
 use crate::frame_graph::{
-    FrameGraphError, FrameGraphTexture, ResourceRead, ResourceRef, ResourceWrite,
+    FrameGraphBuffer, FrameGraphError, FrameGraphTexture, ResourceRead, ResourceRef, ResourceWrite,
     TexelCopyTextureInfo,
 };
 
-use super::{ClearTextureParameter, CopyTextureToTextureParameter, RenderContext};
+use super::{
+    ClearBufferParameter, ClearTextureParameter, CopyTextureToTextureParameter, RenderContext,
+};
 
 pub trait EncoderPassCommandBuilder {
     fn add_encoder_pass_command(&mut self, value: EncoderPassCommand);
+
+    fn clear_buffer(
+        &mut self,
+        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        offset: u64,
+        size: Option<u64>,
+    ) {
+        self.add_encoder_pass_command(EncoderPassCommand::new(ClearBufferParameter {
+            buffer_ref: buffer_ref.clone(),
+            offset,
+            size,
+        }));
+    }
 
     fn clear_texture(
         &mut self,
@@ -61,6 +76,20 @@ pub struct EncoderPassContext<'a, 'b> {
 }
 
 impl<'a, 'b> EncoderPassContext<'a, 'b> {
+    pub fn clear_buffer(
+        &mut self,
+        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        offset: u64,
+        size: Option<u64>,
+    ) -> Result<(), FrameGraphError> {
+        let buffer = self.render_context.get_resource(&buffer_ref)?;
+
+        self.command_encoder
+            .clear_buffer(&buffer.resource, offset, size);
+
+        Ok(())
+    }
+
     pub fn clear_texture(
         &mut self,
         texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,

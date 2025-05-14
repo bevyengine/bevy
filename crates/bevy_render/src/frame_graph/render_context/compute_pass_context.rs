@@ -1,16 +1,17 @@
-use wgpu::{Extent3d, ImageSubresourceRange, QuerySet};
+use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
 
 use super::{
-    BeginPipelineStatisticsQueryParameter, ClearTextureParameter, CopyTextureToTextureParameter,
+    BeginPipelineStatisticsQueryParameter, ClearBufferParameter, ClearTextureParameter,
+    CopyTextureToTextureParameter, DispatchWorkgroupsIndirectParameter,
     DispatchWorkgroupsParameter, EndPipelineStatisticsQueryParameter, FrameGraphError,
     InsertDebugMarkerParameter, PopDebugGroupParameter, PushDebugGroupParameter, RenderContext,
-    SetBindGroupParameter, SetComputePipelineParameter, SetRawBindGroupParameter,
-    WriteTimestampParameter,
+    SetBindGroupParameter, SetComputePipelineParameter, SetPushConstantsComputeParameter,
+    SetRawBindGroupParameter, WriteTimestampParameter,
 };
 use crate::{
     frame_graph::{
-        BindGroupDrawing, FrameGraphTexture, ResourceDrawing, ResourceRead, ResourceRef,
-        ResourceWrite, TexelCopyTextureInfo,
+        BindGroupDrawing, FrameGraphBuffer, FrameGraphTexture, ResourceDrawing, ResourceRead,
+        ResourceRef, ResourceWrite, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedComputePipelineId},
 };
@@ -18,6 +19,39 @@ use std::ops::Deref;
 
 pub trait ComputePassCommandBuilder {
     fn add_compute_pass_command(&mut self, value: ComputePassCommand);
+
+    fn clear_buffer(
+        &mut self,
+        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        offset: u64,
+        size: Option<u64>,
+    ) {
+        self.add_compute_pass_command(ComputePassCommand::new(ClearBufferParameter {
+            buffer_ref: buffer_ref.clone(),
+            offset,
+            size,
+        }));
+    }
+
+    fn dispatch_workgroups_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+    ) {
+        self.add_compute_pass_command(ComputePassCommand::new(
+            DispatchWorkgroupsIndirectParameter {
+                indirect_buffer_ref: indirect_buffer_ref.clone(),
+                indirect_offset,
+            },
+        ));
+    }
+
+    fn set_push_constants(&mut self, offset: u32, data: &[u8]) {
+        self.add_compute_pass_command(ComputePassCommand::new(SetPushConstantsComputeParameter {
+            offset,
+            data: data.to_vec(),
+        }));
+    }
 
     fn clear_texture(
         &mut self,
@@ -144,6 +178,37 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
             compute_pass,
             render_context,
         }
+    }
+
+    pub fn clear_buffer(
+        &mut self,
+        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        offset: u64,
+        size: Option<u64>,
+    ) -> Result<(), FrameGraphError> {
+        let buffer = self.render_context.get_resource(&buffer_ref)?;
+
+        self.command_encoder
+            .clear_buffer(&buffer.resource, offset, size);
+
+        Ok(())
+    }
+
+    pub fn dispatch_workgroups_indirect(
+        &mut self,
+        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_offset: u64,
+    ) -> Result<(), FrameGraphError> {
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+
+        self.compute_pass
+            .dispatch_workgroups_indirect(&indirect_buffer.resource, indirect_offset);
+
+        Ok(())
+    }
+
+    pub fn set_push_constants(&mut self, offset: u32, data: &[u8]) {
+        self.compute_pass.set_push_constants(offset, data);
     }
 
     pub fn clear_texture(

@@ -17,6 +17,10 @@ impl ComputePass {
         !self.commands.is_empty()
     }
 
+    pub fn set_pass_name(&mut self, name: &str) {
+        self.compute_pass.label = Some(name.to_string().into());
+    }
+
     pub fn finish(&mut self) {}
 }
 

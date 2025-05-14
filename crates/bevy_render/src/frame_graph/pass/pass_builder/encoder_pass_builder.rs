@@ -3,10 +3,10 @@ use std::mem::take;
 use tracing::warn;
 use wgpu::{Extent3d, ImageSubresourceRange};
 
-use crate::frame_graph::{
-    EncoderPass, EncoderPassCommandBuilder, FrameGraphTexture, ResourceRead, ResourceRef,
-    ResourceWrite, TexelCopyTextureInfo,
-};
+use crate::{frame_graph::{
+    EncoderPass, EncoderPassCommandBuilder, FrameGraphBuffer, FrameGraphTexture, ResourceRead,
+    ResourceRef, ResourceWrite, TexelCopyTextureInfo,
+}, render_resource::Buffer};
 
 use super::PassBuilder;
 
@@ -31,6 +31,13 @@ impl<'a, 'b> EncoderPassBuilder<'a, 'b> {
         }
     }
 
+    pub fn import_and_write_buffer(
+        &mut self,
+        buffer: &Buffer,
+    ) -> ResourceRef<FrameGraphBuffer, ResourceWrite> {
+        self.pass_builder.write_material(buffer)
+    }
+
     pub fn copy_texture_to_texture(
         &mut self,
         source: TexelCopyTextureInfo<ResourceRead>,
@@ -50,6 +57,17 @@ impl<'a, 'b> EncoderPassBuilder<'a, 'b> {
     ) -> &mut Self {
         self.encoder_pass
             .clear_texture(texture_ref, subresource_range);
+
+        self
+    }
+
+    pub fn clear_buffer(
+        &mut self,
+        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        offset: u64,
+        size: Option<u64>,
+    ) -> &mut Self {
+        self.encoder_pass.clear_buffer(buffer_ref, offset, size);
 
         self
     }
