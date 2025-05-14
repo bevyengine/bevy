@@ -323,8 +323,6 @@ mod tests {
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
         entity::Entity,
         fragmenting_value::{FragmentingValue, FragmentingValueVtable},
-        query::With,
-        system::{Query, RunSystemOnce},
         world::World,
     };
     use alloc::boxed::Box;
@@ -467,101 +465,6 @@ mod tests {
             .entity([entities[0], entities[3]])
             .map(|e| e.archetype().id());
         assert_eq!(id1, id4);
-    }
-
-    #[test]
-    fn query_fragmenting_components() {
-        let mut world = World::default();
-        _ = world.spawn_batch([
-            Fragmenting(1),
-            Fragmenting(2),
-            Fragmenting(1),
-            Fragmenting(3),
-            Fragmenting(1),
-        ]);
-
-        fn system_fragmenting_all(q: Query<&Fragmenting>) {
-            assert_eq!(q.iter().len(), 5);
-        }
-
-        fn system_fragmenting_1(q: Query<&Fragmenting>) {
-            assert_eq!(
-                q.filter_by_component_value(&Fragmenting(1))
-                    .query()
-                    .iter()
-                    .len(),
-                3
-            );
-        }
-
-        fn system_fragmenting_2(q: Query<&Fragmenting>) {
-            assert_eq!(
-                q.filter_by_component_value(&Fragmenting(2))
-                    .query()
-                    .iter()
-                    .len(),
-                1
-            );
-        }
-
-        fn system_fragmenting_3(q: Query<&Fragmenting>) {
-            assert_eq!(
-                q.filter_by_component_value(&Fragmenting(3))
-                    .query()
-                    .iter()
-                    .len(),
-                1
-            );
-        }
-
-        fn system_fragmenting_1_with_filter(q: Query<Entity, With<Fragmenting>>) {
-            assert_eq!(
-                q.filter_by_component_value(&Fragmenting(1))
-                    .query()
-                    .iter()
-                    .len(),
-                3
-            );
-        }
-
-        world.run_system_once(system_fragmenting_all).unwrap();
-        world.run_system_once(system_fragmenting_1).unwrap();
-        world.run_system_once(system_fragmenting_2).unwrap();
-        world.run_system_once(system_fragmenting_3).unwrap();
-        world
-            .run_system_once(system_fragmenting_1_with_filter)
-            .unwrap();
-    }
-
-    #[test]
-    fn query_fragmenting_components_multiple() {
-        #[derive(Component, Clone, Eq, PartialEq, Hash)]
-        #[component(
-            key=Self,
-            storage="SparseSet", 
-            immutable,
-        )]
-        struct Fragmenting2(u32);
-
-        let mut world = World::default();
-        _ = world.spawn_batch([
-            (Fragmenting(1), Fragmenting2(2)),
-            (Fragmenting(1), Fragmenting2(1)),
-            (Fragmenting(1), Fragmenting2(2)),
-        ]);
-
-        fn system_fragmenting(q: Query<(&Fragmenting, &Fragmenting2)>) {
-            let len = q
-                .filter_by_component_value(&Fragmenting(1))
-                .query()
-                .filter_by_component_value(&Fragmenting2(2))
-                .query()
-                .iter()
-                .len();
-            assert_eq!(len, 2);
-        }
-
-        world.run_system_once(system_fragmenting).unwrap();
     }
 
     #[test]

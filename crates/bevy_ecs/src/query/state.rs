@@ -1,9 +1,8 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId, Archetypes},
-    component::{ComponentId, Components, Tick},
+    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    component::{ComponentId, Tick},
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
-    fragmenting_value::FragmentingValue,
     prelude::FromWorld,
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
     storage::{SparseSetIndex, TableId},
@@ -1655,133 +1654,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 .iter_many_unique_inner(remainder)
                 .fold(accum, &mut func);
         });
-    }
-
-    fn clone_state(&self, components: &Components) -> QueryState<D, F> {
-        // This should always succeed since original query exists.
-        let fetch_state = D::get_state(components).unwrap();
-        let filter_state = F::get_state(components).unwrap();
-
-        QueryState {
-            world_id: self.world_id,
-            archetype_generation: self.archetype_generation,
-            matched_storage_ids: self.matched_storage_ids.clone(),
-            is_dense: self.is_dense,
-            fetch_state,
-            filter_state,
-            component_access: self.component_access.clone(),
-            matched_tables: self.matched_tables.clone(),
-            matched_archetypes: self.matched_archetypes.clone(),
-            #[cfg(feature = "trace")]
-            par_iter_span: self.par_iter_span.clone(),
-        }
-    }
-
-    fn filter_by_component_id_and_value_internal(
-        &self,
-        archetypes: &Archetypes,
-        component_id: ComponentId,
-        value_component: &dyn FragmentingValue,
-        fetch_state: D::State,
-        filter_state: F::State,
-    ) -> QueryState<D, F> {
-        let mut matched_archetypes = FixedBitSet::with_capacity(self.matched_archetypes.len());
-        let mut matched_storage_ids = Vec::with_capacity(self.matched_storage_ids.len());
-
-        for archetype_id in self.matched_archetypes() {
-            let archetype = &archetypes[archetype_id];
-            let mut add_archetype = || {
-                matched_archetypes.insert(archetype_id.index());
-                matched_storage_ids.push(StorageId { archetype_id });
-            };
-            if !archetype.has_fragmenting_values() {
-                add_archetype();
-                continue;
-            }
-            let Some(archetype_value_component) = archetype.get_value_component(component_id)
-            else {
-                add_archetype();
-                continue;
-            };
-            if value_component == archetype_value_component {
-                add_archetype();
-            }
-        }
-
-        QueryState {
-            world_id: self.world_id,
-            archetype_generation: self.archetype_generation,
-            matched_storage_ids,
-            is_dense: self.is_dense,
-            fetch_state,
-            filter_state,
-            component_access: self.component_access.clone(),
-            matched_tables: self.matched_tables.clone(),
-            matched_archetypes,
-            #[cfg(feature = "trace")]
-            par_iter_span: self.par_iter_span.clone(),
-        }
-    }
-
-    pub(crate) fn filter_by_component_id_and_value<'a>(
-        &self,
-        world: impl Into<UnsafeWorldCell<'a>>,
-        component_id: ComponentId,
-        value_component: &dyn FragmentingValue,
-    ) -> QueryState<D, F> {
-        let world = world.into();
-        self.validate_world(world.id());
-
-        // This filter only works for archetypal queries.
-        if self.is_dense {
-            return self.clone_state(world.components());
-        }
-
-        // This should always succeed since original query exists.
-        let fetch_state = D::get_state(world.components()).unwrap();
-        let filter_state = F::get_state(world.components()).unwrap();
-
-        self.filter_by_component_id_and_value_internal(
-            world.archetypes(),
-            component_id,
-            value_component,
-            fetch_state,
-            filter_state,
-        )
-    }
-
-    pub(crate) fn filter_by_component_value<'a, C: FragmentingValue>(
-        &self,
-        world: impl Into<UnsafeWorldCell<'a>>,
-        value_component: &C,
-    ) -> QueryState<D, F> {
-        let world = world.into();
-        self.validate_world(world.id());
-
-        // This filter only works for archetypal queries.
-        if self.is_dense {
-            return self.clone_state(world.components());
-        }
-
-        let Some(component_id) = world.components().get_id(value_component.type_id()) else {
-            warn!(
-                "Value component {} is not registered, filtering by its value will do nothing.",
-                disqualified::ShortName::of::<C>()
-            );
-            return self.clone_state(world.components());
-        };
-
-        // This should always succeed since original query exists.
-        let fetch_state = D::get_state(world.components()).unwrap();
-        let filter_state = F::get_state(world.components()).unwrap();
-
-        self.filter_by_component_id_and_value_internal(
-            world.archetypes(),
-            component_id,
-            value_component,
-            fetch_state,
-            filter_state,
-        )
     }
 }
 

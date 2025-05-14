@@ -1,8 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
-    component::{ComponentId, Tick},
+    component::Tick,
     entity::{Entity, EntityDoesNotExistError, EntityEquivalent, EntitySet, UniqueEntityArray},
-    fragmenting_value::FragmentingValue,
     query::{
         DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
         QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
@@ -2434,47 +2433,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         let state = self
             .state
             .join_filtered::<OtherD, OtherF, NewD, NewF>(self.world, other.state);
-        QueryLens {
-            world: self.world,
-            state,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        }
-    }
-
-    /// Filter this query based on fragmenting value component's value. This will create a [`QueryLens`] that will
-    /// run on archetypes that contain that specific component value.
-    ///
-    /// Archetypes that don't have fragmenting component will **not** be filtered out, this action will only filter
-    /// archetypes that contain this specific component. It is possible to chain this method to filter out by multiple component values.
-    pub fn filter_by_component_value<C: FragmentingValue>(
-        self,
-        value_component: &C,
-    ) -> QueryLens<'w, D, F> {
-        let state = self
-            .state
-            .filter_by_component_value(self.world, value_component);
-        QueryLens {
-            world: self.world,
-            state,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        }
-    }
-
-    /// Filter this query based on fragmenting value component's value and id. This will create a [`QueryLens`] that will
-    /// run on archetypes that contain that specific component value.
-    ///
-    /// Archetypes that don't have fragmenting component will **not** be filtered out, this action will only filter
-    /// archetypes that contain this specific component. It is possible to chain this method to filter out by multiple component values.
-    pub fn filter_by_component_id_and_value(
-        self,
-        component_id: ComponentId,
-        value_component: &dyn FragmentingValue,
-    ) -> QueryLens<'w, D, F> {
-        let state =
-            self.state
-                .filter_by_component_id_and_value(self.world, component_id, value_component);
         QueryLens {
             world: self.world,
             state,
