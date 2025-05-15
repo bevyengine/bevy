@@ -8,21 +8,21 @@ use super::{
 };
 
 #[derive(Default)]
-pub struct RenderPassDrawing {
+pub struct RenderPassInfo {
     pub label: Option<Cow<'static, str>>,
     pub color_attachments: Vec<Option<ColorAttachment>>,
     pub depth_stencil_attachment: Option<DepthStencilAttachment>,
     pub raw_color_attachments: Vec<Option<ColorAttachmentOwner>>,
 }
 
-pub struct RenderPassInfo {
+pub struct RenderPassInfoOwner {
     pub label: Option<Cow<'static, str>>,
     pub color_attachments: Vec<Option<ColorAttachmentOwner>>,
     pub depth_stencil_attachment: Option<DepthStencilAttachmentOwner>,
 }
 
-impl ResourceBinding for RenderPassDrawing {
-    type Resource = RenderPassInfo;
+impl ResourceBinding for RenderPassInfo {
+    type Resource = RenderPassInfoOwner;
 
     fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource {
         let mut color_attachments = self.raw_color_attachments.clone();
@@ -47,7 +47,7 @@ impl ResourceBinding for RenderPassDrawing {
                 Some(depth_stencil_attachment_blue_print.make_resource(render_context));
         }
 
-        RenderPassInfo {
+        RenderPassInfoOwner {
             label: self.label.clone(),
             color_attachments,
             depth_stencil_attachment,
@@ -55,7 +55,7 @@ impl ResourceBinding for RenderPassDrawing {
     }
 }
 
-impl RenderPassInfo {
+impl RenderPassInfoOwner {
     pub fn create_render_pass(
         &self,
         command_encoder: &mut wgpu::CommandEncoder,

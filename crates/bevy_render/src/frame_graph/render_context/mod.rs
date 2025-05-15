@@ -13,8 +13,8 @@ pub use render_pass_context::*;
 use wgpu::{AdapterInfo, CommandEncoder};
 
 use super::{
-    ComputePassInfo, FrameGraphBuffer, GraphResource, RenderPassInfo, ResourceRead, ResourceRef,
-    ResourceTable, ResourceView, TransientResourceCache,
+    ComputePassInfo, FrameGraphBuffer, GraphResource, RenderPassInfoOwner, ResourceRead,
+    ResourceRef, ResourceTable, ResourceView, TransientResourceCache,
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
@@ -94,7 +94,7 @@ impl<'a> RenderContext<'a> {
     pub fn begin_render_pass<'b>(
         &'b mut self,
         command_encoder: &'b mut CommandEncoder,
-        render_pass_info: &RenderPassInfo,
+        render_pass_info: &RenderPassInfoOwner,
     ) -> RenderPassContext<'a, 'b> {
         let render_pass = render_pass_info.create_render_pass(command_encoder);
 

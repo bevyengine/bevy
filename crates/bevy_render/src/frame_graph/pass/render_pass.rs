@@ -6,7 +6,7 @@ use crate::{
     camera::Viewport,
     frame_graph::{
         ColorAttachment, ColorAttachmentOwner, DepthStencilAttachment, RenderContext,
-        RenderPassCommand, RenderPassCommandBuilder, RenderPassDrawing, ResourceBinding,
+        RenderPassCommand, RenderPassCommandBuilder, RenderPassInfo, ResourceBinding,
     },
 };
 
@@ -20,7 +20,7 @@ pub struct RenderPass {
 
 #[derive(Default)]
 pub struct LogicRenderPass {
-    render_pass_drawing: RenderPassDrawing,
+    render_pass_drawing: RenderPassInfo,
     commands: Vec<RenderPassCommand>,
     vaild: bool,
 }
