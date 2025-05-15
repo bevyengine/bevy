@@ -10,11 +10,12 @@ use super::EncoderExecutor;
 pub struct ComputePass {
     compute_pass: ComputePassInfo,
     commands: Vec<ComputePassCommand>,
+    vaild: bool,
 }
 
 impl ComputePass {
     pub fn is_vaild(&self) -> bool {
-        !self.commands.is_empty()
+        self.vaild
     }
 
     pub fn pass_name(&self) -> Option<&str> {
@@ -23,6 +24,7 @@ impl ComputePass {
 
     pub fn set_pass_name(&mut self, name: &str) {
         self.compute_pass.label = Some(name.to_string().into());
+        self.vaild = true;
     }
 
     pub fn finish(&mut self) {}
