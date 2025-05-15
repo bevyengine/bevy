@@ -8,7 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::{DepthStencilAttachmentDrawing, FrameGraph, TextureView, TextureViewInfo},
+    frame_graph::{DepthStencilAttachment, FrameGraph, TextureView, TextureViewInfo},
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
@@ -103,7 +103,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         pass_builder
             .create_render_pass_builder()
             .set_pass_name("copy_deferred_lighting_id_pass")
-            .set_depth_stencil_attachment(DepthStencilAttachmentDrawing {
+            .set_depth_stencil_attachment(DepthStencilAttachment {
                 view: TextureView {
                     texture: deferred_lighting_id_depth_texture,
                     desc: TextureViewInfo::default(),

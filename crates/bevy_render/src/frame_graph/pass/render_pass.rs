@@ -5,7 +5,7 @@ use wgpu::CommandEncoder;
 use crate::{
     camera::Viewport,
     frame_graph::{
-        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachmentDrawing, RenderContext,
+        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachment, RenderContext,
         RenderPassCommand, RenderPassCommandBuilder, RenderPassDrawing, ResourceBinding,
     },
 };
@@ -61,7 +61,7 @@ impl RenderPass {
 
     pub fn set_depth_stencil_attachment(
         &mut self,
-        depth_stencil_attachment: DepthStencilAttachmentDrawing,
+        depth_stencil_attachment: DepthStencilAttachment,
     ) {
         self.current_logic_render_pass
             .render_pass_drawing

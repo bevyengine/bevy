@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::frame_graph::RenderContext;
 
 use super::{
-    ColorAttachment, ColorAttachmentOwner, DepthStencilAttachment, DepthStencilAttachmentDrawing,
+    ColorAttachment, ColorAttachmentOwner, DepthStencilAttachment, DepthStencilAttachmentOwner,
     ResourceBinding,
 };
 
@@ -11,14 +11,14 @@ use super::{
 pub struct RenderPassDrawing {
     pub label: Option<Cow<'static, str>>,
     pub color_attachments: Vec<Option<ColorAttachment>>,
-    pub depth_stencil_attachment: Option<DepthStencilAttachmentDrawing>,
+    pub depth_stencil_attachment: Option<DepthStencilAttachment>,
     pub raw_color_attachments: Vec<Option<ColorAttachmentOwner>>,
 }
 
 pub struct RenderPassInfo {
     pub label: Option<Cow<'static, str>>,
     pub color_attachments: Vec<Option<ColorAttachmentOwner>>,
-    pub depth_stencil_attachment: Option<DepthStencilAttachment>,
+    pub depth_stencil_attachment: Option<DepthStencilAttachmentOwner>,
 }
 
 impl ResourceBinding for RenderPassDrawing {

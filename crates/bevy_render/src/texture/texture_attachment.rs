@@ -1,6 +1,6 @@
 use crate::{
     frame_graph::{
-        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachmentDrawing, FrameGraphTexture,
+        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachment, FrameGraphTexture,
         PassBuilder, ResourceMeta, TextureView, TextureViewInfo,
     },
     render_resource::{TextureFormat, TextureView as TextureViewResource},
@@ -137,14 +137,14 @@ impl DepthAttachmentHandle {
         &self,
         store: StoreOp,
         pass_builder: &mut PassBuilder,
-    ) -> DepthStencilAttachmentDrawing {
+    ) -> DepthStencilAttachment {
         let first_call = self
             .is_first_call
             .fetch_and(store != StoreOp::Store, Ordering::SeqCst);
 
         let texture = pass_builder.write_material(&self.texture);
 
-        DepthStencilAttachmentDrawing {
+        DepthStencilAttachment {
             view: TextureView {
                 texture,
                 desc: self.texture_view_info.clone(),

@@ -14,7 +14,7 @@ use crate::{
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     frame_graph::{
-        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachmentDrawing, FrameGraph,
+        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachment, FrameGraph,
         FrameGraphTexture, PassBuilder, ResourceMeta, TextureInfo, TextureView, TextureViewInfo,
     },
     prelude::Shader,
@@ -845,10 +845,10 @@ impl ViewDepthTexture {
         &self,
         pass_builder: &mut PassBuilder,
         store_op: StoreOp,
-    ) -> DepthStencilAttachmentDrawing {
+    ) -> DepthStencilAttachment {
         let texture = pass_builder.write_material(&self.texture);
 
-        DepthStencilAttachmentDrawing {
+        DepthStencilAttachment {
             view: TextureView {
                 texture,
                 desc: TextureViewInfo::default(),

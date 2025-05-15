@@ -8,7 +8,7 @@ use crate::{
     camera::Viewport,
     frame_graph::{
         BindGroupBinding, BindGroupHandle, ColorAttachment, ColorAttachmentOwner,
-        DepthStencilAttachmentDrawing, FrameGraphBuffer, RenderPass, RenderPassCommandBuilder,
+        DepthStencilAttachment, FrameGraphBuffer, RenderPass, RenderPassCommandBuilder,
         ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
     },
     render_resource::{BindGroup, CachedRenderPipelineId},
@@ -354,7 +354,7 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
 
     pub fn set_depth_stencil_attachment(
         &mut self,
-        depth_stencil_attachment: DepthStencilAttachmentDrawing,
+        depth_stencil_attachment: DepthStencilAttachment,
     ) -> &mut Self {
         self.render_pass
             .set_depth_stencil_attachment(depth_stencil_attachment);
