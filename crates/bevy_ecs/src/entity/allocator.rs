@@ -279,8 +279,8 @@ impl FreeBuffer {
     unsafe fn iter(&self, indices: core::ops::Range<u32>) -> FreeBufferIterator {
         FreeBufferIterator {
             buffer: self,
-            indices,
-            current: [].iter(),
+            future_buffer_indices: indices,
+            current_chunk_slice: [].iter(),
         }
     }
 }
@@ -302,9 +302,10 @@ impl Drop for FreeBuffer {
 /// [`FreeBuffer::set`] must have been called on these indices beforehand to initialize memory.
 struct FreeBufferIterator<'a> {
     buffer: &'a FreeBuffer,
-    /// The indices in the buffer that are not in `current` yet.
-    indices: core::ops::Range<u32>,
-    current: core::slice::Iter<'a, Slot>,
+    /// The part of the buffer we are iterating at the moment.
+    current_chunk_slice: core::slice::Iter<'a, Slot>,
+    /// The indices in the buffer that are not yet in `current_chunk_slice`.
+    future_buffer_indices: core::ops::Range<u32>,
 }
 
 impl<'a> Iterator for FreeBufferIterator<'a> {
@@ -312,28 +313,28 @@ impl<'a> Iterator for FreeBufferIterator<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(found) = self.current.next() {
+        if let Some(found) = self.current_chunk_slice.next() {
             return Some(found.get_entity());
         }
 
-        let still_need = self.indices.len() as u32;
-        let next_index = self.indices.next()?;
+        let still_need = self.future_buffer_indices.len() as u32;
+        let next_index = self.future_buffer_indices.next()?;
         let (chunk, index, chunk_capacity) = self.buffer.index_in_chunk(next_index);
 
         // SAFETY: Assured by constructor
         let slice = unsafe { chunk.get_slice(index, still_need, chunk_capacity) };
-        self.indices.start += slice.len() as u32;
-        self.current = slice.iter();
+        self.future_buffer_indices.start += slice.len() as u32;
+        self.current_chunk_slice = slice.iter();
 
         // SAFETY: Constructor ensures these indices are valid in the buffer; the buffer is not sparse, and we just got the next slice.
         // So the only way for the slice to be empty is if the constructor did not uphold safety.
-        let next = unsafe { self.current.next().debug_checked_unwrap() };
+        let next = unsafe { self.current_chunk_slice.next().debug_checked_unwrap() };
         Some(next.get_entity())
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.indices.len() + self.current.len();
+        let len = self.future_buffer_indices.len() + self.current_chunk_slice.len();
         (len, Some(len))
     }
 }
