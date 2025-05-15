@@ -435,6 +435,9 @@ impl FreeCount {
 
     /// Sets the state explicitly.
     /// Caller must be careful that the state has not changed since getting the state and setting it.
+    /// If that happens, the state may not properly reflect the length of the free list or its generation,
+    /// causing entities to be skipped or given out twice.
+    /// This is not a safety concern, but it is a major correctness concern.
     #[inline]
     fn set_state_risky(&self, state: FreeCountState, order: Ordering) {
         self.0.store(state.0, order);
