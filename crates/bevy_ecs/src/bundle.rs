@@ -802,6 +802,11 @@ impl BundleInfo {
         {
             return archetype_after_insert_id;
         }
+        let base_archetype_cached = archetypes[archetype_id]
+            .edges()
+            .get_archetype_after_bundle_insert_internal(self.id)
+            .map(|bundle| bundle.archetype_id);
+
         let mut new_table_components = Vec::new();
         let mut replaced_value_components = HashMap::new();
         let mut new_value_components = Vec::new();
@@ -855,7 +860,10 @@ impl BundleInfo {
             }
         }
 
-        if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
+        let base_archetype_id = if let Some(base_archetype_id) = base_archetype_cached {
+            // This path will be taken if bundle is already cached for the base archetype, but some value components are not.
+            base_archetype_id
+        } else if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
             // The archetype does not change when we insert this bundle.
             current_archetype
                 .edges_mut()
@@ -867,46 +875,12 @@ impl BundleInfo {
                     added,
                     existing,
                 );
-            if replaced_value_components.is_empty() {
-                return archetype_id;
-            }
-            // If any of the value components got replaced, this change should point to a new archetype
-            let table_id = current_archetype.table_id();
-            let table_components = current_archetype.table_components().collect();
-            let sparse_set_components = current_archetype.sparse_set_components().collect();
-            let archetype_value_components = current_archetype
-                .components_with_fragmenting_values()
-                .map(|(component_id, value)| {
-                    (
-                        component_id,
-                        replaced_value_components
-                            .get(&component_id)
-                            .copied()
-                            .unwrap_or(value),
-                    )
-                })
-                .collect();
-            let value_archetype_id = archetypes.get_id_or_insert(
-                components,
-                observers,
-                table_id,
-                table_components,
-                sparse_set_components,
-                archetype_value_components,
-            );
-            archetypes[archetype_id]
-                .edges_mut()
-                .cache_archetype_value_components_after_bundle_insert(
-                    self.id,
-                    value_components.to_owned(),
-                    value_archetype_id,
-                );
-            value_archetype_id
+
+            archetype_id
         } else {
             let table_id;
             let table_components;
             let sparse_set_components;
-            let archetype_value_components;
             // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
                 let current_archetype = &archetypes[archetype_id];
@@ -936,19 +910,6 @@ impl BundleInfo {
                     new_sparse_set_components.sort_unstable();
                     new_sparse_set_components
                 };
-
-                archetype_value_components = current_archetype
-                    .components_with_fragmenting_values()
-                    .map(|(component_id, value)| {
-                        (
-                            component_id,
-                            *replaced_value_components
-                                .get(&component_id)
-                                .unwrap_or(&value),
-                        )
-                    })
-                    .chain(new_value_components)
-                    .collect();
             };
             // This crates (or retrieves) "base" archetype (without value components). It should always exist for edges to point towards.
             // SAFETY: ids in self must be valid
@@ -972,28 +933,47 @@ impl BundleInfo {
                     existing,
                 );
 
-            if value_components.is_empty() {
-                return new_base_archetype_id;
-            }
+            new_base_archetype_id
+        };
 
-            let new_value_archetype_id = archetypes.get_id_or_insert(
+        if value_components.is_empty() {
+            base_archetype_id
+        } else {
+            // Cache new archetype based on the value components. This new archetype shares pretty much everything with the base archetype
+            // except for identity based on fragmenting values.
+            let current_archetype = &archetypes[base_archetype_id];
+            let table_id = current_archetype.table_id();
+            let table_components = current_archetype.table_components().collect();
+            let sparse_set_components = current_archetype.sparse_set_components().collect();
+            let fragmenting_value_components = current_archetype
+                .components_with_fragmenting_values()
+                .map(|(component_id, value)| {
+                    (
+                        component_id,
+                        replaced_value_components
+                            .get(&component_id)
+                            .copied()
+                            .unwrap_or(value),
+                    )
+                })
+                .chain(new_value_components)
+                .collect();
+            let value_archetype_id = archetypes.get_id_or_insert(
                 components,
                 observers,
                 table_id,
                 table_components,
                 sparse_set_components,
-                archetype_value_components,
+                fragmenting_value_components,
             );
-
             archetypes[archetype_id]
                 .edges_mut()
                 .cache_archetype_value_components_after_bundle_insert(
                     self.id,
                     value_components.to_owned(),
-                    new_value_archetype_id,
+                    value_archetype_id,
                 );
-
-            new_value_archetype_id
+            value_archetype_id
         }
     }
 

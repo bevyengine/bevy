@@ -135,8 +135,11 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
     /// Required Components.
     pub existing: Vec<ComponentId>,
-
-    pub by_value_archetype_id: HashMap<FragmentingValuesOwned, ArchetypeId>,
+    /// Maps this archetype to other component-identical archetypes based on [`FragmentingValue`]s of components.
+    /// All [`Archetype`]s this maps to differ only by their identity due to different [`FragmentingValuesOwned`], otherwise they're identical.
+    /// We need this map only when inserting bundles since when removing a fragmenting component all versions of the archetype will
+    /// point to the same archetype after transition.
+    pub fragmenting_values_map: HashMap<FragmentingValuesOwned, ArchetypeId>,
 }
 
 impl ArchetypeAfterBundleInsert {
@@ -221,7 +224,7 @@ impl Edges {
                 if value_components.is_empty() {
                     Some(bundle.archetype_id)
                 } else {
-                    bundle.by_value_archetype_id.get(value_components).copied()
+                    bundle.fragmenting_values_map.get(value_components).copied()
                 }
             })
     }
@@ -237,6 +240,9 @@ impl Edges {
     }
 
     /// Caches the target archetype when inserting a bundle into the source archetype.
+    ///
+    /// **NOTE**: to get the proper final archetype id use [`ArchetypeAfterBundleInsert::fragmenting_values_map`]
+    /// if there are any fragmenting value components present in the bundle.
     #[inline]
     pub(crate) fn cache_archetype_after_bundle_insert(
         &mut self,
@@ -255,11 +261,15 @@ impl Edges {
                 required_components,
                 added,
                 existing,
-                by_value_archetype_id: Default::default(),
+                fragmenting_values_map: Default::default(),
             },
         );
     }
 
+    /// Caches the target archetype for this combination of [`BundleId`] and [`FragmentingValuesOwned`].
+    ///
+    /// For this to work, first cache the target archetype for this `bundle_id` without any fragmenting values
+    /// using [`Self::cache_archetype_after_bundle_insert`] if not already present, and then run this function.
     pub(crate) fn cache_archetype_value_components_after_bundle_insert(
         &mut self,
         bundle_id: BundleId,
@@ -268,7 +278,7 @@ impl Edges {
     ) {
         if let Some(bundle) = self.insert_bundle.get_mut(bundle_id) {
             bundle
-                .by_value_archetype_id
+                .fragmenting_values_map
                 .insert(value_components, value_archetype_id);
         }
     }

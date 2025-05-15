@@ -354,6 +354,7 @@ mod tests {
     };
 
     use crate::{
+        archetype::ArchetypeId,
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
         entity::Entity,
         fragmenting_value::{DynamicFragmentingValue, FragmentingValue, FragmentingValueVtable},
@@ -678,5 +679,42 @@ mod tests {
 
         assert!(*value == *dynamic);
         assert!(*dynamic == *value);
+    }
+
+    #[test]
+    fn fragmenting_value_edges_cache_does_not_reset() {
+        let mut world = World::default();
+
+        let bundle_id = world.register_bundle::<Fragmenting>().id();
+        let get_keys = |world: &World, archetype_id: ArchetypeId| {
+            world.archetypes[archetype_id]
+                .edges()
+                .get_archetype_after_bundle_insert_internal(bundle_id)
+                .unwrap()
+                .fragmenting_values_map
+                .keys()
+                .len()
+        };
+
+        let empty_archetype = world.spawn_empty().archetype().id();
+
+        // Added components path
+        let entity = world.spawn(Fragmenting(1));
+        let fragmenting_archetype = entity.archetype().id();
+        assert_eq!(get_keys(&world, empty_archetype), 1);
+
+        world.spawn(Fragmenting(2));
+        assert_eq!(get_keys(&world, empty_archetype), 2);
+
+        // No new components path
+        let e1 = world.spawn(Fragmenting(1)).id();
+        world.entity_mut(e1).insert(Fragmenting(2));
+        assert_eq!(get_keys(&world, fragmenting_archetype), 1);
+
+        world
+            .entity_mut(e1)
+            .insert(Fragmenting(1))
+            .insert(Fragmenting(3));
+        assert_eq!(get_keys(&world, fragmenting_archetype), 2);
     }
 }
