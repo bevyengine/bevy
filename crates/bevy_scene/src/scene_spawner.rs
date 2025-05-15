@@ -79,6 +79,7 @@ pub struct SceneSpawner {
     scenes_to_despawn: Vec<AssetId<DynamicScene>>,
     instances_to_despawn: Vec<InstanceId>,
     scenes_with_parent: Vec<(InstanceId, Entity)>,
+    instances_ready: Vec<(InstanceId, Option<Entity>)>,
 }
 
 /// Errors that can occur when spawning a scene.
@@ -337,8 +338,9 @@ impl SceneSpawner {
                     // Scenes with parents need more setup before they are ready.
                     // See `set_scene_instance_parent_sync()`.
                     if parent.is_none() {
-                        // Defer via commands otherwise SceneSpawner is not available in the observer.
-                        world.commands().trigger(SceneInstanceReady { instance_id });
+                        // We trigger `SceneInstanceReady` events after processing all scenes
+                        // SceneSpawner may not be available in the observer.
+                        self.instances_ready.push((instance_id, None));
                     }
                 }
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
@@ -362,8 +364,9 @@ impl SceneSpawner {
                     // Scenes with parents need more setup before they are ready.
                     // See `set_scene_instance_parent_sync()`.
                     if parent.is_none() {
-                        // Defer via commands otherwise SceneSpawner is not available in the observer.
-                        world.commands().trigger(SceneInstanceReady { instance_id });
+                        // We trigger `SceneInstanceReady` events after processing all scenes
+                        // SceneSpawner may not be available in the observer.
+                        self.instances_ready.push((instance_id, None));
                     }
                 }
                 Err(SceneSpawnError::NonExistentRealScene { .. }) => {
@@ -398,12 +401,23 @@ impl SceneSpawner {
                     }
                 }
 
-                // Defer via commands otherwise SceneSpawner is not available in the observer.
+                // We trigger `SceneInstanceReady` events after processing all scenes
+                // SceneSpawner may not be available in the observer.
+                self.instances_ready.push((instance_id, Some(parent)));
+            } else {
+                self.scenes_with_parent.push((instance_id, parent));
+            }
+        }
+    }
+
+    fn trigger_scene_ready_events(&mut self, world: &mut World) {
+        for (instance_id, parent) in self.instances_ready.drain(..) {
+            if let Some(parent) = parent {
                 world
                     .commands()
                     .trigger_targets(SceneInstanceReady { instance_id }, parent);
             } else {
-                self.scenes_with_parent.push((instance_id, parent));
+                world.commands().trigger(SceneInstanceReady { instance_id });
             }
         }
     }
@@ -477,6 +491,7 @@ pub fn scene_spawner_system(world: &mut World) {
             .update_spawned_scenes(world, &updated_spawned_scenes)
             .unwrap();
         scene_spawner.set_scene_instance_parent_sync(world);
+        scene_spawner.trigger_scene_ready_events(world);
     });
 }
 
