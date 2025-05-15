@@ -874,12 +874,10 @@ impl approx::UlpsEq for Dir3A {
     derive(Reflect),
     reflect(Debug, PartialEq, Clone)
 )]
-
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-
 #[doc(alias = "Direction4d")]
 pub struct Dir4(Vec4);
 
@@ -1268,7 +1266,7 @@ mod tests {
 
         // We test that renormalizing an already normalized dir doesn't do anything
         assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
-        
+
         for _ in 0..50 {
             dir_a = rot3 * dir_a;
             dir_b = rot3 * dir_b;
