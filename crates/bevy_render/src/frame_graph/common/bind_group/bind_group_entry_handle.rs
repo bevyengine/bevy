@@ -11,8 +11,8 @@ use crate::{
 };
 
 use super::{
-    BindGroupEntryBinding, BindingResourceBufferRef, BindingResourceHelper, BindingResourceRef,
-    BindingResourceTextureViewRef, IntoBindingResourceRef,
+    BindGroupEntryBinding, BindGroupResourceBinding, BindingResourceBuffer, BindingResourceHelper,
+    BindingResourceTextureView, IntoBindGroupResourceBinding,
 };
 
 #[derive(Clone)]
@@ -23,7 +23,9 @@ pub struct BindGroupEntryHandle {
 
 impl BindGroupEntryHandle {
     pub fn get_ref(&self, pass_node_builder: &mut PassNodeBuilder) -> BindGroupEntryBinding {
-        let resource = self.resource.make_binding_resource_ref(pass_node_builder);
+        let resource = self
+            .resource
+            .make_binding_resource_binding(pass_node_builder);
 
         BindGroupEntryBinding {
             binding: self.binding,
@@ -53,38 +55,39 @@ pub struct BindingResourceTextureViewHandle {
 }
 
 impl BindingResourceHelper for BindingResourceHandle {
-    fn make_binding_resource_ref(
+    fn make_binding_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> BindingResourceRef {
+    ) -> BindGroupResourceBinding {
         match &self {
             BindingResourceHandle::Buffer(handle) => {
                 let buffer = pass_node_builder.read(handle.buffer.clone());
-                BindingResourceBufferRef {
+                BindingResourceBuffer {
                     buffer,
                     size: handle.size,
                 }
                 .into_binding()
             }
-            BindingResourceHandle::Sampler(info) => BindingResourceRef::Sampler(info.clone()),
+            BindingResourceHandle::Sampler(info) => BindGroupResourceBinding::Sampler(info.clone()),
             BindingResourceHandle::TextureView(handle) => {
                 let texture = pass_node_builder.read(handle.texture.clone());
-                BindingResourceRef::TextureView {
+
+                BindGroupResourceBinding::TextureView(BindingResourceTextureView {
                     texture,
                     texture_view_info: handle.texture_view_info.clone(),
-                }
+                })
             }
             BindingResourceHandle::TextureViewArray(handles) => {
                 let mut target = vec![];
                 for handle in handles.iter() {
                     let texture = pass_node_builder.read(handle.texture.clone());
-                    target.push(BindingResourceTextureViewRef {
+                    target.push(BindingResourceTextureView {
                         texture,
                         texture_view_info: handle.texture_view_info.clone(),
                     });
                 }
 
-                BindingResourceRef::TextureViewArray(target)
+                BindGroupResourceBinding::TextureViewArray(target)
             }
         }
     }

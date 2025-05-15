@@ -19,8 +19,8 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
     frame_graph::{
-        BindingResourceRef, ColorAttachmentDrawing, EncoderCommandBuilder, FrameGraph,
-        FrameGraphTexture, ResourceMeta, TextureInfo, TextureViewDrawing, TextureViewInfo,
+        ColorAttachmentDrawing, EncoderCommandBuilder, FrameGraph, FrameGraphTexture, ResourceMeta,
+        TextureInfo, TextureViewDrawing, TextureViewInfo,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
@@ -198,10 +198,10 @@ impl ViewNode for BloomNode {
                     Some("bloom_downsampling_bind_group".into()),
                     downsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_resource_ref(BindingResourceRef::TextureView {
-                    texture: bind_group_bloom_texture_read.clone(),
-                    texture_view_info: bloom_texture.get_texture_view_info(bind_group_mip),
-                })
+                .push_bind_resource((
+                    &bind_group_bloom_texture_read,
+                    &bloom_texture.get_texture_view_info(bind_group_mip),
+                ))
                 .push_bind_group_handle(&downsampling_pipeline_res.sampler)
                 .push_bind_group_entry(&uniforms_binding)
                 .build();
@@ -237,10 +237,10 @@ impl ViewNode for BloomNode {
                     Some("bloom_upsampling_bind_group".into()),
                     upsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_resource_ref(BindingResourceRef::TextureView {
-                    texture: bind_group_bloom_texture_read.clone(),
-                    texture_view_info: bloom_texture.get_texture_view_info(bind_group_mip),
-                })
+                .push_bind_resource((
+                    &bind_group_bloom_texture_read,
+                    &bloom_texture.get_texture_view_info(bind_group_mip),
+                ))
                 .push_bind_group_handle(&downsampling_pipeline_res.sampler)
                 .push_bind_group_entry(&uniforms_binding)
                 .build();
@@ -285,10 +285,10 @@ impl ViewNode for BloomNode {
                     Some("bloom_upsampling_bind_group".into()),
                     upsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_resource_ref(BindingResourceRef::TextureView {
-                    texture: bloom_texture_read.clone(),
-                    texture_view_info: bloom_texture.get_texture_view_info(mip),
-                })
+                .push_bind_resource((
+                    &bloom_texture_read,
+                    &bloom_texture.get_texture_view_info(mip),
+                ))
                 .push_bind_group_handle(&downsampling_pipeline_res.sampler)
                 .push_bind_group_entry(&uniforms_binding)
                 .build();

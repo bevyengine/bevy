@@ -1,11 +1,11 @@
 pub mod bind_group_drawing;
+pub mod bind_group_entry_binding;
 pub mod bind_group_entry_handle;
-pub mod bind_group_entry_ref;
 pub mod bind_group_handle;
 
 pub use bind_group_drawing::*;
+pub use bind_group_entry_binding::*;
 pub use bind_group_entry_handle::*;
-pub use bind_group_entry_ref::*;
 pub use bind_group_handle::*;
 
 use crate::{
@@ -16,33 +16,33 @@ use crate::{
 use super::TextureViewInfo;
 
 pub trait BindingResourceHelper {
-    fn make_binding_resource_ref(
+    fn make_binding_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> BindingResourceRef;
+    ) -> BindGroupResourceBinding;
 }
 
 impl BindingResourceHelper for Buffer {
-    fn make_binding_resource_ref(
+    fn make_binding_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> BindingResourceRef {
+    ) -> BindGroupResourceBinding {
         let buffer = pass_node_builder.read_material(self);
 
-        BindingResourceBufferRef { buffer, size: None }.into_binding()
+        BindingResourceBuffer { buffer, size: None }.into_binding()
     }
 }
 
 impl BindingResourceHelper for Texture {
-    fn make_binding_resource_ref(
+    fn make_binding_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> BindingResourceRef {
+    ) -> BindGroupResourceBinding {
         let texture = pass_node_builder.read_material(self);
 
-        BindingResourceRef::TextureView {
+        BindGroupResourceBinding::TextureView(BindingResourceTextureView {
             texture,
             texture_view_info: TextureViewInfo::default(),
-        }
+        })
     }
 }

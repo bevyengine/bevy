@@ -9,7 +9,8 @@ use crate::{
 };
 
 use super::{
-    BindGroupEntryBinding, BindingResourceHelper, BindingResourceRef, IntoBindingResourceHandle,
+    BindGroupEntryBinding, BindGroupResourceBinding, BindingResourceHelper,
+    IntoBindGroupResourceBinding, IntoBindingResourceHandle,
 };
 
 pub struct BindGroupDrawingBuilder<'a, 'b> {
@@ -33,10 +34,10 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
         }
     }
 
-    pub fn push_bind_resource_ref(mut self, bind_resource_ref: BindingResourceRef) -> Self {
+    pub fn push_bind_resource<T: IntoBindGroupResourceBinding>(mut self, binding: T) -> Self {
         self.entries.push(BindGroupEntryBinding {
             binding: self.entries.len() as u32,
-            resource: bind_resource_ref,
+            resource: binding.into_binding(),
         });
 
         self
@@ -48,9 +49,8 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
     }
 
     pub fn push_bind_group_entry<T: BindingResourceHelper>(self, value: &T) -> Self {
-        let bind_group_resource_ref =
-            value.make_binding_resource_ref(self.pass_builder.pass_node_builder());
-        self.push_bind_resource_ref(bind_group_resource_ref)
+        let binding = value.make_binding_resource_binding(self.pass_builder.pass_node_builder());
+        self.push_bind_resource(binding)
     }
 
     pub fn build(self) -> BindGroupDrawing {
@@ -121,7 +121,7 @@ impl ResourceDrawing for BindGroupDrawing {
 
         for entry in self.entries.iter() {
             match &entry.resource {
-                BindingResourceRef::TextureViewArray(texture_view_refs) => {
+                BindGroupResourceBinding::TextureViewArray(texture_view_refs) => {
                     let mut texture_views = vec![];
 
                     for texture_view_ref in texture_view_refs.iter() {
@@ -141,25 +141,22 @@ impl ResourceDrawing for BindGroupDrawing {
 
         for entry in self.entries.iter() {
             let resource = match &entry.resource {
-                BindingResourceRef::Sampler(sampler) => {
+                BindGroupResourceBinding::Sampler(sampler) => {
                     BindingResourceTemp::Sampler(sampler.deref().clone())
                 }
-                BindingResourceRef::TextureView {
-                    texture,
-                    texture_view_info,
-                } => {
-                    let texture = render_context.get_resource(texture)?;
+                BindGroupResourceBinding::TextureView(binding) => {
+                    let texture = render_context.get_resource(&binding.texture)?;
                     BindingResourceTemp::TextureView(
                         texture
                             .resource
-                            .create_view(&texture_view_info.get_texture_view_desc()),
+                            .create_view(&binding.texture_view_info.get_texture_view_desc()),
                     )
                 }
-                BindingResourceRef::Buffer(buffer_ref) => BindingResourceTemp::Buffer {
+                BindGroupResourceBinding::Buffer(buffer_ref) => BindingResourceTemp::Buffer {
                     buffer: render_context.get_resource(&buffer_ref.buffer)?,
                     size: buffer_ref.size,
                 },
-                BindingResourceRef::TextureViewArray(_) => {
+                BindGroupResourceBinding::TextureViewArray(_) => {
                     let mut temp_texture_views = vec![];
 
                     let texture_views = resources.get(&entry.binding).unwrap();

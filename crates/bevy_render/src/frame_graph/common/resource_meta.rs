@@ -6,8 +6,7 @@ use crate::frame_graph::{
 };
 
 use super::{
-    BindingResourceHandle, BindingResourceHelper, BindingResourceRef, IntoBindingResourceHandle,
-    ResourceMaterial, TexelCopyTextureInfo, TextureViewInfo,
+    BindGroupResourceBinding, BindingResourceHandle, BindingResourceHelper, BindingResourceTextureView, IntoBindingResourceHandle, ResourceMaterial, TexelCopyTextureInfo, TextureViewInfo
 };
 
 pub struct ResourceMeta<ResourceType: GraphResource> {
@@ -16,15 +15,16 @@ pub struct ResourceMeta<ResourceType: GraphResource> {
 }
 
 impl BindingResourceHelper for ResourceMeta<FrameGraphTexture> {
-    fn make_binding_resource_ref(
+    fn make_binding_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> BindingResourceRef {
+    ) -> BindGroupResourceBinding {
         let texture = pass_node_builder.read_material(self);
-        BindingResourceRef::TextureView {
+
+        BindGroupResourceBinding::TextureView(BindingResourceTextureView {
             texture,
             texture_view_info: TextureViewInfo::default(),
-        }
+        })
     }
 }
 

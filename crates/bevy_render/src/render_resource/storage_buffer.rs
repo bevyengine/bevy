@@ -3,8 +3,8 @@ use core::marker::PhantomData;
 use super::Buffer;
 use crate::{
     frame_graph::{
-        BindingResourceBufferRef, BindingResourceHandle, BindingResourceRef, BindingResourceBufferHandle,
-        FrameGraph, IntoBindingResourceHandle, IntoBindingResourceRef, PassNodeBuilder,
+        BindingResourceBuffer, BindingResourceHandle, BindGroupResourceBinding, BindingResourceBufferHandle,
+        FrameGraph, IntoBindingResourceHandle, IntoBindGroupResourceBinding, PassNodeBuilder,
         ResourceMaterial,
     },
     renderer::{RenderDevice, RenderQueue},
@@ -111,12 +111,12 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     pub fn make_binding_resource_ref(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
-    ) -> Option<BindingResourceRef> {
+    ) -> Option<BindGroupResourceBinding> {
         self.buffer().map(|buffer| {
             let buffer = pass_node_builder.read_material(buffer);
 
             let size = T::min_size();
-            BindingResourceBufferRef {
+            BindingResourceBuffer {
                 buffer,
                 size: Some(size),
             }
