@@ -3,8 +3,8 @@ use crate::io::{
 };
 use alloc::{borrow::ToOwned, boxed::Box, format};
 use js_sys::{Uint8Array, JSON};
+use log::error;
 use std::path::{Path, PathBuf};
-use tracing::error;
 use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;

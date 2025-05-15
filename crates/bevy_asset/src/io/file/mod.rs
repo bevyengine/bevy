@@ -8,13 +8,14 @@ mod sync_file_asset;
 
 #[cfg(feature = "file_watcher")]
 pub use file_watcher::*;
-use tracing::{debug, error};
 
 use alloc::borrow::ToOwned;
 use std::{
     env,
     path::{Path, PathBuf},
 };
+
+use log::{debug, error};
 
 pub(crate) fn get_base_path() -> PathBuf {
     if let Ok(manifest_dir) = env::var("BEVY_ASSET_ROOT") {

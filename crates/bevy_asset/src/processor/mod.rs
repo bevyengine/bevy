@@ -45,27 +45,30 @@ pub use process::*;
 
 use crate::{
     io::{
-        AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
-        AssetSources, AssetWriterError, ErasedAssetReader, ErasedAssetWriter,
-        MissingAssetSourceError,
+        AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSources,
+        AssetWriterError, ErasedAssetReader, ErasedAssetWriter, MissingAssetSourceError,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
-    MissingAssetLoaderForExtensionError, UnapprovedPathMode, WriteDefaultMetaError,
+    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, AssetSourceId,
+    DeserializeMetaError, MissingAssetLoaderForExtensionError, UnapprovedPathMode,
+    WriteDefaultMetaError,
 };
-use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
+use ::log::{debug, error, trace, warn};
+use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec, vec::Vec};
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use tracing::{debug, error, trace, warn};
 
 #[cfg(feature = "trace")]
 use {

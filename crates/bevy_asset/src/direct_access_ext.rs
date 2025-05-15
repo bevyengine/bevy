@@ -3,7 +3,16 @@
 
 use bevy_ecs::world::World;
 
-use crate::{meta::Settings, Asset, AssetPath, AssetServer, Assets, Handle};
+use crate::{Asset, Assets, Handle};
+
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use crate::{meta::Settings, AssetPath};
+
+#[cfg(feature = "std")]
+use crate::AssetServer;
 
 /// An extension trait for methods for working with assets directly from a [`World`].
 pub trait DirectAssetAccessExt {
@@ -11,9 +20,11 @@ pub trait DirectAssetAccessExt {
     fn add_asset<A: Asset>(&mut self, asset: impl Into<A>) -> Handle<A>;
 
     /// Load an asset similarly to [`AssetServer::load`].
+    #[cfg(feature = "std")]
     fn load_asset<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A>;
 
     /// Load an asset with settings, similarly to [`AssetServer::load_with_settings`].
+    #[cfg(feature = "std")]
     fn load_asset_with_settings<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,
@@ -33,6 +44,7 @@ impl DirectAssetAccessExt for World {
     ///
     /// # Panics
     /// If `self` doesn't have an [`AssetServer`] resource initialized yet.
+    #[cfg(feature = "std")]
     fn load_asset<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
         self.resource::<AssetServer>().load(path)
     }
@@ -40,6 +52,7 @@ impl DirectAssetAccessExt for World {
     ///
     /// # Panics
     /// If `self` doesn't have an [`AssetServer`] resource initialized yet.
+    #[cfg(feature = "std")]
     fn load_asset_with_settings<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,

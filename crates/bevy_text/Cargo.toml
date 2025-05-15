@@ -41,6 +41,12 @@ unicode-bidi = "0.3.13"
 sys-locale = "0.3.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
+bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev", default-features = false, features = [
+  "web",
+] }
+
 [dev-dependencies]
 approx = "0.5.1"
 
