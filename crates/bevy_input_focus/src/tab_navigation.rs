@@ -255,9 +255,6 @@ impl TabNavigation<'_, '_> {
             return Err(TabNavigationError::NoFocusableEntities);
         }
 
-        // Stable sort by tabindex
-        focusable.sort_by_key(|(_, idx)| *idx);
-
         let index = focusable.iter().position(|e| Some(e.0) == focus.0);
         let count = focusable.len();
         let next = match (index, action) {
@@ -396,5 +393,46 @@ mod tests {
 
         let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
         assert_eq!(last_entity, Ok(tab_entity_2));
+    }
+
+    #[test]
+    fn test_tab_navigation_between_groups_is_sorted_by_group() {
+        let mut app = App::new();
+        let world = app.world_mut();
+
+        let tab_group_1 = world.spawn(TabGroup::new(0)).id();
+        let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_1))).id();
+        let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_1))).id();
+
+        let tab_group_2 = world.spawn(TabGroup::new(1)).id();
+        let tab_entity_3 = world.spawn((TabIndex(0), ChildOf(tab_group_2))).id();
+        let tab_entity_4 = world.spawn((TabIndex(1), ChildOf(tab_group_2))).id();
+
+        let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
+        let tab_navigation = system_state.get(world);
+        assert_eq!(tab_navigation.tabgroup_query.iter().count(), 2);
+        assert_eq!(tab_navigation.tabindex_query.iter().count(), 4);
+
+        let next_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
+        assert_eq!(next_entity, Ok(tab_entity_2));
+
+        let prev_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Previous);
+        assert_eq!(prev_entity, Ok(tab_entity_1));
+
+        let first_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::First);
+        assert_eq!(first_entity, Ok(tab_entity_1));
+
+        let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
+        assert_eq!(last_entity, Ok(tab_entity_4));
+
+        let next_from_end_of_group_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Next);
+        assert_eq!(next_from_end_of_group_entity, Ok(tab_entity_3));
+
+        let prev_entity_from_start_of_group =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_3), NavAction::Previous);
+        assert_eq!(prev_entity_from_start_of_group, Ok(tab_entity_2));
     }
 }
