@@ -484,7 +484,6 @@ impl FreeList {
     /// For this to be accurate, this must not be called during a [`Self::free`].
     #[inline]
     unsafe fn num_free(&self) -> u32 {
-        // Relaxed would probably be fine here, but this is more precise.
         self.len.state(Ordering::Acquire).length()
     }
 
