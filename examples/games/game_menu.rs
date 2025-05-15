@@ -8,7 +8,7 @@
 //!
 //! The `Node` component is a foundational part of UI in Bevy, it makes an entity act like (but not exactly like) an HTML tag with a `style` attribute. It has a lot of fields, but we can avoid having to declare all of them by defining the ones we're fine with being default with `..default()`.
 //!
-//! UI Hierarchies are a central concept in Bevy, much like in many other game and UI frameworks. Building out a hierarchy involves spawning one or more "child" entities on an entity, and this can go arbitrarily deep! The easiest way to spawn children on an entity is with the `children![]` macro i.e. we can spawn a ui node with 2 children with `commands.spawn((Node::default(), /* non-child components */, children![Node::default(), (Node::default(), Name("This child node has extra components!".into()))])))`.
+//! Like in many other game and UI frameworks, UI Hierarchies are a major part of how we make useful UI in Bevy. Building out a hierarchy involves spawning one or more "child" entities on an entity, and this can go arbitrarily deep! The easiest way to spawn children on an entity is with the `children![]` macro i.e. we can spawn a ui node with 2 children with `commands.spawn((Node::default(), /* non-child components */, children![Node::default(), (Node::default(), Name("This child node has extra components!".into()))])))`.
 //!
 //! `Node`s with `Node` children will use the layout information they're given (mostly in `Node`'s fields) to figure out how to look. There's separate styling rules for `Text` at this time.
 //!
