@@ -2,7 +2,7 @@ use bevy_ecs::world::World;
 
 use crate::{
     diagnostic::internal::{DiagnosticsRecorder, RenderDiagnosticsMutex},
-    frame_graph::{FrameGraphError, RenderContext, TransientResourceCache},
+    frame_graph::{RenderContext, TransientResourceCache},
     render_resource::PipelineCache,
     renderer::RenderDevice,
 };

@@ -212,7 +212,8 @@ impl FromWorld for ShadowSamplers {
                 },
             ),
             #[cfg(feature = "experimental_pbr_pcss")]
-            directional_light_linear_sampler_info: render_device.create_sampler(&base_sampler_descriptor),
+            directional_light_linear_sampler_info: render_device
+                .create_sampler(&base_sampler_descriptor),
         }
     }
 }
@@ -2213,11 +2214,11 @@ impl Node for EarlyShadowPassNode {
 
     fn run<'w>(
         &self,
-        _graph: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
-        _world: &'w World,
+        graph: &mut RenderGraphContext,
+        frame_graph: &mut FrameGraph,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
-        Ok(())
+        self.0.run(graph, frame_graph, world, false)
     }
 }
 
@@ -2228,11 +2229,11 @@ impl Node for LateShadowPassNode {
 
     fn run<'w>(
         &self,
-        _graph: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
-        _world: &'w World,
+        graph: &mut RenderGraphContext,
+        frame_graph: &mut FrameGraph,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
-        Ok(())
+        self.0.run(graph, frame_graph, world, true)
     }
 }
 
@@ -2240,5 +2241,69 @@ impl ShadowPassNode {
     fn update(&mut self, world: &mut World) {
         self.main_view_query.update_archetypes(world);
         self.view_light_query.update_archetypes(world);
+    }
+
+    /// Runs the node logic.
+    ///
+    /// `is_late` is true if this is the late shadow pass or false if this is
+    /// the early shadow pass.
+    fn run<'w>(
+        &self,
+        graph: &mut RenderGraphContext,
+        frame_graph: &mut FrameGraph,
+        world: &'w World,
+        is_late: bool,
+    ) -> Result<(), NodeRunError> {
+        let Some(shadow_render_phases) = world.get_resource::<ViewBinnedRenderPhases<Shadow>>()
+        else {
+            return Ok(());
+        };
+
+        if let Ok(view_lights) = self.main_view_query.get_manual(world, graph.view_entity()) {
+            for view_light_entity in view_lights.lights.iter().copied() {
+                let Ok((view_light, extracted_light_view, occlusion_culling)) =
+                    self.view_light_query.get_manual(world, view_light_entity)
+                else {
+                    continue;
+                };
+
+                // There's no need for a late shadow pass if the light isn't
+                // using occlusion culling.
+                if is_late && !occlusion_culling {
+                    continue;
+                }
+
+                let Some(shadow_phase) =
+                    shadow_render_phases.get(&extracted_light_view.retained_view_entity)
+                else {
+                    continue;
+                };
+
+                let mut pass_builder = frame_graph.create_pass_builder(&view_light.pass_name);
+
+                let depth_stencil_attachment = view_light
+                    .depth_attachment
+                    .get_attachment(StoreOp::Store, &mut pass_builder);
+
+                let mut render_pass_builder = pass_builder.create_render_pass_builder();
+
+                render_pass_builder
+                    .set_pass_name(&view_light.pass_name)
+                    .set_depth_stencil_attachment(depth_stencil_attachment);
+
+                let render_device = world.resource::<RenderDevice>();
+
+                let mut tracked_render_pass =
+                    TrackedRenderPass::new(&render_device, render_pass_builder);
+
+                if let Err(err) =
+                    shadow_phase.render(&mut tracked_render_pass, world, view_light_entity)
+                {
+                    error!("Error encountered while rendering the shadow phase {err:?}");
+                }
+            }
+        }
+
+        Ok(())
     }
 }

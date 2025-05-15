@@ -1,8 +1,6 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
-use bevy_render::frame_graph::{
-    BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, ResourceMaterial,
-};
+use bevy_render::frame_graph::{BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph};
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
 use bevy_core_pipeline::tonemapping::DebandDither;
