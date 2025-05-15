@@ -78,7 +78,10 @@ impl<'a, 'b> ComputePassBuilder<'a, 'b> {
         if compute_pass.is_vaild() {
             self.pass_builder.add_executor(compute_pass);
         } else {
-            warn!("{:?} compute pass must is vaild", compute_pass.pass_name());
+            warn!(
+                "{} compute pass must is vaild",
+                self.pass_builder.pass_node_builder().name
+            );
         }
     }
 

@@ -66,6 +66,8 @@ impl RenderPass {
         self.current_logic_render_pass
             .render_pass_drawing
             .depth_stencil_attachment = Some(depth_stencil_attachment);
+
+        self.current_logic_render_pass.vaild = true;
     }
 
     pub fn add_raw_color_attachment(&mut self, color_attachment: Option<ColorAttachmentOwner>) {

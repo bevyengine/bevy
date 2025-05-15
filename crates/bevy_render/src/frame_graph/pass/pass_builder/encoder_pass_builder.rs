@@ -87,7 +87,10 @@ impl<'a, 'b> EncoderPassBuilder<'a, 'b> {
         if encoder_pass.is_vaild() {
             self.pass_builder.add_executor(encoder_pass);
         } else {
-            warn!("encoder pass must is vaild");
+            warn!(
+                "{} encoder pass must is vaild",
+                self.pass_builder.pass_node_builder().name
+            );
         }
     }
 }

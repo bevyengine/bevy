@@ -9,7 +9,7 @@ use super::{
 
 pub struct PassNodeBuilder<'a> {
     pub(crate) graph: &'a mut FrameGraph,
-    name: String,
+   pub(crate) name: String,
     writes: Vec<GraphRawResourceNodeHandle>,
     reads: Vec<GraphRawResourceNodeHandle>,
     pass: Option<Pass>,

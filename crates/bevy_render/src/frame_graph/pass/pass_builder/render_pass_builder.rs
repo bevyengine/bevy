@@ -86,7 +86,10 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
         if render_pass.is_vaild() {
             self.pass_builder.add_executor(render_pass);
         } else {
-            warn!("render pass must is vaild");
+            warn!(
+                "{} render pass must is vaild",
+                self.pass_builder.pass_node_builder().name
+            );
         }
     }
 
