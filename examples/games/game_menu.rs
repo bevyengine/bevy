@@ -1,5 +1,9 @@
 //! Many games need a "Menu" to change game settings (parameters that change sound, graphics, gameplay etc.) This example is a simple menu to navigate between and manipulate several options for a "game" that displays the options to us, with options represented in-engine with Resources.
 //!
+//! A "State" in game development is a broad-strokes way of saying "Certain things apply at this time that don't at other times." Very abstract! Being specific, we can use enum-based states in Bevy to control things like "are we in a menu or in-game?" or "are we in an overworld, inventory screen, or a battle?"
+//!
+//! Defining a state in Bevy involves creating an enum which implements `States`, which we can derive alongside its other prerequisite traits, and then manually registering that state with the Bevy `App`. It's useful to also add a `Default` implementation for the state, but not necessary.
+//!
 //! Resources (`Res`/`ResMut`) are used to store and manipulate game options here, as these are one-off pieces of data that act as "global information" that will want to be accessed throughout the game, and not in one single state / substate.
 //!
 //! The `Node` component is a foundational part of UI in Bevy, it makes an entity act like (but not exactly like) an HTML tag with a `style` attribute. It has a lot of fields, but we can avoid having to declare all of them by defining the ones we're fine with being default with `..default()`.
