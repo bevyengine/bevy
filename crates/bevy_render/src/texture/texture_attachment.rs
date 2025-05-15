@@ -1,8 +1,9 @@
 use crate::{
     frame_graph::{
-        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachmentDrawing, FrameGraphTexture, PassBuilder, ResourceMeta, TextureViewDrawing, TextureViewInfo
+        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachmentDrawing, FrameGraphTexture,
+        PassBuilder, ResourceMeta, TextureView, TextureViewInfo,
     },
-    render_resource::{TextureFormat, TextureView},
+    render_resource::{TextureFormat, TextureView as TextureViewResource},
 };
 use alloc::sync::Arc;
 use bevy_color::LinearRgba;
@@ -19,12 +20,9 @@ pub struct ColorAttachmentHandle {
 }
 
 impl ColorAttachmentHandle {
-    pub fn get_unsampled_attachment(
-        &self,
-        pass_builder: &mut PassBuilder,
-    ) -> ColorAttachment {
+    pub fn get_unsampled_attachment(&self, pass_builder: &mut PassBuilder) -> ColorAttachment {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
-        let view = TextureViewDrawing {
+        let view = TextureView {
             texture: pass_builder.write_material(&self.texture),
             desc: TextureViewInfo::default(),
         };
@@ -48,17 +46,17 @@ impl ColorAttachmentHandle {
         let mut resolve_target = None;
 
         if self.resolve_target.is_none() {
-            view = TextureViewDrawing {
+            view = TextureView {
                 texture: pass_builder.write_material(&self.texture),
                 desc: TextureViewInfo::default(),
             };
         } else {
-            view = TextureViewDrawing {
+            view = TextureView {
                 texture: pass_builder.write_material(self.resolve_target.as_ref().unwrap()),
                 desc: TextureViewInfo::default(),
             };
 
-            resolve_target = Some(TextureViewDrawing {
+            resolve_target = Some(TextureView {
                 texture: pass_builder.write_material(&self.texture),
                 desc: TextureViewInfo::default(),
             })
@@ -147,7 +145,7 @@ impl DepthAttachmentHandle {
         let texture = pass_builder.write_material(&self.texture);
 
         DepthStencilAttachmentDrawing {
-            view: TextureViewDrawing {
+            view: TextureView {
                 texture,
                 desc: self.texture_view_info.clone(),
             },
@@ -169,13 +167,13 @@ impl DepthAttachmentHandle {
 /// target's final output texture.
 #[derive(Clone)]
 pub struct OutputColorAttachment {
-    pub view: TextureView,
+    pub view: TextureViewResource,
     pub format: TextureFormat,
     is_first_call: Arc<AtomicBool>,
 }
 
 impl OutputColorAttachment {
-    pub fn new(view: TextureView, format: TextureFormat) -> Self {
+    pub fn new(view: TextureViewResource, format: TextureFormat) -> Self {
         Self {
             view,
             format,

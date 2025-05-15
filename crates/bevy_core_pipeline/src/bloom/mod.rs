@@ -20,7 +20,7 @@ use bevy_render::{
     },
     frame_graph::{
         ColorAttachment, EncoderCommandBuilder, FrameGraph, FrameGraphTexture, ResourceMeta,
-        TextureInfo, TextureViewDrawing, TextureViewInfo,
+        TextureInfo, TextureView, TextureViewInfo,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
@@ -171,7 +171,7 @@ impl ViewNode for BloomNode {
                 .create_render_pass_builder()
                 .set_pass_name("bloom_downsampling_first_pass")
                 .add_color_attachment(ColorAttachment {
-                    view: TextureViewDrawing {
+                    view: TextureView {
                         texture: bloom_texture_write,
                         desc: bloom_texture.get_texture_view_info(0),
                     },
@@ -210,7 +210,7 @@ impl ViewNode for BloomNode {
                 .create_render_pass_builder()
                 .set_pass_name("bloom_downsampling_pass")
                 .add_color_attachment(ColorAttachment {
-                    view: TextureViewDrawing {
+                    view: TextureView {
                         texture: bloom_texture_write,
                         desc: bloom_texture.get_texture_view_info(mip),
                     },
@@ -255,7 +255,7 @@ impl ViewNode for BloomNode {
                 .create_render_pass_builder()
                 .set_pass_name("bloom_upsampling_pass")
                 .add_color_attachment(ColorAttachment {
-                    view: TextureViewDrawing {
+                    view: TextureView {
                         texture: bloom_texture_write,
                         desc: bloom_texture.get_texture_view_info(mip - 1),
                     },

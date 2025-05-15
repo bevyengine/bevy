@@ -35,7 +35,7 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     frame_graph::{
         BindGroupHandle, ColorAttachment, DynamicBindGroupEntryHandles, FrameGraph,
-        FrameGraphTexture, ResourceMeta, TextureInfo, TextureViewDrawing, TextureViewInfo,
+        FrameGraphTexture, ResourceMeta, TextureInfo, TextureView, TextureViewInfo,
     },
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
@@ -442,7 +442,7 @@ impl ViewNode for DepthOfFieldNode {
             let destination = pass_builder.write_material(postprocess.destination);
 
             color_attachments.push(Some(ColorAttachment {
-                view: TextureViewDrawing {
+                view: TextureView {
                     texture: destination,
                     desc: TextureViewInfo::default(),
                 },
@@ -467,7 +467,7 @@ impl ViewNode for DepthOfFieldNode {
                 let auxiliary_dof_texture = pass_builder.write_material(&auxiliary_dof_texture.0);
 
                 color_attachments.push(Some(ColorAttachment {
-                    view: TextureViewDrawing {
+                    view: TextureView {
                         texture: auxiliary_dof_texture,
                         desc: TextureViewInfo::default(),
                     },

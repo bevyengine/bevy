@@ -15,14 +15,13 @@ use crate::{
     extract_component::ExtractComponentPlugin,
     frame_graph::{
         ColorAttachment, ColorAttachmentOwner, DepthStencilAttachmentDrawing, FrameGraph,
-        FrameGraphTexture, PassBuilder, ResourceMeta, TextureInfo, TextureViewDrawing,
-        TextureViewInfo,
+        FrameGraphTexture, PassBuilder, ResourceMeta, TextureInfo, TextureView, TextureViewInfo,
     },
     prelude::Shader,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
-    render_resource::{DynamicUniformBuffer, ShaderType, TextureView},
+    render_resource::{DynamicUniformBuffer, ShaderType, TextureView as TextureViewResource},
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{ColorAttachmentHandle, GpuImage, OutputColorAttachment},
@@ -785,7 +784,7 @@ impl ViewTarget {
 
     /// The final texture this view will render to.
     #[inline]
-    pub fn out_texture(&self) -> &TextureView {
+    pub fn out_texture(&self) -> &TextureViewResource {
         &self.out_texture.view
     }
 
@@ -850,7 +849,7 @@ impl ViewDepthTexture {
         let texture = pass_builder.write_material(&self.texture);
 
         DepthStencilAttachmentDrawing {
-            view: TextureViewDrawing {
+            view: TextureView {
                 texture,
                 desc: TextureViewInfo::default(),
             },

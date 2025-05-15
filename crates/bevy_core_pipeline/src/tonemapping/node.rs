@@ -3,7 +3,7 @@ use crate::tonemapping::ViewTonemappingPipeline;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     frame_graph::{
-        ColorAttachment, FrameGraph, PassBuilder, TextureViewDrawing, TextureViewInfo,
+        ColorAttachment, FrameGraph, PassBuilder, TextureView, TextureViewInfo,
     },
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -85,7 +85,7 @@ impl ViewNode for TonemappingNode {
         builder
             .set_pass_name("tonemapping_pass")
             .add_color_attachment(ColorAttachment {
-                view: TextureViewDrawing {
+                view: TextureView {
                     texture: destination,
                     desc: TextureViewInfo::default(),
                 },

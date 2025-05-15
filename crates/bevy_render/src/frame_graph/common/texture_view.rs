@@ -53,12 +53,12 @@ impl TextureViewInfo {
 }
 
 #[derive(Clone)]
-pub struct TextureViewDrawing {
+pub struct TextureView {
     pub texture: ResourceRef<FrameGraphTexture, ResourceWrite>,
     pub desc: TextureViewInfo,
 }
 
-impl ResourceBinding for TextureViewDrawing {
+impl ResourceBinding for TextureView {
     type Resource = wgpu::TextureView;
 
     fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource {

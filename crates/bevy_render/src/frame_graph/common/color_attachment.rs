@@ -1,11 +1,11 @@
 use crate::frame_graph::RenderContext;
 
-use super::{ResourceBinding, TextureViewDrawing};
+use super::{ResourceBinding, TextureView};
 
 #[derive(Clone)]
 pub struct ColorAttachment {
-    pub view: TextureViewDrawing,
-    pub resolve_target: Option<TextureViewDrawing>,
+    pub view: TextureView,
+    pub resolve_target: Option<TextureView>,
     pub ops: wgpu::Operations<wgpu::Color>,
 }
 

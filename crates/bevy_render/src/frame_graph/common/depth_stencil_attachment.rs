@@ -1,10 +1,10 @@
 use crate::frame_graph::RenderContext;
 
-use super::{ResourceBinding, TextureViewDrawing};
+use super::{ResourceBinding, TextureView};
 
 #[derive(Clone)]
 pub struct DepthStencilAttachmentDrawing {
-    pub view: TextureViewDrawing,
+    pub view: TextureView,
     pub depth_ops: Option<wgpu::Operations<f32>>,
     pub stencil_ops: Option<wgpu::Operations<u32>>,
 }
