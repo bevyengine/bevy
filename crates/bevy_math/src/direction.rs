@@ -1,6 +1,6 @@
 use crate::{
     primitives::{Primitive2d, Primitive3d},
-    Quat, Rot2, Vec2, Vec3, Vec3A, Vec4
+    Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
 };
 
 use core::f32::consts::FRAC_1_SQRT_2;
@@ -984,7 +984,6 @@ impl Dir4 {
         let length_squared = self.0.length_squared();
         Self(self * (0.5 * (3.0 - length_squared)))
     }
-
 }
 
 impl TryFrom<Vec4> for Dir4 {
