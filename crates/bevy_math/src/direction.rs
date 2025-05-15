@@ -1268,7 +1268,7 @@ mod tests {
 
         // We test that renormalizing an already normalized dir doesn't do anything
         assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
-
+        
         for _ in 0..50 {
             dir_a = rot3 * dir_a;
             dir_b = rot3 * dir_b;
@@ -1281,5 +1281,27 @@ mod tests {
             "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
+
+    #[test]
+    fn dir4_creation() {
+        assert_eq!(Dir4::new(Vec4::X * 12.5), Ok(Dir4::X));
+        assert_eq!(
+            Dir4::new(Vec4::new(0.0, 0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Zero)
+        );
+        assert_eq!(
+            Dir4::new(Vec4::new(f32::INFINITY, 0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Dir4::new(Vec4::new(f32::NEG_INFINITY, 0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::Infinite)
+        );
+        assert_eq!(
+            Dir4::new(Vec4::new(f32::NAN, 0.0, 0.0, 0.0)),
+            Err(InvalidDirectionError::NaN)
+        );
+        assert_eq!(Dir4::new_and_length(Vec4::X * 6.5), Ok((Dir4::X, 6.5)));
     }
 }
