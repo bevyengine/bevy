@@ -413,10 +413,12 @@ impl SceneSpawner {
     fn trigger_scene_ready_events(&mut self, world: &mut World) {
         for (instance_id, parent) in self.instances_ready.drain(..) {
             if let Some(parent) = parent {
+                // Defer via commands otherwise SceneSpawner is not available in the observer.
                 world
                     .commands()
                     .trigger_targets(SceneInstanceReady { instance_id }, parent);
             } else {
+                // Defer via commands otherwise SceneSpawner is not available in the observer.
                 world.commands().trigger(SceneInstanceReady { instance_id });
             }
         }
