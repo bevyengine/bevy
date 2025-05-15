@@ -11,6 +11,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
+use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
@@ -1650,6 +1651,12 @@ impl CompressedImageFormats {
         }
     }
 }
+
+/// For defining which compressed image formats are supported. This will be initialized from available device features
+/// in finish() of the bevy `RenderPlugin`, but is left for the user to specify if the `RenderPlugin`, or wgpu backend
+/// are disabled.
+#[derive(Resource)]
+pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
 
 #[cfg(test)]
 mod test {

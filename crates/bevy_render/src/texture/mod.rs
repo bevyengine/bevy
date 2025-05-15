@@ -8,7 +8,10 @@ pub use crate::render_resource::DefaultImageSampler;
 use bevy_image::CompressedImageSaver;
 #[cfg(feature = "hdr")]
 use bevy_image::HdrTextureLoader;
-use bevy_image::{CompressedImageFormats, Image, ImageLoader, ImageSamplerDescriptor};
+use bevy_image::{
+    CompressedImageFormatSupport, CompressedImageFormats, Image, ImageLoader,
+    ImageSamplerDescriptor,
+};
 pub use fallback_image::*;
 pub use gpu_image::*;
 pub use texture_attachment::*;
@@ -56,24 +59,6 @@ impl ImagePlugin {
             default_sampler: ImageSamplerDescriptor::nearest(),
         }
     }
-}
-
-/// For explicitly defining which compressed image formats are supported so they can be used without a `RenderDevice`.
-#[derive(Resource)]
-pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
-
-/// Query for which compressed image formats are supported. First the `CompressedImageFormatSupport` resource is checked
-/// if that doesn't exist, it falls back to checking the render device features, and if that also doesn't exist it is
-/// assumed no compressed image formats are supported.
-pub fn get_supported_compressed_image_formats(world: &World) -> CompressedImageFormats {
-    let supported_compressed_formats = match world.get_resource::<CompressedImageFormatSupport>() {
-        Some(compressed_image_format_support) => compressed_image_format_support.0,
-        None => match world.get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-            None => CompressedImageFormats::NONE,
-        },
-    };
-    supported_compressed_formats
 }
 
 impl Plugin for ImagePlugin {
@@ -129,9 +114,13 @@ impl Plugin for ImagePlugin {
 
     fn finish(&self, app: &mut App) {
         if !ImageLoader::SUPPORTED_FORMATS.is_empty() {
-            app.register_asset_loader(ImageLoader::new(get_supported_compressed_image_formats(
-                app.world(),
-            )));
+            let supported_compressed_formats = app
+                .world()
+                .get_resource::<CompressedImageFormatSupport>()
+                .map(|resource| resource.0)
+                .unwrap_or(CompressedImageFormats::NONE);
+
+            app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
