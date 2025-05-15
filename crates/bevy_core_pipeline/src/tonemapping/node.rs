@@ -71,11 +71,11 @@ impl ViewNode for TonemappingNode {
 
         let bing_group = pass_builder
             .create_bind_group_builder(None, tonemapping_pipeline.texture_bind_group.clone())
-            .push_bind_group_entry(&view_uniforms_binding)
-            .push_bind_group_entry(source)
-            .push_bind_group_handle(&tonemapping_pipeline.sampler)
-            .push_bind_group_entry(&lut_image.texture)
-            .push_bind_group_handle(&lut_image.sampler)
+            .push_bind_group_resource(&view_uniforms_binding)
+            .push_bind_group_resource(source)
+            .push_bind_group_resource_handle(&tonemapping_pipeline.sampler)
+            .push_bind_group_resource(&lut_image.texture)
+            .push_bind_group_resource_handle(&lut_image.sampler)
             .build();
 
         let destination = pass_builder.write_material(destination);

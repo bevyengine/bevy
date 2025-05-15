@@ -1,7 +1,7 @@
 use core::{iter, marker::PhantomData};
 
 use crate::{
-    frame_graph::{BindingResourceHandle, BindingResourceBufferHandle, FrameGraph, IntoBindingResourceHandle, ResourceMaterial},
+    frame_graph::{BindGroupResourceHandle, BindingResourceBufferHandle, FrameGraph, IntoBindGroupResourceHandle, ResourceMaterial},
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
@@ -287,7 +287,7 @@ where
     pub fn make_binding_resource_handle(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> Option<BindingResourceHandle> {
+    ) -> Option<BindGroupResourceHandle> {
         self.buffer().map(|buffer| {
             let buffer = buffer.make_resource_handle(frame_graph);
 

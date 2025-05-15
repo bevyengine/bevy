@@ -15,15 +15,15 @@ use crate::{
 
 use super::TextureViewInfo;
 
-pub trait BindingResourceHelper {
-    fn make_binding_resource_binding(
+pub trait BindGroupResourceHelper {
+    fn make_binding_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding;
 }
 
-impl BindingResourceHelper for Buffer {
-    fn make_binding_resource_binding(
+impl BindGroupResourceHelper for Buffer {
+    fn make_binding_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding {
@@ -33,8 +33,8 @@ impl BindingResourceHelper for Buffer {
     }
 }
 
-impl BindingResourceHelper for Texture {
-    fn make_binding_resource_binding(
+impl BindGroupResourceHelper for Texture {
+    fn make_binding_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding {

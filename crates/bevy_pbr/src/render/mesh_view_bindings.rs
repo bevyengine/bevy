@@ -18,7 +18,7 @@ use bevy_image::BevyDefault;
 use bevy_math::Vec4;
 use bevy_render::{
     frame_graph::{
-        BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, IntoBindingResourceHandle,
+        BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, IntoBindGroupResourceHandle,
         ResourceMaterial,
     },
     globals::{GlobalsBuffer, GlobalsUniform},

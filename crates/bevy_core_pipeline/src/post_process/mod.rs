@@ -410,10 +410,10 @@ impl ViewNode for PostProcessingNode {
                 Some("postprocessing bind group".into()),
                 post_processing_pipeline.bind_group_layout.clone(),
             )
-            .push_bind_group_entry(source)
-            .push_bind_group_handle(&post_processing_pipeline.source_sampler)
-            .push_bind_group_handle(&post_processing_pipeline.chromatic_aberration_lut_sampler)
-            .push_bind_group_entry(&chromatic_aberration_binding)
+            .push_bind_group_resource(source)
+            .push_bind_group_resource_handle(&post_processing_pipeline.source_sampler)
+            .push_bind_group_resource_handle(&post_processing_pipeline.chromatic_aberration_lut_sampler)
+            .push_bind_group_resource(&chromatic_aberration_binding)
             .build();
 
         let destination = pass_builder.write_material(destination);

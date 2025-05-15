@@ -11,21 +11,21 @@ use crate::{
 };
 
 use super::{
-    BindGroupEntryBinding, BindGroupResourceBinding, BindingResourceBuffer, BindingResourceHelper,
-    BindingResourceTextureView, IntoBindGroupResourceBinding,
+    BindGroupEntryBinding, BindGroupResourceBinding, BindGroupResourceHelper,
+    BindingResourceBuffer, BindingResourceTextureView, IntoBindGroupResourceBinding,
 };
 
 #[derive(Clone)]
 pub struct BindGroupEntryHandle {
     pub binding: u32,
-    pub resource: BindingResourceHandle,
+    pub resource: BindGroupResourceHandle,
 }
 
 impl BindGroupEntryHandle {
     pub fn get_ref(&self, pass_node_builder: &mut PassNodeBuilder) -> BindGroupEntryBinding {
         let resource = self
             .resource
-            .make_binding_resource_binding(pass_node_builder);
+            .make_binding_group_resource_binding(pass_node_builder);
 
         BindGroupEntryBinding {
             binding: self.binding,
@@ -35,7 +35,7 @@ impl BindGroupEntryHandle {
 }
 
 #[derive(Clone)]
-pub enum BindingResourceHandle {
+pub enum BindGroupResourceHandle {
     Buffer(BindingResourceBufferHandle),
     Sampler(Sampler),
     TextureView(BindingResourceTextureViewHandle),
@@ -54,13 +54,13 @@ pub struct BindingResourceTextureViewHandle {
     pub texture_view_info: TextureViewInfo,
 }
 
-impl BindingResourceHelper for BindingResourceHandle {
-    fn make_binding_resource_binding(
+impl BindGroupResourceHelper for BindGroupResourceHandle {
+    fn make_binding_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding {
         match &self {
-            BindingResourceHandle::Buffer(handle) => {
+            BindGroupResourceHandle::Buffer(handle) => {
                 let buffer = pass_node_builder.read(handle.buffer.clone());
                 BindingResourceBuffer {
                     buffer,
@@ -68,8 +68,10 @@ impl BindingResourceHelper for BindingResourceHandle {
                 }
                 .into_binding()
             }
-            BindingResourceHandle::Sampler(info) => BindGroupResourceBinding::Sampler(info.clone()),
-            BindingResourceHandle::TextureView(handle) => {
+            BindGroupResourceHandle::Sampler(info) => {
+                BindGroupResourceBinding::Sampler(info.clone())
+            }
+            BindGroupResourceHandle::TextureView(handle) => {
                 let texture = pass_node_builder.read(handle.texture.clone());
 
                 BindGroupResourceBinding::TextureView(BindingResourceTextureView {
@@ -77,7 +79,7 @@ impl BindingResourceHelper for BindingResourceHandle {
                     texture_view_info: handle.texture_view_info.clone(),
                 })
             }
-            BindingResourceHandle::TextureViewArray(handles) => {
+            BindGroupResourceHandle::TextureViewArray(handles) => {
                 let mut target = vec![];
                 for handle in handles.iter() {
                     let texture = pass_node_builder.read(handle.texture.clone());
@@ -93,109 +95,109 @@ impl BindingResourceHelper for BindingResourceHandle {
     }
 }
 
-pub trait IntoBindingResourceHandle {
-    fn into_binding(self) -> BindingResourceHandle;
+pub trait IntoBindGroupResourceHandle {
+    fn into_binding(self) -> BindGroupResourceHandle;
 }
 
-impl IntoBindingResourceHandle for &BindingResourceHandle {
-    fn into_binding(self) -> BindingResourceHandle {
+impl IntoBindGroupResourceHandle for &BindGroupResourceHandle {
+    fn into_binding(self) -> BindGroupResourceHandle {
         self.clone()
     }
 }
 
-impl IntoBindingResourceHandle for BindingResourceHandle {
-    fn into_binding(self) -> BindingResourceHandle {
+impl IntoBindGroupResourceHandle for BindGroupResourceHandle {
+    fn into_binding(self) -> BindGroupResourceHandle {
         self
     }
 }
 
-impl IntoBindingResourceHandle for &[BindingResourceTextureViewHandle] {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::TextureViewArray(self.to_vec())
+impl IntoBindGroupResourceHandle for &[BindingResourceTextureViewHandle] {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::TextureViewArray(self.to_vec())
     }
 }
 
-impl IntoBindingResourceHandle for BindingResourceTextureViewHandle {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::TextureView(self)
+impl IntoBindGroupResourceHandle for BindingResourceTextureViewHandle {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::TextureView(self)
     }
 }
 
-impl IntoBindingResourceHandle for &BindingResourceTextureViewHandle {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::TextureView(self.clone())
+impl IntoBindGroupResourceHandle for &BindingResourceTextureViewHandle {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::TextureView(self.clone())
     }
 }
 
-impl IntoBindingResourceHandle for GraphResourceNodeHandle<FrameGraphBuffer> {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::Buffer(BindingResourceBufferHandle {
+impl IntoBindGroupResourceHandle for GraphResourceNodeHandle<FrameGraphBuffer> {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
             buffer: self,
             size: None,
         })
     }
 }
 
-impl IntoBindingResourceHandle for &GraphResourceNodeHandle<FrameGraphBuffer> {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::Buffer(BindingResourceBufferHandle {
+impl IntoBindGroupResourceHandle for &GraphResourceNodeHandle<FrameGraphBuffer> {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
             buffer: self.clone(),
             size: None,
         })
     }
 }
 
-impl IntoBindingResourceHandle for BindingResourceBufferHandle {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::Buffer(self)
+impl IntoBindGroupResourceHandle for BindingResourceBufferHandle {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::Buffer(self)
     }
 }
 
-impl IntoBindingResourceHandle for Sampler {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::Sampler(self)
+impl IntoBindGroupResourceHandle for Sampler {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::Sampler(self)
     }
 }
 
-impl IntoBindingResourceHandle for &Sampler {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::Sampler(self.clone())
+impl IntoBindGroupResourceHandle for &Sampler {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::Sampler(self.clone())
     }
 }
 
-impl IntoBindingResourceHandle for GraphResourceNodeHandle<FrameGraphTexture> {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::TextureView(BindingResourceTextureViewHandle {
+impl IntoBindGroupResourceHandle for GraphResourceNodeHandle<FrameGraphTexture> {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::TextureView(BindingResourceTextureViewHandle {
             texture: self,
             texture_view_info: TextureViewInfo::default(),
         })
     }
 }
 
-impl IntoBindingResourceHandle
+impl IntoBindGroupResourceHandle
     for (
         &GraphResourceNodeHandle<FrameGraphTexture>,
         &TextureViewInfo,
     )
 {
-    fn into_binding(self) -> BindingResourceHandle {
-        BindingResourceHandle::TextureView(BindingResourceTextureViewHandle {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::TextureView(BindingResourceTextureViewHandle {
             texture: self.0.clone(),
             texture_view_info: self.1.clone(),
         })
     }
 }
 
-pub trait IntoBindingResourceHandleArray<const N: usize> {
-    fn into_array(self) -> [BindingResourceHandle; N];
+pub trait IntoBindGroupResourceHandleArray<const N: usize> {
+    fn into_array(self) -> [BindGroupResourceHandle; N];
 }
 
 macro_rules! impl_to_binding_slice {
     ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
         $(#[$meta])*
-        impl< $($T: IntoBindingResourceHandle),*> IntoBindingResourceHandleArray<$N> for ($($T,)*) {
+        impl< $($T: IntoBindGroupResourceHandle),*> IntoBindGroupResourceHandleArray<$N> for ($($T,)*) {
             #[inline]
-            fn into_array(self) -> [BindingResourceHandle; $N] {
+            fn into_array(self) -> [BindGroupResourceHandle; $N] {
                 let ($($I,)*) = self;
                 [$($I.into_binding(), )*]
             }
@@ -205,15 +207,15 @@ macro_rules! impl_to_binding_slice {
 
 all_tuples_with_size!(impl_to_binding_slice, 1, 32, T, s);
 
-pub trait IntoIndexedBindingResourceHandleArray<const N: usize> {
-    fn into_array(self) -> [(u32, BindingResourceHandle); N];
+pub trait IntoIndexedBindGroupResourceHandleArray<const N: usize> {
+    fn into_array(self) -> [(u32, BindGroupResourceHandle); N];
 }
 
 macro_rules! impl_to_indexed_binding_slice {
     ($N: expr, $(($T: ident, $S: ident, $I: ident)),*) => {
-        impl< $($T: IntoBindingResourceHandle),*> IntoIndexedBindingResourceHandleArray< $N> for ($((u32, $T),)*) {
+        impl< $($T: IntoBindGroupResourceHandle),*> IntoIndexedBindGroupResourceHandleArray< $N> for ($((u32, $T),)*) {
             #[inline]
-            fn into_array(self) -> [(u32, BindingResourceHandle); $N] {
+            fn into_array(self) -> [(u32, BindGroupResourceHandle); $N] {
                 let ($(($S, $I),)*) = self;
                 [$(($S, $I.into_binding())), *]
             }
@@ -228,7 +230,7 @@ pub struct DynamicBindGroupEntryHandles {
 }
 
 impl DynamicBindGroupEntryHandles {
-    pub fn sequential<const N: usize>(entries: impl IntoBindingResourceHandleArray<N>) -> Self {
+    pub fn sequential<const N: usize>(entries: impl IntoBindGroupResourceHandleArray<N>) -> Self {
         Self {
             entries: entries
                 .into_array()
@@ -244,7 +246,7 @@ impl DynamicBindGroupEntryHandles {
 
     pub fn extend_sequential<const N: usize>(
         mut self,
-        entries: impl IntoBindingResourceHandleArray<N>,
+        entries: impl IntoBindGroupResourceHandleArray<N>,
     ) -> Self {
         let start = self.entries.last().unwrap().binding + 1;
         self.entries.extend(
@@ -261,7 +263,7 @@ impl DynamicBindGroupEntryHandles {
     }
 
     pub fn new_with_indices<const N: usize>(
-        entries: impl IntoIndexedBindingResourceHandleArray<N>,
+        entries: impl IntoIndexedBindGroupResourceHandleArray<N>,
     ) -> Self {
         Self {
             entries: entries
@@ -274,7 +276,7 @@ impl DynamicBindGroupEntryHandles {
 
     pub fn extend_with_indices<const N: usize>(
         mut self,
-        entries: impl IntoIndexedBindingResourceHandleArray<N>,
+        entries: impl IntoIndexedBindGroupResourceHandleArray<N>,
     ) -> Self {
         self.entries.extend(
             entries

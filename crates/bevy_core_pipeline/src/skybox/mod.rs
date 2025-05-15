@@ -18,7 +18,7 @@ use bevy_render::{
         UniformComponentPlugin,
     },
     frame_graph::{
-        BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, IntoBindingResourceHandle,
+        BindGroupHandle, DynamicBindGroupEntryHandles, FrameGraph, IntoBindGroupResourceHandle,
     },
     render_asset::RenderAssets,
     render_resource::{

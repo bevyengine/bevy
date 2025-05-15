@@ -9,8 +9,8 @@ use crate::{
 };
 
 use super::{
-    BindGroupEntryBinding, BindGroupResourceBinding, BindingResourceHelper,
-    IntoBindGroupResourceBinding, IntoBindingResourceHandle,
+    BindGroupEntryBinding, BindGroupResourceBinding, BindGroupResourceHelper,
+    IntoBindGroupResourceBinding, IntoBindGroupResourceHandle,
 };
 
 pub struct BindGroupDrawingBuilder<'a, 'b> {
@@ -34,7 +34,10 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
         }
     }
 
-    pub fn push_bind_resource<T: IntoBindGroupResourceBinding>(mut self, binding: T) -> Self {
+    pub fn push_bind_group_resource_binding<T: IntoBindGroupResourceBinding>(
+        mut self,
+        binding: T,
+    ) -> Self {
         self.entries.push(BindGroupEntryBinding {
             binding: self.entries.len() as u32,
             resource: binding.into_binding(),
@@ -43,14 +46,15 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
         self
     }
 
-    pub fn push_bind_group_handle<T: IntoBindingResourceHandle>(self, value: T) -> Self {
+    pub fn push_bind_group_resource_handle<T: IntoBindGroupResourceHandle>(self, value: T) -> Self {
         let handle = T::into_binding(value);
-        self.push_bind_group_entry(&handle)
+        self.push_bind_group_resource(&handle)
     }
 
-    pub fn push_bind_group_entry<T: BindingResourceHelper>(self, value: &T) -> Self {
-        let binding = value.make_binding_resource_binding(self.pass_builder.pass_node_builder());
-        self.push_bind_resource(binding)
+    pub fn push_bind_group_resource<T: BindGroupResourceHelper>(self, value: &T) -> Self {
+        let binding =
+            value.make_binding_group_resource_binding(self.pass_builder.pass_node_builder());
+        self.push_bind_group_resource_binding(binding)
     }
 
     pub fn build(self) -> BindGroupDrawing {

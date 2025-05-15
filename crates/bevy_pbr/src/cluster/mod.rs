@@ -17,7 +17,7 @@ use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
-    frame_graph::{BindingResourceHandle, FrameGraph},
+    frame_graph::{BindGroupResourceHandle, FrameGraph},
     render_resource::{
         BindingResource, Buffer, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
         UniformBuffer,
@@ -499,7 +499,7 @@ impl GpuClusterableObjects {
     pub fn make_binding_resource_handle(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> Option<BindingResourceHandle> {
+    ) -> Option<BindGroupResourceHandle> {
         match self {
             GpuClusterableObjects::Uniform(buffer) => {
                 buffer.make_binding_resource_handle(frame_graph)
@@ -760,7 +760,7 @@ impl ViewClusterBindings {
     pub fn make_clusterable_object_index_lists_binding_resource_handle(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> Option<BindingResourceHandle> {
+    ) -> Option<BindGroupResourceHandle> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 clusterable_object_index_lists,
@@ -789,7 +789,7 @@ impl ViewClusterBindings {
     pub fn make_offsets_and_counts_binding_resource_handle(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> Option<BindingResourceHandle> {
+    ) -> Option<BindGroupResourceHandle> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_offsets_and_counts,

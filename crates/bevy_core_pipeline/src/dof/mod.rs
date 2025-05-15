@@ -486,8 +486,8 @@ impl ViewNode for DepthOfFieldNode {
                     Some("depth of field global bind group".into()),
                     global_bind_group_layout.layout.clone(),
                 )
-                .push_bind_group_entry(&depth_of_field_uniforms_binding)
-                .push_bind_group_handle(&global_bind_group_layout.color_texture_sampler)
+                .push_bind_group_resource(&depth_of_field_uniforms_binding)
+                .push_bind_group_resource_handle(&global_bind_group_layout.color_texture_sampler)
                 .build();
 
             pass_builder
