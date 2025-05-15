@@ -1,12 +1,14 @@
-//! Many games need some kind of Main Menu to change some kind of settings. Here we're creating a menu navigate between and manipulate several options for a "game" that displays the options to us, with options represented in-engine with Resources. Switching between menu states involves using `StateScoped`.
+//! Many games need a "Menu" to change game settings (parameters that change sound, graphics, gameplay etc.) This example is a simple menu to navigate between and manipulate several options for a "game" that displays the options to us, with options represented in-engine with Resources.
 //!
-//! Resources (`Res`/`ResMut`) will be used to store and manipulate game options here, as these are pieces of data that act as "global information" not tied to any single scoped state or entity.
+//! Resources (`Res`/`ResMut`) are used to store and manipulate game options here, as these are one-off pieces of data that act as "global information" that will want to be accessed throughout the game, and not in one single state / substate.
 //!
-//! `Node` is the foundational unit of UI in bevy, it acts a lot like an HTML tag with a `style` attribute. It has a lot of fields, but we can avoid having to declare all of them by defining the ones we're fine with being default with `..default()`.
+//! The `Node` component is a foundational part of UI in Bevy, it makes an entity act like (but not exactly like) an HTML tag with a `style` attribute. It has a lot of fields, but we can avoid having to declare all of them by defining the ones we're fine with being default with `..default()`.
 //!
-//! UI Heirarchies are the central way of building UI in bevy. UI nodes can have child nodes, and those child nodes can also have child nodes etc. These relationships are constructed in this example with `Commands::with_child` and `Commands::with_children`. `Nodes` with `Node` children will use the layout information they're given (mostly in `Node`'s fields) to figure out how to look, but there's also separate styling for `Text`.
+//! UI Hierarchies are a central concept in Bevy, much like in many other game and UI frameworks. Building out a hierarchy involves spawning one or more "child" entities on an entity, and this can go arbitrarily deep! The easiest way to spawn children on an entity is with the `children![]` macro i.e. we can spawn a ui node with 2 children with `commands.spawn((Node::default(), /* non-child components */, children![Node::default(), (Node::default(), Name("This child node has extra components!".into()))])))`.
 //!
-//! Switching between different options in the menu is done with `StateScoped`, which allows us to say "this entity only exists while we're in this state" and "this system only runs when we're in this state/the state has been entered/we've left this state." This kind of behaviour helps us separate information and game logic that depend on some basic context like "are we in a menu or in the game" or "are we in a loading screen or the final level."
+//! `Node`s with `Node` children will use the layout information they're given (mostly in `Node`'s fields) to figure out how to look. There's separate styling rules for `Text` at this time.
+//!
+//! To make entering a state mean entities get spawned we need to add a system to the app that runs on a specific `OnEnter(/* The relevant state */)` Schedule. There's also `OnExit(/* The relevant state */)` for whatever you want to do when a state exits. In this example `OnExit` is used to manually despawn state-specific entities but this can be automated with "State-scoped entities."
 
 use bevy::prelude::*;
 
