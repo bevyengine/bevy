@@ -19,7 +19,7 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
     frame_graph::{
-        ColorAttachmentDrawing, EncoderCommandBuilder, FrameGraph, FrameGraphTexture, ResourceMeta,
+        ColorAttachment, EncoderCommandBuilder, FrameGraph, FrameGraphTexture, ResourceMeta,
         TextureInfo, TextureViewDrawing, TextureViewInfo,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -170,7 +170,7 @@ impl ViewNode for BloomNode {
             pass_builder
                 .create_render_pass_builder()
                 .set_pass_name("bloom_downsampling_first_pass")
-                .add_color_attachment(ColorAttachmentDrawing {
+                .add_color_attachment(ColorAttachment {
                     view: TextureViewDrawing {
                         texture: bloom_texture_write,
                         desc: bloom_texture.get_texture_view_info(0),
@@ -209,7 +209,7 @@ impl ViewNode for BloomNode {
             pass_builder
                 .create_render_pass_builder()
                 .set_pass_name("bloom_downsampling_pass")
-                .add_color_attachment(ColorAttachmentDrawing {
+                .add_color_attachment(ColorAttachment {
                     view: TextureViewDrawing {
                         texture: bloom_texture_write,
                         desc: bloom_texture.get_texture_view_info(mip),
@@ -254,7 +254,7 @@ impl ViewNode for BloomNode {
             pass_builder
                 .create_render_pass_builder()
                 .set_pass_name("bloom_upsampling_pass")
-                .add_color_attachment(ColorAttachmentDrawing {
+                .add_color_attachment(ColorAttachment {
                     view: TextureViewDrawing {
                         texture: bloom_texture_write,
                         desc: bloom_texture.get_texture_view_info(mip - 1),

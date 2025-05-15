@@ -7,7 +7,7 @@ use wgpu::{QuerySet, ShaderStages};
 use crate::{
     camera::Viewport,
     frame_graph::{
-        BindGroupBinding, BindGroupHandle, ColorAttachment, ColorAttachmentDrawing,
+        BindGroupBinding, BindGroupHandle, ColorAttachment, ColorAttachmentOwner,
         DepthStencilAttachmentDrawing, FrameGraphBuffer, RenderPass, RenderPassCommandBuilder,
         ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
     },
@@ -327,7 +327,10 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
         self
     }
 
-    pub fn add_raw_color_attachment(&mut self, color_attachment: ColorAttachment) -> &mut Self {
+    pub fn add_raw_color_attachment(
+        &mut self,
+        color_attachment: ColorAttachmentOwner,
+    ) -> &mut Self {
         self.render_pass
             .add_raw_color_attachment(Some(color_attachment));
         self
@@ -335,14 +338,14 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
 
     pub fn add_color_attachments(
         &mut self,
-        color_attachments: Vec<Option<ColorAttachmentDrawing>>,
+        color_attachments: Vec<Option<ColorAttachment>>,
     ) -> &mut Self {
         self.render_pass.add_color_attachments(color_attachments);
 
         self
     }
 
-    pub fn add_color_attachment(&mut self, color_attachment: ColorAttachmentDrawing) -> &mut Self {
+    pub fn add_color_attachment(&mut self, color_attachment: ColorAttachment) -> &mut Self {
         self.render_pass
             .add_color_attachment(Some(color_attachment));
 

@@ -5,9 +5,8 @@ use wgpu::CommandEncoder;
 use crate::{
     camera::Viewport,
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraphError,
-        RenderContext, RenderPassCommand, RenderPassCommandBuilder, RenderPassDrawing,
-        ResourceBinding,
+        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachmentDrawing, RenderContext,
+        RenderPassCommand, RenderPassCommandBuilder, RenderPassDrawing, ResourceBinding,
     },
 };
 
@@ -69,7 +68,7 @@ impl RenderPass {
             .depth_stencil_attachment = Some(depth_stencil_attachment);
     }
 
-    pub fn add_raw_color_attachment(&mut self, color_attachment: Option<ColorAttachment>) {
+    pub fn add_raw_color_attachment(&mut self, color_attachment: Option<ColorAttachmentOwner>) {
         self.current_logic_render_pass
             .render_pass_drawing
             .raw_color_attachments
@@ -78,10 +77,7 @@ impl RenderPass {
         self.current_logic_render_pass.vaild = true;
     }
 
-    pub fn add_color_attachments(
-        &mut self,
-        mut color_attachments: Vec<Option<ColorAttachmentDrawing>>,
-    ) {
+    pub fn add_color_attachments(&mut self, mut color_attachments: Vec<Option<ColorAttachment>>) {
         self.current_logic_render_pass
             .render_pass_drawing
             .color_attachments
@@ -89,7 +85,7 @@ impl RenderPass {
 
         self.current_logic_render_pass.vaild = true;
     }
-    pub fn add_color_attachment(&mut self, color_attachment: Option<ColorAttachmentDrawing>) {
+    pub fn add_color_attachment(&mut self, color_attachment: Option<ColorAttachment>) {
         self.current_logic_render_pass
             .render_pass_drawing
             .color_attachments

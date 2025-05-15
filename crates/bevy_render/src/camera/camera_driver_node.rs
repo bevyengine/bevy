@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::{
     camera::{ClearColor, ExtractedCamera, NormalizedRenderTarget, SortedCameras},
-    frame_graph::{ColorAttachment, FrameGraph, RenderPass},
+    frame_graph::{ColorAttachmentOwner, FrameGraph, RenderPass},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     view::ExtractedWindows,
 };
@@ -88,7 +88,7 @@ impl Node for CameraDriverNode {
 
             let mut render_pass = RenderPass::default();
 
-            render_pass.add_raw_color_attachment(Some(ColorAttachment {
+            render_pass.add_raw_color_attachment(Some(ColorAttachmentOwner {
                 view: swap_chain_texture_view.deref().clone(),
                 resolve_target: None,
                 ops: Operations {

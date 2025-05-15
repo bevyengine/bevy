@@ -1,7 +1,6 @@
 use crate::{
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraphTexture,
-        PassBuilder, ResourceMeta, TextureViewDrawing, TextureViewInfo,
+        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachmentDrawing, FrameGraphTexture, PassBuilder, ResourceMeta, TextureViewDrawing, TextureViewInfo
     },
     render_resource::{TextureFormat, TextureView},
 };
@@ -23,14 +22,14 @@ impl ColorAttachmentHandle {
     pub fn get_unsampled_attachment(
         &self,
         pass_builder: &mut PassBuilder,
-    ) -> ColorAttachmentDrawing {
+    ) -> ColorAttachment {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
         let view = TextureViewDrawing {
             texture: pass_builder.write_material(&self.texture),
             desc: TextureViewInfo::default(),
         };
 
-        ColorAttachmentDrawing {
+        ColorAttachment {
             view,
             resolve_target: None,
             ops: Operations {
@@ -43,7 +42,7 @@ impl ColorAttachmentHandle {
         }
     }
 
-    pub fn get_color_attachment(&self, pass_builder: &mut PassBuilder) -> ColorAttachmentDrawing {
+    pub fn get_color_attachment(&self, pass_builder: &mut PassBuilder) -> ColorAttachment {
         let view;
 
         let mut resolve_target = None;
@@ -67,7 +66,7 @@ impl ColorAttachmentHandle {
 
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
-        ColorAttachmentDrawing {
+        ColorAttachment {
             view,
             resolve_target,
             ops: Operations {
@@ -198,10 +197,10 @@ impl OutputColorAttachment {
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
     /// the provided `clear_color` if this is the first time calling this function, otherwise it
     /// will be loaded.
-    pub fn get_attachment(&self, clear_color: Option<LinearRgba>) -> ColorAttachment {
+    pub fn get_attachment(&self, clear_color: Option<LinearRgba>) -> ColorAttachmentOwner {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
-        ColorAttachment {
+        ColorAttachmentOwner {
             view: self.view.deref().clone(),
             resolve_target: None,
             ops: Operations {

@@ -13,8 +13,8 @@ pub use render_pass_context::*;
 use wgpu::{AdapterInfo, CommandEncoder};
 
 use super::{
-    ComputePassInfo, FrameGraphBuffer, FrameGraphError, GraphResource, RenderPassInfo,
-    ResourceRead, ResourceRef, ResourceTable, ResourceView, TransientResourceCache,
+    ComputePassInfo, FrameGraphBuffer, GraphResource, RenderPassInfo, ResourceRead, ResourceRef,
+    ResourceTable, ResourceView, TransientResourceCache,
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,

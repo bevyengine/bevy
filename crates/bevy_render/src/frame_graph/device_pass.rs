@@ -1,6 +1,5 @@
 use super::{
-    FrameGraph, FrameGraphError, Pass, PassNode, RenderContext, ResourceRelease, ResourceRequese,
-    TypeHandle,
+    FrameGraph, Pass, PassNode, RenderContext, ResourceRelease, ResourceRequese, TypeHandle,
 };
 
 #[derive(Default)]

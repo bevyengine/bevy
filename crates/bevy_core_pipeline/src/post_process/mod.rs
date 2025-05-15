@@ -20,9 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    frame_graph::{
-        ColorAttachmentDrawing, FrameGraph, PassBuilder, TextureViewDrawing, TextureViewInfo,
-    },
+    frame_graph::{ColorAttachment, FrameGraph, PassBuilder, TextureViewDrawing, TextureViewInfo},
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
@@ -412,7 +410,9 @@ impl ViewNode for PostProcessingNode {
             )
             .push_bind_group_resource(source)
             .push_bind_group_resource_handle(&post_processing_pipeline.source_sampler)
-            .push_bind_group_resource_handle(&post_processing_pipeline.chromatic_aberration_lut_sampler)
+            .push_bind_group_resource_handle(
+                &post_processing_pipeline.chromatic_aberration_lut_sampler,
+            )
             .push_bind_group_resource(&chromatic_aberration_binding)
             .build();
 
@@ -422,7 +422,7 @@ impl ViewNode for PostProcessingNode {
 
         builder
             .set_pass_name("postprocessing pass")
-            .add_color_attachment(ColorAttachmentDrawing {
+            .add_color_attachment(ColorAttachment {
                 view: TextureViewDrawing {
                     texture: destination,
                     desc: TextureViewInfo::default(),

@@ -14,7 +14,7 @@ use crate::{
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     frame_graph::{
-        ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraph,
+        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachmentDrawing, FrameGraph,
         FrameGraphTexture, PassBuilder, ResourceMeta, TextureInfo, TextureViewDrawing,
         TextureViewInfo,
     },
@@ -724,10 +724,7 @@ pub struct NoCpuCulling;
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
-    pub fn get_unsampled_attachment(
-        &self,
-        pass_builder: &mut PassBuilder,
-    ) -> ColorAttachmentDrawing {
+    pub fn get_unsampled_attachment(&self, pass_builder: &mut PassBuilder) -> ColorAttachment {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_unsampled_attachment(pass_builder)
         } else {
@@ -735,7 +732,7 @@ impl ViewTarget {
         }
     }
 
-    pub fn get_color_attachment(&self, pass_builder: &mut PassBuilder) -> ColorAttachmentDrawing {
+    pub fn get_color_attachment(&self, pass_builder: &mut PassBuilder) -> ColorAttachment {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_color_attachment(pass_builder)
         } else {
@@ -799,7 +796,10 @@ impl ViewTarget {
         self.out_texture.get_attachment_operations(clear_color)
     }
 
-    pub fn out_texture_color_attachment(&self, clear_color: Option<LinearRgba>) -> ColorAttachment {
+    pub fn out_texture_color_attachment(
+        &self,
+        clear_color: Option<LinearRgba>,
+    ) -> ColorAttachmentOwner {
         self.out_texture.get_attachment(clear_color)
     }
 

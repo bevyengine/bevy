@@ -3,20 +3,20 @@ use crate::frame_graph::RenderContext;
 use super::{ResourceBinding, TextureViewDrawing};
 
 #[derive(Clone)]
-pub struct ColorAttachmentDrawing {
+pub struct ColorAttachment {
     pub view: TextureViewDrawing,
     pub resolve_target: Option<TextureViewDrawing>,
     pub ops: wgpu::Operations<wgpu::Color>,
 }
 
 #[derive(Clone)]
-pub struct ColorAttachment {
+pub struct ColorAttachmentOwner {
     pub view: wgpu::TextureView,
     pub resolve_target: Option<wgpu::TextureView>,
     pub ops: wgpu::Operations<wgpu::Color>,
 }
 
-impl ColorAttachment {
+impl ColorAttachmentOwner {
     pub fn get_render_pass_color_attachment(&self) -> wgpu::RenderPassColorAttachment {
         wgpu::RenderPassColorAttachment {
             view: &self.view,
@@ -26,8 +26,8 @@ impl ColorAttachment {
     }
 }
 
-impl ResourceBinding for ColorAttachmentDrawing {
-    type Resource = ColorAttachment;
+impl ResourceBinding for ColorAttachment {
+    type Resource = ColorAttachmentOwner;
 
     fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource {
         let view = self.view.make_resource(render_context);
@@ -35,13 +35,13 @@ impl ResourceBinding for ColorAttachmentDrawing {
         if let Some(resolve_target) = &self.resolve_target {
             let resolve_target = resolve_target.make_resource(render_context);
 
-            ColorAttachment {
+            ColorAttachmentOwner {
                 view,
                 resolve_target: Some(resolve_target),
                 ops: self.ops,
             }
         } else {
-            ColorAttachment {
+            ColorAttachmentOwner {
                 view,
                 resolve_target: None,
                 ops: self.ops,

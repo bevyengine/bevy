@@ -34,7 +34,7 @@ use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     frame_graph::{
-        BindGroupHandle, ColorAttachmentDrawing, DynamicBindGroupEntryHandles, FrameGraph,
+        BindGroupHandle, ColorAttachment, DynamicBindGroupEntryHandles, FrameGraph,
         FrameGraphTexture, ResourceMeta, TextureInfo, TextureViewDrawing, TextureViewInfo,
     },
     render_graph::{
@@ -441,7 +441,7 @@ impl ViewNode for DepthOfFieldNode {
 
             let destination = pass_builder.write_material(postprocess.destination);
 
-            color_attachments.push(Some(ColorAttachmentDrawing {
+            color_attachments.push(Some(ColorAttachment {
                 view: TextureViewDrawing {
                     texture: destination,
                     desc: TextureViewInfo::default(),
@@ -466,7 +466,7 @@ impl ViewNode for DepthOfFieldNode {
                 };
                 let auxiliary_dof_texture = pass_builder.write_material(&auxiliary_dof_texture.0);
 
-                color_attachments.push(Some(ColorAttachmentDrawing {
+                color_attachments.push(Some(ColorAttachment {
                     view: TextureViewDrawing {
                         texture: auxiliary_dof_texture,
                         desc: TextureViewInfo::default(),

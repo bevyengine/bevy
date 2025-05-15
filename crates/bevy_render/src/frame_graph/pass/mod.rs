@@ -10,7 +10,7 @@ pub use render_pass::*;
 
 use wgpu::CommandEncoder;
 
-use super::{FrameGraphError, RenderContext};
+use super::RenderContext;
 
 pub struct Pass(Box<dyn PassTrait>);
 
