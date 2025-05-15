@@ -398,6 +398,9 @@ impl Schedule {
     ///
     /// If `settings.auto_insert_apply_deferred` is `false`, this clears `*_ignore_deferred`
     /// edge settings configured so far.
+    /// 
+    /// Generally this method should be used before adding systems or set configurations to the schedule,
+    /// not after.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         if settings.auto_insert_apply_deferred {
             if !self.graph.settings.auto_insert_apply_deferred {
