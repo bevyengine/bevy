@@ -1,6 +1,6 @@
-use crate::frame_graph::{FrameGraphError, RenderContext};
+use crate::frame_graph::RenderContext;
 
-use super::{ResourceDrawing, TextureViewDrawing};
+use super::{ResourceBinding, TextureViewDrawing};
 
 #[derive(Clone)]
 pub struct DepthStencilAttachmentDrawing {
@@ -9,20 +9,17 @@ pub struct DepthStencilAttachmentDrawing {
     pub stencil_ops: Option<wgpu::Operations<u32>>,
 }
 
-impl ResourceDrawing for DepthStencilAttachmentDrawing {
+impl ResourceBinding for DepthStencilAttachmentDrawing {
     type Resource = DepthStencilAttachment;
 
-    fn make_resource<'a>(
-        &self,
-        render_context: &RenderContext<'a>,
-    ) -> Result<Self::Resource, FrameGraphError> {
-        let view = self.view.make_resource(render_context)?;
+    fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource {
+        let view = self.view.make_resource(render_context);
 
-        Ok(DepthStencilAttachment {
+        DepthStencilAttachment {
             view,
             depth_ops: self.depth_ops,
             stencil_ops: self.stencil_ops,
-        })
+        }
     }
 }
 

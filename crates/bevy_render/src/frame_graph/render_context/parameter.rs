@@ -37,14 +37,14 @@ pub struct ClearBufferParameter {
 
 impl ErasedRenderPassCommand for ClearBufferParameter {
     fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
-        render_pass_context.clear_buffer(&self.buffer_ref, self.offset, self.size)?;
+        render_pass_context.clear_buffer(&self.buffer_ref, self.offset, self.size);
         Ok(())
     }
 }
 
 impl ErasedComputePassCommand for ClearBufferParameter {
     fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
-        compute_pass_context.clear_buffer(&self.buffer_ref, self.offset, self.size)?;
+        compute_pass_context.clear_buffer(&self.buffer_ref, self.offset, self.size);
         Ok(())
     }
 }
@@ -54,7 +54,7 @@ impl ErasedEncoderPassCommand for ClearBufferParameter {
         &self,
         command_encoder_context: &mut EncoderPassContext,
     ) -> Result<(), FrameGraphError> {
-        command_encoder_context.clear_buffer(&self.buffer_ref, self.offset, self.size)?;
+        command_encoder_context.clear_buffer(&self.buffer_ref, self.offset, self.size);
         Ok(())
     }
 }
@@ -66,7 +66,7 @@ pub struct ClearTextureParameter {
 
 impl ErasedComputePassCommand for ClearTextureParameter {
     fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
-        compute_pass_context.clear_texture(&self.texture_ref, &self.subresource_range)?;
+        compute_pass_context.clear_texture(&self.texture_ref, &self.subresource_range);
         Ok(())
     }
 }
@@ -83,7 +83,7 @@ impl ErasedEncoderPassCommand for ClearTextureParameter {
         &self,
         command_encoder_context: &mut EncoderPassContext,
     ) -> Result<(), FrameGraphError> {
-        command_encoder_context.clear_texture(&self.texture_ref, &self.subresource_range)?;
+        command_encoder_context.clear_texture(&self.texture_ref, &self.subresource_range);
         Ok(())
     }
 }
@@ -100,7 +100,7 @@ impl ErasedComputePassCommand for CopyTextureToTextureParameter {
             self.source.clone(),
             self.destination.clone(),
             self.copy_size.clone(),
-        )?;
+        );
         Ok(())
     }
 }
@@ -125,7 +125,7 @@ impl ErasedEncoderPassCommand for CopyTextureToTextureParameter {
             self.source.clone(),
             self.destination.clone(),
             self.copy_size.clone(),
-        )?;
+        );
         Ok(())
     }
 }
@@ -138,7 +138,7 @@ pub struct DispatchWorkgroupsIndirectParameter {
 impl ErasedComputePassCommand for DispatchWorkgroupsIndirectParameter {
     fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
         compute_pass_context
-            .dispatch_workgroups_indirect(&self.indirect_buffer_ref, self.indirect_offset)?;
+            .dispatch_workgroups_indirect(&self.indirect_buffer_ref, self.indirect_offset);
         Ok(())
     }
 }
@@ -571,7 +571,7 @@ pub struct SetBindGroupParameter {
 
 impl ErasedComputePassCommand for SetBindGroupParameter {
     fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError> {
-        compute_pass_context.set_bind_group(self.index, &self.bind_group, &self.offsets)?;
+        compute_pass_context.set_bind_group(self.index, &self.bind_group, &self.offsets);
 
         Ok(())
     }

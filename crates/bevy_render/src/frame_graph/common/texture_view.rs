@@ -1,10 +1,8 @@
 use alloc::borrow::Cow;
 
-use crate::frame_graph::{
-    FrameGraphError, FrameGraphTexture, RenderContext, ResourceRef, ResourceWrite,
-};
+use crate::frame_graph::{FrameGraphTexture, RenderContext, ResourceRef, ResourceWrite};
 
-use super::ResourceDrawing;
+use super::ResourceBinding;
 
 #[derive(Default, Clone, Debug)]
 pub struct TextureViewInfo {
@@ -60,21 +58,13 @@ pub struct TextureViewDrawing {
     pub desc: TextureViewInfo,
 }
 
-impl ResourceDrawing for TextureViewDrawing {
+impl ResourceBinding for TextureViewDrawing {
     type Resource = wgpu::TextureView;
 
-    fn make_resource<'a>(
-        &self,
-        render_context: &RenderContext<'a>,
-    ) -> Result<Self::Resource, FrameGraphError> {
+    fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource {
         render_context
-            .resource_table
             .get_resource(&self.texture)
-            .map(|texture| {
-                texture
-                    .resource
-                    .create_view(&self.desc.get_texture_view_desc())
-            })
-            .ok_or(FrameGraphError::ResourceNotFound)
+            .resource
+            .create_view(&self.desc.get_texture_view_desc())
     }
 }

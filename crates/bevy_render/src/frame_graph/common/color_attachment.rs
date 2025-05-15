@@ -1,6 +1,6 @@
-use crate::frame_graph::{FrameGraphError, RenderContext};
+use crate::frame_graph::RenderContext;
 
-use super::{ResourceDrawing, TextureViewDrawing};
+use super::{ResourceBinding, TextureViewDrawing};
 
 #[derive(Clone)]
 pub struct ColorAttachmentDrawing {
@@ -26,29 +26,26 @@ impl ColorAttachment {
     }
 }
 
-impl ResourceDrawing for ColorAttachmentDrawing {
+impl ResourceBinding for ColorAttachmentDrawing {
     type Resource = ColorAttachment;
 
-    fn make_resource<'a>(
-        &self,
-        render_context: &RenderContext<'a>,
-    ) -> Result<Self::Resource, FrameGraphError> {
-        let view = self.view.make_resource(render_context)?;
+    fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource {
+        let view = self.view.make_resource(render_context);
 
         if let Some(resolve_target) = &self.resolve_target {
-            let resolve_target = resolve_target.make_resource(render_context)?;
+            let resolve_target = resolve_target.make_resource(render_context);
 
-            Ok(ColorAttachment {
+            ColorAttachment {
                 view,
                 resolve_target: Some(resolve_target),
                 ops: self.ops,
-            })
+            }
         } else {
-            Ok(ColorAttachment {
+            ColorAttachment {
                 view,
                 resolve_target: None,
                 ops: self.ops,
-            })
+            }
         }
     }
 }

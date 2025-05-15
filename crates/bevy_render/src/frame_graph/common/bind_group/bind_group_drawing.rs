@@ -4,7 +4,7 @@ use bevy_platform::collections::HashMap;
 use wgpu::BufferBinding;
 
 use crate::{
-    frame_graph::{FrameGraphBuffer, FrameGraphError, PassBuilder, RenderContext, ResourceDrawing},
+    frame_graph::{FrameGraphBuffer, PassBuilder, RenderContext, ResourceBinding},
     render_resource::BindGroupLayout,
 };
 
@@ -114,13 +114,10 @@ impl<'a> BindingResourceTemp<'a> {
     }
 }
 
-impl ResourceDrawing for BindGroupBinding {
+impl ResourceBinding for BindGroupBinding {
     type Resource = wgpu::BindGroup;
 
-    fn make_resource<'a>(
-        &self,
-        render_context: &RenderContext<'a>,
-    ) -> Result<Self::Resource, FrameGraphError> {
+    fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource {
         let mut resources = HashMap::new();
 
         for entry in self.entries.iter() {
@@ -129,7 +126,7 @@ impl ResourceDrawing for BindGroupBinding {
                     let mut texture_views = vec![];
 
                     for texture_view_ref in texture_view_refs.iter() {
-                        let texture = render_context.get_resource(&texture_view_ref.texture)?;
+                        let texture = render_context.get_resource(&texture_view_ref.texture);
 
                         texture_views.push(texture.resource.create_view(
                             &texture_view_ref.texture_view_info.get_texture_view_desc(),
@@ -149,7 +146,7 @@ impl ResourceDrawing for BindGroupBinding {
                     BindingResourceTemp::Sampler(sampler.deref().clone())
                 }
                 BindGroupResourceBinding::TextureView(binding) => {
-                    let texture = render_context.get_resource(&binding.texture)?;
+                    let texture = render_context.get_resource(&binding.texture);
                     BindingResourceTemp::TextureView(
                         texture
                             .resource
@@ -157,7 +154,7 @@ impl ResourceDrawing for BindGroupBinding {
                     )
                 }
                 BindGroupResourceBinding::Buffer(buffer_ref) => BindingResourceTemp::Buffer {
-                    buffer: render_context.get_resource(&buffer_ref.buffer)?,
+                    buffer: render_context.get_resource(&buffer_ref.buffer),
                     size: buffer_ref.size,
                 },
                 BindGroupResourceBinding::TextureViewArray(_) => {
@@ -191,6 +188,6 @@ impl ResourceDrawing for BindGroupBinding {
                     .collect::<Vec<_>>(),
             });
 
-        Ok(bind_graoup)
+        bind_graoup
     }
 }

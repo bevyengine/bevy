@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     frame_graph::{
-        BindGroupBinding, FrameGraphBuffer, FrameGraphTexture, ResourceDrawing, ResourceRead,
+        BindGroupBinding, FrameGraphBuffer, FrameGraphTexture, ResourceBinding, ResourceRead,
         ResourceRef, ResourceWrite, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedComputePipelineId},
@@ -185,26 +185,22 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
-    ) -> Result<(), FrameGraphError> {
-        let buffer = self.render_context.get_resource(&buffer_ref)?;
+    ) {
+        let buffer = self.render_context.get_resource(&buffer_ref);
 
         self.command_encoder
             .clear_buffer(&buffer.resource, offset, size);
-
-        Ok(())
     }
 
     pub fn dispatch_workgroups_indirect(
         &mut self,
         indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         indirect_offset: u64,
-    ) -> Result<(), FrameGraphError> {
-        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+    ) {
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
 
         self.compute_pass
             .dispatch_workgroups_indirect(&indirect_buffer.resource, indirect_offset);
-
-        Ok(())
     }
 
     pub fn set_push_constants(&mut self, offset: u32, data: &[u8]) {
@@ -215,13 +211,11 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
         &mut self,
         texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
         subresource_range: &ImageSubresourceRange,
-    ) -> Result<(), FrameGraphError> {
-        let texture = self.render_context.get_resource(&texture_ref)?;
+    ) {
+        let texture = self.render_context.get_resource(&texture_ref);
 
         self.command_encoder
             .clear_texture(&texture.resource, subresource_range);
-
-        Ok(())
     }
 
     pub fn dispatch_workgroups(&mut self, x: u32, y: u32, z: u32) {
@@ -243,9 +237,9 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
         source: TexelCopyTextureInfo<ResourceRead>,
         destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
-    ) -> Result<(), FrameGraphError> {
-        let source_texture = self.render_context.get_resource(&source.texture)?;
-        let destination_texture = self.render_context.get_resource(&destination.texture)?;
+    ) {
+        let source_texture = self.render_context.get_resource(&source.texture);
+        let destination_texture = self.render_context.get_resource(&destination.texture);
 
         self.command_encoder.copy_texture_to_texture(
             wgpu::TexelCopyTextureInfoBase {
@@ -262,8 +256,6 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
             },
             copy_size,
         );
-
-        Ok(())
     }
 
     pub fn end_pipeline_statistics_query(&mut self) {
@@ -306,17 +298,10 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
         Ok(())
     }
 
-    pub fn set_bind_group(
-        &mut self,
-        index: u32,
-        bind_group: &BindGroupBinding,
-        offsets: &[u32],
-    ) -> Result<(), FrameGraphError> {
-        let bind_group = bind_group.make_resource(&self.render_context)?;
+    pub fn set_bind_group(&mut self, index: u32, bind_group: &BindGroupBinding, offsets: &[u32]) {
+        let bind_group = bind_group.make_resource(&self.render_context);
         self.compute_pass
             .set_bind_group(index, &bind_group, offsets);
-
-        Ok(())
     }
 
     pub fn execute(mut self, commands: &Vec<ComputePassCommand>) -> Result<(), FrameGraphError> {

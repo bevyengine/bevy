@@ -7,7 +7,7 @@ use crate::{
     frame_graph::{
         ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachmentDrawing, FrameGraphError,
         RenderContext, RenderPassCommand, RenderPassCommandBuilder, RenderPassDrawing,
-        ResourceDrawing,
+        ResourceBinding,
     },
 };
 
@@ -114,11 +114,11 @@ impl EncoderExecutor for RenderPass {
         for logic_render_pass in self.logic_render_passes.iter() {
             let render_pass_info = logic_render_pass
                 .render_pass_drawing
-                .make_resource(render_context)?;
+                .make_resource(render_context);
             let render_pass_context =
                 render_context.begin_render_pass(command_encoder, &render_pass_info)?;
 
-            render_pass_context.execute(&logic_render_pass.commands)?;
+            render_pass_context.execute(&logic_render_pass.commands);
         }
 
         Ok(())

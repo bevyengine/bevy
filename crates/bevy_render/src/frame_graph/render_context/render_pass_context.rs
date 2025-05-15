@@ -2,11 +2,20 @@ use bevy_color::LinearRgba;
 use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
 
 use super::{
-    BeginPipelineStatisticsQueryParameter, ClearBufferParameter, ClearTextureParameter, CopyTextureToTextureParameter, DrawIndexedIndirectParameter, DrawIndexedParameter, DrawIndirectParameter, DrawParameter, EndPipelineStatisticsQueryParameter, FrameGraphBuffer, FrameGraphError, InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter, MultiDrawIndexedIndirectParameter, MultiDrawIndirectParameter, PopDebugGroupParameter, PushDebugGroupParameter, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter, SetBlendConstantParameter, SetIndexBufferParameter, SetPushConstantsParameter, SetRawBindGroupParameter, SetRenderPipelineParameter, SetScissorRectParameter, SetStencilReferenceParameter, SetVertexBufferParameter, SetViewportParameter, WriteTimestampParameter
+    BeginPipelineStatisticsQueryParameter, ClearBufferParameter, ClearTextureParameter,
+    CopyTextureToTextureParameter, DrawIndexedIndirectParameter, DrawIndexedParameter,
+    DrawIndirectParameter, DrawParameter, EndPipelineStatisticsQueryParameter, FrameGraphBuffer,
+    FrameGraphError, InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
+    MultiDrawIndexedIndirectParameter, MultiDrawIndirectParameter, PopDebugGroupParameter,
+    PushDebugGroupParameter, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter,
+    SetBlendConstantParameter, SetIndexBufferParameter, SetPushConstantsParameter,
+    SetRawBindGroupParameter, SetRenderPipelineParameter, SetScissorRectParameter,
+    SetStencilReferenceParameter, SetVertexBufferParameter, SetViewportParameter,
+    WriteTimestampParameter,
 };
 use crate::{
     frame_graph::{
-        BindGroupBinding, FrameGraphTexture, ResourceDrawing, ResourceWrite, TexelCopyTextureInfo,
+        BindGroupBinding, FrameGraphTexture, ResourceBinding, ResourceWrite, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedRenderPipelineId},
 };
@@ -328,7 +337,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         offset: u64,
         size: Option<u64>,
     ) -> Result<(), FrameGraphError> {
-        let buffer = self.render_context.get_resource(&buffer_ref)?;
+        let buffer = self.render_context.get_resource(&buffer_ref);
 
         self.command_encoder
             .clear_buffer(&buffer.resource, offset, size);
@@ -341,7 +350,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
         subresource_range: &ImageSubresourceRange,
     ) -> Result<(), FrameGraphError> {
-        let texture = self.render_context.get_resource(&texture_ref)?;
+        let texture = self.render_context.get_resource(&texture_ref);
 
         self.command_encoder
             .clear_texture(&texture.resource, subresource_range);
@@ -355,8 +364,8 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
     ) -> Result<(), FrameGraphError> {
-        let source_texture = self.render_context.get_resource(&source.texture)?;
-        let destination_texture = self.render_context.get_resource(&destination.texture)?;
+        let source_texture = self.render_context.get_resource(&source.texture);
+        let destination_texture = self.render_context.get_resource(&destination.texture);
 
         self.command_encoder.copy_texture_to_texture(
             wgpu::TexelCopyTextureInfoBase {
@@ -436,8 +445,8 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         count_offset: u64,
         max_count: u32,
     ) -> Result<(), FrameGraphError> {
-        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
-        let count_buffer = self.render_context.get_resource(count_buffer_ref)?;
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
+        let count_buffer = self.render_context.get_resource(count_buffer_ref);
 
         self.render_pass.multi_draw_indexed_indirect_count(
             &indirect_buffer.resource,
@@ -455,7 +464,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         indirect_offset: u64,
         count: u32,
     ) -> Result<(), FrameGraphError> {
-        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
 
         self.render_pass.multi_draw_indexed_indirect(
             &indirect_buffer.resource,
@@ -473,8 +482,8 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         count_offset: u64,
         max_count: u32,
     ) -> Result<(), FrameGraphError> {
-        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
-        let count_buffer = self.render_context.get_resource(count_buffer_ref)?;
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
+        let count_buffer = self.render_context.get_resource(count_buffer_ref);
 
         self.render_pass.multi_draw_indirect_count(
             &indirect_buffer.resource,
@@ -492,7 +501,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         indirect_offset: u64,
         count: u32,
     ) -> Result<(), FrameGraphError> {
-        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
 
         self.render_pass
             .multi_draw_indirect(&indirect_buffer.resource, indirect_offset, count);
@@ -505,7 +514,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         indirect_offset: u64,
     ) -> Result<(), FrameGraphError> {
-        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
 
         self.render_pass
             .draw_indexed_indirect(&indirect_buffer.resource, indirect_offset);
@@ -518,7 +527,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         indirect_offset: u64,
     ) -> Result<(), FrameGraphError> {
-        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref)?;
+        let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
 
         self.render_pass
             .draw_indirect(&indirect_buffer.resource, indirect_offset);
@@ -551,7 +560,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         bind_group: &BindGroupBinding,
         offsets: &[u32],
     ) -> Result<(), FrameGraphError> {
-        let bind_group = bind_group.make_resource(&self.render_context)?;
+        let bind_group = bind_group.make_resource(&self.render_context);
         self.render_pass.set_bind_group(index, &bind_group, offsets);
 
         Ok(())
@@ -583,7 +592,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         offset: u64,
         size: u64,
     ) -> Result<(), FrameGraphError> {
-        let buffer = self.render_context.get_resource(buffer_ref)?;
+        let buffer = self.render_context.get_resource(buffer_ref);
         self.render_pass
             .set_vertex_buffer(slot, buffer.resource.slice(offset..(offset + size)));
 
@@ -597,7 +606,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         offset: u64,
         size: u64,
     ) -> Result<(), FrameGraphError> {
-        let buffer = self.render_context.get_resource(buffer_ref)?;
+        let buffer = self.render_context.get_resource(buffer_ref);
 
         self.render_pass
             .set_index_buffer(buffer.resource.slice(offset..(offset + size)), index_format);

@@ -81,26 +81,22 @@ impl<'a, 'b> EncoderPassContext<'a, 'b> {
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
-    ) -> Result<(), FrameGraphError> {
-        let buffer = self.render_context.get_resource(&buffer_ref)?;
+    ) {
+        let buffer = self.render_context.get_resource(&buffer_ref);
 
         self.command_encoder
             .clear_buffer(&buffer.resource, offset, size);
-
-        Ok(())
     }
 
     pub fn clear_texture(
         &mut self,
         texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
         subresource_range: &ImageSubresourceRange,
-    ) -> Result<(), FrameGraphError> {
-        let texture = self.render_context.get_resource(&texture_ref)?;
+    ) {
+        let texture = self.render_context.get_resource(&texture_ref);
 
         self.command_encoder
             .clear_texture(&texture.resource, subresource_range);
-
-        Ok(())
     }
 
     pub fn copy_texture_to_texture(
@@ -108,9 +104,9 @@ impl<'a, 'b> EncoderPassContext<'a, 'b> {
         source: TexelCopyTextureInfo<ResourceRead>,
         destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
-    ) -> Result<(), FrameGraphError> {
-        let source_texture = self.render_context.get_resource(&source.texture)?;
-        let destination_texture = self.render_context.get_resource(&destination.texture)?;
+    ) {
+        let source_texture = self.render_context.get_resource(&source.texture);
+        let destination_texture = self.render_context.get_resource(&destination.texture);
 
         self.command_encoder.copy_texture_to_texture(
             wgpu::TexelCopyTextureInfoBase {
@@ -127,8 +123,6 @@ impl<'a, 'b> EncoderPassContext<'a, 'b> {
             },
             copy_size,
         );
-
-        Ok(())
     }
 
     pub fn execute(mut self, commands: &Vec<EncoderPassCommand>) -> Result<(), FrameGraphError> {

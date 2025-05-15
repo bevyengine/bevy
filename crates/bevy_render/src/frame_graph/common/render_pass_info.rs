@@ -4,7 +4,7 @@ use crate::frame_graph::{FrameGraphError, RenderContext};
 
 use super::{
     ColorAttachment, ColorAttachmentDrawing, DepthStencilAttachment, DepthStencilAttachmentDrawing,
-    ResourceDrawing,
+    ResourceBinding,
 };
 
 #[derive(Default)]
@@ -21,13 +21,10 @@ pub struct RenderPassInfo {
     pub depth_stencil_attachment: Option<DepthStencilAttachment>,
 }
 
-impl ResourceDrawing for RenderPassDrawing {
+impl ResourceBinding for RenderPassDrawing {
     type Resource = RenderPassInfo;
 
-    fn make_resource<'a>(
-        &self,
-        render_context: &RenderContext<'a>,
-    ) -> Result<Self::Resource, FrameGraphError> {
+    fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource {
         let mut color_attachments = self.raw_color_attachments.clone();
 
         for color_attachment in self.color_attachments.iter() {
@@ -38,7 +35,7 @@ impl ResourceDrawing for RenderPassDrawing {
                     color_attachment
                         .as_ref()
                         .unwrap()
-                        .make_resource(render_context)?,
+                        .make_resource(render_context),
                 ));
             }
         }
@@ -47,14 +44,14 @@ impl ResourceDrawing for RenderPassDrawing {
 
         if let Some(depth_stencil_attachment_blue_print) = &self.depth_stencil_attachment {
             depth_stencil_attachment =
-                Some(depth_stencil_attachment_blue_print.make_resource(render_context)?);
+                Some(depth_stencil_attachment_blue_print.make_resource(render_context));
         }
 
-        Ok(RenderPassInfo {
+        RenderPassInfo {
             label: self.label.clone(),
             color_attachments,
             depth_stencil_attachment,
-        })
+        }
     }
 }
 

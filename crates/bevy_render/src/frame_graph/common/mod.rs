@@ -19,8 +19,8 @@ pub use texture_view::*;
 use crate::render_resource::{Buffer, Texture};
 
 use super::{
-    FrameGraph, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, GraphResource,
-    GraphResourceNodeHandle, PassNodeBuilder, RenderContext,
+    FrameGraph, FrameGraphBuffer, FrameGraphTexture, GraphResource, GraphResourceNodeHandle,
+    RenderContext,
 };
 
 pub trait ResourceMaterial {
@@ -60,11 +60,8 @@ impl ResourceMaterial for Texture {
     }
 }
 
-pub trait ResourceDrawing {
+pub trait ResourceBinding {
     type Resource;
 
-    fn make_resource<'a>(
-        &self,
-        render_context: &RenderContext<'a>,
-    ) -> Result<Self::Resource, FrameGraphError>;
+    fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource;
 }

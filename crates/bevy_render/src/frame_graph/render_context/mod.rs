@@ -129,10 +129,10 @@ impl<'a> RenderContext<'a> {
     pub fn get_resource<ResourceType: GraphResource, View: ResourceView>(
         &self,
         resource_ref: &ResourceRef<ResourceType, View>,
-    ) -> Result<&ResourceType, FrameGraphError> {
+    ) -> &ResourceType {
         self.resource_table
             .get_resource(resource_ref)
-            .ok_or(FrameGraphError::ResourceNotFound)
+            .expect("resource mut have")
     }
 
     pub fn add_command_buffer(&mut self, command_buffer: wgpu::CommandBuffer) {
