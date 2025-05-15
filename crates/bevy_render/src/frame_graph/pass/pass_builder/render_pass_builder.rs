@@ -9,7 +9,7 @@ use crate::{
     frame_graph::{
         BindGroupBinding, BindGroupHandle, ColorAttachment, ColorAttachmentDrawing,
         DepthStencilAttachmentDrawing, FrameGraphBuffer, RenderPass, RenderPassCommandBuilder,
-        ResourceBinding, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
+        ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
     },
     render_resource::{BindGroup, CachedRenderPipelineId},
 };

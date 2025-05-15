@@ -10,8 +10,8 @@ use std::{borrow::Cow, mem::take};
 
 use crate::{
     frame_graph::{
-        BindGroupBindingBuilder, EncoderCommand, EncoderCommandBuilder, FrameGraphError,
-        PassNodeBuilder, RenderContext, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
+        BindGroupBindingBuilder, EncoderCommand, EncoderCommandBuilder, PassNodeBuilder,
+        RenderContext, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
     },
     render_resource::BindGroupLayout,
 };
@@ -26,7 +26,7 @@ pub struct DynamicPass {
 }
 
 impl PassTrait for DynamicPass {
-    fn render(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+    fn render(&self, render_context: &mut RenderContext) {
         render_context.flush_encoder();
 
         let mut command_encoder = render_context.create_command_encoder();
@@ -36,7 +36,7 @@ impl PassTrait for DynamicPass {
         }
 
         for executor in self.executors.iter() {
-            executor.execute(&mut command_encoder, render_context)?;
+            executor.execute(&mut command_encoder, render_context);
         }
 
         for end_encoder_command in self.end_encoder_commands.iter() {
@@ -46,8 +46,6 @@ impl PassTrait for DynamicPass {
         let command_buffer = command_encoder.finish();
 
         render_context.add_command_buffer(command_buffer);
-
-        Ok(())
     }
 }
 

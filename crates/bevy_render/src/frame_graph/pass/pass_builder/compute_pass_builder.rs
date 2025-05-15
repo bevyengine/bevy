@@ -5,9 +5,8 @@ use wgpu::QuerySet;
 
 use crate::{
     frame_graph::{
-        BindGroupBinding, BindGroupHandle, ComputePass, ComputePassCommandBuilder,
-        FrameGraphBuffer, PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceRef,
-        ResourceWrite,
+        BindGroupBinding, ComputePass, ComputePassCommandBuilder, FrameGraphBuffer,
+        PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
     },
     render_resource::{BindGroup, CachedComputePipelineId},
 };

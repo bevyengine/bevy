@@ -1,7 +1,7 @@
 use wgpu::CommandEncoder;
 
 use crate::frame_graph::{
-    ComputePassCommand, ComputePassCommandBuilder, ComputePassInfo, FrameGraphError, RenderContext,
+    ComputePassCommand, ComputePassCommandBuilder, ComputePassInfo, RenderContext,
 };
 
 use super::EncoderExecutor;
@@ -35,16 +35,10 @@ impl ComputePassCommandBuilder for ComputePass {
 }
 
 impl EncoderExecutor for ComputePass {
-    fn execute(
-        &self,
-        command_encoder: &mut CommandEncoder,
-        render_context: &mut RenderContext,
-    ) -> Result<(), FrameGraphError> {
+    fn execute(&self, command_encoder: &mut CommandEncoder, render_context: &mut RenderContext) {
         let render_pass_context =
-            render_context.begin_compute_pass(command_encoder, &self.compute_pass)?;
+            render_context.begin_compute_pass(command_encoder, &self.compute_pass);
 
-        render_pass_context.execute(&self.commands)?;
-
-        Ok(())
+        render_pass_context.execute(&self.commands);
     }
 }

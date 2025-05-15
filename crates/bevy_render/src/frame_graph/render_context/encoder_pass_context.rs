@@ -1,7 +1,7 @@
 use wgpu::{Extent3d, ImageSubresourceRange};
 
 use crate::frame_graph::{
-    FrameGraphBuffer, FrameGraphError, FrameGraphTexture, ResourceRead, ResourceRef, ResourceWrite,
+    FrameGraphBuffer, FrameGraphTexture, ResourceRead, ResourceRef, ResourceWrite,
     TexelCopyTextureInfo,
 };
 
@@ -57,17 +57,13 @@ impl EncoderPassCommand {
         Self(Box::new(value))
     }
 
-    pub fn draw(
-        &self,
-        command_encoder_context: &mut EncoderPassContext,
-    ) -> Result<(), FrameGraphError> {
+    pub fn draw(&self, command_encoder_context: &mut EncoderPassContext) {
         self.0.draw(command_encoder_context)
     }
 }
 
 pub trait ErasedEncoderPassCommand: Sync + Send + 'static {
-    fn draw(&self, command_encoder_context: &mut EncoderPassContext)
-        -> Result<(), FrameGraphError>;
+    fn draw(&self, command_encoder_context: &mut EncoderPassContext);
 }
 
 pub struct EncoderPassContext<'a, 'b> {
@@ -125,12 +121,10 @@ impl<'a, 'b> EncoderPassContext<'a, 'b> {
         );
     }
 
-    pub fn execute(mut self, commands: &Vec<EncoderPassCommand>) -> Result<(), FrameGraphError> {
+    pub fn execute(mut self, commands: &Vec<EncoderPassCommand>) {
         for command in commands {
-            command.draw(&mut self)?;
+            command.draw(&mut self);
         }
-
-        Ok(())
     }
 
     pub fn new(

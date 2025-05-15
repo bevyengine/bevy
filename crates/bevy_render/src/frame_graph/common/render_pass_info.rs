@@ -59,7 +59,7 @@ impl RenderPassInfo {
     pub fn create_render_pass(
         &self,
         command_encoder: &mut wgpu::CommandEncoder,
-    ) -> Result<wgpu::RenderPass<'static>, FrameGraphError> {
+    ) -> wgpu::RenderPass<'static> {
         let depth_stencil_attachment =
             self.depth_stencil_attachment
                 .as_ref()
@@ -84,6 +84,6 @@ impl RenderPassInfo {
 
         let render_pass = render_pass.forget_lifetime();
 
-        Ok(render_pass)
+        render_pass
     }
 }

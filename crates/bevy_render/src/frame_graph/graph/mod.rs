@@ -50,12 +50,10 @@ pub struct CompiledFrameGraph {
 }
 
 impl CompiledFrameGraph {
-    pub fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+    pub fn execute(&self, render_context: &mut RenderContext) {
         for device_pass in self.device_passes.iter() {
-            device_pass.execute(render_context)?;
+            device_pass.execute(render_context);
         }
-
-        Ok(())
     }
 }
 
@@ -75,18 +73,16 @@ impl FrameGraph {
         self.resource_board = ResourceBoard::default();
     }
 
-    pub fn execute(&mut self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+    pub fn execute(&mut self, render_context: &mut RenderContext) {
         if self.compiled_frame_graph.is_none() {
-            return Ok(());
+            return;
         }
 
         if let Some(compiled_frame_graph) = &mut self.compiled_frame_graph {
-            compiled_frame_graph.execute(render_context)?;
+            compiled_frame_graph.execute(render_context);
         }
 
         self.reset();
-
-        Ok(())
     }
 
     pub fn compute_resource_lifetime(&mut self) {

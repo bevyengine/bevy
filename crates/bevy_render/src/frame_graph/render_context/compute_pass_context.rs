@@ -3,10 +3,10 @@ use wgpu::{Extent3d, ImageSubresourceRange, QuerySet};
 use super::{
     BeginPipelineStatisticsQueryParameter, ClearBufferParameter, ClearTextureParameter,
     CopyTextureToTextureParameter, DispatchWorkgroupsIndirectParameter,
-    DispatchWorkgroupsParameter, EndPipelineStatisticsQueryParameter, FrameGraphError,
-    InsertDebugMarkerParameter, PopDebugGroupParameter, PushDebugGroupParameter, RenderContext,
-    SetBindGroupParameter, SetComputePipelineParameter, SetPushConstantsComputeParameter,
-    SetRawBindGroupParameter, WriteTimestampParameter,
+    DispatchWorkgroupsParameter, EndPipelineStatisticsQueryParameter, InsertDebugMarkerParameter,
+    PopDebugGroupParameter, PushDebugGroupParameter, RenderContext, SetBindGroupParameter,
+    SetComputePipelineParameter, SetPushConstantsComputeParameter, SetRawBindGroupParameter,
+    WriteTimestampParameter,
 };
 use crate::{
     frame_graph::{
@@ -149,16 +149,13 @@ impl ComputePassCommand {
         Self(Box::new(value))
     }
 
-    pub fn draw(
-        &self,
-        compute_pass_context: &mut ComputePassContext,
-    ) -> Result<(), FrameGraphError> {
+    pub fn draw(&self, compute_pass_context: &mut ComputePassContext) {
         self.0.draw(compute_pass_context)
     }
 }
 
 pub trait ErasedComputePassCommand: Sync + Send + 'static {
-    fn draw(&self, compute_pass_context: &mut ComputePassContext) -> Result<(), FrameGraphError>;
+    fn draw(&self, compute_pass_context: &mut ComputePassContext);
 }
 
 pub struct ComputePassContext<'a, 'b> {
@@ -222,14 +219,9 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
         self.compute_pass.dispatch_workgroups(x, y, z);
     }
 
-    pub fn set_compute_pipeline(
-        &mut self,
-        id: CachedComputePipelineId,
-    ) -> Result<(), FrameGraphError> {
-        let pipeline = self.render_context.get_compute_pipeline(id)?;
+    pub fn set_compute_pipeline(&mut self, id: CachedComputePipelineId) {
+        let pipeline = self.render_context.get_compute_pipeline(id);
         self.compute_pass.set_pipeline(pipeline);
-
-        Ok(())
     }
 
     pub fn copy_texture_to_texture(
@@ -288,14 +280,12 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
         index: u32,
         bind_group: Option<&BindGroup>,
         offsets: &[u32],
-    ) -> Result<(), FrameGraphError> {
+    ) {
         self.compute_pass.set_bind_group(
             index,
             bind_group.map(|bind_group| bind_group.deref()),
             offsets,
         );
-
-        Ok(())
     }
 
     pub fn set_bind_group(&mut self, index: u32, bind_group: &BindGroupBinding, offsets: &[u32]) {
@@ -304,11 +294,9 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
             .set_bind_group(index, &bind_group, offsets);
     }
 
-    pub fn execute(mut self, commands: &Vec<ComputePassCommand>) -> Result<(), FrameGraphError> {
+    pub fn execute(mut self, commands: &Vec<ComputePassCommand>) {
         for command in commands {
-            command.draw(&mut self)?;
+            command.draw(&mut self);
         }
-
-        Ok(())
     }
 }

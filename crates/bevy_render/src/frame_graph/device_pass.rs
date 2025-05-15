@@ -30,15 +30,13 @@ impl DevicePass {
         }
     }
 
-    pub fn execute(&self, render_context: &mut RenderContext) -> Result<(), FrameGraphError> {
+    pub fn execute(&self, render_context: &mut RenderContext) {
         self.request_resources(render_context);
 
         if let Some(pass) = &self.pass {
-            pass.execute(render_context)?;
+            pass.execute(render_context);
         }
         self.release_resources(render_context);
-
-        Ok(())
     }
 
     pub fn extra(&mut self, graph: &mut FrameGraph, handle: TypeHandle<PassNode>) {

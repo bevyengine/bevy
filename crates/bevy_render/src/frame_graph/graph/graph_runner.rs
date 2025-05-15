@@ -23,7 +23,7 @@ impl FrameGraphRunner {
         adapter: &wgpu::Adapter,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
-    ) -> Result<Option<DiagnosticsRecorder>, FrameGraphError> {
+    ) -> Option<DiagnosticsRecorder> {
         if let Some(recorder) = &mut diagnostics_recorder {
             recorder.begin_frame();
         }
@@ -37,7 +37,7 @@ impl FrameGraphRunner {
             diagnostics_recorder,
         );
 
-        graph.execute(&mut render_context)?;
+        graph.execute(&mut render_context);
 
         finalizer(render_context.command_encoder());
 
@@ -58,6 +58,6 @@ impl FrameGraphRunner {
             });
         }
 
-        Ok(diagnostics_recorder)
+        diagnostics_recorder
     }
 }

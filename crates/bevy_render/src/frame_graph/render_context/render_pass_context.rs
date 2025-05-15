@@ -5,7 +5,7 @@ use super::{
     BeginPipelineStatisticsQueryParameter, ClearBufferParameter, ClearTextureParameter,
     CopyTextureToTextureParameter, DrawIndexedIndirectParameter, DrawIndexedParameter,
     DrawIndirectParameter, DrawParameter, EndPipelineStatisticsQueryParameter, FrameGraphBuffer,
-    FrameGraphError, InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
+    InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
     MultiDrawIndexedIndirectParameter, MultiDrawIndirectParameter, PopDebugGroupParameter,
     PushDebugGroupParameter, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter,
     SetBlendConstantParameter, SetIndexBufferParameter, SetPushConstantsParameter,
@@ -303,13 +303,13 @@ impl RenderPassCommand {
         Self(Box::new(value))
     }
 
-    pub fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError> {
+    pub fn draw(&self, render_pass_context: &mut RenderPassContext) {
         self.0.draw(render_pass_context)
     }
 }
 
 pub trait ErasedRenderPassCommand: Sync + Send + 'static {
-    fn draw(&self, render_pass_context: &mut RenderPassContext) -> Result<(), FrameGraphError>;
+    fn draw(&self, render_pass_context: &mut RenderPassContext);
 }
 
 pub struct RenderPassContext<'a, 'b> {
@@ -336,26 +336,22 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let buffer = self.render_context.get_resource(&buffer_ref);
 
         self.command_encoder
             .clear_buffer(&buffer.resource, offset, size);
-
-        Ok(())
     }
 
     pub fn clear_texture(
         &mut self,
         texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
         subresource_range: &ImageSubresourceRange,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let texture = self.render_context.get_resource(&texture_ref);
 
         self.command_encoder
             .clear_texture(&texture.resource, subresource_range);
-
-        Ok(())
     }
 
     pub fn copy_texture_to_texture(
@@ -363,7 +359,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         source: TexelCopyTextureInfo<ResourceRead>,
         destination: TexelCopyTextureInfo<ResourceWrite>,
         copy_size: Extent3d,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let source_texture = self.render_context.get_resource(&source.texture);
         let destination_texture = self.render_context.get_resource(&destination.texture);
 
@@ -382,8 +378,6 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
             },
             copy_size,
         );
-
-        Ok(())
     }
 
     pub fn end_pipeline_statistics_query(&mut self) {
@@ -444,7 +438,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         count_offset: u64,
         max_count: u32,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
         let count_buffer = self.render_context.get_resource(count_buffer_ref);
 
@@ -455,7 +449,6 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
             count_offset,
             max_count,
         );
-        Ok(())
     }
 
     pub fn multi_draw_indexed_indirect(
@@ -463,7 +456,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         indirect_offset: u64,
         count: u32,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
 
         self.render_pass.multi_draw_indexed_indirect(
@@ -471,7 +464,6 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
             indirect_offset,
             count,
         );
-        Ok(())
     }
 
     pub fn multi_draw_indirect_count(
@@ -481,7 +473,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         count_offset: u64,
         max_count: u32,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
         let count_buffer = self.render_context.get_resource(count_buffer_ref);
 
@@ -492,7 +484,6 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
             count_offset,
             max_count,
         );
-        Ok(())
     }
 
     pub fn multi_draw_indirect(
@@ -500,39 +491,33 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         indirect_offset: u64,
         count: u32,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
 
         self.render_pass
             .multi_draw_indirect(&indirect_buffer.resource, indirect_offset, count);
-
-        Ok(())
     }
 
     pub fn draw_indexed_indirect(
         &mut self,
         indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         indirect_offset: u64,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
 
         self.render_pass
             .draw_indexed_indirect(&indirect_buffer.resource, indirect_offset);
-
-        Ok(())
     }
 
     pub fn draw_indirect(
         &mut self,
         indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         indirect_offset: u64,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
 
         self.render_pass
             .draw_indirect(&indirect_buffer.resource, indirect_offset);
-
-        Ok(())
     }
 
     pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
@@ -544,36 +529,22 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         index: u32,
         bind_group: Option<&BindGroup>,
         offsets: &[u32],
-    ) -> Result<(), FrameGraphError> {
+    ) {
         self.render_pass.set_bind_group(
             index,
             bind_group.map(|bind_group| bind_group.deref()),
             offsets,
         );
-
-        Ok(())
     }
 
-    pub fn set_bind_group(
-        &mut self,
-        index: u32,
-        bind_group: &BindGroupBinding,
-        offsets: &[u32],
-    ) -> Result<(), FrameGraphError> {
+    pub fn set_bind_group(&mut self, index: u32, bind_group: &BindGroupBinding, offsets: &[u32]) {
         let bind_group = bind_group.make_resource(&self.render_context);
         self.render_pass.set_bind_group(index, &bind_group, offsets);
-
-        Ok(())
     }
 
-    pub fn set_render_pipeline(
-        &mut self,
-        id: CachedRenderPipelineId,
-    ) -> Result<(), FrameGraphError> {
-        let pipeline = self.render_context.get_render_pipeline(id)?;
+    pub fn set_render_pipeline(&mut self, id: CachedRenderPipelineId) {
+        let pipeline = self.render_context.get_render_pipeline(id);
         self.render_pass.set_pipeline(pipeline);
-
-        Ok(())
     }
 
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
@@ -591,12 +562,10 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
         offset: u64,
         size: u64,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let buffer = self.render_context.get_resource(buffer_ref);
         self.render_pass
             .set_vertex_buffer(slot, buffer.resource.slice(offset..(offset + size)));
-
-        Ok(())
     }
 
     pub fn set_index_buffer(
@@ -605,20 +574,16 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
         index_format: wgpu::IndexFormat,
         offset: u64,
         size: u64,
-    ) -> Result<(), FrameGraphError> {
+    ) {
         let buffer = self.render_context.get_resource(buffer_ref);
 
         self.render_pass
             .set_index_buffer(buffer.resource.slice(offset..(offset + size)), index_format);
-
-        Ok(())
     }
 
-    pub fn execute(mut self, commands: &Vec<RenderPassCommand>) -> Result<(), FrameGraphError> {
+    pub fn execute(mut self, commands: &Vec<RenderPassCommand>) {
         for command in commands {
-            command.draw(&mut self)?;
+            command.draw(&mut self);
         }
-
-        Ok(())
     }
 }

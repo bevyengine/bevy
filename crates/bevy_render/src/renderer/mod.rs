@@ -95,25 +95,10 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     world.insert_resource(transient_resource_cache);
 
     match res {
-        Ok(Some(diagnostics_recorder)) => {
+        Some(diagnostics_recorder) => {
             world.insert_resource(diagnostics_recorder);
         }
-        Ok(None) => {}
-        Err(e) => {
-            error!("Error running frame graph:");
-            {
-                let mut src: &dyn core::error::Error = &e;
-                loop {
-                    error!("> {}", src);
-                    match src.source() {
-                        Some(s) => src = s,
-                        None => break,
-                    }
-                }
-            }
-
-            panic!("Error running render graph: {e}");
-        }
+        None => {}
     }
 
     {

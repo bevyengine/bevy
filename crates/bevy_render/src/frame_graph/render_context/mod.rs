@@ -85,20 +85,20 @@ impl<'a> RenderContext<'a> {
         &'b mut self,
         command_encoder: &'b mut CommandEncoder,
         compute_pass_info: &ComputePassInfo,
-    ) -> Result<ComputePassContext<'a, 'b>, FrameGraphError> {
-        let compute_pass = compute_pass_info.create_render_pass(command_encoder)?;
+    ) -> ComputePassContext<'a, 'b> {
+        let compute_pass = compute_pass_info.create_render_pass(command_encoder);
 
-        Ok(ComputePassContext::new(command_encoder, compute_pass, self))
+        ComputePassContext::new(command_encoder, compute_pass, self)
     }
 
     pub fn begin_render_pass<'b>(
         &'b mut self,
         command_encoder: &'b mut CommandEncoder,
         render_pass_info: &RenderPassInfo,
-    ) -> Result<RenderPassContext<'a, 'b>, FrameGraphError> {
-        let render_pass = render_pass_info.create_render_pass(command_encoder)?;
+    ) -> RenderPassContext<'a, 'b> {
+        let render_pass = render_pass_info.create_render_pass(command_encoder);
 
-        Ok(RenderPassContext::new(command_encoder, render_pass, self))
+        RenderPassContext::new(command_encoder, render_pass, self)
     }
 
     pub fn begin_encoder_pass<'b>(
@@ -108,22 +108,16 @@ impl<'a> RenderContext<'a> {
         EncoderPassContext::new(command_encoder, self)
     }
 
-    pub fn get_compute_pipeline(
-        &self,
-        id: CachedComputePipelineId,
-    ) -> Result<&ComputePipeline, FrameGraphError> {
+    pub fn get_compute_pipeline(&self, id: CachedComputePipelineId) -> &ComputePipeline {
         self.pipeline_cache
             .get_compute_pipeline(id)
-            .ok_or(FrameGraphError::ResourceNotFound)
+            .expect("pipeline mut have")
     }
 
-    pub fn get_render_pipeline(
-        &self,
-        id: CachedRenderPipelineId,
-    ) -> Result<&RenderPipeline, FrameGraphError> {
+    pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> &RenderPipeline {
         self.pipeline_cache
             .get_render_pipeline(id)
-            .ok_or(FrameGraphError::ResourceNotFound)
+            .expect("pipeline mut have")
     }
 
     pub fn get_resource<ResourceType: GraphResource, View: ResourceView>(

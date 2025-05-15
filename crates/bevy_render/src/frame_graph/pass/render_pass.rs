@@ -106,21 +106,15 @@ impl RenderPassCommandBuilder for RenderPass {
 }
 
 impl EncoderExecutor for RenderPass {
-    fn execute(
-        &self,
-        command_encoder: &mut CommandEncoder,
-        render_context: &mut RenderContext,
-    ) -> Result<(), FrameGraphError> {
+    fn execute(&self, command_encoder: &mut CommandEncoder, render_context: &mut RenderContext) {
         for logic_render_pass in self.logic_render_passes.iter() {
             let render_pass_info = logic_render_pass
                 .render_pass_drawing
                 .make_resource(render_context);
             let render_pass_context =
-                render_context.begin_render_pass(command_encoder, &render_pass_info)?;
+                render_context.begin_render_pass(command_encoder, &render_pass_info);
 
             render_pass_context.execute(&logic_render_pass.commands);
         }
-
-        Ok(())
     }
 }
