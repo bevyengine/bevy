@@ -395,9 +395,14 @@ impl Schedule {
     }
 
     /// Changes miscellaneous build settings.
+    ///
+    /// If `settings.auto_insert_apply_deferred` is `false`, this clears `*_ignore_deferred`
+    /// edge settings configured so far.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         if settings.auto_insert_apply_deferred {
-            self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
+            if !self.graph.settings.auto_insert_apply_deferred {
+                self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
+            }
         } else {
             self.remove_build_pass::<passes::AutoInsertApplyDeferredPass>();
         }
@@ -2076,6 +2081,46 @@ mod tests {
 
     #[derive(Resource)]
     struct Resource2;
+
+    #[test]
+    fn unchanged_auto_insert_apply_deferred_has_no_effect() {
+        use alloc::{vec, vec::Vec};
+
+        #[derive(PartialEq, Debug)]
+        enum Entry {
+            System(usize),
+            SyncPoint(usize),
+        }
+
+        #[derive(Resource, Default)]
+        struct Log(Vec<Entry>);
+
+        fn system<const N: usize>(mut res: ResMut<Log>, mut commands: Commands) {
+            res.0.push(Entry::System(N));
+            commands
+                .queue(|world: &mut World| world.resource_mut::<Log>().0.push(Entry::SyncPoint(N)));
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Log>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system::<1>, system::<2>).chain_ignore_deferred());
+        schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_apply_deferred: true,
+            ..Default::default()
+        });
+        schedule.run(&mut world);
+        let actual = world.remove_resource::<Log>().unwrap().0;
+
+        let expected = vec![
+            Entry::System(1),
+            Entry::System(2),
+            Entry::SyncPoint(1),
+            Entry::SyncPoint(2),
+        ];
+
+        assert_eq!(actual, expected);
+    }
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]
