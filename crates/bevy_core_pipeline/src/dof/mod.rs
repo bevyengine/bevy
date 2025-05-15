@@ -495,10 +495,10 @@ impl ViewNode for DepthOfFieldNode {
                 .set_pass_name(pipeline_render_info.pass_label)
                 .add_color_attachments(color_attachments)
                 .set_render_pipeline(pipeline_render_info.pipeline)
-                .set_bind_group(0, view_bind_group, &[view_uniform_offset.offset])
+                .set_bind_group_handle(0, &view_bind_group, &[view_uniform_offset.offset])
                 .set_bind_group(
                     1,
-                    global_bind_group,
+                    &global_bind_group,
                     &[depth_of_field_uniform_index.index()],
                 )
                 .draw(0..3, 0..1);

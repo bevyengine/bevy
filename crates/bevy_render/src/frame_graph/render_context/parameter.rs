@@ -5,7 +5,7 @@ use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
 
 use crate::{
     frame_graph::{
-        BindGroupDrawing, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, RenderPassContext,
+        BindGroupBinding, FrameGraphBuffer, FrameGraphError, FrameGraphTexture, RenderPassContext,
         ResourceRead, ResourceRef, ResourceWrite, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedComputePipelineId, CachedRenderPipelineId},
@@ -565,7 +565,7 @@ impl ErasedRenderPassCommand for SetRenderPipelineParameter {
 
 pub struct SetBindGroupParameter {
     pub index: u32,
-    pub bind_group: BindGroupDrawing,
+    pub bind_group: BindGroupBinding,
     pub offsets: Vec<u32>,
 }
 

@@ -13,14 +13,14 @@ use super::{
     IntoBindGroupResourceBinding, IntoBindGroupResourceHandle,
 };
 
-pub struct BindGroupDrawingBuilder<'a, 'b> {
+pub struct BindGroupBindingBuilder<'a, 'b> {
     label: Option<Cow<'static, str>>,
     layout: BindGroupLayout,
     entries: Vec<BindGroupEntryBinding>,
     pass_builder: &'b mut PassBuilder<'a>,
 }
 
-impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
+impl<'a, 'b> BindGroupBindingBuilder<'a, 'b> {
     pub fn new(
         label: Option<Cow<'static, str>>,
         layout: BindGroupLayout,
@@ -57,8 +57,8 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
         self.push_bind_group_resource_binding(binding)
     }
 
-    pub fn build(self) -> BindGroupDrawing {
-        BindGroupDrawing {
+    pub fn build(self) -> BindGroupBinding {
+        BindGroupBinding {
             label: self.label,
             layout: self.layout,
             entries: self.entries,
@@ -67,7 +67,7 @@ impl<'a, 'b> BindGroupDrawingBuilder<'a, 'b> {
 }
 
 #[derive(Clone)]
-pub struct BindGroupDrawing {
+pub struct BindGroupBinding {
     pub label: Option<Cow<'static, str>>,
     pub layout: BindGroupLayout,
     pub entries: Vec<BindGroupEntryBinding>,
@@ -114,7 +114,7 @@ impl<'a> BindingResourceTemp<'a> {
     }
 }
 
-impl ResourceDrawing for BindGroupDrawing {
+impl ResourceDrawing for BindGroupBinding {
     type Resource = wgpu::BindGroup;
 
     fn make_resource<'a>(

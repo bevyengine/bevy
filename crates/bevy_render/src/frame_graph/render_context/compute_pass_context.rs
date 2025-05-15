@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     frame_graph::{
-        BindGroupDrawing, FrameGraphBuffer, FrameGraphTexture, ResourceDrawing, ResourceRead,
+        BindGroupBinding, FrameGraphBuffer, FrameGraphTexture, ResourceDrawing, ResourceRead,
         ResourceRef, ResourceWrite, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedComputePipelineId},
@@ -133,7 +133,7 @@ pub trait ComputePassCommandBuilder {
         }));
     }
 
-    fn set_bind_group(&mut self, index: u32, bind_group: &BindGroupDrawing, offsets: &[u32]) {
+    fn set_bind_group(&mut self, index: u32, bind_group: &BindGroupBinding, offsets: &[u32]) {
         self.add_compute_pass_command(ComputePassCommand::new(SetBindGroupParameter {
             index,
             bind_group: bind_group.clone(),
@@ -309,7 +309,7 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
     pub fn set_bind_group(
         &mut self,
         index: u32,
-        bind_group: &BindGroupDrawing,
+        bind_group: &BindGroupBinding,
         offsets: &[u32],
     ) -> Result<(), FrameGraphError> {
         let bind_group = bind_group.make_resource(&self.render_context)?;

@@ -68,7 +68,7 @@ impl ViewNode for UpscalingNode {
             .create_render_pass_builder()
             .set_pass_name("upscaling_pass")
             .add_raw_color_attachment(target.out_texture_color_attachment(converted_clear_color))
-            .set_bind_group(0, bind_group, &[])
+            .set_bind_group(0, &bind_group, &[])
             .set_render_pipeline(upscaling_target.0)
             .draw(0..3, 0..1);
 

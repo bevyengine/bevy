@@ -96,7 +96,7 @@ impl ViewNode for TonemappingNode {
                 },
             })
             .set_render_pipeline(view_tonemapping_pipeline.0)
-            .set_bind_group(0, bing_group, &[view_uniform_offset.offset])
+            .set_bind_group(0, &bing_group, &[view_uniform_offset.offset])
             .draw(0..3, 0..1);
 
         Ok(())

@@ -114,7 +114,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
                 }),
                 stencil_ops: None,
             })
-            .set_bind_group(0, bind_group, &[])
+            .set_bind_group(0, &bind_group, &[])
             .draw(0..3, 0..1);
 
         Ok(())

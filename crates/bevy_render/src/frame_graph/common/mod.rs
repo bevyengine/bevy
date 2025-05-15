@@ -60,20 +60,6 @@ impl ResourceMaterial for Texture {
     }
 }
 
-pub trait ResourceHandle {
-    type Drawing;
-
-    fn make_resource_drawing(&self, pass_node_builder: &mut PassNodeBuilder) -> Self::Drawing;
-}
-
-impl<T: Clone + ResourceDrawing> ResourceHandle for T {
-    type Drawing = T;
-
-    fn make_resource_drawing(&self, _pass_node_builder: &mut PassNodeBuilder) -> Self::Drawing {
-        self.clone()
-    }
-}
-
 pub trait ResourceDrawing {
     type Resource;
 

@@ -1,11 +1,8 @@
 use std::borrow::Cow;
 
-use crate::{
-    frame_graph::{PassNodeBuilder, ResourceHandle},
-    render_resource::BindGroupLayout,
-};
+use crate::{frame_graph::PassNodeBuilder, render_resource::BindGroupLayout};
 
-use super::{BindGroupDrawing, BindGroupEntryHandle};
+use super::{BindGroupBinding, BindGroupEntryHandle};
 
 #[derive(Clone)]
 pub struct BindGroupHandle {
@@ -14,17 +11,15 @@ pub struct BindGroupHandle {
     pub entries: Vec<BindGroupEntryHandle>,
 }
 
-impl ResourceHandle for BindGroupHandle {
-    type Drawing = BindGroupDrawing;
-
-    fn make_resource_drawing(&self, pass_node_builder: &mut PassNodeBuilder) -> Self::Drawing {
+impl BindGroupHandle {
+    pub fn make_binding(&self, pass_node_builder: &mut PassNodeBuilder) -> BindGroupBinding {
         let entries = self
             .entries
             .iter()
             .map(|entry| entry.get_ref(pass_node_builder))
             .collect::<Vec<_>>();
 
-        BindGroupDrawing {
+        BindGroupBinding {
             label: self.label.clone(),
             layout: self.layout.clone(),
             entries,

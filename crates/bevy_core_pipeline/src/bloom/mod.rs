@@ -179,7 +179,7 @@ impl ViewNode for BloomNode {
                     ops: Operations::default(),
                 })
                 .set_render_pipeline(downsampling_pipeline_ids.first)
-                .set_bind_group(0, downsampling_first_bind_group, &[uniform_index.index()])
+                .set_bind_group(0, &downsampling_first_bind_group, &[uniform_index.index()])
                 .draw(0..3, 0..1);
         }
 
@@ -218,7 +218,7 @@ impl ViewNode for BloomNode {
                     ops: Operations::default(),
                 })
                 .set_render_pipeline(downsampling_pipeline_ids.main)
-                .set_bind_group(0, downsampling_bind_group, &[uniform_index.index()])
+                .set_bind_group(0, &downsampling_bind_group, &[uniform_index.index()])
                 .draw(0..3, 0..1);
         }
 
@@ -266,7 +266,7 @@ impl ViewNode for BloomNode {
                     },
                 })
                 .set_render_pipeline(upsampling_pipeline_ids.id_main)
-                .set_bind_group(0, upsampling_bind_group, &[uniform_index.index()])
+                .set_bind_group(0, &upsampling_bind_group, &[uniform_index.index()])
                 .set_blend_constant(LinearRgba::gray(blend).into())
                 .draw(0..3, 0..1);
         }
@@ -301,7 +301,7 @@ impl ViewNode for BloomNode {
                 .set_pass_name("bloom_upsampling_final_pass")
                 .add_color_attachment(color_attachment)
                 .set_render_pipeline(upsampling_pipeline_ids.id_final)
-                .set_bind_group(0, upsampling_bind_group, &[uniform_index.index()])
+                .set_bind_group(0, &upsampling_bind_group, &[uniform_index.index()])
                 .set_blend_constant(LinearRgba::gray(blend).into())
                 .set_camera_viewport(camera.viewport.clone())
                 .draw(0..3, 0..1);

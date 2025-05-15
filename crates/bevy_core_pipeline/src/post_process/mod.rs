@@ -431,7 +431,7 @@ impl ViewNode for PostProcessingNode {
                 ops: Operations::default(),
             })
             .set_render_pipeline(**pipeline_id)
-            .set_bind_group(0, bind_group, &[**post_processing_uniform_buffer_offsets])
+            .set_bind_group(0, &bind_group, &[**post_processing_uniform_buffer_offsets])
             .draw(0..3, 0..1);
 
         Ok(())

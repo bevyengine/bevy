@@ -10,7 +10,7 @@ use std::{borrow::Cow, mem::take};
 
 use crate::{
     frame_graph::{
-        BindGroupDrawingBuilder, EncoderCommand, EncoderCommandBuilder, FrameGraphError,
+        BindGroupBindingBuilder, EncoderCommand, EncoderCommandBuilder, FrameGraphError,
         PassNodeBuilder, RenderContext, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
     },
     render_resource::BindGroupLayout,
@@ -103,8 +103,8 @@ impl<'a> PassBuilder<'a> {
         &'b mut self,
         label: Option<Cow<'static, str>>,
         layout: BindGroupLayout,
-    ) -> BindGroupDrawingBuilder<'a, 'b> {
-        BindGroupDrawingBuilder::new(label, layout, self)
+    ) -> BindGroupBindingBuilder<'a, 'b> {
+        BindGroupBindingBuilder::new(label, layout, self)
     }
 
     pub fn pass_node_builder(&mut self) -> &mut PassNodeBuilder<'a> {
