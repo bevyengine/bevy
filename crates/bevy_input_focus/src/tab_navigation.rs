@@ -231,6 +231,8 @@ impl TabNavigation<'_, '_> {
                     for child in children.iter() {
                         self.gather_focusable(&mut focusable, *child);
                     }
+                    // Stable sort by tabindex
+                    focusable.sort_by_key(|(_, idx)| *idx);
                 }
             }
             _ => {
@@ -246,7 +248,11 @@ impl TabNavigation<'_, '_> {
 
                 // Search group descendants
                 tab_groups.iter().for_each(|(tg_entity, _)| {
-                    self.gather_focusable(&mut focusable, *tg_entity);
+                    // Maintain group sort order before TabIndex sort order
+                    let mut focusable_group: Vec<(Entity, TabIndex)> = Vec::new();
+                    self.gather_focusable(&mut focusable_group, *tg_entity);
+                    focusable_group.sort_by_key(|(_, idx)| *idx);
+                    focusable.append(&mut focusable_group);
                 });
             }
         }
