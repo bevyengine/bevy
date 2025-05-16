@@ -159,12 +159,12 @@ pub trait ReflectCommandExt {
     ///         .remove_reflect(prefab.data.reflect_type_path().to_owned());
     /// }
     /// ```
-    fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;
+    fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self;
     /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as type registry instead of
     /// `AppTypeRegistry`.
     fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component_type_name: impl Into<Cow<'static, str>>,
+        component_type_path: impl Into<Cow<'static, str>>,
     ) -> &mut Self;
 }
 
