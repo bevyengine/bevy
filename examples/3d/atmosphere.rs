@@ -20,11 +20,6 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
-        // HDR is required for atmospheric scattering to be properly applied to the scene
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         // This is the component that enables atmospheric scattering for a camera
         Atmosphere::EARTH,
@@ -36,7 +31,7 @@ fn setup_camera_fog(mut commands: Commands) {
             scene_units_to_m: 1e+4,
             ..Default::default()
         },
-        // The directional light illuminance  used in this scene
+        // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.

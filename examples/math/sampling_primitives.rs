@@ -340,7 +340,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            hdr: true, // HDR is required for bloom
             clear_color: ClearColorConfig::Custom(SKY_COLOR),
             ..default()
         },

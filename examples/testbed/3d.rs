@@ -155,10 +155,6 @@ mod bloom {
     ) {
         commands.spawn((
             Camera3d::default(),
-            Camera {
-                hdr: true,
-                ..default()
-            },
             Tonemapping::TonyMcMapface,
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             Bloom::NATURAL,

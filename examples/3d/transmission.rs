@@ -31,7 +31,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
-        view::{ColorGrading, ColorGradingGlobal},
+        view::{ColorGrading, ColorGradingGlobal, Hdr},
     },
 };
 
@@ -303,10 +303,6 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
         ColorGrading {
             global: ColorGradingGlobal {
@@ -387,11 +383,11 @@ fn example_control_system(
     camera: Single<
         (
             Entity,
-            &mut Camera,
             &mut Camera3d,
             &mut Transform,
             Option<&DepthPrepass>,
             Option<&TemporalJitter>,
+            Has<Hdr>,
         ),
         With<Camera3d>,
     >,
@@ -458,17 +454,15 @@ fn example_control_system(
         }
     }
 
-    let (
-        camera_entity,
-        mut camera,
-        mut camera_3d,
-        mut camera_transform,
-        depth_prepass,
-        temporal_jitter,
-    ) = camera.into_inner();
+    let (camera_entity, mut camera_3d, mut camera_transform, depth_prepass, temporal_jitter, hdr) =
+        camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
-        camera.hdr = !camera.hdr;
+        if hdr {
+            commands.entity(camera_entity).remove::<Hdr>();
+        } else {
+            commands.entity(camera_entity).insert(Hdr);
+        }
     }
 
     #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
@@ -571,7 +565,7 @@ fn example_control_system(
         state.ior,
         state.perceptual_roughness,
         state.reflectance,
-        if camera.hdr { "ON " } else { "OFF" },
+        if hdr { "ON " } else { "OFF" },
         if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {
                 "ON "
