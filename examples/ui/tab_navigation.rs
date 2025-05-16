@@ -9,10 +9,6 @@ use bevy::{
     prelude::*,
     winit::WinitSettings,
 };
-use bevy_ecs::{
-    bundle::BundleEffect,
-    spawn::{SpawnIter, SpawnWith, SpawnableList},
-};
 
 fn main() {
     App::new()
@@ -93,126 +89,64 @@ fn setup(mut commands: Commands) {
             },
         )
         .with_children(|parent| {
-            parent.spawn(Text::new("Tab Group 0"));
-            parent.spawn((
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(6.0),
-
-                    margin: UiRect {
-                        bottom: Val::Px(10.0),
-                        ..default()
-                    },
-                    ..default()
-                },
-                TabGroup::new(0),
-                // These buttons all have the same index, so they will be navigated according to their order as children.
-                Children::spawn((
-                    create_button(0),
-                    create_button(0),
-                    create_button(0),
-                    create_button(0),
-                )),
-            ));
-
-            parent.spawn(Text::new("Tab Group 2"));
-            parent.spawn((
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(6.0),
-                    margin: UiRect {
-                        bottom: Val::Px(10.0),
-                        ..default()
-                    },
-                    ..default()
-                },
-                TabGroup::new(2),
-                // The orders of the `TabIndex`s is the reverse of the order of the buttons, so the buttons will be navigated in right-to-left order.
-                Children::spawn((
-                    create_button(3),
-                    create_button(2),
-                    create_button(1),
-                    create_button(0),
-                )),
-            ));
-
-            parent.spawn(Text::new("Tab Group 1"));
-            parent.spawn((
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(6.0),
-                    margin: UiRect {
-                        bottom: Val::Px(10.0),
-                        ..default()
-                    },
-                    ..default()
-                },
-                TabGroup::new(1),
-                // The order of the `TabIndex`s matches the order of the buttons, so the buttons will be navigated in left-to-right order.
-                //Children::spawn(SpawnIter((0..4).map(|i| create_button(i)))),
-                Children::spawn((
-                    create_button(0),
-                    create_button(1),
-                    create_button(2),
-                    create_button(3),
-                )),
-            ));
-
-            parent.spawn(Text::new("Modal Tab Group"));
-            parent.spawn((
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(6.0),
-                    ..default()
-                },
-                TabGroup::modal(),
-                // The order of these `TabIndex`s doesn't match the order of the buttons.
-                Children::spawn((
-                    create_button(0),
-                    create_button(3),
-                    create_button(1),
-                    create_button(2),
-                )),
-            ));
+            for (label, tab_group, indices) in [
+                ("Tab Group 0", TabGroup::new(0), [0, 1, 2, 3]),
+                ("Tab Group 1", TabGroup::new(2), [0, 1, 2, 3]),
+                ("Tab Group 2", TabGroup::new(0), [3, 2, 1, 0]),
+                ("Modal Tab Group", TabGroup::modal(), [0, 3, 1, 2]),
+            ] {
+                parent.spawn(Text::new(label));
+                parent
+                    .spawn((
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Row,
+                            column_gap: Val::Px(6.0),
+                            margin: UiRect {
+                                bottom: Val::Px(10.0),
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        tab_group,
+                        // The orders of the `TabIndex`s is the reverse of the order of the buttons, so the buttons will be navigated in right-to-left order.
+                    ))
+                    .with_children(|parent| {
+                        for i in indices {
+                            parent
+                                .spawn((
+                                    Button,
+                                    Node {
+                                        width: Val::Px(200.0),
+                                        height: Val::Px(65.0),
+                                        border: UiRect::all(Val::Px(5.0)),
+                                        // horizontally center child text
+                                        justify_content: JustifyContent::Center,
+                                        // vertically center child text
+                                        align_items: AlignItems::Center,
+                                        ..default()
+                                    },
+                                    BorderColor(Color::BLACK),
+                                    BackgroundColor(NORMAL_BUTTON),
+                                    TabIndex(i),
+                                ))
+                                .observe(
+                                    |mut trigger: Trigger<Pointer<Click>>,
+                                    mut focus: ResMut<InputFocus>| {
+                                        focus.0 = Some(trigger.target());
+                                        trigger.propagate(false);
+                                    },
+                                )
+                                .with_child((
+                                    Text::new(format!("TabIndex {}", i)),
+                                    TextFont {
+                                        font_size: 20.0,
+                                        ..default()
+                                    },
+                                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                                ));
+                        }
+                    });
+            }
         });
-}
-
-fn create_button(index: i32) -> SpawnWith<impl FnOnce(&mut ChildSpawner) + Send + Sync + 'static> {
-    SpawnWith(move |parent: &mut ChildSpawner| {
-        parent
-            .spawn((
-                Button,
-                Node {
-                    width: Val::Px(200.0),
-                    height: Val::Px(65.0),
-                    border: UiRect::all(Val::Px(5.0)),
-                    // horizontally center child text
-                    justify_content: JustifyContent::Center,
-                    // vertically center child text
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                BorderColor(Color::BLACK),
-                BackgroundColor(NORMAL_BUTTON),
-                TabIndex(index),
-            ))
-            .observe(
-                |mut trigger: Trigger<Pointer<Click>>, mut focus: ResMut<InputFocus>| {
-                    focus.0 = Some(trigger.target());
-                    trigger.propagate(false);
-                },
-            )
-            .with_child((
-                Text::new(format!("TabIndex({})", index)),
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            ));
-    })
 }
