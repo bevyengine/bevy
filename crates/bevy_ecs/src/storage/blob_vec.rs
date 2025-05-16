@@ -1,7 +1,7 @@
 use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
-use core::{alloc::Layout, cell::UnsafeCell, num::NonZero, ptr::NonNull};
+use core::{alloc::Layout, num::NonZero, ptr::NonNull};
 
 /// A flat, type-erased data storage type
 ///
@@ -86,12 +86,6 @@ impl BlobVec {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
-    }
-
-    /// Returns the [`Layout`] of the element type stored in the vector.
-    #[inline]
-    pub fn layout(&self) -> Layout {
-        self.item_layout
     }
 
     /// Reserves the minimum capacity for at least `additional` more elements to be inserted in the given `BlobVec`.
@@ -185,6 +179,7 @@ impl BlobVec {
     }
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
+    /// This drops the replaced value.
     ///
     /// # Safety
     /// - index must be in-bounds
@@ -293,22 +288,6 @@ impl BlobVec {
         unsafe { p.promote() }
     }
 
-    /// Removes the value at `index` and drops it.
-    /// Does not do any bounds checking on `index`.
-    /// The removed element is replaced by the last element of the `BlobVec`.
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is `< self.len()`.
-    #[inline]
-    pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
-        debug_assert!(index < self.len());
-        let drop = self.drop;
-        let value = self.swap_remove_and_forget_unchecked(index);
-        if let Some(drop) = drop {
-            drop(value);
-        }
-    }
-
     /// Returns a reference to the element at `index`, without doing bounds checking.
     ///
     /// # Safety
@@ -357,22 +336,6 @@ impl BlobVec {
         unsafe { PtrMut::new(self.data) }
     }
 
-    /// Get a reference to the entire [`BlobVec`] as if it were an array with elements of type `T`
-    ///
-    /// # Safety
-    /// The type `T` must be the type of the items in this [`BlobVec`].
-    pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
-        // SAFETY: the inner data will remain valid for as long as 'self.
-        unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }
-    }
-
-    /// Returns the drop function for values stored in the vector,
-    /// or `None` if they don't need to be dropped.
-    #[inline]
-    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.drop
-    }
-
     /// Clears the vector, removing (and dropping) all values.
     ///
     /// Note that this method has no effect on the allocated capacity of the vector.
@@ -398,11 +361,13 @@ impl BlobVec {
             }
         }
     }
-}
 
-impl Drop for BlobVec {
-    fn drop(&mut self) {
-        self.clear();
+    /// Deallocates this blob vec's memory without dropping it's contents.
+    ///
+    /// # Safety
+    ///
+    /// Any drop logic for the vec's contents, must be done before this.
+    pub(crate) unsafe fn dealloc(&mut self) {
         let array_layout =
             array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
         if array_layout.size() > 0 {
@@ -410,6 +375,16 @@ impl Drop for BlobVec {
             unsafe {
                 alloc::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
             }
+        }
+    }
+}
+
+impl Drop for BlobVec {
+    fn drop(&mut self) {
+        self.clear();
+        // SAFETY: Items have been cleared.
+        unsafe {
+            self.dealloc();
         }
     }
 }

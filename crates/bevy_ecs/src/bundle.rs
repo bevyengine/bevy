@@ -643,10 +643,20 @@ impl BundleInfo {
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     match (status, insert_mode) {
                         (ComponentStatus::Added, _) => {
-                            column.initialize(table_row, component_ptr, change_tick, caller);
+                            column.initialize(
+                                table_row.as_usize(),
+                                component_ptr,
+                                change_tick,
+                                caller,
+                            );
                         }
                         (ComponentStatus::Existing, InsertMode::Replace) => {
-                            column.replace(table_row, component_ptr, change_tick, caller);
+                            column.replace(
+                                table_row.as_usize(),
+                                component_ptr,
+                                change_tick,
+                                caller,
+                            );
                         }
                         (ComponentStatus::Existing, InsertMode::Keep) => {
                             if let Some(drop_fn) = table.get_drop_for(component_id) {
@@ -719,7 +729,7 @@ impl BundleInfo {
                         // SAFETY: If component_id is in required_components, BundleInfo::new requires that
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
-                    column.initialize(table_row, component_ptr, change_tick, caller);
+                    column.initialize(table_row.as_usize(), component_ptr, change_tick, caller);
                 }
                 StorageType::SparseSet => {
                     let sparse_set =
