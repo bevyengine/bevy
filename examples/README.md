@@ -66,22 +66,22 @@ git checkout v0.4.0
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
+
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
     - [Setup](#setup)
-    - [Build \& Run](#build--run)
-      - [About `libc++_shared.so`](#about-libc_sharedso)
-    - [Debugging](#debugging)
+    - [Build & Run](#build--run)
+    - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
-      - [About `cargo-apk`](#about-cargo-apk)
+    - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
     - [Setup](#setup-1)
-    - [Build \& Run](#build--run-1)
+    - [Build & Run](#build--run-1)
   - [Wasm](#wasm)
     - [Setup](#setup-2)
-    - [Build \& Run](#build--run-2)
-      - [WebGL2 and WebGPU](#webgl2-and-webgpu)
+    - [Build & Run](#build--run-2)
+    - [WebGL2 and WebGPU](#webgl2-and-webgpu)
     - [Audio in the browsers](#audio-in-the-browsers)
     - [Optimizing](#optimizing)
     - [Loading Assets](#loading-assets)
@@ -100,33 +100,33 @@ git checkout v0.4.0
 
 ## 2D Rendering
 
-Example | Description
---- | ---
-[2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
-[2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
-[2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
-[2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
-[2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
-[Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
-[CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
-[Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
-[Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
-[Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
-[Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
-[Mesh2d Alpha Mode](../examples/2d/mesh2d_alpha_mode.rs) | Used to test alpha modes with mesh2d
-[Mesh2d Repeated Texture](../examples/2d/mesh2d_repeated_texture.rs) | Showcase of using `uv_transform` on the `ColorMaterial` of a `Mesh2d`
-[Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
-[Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
-[Sprite](../examples/2d/sprite.rs) | Renders a sprite
-[Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event
-[Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
-[Sprite Scale](../examples/2d/sprite_scale.rs) | Shows how a sprite can be scaled into a rectangle while keeping the aspect ratio
-[Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
-[Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
-[Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid
-[Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
-[Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
-[Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
+| Example | Description |
+| --- | --- |
+| [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d |
+| [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions |
+| [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons |
+| [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera. |
+| [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes |
+| [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives |
+| [CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture |
+| [Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute |
+| [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis |
+| [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh |
+| [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes |
+| [Mesh2d Alpha Mode](../examples/2d/mesh2d_alpha_mode.rs) | Used to test alpha modes with mesh2d |
+| [Mesh2d Repeated Texture](../examples/2d/mesh2d_repeated_texture.rs) | Showcase of using `uv_transform` on the `ColorMaterial` of a `Mesh2d` |
+| [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite |
+| [Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D |
+| [Sprite](../examples/2d/sprite.rs) | Renders a sprite |
+| [Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event |
+| [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis |
+| [Sprite Scale](../examples/2d/sprite_scale.rs) | Shows how a sprite can be scaled into a rectangle while keeping the aspect ratio |
+| [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite |
+| [Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique |
+| [Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid |
+| [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D |
+| [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites |
+| [Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d |
 
 ## 3D Rendering
 
@@ -238,21 +238,21 @@ Example | Description
 
 ## Assets
 
-Example | Description
---- | ---
-[Alter Mesh](../examples/asset/alter_mesh.rs) | Shows how to modify the underlying asset of a Mesh after spawning.
-[Alter Sprite](../examples/asset/alter_sprite.rs) | Shows how to modify texture assets after spawning.
-[Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
-[Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
-[Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
-[Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
-[Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
-[Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
-[Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
-[Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
-[Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
-[Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
-[Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
+| Example | Description |
+| --- | --- |
+| [Alter Mesh](../examples/asset/alter_mesh.rs) | Shows how to modify the underlying asset of a Mesh after spawning. |
+| [Alter Sprite](../examples/asset/alter_sprite.rs) | Shows how to modify texture assets after spawning. |
+| [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset |
+| [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets |
+| [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets |
+| [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset |
+| [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader |
+| [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader |
+| [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it |
+| [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source |
+| [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk |
+| [Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded. |
+| [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges |
 
 ## Async Tasks
 
@@ -300,44 +300,44 @@ Example | Description
 
 ## ECS (Entity Component System)
 
-Example | Description
---- | ---
-[Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
-[Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
-[Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
-[Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
-[Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
-[ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
-[Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
-[Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
-[Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
-[Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
-[Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
-[Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
-[Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
-[Immutable Components](../examples/ecs/immutable_components.rs) | Demonstrates the creation and utility of immutable components
-[Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
-[Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
-[Observer Propagation](../examples/ecs/observer_propagation.rs) | Demonstrates event propagation with observers
-[Observers](../examples/ecs/observers.rs) | Demonstrates observers that react to events (both built-in life-cycle events and custom events)
-[One Shot Systems](../examples/ecs/one_shot_systems.rs) | Shows how to flexibly run systems without scheduling them
-[Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
-[Relationships](../examples/ecs/relationships.rs) | Define and work with custom relationships between entities
-[Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
-[Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
-[Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
-[Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
-[State Scoped](../examples/ecs/state_scoped.rs) | Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states.
-[System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
-[System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
-[System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
-[System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution.
+| Example | Description |
+| --- | --- |
+| [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources |
+| [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events |
+| [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type |
+| [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules |
+| [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components |
+| [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS |
+| [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them |
+| [Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS |
+| [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception |
+| [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired |
+| [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick |
+| [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types |
+| [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities |
+| [Immutable Components](../examples/ecs/immutable_components.rs) | Demonstrates the creation and utility of immutable components |
+| [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results |
+| [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this. |
+| [Observer Propagation](../examples/ecs/observer_propagation.rs) | Demonstrates event propagation with observers |
+| [Observers](../examples/ecs/observers.rs) | Demonstrates observers that react to events (both built-in life-cycle events and custom events) |
+| [One Shot Systems](../examples/ecs/one_shot_systems.rs) | Shows how to flexibly run systems without scheduling them |
+| [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator` |
+| [Relationships](../examples/ecs/relationships.rs) | Define and work with custom relationships between entities |
+| [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame |
+| [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met |
+| [Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system |
+| [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up) |
+| [State Scoped](../examples/ecs/state_scoped.rs) | Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states. |
+| [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state |
+| [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam` |
+| [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully |
+| [System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution. |
 
 ## Embedded
 
-Example | Description
---- | ---
-[`no_std` Compatible Library](../examples/no_std/library/src/lib.rs) | Example library compatible with `std` and `no_std` targets
+| Example | Description |
+| --- | --- |
+| [`no_std` Compatible Library](../examples/no_std/library/src/lib.rs) | Example library compatible with `std` and `no_std` targets |
 
 ## Games
 
@@ -361,10 +361,10 @@ Example | Description
 
 ## Helpers
 
-Example | Description
---- | ---
-[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
-[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
+| Example | Description |
+| --- | --- |
+| [Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller |
+| [Widgets](../examples/helpers/widgets.rs) | Example UI Widgets |
 
 ## Input
 
@@ -444,31 +444,31 @@ A shader in its most common usage is a small program that is run by the GPU per-
 
 There are also compute shaders which are used for more general processing leveraging the GPU's parallelism.
 
-Example | Description
---- | ---
-[Animated](../examples/shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup
-[Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture.
-[Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
-[Custom Render Phase](../examples/shader/custom_render_phase.rs) | Shows how to make a complete render phase
-[Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
-[Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
-[Extended Bindless Material](../examples/shader/extended_material_bindless.rs) | Demonstrates bindless `ExtendedMaterial`
-[Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
-[GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
-[Instancing](../examples/shader/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
-[Instancing](../examples/shader/automatic_instancing.rs) | Shows that multiple instances of a cube are automatically instanced in one draw call
-[Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
-[Material](../examples/shader/shader_material_2d.rs) | A shader and a material that uses it on a 2d mesh
-[Material - Bindless](../examples/shader/shader_material_bindless.rs) | Demonstrates how to make materials that use bindless textures
-[Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
-[Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
-[Material - WESL](../examples/shader/shader_material_wesl.rs) | A shader that uses WESL
-[Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the various textures generated by the prepass
-[Post Processing - Custom Render Pass](../examples/shader/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
-[Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
-[Specialized Mesh Pipeline](../examples/shader/specialized_mesh_pipeline.rs) | Demonstrates how to write a specialized mesh pipeline
-[Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material.
-[Texture Binding Array (Bindless Textures)](../examples/shader/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
+| Example | Description |
+| --- | --- |
+| [Animated](../examples/shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup |
+| [Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture. |
+| [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life |
+| [Custom Render Phase](../examples/shader/custom_render_phase.rs) | Shows how to make a complete render phase |
+| [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute |
+| [Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase |
+| [Extended Bindless Material](../examples/shader/extended_material_bindless.rs) | Demonstrates bindless `ExtendedMaterial` |
+| [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material |
+| [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu |
+| [Instancing](../examples/shader/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api |
+| [Instancing](../examples/shader/automatic_instancing.rs) | Shows that multiple instances of a cube are automatically instanced in one draw call |
+| [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it |
+| [Material](../examples/shader/shader_material_2d.rs) | A shader and a material that uses it on a 2d mesh |
+| [Material - Bindless](../examples/shader/shader_material_bindless.rs) | Demonstrates how to make materials that use bindless textures |
+| [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language |
+| [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates |
+| [Material - WESL](../examples/shader/shader_material_wesl.rs) | A shader that uses WESL |
+| [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the various textures generated by the prepass |
+| [Post Processing - Custom Render Pass](../examples/shader/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass |
+| [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader) |
+| [Specialized Mesh Pipeline](../examples/shader/specialized_mesh_pipeline.rs) | Demonstrates how to write a specialized mesh pipeline |
+| [Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material. |
+| [Texture Binding Array (Bindless Textures)](../examples/shader/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures). |
 
 ## State
 
@@ -534,40 +534,40 @@ cargo run --release --example <example name>
 
 ## UI (User Interface)
 
-Example | Description
---- | ---
-[Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
-[Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
-[Button](../examples/ui/button.rs) | Illustrates creating and updating a button
-[CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
-[Directional Navigation](../examples/ui/directional_navigation.rs) | Demonstration of Directional Navigation between UI elements
-[Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
-[Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
-[Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-[Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
-[Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
-[Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
-[Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
-[Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
-[Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
-[Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers
-[Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
-[Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
-[Text](../examples/ui/text.rs) | Illustrates creating and updating text
-[Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
-[Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
-[Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
-[Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
-[UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
-[UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
-[UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
-[UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
-[UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
-[UI Texture Slice Flipping and Tiling](../examples/ui/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
-[UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
-[Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
-[Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
-[Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
+| Example | Description |
+| --- | --- |
+| [Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border |
+| [Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow |
+| [Button](../examples/ui/button.rs) | Illustrates creating and updating a button |
+| [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout |
+| [Directional Navigation](../examples/ui/directional_navigation.rs) | Demonstration of Directional Navigation between UI elements |
+| [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI. |
+| [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text |
+| [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally) |
+| [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy |
+| [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior |
+| [Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property |
+| [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior |
+| [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component |
+| [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world |
+| [Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers |
+| [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node. |
+| [Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements |
+| [Text](../examples/ui/text.rs) | Illustrates creating and updating text |
+| [Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors |
+| [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout |
+| [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping |
+| [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI |
+| [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials |
+| [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI |
+| [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI |
+| [UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI |
+| [UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI |
+| [UI Texture Slice Flipping and Tiling](../examples/ui/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI |
+| [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements |
+| [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates |
+| [Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support |
+| [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality. |
 
 ## Window
 
