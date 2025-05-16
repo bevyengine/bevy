@@ -527,11 +527,7 @@ pub fn pointer_events(
             for button in PointerButton::iter() {
                 let state = pointer_state.get_mut(pointer_id, button);
 
-                for drag_target in state
-                    .dragging
-                    .keys()
-                    .filter(|&&drag_target| hovered_entity != drag_target)
-                {
+                for drag_target in state.dragging.keys() {
                     state.dragging_over.insert(hovered_entity, hit.clone());
                     let drag_enter_event = Pointer::new(
                         pointer_id,
