@@ -246,10 +246,10 @@ mod text {
                     Sprite {
                         color: palettes::tailwind::GRAY_900.into(),
                         custom_size: Some(Vec2::new(bounds.width.unwrap(), bounds.height.unwrap())),
-                        anchor,
                         ..Default::default()
                     },
                     Transform::from_translation(dest - Vec3::Z),
+                    anchor,
                     DespawnOnExitState(super::Scene::Text),
                 ));
             }
@@ -273,12 +273,12 @@ mod sprite {
             commands.spawn((
                 Sprite {
                     image: asset_server.load("branding/bevy_logo_dark.png"),
-                    anchor,
                     flip_x,
                     flip_y,
                     color,
                     ..default()
                 },
+                anchor,
                 DespawnOnExitState(super::Scene::Sprite),
             ));
         }
