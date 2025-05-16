@@ -102,7 +102,7 @@ pub trait ReflectCommandExt {
         component: Box<dyn PartialReflect>,
     ) -> &mut Self;
 
-    /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
+    /// Removes from the entity the component or bundle with the given type path registered in [`AppTypeRegistry`].
     ///
     /// If the type is a bundle, it will remove any components in that bundle regardless if the entity
     /// contains all the components.
@@ -263,7 +263,7 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
+    /// Removes from the entity the component or bundle with the given type path registered in [`AppTypeRegistry`].
     ///
     /// If the type is a bundle, it will remove any components in that bundle regardless if the entity
     /// contains all the components.
