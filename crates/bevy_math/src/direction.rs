@@ -1301,4 +1301,26 @@ mod tests {
         );
         assert_eq!(Dir4::new_and_length(Vec4::X * 6.5), Ok((Dir4::X, 6.5)));
     }
+
+    #[test]
+    fn dir4_renorm() {
+        // Evil denormalized matrix
+        let mat4 = bevy_math::Mat4::from_quat(Quat::from_euler(glam::EulerRot::XYZ, 1.0, 2.0, 3.0))
+            * (1.0 + 1e-5);
+        let mut dir_a = Dir4::from_xyzw(1., 1., 0., 0.).unwrap();
+        let mut dir_b = Dir4::from_xyzw(1., 1., 0., 0.).unwrap();
+        // We test that renormalizing an already normalized dir doesn't do anything
+        assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
+        for _ in 0..50 {
+            dir_a = Dir4(mat4 * *dir_a);
+            dir_b = Dir4(mat4 * *dir_b);
+            dir_b = dir_b.fast_renormalize();
+        }
+        // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
+        assert!(
+            !dir_a.is_normalized(),
+            "Denormalization doesn't work, test is faulty"
+        );
+        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
 }
