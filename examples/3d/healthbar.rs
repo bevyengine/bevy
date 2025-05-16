@@ -1,13 +1,19 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane. (todo)
 
+use bevy::color::palettes::css::YELLOW;
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
+use bevy_remote::http::RemoteHttpPlugin;
+use bevy_remote::RemotePlugin;
 
 /// Marker for the health bar root UI node
 #[derive(Component)]
-struct HealthBarMarker;
+struct HealthBarRoot;
 
-/// Health bar should be moved above this entity (todo: use relations)
+#[derive(Component)]
+struct HealthBar;
+
+/// Health bar should be moved above this entity (todo: use relations?)
 #[derive(Component)]
 struct HealthBarTarget;
 
@@ -37,7 +43,8 @@ fn main() {
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, (setup, setup_ui))
-        .add_systems(Update, update_ui.run_if(input_just_pressed(KeyCode::Space)))
+        // .add_systems(Update, update_ui.run_if(input_just_pressed(MouseButton::Left)))
+        .add_systems(Update, update_ui)
         .add_systems(Update, move_cube)
         .run();
 }
@@ -61,7 +68,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
         Transform::from_translation(entity_spawn),
         HealthBarTarget,
-        Movable::new(entity_spawn)
+        Movable::new(entity_spawn),
     ));
     // light
     commands.spawn((
@@ -74,41 +81,59 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-4.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(-6.5, 2.5, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
 /// todo comment
 fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+    // let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     commands.spawn((
+        Name::from("Root Healthbar"),
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Vw(30.0),
-            top: Val::Vw(50.0),
             width: Val::Px(150.0),
             height: Val::Px(65.0),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
+            //flex_basis: Val::Percent(100.0),
+            align_self: AlignSelf::Stretch,
+            //justify_content: JustifyContent::Center,
+            //align_items: AlignItems::Center,
+            padding: UiRect::all(Val::Px(10.)),
             ..default()
         },
-        BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.3)),
-        HealthBarMarker,
+        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.7)),
+        HealthBarRoot,
         children![(
-            Text::new("42"),
-            TextFont {
-                font: font_handle.clone(),
-                font_size: 33.0,
+            Node {
+                align_items: AlignItems::Stretch,
+                width: Val::Percent(100.),
+                //height: Val::Px(100.),
                 ..default()
             },
-            TextColor(Color::srgb(1.0, 1.0, 1.0)),
+            BackgroundColor(Color::srgba(0.9, 0.9, 0.9, 0.5)),
+            children![(
+                Node::default(),
+                BackgroundColor(Color::WHITE),
+                HealthBar
+            )],
         )],
+        // children![(
+        //     Text::new("42"),
+        //     TextFont {
+        //         font: font_handle.clone(),
+        //         font_size: 33.0,
+        //         ..default()
+        //     },
+        //     TextColor(Color::srgb(1.0, 1.0, 1.0)),
+        //     BackgroundColor(Color::srgba(0.9, 0.1, 0.1, 0.5)),
+        // )],
     ));
 }
 
 fn update_ui(
-    mut health_bar_query: Query<&mut Node, With<HealthBarMarker>>,
+    mut health_bar_query: Query<&mut Node, (With<HealthBarRoot>, Without<HealthBar>)>,
+    mut health_bar_child_query: Single<&mut Node, (With<HealthBar>, Without<HealthBarRoot>)>,
     target_query: Single<&GlobalTransform, With<HealthBarTarget>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
 ) {
@@ -118,17 +143,17 @@ fn update_ui(
     let world_position = target_query.translation();
 
     for mut health_bar_node in health_bar_query.iter_mut() {
-        let viewport_position = camera.world_to_viewport(cam_transform, world_position).unwrap();
+        let viewport_position = camera
+            .world_to_viewport(cam_transform, world_position)
+            .unwrap();
         health_bar_node.left = Val::Px(viewport_position.x);
         health_bar_node.top = Val::Px(viewport_position.y);
 
-        println!("{}", camera.world_to_viewport(cam_transform, Vec3::ZERO).unwrap());
-        println!("{:?}", health_bar_node.left);
-        println!("{:?}", health_bar_node.top);
+        health_bar_child_query.width = Val::Percent(33.3);
     }
 }
 
-// This system will move all Movable entities with a Transform
+/// This system will move all Movable entities with a Transform
 fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
     for (mut transform, mut cube) in &mut cubes {
         // Check if the entity moved too far from its spawn, if so invert the moving direction.
@@ -139,4 +164,3 @@ fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>)
         transform.translation += direction * cube.speed * timer.delta_secs();
     }
 }
-
