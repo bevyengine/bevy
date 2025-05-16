@@ -189,7 +189,7 @@ impl SparseSetIndex for EntityRow {
 /// This tracks different versions or generations of an [`EntityRow`].
 /// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityRow`].
 ///
-/// This should be treated as a opaque identifier, and it's internal representation may be subject to change.
+/// This should be treated as a opaque identifier, and its internal representation may be subject to change.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
