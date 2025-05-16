@@ -1159,6 +1159,16 @@ pub fn extract_cameras(
             camera.physical_target_size(),
         ) {
             if target_size.x == 0 || target_size.y == 0 {
+                commands.entity(render_entity).remove::<(
+                    ExtractedCamera,
+                    ExtractedView,
+                    RenderVisibleEntities,
+                    TemporalJitter,
+                    RenderLayers,
+                    Projection,
+                    NoIndirectDrawing,
+                    ViewUniformOffset,
+                )>();
                 continue;
             }
 
