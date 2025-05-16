@@ -9,7 +9,7 @@ To run an example, use the command `cargo run --example <Example>`, and add the 
 cargo run --features wayland --example hello_world
 ```
 
-> **⚠️ Note: for users of releases on crates.io!**
+## For users of releases on crates.io
 
 There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
 
