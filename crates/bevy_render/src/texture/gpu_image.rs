@@ -114,7 +114,7 @@ impl GpuImage {
         &self,
         frame_graph: &mut FrameGraph,
     ) -> BindingResourceTextureViewHandle {
-        let texture = self.texture.make_resource_handle(frame_graph);
+        let texture = self.texture.imported(frame_graph);
 
         BindingResourceTextureViewHandle {
             texture,

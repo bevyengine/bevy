@@ -593,7 +593,7 @@ pub fn prepare_mesh_view_bind_groups(
             let ssao_view = ssao_resources
                 .map(|t| {
                     t.screen_space_ambient_occlusion_texture
-                        .make_resource_handle(&mut frame_graph)
+                        .imported(&mut frame_graph)
                         .into_binding()
                 })
                 .unwrap_or(fallback_ssao);
@@ -608,11 +608,11 @@ pub fn prepare_mesh_view_bind_groups(
 
             let point_light_depth_texture = shadow_bindings
                 .point_light_depth_texture
-                .make_resource_handle(&mut frame_graph);
+                .imported(&mut frame_graph);
 
             let directional_light_depth_texture = shadow_bindings
                 .directional_light_depth_texture
-                .make_resource_handle(&mut frame_graph);
+                .imported(&mut frame_graph);
             let mut entries = DynamicBindGroupEntryHandles::new_with_indices((
                 (0, &view_uniforms_binding),
                 (1, &light_meta_binding),
@@ -759,7 +759,7 @@ pub fn prepare_mesh_view_bind_groups(
             if let Some(ref render_view_decal_bind_group_entries) = decal_bind_group_entries {
                 let decals = render_view_decal_bind_group_entries
                     .decals
-                    .make_resource_handle(&mut frame_graph);
+                    .imported(&mut frame_graph);
 
                 let texture_handles = render_view_decal_bind_group_entries
                     .textures
@@ -803,7 +803,7 @@ pub fn prepare_mesh_view_bind_groups(
                 .map(|transmission| {
                     transmission
                         .texture
-                        .make_resource_handle(&mut frame_graph)
+                        .imported(&mut frame_graph)
                         .into_binding()
                 })
                 .unwrap_or(

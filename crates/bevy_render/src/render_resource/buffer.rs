@@ -1,6 +1,8 @@
-use crate::define_atomic_id;
+use crate::frame_graph::{BufferInfo, FrameGraph, FrameGraphBuffer, GraphResourceNodeHandle};
 use crate::renderer::WgpuWrapper;
+use crate::{define_atomic_id, frame_graph::ResourceMaterial};
 use core::ops::{Bound, Deref, RangeBounds};
+use std::sync::Arc;
 
 define_atomic_id!(BufferId);
 
@@ -8,9 +10,32 @@ define_atomic_id!(BufferId);
 pub struct Buffer {
     id: BufferId,
     value: WgpuWrapper<wgpu::Buffer>,
+    desc: BufferInfo,
+}
+
+impl ResourceMaterial for Buffer {
+    type ResourceType = FrameGraphBuffer;
+
+    fn imported(&self, frame_graph: &mut FrameGraph) -> GraphResourceNodeHandle<FrameGraphBuffer> {
+        let key = format!("buffer_{:?}", self.id());
+        let buffer = Arc::new(FrameGraphBuffer {
+            resource: self.value.deref().clone(),
+            desc: self.desc.clone(),
+        });
+        let handle = frame_graph.import(&key, buffer);
+        handle
+    }
 }
 
 impl Buffer {
+    pub fn new(value: wgpu::Buffer, desc: BufferInfo) -> Self {
+        Self {
+            id: BufferId::new(),
+            value: WgpuWrapper::new(value),
+            desc,
+        }
+    }
+
     #[inline]
     pub fn id(&self) -> BufferId {
         self.id
@@ -39,15 +64,6 @@ impl Buffer {
     #[inline]
     pub fn unmap(&self) {
         self.value.unmap();
-    }
-}
-
-impl From<wgpu::Buffer> for Buffer {
-    fn from(value: wgpu::Buffer) -> Self {
-        Buffer {
-            id: BufferId::new(),
-            value: WgpuWrapper::new(value),
-        }
     }
 }
 

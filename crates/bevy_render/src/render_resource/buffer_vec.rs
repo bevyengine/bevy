@@ -289,7 +289,7 @@ where
         frame_graph: &mut FrameGraph,
     ) -> Option<BindGroupResourceHandle> {
         self.buffer().map(|buffer| {
-            let buffer = buffer.make_resource_handle(frame_graph);
+            let buffer = buffer.imported(frame_graph);
 
             BindingResourceBufferHandle { buffer, size: None }.into_binding()
         })

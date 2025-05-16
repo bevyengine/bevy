@@ -2,11 +2,12 @@ use wgpu::{Origin3d, TextureAspect};
 
 use crate::frame_graph::{
     FrameGraph, FrameGraphBuffer, FrameGraphTexture, GraphResource, GraphResourceNodeHandle,
-    PassBuilder, PassNodeBuilder, ResourceRead, ResourceWrite,
+    PassBuilder, PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceWrite,
 };
 
 use super::{
-    BindGroupResourceBinding, BindGroupResourceHandle, BindGroupResourceHelper, BindingResourceTextureView, IntoBindGroupResourceHandle, ResourceMaterial, TexelCopyTextureInfo, TextureViewInfo
+    BindGroupResourceBinding, BindGroupResourceHandle, BindGroupResourceHelper,
+    BindingResourceTextureView, IntoBindGroupResourceHandle, TexelCopyTextureInfo, TextureViewInfo,
 };
 
 pub struct ResourceMeta<ResourceType: GraphResource> {
@@ -33,7 +34,7 @@ impl ResourceMeta<FrameGraphTexture> {
         &self,
         frame_graph: &mut FrameGraph,
     ) -> BindGroupResourceHandle {
-        let texture = self.make_resource_handle(frame_graph);
+        let texture = self.imported(frame_graph);
         texture.into_binding()
     }
 
@@ -76,7 +77,7 @@ impl<ResourceType: GraphResource> Clone for ResourceMeta<ResourceType> {
 impl ResourceMaterial for ResourceMeta<FrameGraphTexture> {
     type ResourceType = FrameGraphTexture;
 
-    fn make_resource_handle(
+    fn imported(
         &self,
         frame_graph: &mut FrameGraph,
     ) -> GraphResourceNodeHandle<Self::ResourceType> {
@@ -87,7 +88,7 @@ impl ResourceMaterial for ResourceMeta<FrameGraphTexture> {
 impl ResourceMaterial for ResourceMeta<FrameGraphBuffer> {
     type ResourceType = FrameGraphBuffer;
 
-    fn make_resource_handle(
+    fn imported(
         &self,
         frame_graph: &mut FrameGraph,
     ) -> GraphResourceNodeHandle<Self::ResourceType> {

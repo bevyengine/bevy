@@ -1,11 +1,16 @@
-use std::ops::Deref;
-
 use alloc::{borrow::Cow, sync::Arc};
+use wgpu::{BufferAddress, COPY_BUFFER_ALIGNMENT};
 
-use crate::{
-    render_resource::{Buffer, SurfaceTexture, Texture},
-    renderer::RenderDevice,
-};
+use crate::{render_resource::SurfaceTexture, renderer::RenderDevice};
+
+use super::{FrameGraph, GraphResource, GraphResourceNodeHandle};
+
+pub trait ResourceMaterial {
+    type ResourceType: GraphResource;
+
+    fn imported(&self, frame_graph: &mut FrameGraph)
+        -> GraphResourceNodeHandle<Self::ResourceType>;
+}
 
 pub trait FrameGraphResourceCreator {
     fn create_texture(&self, desc: &TextureInfo) -> FrameGraphTexture;
@@ -63,29 +68,52 @@ pub struct FrameGraphBuffer {
     pub desc: BufferInfo,
 }
 
-impl FrameGraphBuffer {
-    pub fn new_arc_with_buffer(buffer: &Buffer) -> Arc<FrameGraphBuffer> {
-        Arc::new(FrameGraphBuffer {
-            desc: BufferInfo {
-                label: None,
-                size: buffer.size(),
-                usage: buffer.usage(),
-                mapped_at_creation: false,
-            },
-            resource: buffer.deref().clone(),
-        })
-    }
-}
-
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct BufferInfo {
     pub label: Option<Cow<'static, str>>,
-    pub size: wgpu::BufferAddress,
+    pub size: BufferAddress,
     pub usage: wgpu::BufferUsages,
     pub mapped_at_creation: bool,
 }
 
 impl BufferInfo {
+    pub fn from_buffer_init_desc(desc: &wgpu::util::BufferInitDescriptor) -> Self {
+        if desc.contents.is_empty() {
+            BufferInfo {
+                label: desc.label.map(|label| label.to_string().into()),
+
+                size: 0,
+                usage: desc.usage,
+                mapped_at_creation: false,
+            }
+        } else {
+            let unpadded_size = desc.contents.len() as BufferAddress;
+            // Valid vulkan usage is
+            // 1. buffer size must be a multiple of COPY_BUFFER_ALIGNMENT.
+            // 2. buffer size must be greater than 0.
+            // Therefore we round the value up to the nearest multiple, and ensure it's at least COPY_BUFFER_ALIGNMENT.
+            let align_mask = COPY_BUFFER_ALIGNMENT - 1;
+            let padded_size =
+                ((unpadded_size + align_mask) & !align_mask).max(COPY_BUFFER_ALIGNMENT);
+
+            BufferInfo {
+                label: desc.label.map(|label| label.to_string().into()),
+                size: padded_size,
+                usage: desc.usage,
+                mapped_at_creation: false,
+            }
+        }
+    }
+
+    pub fn from_buffer_desc(desc: &wgpu::BufferDescriptor) -> Self {
+        Self {
+            label: desc.label.map(|label| label.to_string().into()),
+            size: desc.size,
+            usage: desc.usage,
+            mapped_at_creation: desc.mapped_at_creation,
+        }
+    }
+
     pub fn get_buffer_desc(&self) -> wgpu::BufferDescriptor {
         wgpu::BufferDescriptor {
             label: self.label.as_deref(),
@@ -102,26 +130,6 @@ pub struct FrameGraphTexture {
 }
 
 impl FrameGraphTexture {
-    pub fn new_arc_with_texture(texture: &Texture) -> Arc<FrameGraphTexture> {
-        Arc::new(FrameGraphTexture {
-            desc: TextureInfo {
-                label: None,
-                size: wgpu::Extent3d {
-                    width: texture.width(),
-                    height: texture.height(),
-                    depth_or_array_layers: texture.depth_or_array_layers(),
-                },
-                mip_level_count: texture.mip_level_count(),
-                sample_count: texture.sample_count(),
-                dimension: texture.dimension(),
-                format: texture.format(),
-                usage: texture.usage(),
-                view_formats: vec![],
-            },
-            resource: texture.deref().clone(),
-        })
-    }
-
     pub fn new_arc_with_surface(surface: &SurfaceTexture) -> Arc<FrameGraphTexture> {
         Arc::new(FrameGraphTexture {
             desc: TextureInfo {
@@ -143,7 +151,7 @@ impl FrameGraphTexture {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct TextureInfo {
     pub label: Option<Cow<'static, str>>,
     pub size: wgpu::Extent3d,
@@ -156,6 +164,19 @@ pub struct TextureInfo {
 }
 
 impl TextureInfo {
+    pub fn from_texture_desc(desc: &wgpu::TextureDescriptor) -> Self {
+        TextureInfo {
+            label: desc.label.map(|label| label.to_string().into()),
+            size: desc.size,
+            mip_level_count: desc.mip_level_count,
+            sample_count: desc.sample_count,
+            dimension: desc.dimension,
+            format: desc.format,
+            usage: desc.usage,
+            view_formats: desc.view_formats.to_vec(),
+        }
+    }
+
     pub fn get_texture_desc(&self) -> wgpu::TextureDescriptor {
         wgpu::TextureDescriptor {
             label: self.label.as_deref(),

@@ -16,49 +16,7 @@ pub use resource_meta::*;
 pub use texel_copy_texture_info::*;
 pub use texture_view::*;
 
-use crate::render_resource::{Buffer, Texture};
-
-use super::{
-    FrameGraph, FrameGraphBuffer, FrameGraphTexture, GraphResource, GraphResourceNodeHandle,
-    RenderContext,
-};
-
-pub trait ResourceMaterial {
-    type ResourceType: GraphResource;
-
-    fn make_resource_handle(
-        &self,
-        frame_graph: &mut FrameGraph,
-    ) -> GraphResourceNodeHandle<Self::ResourceType>;
-}
-
-impl ResourceMaterial for Buffer {
-    type ResourceType = FrameGraphBuffer;
-
-    fn make_resource_handle(
-        &self,
-        frame_graph: &mut FrameGraph,
-    ) -> GraphResourceNodeHandle<FrameGraphBuffer> {
-        let key = format!("buffer_{:?}", self.id());
-        let buffer = FrameGraphBuffer::new_arc_with_buffer(self);
-        let handle = frame_graph.import(&key, buffer);
-        handle
-    }
-}
-
-impl ResourceMaterial for Texture {
-    type ResourceType = FrameGraphTexture;
-
-    fn make_resource_handle(
-        &self,
-        frame_graph: &mut FrameGraph,
-    ) -> GraphResourceNodeHandle<FrameGraphTexture> {
-        let key = format!("texture_{:?}", self.id());
-        let texture = FrameGraphTexture::new_arc_with_texture(self);
-        let handle = frame_graph.import(&key, texture);
-        handle
-    }
-}
+use super::RenderContext;
 
 pub trait ResourceBinding {
     type Resource;

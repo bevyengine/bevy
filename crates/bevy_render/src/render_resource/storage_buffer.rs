@@ -96,7 +96,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         frame_graph: &mut FrameGraph,
     ) -> Option<BindGroupResourceHandle> {
         self.buffer().map(|buffer| {
-            let buffer = buffer.make_resource_handle(frame_graph);
+            let buffer = buffer.imported(frame_graph);
 
             let size = T::min_size();
 

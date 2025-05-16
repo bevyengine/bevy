@@ -1,4 +1,5 @@
 use super::RenderQueue;
+use crate::frame_graph::{BufferInfo, TextureInfo};
 use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
@@ -201,13 +202,13 @@ impl RenderDevice {
     /// Creates a [`Buffer`].
     pub fn create_buffer(&self, desc: &wgpu::BufferDescriptor) -> Buffer {
         let wgpu_buffer = self.device.create_buffer(desc);
-        Buffer::from(wgpu_buffer)
+        Buffer::new(wgpu_buffer, BufferInfo::from_buffer_desc(desc))
     }
 
     /// Creates a [`Buffer`] and initializes it with the specified data.
     pub fn create_buffer_with_data(&self, desc: &wgpu::util::BufferInitDescriptor) -> Buffer {
         let wgpu_buffer = self.device.create_buffer_init(desc);
-        Buffer::from(wgpu_buffer)
+        Buffer::new(wgpu_buffer, BufferInfo::from_buffer_init_desc(desc))
     }
 
     /// Creates a new [`Texture`] and initializes it with the specified data.
@@ -224,7 +225,7 @@ impl RenderDevice {
         let wgpu_texture =
             self.device
                 .create_texture_with_data(render_queue.as_ref(), desc, order, data);
-        Texture::from(wgpu_texture)
+        Texture::new(wgpu_texture, TextureInfo::from_texture_desc(desc))
     }
 
     /// Creates a new [`Texture`].
@@ -232,7 +233,7 @@ impl RenderDevice {
     /// `desc` specifies the general format of the texture.
     pub fn create_texture(&self, desc: &wgpu::TextureDescriptor) -> Texture {
         let wgpu_texture = self.device.create_texture(desc);
-        Texture::from(wgpu_texture)
+        Texture::new(wgpu_texture, TextureInfo::from_texture_desc(desc))
     }
 
     /// Creates a new [`Sampler`].

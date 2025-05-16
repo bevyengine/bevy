@@ -67,7 +67,7 @@ impl<'a> PassNodeBuilder<'a> {
         &mut self,
         material: &M,
     ) -> ResourceRef<M::ResourceType, ResourceRead> {
-        let handle = material.make_resource_handle(self.graph);
+        let handle = material.imported(self.graph);
         let read = self.read(handle);
         read
     }
@@ -76,7 +76,7 @@ impl<'a> PassNodeBuilder<'a> {
         &mut self,
         material: &M,
     ) -> ResourceRef<M::ResourceType, ResourceWrite> {
-        let handle = material.make_resource_handle(self.graph);
+        let handle = material.imported(self.graph);
         let read = self.write(handle);
         read
     }

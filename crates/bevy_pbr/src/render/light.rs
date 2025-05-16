@@ -830,6 +830,8 @@ pub fn prepare_lights(
         .filter(|light| light.2.spot_light_angles.is_none())
         .count();
 
+    println!("dddd {}", point_light_count);
+
     let point_light_volumetric_enabled_count = point_lights
         .iter()
         .filter(|(_, _, light, _)| light.volumetric && light.spot_light_angles.is_none())

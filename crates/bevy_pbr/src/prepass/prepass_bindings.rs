@@ -72,7 +72,7 @@ pub fn get_bindings(
     let depth_view = prepass_textures
         .and_then(|x| x.depth.as_ref())
         .map(|texture| {
-            let texture = texture.texture.make_resource_handle(frame_graph);
+            let texture = texture.texture.imported(frame_graph);
             (texture, depth_desc.clone())
         });
 

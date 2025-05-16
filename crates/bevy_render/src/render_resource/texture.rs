@@ -1,8 +1,10 @@
-use crate::define_atomic_id;
+use crate::frame_graph::{FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, TextureInfo};
 use crate::renderer::WgpuWrapper;
+use crate::{define_atomic_id, frame_graph::ResourceMaterial};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::resource::Resource;
 use core::ops::Deref;
+use std::sync::Arc;
 
 define_atomic_id!(TextureId);
 
@@ -23,9 +25,32 @@ define_atomic_id!(TextureId);
 pub struct Texture {
     id: TextureId,
     value: WgpuWrapper<wgpu::Texture>,
+    desc: TextureInfo,
+}
+
+impl ResourceMaterial for Texture {
+    type ResourceType = FrameGraphTexture;
+
+    fn imported(&self, frame_graph: &mut FrameGraph) -> GraphResourceNodeHandle<FrameGraphTexture> {
+        let key = format!("texture_{:?}", self.id());
+        let texture = Arc::new(FrameGraphTexture {
+            resource: self.value.deref().clone(),
+            desc: self.desc.clone(),
+        });
+        let handle = frame_graph.import(&key, texture);
+        handle
+    }
 }
 
 impl Texture {
+    pub fn new(value: wgpu::Texture, desc: TextureInfo) -> Self {
+        Self {
+            id: TextureId::new(),
+            value: WgpuWrapper::new(value),
+            desc,
+        }
+    }
+
     /// Returns the [`TextureId`].
     #[inline]
     pub fn id(&self) -> TextureId {
@@ -35,15 +60,6 @@ impl Texture {
     /// Creates a view of this texture.
     pub fn create_view(&self, desc: &wgpu::TextureViewDescriptor) -> TextureView {
         TextureView::from(self.value.create_view(desc))
-    }
-}
-
-impl From<wgpu::Texture> for Texture {
-    fn from(value: wgpu::Texture) -> Self {
-        Texture {
-            id: TextureId::new(),
-            value: WgpuWrapper::new(value),
-        }
     }
 }
 
