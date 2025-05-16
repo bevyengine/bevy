@@ -1222,6 +1222,7 @@ impl<'w> BundleInserter<'w> {
                 new_archetype,
                 new_table,
             } => {
+                let change_tick = self.world.change_tick();
                 let new_table = new_table.as_mut();
                 let new_archetype = new_archetype.as_mut();
 
@@ -1252,7 +1253,8 @@ impl<'w> BundleInserter<'w> {
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
-                let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
+                let move_result =
+                    table.move_to_superset_unchecked(result.table_row, new_table, change_tick);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 entities.set(entity.index(), new_location);
 
@@ -1582,14 +1584,18 @@ impl<'w> BundleRemover<'w> {
             );
         }
 
+        let change_tick = world.change_tick();
+
         // Handle table change
         let new_location = if let Some((mut old_table, mut new_table)) = self.old_and_new_table {
             let move_result = if needs_drop {
                 // SAFETY: old_table_row exists
                 unsafe {
-                    old_table
-                        .as_mut()
-                        .move_to_and_drop_missing_unchecked(location.table_row, new_table.as_mut())
+                    old_table.as_mut().move_to_and_drop_missing_unchecked(
+                        location.table_row,
+                        new_table.as_mut(),
+                        change_tick,
+                    )
                 }
             } else {
                 // SAFETY: old_table_row exists
@@ -1597,6 +1603,7 @@ impl<'w> BundleRemover<'w> {
                     old_table.as_mut().move_to_and_forget_missing_unchecked(
                         location.table_row,
                         new_table.as_mut(),
+                        change_tick,
                     )
                 }
             };

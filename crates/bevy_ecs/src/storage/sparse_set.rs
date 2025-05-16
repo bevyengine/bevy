@@ -360,6 +360,11 @@ impl ComponentSparseSet {
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         self.dense.check_change_ticks(change_tick);
     }
+
+    /// Returns the change tick of the column. This should be used for immutable components only.
+    pub fn get_column_change_tick(&self) -> Tick {
+        self.dense.get_change_tick()
+    }
 }
 
 /// A data structure that blends dense and sparse storage

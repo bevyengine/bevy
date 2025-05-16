@@ -268,6 +268,7 @@ impl Table {
         &mut self,
         row: TableRow,
         new_table: &mut Table,
+        change_tick: Tick,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
@@ -275,7 +276,13 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
+                new_column.initialize_from_unchecked(
+                    column,
+                    last_element_index,
+                    row,
+                    new_row,
+                    change_tick,
+                );
             } else {
                 // It's the caller's responsibility to drop these cases.
                 column.swap_remove_and_forget_unchecked(last_element_index, row);
@@ -301,6 +308,7 @@ impl Table {
         &mut self,
         row: TableRow,
         new_table: &mut Table,
+        change_tick: Tick,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
@@ -308,7 +316,13 @@ impl Table {
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
-                new_column.initialize_from_unchecked(column, last_element_index, row, new_row);
+                new_column.initialize_from_unchecked(
+                    column,
+                    last_element_index,
+                    row,
+                    new_row,
+                    change_tick,
+                );
             } else {
                 column.swap_remove_and_drop_unchecked(last_element_index, row);
             }
@@ -334,6 +348,7 @@ impl Table {
         &mut self,
         row: TableRow,
         new_table: &mut Table,
+        change_tick: Tick,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
@@ -343,7 +358,7 @@ impl Table {
             new_table
                 .get_column_mut(*component_id)
                 .debug_checked_unwrap()
-                .initialize_from_unchecked(column, last_element_index, row, new_row);
+                .initialize_from_unchecked(column, last_element_index, row, new_row, change_tick);
         }
         TableMoveResult {
             new_row,
@@ -485,6 +500,15 @@ impl Table {
     #[inline]
     pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
         self.columns.get_mut(component_id)
+    }
+
+    /// Gets change tick of the column matching `component_id`. The change tick should only be used
+    /// for immutable components.
+    ///
+    /// Returns `None` if the column does not exist.
+    pub(crate) fn get_column_change_tick(&self, component_id: ComponentId) -> Option<Tick> {
+        self.get_column(component_id)
+            .map(ThinColumn::get_change_tick)
     }
 
     /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
