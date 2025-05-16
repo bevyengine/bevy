@@ -113,7 +113,6 @@ fn setup(mut commands: Commands) {
                             ..default()
                         },
                         tab_group,
-                        // The orders of the `TabIndex`s is the reverse of the order of the buttons, so the buttons will be navigated in right-to-left order.
                     ))
                     .with_children(|parent| {
                         for i in indices {
@@ -124,9 +123,7 @@ fn setup(mut commands: Commands) {
                                         width: Val::Px(200.0),
                                         height: Val::Px(65.0),
                                         border: UiRect::all(Val::Px(5.0)),
-                                        // horizontally center child text
                                         justify_content: JustifyContent::Center,
-                                        // vertically center child text
                                         align_items: AlignItems::Center,
                                         ..default()
                                     },
