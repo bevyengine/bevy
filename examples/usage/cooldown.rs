@@ -139,14 +139,14 @@ fn build_ability(
 struct HeightAnimationNode(AnimationNodeIndex);
 
 fn cooldown_cover() -> impl Bundle {
-    return (
+    (
         Node {
             width: Val::Percent(100.),
             height: Val::Percent(0.),
             ..default()
         },
         BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.5)),
-    );
+    )
 }
 
 #[derive(Component)]
@@ -208,17 +208,14 @@ fn activate_ability(
     mut text: Query<&mut Text>,
 ) -> Result {
     for (entity, interaction, cooldown, mut player, node_id, name) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                // our animation curve is one second long
-                player
-                    .play(node_id.0)
-                    .set_speed(1. / cooldown.0.as_secs_f32())
-                    .replay();
-                commands.entity(entity).insert(AbilityDeactivated);
-                **text.single_mut()? = format!("Activated {name}");
-            }
-            _ => (),
+        if *interaction == Interaction::Pressed {
+            // our animation curve is one second long
+            player
+                .play(node_id.0)
+                .set_speed(1. / cooldown.0.as_secs_f32())
+                .replay();
+            commands.entity(entity).insert(AbilityDeactivated);
+            **text.single_mut()? = format!("Activated {name}");
         }
     }
 
