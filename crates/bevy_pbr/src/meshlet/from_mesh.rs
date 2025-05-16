@@ -27,8 +27,9 @@ use tracing::debug_span;
 
 // Aim to have 8 meshlets per group
 const TARGET_MESHLETS_PER_GROUP: usize = 8;
-// Reject groups that keep over 95% of their original triangles
-const SIMPLIFICATION_FAILURE_PERCENTAGE: f32 = 0.95;
+// Reject groups that keep over 60% of their original triangles. We'd much rather render a few
+// extra triangles than create too many meshlets, increasing cull overhead.
+const SIMPLIFICATION_FAILURE_PERCENTAGE: f32 = 0.60;
 
 /// Default vertex position quantization factor for use with [`MeshletMesh::from_mesh`].
 ///
@@ -78,7 +79,7 @@ impl MeshletMesh {
         // Get meshlet vertices
         let vertex_buffer = mesh.create_packed_vertex_buffer_data();
         let vertex_stride = mesh.get_vertex_size() as usize;
-        let mut vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
+        let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
         let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..16]);
 
         // Generate a position-only vertex buffer for determining triangle/meshlet connectivity
@@ -92,16 +93,13 @@ impl MeshletMesh {
         );
 
         // Split the mesh into an initial list of meshlets (LOD 0)
-        let mut meshlets = compute_meshlets(
+        let (mut meshlets, mut cull_data) = compute_meshlets(
             &indices,
             &vertices,
             &position_only_vertex_remap,
             position_only_vertex_count,
+            None,
         );
-        let mut temp_cull_data = meshlets
-            .iter()
-            .map(|meshlet| compute_meshlet_bounds(meshlet, &mut vertices, None))
-            .collect::<Vec<_>>();
 
         let mut vertex_locks = vec![false; vertices.vertex_count];
 
@@ -126,7 +124,7 @@ impl MeshletMesh {
             // grouping meshlets with a high number of shared vertices
             let groups = group_meshlets(
                 &simplification_queue,
-                &temp_cull_data,
+                &cull_data,
                 &connected_meshlets_per_meshlet,
             );
             simplification_queue.clear();
@@ -167,7 +165,7 @@ impl MeshletMesh {
                 // Force the group error to be atleast as large as all of its constituent meshlet's
                 // individual errors.
                 for &id in group.meshlets.iter() {
-                    group_error = group_error.max(temp_cull_data[id as usize].error);
+                    group_error = group_error.max(cull_data[id as usize].error);
                 }
                 group.parent_error = group_error;
 
@@ -177,6 +175,7 @@ impl MeshletMesh {
                     &vertices,
                     &position_only_vertex_remap,
                     position_only_vertex_count,
+                    Some((group.lod_bounds, group.parent_error)),
                 );
 
                 Ok((group, new_meshlets))
@@ -187,18 +186,10 @@ impl MeshletMesh {
             let mut stuck_tris = 0;
             for group in simplified {
                 match group {
-                    Ok((group, new_meshlets)) => {
-                        // Calculate the culling bounding sphere for the new meshlets and set their LOD group data
-                        temp_cull_data.extend(new_meshlets.iter().map(|meshlet| {
-                            compute_meshlet_bounds(
-                                meshlet,
-                                &mut vertices,
-                                Some((group.lod_bounds, group.parent_error)),
-                            )
-                        }));
-
+                    Ok((group, (new_meshlets, new_cull_data))) => {
                         let start = meshlets.len();
                         merge_meshlets(&mut meshlets, new_meshlets);
+                        cull_data.extend(new_cull_data);
                         let end = meshlets.len();
                         let new_meshlet_ids = start as u32..end as u32;
 
@@ -230,7 +221,7 @@ impl MeshletMesh {
             bvh.add_lod(first_group, &all_groups);
         }
 
-        let (bvh, aabb, depth) = bvh.build(&mut meshlets, &mut all_groups, &temp_cull_data);
+        let (bvh, aabb, depth) = bvh.build(&mut meshlets, all_groups, &mut cull_data);
 
         // Copy vertex attributes per meshlet and compress
         let mut vertex_positions = BitVec::<u32, Lsb0>::new();
@@ -259,7 +250,7 @@ impl MeshletMesh {
             indices: meshlets.triangles.into(),
             bvh: bvh.into(),
             meshlets: bevy_meshlets.into(),
-            meshlet_cull_data: temp_cull_data
+            meshlet_cull_data: cull_data
                 .into_iter()
                 .map(|cull_data| MeshletCullData {
                     aabb: aabb_to_meshlet(cull_data.aabb, cull_data.error, 0),
@@ -303,7 +294,8 @@ fn compute_meshlets(
     vertices: &VertexDataAdapter,
     position_only_vertex_remap: &[u32],
     position_only_vertex_count: usize,
-) -> Meshlets {
+    prev_lod_data: Option<(BoundingSphere, f32)>,
+) -> (Meshlets, Vec<TempMeshletCullData>) {
     // For each vertex, build a list of all triangles that use it
     let mut vertices_to_triangles = vec![Vec::new(); position_only_vertex_count];
     for (i, index) in indices.iter().enumerate() {
@@ -337,6 +329,7 @@ fn compute_meshlets(
     }
 
     // The order of triangles depends on hash traversal order; to produce deterministic results, sort them
+    // TODO: Wouldn't it be faster to use a `BTreeMap` above instead of `HashMap` + sorting?
     for list in connected_triangles_per_triangle.iter_mut() {
         list.sort_unstable();
     }
@@ -380,21 +373,33 @@ fn compute_meshlets(
         vertices: Vec::new(),
         triangles: Vec::new(),
     };
+    let mut cull_data = Vec::new();
+    let get_vertex = |&v: &u32| {
+        *bytemuck::from_bytes::<Vec3>(
+            &vertices.reader.get_ref()
+                [vertices.position_offset + v as usize * vertices.vertex_stride..][..12],
+        )
+    };
     for meshlet_indices in &indices_per_meshlet {
         let meshlet = build_meshlets(meshlet_indices, vertices, 255, 128, 0.0);
-        let vertex_offset = meshlets.vertices.len() as u32;
-        let triangle_offset = meshlets.triangles.len() as u32;
-        meshlets.vertices.extend_from_slice(&meshlet.vertices);
-        meshlets.triangles.extend_from_slice(&meshlet.triangles);
-        meshlets
-            .meshlets
-            .extend(meshlet.meshlets.into_iter().map(|mut meshlet| {
-                meshlet.vertex_offset += vertex_offset;
-                meshlet.triangle_offset += triangle_offset;
-                meshlet
-            }));
+        for meshlet in meshlet.iter() {
+            let (lod_group_sphere, error) = prev_lod_data.unwrap_or_else(|| {
+                let bounds = meshopt::compute_meshlet_bounds(meshlet, vertices);
+                (BoundingSphere::new(bounds.center, bounds.radius), 0.0)
+            });
+
+            cull_data.push(TempMeshletCullData {
+                aabb: Aabb3d::from_point_cloud(
+                    Isometry3d::IDENTITY,
+                    meshlet.vertices.iter().map(get_vertex),
+                ),
+                lod_group_sphere,
+                error,
+            });
+        }
+        merge_meshlets(&mut meshlets, meshlet);
     }
-    meshlets
+    (meshlets, cull_data)
 }
 
 fn find_connected_meshlets(
@@ -538,13 +543,17 @@ fn simplify_meshlet_group(
     vertex_locks: &[bool],
 ) -> Option<(Vec<u32>, f32)> {
     // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
-    let mut group_indices = Vec::new();
-    for &meshlet_id in group.meshlets.iter() {
-        let meshlet = meshlets.get(meshlet_id as _);
-        for meshlet_index in meshlet.triangles {
-            group_indices.push(meshlet.vertices[*meshlet_index as usize]);
-        }
-    }
+    let group_indices = group
+        .meshlets
+        .iter()
+        .flat_map(|&meshlet_id| {
+            let meshlet = meshlets.get(meshlet_id as _);
+            meshlet
+                .triangles
+                .iter()
+                .map(|&meshlet_index| meshlet.vertices[meshlet_index as usize])
+        })
+        .collect::<Vec<_>>();
 
     // Simplify the group to ~50% triangle count
     let mut error = 0.0;
@@ -561,7 +570,7 @@ fn simplify_meshlet_group(
         Some(&mut error),
     );
 
-    // Check if we were able to simplify at least a little
+    // Check if we were able to simplify
     if simplified_group_indices.len() as f32 / group_indices.len() as f32
         > SIMPLIFICATION_FAILURE_PERCENTAGE
     {
@@ -670,30 +679,6 @@ fn build_and_compress_per_meshlet_vertex_data(
     });
 }
 
-fn compute_meshlet_bounds(
-    meshlet: meshopt::Meshlet<'_>,
-    vertices: &mut VertexDataAdapter<'_>,
-    prev_lod_data: Option<(BoundingSphere, f32)>,
-) -> TempMeshletCullData {
-    let aabb = Aabb3d::from_point_cloud(
-        Isometry3d::IDENTITY,
-        meshlet
-            .vertices
-            .iter()
-            .map(|&v| Vec3A::from(vertices.xyz_f32_at(v as _).unwrap())),
-    );
-
-    let bounds = meshopt::compute_meshlet_bounds(meshlet, vertices);
-    let (lod_group_sphere, error) =
-        prev_lod_data.unwrap_or((BoundingSphere::new(bounds.center, bounds.radius), 0.0));
-
-    TempMeshletCullData {
-        aabb,
-        lod_group_sphere,
-        error,
-    }
-}
-
 fn merge_spheres(a: BoundingSphere, b: BoundingSphere) -> BoundingSphere {
     let sr = a.radius().min(b.radius());
     let br = a.radius().max(b.radius());
@@ -712,6 +697,7 @@ fn merge_spheres(a: BoundingSphere, b: BoundingSphere) -> BoundingSphere {
     }
 }
 
+#[derive(Copy, Clone)]
 struct TempMeshletCullData {
     aabb: Aabb3d,
     lod_group_sphere: BoundingSphere,
@@ -893,6 +879,7 @@ impl BvhBuilder {
     fn build_inner(
         &self,
         groups: &[TempMeshletGroup],
+        cull_data: &[TempMeshletCullData],
         out: &mut Vec<BvhNode>,
         max_depth: &mut u32,
         node: u32,
@@ -912,7 +899,8 @@ impl BvhBuilder {
                 out.lod_bounds[i] = sphere_to_meshlet(group.lod_bounds);
                 out.child_counts[i] = group.meshlets[1] as _;
             } else {
-                let child_id = self.build_inner(groups, out, max_depth, child_id, depth + 1);
+                let child_id =
+                    self.build_inner(groups, cull_data, out, max_depth, child_id, depth + 1);
                 let child = &out[child_id as usize];
                 let mut aabb = aabb_default();
                 let mut parent_error = 0.0f32;
@@ -993,11 +981,12 @@ impl BvhBuilder {
     fn build(
         mut self,
         meshlets: &mut Meshlets,
-        groups: &mut Vec<TempMeshletGroup>,
-        cull_data: &[TempMeshletCullData],
+        mut groups: Vec<TempMeshletGroup>,
+        cull_data: &mut Vec<TempMeshletCullData>,
     ) -> (Vec<BvhNode>, MeshletAabb, u32) {
         // The BVH requires group meshlets to be contiguous, so remap them first.
         let mut remap = Vec::with_capacity(meshlets.meshlets.len());
+        let mut remapped_cull_data = Vec::with_capacity(cull_data.len());
         for group in groups.iter_mut() {
             let first = remap.len() as u32;
             let count = group.meshlets.len() as u32;
@@ -1007,11 +996,13 @@ impl BvhBuilder {
                     .iter()
                     .map(|&m| meshlets.meshlets[m as usize]),
             );
+            remapped_cull_data.extend(group.meshlets.iter().map(|&m| cull_data[m as usize]));
             group.meshlets.resize(2, 0);
             group.meshlets[0] = first as u32;
             group.meshlets[1] = count as u32;
         }
         meshlets.meshlets = remap;
+        *cull_data = remapped_cull_data;
 
         let mut out = vec![];
         let mut aabb = aabb_default();
@@ -1028,7 +1019,7 @@ impl BvhBuilder {
             max_depth = 1;
         } else {
             let root = self.build_temp();
-            let root = self.build_inner(&groups, &mut out, &mut max_depth, root, 1);
+            let root = self.build_inner(&groups, cull_data, &mut out, &mut max_depth, root, 1);
             assert_eq!(root, 0, "root must be 0");
 
             let root = &out[0];
@@ -1046,7 +1037,7 @@ impl BvhBuilder {
 
         let mut reachable = vec![false; meshlets.meshlets.len()];
         self.verify_bvh(&out, cull_data, &mut reachable, 0);
-        debug_assert!(
+        assert!(
             reachable.iter().all(|&x| x),
             "all meshlets must be reachable"
         );
