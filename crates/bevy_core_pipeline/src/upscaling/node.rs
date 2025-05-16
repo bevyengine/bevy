@@ -2,6 +2,7 @@ use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupEntries, PipelineCache, RenderPassDescriptor, TextureViewId,
@@ -33,6 +34,8 @@ impl ViewNode for UpscalingNode {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
         let blit_pipeline = world.get_resource::<BlitPipeline>().unwrap();
         let clear_color_global = world.get_resource::<ClearColor>().unwrap();
+
+        let diagnostics = render_context.diagnostic_recorder();
 
         let clear_color = if let Some(camera) = camera {
             match camera.output_mode {
@@ -82,6 +85,7 @@ impl ViewNode for UpscalingNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "upscaling_pass");
 
         if let Some(camera) = camera {
             if let Some(viewport) = &camera.viewport {
@@ -94,6 +98,8 @@ impl ViewNode for UpscalingNode {
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

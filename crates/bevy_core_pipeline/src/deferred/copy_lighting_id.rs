@@ -8,6 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
@@ -90,6 +91,8 @@ impl ViewNode for CopyDeferredLightingIdNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let bind_group = render_context.render_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
             &copy_deferred_lighting_id_pipeline.layout,
@@ -111,9 +114,13 @@ impl ViewNode for CopyDeferredLightingIdNode {
             occlusion_query_set: None,
         });
 
+        let pass_span = diagnostics.pass_span(&mut render_pass, "copy_deferred_lighting_id_pass");
+
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

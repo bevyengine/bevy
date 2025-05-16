@@ -18,6 +18,7 @@ use bevy_ecs::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
+    diagnostic::RecordDiagnostics,
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
@@ -239,16 +240,18 @@ impl ViewNode for SsaoNode {
             return Ok(());
         };
 
-        render_context.command_encoder().push_debug_group("ssao");
+        let diagnostics = render_context.diagnostic_recorder();
+
+        let command_encoder = render_context.command_encoder();
+        command_encoder.push_debug_group("ssao");
+        let time_span = diagnostics.time_span(command_encoder, "ssao");
 
         {
             let mut preprocess_depth_pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("ssao_preprocess_depth_pass"),
-                        timestamp_writes: None,
-                    });
+                command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("ssao_preprocess_depth_pass"),
+                    timestamp_writes: None,
+                });
             preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
             preprocess_depth_pass.set_bind_group(0, &bind_groups.preprocess_depth_bind_group, &[]);
             preprocess_depth_pass.set_bind_group(
@@ -264,13 +267,10 @@ impl ViewNode for SsaoNode {
         }
 
         {
-            let mut ssao_pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("ssao_ssao_pass"),
-                        timestamp_writes: None,
-                    });
+            let mut ssao_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("ssao_ssao_pass"),
+                timestamp_writes: None,
+            });
             ssao_pass.set_pipeline(ssao_pipeline);
             ssao_pass.set_bind_group(0, &bind_groups.ssao_bind_group, &[]);
             ssao_pass.set_bind_group(
@@ -283,12 +283,10 @@ impl ViewNode for SsaoNode {
 
         {
             let mut spatial_denoise_pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("ssao_spatial_denoise_pass"),
-                        timestamp_writes: None,
-                    });
+                command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                    label: Some("ssao_spatial_denoise_pass"),
+                    timestamp_writes: None,
+                });
             spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
             spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);
             spatial_denoise_pass.set_bind_group(
@@ -303,7 +301,8 @@ impl ViewNode for SsaoNode {
             );
         }
 
-        render_context.command_encoder().pop_debug_group();
+        time_span.end(command_encoder);
+        command_encoder.pop_debug_group();
         Ok(())
     }
 }
