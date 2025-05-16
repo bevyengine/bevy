@@ -409,6 +409,7 @@ Example | Description
 Example | Description
 --- | ---
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
+[Parent Picking](../examples/picking/parent_picking.rs) | Demonstrates parent picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
 [Sprite Picking](../examples/picking/sprite_picking.rs) | Demonstrates picking sprites and sprite atlases
