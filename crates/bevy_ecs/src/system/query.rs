@@ -2023,7 +2023,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// of the current query. A precise description of the access required by each parameter
     /// type is given in the table below, but typical uses are to:
     /// * Remove components. e.g. `Query<(&A, &B)>` to `Query<&A>`.
-    /// * Retreive an existing component with reduced or equal access, e.g. `Query<&mut A>` to `Query<&A>`
+    /// * Retrieve an existing component with reduced or equal access, e.g. `Query<&mut A>` to `Query<&A>`
     ///   or `Query<&T>` to `Query<Ref<T>>`.
     /// * Add parameters with no new access, for example adding an `Entity` parameter.
     ///
