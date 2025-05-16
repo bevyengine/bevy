@@ -39,9 +39,9 @@ const TONEMAPPING_LUT_BINDINGS_SHADER_HANDLE: Handle<Shader> =
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
 pub struct TonemappingLuts {
-    blender_filmic: Handle<Image>,
-    agx: Handle<Image>,
-    tony_mc_mapface: Handle<Image>,
+    pub blender_filmic: Handle<Image>,
+    pub agx: Handle<Image>,
+    pub tony_mc_mapface: Handle<Image>,
 }
 
 pub struct TonemappingPlugin;
