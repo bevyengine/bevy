@@ -9,7 +9,10 @@ use bevy::{
     prelude::*,
     winit::WinitSettings,
 };
-use bevy_ecs::spawn::{SpawnIter, SpawnWith};
+use bevy_ecs::{
+    bundle::BundleEffect,
+    spawn::{SpawnIter, SpawnWith, SpawnableList},
+};
 
 fn main() {
     App::new()
@@ -27,16 +30,11 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn button_system(
     mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &Children,
-        ),
+        (&Interaction, &mut BackgroundColor, &mut BorderColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
+    for (interaction, mut color, mut border_color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
@@ -85,6 +83,7 @@ fn setup(mut commands: Commands) {
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
+            row_gap: Val::Px(6.0),
             ..default()
         })
         .observe(
@@ -100,6 +99,7 @@ fn setup(mut commands: Commands) {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
                     column_gap: Val::Px(6.0),
+
                     margin: UiRect {
                         bottom: Val::Px(10.0),
                         ..default()
@@ -108,7 +108,12 @@ fn setup(mut commands: Commands) {
                 },
                 TabGroup::new(0),
                 // These buttons all have the same index, so they will be navigated according to their order as children.
-                Children::spawn(SpawnIter((0..4).map(|_| create_button(0)))),
+                Children::spawn((
+                    create_button(0),
+                    create_button(0),
+                    create_button(0),
+                    create_button(0),
+                )),
             ));
 
             parent.spawn(Text::new("Tab Group 2"));
@@ -125,7 +130,12 @@ fn setup(mut commands: Commands) {
                 },
                 TabGroup::new(2),
                 // The orders of the `TabIndex`s is the reverse of the order of the buttons, so the buttons will be navigated in right-to-left order.
-                Children::spawn(SpawnIter((0..4).rev().map(|i| create_button(i)))),
+                Children::spawn((
+                    create_button(3),
+                    create_button(2),
+                    create_button(1),
+                    create_button(0),
+                )),
             ));
 
             parent.spawn(Text::new("Tab Group 1"));
@@ -142,7 +152,13 @@ fn setup(mut commands: Commands) {
                 },
                 TabGroup::new(1),
                 // The order of the `TabIndex`s matches the order of the buttons, so the buttons will be navigated in left-to-right order.
-                Children::spawn(SpawnIter((0..4).map(|i| create_button(i)))),
+                //Children::spawn(SpawnIter((0..4).map(|i| create_button(i)))),
+                Children::spawn((
+                    create_button(0),
+                    create_button(1),
+                    create_button(2),
+                    create_button(3),
+                )),
             ));
 
             parent.spawn(Text::new("Modal Tab Group"));
@@ -155,15 +171,18 @@ fn setup(mut commands: Commands) {
                 },
                 TabGroup::modal(),
                 // The order of these `TabIndex`s doesn't match the order of the buttons.
-                Children::spawn(SpawnIter(
-                    [0, 3, 1, 2].into_iter().map(|i| create_button(i)),
+                Children::spawn((
+                    create_button(0),
+                    create_button(3),
+                    create_button(1),
+                    create_button(2),
                 )),
             ));
         });
 }
 
-fn create_button(index: i32) -> impl Bundle {
-    Children::spawn(SpawnWith(move |parent: &mut ChildSpawner| {
+fn create_button(index: i32) -> SpawnWith<impl FnOnce(&mut ChildSpawner) + Send + Sync + 'static> {
+    SpawnWith(move |parent: &mut ChildSpawner| {
         parent
             .spawn((
                 Button,
@@ -195,5 +214,5 @@ fn create_button(index: i32) -> impl Bundle {
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
             ));
-    }))
+    })
 }
