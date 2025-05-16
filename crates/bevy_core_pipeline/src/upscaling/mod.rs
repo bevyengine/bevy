@@ -1,10 +1,11 @@
-use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_platform::collections::HashSet;
 use bevy_render::{
     camera::{CameraOutputMode, ExtractedCamera},
     render_resource::*,
+    renderer::RenderDevice,
+    texture_blitter::{TextureBlitter, TextureBlitterBuilder},
     view::ViewTarget,
     Render, RenderApp, RenderSystems,
 };
@@ -34,14 +35,12 @@ impl Plugin for UpscalingPlugin {
 }
 
 #[derive(Component)]
-pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
+pub struct ViewUpscalingTextureBlitter(TextureBlitter);
 
 fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
-    blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
+    render_device: Res<RenderDevice>,
 ) {
     let mut output_textures = <HashSet<_>>::default();
     for (entity, view_target, camera) in view_targets.iter() {
@@ -73,18 +72,17 @@ fn prepare_view_upscaling_pipelines(
             None
         };
 
-        let key = BlitPipelineKey {
-            texture_format: view_target.out_texture_format(),
-            blend_state,
-            samples: 1,
-        };
-        let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
-
-        // Ensure the pipeline is loaded before continuing the frame to prevent frames without any GPU work submitted
-        pipeline_cache.block_on_render_pipeline(pipeline);
+        let mut texture_blitter_builder = TextureBlitterBuilder::new(
+            render_device.wgpu_device(),
+            view_target.out_texture_format(),
+        );
+        if let Some(blend_state) = blend_state {
+            texture_blitter_builder = texture_blitter_builder.blend_state(blend_state);
+        }
+        let texture_blitter = texture_blitter_builder.build();
 
         commands
             .entity(entity)
-            .insert(ViewUpscalingPipeline(pipeline));
+            .insert(ViewUpscalingTextureBlitter(texture_blitter));
     }
 }
