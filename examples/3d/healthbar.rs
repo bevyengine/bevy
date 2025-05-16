@@ -1,6 +1,6 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane. (todo)
 
-use bevy::color::palettes::css::YELLOW;
+use bevy::color::palettes::css::{GREEN, RED, YELLOW};
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy_remote::http::RemoteHttpPlugin;
@@ -102,7 +102,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             padding: UiRect::all(Val::Px(10.)),
             ..default()
         },
-        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.7)),
+        BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
         HealthBarRoot,
         children![(
             Node {
@@ -111,10 +111,10 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 //height: Val::Px(100.),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.9, 0.9, 0.9, 0.5)),
+            BackgroundColor(Color::from(RED)),
             children![(
                 Node::default(),
-                BackgroundColor(Color::WHITE),
+                BackgroundColor(Color::from(GREEN)),
                 HealthBar
             )],
         )],
@@ -136,6 +136,7 @@ fn update_ui(
     mut health_bar_child_query: Single<&mut Node, (With<HealthBar>, Without<HealthBarRoot>)>,
     target_query: Single<&GlobalTransform, With<HealthBarTarget>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
+    time: Res<Time>,
 ) {
     let camera = camera_query.0;
     let cam_transform = camera_query.1;
@@ -149,7 +150,8 @@ fn update_ui(
         health_bar_node.left = Val::Px(viewport_position.x);
         health_bar_node.top = Val::Px(viewport_position.y);
 
-        health_bar_child_query.width = Val::Percent(33.3);
+        let hp = (time.elapsed().as_secs_f32().sin() + 0.5) * 100.0;
+        health_bar_child_query.width = Val::Percent(hp);
     }
 }
 
