@@ -2,10 +2,9 @@
 //! We create three buttons with 2, 1, and 5 seconds cooldown.
 
 use std::{any::TypeId, time::Duration};
-
 use bevy::{
     animation::{AnimationEntityMut, AnimationEvaluationError, AnimationTarget, AnimationTargetId},
-    color::palettes::tailwind::RED_400,
+    color::palettes::tailwind::{SLATE_400, SLATE_50},
     prelude::*,
 };
 
@@ -21,25 +20,18 @@ fn setup(
     mut commands: Commands,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut animation_clips: ResMut<Assets<AnimationClip>>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn(Camera2d);
+    let texture = asset_server.load("textures/food_kenney.png");
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(64), 7, 7, None, None);
+    let texture_atlas_layout = texture_atlas_layouts.add(layout);
     let abilities = [
-        (
-            "Hat Guy",
-            Duration::from_secs(2),
-            asset_server.load("textures/rpg/chars/hat-guy/hat-guy.png"),
-        ),
-        (
-            "Sensei",
-            Duration::from_secs(1),
-            asset_server.load("textures/rpg/chars/sensei/sensei.png"),
-        ),
-        (
-            "Bee",
-            Duration::from_secs(4),
-            asset_server.load("textures/rpg/mobs/boss_bee.png"),
-        ),
+        ("an apple", Duration::from_secs(2), 2),
+        ("a burger", Duration::from_secs(1), 23),
+        ("chocolate", Duration::from_secs(4), 32),
+        ("cherries", Duration::from_secs(4), 41),
     ];
     commands
         .spawn(Node {
@@ -57,6 +49,8 @@ fn setup(
                 let button_id = button.id();
                 button.insert(build_ability(
                     ability,
+                    texture.clone(),
+                    texture_atlas_layout.clone(),
                     &mut animation_graphs,
                     &mut animation_clips,
                     button_id,
@@ -64,7 +58,7 @@ fn setup(
             }
         });
     commands.spawn((
-        Text::new("*Click an ability to activate it*"),
+        Text::new("*Click some foot to eat it*"),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
@@ -74,15 +68,17 @@ fn setup(
     ));
 }
 
-type Ability = (&'static str, Duration, Handle<Image>);
+type Ability = (&'static str, Duration, usize);
 
 fn build_ability(
     ability: Ability,
+    texture: Handle<Image>,
+    layout: Handle<TextureAtlasLayout>,
     animation_graphs: &mut Assets<AnimationGraph>,
     animation_clips: &mut Assets<AnimationClip>,
     target: Entity,
 ) -> impl Bundle {
-    let (name, cooldown, icon) = ability;
+    let (name, cooldown, index) = ability;
     let name = Name::new(name);
     let animation_target_id = AnimationTargetId::from_name(&name);
 
@@ -117,12 +113,12 @@ fn build_ability(
             overflow_clip_margin: OverflowClipMargin::content_box(),
             ..default()
         },
-        BackgroundColor(RED_400.into()),
+        BackgroundColor(SLATE_400.into()),
         Button,
         AnimationPlayer::default(),
         AnimationGraphHandle(animation_graph_handle),
         HeightAnimationNode(animation_node_index),
-        ImageNode::new(icon),
+        ImageNode::from_atlas_image(texture, TextureAtlas { layout, index }),
         Cooldown(cooldown),
         children![(
             cooldown_cover(),
@@ -145,7 +141,7 @@ fn cooldown_cover() -> impl Bundle {
             height: Val::Percent(0.),
             ..default()
         },
-        BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.5)),
+        BackgroundColor(SLATE_50.with_alpha(0.5).into()),
     )
 }
 
@@ -215,7 +211,7 @@ fn activate_ability(
                 .set_speed(1. / cooldown.0.as_secs_f32())
                 .replay();
             commands.entity(entity).insert(AbilityDeactivated);
-            **text.single_mut()? = format!("Activated {name}");
+            **text.single_mut()? = format!("You ate {name}");
         }
     }
 
