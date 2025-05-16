@@ -128,23 +128,26 @@ fn sample_hzb(uv: vec2<f32>, mip: u32, size: vec2<u32>) -> f32 {
     return min(min(a, b), min(c, d));
 }
 
+// TODO: We should probably be using a POT HZB texture?
 fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
-    let hzb_size = vec2<u32>(1u) << firstLeadingBit(vec2<u32>(screen) - 1u);
+    let hzb_size = screen * 0.5f;
+    let aabb_min = aabb.min.xy * hzb_size;
+    let aabb_max = aabb.max.xy * hzb_size;
 
-    let min_texel = vec2<u32>(max(aabb.min.xy, vec2<f32>(0.0)));
-    let max_texel = vec2<u32>(min(aabb.max.xy, vec2<f32>(hzb_size - 1u)));
+    let min_texel = vec2<u32>(max(aabb_min, vec2<f32>(0.0)));
+    let max_texel = vec2<u32>(min(aabb_max, hzb_size - 1.0));
     let size = max_texel - min_texel + 1u;
     let max_size = max(size.x, size.y);
 
-    var mip = firstLeadingBit(max_size - 1u) - 1u;
+    var mip = firstLeadingBit(max_size - 1u);
     let smin = min_texel >> vec2<u32>(mip);
     let smax = max_texel >> vec2<u32>(mip);
     if any(smax - smin > vec2<u32>(1u)) {
         mip += 1u;
     }
 
-    let uv = ((vec2<f32>(smin) + vec2<f32>(smax)) * 0.5) / vec2<f32>(hzb_size);
-    let curr_depth = sample_hzb(uv, mip, hzb_size);
+    let uv = ((vec2<f32>(min_texel) + vec2<f32>(max_texel)) * 0.5) / hzb_size;
+    let curr_depth = sample_hzb(uv, mip, vec2<u32>(hzb_size));
     return aabb.max.z <= curr_depth;
 }
 
