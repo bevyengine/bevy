@@ -394,6 +394,11 @@ impl Schedule {
         self.graph.passes.remove(&TypeId::of::<T>());
     }
 
+    /// Returns `true` if the schedule contains this build pass. Returns `false` otherwise.
+    pub fn contains_build_pass<T: ScheduleBuildPass>(&self) -> bool {
+        self.graph.passes.contains_key(&TypeId::of::<T>())
+    }
+
     /// Changes miscellaneous build settings.
     ///
     /// If `settings.auto_insert_apply_deferred` is `false`, this clears `*_ignore_deferred`
@@ -403,7 +408,7 @@ impl Schedule {
     /// not after.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         if settings.auto_insert_apply_deferred {
-            if !self.graph.settings.auto_insert_apply_deferred {
+            if !self.contains_build_pass::<passes::AutoInsertApplyDeferredPass>() {
                 self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
             }
         } else {
