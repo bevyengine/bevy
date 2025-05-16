@@ -576,8 +576,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[Cooldown](../examples/usage/cooldown.rs) | Add a cooldown to buttons with an animation 
-
+[Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
 
 ## Window
 
