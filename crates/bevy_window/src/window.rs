@@ -231,7 +231,7 @@ pub struct Window {
     /// ## Platform-specific
     ///
     /// - iOS / Android / X11 / Wayland: Spawning unfocused is
-    /// [not supported](https://docs.rs/winit/latest/winit/window/struct.WindowBuilder.html#method.with_active).
+    ///   [not supported](https://docs.rs/winit/latest/winit/window/struct.WindowBuilder.html#method.with_active).
     /// - iOS / Android / Web / Wayland Setting focused after creation is
     ///   [not supported](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.focus_window)
     pub focused: bool,
