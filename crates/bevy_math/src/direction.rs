@@ -923,7 +923,7 @@ impl Dir4 {
         Self(value)
     }
 
-    /// Create a direction from a finite, nonzero [`Vec3`], normalizing it and
+    /// Create a direction from a finite, nonzero [`Vec4`], normalizing it and
     /// also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -937,21 +937,21 @@ impl Dir4 {
             .ok_or(InvalidDirectionError::from_length(length))
     }
 
-    /// Create a direction from its `w`, `x`, `y`, and `z` components.
+    /// Create a direction from its `x`, `y`, `z`, and `w` components.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
-    pub fn from_xyz(w: f32, x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
-        Self::new(Vec4::new(w, x, y, z))
+    pub fn from_xyzw(x: f32, y: f32, z: f32, w: f32) -> Result<Self, InvalidDirectionError> {
+        Self::new(Vec4::new(x, y, z, w))
     }
 
-    /// Create a direction from its `w`, `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    /// Create a direction from its `x`, `y`, `z`, and `w` components, assuming the resulting vector is normalized.
     ///
     /// # Warning
     ///
-    /// The vector produced from `w`, `x`, `y`, and `z` must be normalized, i.e its length must be `1.0`.
-    pub fn from_xyz_unchecked(w: f32, x: f32, y: f32, z: f32) -> Self {
-        Self::new_unchecked(Vec4::new(w, x, y, z))
+    /// The vector produced from `x`, `y`, `z`, and `w` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xyzw_unchecked(x: f32, y: f32, z: f32, w: f32) -> Self {
+        Self::new_unchecked(Vec4::new(x, y, z, w))
     }
 
     /// Returns the inner [`Vec4`]
