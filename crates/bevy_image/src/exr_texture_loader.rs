@@ -10,7 +10,7 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 #[cfg(feature = "exr")]
 pub struct ExrTextureLoader;
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 #[cfg(feature = "exr")]
 pub struct ExrTextureLoaderSettings {
     pub asset_usage: RenderAssetUsages,

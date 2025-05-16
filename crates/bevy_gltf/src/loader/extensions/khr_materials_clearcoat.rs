@@ -4,6 +4,8 @@ use gltf::{Document, Material};
 
 use serde_json::Value;
 
+use crate::loader::LoadedTexture;
+
 #[cfg(feature = "pbr_multi_layer_material_textures")]
 use {
     crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_asset::Handle,
@@ -43,6 +45,7 @@ impl ClearcoatExtension {
     )]
     pub(crate) fn parse(
         load_context: &mut LoadContext,
+        loaded_textures: &[LoadedTexture],
         document: &Document,
         material: &Material,
     ) -> Option<ClearcoatExtension> {
@@ -55,6 +58,7 @@ impl ClearcoatExtension {
         let (clearcoat_channel, clearcoat_texture) = parse_material_extension_texture(
             material,
             load_context,
+            loaded_textures,
             document,
             extension,
             "clearcoatTexture",
@@ -66,6 +70,7 @@ impl ClearcoatExtension {
             parse_material_extension_texture(
                 material,
                 load_context,
+                loaded_textures,
                 document,
                 extension,
                 "clearcoatRoughnessTexture",
@@ -76,6 +81,7 @@ impl ClearcoatExtension {
         let (clearcoat_normal_channel, clearcoat_normal_texture) = parse_material_extension_texture(
             material,
             load_context,
+            loaded_textures,
             document,
             extension,
             "clearcoatNormalTexture",
