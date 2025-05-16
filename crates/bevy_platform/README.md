@@ -17,12 +17,12 @@ The goal of this crate is to provide alternatives and extensions to the Rust sta
 
 Like any dependency from [crates.io](https://crates.io/), use `cargo` to add it to your `Cargo.toml` file:
 
-```sh
+```bash
 cargo add bevy_platform
 ```
 
 Now, instead of importing from `std` you can use `bevy_platform` for items it has alternative for.
-See the documentation for what items are available, and explanations for _why_ you may want to use them.
+See the documentation for what items are available, and explanations for *why* you may want to use them.
 
 ## `no_std` Support
 
@@ -35,12 +35,12 @@ bevy_platform = { version = "x.y.z", default-features = false }
 
 ## Features
 
-### `std` (_default_)
+### `std` (*default*)
 
-Enables usage of the standard library. Note that where this crate has alternatives to the standard library that it considers _better_ than what's provided, it will provide the alternative even when `std` is enabled.
+Enables usage of the standard library. Note that where this crate has alternatives to the standard library that it considers *better* than what's provided, it will provide the alternative even when `std` is enabled.
 This is explicitly incompatible with `no_std` targets.
 
-### `alloc` (_default_)
+### `alloc` (*default*)
 
 Enables usage of the [`alloc`](https://doc.rust-lang.org/stable/alloc/) crate. Note that this feature is automatically enabled when enabling `std`.
 This is compatible with most `no_std` targets, but not all.

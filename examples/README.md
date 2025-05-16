@@ -9,7 +9,7 @@ To run an example, use the command `cargo run --example <Example>`, and add the 
 cargo run --features wayland --example hello_world
 ```
 
-> **⚠️ Note: for users of releases on crates.io!**
+## For users of releases on crates.io
 
 There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
 
@@ -32,6 +32,7 @@ git checkout v0.4.0
 ## Table of Contents
 
 - [Examples](#examples)
+  - [For users of releases on crates.io](#for-users-of-releases-on-cratesio)
   - [Table of Contents](#table-of-contents)
 - [The Bare Minimum](#the-bare-minimum)
   - [Hello, World!](#hello-world)
@@ -66,22 +67,22 @@ git checkout v0.4.0
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
-
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
     - [Setup](#setup)
-    - [Build & Run](#build--run)
-    - [About `libc++_shared.so`](#about-libc_sharedso)
+    - [Build \& Run](#build--run)
+      - [About `libc++_shared.so`](#about-libc_sharedso)
+    - [Debugging](#debugging)
     - [Old phones](#old-phones)
-    - [About `cargo-apk`](#about-cargo-apk)
+      - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
     - [Setup](#setup-1)
-    - [Build & Run](#build--run-1)
+    - [Build \& Run](#build--run-1)
   - [Wasm](#wasm)
     - [Setup](#setup-2)
-    - [Build & Run](#build--run-2)
-    - [WebGL2 and WebGPU](#webgl2-and-webgpu)
+    - [Build \& Run](#build--run-2)
+      - [WebGL2 and WebGPU](#webgl2-and-webgpu)
     - [Audio in the browsers](#audio-in-the-browsers)
     - [Optimizing](#optimizing)
     - [Loading Assets](#loading-assets)
@@ -813,14 +814,14 @@ may not be worth keeping due to compilation time increases.
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
 
-profile                           | wasm-opt | no wasm-opt
-----------------------------------|----------|-------------
-Default                           | 8.5M     | 13.0M
-opt-level = "z"                   | 6.1M     | 12.7M
-"z" + lto = "thin"                | 5.9M     | 12M
-"z" + lto = "fat"                 | 5.1M     | 9.4M
-"z" + "thin" + codegen-units = 1  | 5.3M     | 11M
-"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M
+| profile                          | wasm-opt | no wasm-opt |
+| -------------------------------- | -------- | ----------- |
+| Default                          | 8.5M     | 13.0M       |
+| opt-level = "z"                  | 6.1M     | 12.7M       |
+| "z" + lto = "thin"               | 5.9M     | 12M         |
+| "z" + lto = "fat"                | 5.1M     | 9.4M        |
+| "z" + "thin" + codegen-units = 1 | 5.3M     | 11M         |
+| "z" + "fat"  + codegen-units = 1 | 4.8M     | 8.5M        |
 
 ### Loading Assets
 

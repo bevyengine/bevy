@@ -2,16 +2,23 @@
 
 ## Table of Contents
 
-- [CPU runtime](#cpu-runtime)
-  - [Overview](#overview)
-  - [Adding your own spans](#adding-your-own-spans)
-  - [Tracy profiler](#tracy-profiler)
-  - [Chrome tracing format](#chrome-tracing-format)
-  - [Perf flame graph](#perf-flame-graph)
-- [GPU runtime](#gpu-runtime)
-  - [Vendor tools](#vendor-tools)
-  - [Tracy RenderQueue](#tracy-renderqueue)
-- [Compile time](#compile-time)
+- [Profiling](#profiling)
+  - [Table of Contents](#table-of-contents)
+  - [CPU runtime](#cpu-runtime)
+    - [Overview](#overview)
+    - [Adding your own spans](#adding-your-own-spans)
+    - [Tracy profiler](#tracy-profiler)
+    - [Chrome tracing format](#chrome-tracing-format)
+    - [`perf` Flame Graph](#perf-flame-graph)
+  - [GPU runtime](#gpu-runtime)
+    - [Vendor tools](#vendor-tools)
+    - [Tracy RenderQueue](#tracy-renderqueue)
+  - [Compile time](#compile-time)
+    - [General advice](#general-advice)
+    - [Cargo timings](#cargo-timings)
+    - [rustc self-profile](#rustc-self-profile)
+    - [cargo-llvm-lines](#cargo-llvm-lines)
+    - [cargo-bloat](#cargo-bloat)
 
 ## CPU runtime
 
@@ -145,7 +152,8 @@ For profiling GPU work, you should use the tool corresponding to your GPU's vend
 - Intel - [Graphics Frame Analyzer](https://www.intel.com/content/www/us/en/developer/tools/graphics-performance-analyzers/graphics-frame-analyzer.html)
 - Apple - [Xcode](https://developer.apple.com/documentation/xcode/optimizing-gpu-performance)
 
-Note that while RenderDoc is a great debugging tool, it is _not_ a profiler, and should not be used for this purpose.
+> [!NOTE]
+> While RenderDoc is a great debugging tool, it is *not* a profiler, and should not be used for this purpose.
 
 ### Tracy RenderQueue
 
@@ -186,7 +194,7 @@ Cargo can generate a self-profile when building a crate. This is an unstable fea
 
 The following command will generate a self-profile for the `bevy_render` crate:
 
-```sh
+```bash
 RUSTC_BOOTSTRAP=1 cargo rustc --package bevy_render --  -Z self-profile -Z self-profile-events=default,args
 ```
 
