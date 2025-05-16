@@ -23,6 +23,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{weak_handle, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
+use tracing::warn;
 
 /// A handle to a 1 x 1 transparent white image.
 ///
@@ -114,11 +115,15 @@ impl Plugin for ImagePlugin {
 
     fn finish(&self, app: &mut App) {
         if !ImageLoader::SUPPORTED_FORMATS.is_empty() {
-            let supported_compressed_formats = app
-                .world()
-                .get_resource::<CompressedImageFormatSupport>()
-                .map(|resource| resource.0)
-                .unwrap_or(CompressedImageFormats::NONE);
+            let supported_compressed_formats = if let Some(resource) =
+                app.world().get_resource::<CompressedImageFormatSupport>()
+            {
+                resource.0
+            } else {
+                warn!("CompressedImageFormatSupport resource not found. It should either be initialized in finish() of \
+                       RenderPlugin, or manually if not using the RenderPlugin or the WGPU backend.");
+                CompressedImageFormats::NONE
+            };
 
             app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
         }

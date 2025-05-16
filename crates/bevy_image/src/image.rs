@@ -1653,8 +1653,8 @@ impl CompressedImageFormats {
 }
 
 /// For defining which compressed image formats are supported. This will be initialized from available device features
-/// in `finish()` of the bevy `RenderPlugin`, but is left for the user to specify if the `RenderPlugin`, or wgpu backend
-/// are disabled.
+/// in `finish()` of the bevy `RenderPlugin`, but is left for the user to specify if not using the `RenderPlugin`, or
+/// the WGPU backend.
 #[derive(Resource)]
 pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
 

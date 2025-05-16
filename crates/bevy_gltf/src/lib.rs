@@ -99,6 +99,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use std::sync::Mutex;
+use tracing::warn;
 
 use bevy_platform::collections::HashMap;
 
@@ -203,11 +204,16 @@ impl Plugin for GltfPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let supported_compressed_formats = app
-            .world()
-            .get_resource::<CompressedImageFormatSupport>()
-            .map(|resource| resource.0)
-            .unwrap_or(CompressedImageFormats::NONE);
+        let supported_compressed_formats = if let Some(resource) =
+            app.world().get_resource::<CompressedImageFormatSupport>()
+        {
+            resource.0
+        } else {
+            warn!("CompressedImageFormatSupport resource not found. It should either be initialized in finish() of \
+            RenderPlugin, or manually if not using the RenderPlugin or the WGPU backend.");
+            CompressedImageFormats::NONE
+        };
+
         let default_sampler_resource = DefaultGltfImageSampler::new(&self.default_sampler);
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
