@@ -1,7 +1,10 @@
 //! This example illustrates how to create a context menu that changes the clear color
 
-use bevy::{color::palettes::basic, prelude::*};
-use bevy_ecs::{relationship::RelatedSpawner, spawn::SpawnWith};
+use bevy::{
+    color::palettes::basic,
+    ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
+    prelude::*,
+};
 
 #[derive(Event)]
 struct OpenContextMenu {
