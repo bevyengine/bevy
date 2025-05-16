@@ -970,6 +970,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "healthbar"
+path = "examples/3d/healthbar.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.healthbar]
+name = "Healthbar"
+description = "A scene showcasing world-to-viewport UI"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "fog"
 path = "examples/3d/fog.rs"
 doc-scrape-examples = true
