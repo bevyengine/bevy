@@ -4,6 +4,7 @@
     MeshletAabb,
     DispatchIndirectArgs,
     InstancedOffset,
+    depth_pyramid,
     view,
     previous_view,
     meshlet_instance_uniforms,
@@ -62,6 +63,99 @@ fn aabb_in_frustum(aabb: MeshletAabb, instance_id: u32) -> bool {
     return true;
 }
 
+struct ScreenAabb {
+    min: vec3<f32>,
+    max: vec3<f32>,
+}
+
+fn min8(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, e: vec3<f32>, f: vec3<f32>, g: vec3<f32>, h: vec3<f32>) -> vec3<f32> {
+    return min(min(min(a, b), min(c, d)), min(min(e, f), min(g, h)));
+}
+
+fn max8(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, e: vec3<f32>, f: vec3<f32>, g: vec3<f32>, h: vec3<f32>) -> vec3<f32> {
+    return max(max(max(a, b), max(c, d)), max(max(e, f), max(g, h)));
+}
+
+fn min8_4(a: vec4<f32>, b: vec4<f32>, c: vec4<f32>, d: vec4<f32>, e: vec4<f32>, f: vec4<f32>, g: vec4<f32>, h: vec4<f32>) -> vec4<f32> {
+    return min(min(min(a, b), min(c, d)), min(min(e, f), min(g, h)));
+}
+
+// https://zeux.io/2023/01/12/approximate-projected-bounds/
+fn project_aabb(clip_from_local: mat4x4<f32>, near: f32, aabb: MeshletAabb, out: ptr<function, ScreenAabb>) -> bool {
+    let extent = aabb.half_extent * 2.0;
+    let sx = clip_from_local * vec4<f32>(extent.x, 0.0, 0.0, 0.0);
+    let sy = clip_from_local * vec4<f32>(0.0, extent.y, 0.0, 0.0);
+    let sz = clip_from_local * vec4<f32>(0.0, 0.0, extent.z, 0.0);
+
+    let p0 = clip_from_local * vec4<f32>(aabb.center - aabb.half_extent, 1.0);
+    let p1 = p0 + sz;
+    let p2 = p0 + sy;
+    let p3 = p2 + sz;
+    let p4 = p0 + sx;
+    let p5 = p4 + sz;
+    let p6 = p4 + sy;
+    let p7 = p6 + sz;
+
+    let depth = min8_4(p0, p1, p2, p3, p4, p5, p6, p7).w;
+    if depth < near {
+        return false;
+    }
+
+    let dp0 = p0.xyz / p0.w;
+    let dp1 = p1.xyz / p1.w;
+    let dp2 = p2.xyz / p2.w;
+    let dp3 = p3.xyz / p3.w;
+    let dp4 = p4.xyz / p4.w;
+    let dp5 = p5.xyz / p5.w;
+    let dp6 = p6.xyz / p6.w;
+    let dp7 = p7.xyz / p7.w;
+    let min = min8(dp0, dp1, dp2, dp3, dp4, dp5, dp6, dp7);
+    let max = max8(dp0, dp1, dp2, dp3, dp4, dp5, dp6, dp7);
+    var vaabb = vec4<f32>(min.xy, max.xy);
+    vaabb = vaabb.xwzy * vec4<f32>(0.5, -0.5, 0.5, -0.5) + 0.5;
+    (*out).min = vec3<f32>(vaabb.xy, min.z);
+    (*out).max = vec3<f32>(vaabb.zw, max.z);
+    return true;
+}
+
+fn sample_hzb(uv: vec2<f32>, mip: u32, size: vec2<u32>) -> f32 {
+    let mip_size = size >> vec2<u32>(mip);
+    let top_left = vec2<i32>(uv * vec2<f32>(mip_size));
+    let a = textureLoad(depth_pyramid, top_left, i32(mip)).x;
+    let b = textureLoad(depth_pyramid, top_left + vec2<i32>(1, 0), i32(mip)).x;
+    let c = textureLoad(depth_pyramid, top_left + vec2<i32>(0, 1), i32(mip)).x;
+    let d = textureLoad(depth_pyramid, top_left + vec2<i32>(1, 1), i32(mip)).x;
+    return min(min(a, b), min(c, d));
+}
+
+fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
+    let hzb_size = vec2<u32>(1u) << firstLeadingBit(vec2<u32>(screen) - 1u);
+
+    let min_texel = vec2<u32>(max(aabb.min.xy, vec2<f32>(0.0)));
+    let max_texel = vec2<u32>(min(aabb.max.xy, vec2<f32>(hzb_size - 1u)));
+    let size = max_texel - min_texel + 1u;
+    let max_size = max(size.x, size.y);
+
+    var mip = firstLeadingBit(max_size - 1u) - 1u;
+    let smin = min_texel >> vec2<u32>(mip);
+    let smax = max_texel >> vec2<u32>(mip);
+    if any(smax - smin > vec2<u32>(1u)) {
+        mip += 1u;
+    }
+
+    let uv = ((vec2<f32>(smin) + vec2<f32>(smax)) * 0.5) / vec2<f32>(hzb_size);
+    let curr_depth = sample_hzb(uv, mip, hzb_size);
+    return aabb.max.z <= curr_depth;
+}
+
+fn occlusion_cull_projection() -> mat4x4<f32> {
+#ifdef FIRST_CULLING_PASS
+    return view.clip_from_world;
+#else
+    return previous_view.clip_from_world;
+#endif
+}
+
 fn occlusion_cull_clip_from_local(instance_id: u32) -> mat4x4<f32> {
 #ifdef FIRST_CULLING_PASS
     let prev_world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].previous_world_from_local);
@@ -73,6 +167,19 @@ fn occlusion_cull_clip_from_local(instance_id: u32) -> mat4x4<f32> {
 }
 
 fn should_occlusion_cull_aabb(aabb: MeshletAabb, instance_id: u32) -> bool {
+    let projection = occlusion_cull_projection();
+    let col2 = projection[2];
+    var near: f32;
+    if projection[3][3] == 1.0 {
+        near = col2.w / col2.z;
+    } else {
+        near = col2.w;
+    }
+
     let clip_from_local = occlusion_cull_clip_from_local(instance_id);
+    var screen_aabb = ScreenAabb(vec3<f32>(0.0), vec3<f32>(0.0));
+    if project_aabb(clip_from_local, near, aabb, &screen_aabb) {
+        return occlusion_cull_screen_aabb(screen_aabb, view.viewport.zw);
+    }
     return false;
 }
