@@ -90,9 +90,13 @@ fn setup(mut commands: Commands) {
         )
         .with_children(|parent| {
             for (label, tab_group, indices) in [
-                ("Tab Group 0", TabGroup::new(0), [0, 1, 2, 3]),
-                ("Tab Group 1", TabGroup::new(2), [0, 1, 2, 3]),
-                ("Tab Group 2", TabGroup::new(0), [3, 2, 1, 0]),
+                // In this group all the buttons have the same `TabIndex`, so they will be visited according to their order as children.
+                ("Tab Group 0", TabGroup::new(0), [0, 0, 0, 0]),
+                // In this group the `TabIndex`s are reversed, so the buttons will be visited in right-to-left order.
+                ("Tab Group 2", TabGroup::new(2), [3, 2, 1, 0]),
+                // In this group the orders of the indices and buttons match, so the buttons will be visited in left-to-right order.
+                ("Tab Group 1", TabGroup::new(1), [0, 1, 2, 3]),
+                // Visit the modal group's buttons in an arbitrary order.
                 ("Modal Tab Group", TabGroup::modal(), [0, 3, 1, 2]),
             ] {
                 parent.spawn(Text::new(label));
