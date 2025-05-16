@@ -3,9 +3,9 @@
 
 use bevy::{
     color::palettes::tailwind::{SLATE_400, SLATE_50},
+    ecs::spawn::SpawnIter,
     prelude::*,
 };
-use bevy_ecs::spawn::SpawnIter;
 
 fn main() {
     App::new()
