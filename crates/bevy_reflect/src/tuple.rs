@@ -727,14 +727,13 @@ all_tuples!(
     P
 );
 
-#[cfg(feature = "functions")]
-const _: () = {
+crate::cfg::functions! {
     macro_rules! impl_get_ownership_tuple {
-    ($(#[$meta:meta])* $($name: ident),*) => {
-        $(#[$meta])*
-        $crate::func::args::impl_get_ownership!(($($name,)*); <$($name),*>);
-    };
-}
+        ($(#[$meta:meta])* $($name: ident),*) => {
+            $(#[$meta])*
+            $crate::func::args::impl_get_ownership!(($($name,)*); <$($name),*>);
+        };
+    }
 
     all_tuples!(
         #[doc(fake_variadic)]
@@ -745,11 +744,11 @@ const _: () = {
     );
 
     macro_rules! impl_from_arg_tuple {
-    ($(#[$meta:meta])* $($name: ident),*) => {
-        $(#[$meta])*
-        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
-    };
-}
+        ($(#[$meta:meta])* $($name: ident),*) => {
+            $(#[$meta])*
+            $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        };
+    }
 
     all_tuples!(
         #[doc(fake_variadic)]
@@ -760,11 +759,11 @@ const _: () = {
     );
 
     macro_rules! impl_into_return_tuple {
-    ($(#[$meta:meta])* $($name: ident),+) => {
-        $(#[$meta])*
-        $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
-    };
-}
+        ($(#[$meta:meta])* $($name: ident),+) => {
+            $(#[$meta])*
+            $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        };
+    }
 
     // The unit type (i.e. `()`) is special-cased, so we skip implementing it here.
     all_tuples!(
@@ -774,7 +773,7 @@ const _: () = {
         12,
         P
     );
-};
+}
 
 #[cfg(test)]
 mod tests {
