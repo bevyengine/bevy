@@ -10,7 +10,6 @@ use bevy::{
     winit::WinitSettings,
 };
 use bevy_ecs::spawn::{SpawnIter, SpawnWith};
-use smol::process::Child;
 
 fn main() {
     App::new()
@@ -75,7 +74,7 @@ fn focus_system(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     // ui camera
     commands.spawn(Camera2d);
     commands
@@ -109,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 TabGroup::new(0),
                 // These buttons all have the same index, so they will be navigated according to their order as children.
-                Children::spawn(SpawnIter((0..4).map(|i| create_button(0)))),
+                Children::spawn(SpawnIter((0..4).map(|_| create_button(0)))),
             ));
 
             parent.spawn(Text::new("Tab Group 2"));
@@ -130,41 +129,36 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ));
 
             parent.spawn(Text::new("Tab Group 1"));
-            parent
-                .spawn((
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(6.0),
-                        margin: UiRect {
-                            bottom: Val::Px(10.0),
-                            ..default()
-                        },
+            parent.spawn((
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(6.0),
+                    margin: UiRect {
+                        bottom: Val::Px(10.0),
                         ..default()
                     },
-                    TabGroup::new(1),
-                ))
-                .with_children(|parent| {
-                    // The order of the `TabIndex`s matches the order of the buttons, so the buttons will be navigated in left-to-right order.
-                    Children::spawn(SpawnIter((0..4).rev().map(|i| create_button(i)))),
-                });
+                    ..default()
+                },
+                TabGroup::new(1),
+                // The order of the `TabIndex`s matches the order of the buttons, so the buttons will be navigated in left-to-right order.
+                Children::spawn(SpawnIter((0..4).map(|i| create_button(i)))),
+            ));
 
             parent.spawn(Text::new("Modal Tab Group"));
-            parent
-                .spawn((
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(6.0),
-                        ..default()
-                    },
-                    TabGroup::modal(),
-                ))
-                .with_children(|parent| {
-                    for i in [0, 3, 1, 2] {
-                        create_button(parent, &asset_server, i);
-                    }
-                });
+            parent.spawn((
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(6.0),
+                    ..default()
+                },
+                TabGroup::modal(),
+                // The order of these `TabIndex`s doesn't match the order of the buttons.
+                Children::spawn(SpawnIter(
+                    [0, 3, 1, 2].into_iter().map(|i| create_button(i)),
+                )),
+            ));
         });
 }
 
