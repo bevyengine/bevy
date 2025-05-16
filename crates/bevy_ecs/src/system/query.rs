@@ -2016,14 +2016,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.as_nop().get(entity).is_ok()
     }
 
-    /// Returns a [`QueryLens`] that can be used to construct a new `Query` giving more
+    /// Returns a [`QueryLens`] that can be used to construct a new [`Query`] giving more
     /// restrictive access to the entities matched by the current query.
     ///
-    /// Transmutes are permitted if `NewD` has a subset of the read, write, and required access
-    /// of the original query. A precise description of the access required by each `QueryData`
-    /// parameter types is given below, but typical uses are to:
+    /// A transmutes is valid only if `NewD` has a subset of the read, write, and required access
+    /// of the current query. A precise description of the access required by each parameter
+    /// type is given in the table below, but typical uses are to:
     /// * Remove components. e.g. `Query<(&A, &B)>` to `Query<&A>`.
-    /// * Access a component with reduced or equal access, e.g. `Query<&mut A>` to `Query<&A>`
+    /// * Retreive an existing component with reduced or equal access, e.g. `Query<&mut A>` to `Query<&A>`
     ///   or `Query<&T>` to `Query<Ref<T>>`.
     /// * Add parameters with no new access, for example adding an `Entity` parameter.
     ///
@@ -2031,6 +2031,27 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`Added`](crate::query::Added), [`Changed`](crate::query::Changed) and
     /// [`Spawned`](crate::query::Spawned) will not be respected. To maintain or change filter
     /// terms see [`Self::transmute_lens_filtered`].
+    ///
+    ///
+    /// |`QueryData` parameter type|Access required|
+    /// |----|----|
+    /// |`Entity`, `EntityLocation`,<br/>`&Archetype`, `Has<T>`, `PhantomData<T>`|No access|
+    /// |`EntityMut`|Read and write access to all components|
+    /// |`EntityRef`|Read access to all components|
+    /// |`&T`, `Ref<T>`|Read and required access to `T`|
+    /// |`&mut T`, `Mut<T>`|Read, write and required access to `T`|
+    /// |`Option<T>`, `AnyOf<(D, ...)>`|Read and write access to `T`, but no required access|
+    /// |Tuples of query data and `#[derive(QueryData)]` structs|The union of the access of their subqueries|
+    /// |`FilteredEntityRef` and `FilteredEntityMut`|Determined by the `QueryBuilder` used to construct them. Any query can be transmuted to them, and they will receive the access of the source query, but only if they are the top-level query and not nested|
+    ///
+    /// `transmute_lens` drops filter terms, but [`Self::transmute_lens_filtered`] supports returning a `QueryLens` with a new filter type - the access required by filter parameters are as follows.
+    ///
+    /// |`QueryFilter` parameter type|Access required|
+    /// |----|----|
+    /// |`Added<T>`, `Changed<T>`|Read and required access to `T`|
+    /// |`With<T>`, `Without<T>`|No access|
+    /// |`Or<(T, ...)>`|Read access of the subqueries, but no required access|
+    /// |Tuples of query filters and `#[derive(QueryFilter)]` structs|The union of the access of their subqueries|
     ///
     /// ## Panics
     ///
