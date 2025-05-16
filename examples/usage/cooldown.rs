@@ -1,25 +1,22 @@
 //! This example demonstrates how you can implement a cooldown in UI.
 //! We create three buttons with 2, 1, and 5 seconds cooldown.
 
-use std::{any::TypeId, time::Duration};
 use bevy::{
-    animation::{AnimationEntityMut, AnimationEvaluationError, AnimationTarget, AnimationTargetId},
     color::palettes::tailwind::{SLATE_400, SLATE_50},
     prelude::*,
 };
+use bevy_ecs::spawn::SpawnIter;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, activate_ability)
+        .add_systems(Update, (activate_ability, animate_cooldowns))
         .run();
 }
 
 fn setup(
     mut commands: Commands,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    mut animation_clips: ResMut<Assets<AnimationClip>>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -27,36 +24,28 @@ fn setup(
     let texture = asset_server.load("textures/food_kenney.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(64), 7, 7, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
-    let abilities = [
-        ("an apple", Duration::from_secs(2), 2),
-        ("a burger", Duration::from_secs(1), 23),
-        ("chocolate", Duration::from_secs(4), 32),
-        ("cherries", Duration::from_secs(4), 41),
-    ];
-    commands
-        .spawn(Node {
+    commands.spawn((
+        Node {
             width: Val::Percent(100.),
             height: Val::Percent(100.),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             column_gap: Val::Px(15.),
             ..default()
-        })
-        .with_children(|root| {
-            // we need to get an entity to target for the animation
-            for ability in abilities {
-                let mut button = root.spawn(());
-                let button_id = button.id();
-                button.insert(build_ability(
-                    ability,
-                    texture.clone(),
-                    texture_atlas_layout.clone(),
-                    &mut animation_graphs,
-                    &mut animation_clips,
-                    button_id,
-                ));
-            }
-        });
+        },
+        Children::spawn(SpawnIter(
+            [
+                ("an apple", 2., 2),
+                ("a burger", 1., 23),
+                ("chocolate", 10., 32),
+                ("cherries", 4., 41),
+            ]
+            .into_iter()
+            .map(move |ability| {
+                build_ability(ability, texture.clone(), texture_atlas_layout.clone())
+            }),
+        )),
+    ));
     commands.spawn((
         Text::new("*Click some foot to eat it*"),
         Node {
@@ -68,41 +57,15 @@ fn setup(
     ));
 }
 
-type Ability = (&'static str, Duration, usize);
+type Ability = (&'static str, f32, usize);
 
 fn build_ability(
     ability: Ability,
     texture: Handle<Image>,
     layout: Handle<TextureAtlasLayout>,
-    animation_graphs: &mut Assets<AnimationGraph>,
-    animation_clips: &mut Assets<AnimationClip>,
-    target: Entity,
 ) -> impl Bundle {
     let (name, cooldown, index) = ability;
     let name = Name::new(name);
-    let animation_target_id = AnimationTargetId::from_name(&name);
-
-    let mut animation_clip = AnimationClip::default();
-
-    // Create a curve that animates the cooldown UI
-    animation_clip.add_curve_to_target(
-        animation_target_id,
-        AnimatableCurve::new(
-            CooldownProperty,
-            AnimatableKeyframeCurve::new([(0.0, 100.), (1.0, 0.)]).expect(
-                "should be able to build translation curve because we pass in valid samples",
-            ),
-        ),
-    );
-    animation_clip.add_event_fn(1.0, |commands, entity, _, _| {
-        commands.entity(entity).remove::<AbilityDeactivated>();
-    });
-    // Save our animation clip as an asset.
-    let animation_clip_handle = animation_clips.add(animation_clip);
-
-    // Create an animation graph with that clip.
-    let (animation_graph, animation_node_index) = AnimationGraph::from_clip(animation_clip_handle);
-    let animation_graph_handle = animation_graphs.add(animation_graph);
 
     (
         Node {
@@ -115,103 +78,60 @@ fn build_ability(
         },
         BackgroundColor(SLATE_400.into()),
         Button,
-        AnimationPlayer::default(),
-        AnimationGraphHandle(animation_graph_handle),
-        HeightAnimationNode(animation_node_index),
         ImageNode::from_atlas_image(texture, TextureAtlas { layout, index }),
-        Cooldown(cooldown),
-        children![(
-            cooldown_cover(),
-            AnimationTarget {
-                id: AnimationTargetId::from_name(&name),
-                player: target,
-            }
-        )],
+        Cooldown(Timer::from_seconds(cooldown, TimerMode::Once)),
         name,
+        children![(
+            Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(0.),
+                ..default()
+            },
+            BackgroundColor(SLATE_50.with_alpha(0.5).into()),
+        )],
     )
 }
 
 #[derive(Component)]
-struct HeightAnimationNode(AnimationNodeIndex);
-
-fn cooldown_cover() -> impl Bundle {
-    (
-        Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(0.),
-            ..default()
-        },
-        BackgroundColor(SLATE_50.with_alpha(0.5).into()),
-    )
-}
-
-#[derive(Component)]
-struct Cooldown(Duration);
-
-#[derive(Clone)]
-struct CooldownProperty;
+struct Cooldown(Timer);
 
 #[derive(Component)]
 #[component(storage = "SparseSet")]
-struct AbilityDeactivated;
-
-impl AnimatableProperty for CooldownProperty {
-    type Property = f32;
-
-    fn evaluator_id(&self) -> EvaluatorId {
-        EvaluatorId::Type(TypeId::of::<Self>())
-    }
-
-    fn get_mut<'a>(
-        &self,
-        entity: &'a mut AnimationEntityMut,
-    ) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
-        let node = entity
-            .get_mut::<Node>()
-            .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
-                Node,
-            >(
-            )))?
-            .into_inner();
-
-        match node.height {
-            Val::Percent(ref mut percent) => Ok(percent),
-            _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
-                f32,
-            >(
-            ))),
-        }
-    }
-}
+struct ActiveCooldown;
 
 fn activate_ability(
     mut commands: Commands,
     mut interaction_query: Query<
-        (
-            Entity,
-            &Interaction,
-            &Cooldown,
-            &mut AnimationPlayer,
-            &HeightAnimationNode,
-            &Name,
-        ),
-        (
-            Changed<Interaction>,
-            With<Button>,
-            Without<AbilityDeactivated>,
-        ),
+        (Entity, &Interaction, &mut Cooldown, &Name),
+        (Changed<Interaction>, With<Button>, Without<ActiveCooldown>),
     >,
     mut text: Query<&mut Text>,
 ) -> Result {
-    for (entity, interaction, cooldown, mut player, node_id, name) in &mut interaction_query {
+    for (entity, interaction, mut cooldown, name) in &mut interaction_query {
         if *interaction == Interaction::Pressed {
-            // our animation curve is one second long
-            player
-                .play(node_id.0)
-                .set_speed(1. / cooldown.0.as_secs_f32())
-                .replay();
-            commands.entity(entity).insert(AbilityDeactivated);
+            cooldown.0.reset();
+            commands.entity(entity).insert(ActiveCooldown);
             **text.single_mut()? = format!("You ate {name}");
+        }
+    }
+
+    Ok(())
+}
+
+fn animate_cooldowns(
+    time: Res<Time>,
+    mut commands: Commands,
+    buttons: Query<(Entity, &mut Cooldown, &Children), With<ActiveCooldown>>,
+    mut nodes: Query<&mut Node>,
+) -> Result {
+    for (entity, mut timer, children) in buttons {
+        timer.0.tick(time.delta());
+        let cooldown = children.first().ok_or("No child")?;
+        if timer.0.just_finished() {
+            commands.entity(entity).remove::<ActiveCooldown>();
+            nodes.get_mut(*cooldown)?.height = Val::Percent(0.);
+        } else {
+            nodes.get_mut(*cooldown)?.height = Val::Percent((1. - timer.0.fraction()) * 100.);
         }
     }
 
