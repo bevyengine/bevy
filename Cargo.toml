@@ -572,7 +572,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
-accesskit = "0.18"
+accesskit = "0.19"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
