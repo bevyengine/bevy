@@ -586,6 +586,11 @@ wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
 
 [[example]]
+name = "context_menu"
+path = "examples/usages/context_menu.rs"
+doc-scrape-examples = true
+
+[[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
 doc-scrape-examples = true
