@@ -90,14 +90,14 @@ fn setup(mut commands: Commands) {
         )
         .with_children(|parent| {
             for (label, tab_group, indices) in [
-                // In this group all the buttons have the same `TabIndex`, so they will be visited according to their order as children.
-                ("Tab Group 0", TabGroup::new(0), [0, 0, 0, 0]),
-                // In this group the `TabIndex`s are reversed, so the buttons will be visited in right-to-left order.
-                ("Tab Group 2", TabGroup::new(2), [3, 2, 1, 0]),
-                // In this group the orders of the indices and buttons match, so the buttons will be visited in left-to-right order.
-                ("Tab Group 1", TabGroup::new(1), [0, 1, 2, 3]),
+                // In this group all the buttons have the same `TabIndex` so they will be visited according to their order as children.
+                ("TabGroup 0", TabGroup::new(0), [0, 0, 0, 0]),
+                // In this group the `TabIndex`s are reversed so the buttons will be visited in right-to-left order.
+                ("TabGroup 2", TabGroup::new(2), [3, 2, 1, 0]),
+                // In this group the orders of the indices and buttons match so the buttons will be visited in left-to-right order.
+                ("TabGroup 1", TabGroup::new(1), [0, 1, 2, 3]),
                 // Visit the modal group's buttons in an arbitrary order.
-                ("Modal Tab Group", TabGroup::modal(), [0, 3, 1, 2]),
+                ("Modal TabGroup", TabGroup::modal(), [0, 3, 1, 2]),
             ] {
                 parent.spawn(Text::new(label));
                 parent
@@ -130,6 +130,14 @@ fn setup(mut commands: Commands) {
                                     BorderColor(Color::BLACK),
                                     BackgroundColor(NORMAL_BUTTON),
                                     TabIndex(i),
+                                    children![(
+                                        Text::new(format!("TabIndex {}", i)),
+                                        TextFont {
+                                            font_size: 20.0,
+                                            ..default()
+                                        },
+                                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                                    )],
                                 ))
                                 .observe(
                                     |mut trigger: Trigger<Pointer<Click>>,
@@ -137,15 +145,7 @@ fn setup(mut commands: Commands) {
                                         focus.0 = Some(trigger.target());
                                         trigger.propagate(false);
                                     },
-                                )
-                                .with_child((
-                                    Text::new(format!("TabIndex {}", i)),
-                                    TextFont {
-                                        font_size: 20.0,
-                                        ..default()
-                                    },
-                                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                                ));
+                                );
                         }
                     });
             }
