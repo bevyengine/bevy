@@ -2,7 +2,9 @@
 //!
 //! In Bevy we can add the [DistanceFog] component to the same entity as our [Camera3d] to apply a distance fog effect. It has fields for color, directional light parameters, and how the fog falls off over distance. And that's it! The distance fog is now applied to the camera.
 //!
-//! Most of the parameters for the behavior of how the fog works (besides color and light) is in that `falloff:` [FogFalloff] field. This covers how different falloff curves behave.
+//! The [FogFalloff] field controls most of the behavior of the fog through different descriptions of fog "curves". I.e. [FogFalloff::Linear] lets us define a start and end distance where up until the start distance none of the fog color is mixed in and by the end distance the fog color is as mixed in as it can be. [FogFalloff::Exponential] on the other hand uses an exponential curve to drive how "visible" things are with a density value.
+//!
+//! [Atmospheric fog](https://bevyengine.org/examples/3d-rendering/atmospheric-fog/) is another fog type that uses this same method of setup, but isn't covered here as it is a kind of fog that is most often used to imply distance and size in clear weather, while the ones shown off here are much more "dense".
 //!
 //! The bulk of this example is spent building a scene that suites showing off that the fog is working as intended by creating a pyramid (a 3D structure with clear delineations), a light source, input handling to modify fog settings, and UI to show what the current fog settings are.
 //!
