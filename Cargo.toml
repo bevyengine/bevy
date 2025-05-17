@@ -131,6 +131,7 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
+  "bevy_clipboard",
   "bevy_color",
   "bevy_core_pipeline",
   "bevy_anti_aliasing",
@@ -290,6 +291,9 @@ bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
+
+# Clipboard access
+bevy_clipboard = ["bevy_internal/bevy_clipboard"]
 
 # Use the configurable global error handler as the default error handler.
 configurable_error_handler = ["bevy_internal/configurable_error_handler"]

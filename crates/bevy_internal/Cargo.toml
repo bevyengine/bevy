@@ -349,6 +349,9 @@ web = [
   "bevy_tasks/web",
 ]
 
+# Clipboard support
+bevy_clipboard = ["dep:bevy_clipboard"]
+
 [dependencies]
 # bevy (no_std)
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
@@ -425,6 +428,7 @@ bevy_window = { path = "../bevy_window", optional = true, version = "0.16.0-dev"
   "bevy_reflect",
 ] }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.16.0-dev", default-features = false }
+bevy_clipboard = { path = "../bevy_clipboard", optional = true, version = "0.16.0-dev" }
 
 [lints]
 workspace = true
