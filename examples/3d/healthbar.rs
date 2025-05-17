@@ -1,4 +1,6 @@
-//! A simple UI health bar which
+//! A simple UI health bar which follows an object around in 3D space.
+//! Using UI nodes is just one way to do this. Alternatively, you can use
+//! a mesh facing the camera to set up your health bar.
 
 use bevy::color::palettes::css::{GREEN, RED};
 use bevy::prelude::*;
@@ -19,17 +21,11 @@ struct HealthBar {
     root_node: Entity,
 }
 
-// Define a struct to keep some information about our entity.
-// Here it's an arbitrary movement speed, the spawn location, and a maximum distance from it.
-#[derive(Component)]
-struct Movable;
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_health_bar, update_health))
-        .add_systems(Update, move_cube)
+        .add_systems(Update, (update_health, update_health_bar, move_cube))
         .run();
 }
 
@@ -52,7 +48,6 @@ fn setup(
             Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
             MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
             Transform::from_translation(entity_spawn),
-            Movable,
             Health(42.0),
         ))
         .id();
@@ -69,7 +64,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-6.5, 2.5, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
-
+    // Root component for the health bar, this one will be moved to follow the cube
     let health_bar_root = commands
         .spawn((
             Node {
@@ -80,7 +75,6 @@ fn setup(
                 ..default()
             },
             BackgroundColor(Color::BLACK),
-            children![()],
         ))
         .id();
 
@@ -91,15 +85,11 @@ fn setup(
                 width: Val::Percent(100.),
                 ..default()
             },
-            BackgroundColor(Color::from(RED)),
-            children![(
-                Node::default(),
-                BackgroundColor(Color::from(GREEN)),
-                HealthBar {
-                    target: cube_id,
-                    root_node: health_bar_root,
-                }
-            )],
+            HealthBar {
+                target: cube_id,
+                root_node: health_bar_root,
+            },
+            BackgroundColor(Color::from(GREEN)),
         ))
         .id();
 
@@ -126,13 +116,14 @@ fn update_health_bar(
             .get_mut(health_bar_component.root_node)
             .unwrap();
         let (target, target_health) = target_query.get(health_bar_component.target).unwrap();
-        let world_position = target.translation();
 
-        let viewport_position = camera
-            .world_to_viewport(cam_transform, world_position)
+        let target_world_position = target.translation();
+        let target_viewport_position = camera
+            .world_to_viewport(cam_transform, target_world_position)
             .unwrap();
-        root.left = Val::Px(viewport_position.x - HALF_BAR_WIDTH);
-        root.top = Val::Px(viewport_position.y - HALF_BAR_HEIGHT);
+
+        root.left = Val::Px(target_viewport_position.x - HALF_BAR_WIDTH);
+        root.top = Val::Px(target_viewport_position.y - HALF_BAR_HEIGHT);
 
         health_bar_node.width = Val::Percent(target_health.0);
     }
@@ -140,7 +131,7 @@ fn update_health_bar(
 
 // Some placeholder movement so that we can see that the
 // health bar is correctly following the cube around
-fn move_cube(time: Res<Time>, mut movables: Query<&mut Transform, With<Movable>>) {
+fn move_cube(time: Res<Time>, mut movables: Query<&mut Transform, With<Health>>) {
     for mut transform in movables.iter_mut() {
         transform.translation.x = time.elapsed_secs().sin() * 2.0;
         transform.translation.z = time.elapsed_secs().cos() * 2.0;
