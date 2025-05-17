@@ -27,6 +27,8 @@ use variadics_please::all_tuples;
 ///   This enables a single `Query` to access multiple components.
 ///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
 ///   but nesting of tuples allows infinite `WorldQuery`s.
+/// - **[`Mut`].**
+///   Mutable resource access, with change detection data.
 /// - **[`Entity`].**
 ///   Gets the identifier of the queried entity.
 /// - **[`EntityLocation`].**
@@ -518,7 +520,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 ///         match spawn_details.spawned_by().into_option() {
 ///             Some(location) => println!(" by {:?}", location),
 ///             None => println!()
-///         }    
+///         }
 ///     }
 /// }
 ///

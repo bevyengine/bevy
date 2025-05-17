@@ -898,63 +898,39 @@ impl_debug!(Ref<'w, T>,);
 
 /// Unique mutable borrow of an entity's component or of a resource.
 ///
-/// This can be used in queries to opt into change detection on both their mutable and immutable forms, as opposed to
-/// `&mut T`, which only provides access to change detection while in its mutable form:
+/// This can be used in queries to access change detection from immutable query methods, as opposed
+/// to `&mut T` which only provides access to change detection from mutable query methods.
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::query::QueryData;
 /// #
-/// #[derive(Component, Clone)]
+/// #[derive(Component, Clone, Debug)]
 /// struct Name(String);
 ///
-/// #[derive(Component, Clone, Copy)]
+/// #[derive(Component, Clone, Copy, Debug)]
 /// struct Health(f32);
 ///
-/// #[derive(Component, Clone, Copy)]
-/// struct Position {
-///     x: f32,
-///     y: f32,
-/// };
+/// fn my_system(mut query: Query<(Mut<Name>, &mut Health)>) {
+///     // Mutable access provides change detection information for both parameters:
+////    // - `name` has type `Mut<Name>`
+///     // - `health` has type `Mut<Health>`
+///     for (name, health) in query.iter_mut() {
+///         println!("Name: {:?} (last changed {:?})", name, name.last_changed());
+///         println!("Health: {:?} (last changed: {:?})", health, health.last_changed());
+/// #        println!("{}{}", name.0, health.0); // Silence dead_code warning
+///     }
 ///
-/// #[derive(Component, Clone, Copy)]
-/// struct Player {
-///     id: usize,
-/// };
-///
-/// #[derive(QueryData)]
-/// #[query_data(mutable)]
-/// struct PlayerQuery {
-///     id: &'static Player,
-///
-///     // Reacting to `PlayerName` changes is expensive, so we need to enable change detection when reading it.
-///     name: Mut<'static, Name>,
-///
-///     health: &'static mut Health,
-///     position: &'static mut Position,
-/// }
-///
-/// fn update_player_avatars(players_query: Query<PlayerQuery>) {
-///     // The item returned by the iterator is of type `PlayerQueryReadOnlyItem`.
-///     for player in players_query.iter() {
-///         if player.name.is_changed() {
-///             // Update the player's name. This clones a String, and so is more expensive.
-///             update_player_name(player.id, player.name.clone());
-///         }
-///
-///         // Update the health bar.
-///         update_player_health(player.id, *player.health);
-///
-///         // Update the player's position.
-///         update_player_position(player.id, *player.position);
+///     // Immutable access only provides change detection for `Name`:
+///     // - `name` has type `Ref<Name>`
+///     // - `health` has type `&Health`
+///     for (name, health) in query.iter() {
+///         println!("Name: {:?} (last changed {:?})", name, name.last_changed());
+///         println!("Health: {:?}", health);
 ///     }
 /// }
 ///
-/// # bevy_ecs::system::assert_is_system(update_player_avatars);
-///
-/// # fn update_player_name(player: &Player, new_name: Name) {}
-/// # fn update_player_health(player: &Player, new_health: Health) {}
-/// # fn update_player_position(player: &Player, new_position: Position) {}
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
