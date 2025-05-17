@@ -88,7 +88,9 @@ fn main() {
                         _ => 0,
                     };
                     // Register our new component to the world with a layout specified by it's size
-                    // SAFETY: [u64] is Send + Sync
+                    // SAFETY:
+                    // - [u64] is Send + Sync
+                    // - fragmenting_value_vtable is None
                     let id = world.register_component_with_descriptor(unsafe {
                         ComponentDescriptor::new_with_layout(
                             name.to_string(),
@@ -97,6 +99,7 @@ fn main() {
                             None,
                             true,
                             ComponentCloneBehavior::Default,
+                            None,
                         )
                     });
                     let Some(info) = world.components().get_info(id) else {

@@ -209,6 +209,22 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
             required_components,
         );
     }
+
+    fn get_fragmenting_values<'a>(
+        &'a self,
+        _components: &mut crate::component::ComponentsRegistrator,
+        _values: &mut impl FnMut(
+            crate::component::ComponentId,
+            &'a dyn crate::fragmenting_value::FragmentingValue,
+        ),
+    ) {
+        // RelationshipTargets never fragment by value since only immutable components can fragment.
+    }
+
+    fn has_fragmenting_values() -> bool {
+        // RelationshipTargets never fragment by value since only immutable components can fragment.
+        false
+    }
 }
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
@@ -275,6 +291,22 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
             components,
             required_components,
         );
+    }
+
+    fn get_fragmenting_values<'a>(
+        &'a self,
+        _components: &mut crate::component::ComponentsRegistrator,
+        _values: &mut impl FnMut(
+            crate::component::ComponentId,
+            &'a dyn crate::fragmenting_value::FragmentingValue,
+        ),
+    ) {
+        // RelationshipTargets never fragment by value since only immutable components can fragment.
+    }
+
+    fn has_fragmenting_values() -> bool {
+        // RelationshipTargets never fragment by value since only immutable components can fragment.
+        false
     }
 }
 
