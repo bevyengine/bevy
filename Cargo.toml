@@ -4366,7 +4366,6 @@ wasm = false
 name = "selection_wheel"
 path = "examples/usage/selection_wheel.rs"
 doc-scrape-examples = true
-crate-type = ["lib"]
 
 [package.metadata.example.selection_wheel]
 name = "Selection Wheel"
