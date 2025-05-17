@@ -1,6 +1,6 @@
 //! This module contains abstract mathematical traits shared by types used in `bevy_math`.
 
-use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
+use crate::{ops, Dir2, Dir3, Dir3A, Dir4, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
@@ -390,6 +390,13 @@ impl StableInterpolate for Dir3 {
 }
 
 impl StableInterpolate for Dir3A {
+    #[inline]
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+        self.slerp(*other, t)
+    }
+}
+
+impl StableInterpolate for Dir4 {
     #[inline]
     fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
