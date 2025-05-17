@@ -35,10 +35,26 @@ fn setup(
         },
         Children::spawn(SpawnIter(
             [
-                ("an apple", 2., 2),
-                ("a burger", 1., 23),
-                ("chocolate", 10., 32),
-                ("cherries", 4., 41),
+                Ability {
+                    name: "an apple",
+                    cooldown: 2.,
+                    index: 2,
+                },
+                Ability {
+                    name: "a burger",
+                    cooldown: 1.,
+                    index: 23,
+                },
+                Ability {
+                    name: "chocolate",
+                    cooldown: 10.,
+                    index: 32,
+                },
+                Ability {
+                    name: "cherries",
+                    cooldown: 4.,
+                    index: 41,
+                },
             ]
             .into_iter()
             .map(move |ability| {
@@ -57,14 +73,22 @@ fn setup(
     ));
 }
 
-type Ability = (&'static str, f32, usize);
+struct Ability {
+    name: &'static str,
+    cooldown: f32,
+    index: usize,
+}
 
 fn build_ability(
     ability: Ability,
     texture: Handle<Image>,
     layout: Handle<TextureAtlasLayout>,
 ) -> impl Bundle {
-    let (name, cooldown, index) = ability;
+    let Ability {
+        name,
+        cooldown,
+        index,
+    } = ability;
     let name = Name::new(name);
 
     (
