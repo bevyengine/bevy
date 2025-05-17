@@ -1,4 +1,4 @@
-//! This example demonstrates how you can implement a cooldown in UI.
+//! Demonstrates implementing a cooldown in UI.
 //! We create three buttons with 2, 1, and 5 seconds cooldown.
 
 use bevy::{
