@@ -913,7 +913,7 @@ impl_debug!(Ref<'w, T>,);
 ///
 /// fn my_system(mut query: Query<(Mut<Name>, &mut Health)>) {
 ///     // Mutable access provides change detection information for both parameters:
-////    // - `name` has type `Mut<Name>`
+///     // - `name` has type `Mut<Name>`
 ///     // - `health` has type `Mut<Health>`
 ///     for (name, health) in query.iter_mut() {
 ///         println!("Name: {:?} (last changed {:?})", name, name.last_changed());
