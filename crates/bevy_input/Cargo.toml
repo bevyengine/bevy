@@ -42,7 +42,6 @@ std = [
   "bevy_app/std",
   "bevy_ecs/std",
   "bevy_math/std",
-  "bevy_utils/std",
   "bevy_reflect/std",
   "bevy_platform/std",
 ]

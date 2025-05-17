@@ -32,7 +32,7 @@ qoi = ["image/qoi"]
 tga = ["image/tga"]
 tiff = ["image/tiff"]
 webp = ["image/webp"]
-serialize = ["bevy_reflect", "bevy_platform/serialize", "bevy_utils/serde"]
+serialize = ["bevy_reflect", "bevy_platform/serialize"]
 
 # For ktx2 supercompression
 zlib = ["flate2"]

@@ -9,26 +9,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "serde"]
+default = ["parallel"]
 
-# Functionality
-
-## Adds serialization support through `serde`.
-serde = ["bevy_platform/serialize"]
-
-# Platform Compatibility
-
-## Allows access to the `std` crate. Enabling this feature will prevent compilation
-## on `no_std` targets, but provides access to certain additional features on
-## supported platforms.
-std = ["alloc", "bevy_platform/std", "dep:thread_local"]
-
-## Allows access to the `alloc` crate.
-alloc = ["bevy_platform/alloc"]
-
-## `critical-section` provides the building blocks for synchronization primitives
-## on all platforms, including `no_std`.
-critical-section = ["bevy_platform/critical-section"]
+# Provides access to the `Parallel` type.
+parallel = ["bevy_platform/std", "dep:thread_local"]
 
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
