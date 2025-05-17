@@ -67,6 +67,7 @@ git checkout v0.4.0
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
+  - [Usage](#usage)
   - [Window](#window)
 
 - [Tests](#tests)
@@ -366,7 +367,6 @@ Example | Description
 Example | Description
 --- | ---
 [Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
-[Selection Wheel](../examples/usage/selection_wheel.rs) | Example selection wheel input menu
 [Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ## Input
@@ -571,6 +571,12 @@ Example | Description
 [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
 [Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
+
+## Usage
+
+Example | Description
+--- | ---
+[Selection Wheel](../examples/usage/selection_wheel.rs) | Example selection wheel input menu
 
 ## Window
 
