@@ -551,7 +551,7 @@ rand_chacha = "0.3.1"
 ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = "1.0.140"
 bytemuck = "1.7"
 bevy_render = { path = "crates/bevy_render", version = "0.16.0-dev", default-features = false }
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
