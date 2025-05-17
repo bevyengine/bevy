@@ -4361,3 +4361,15 @@ name = "Extended Bindless Material"
 description = "Demonstrates bindless `ExtendedMaterial`"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "selection_wheel"
+path = "examples/usage/selection_wheel.rs"
+doc-scrape-examples = true
+crate-type = ["lib"]
+
+[package.metadata.example.selection_wheel]
+name = "Selection Wheel"
+description = "Example selection wheel input menu"
+category = "Helpers"
+wasm = true

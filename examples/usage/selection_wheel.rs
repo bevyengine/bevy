@@ -225,7 +225,7 @@ fn gamepad_system(
         let x = gamepad.get(GamepadAxis::LeftStickX).unwrap();
         let y = gamepad.get(GamepadAxis::LeftStickY).unwrap();
         if x.abs() + y.abs() > 0.1 {
-            // TODO: set focus based on angle
+            // TODO: set focus based on angle, I don't have a gamepad to test this
         }
     }
 }
