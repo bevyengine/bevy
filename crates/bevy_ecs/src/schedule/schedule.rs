@@ -401,8 +401,8 @@ impl Schedule {
 
     /// Changes miscellaneous build settings.
     ///
-    /// If [`settings.auto_insert_apply_deferred`][ScheduleBuildSettings::auto_insert_apply_deferred] is `false`, this clears `*_ignore_deferred`
-    /// edge settings configured so far.
+    /// If [`settings.auto_insert_apply_deferred`][ScheduleBuildSettings::auto_insert_apply_deferred]
+    /// is `false`, this clears `*_ignore_deferred` edge settings configured so far.
     ///
     /// Generally this method should be used before adding systems or set configurations to the schedule,
     /// not after.
