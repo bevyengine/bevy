@@ -31,7 +31,7 @@ impl<'a> BindGroupHandleBuilder<'a> {
         }
     }
 
-    pub fn add_bind_group_resource_handle<T: IntoBindGroupResourceHandle>(
+    pub fn add_handle<T: IntoBindGroupResourceHandle>(
         mut self,
         binding: u32,
         handle: T,
@@ -46,7 +46,7 @@ impl<'a> BindGroupHandleBuilder<'a> {
 
     pub fn add_helper<T: BindGroupResourceHandleHelper>(self, binding: u32, value: &T) -> Self {
         let handle = value.make_bind_group_resource_handle(self.frame_graph);
-        self.add_bind_group_resource_handle(binding, handle)
+        self.add_handle(binding, handle)
     }
 
     pub fn build(self) -> BindGroupHandle {

@@ -78,6 +78,7 @@ pub enum BindingResource<'a> {
     Buffer {
         buffer: &'a FrameGraphBuffer,
         size: Option<NonZero<u64>>,
+        offset: u64,
     },
     Sampler(wgpu::Sampler),
     TextureView(wgpu::TextureView),
@@ -88,6 +89,7 @@ pub enum BindingResourceTemp<'a> {
     Buffer {
         buffer: &'a FrameGraphBuffer,
         size: Option<NonZero<u64>>,
+        offset: u64,
     },
     Sampler(wgpu::Sampler),
     TextureView(wgpu::TextureView),
@@ -101,10 +103,10 @@ impl<'a> BindingResourceTemp<'a> {
             BindingResourceTemp::TextureView(texture_view) => {
                 wgpu::BindingResource::TextureView(texture_view)
             }
-            BindingResourceTemp::Buffer { buffer, size } => {
+            BindingResourceTemp::Buffer { buffer, size, offset } => {
                 wgpu::BindingResource::Buffer(BufferBinding {
                     buffer: &buffer.resource,
-                    offset: 0,
+                    offset: *offset,
                     size: *size,
                 })
             }
@@ -157,6 +159,7 @@ impl ResourceBinding for BindGroupBinding {
                 BindGroupResourceBinding::Buffer(buffer_ref) => BindingResourceTemp::Buffer {
                     buffer: render_context.get_resource(&buffer_ref.buffer),
                     size: buffer_ref.size,
+                    offset: buffer_ref.offest
                 },
                 BindGroupResourceBinding::TextureViewArray(_) => {
                     let mut temp_texture_views = vec![];

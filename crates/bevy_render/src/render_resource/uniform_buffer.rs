@@ -101,6 +101,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
             BindingResourceBufferHandle {
                 buffer,
                 size: Some(size),
+                offset: 0
             }
             .into_binding()
         })
@@ -118,6 +119,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
             BindingResourceBuffer {
                 buffer,
                 size: Some(size),
+                offest: 0
             }
             .into_binding()
         })
@@ -272,6 +274,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
             BindingResourceBufferHandle {
                 buffer,
                 size: Some(size),
+                offset: 0,
             }
             .into_binding()
         })

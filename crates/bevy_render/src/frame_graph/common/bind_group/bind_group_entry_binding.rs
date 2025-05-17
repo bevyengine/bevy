@@ -25,6 +25,7 @@ pub enum BindGroupResourceBinding {
 pub struct BindingResourceBuffer {
     pub buffer: ResourceRef<FrameGraphBuffer, ResourceRead>,
     pub size: Option<NonZero<u64>>,
+    pub offest: u64,
 }
 
 #[derive(Clone)]

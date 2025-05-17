@@ -46,6 +46,7 @@ pub enum BindGroupResourceHandle {
 pub struct BindingResourceBufferHandle {
     pub buffer: GraphResourceNodeHandle<FrameGraphBuffer>,
     pub size: Option<NonZero<u64>>,
+    pub offset: u64,
 }
 
 #[derive(Clone)]
@@ -65,6 +66,7 @@ impl BindGroupResourceHelper for BindGroupResourceHandle {
                 BindingResourceBuffer {
                     buffer,
                     size: handle.size,
+                    offest: handle.offset
                 }
                 .into_binding()
             }
@@ -134,6 +136,38 @@ impl IntoBindGroupResourceHandle for GraphResourceNodeHandle<FrameGraphBuffer> {
         BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
             buffer: self,
             size: None,
+            offset: 0,
+        })
+    }
+}
+
+impl IntoBindGroupResourceHandle
+    for (
+        &GraphResourceNodeHandle<FrameGraphBuffer>,
+        u64,
+        Option<NonZero<u64>>,
+    )
+{
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
+            buffer: self.0.clone(),
+            size: self.2,
+            offset: self.1,
+        })
+    }
+}
+
+impl IntoBindGroupResourceHandle
+    for (
+        &GraphResourceNodeHandle<FrameGraphBuffer>,
+        Option<NonZero<u64>>,
+    )
+{
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
+            buffer: self.0.clone(),
+            size: self.1,
+            offset: 0,
         })
     }
 }
@@ -143,6 +177,7 @@ impl IntoBindGroupResourceHandle for &GraphResourceNodeHandle<FrameGraphBuffer> 
         BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
             buffer: self.clone(),
             size: None,
+            offset: 0,
         })
     }
 }

@@ -103,6 +103,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
             BindingResourceBufferHandle {
                 buffer,
                 size: Some(size),
+                offset: 0
             }
             .into_binding()
         })
@@ -119,6 +120,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
             BindingResourceBuffer {
                 buffer,
                 size: Some(size),
+                offest: 0,
             }
             .into_binding()
         })

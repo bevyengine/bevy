@@ -186,9 +186,9 @@ impl FrameGraph {
     pub fn create_bind_group_handle_builder(
         &mut self,
         label: Option<Cow<'static, str>>,
-        layout: BindGroupLayout,
+        layout: &BindGroupLayout,
     ) -> BindGroupHandleBuilder {
-        BindGroupHandleBuilder::new(label, layout, self)
+        BindGroupHandleBuilder::new(label, layout.clone(), self)
     }
 
     pub fn pass_node(&mut self, name: &str) -> &mut PassNode {

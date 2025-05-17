@@ -5,8 +5,7 @@ use wgpu::QuerySet;
 
 use crate::{
     frame_graph::{
-        BindGroupBinding, ComputePass, ComputePassCommandBuilder, FrameGraphBuffer,
-        PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
+        BindGroupBinding, BindGroupHandle, ComputePass, ComputePassCommandBuilder, FrameGraphBuffer, PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite
     },
     render_resource::{BindGroup, CachedComputePipelineId},
 };
@@ -154,10 +153,20 @@ impl<'a, 'b> ComputePassBuilder<'a, 'b> {
         self
     }
 
+    pub fn set_bind_group_handle(
+        &mut self,
+        index: u32,
+        bind_group: &BindGroupHandle,
+        offsets: &[u32],
+    ) -> &mut Self {
+        let bind_group = bind_group.make_binding(self.pass_builder.pass_node_builder());
+        self.set_bind_group(index, &bind_group, offsets)
+    }
+
     pub fn set_bind_group(
         &mut self,
         index: u32,
-        bind_group: BindGroupBinding,
+        bind_group: &BindGroupBinding,
         offsets: &[u32],
     ) -> &mut Self {
         self.compute_pass

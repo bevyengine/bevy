@@ -291,7 +291,7 @@ where
         self.buffer().map(|buffer| {
             let buffer = buffer.imported(frame_graph);
 
-            BindingResourceBufferHandle { buffer, size: None }.into_binding()
+            BindingResourceBufferHandle { buffer, size: None, offset: 0 }.into_binding()
         })
     }
 

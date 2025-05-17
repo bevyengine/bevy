@@ -137,7 +137,7 @@ impl Node for AutoExposureNode {
         let mut builder = pass_builder.create_compute_pass_builder();
 
         builder
-            .set_bind_group(0, compute_bind_group, &[view_uniform_offset.offset])
+            .set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset])
             .set_compute_pipeline(auto_exposure.histogram_pipeline)
             .dispatch_workgroups(
                 view.viewport.z.div_ceil(16),

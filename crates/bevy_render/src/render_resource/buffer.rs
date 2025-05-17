@@ -1,4 +1,7 @@
-use crate::frame_graph::{BufferInfo, FrameGraph, FrameGraphBuffer, GraphResourceNodeHandle};
+use crate::frame_graph::{
+    BindGroupResourceHandle, BindGroupResourceHandleHelper, BindingResourceBufferHandle,
+    BufferInfo, FrameGraph, FrameGraphBuffer, GraphResourceNodeHandle, IntoBindGroupResourceHandle,
+};
 use crate::renderer::WgpuWrapper;
 use crate::{define_atomic_id, frame_graph::ResourceMaterial};
 use core::ops::{Bound, Deref, RangeBounds};
@@ -11,6 +14,17 @@ pub struct Buffer {
     id: BufferId,
     value: WgpuWrapper<wgpu::Buffer>,
     desc: BufferInfo,
+}
+
+impl BindGroupResourceHandleHelper for Buffer {
+    fn make_bind_group_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> BindGroupResourceHandle {
+        let buffer = self.imported(frame_graph);
+
+        BindingResourceBufferHandle { buffer, size: None, offset: 0 }.into_binding()
+    }
 }
 
 impl ResourceMaterial for Buffer {

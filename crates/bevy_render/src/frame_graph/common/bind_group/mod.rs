@@ -36,7 +36,7 @@ impl BindGroupResourceHelper for Buffer {
     ) -> BindGroupResourceBinding {
         let buffer = pass_node_builder.read_material(self);
 
-        BindingResourceBuffer { buffer, size: None }.into_binding()
+        BindingResourceBuffer { buffer, size: None, offest: 0 }.into_binding()
     }
 }
 
