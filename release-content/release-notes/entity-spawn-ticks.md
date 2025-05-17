@@ -16,7 +16,7 @@ Use this in your query when you want to get information about the entity's spawn
 
 You can also get specific information via methods. The following example prints the entity id (prefixed with "new" if it showed up for the first time), the `Tick` it spawned at and, if the `track_location` feature is activated, the source code location where it was spawned. Said feature is not enabled by default because it comes with a runtime cost.
 
-```rs
+```rust
 fn print_spawn_details(query: Query<(Entity, SpawnDetails)>) {
     for (entity, spawn_details) in &query {
         if spawn_details.is_spawned() {
@@ -30,7 +30,7 @@ fn print_spawn_details(query: Query<(Entity, SpawnDetails)>) {
         match spawn_details.spawned_by().into_option() {
             Some(location) => println!(" by {:?}", location),
             None => println!()
-        }    
+        }
     }
 }
 ```
@@ -43,7 +43,7 @@ Note that this, like `Added<T>` and `Changed<T>`, is a non-archetypal filter. Th
 
 Because of this, these systems have roughly the same performance:
 
-```rs
+```rust
 fn system1(q: Query<Entity, Spawned>) {
     for entity in &q { /* entity spawned */ }
 }
@@ -61,7 +61,7 @@ Getting around this weakness of non-archetypal filters can be to check only spec
 
 In this example we want to filter for entities that were spawned after a certain `tick`:
 
-```rs
+```rust
 fn filter_spawned_after(
     entities: impl IntoIterator<Item = Entity>,
     world: &World,

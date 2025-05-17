@@ -11,29 +11,29 @@ The problem is dependencies can still include `std` even if the top-most crate i
 Instead, you need to compile your library without the standard library at all.
 
 The simplest way to compile Rust code while ensuring `std` isn't linked is to simply use a target without the standard library.
-Targets with [Tier 2](https://doc.rust-lang.org/beta/rustc/platform-support.html#tier-2-without-host-tools) or [Tier 3](https://doc.rust-lang.org/beta/rustc/platform-support.html#tier-3) support often do not have access to `std`, and therefore can _only_ compile if `no_std` compatible.
+Targets with [Tier 2](https://doc.rust-lang.org/beta/rustc/platform-support.html#tier-2-without-host-tools) or [Tier 3](https://doc.rust-lang.org/beta/rustc/platform-support.html#tier-3) support often do not have access to `std`, and therefore can *only* compile if `no_std` compatible.
 
 Some recommended targets you can check against are:
 
-* [`x86_64-unknown-none`](https://doc.rust-lang.org/beta/rustc/platform-support/x86_64-unknown-none.html)
-  * Representative of desktop architectures.
-  * Should be the most similar to typical `std` targets so it's a good starting point when porting existing libraries.
-* [`wasm32v1-none`](https://doc.rust-lang.org/beta/rustc/platform-support/wasm32v1-none.html)
-  * Newer WebAssembly target with the bare minimum functionality for broad compatibility.
-  * Similar to `wasm32-unknown-unknown`, which is typically used for web builds.
-* [`thumbv6m-none-eabi`](https://doc.rust-lang.org/beta/rustc/platform-support/thumbv6m-none-eabi.html)
-  * Representative of embedded platforms.
-  * Has only partial support for atomics, making this target a good indicator for atomic incompatibility in your code.
+- [`x86_64-unknown-none`](https://doc.rust-lang.org/beta/rustc/platform-support/x86_64-unknown-none.html)
+  - Representative of desktop architectures.
+  - Should be the most similar to typical `std` targets so it's a good starting point when porting existing libraries.
+- [`wasm32v1-none`](https://doc.rust-lang.org/beta/rustc/platform-support/wasm32v1-none.html)
+  - Newer WebAssembly target with the bare minimum functionality for broad compatibility.
+  - Similar to `wasm32-unknown-unknown`, which is typically used for web builds.
+- [`thumbv6m-none-eabi`](https://doc.rust-lang.org/beta/rustc/platform-support/thumbv6m-none-eabi.html)
+  - Representative of embedded platforms.
+  - Has only partial support for atomics, making this target a good indicator for atomic incompatibility in your code.
 
 Note that the first time you attempt to compile for a new target, you will need to install the supporting components via `rustup`:
 
-```sh
+```bash
 rustup target add x86_64-unknown-none
 ```
 
 Once installed, you can check your library by specifying the appropriate features and target:
 
-```sh
+```bash
 cargo check --no-default-features --features libm,critical-section --target x86_64-unknown-none
 ```
 
@@ -43,7 +43,7 @@ Checking `no_std` compatibility can be tedious and easy to forget if you're not 
 To avoid accidentally breaking that compatibility, we recommend adding these checks to your CI pipeline.
 For example, here is a [GitHub Action](https://github.com/features/actions) you could use as a starting point:
 
-```yml
+```yaml
 jobs:
   check-compiles-no-std:
     runs-on: ubuntu-latest
