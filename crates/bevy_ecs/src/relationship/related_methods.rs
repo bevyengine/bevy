@@ -7,14 +7,23 @@ use crate::{
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
-use bevy_platform_support::prelude::{Box, Vec};
+use bevy_platform::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
 
 use super::OrderedRelationshipSourceCollection;
 
 impl<'w> EntityWorldMut<'w> {
+    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
+        let parent = self.id();
+        self.world_scope(|world| {
+            world.spawn((bundle, R::from(parent)));
+        });
+        self
+    }
+
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
-    pub fn with_related<R: Relationship>(
+    pub fn with_related_entities<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawner<R>),
     ) -> &mut Self {
@@ -36,6 +45,11 @@ impl<'w> EntityWorldMut<'w> {
             }
         });
         self
+    }
+
+    /// Removes the relation `R` between this entity and all its related entities.
+    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+        self.remove::<R::RelationshipTarget>()
     }
 
     /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
@@ -72,7 +86,7 @@ impl<'w> EntityWorldMut<'w> {
         let id = self.id();
         self.world_scope(|world| {
             for (offset, related) in related.iter().enumerate() {
-                let index = index + offset;
+                let index = index.saturating_add(offset);
                 if world
                     .get::<R>(*related)
                     .is_some_and(|relationship| relationship.get() == id)
@@ -89,6 +103,23 @@ impl<'w> EntityWorldMut<'w> {
                         .expect("hooks should have added relationship target")
                         .collection_mut_risky()
                         .place_most_recent(index);
+                }
+            }
+        });
+
+        self
+    }
+
+    /// Removes the relation `R` between this entity and the given entities.
+    pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        let id = self.id();
+        self.world_scope(|world| {
+            for related in related {
+                if world
+                    .get::<R>(*related)
+                    .is_some_and(|relationship| relationship.get() == id)
+                {
+                    world.entity_mut(*related).remove::<R>();
                 }
             }
         });
@@ -322,8 +353,15 @@ impl<'w> EntityWorldMut<'w> {
 }
 
 impl<'a> EntityCommands<'a> {
+    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
+        let parent = self.id();
+        self.commands.spawn((bundle, R::from(parent)));
+        self
+    }
+
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
-    pub fn with_related<R: Relationship>(
+    pub fn with_related_entities<R: Relationship>(
         &mut self,
         func: impl FnOnce(&mut RelatedSpawnerCommands<R>),
     ) -> &mut Self {
@@ -343,11 +381,44 @@ impl<'a> EntityCommands<'a> {
         })
     }
 
+    /// Removes the relation `R` between this entity and all its related entities.
+    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+        self.queue(|mut entity: EntityWorldMut| {
+            entity.clear_related::<R>();
+        })
+    }
+
+    /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
+    ///
+    /// If the `related` has duplicates, a related entity will take the index of its last occurrence in `related`.
+    /// If the indices go out of bounds, they will be clamped into bounds.
+    /// This will not re-order existing related entities unless they are in `related`.
+    pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
+    where
+        <R::RelationshipTarget as RelationshipTarget>::Collection:
+            OrderedRelationshipSourceCollection,
+    {
+        let related: Box<[Entity]> = related.into();
+
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_related::<R>(index, &related);
+        })
+    }
+
     /// Relates the given entity to this with the relation `R`.
     ///
     /// See [`add_related`](Self::add_related) if you want to relate more than one entity.
     pub fn add_one_related<R: Relationship>(&mut self, entity: Entity) -> &mut Self {
         self.add_related::<R>(&[entity])
+    }
+
+    /// Removes the relation `R` between this entity and the given entities.
+    pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        let related: Box<[Entity]> = related.into();
+
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_related::<R>(&related);
+        })
     }
 
     /// Replaces all the related entities with the given set of new related entities.
@@ -380,7 +451,7 @@ impl<'a> EntityCommands<'a> {
         let newly_related_entities: Box<[Entity]> = newly_related_entities.into();
 
         self.queue(move |mut entity: EntityWorldMut| {
-            entity.replace_children_with_difference(
+            entity.replace_related_with_difference::<R>(
                 &entities_to_unrelate,
                 &entities_to_relate,
                 &newly_related_entities,
@@ -459,6 +530,16 @@ impl<'w, R: Relationship> RelatedSpawner<'w, R> {
     /// Returns the "target entity" used when spawning entities with an `R` [`Relationship`].
     pub fn target_entity(&self) -> Entity {
         self.target
+    }
+
+    /// Returns a reference to the underlying [`World`].
+    pub fn world(&self) -> &World {
+        self.world
+    }
+
+    /// Returns a mutable reference to the underlying [`World`].
+    pub fn world_mut(&mut self) -> &mut World {
+        self.world
     }
 }
 
@@ -553,5 +634,20 @@ mod tests {
         for entity in [a, b, c, d] {
             assert!(!world.entity(entity).contains::<TestComponent>());
         }
+    }
+
+    #[test]
+    fn remove_all_related() {
+        let mut world = World::new();
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(a)).id();
+
+        world.entity_mut(a).clear_related::<ChildOf>();
+
+        assert_eq!(world.entity(a).get::<Children>(), None);
+        assert_eq!(world.entity(b).get::<ChildOf>(), None);
+        assert_eq!(world.entity(c).get::<ChildOf>(), None);
     }
 }

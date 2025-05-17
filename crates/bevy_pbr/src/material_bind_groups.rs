@@ -4,23 +4,23 @@
 //! allocator manages each bind group, assigning slots to materials as
 //! appropriate.
 
-use core::{iter, marker::PhantomData, mem};
+use core::{cmp::Ordering, iter, marker::PhantomData, mem, ops::Range};
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
     world::{FromWorld, World},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     render_resource::{
         BindGroup, BindGroupEntry, BindGroupLayout, BindingNumber, BindingResource,
-        BindingResources, BindlessDescriptor, BindlessIndex, BindlessResourceType, Buffer,
-        BufferBinding, BufferDescriptor, BufferId, BufferInitDescriptor, BufferUsages,
-        CompareFunction, FilterMode, OwnedBindingResource, PreparedBindGroup, RawBufferVec,
-        Sampler, SamplerDescriptor, SamplerId, TextureView, TextureViewDimension, TextureViewId,
-        UnpreparedBindGroup, WgpuSampler, WgpuTextureView,
+        BindingResources, BindlessDescriptor, BindlessIndex, BindlessIndexTableDescriptor,
+        BindlessResourceType, Buffer, BufferBinding, BufferDescriptor, BufferId,
+        BufferInitDescriptor, BufferUsages, CompareFunction, FilterMode, OwnedBindingResource,
+        PreparedBindGroup, RawBufferVec, Sampler, SamplerDescriptor, SamplerId, TextureView,
+        TextureViewDimension, TextureViewId, UnpreparedBindGroup, WgpuSampler, WgpuTextureView,
     },
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -89,11 +89,16 @@ where
     /// regenerated.
     bind_group: Option<BindGroup>,
 
-    /// A GPU-accessible buffer that holds the mapping from binding index to
+    /// The GPU-accessible buffers that hold the mapping from binding index to
     /// bindless slot.
     ///
-    /// This is conventionally assigned to bind group binding 0.
-    bindless_index_table: MaterialBindlessIndexTable<M>,
+    /// This is conventionally assigned to bind group binding 0, but it can be
+    /// changed using the `#[bindless(index_table(binding(B)))]` attribute on
+    /// `AsBindGroup`.
+    ///
+    /// Because the slab binary searches this table, the entries within must be
+    /// sorted by bindless index.
+    bindless_index_tables: Vec<MaterialBindlessIndexTable<M>>,
 
     /// The binding arrays containing samplers.
     samplers: HashMap<BindlessResourceType, MaterialBindlessBindingArray<Sampler>>,
@@ -122,13 +127,25 @@ where
 /// A GPU-accessible buffer that holds the mapping from binding index to
 /// bindless slot.
 ///
-/// This is conventionally assigned to bind group binding 0.
+/// This is conventionally assigned to bind group binding 0, but it can be
+/// changed by altering the [`Self::binding_number`], which corresponds to the
+/// `#[bindless(index_table(binding(B)))]` attribute in `AsBindGroup`.
 struct MaterialBindlessIndexTable<M>
 where
     M: Material,
 {
     /// The buffer containing the mappings.
     buffer: RetainedRawBufferVec<u32>,
+    /// The range of bindless indices that this bindless index table covers.
+    ///
+    /// If this range is M..N, then the field at index $i$ maps to bindless
+    /// index $i$ + M. The size of this table is N - M.
+    ///
+    /// This corresponds to the `#[bindless(index_table(range(M..N)))]`
+    /// attribute in `AsBindGroup`.
+    index_range: Range<BindlessIndex>,
+    /// The binding number that this index table is assigned to in the shader.
+    binding_number: BindingNumber,
     phantom: PhantomData<M>,
 }
 
@@ -601,27 +618,52 @@ where
     M: Material,
 {
     /// Creates a new [`MaterialBindlessIndexTable`] for a single slab.
-    fn new(bindless_descriptor: &BindlessDescriptor) -> MaterialBindlessIndexTable<M> {
+    fn new(
+        bindless_index_table_descriptor: &BindlessIndexTableDescriptor,
+    ) -> MaterialBindlessIndexTable<M> {
         // Preallocate space for one bindings table, so that there will always be a buffer.
         let mut buffer = RetainedRawBufferVec::new(BufferUsages::STORAGE);
-        for _ in 0..bindless_descriptor.resources.len() {
+        for _ in *bindless_index_table_descriptor.indices.start
+            ..*bindless_index_table_descriptor.indices.end
+        {
             buffer.push(0);
         }
 
         MaterialBindlessIndexTable {
             buffer,
+            index_range: bindless_index_table_descriptor.indices.clone(),
+            binding_number: bindless_index_table_descriptor.binding_number,
             phantom: PhantomData,
         }
     }
 
-    /// Returns the binding index table for a single material.
+    /// Returns the bindings in the binding index table.
     ///
-    /// Element *i* of the returned binding index table contains the slot of the
-    /// bindless resource with bindless index *i*.
-    fn get(&self, slot: MaterialBindGroupSlot, bindless_descriptor: &BindlessDescriptor) -> &[u32] {
-        let struct_size = bindless_descriptor.resources.len();
+    /// If the current [`MaterialBindlessIndexTable::index_range`] is M..N, then
+    /// element *i* of the returned binding index table contains the slot of the
+    /// bindless resource with bindless index *i* + M.
+    fn get(&self, slot: MaterialBindGroupSlot) -> &[u32] {
+        let struct_size = *self.index_range.end as usize - *self.index_range.start as usize;
         let start = struct_size * slot.0 as usize;
         &self.buffer.values()[start..(start + struct_size)]
+    }
+
+    /// Returns a single binding from the binding index table.
+    fn get_binding(
+        &self,
+        slot: MaterialBindGroupSlot,
+        bindless_index: BindlessIndex,
+    ) -> Option<u32> {
+        if bindless_index < self.index_range.start || bindless_index >= self.index_range.end {
+            return None;
+        }
+        self.get(slot)
+            .get((*bindless_index - *self.index_range.start) as usize)
+            .copied()
+    }
+
+    fn table_length(&self) -> u32 {
+        self.index_range.end.0 - self.index_range.start.0
     }
 
     /// Updates the binding index table for a single material.
@@ -635,21 +677,36 @@ where
         &mut self,
         slot: MaterialBindGroupSlot,
         allocated_resource_slots: &HashMap<BindlessIndex, u32>,
-        bindless_descriptor: &BindlessDescriptor,
     ) {
-        let table_len = bindless_descriptor.resources.len();
+        let table_len = self.table_length() as usize;
         let range = (slot.0 as usize * table_len)..((slot.0 as usize + 1) * table_len);
         while self.buffer.len() < range.end {
             self.buffer.push(0);
         }
 
         for (&bindless_index, &resource_slot) in allocated_resource_slots {
-            self.buffer
-                .set(*bindless_index + range.start as u32, resource_slot);
+            if self.index_range.contains(&bindless_index) {
+                self.buffer.set(
+                    *bindless_index + range.start as u32 - *self.index_range.start,
+                    resource_slot,
+                );
+            }
         }
 
         // Mark the buffer as needing to be recreated, in case we grew it.
         self.buffer.dirty = BufferDirtyState::NeedsReserve;
+    }
+
+    /// Returns the [`BindGroupEntry`] for the index table itself.
+    fn bind_group_entry(&self) -> BindGroupEntry {
+        BindGroupEntry {
+            binding: *self.binding_number,
+            resource: self
+                .buffer
+                .buffer()
+                .expect("Bindings buffer must exist")
+                .as_entire_binding(),
+        }
     }
 }
 
@@ -743,11 +800,7 @@ where
     ) -> MaterialBindingId {
         for (slab_index, slab) in self.slabs.iter_mut().enumerate() {
             trace!("Trying to allocate in slab {}", slab_index);
-            match slab.try_allocate(
-                unprepared_bind_group,
-                &self.bindless_descriptor,
-                self.slab_capacity,
-            ) {
+            match slab.try_allocate(unprepared_bind_group, self.slab_capacity) {
                 Ok(slot) => {
                     return MaterialBindingId {
                         group: MaterialBindGroupIndex(slab_index as u32),
@@ -767,11 +820,7 @@ where
             .slabs
             .last_mut()
             .expect("We just pushed a slab")
-            .try_allocate(
-                unprepared_bind_group,
-                &self.bindless_descriptor,
-                self.slab_capacity,
-            )
+            .try_allocate(unprepared_bind_group, self.slab_capacity)
         else {
             panic!("An allocation into an empty slab should always succeed")
         };
@@ -852,7 +901,6 @@ where
     fn try_allocate(
         &mut self,
         unprepared_bind_group: UnpreparedBindGroup<M::Data>,
-        bindless_descriptor: &BindlessDescriptor,
         slot_capacity: u32,
     ) -> Result<MaterialBindGroupSlot, UnpreparedBindGroup<M::Data>> {
         // Locate pre-existing resources, and determine how many free slots we need.
@@ -890,8 +938,9 @@ where
             self.insert_resources(unprepared_bind_group.bindings, allocation_candidate);
 
         // Serialize the allocated resource slots.
-        self.bindless_index_table
-            .set(slot, &allocated_resource_slots, bindless_descriptor);
+        for bindless_index_table in &mut self.bindless_index_tables {
+            bindless_index_table.set(slot, &allocated_resource_slots);
+        }
 
         // Insert extra data.
         if self.extra_data.len() < (*slot as usize + 1) {
@@ -1103,13 +1152,17 @@ where
     /// descriptor, from this slab.
     fn free(&mut self, slot: MaterialBindGroupSlot, bindless_descriptor: &BindlessDescriptor) {
         // Loop through each binding.
-        for (bindless_index, (bindless_resource_type, &bindless_binding)) in bindless_descriptor
-            .resources
-            .iter()
-            .zip(self.bindless_index_table.get(slot, bindless_descriptor))
-            .enumerate()
+        for (bindless_index, bindless_resource_type) in
+            bindless_descriptor.resources.iter().enumerate()
         {
             let bindless_index = BindlessIndex::from(bindless_index as u32);
+            let Some(bindless_index_table) = self.get_bindless_index_table(bindless_index) else {
+                continue;
+            };
+            let Some(bindless_binding) = bindless_index_table.get_binding(slot, bindless_index)
+            else {
+                continue;
+            };
 
             // Free the binding. If the resource in question was anything other
             // than a data buffer, then it has a reference count and
@@ -1176,8 +1229,10 @@ where
         bindless_descriptor: &BindlessDescriptor,
         slab_capacity: u32,
     ) {
-        // Create the bindless index table buffer if needed.
-        self.bindless_index_table.buffer.prepare(render_device);
+        // Create the bindless index table buffers if needed.
+        for bindless_index_table in &mut self.bindless_index_tables {
+            bindless_index_table.buffer.prepare(render_device);
+        }
 
         // Create any data buffers we were managing if necessary.
         for data_buffer in self.data_buffers.values_mut() {
@@ -1232,15 +1287,11 @@ where
             required_binding_array_size,
         );
 
-        let mut bind_group_entries = vec![BindGroupEntry {
-            binding: 0,
-            resource: self
-                .bindless_index_table
-                .buffer
-                .buffer()
-                .expect("Bindings buffer must exist")
-                .as_entire_binding(),
-        }];
+        let mut bind_group_entries: Vec<_> = self
+            .bindless_index_tables
+            .iter()
+            .map(|bindless_index_table| bindless_index_table.bind_group_entry())
+            .collect();
 
         for &(&binding, ref binding_resource_array) in binding_resource_arrays.iter() {
             bind_group_entries.push(BindGroupEntry {
@@ -1283,9 +1334,11 @@ where
     /// Currently, this consists of the bindless index table plus any data
     /// buffers we're managing.
     fn write_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
-        self.bindless_index_table
-            .buffer
-            .write(render_device, render_queue);
+        for bindless_index_table in &mut self.bindless_index_tables {
+            bindless_index_table
+                .buffer
+                .write(render_device, render_queue);
+        }
 
         for data_buffer in self.data_buffers.values_mut() {
             data_buffer.buffer.write(render_device, render_queue);
@@ -1520,6 +1573,26 @@ where
             .and_then(|data| data.as_ref())
             .expect("Extra data not present")
     }
+
+    /// Returns the bindless index table containing the given bindless index.
+    fn get_bindless_index_table(
+        &self,
+        bindless_index: BindlessIndex,
+    ) -> Option<&MaterialBindlessIndexTable<M>> {
+        let table_index = self
+            .bindless_index_tables
+            .binary_search_by(|bindless_index_table| {
+                if bindless_index < bindless_index_table.index_range.start {
+                    Ordering::Less
+                } else if bindless_index >= bindless_index_table.index_range.end {
+                    Ordering::Greater
+                } else {
+                    Ordering::Equal
+                }
+            })
+            .ok()?;
+        self.bindless_index_tables.get(table_index)
+    }
 }
 
 impl<R> MaterialBindlessBindingArray<R>
@@ -1708,9 +1781,15 @@ where
             }
         }
 
+        let bindless_index_tables = bindless_descriptor
+            .index_tables
+            .iter()
+            .map(|bindless_index_table| MaterialBindlessIndexTable::new(bindless_index_table))
+            .collect();
+
         MaterialBindlessSlab {
             bind_group: None,
-            bindless_index_table: MaterialBindlessIndexTable::new(bindless_descriptor),
+            bindless_index_tables,
             samplers,
             textures,
             buffers,

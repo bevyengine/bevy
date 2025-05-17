@@ -11,7 +11,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
-use bevy_platform_support::collections::{hash_map::EntryRef, HashMap, HashSet};
+use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem, ops::Deref};
@@ -80,6 +80,10 @@ pub struct CachedPipeline {
 }
 
 /// State of a cached pipeline inserted into a [`PipelineCache`].
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 #[derive(Debug)]
 pub enum CachedPipelineState {
     /// The pipeline GPU object is queued for creation.
@@ -135,7 +139,7 @@ struct ShaderCache {
     composer: naga_oil::compose::Composer,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderDefVal {
     Bool(String, bool),
     Int(String, i32),
@@ -189,6 +193,10 @@ impl ShaderCache {
         }
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )]
     fn add_import_to_composer(
         composer: &mut naga_oil::compose::Composer,
         import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
@@ -216,6 +224,10 @@ impl ShaderCache {
         Ok(())
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )]
     fn get(
         &mut self,
         render_device: &RenderDevice,
@@ -555,13 +567,13 @@ impl LayoutCache {
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
 /// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
 /// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
-/// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
+/// pipeline object is deferred to the [`RenderSystems::Render`] step, just before the render
 /// graph starts being processed, as this requires access to the GPU.
 ///
 /// Note that the cache does not perform automatic deduplication of identical pipelines. It is
 /// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
 ///
-/// [`RenderSet::Render`]: crate::RenderSet::Render
+/// [`RenderSystems::Render`]: crate::RenderSystems::Render
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
@@ -608,7 +620,10 @@ impl PipelineCache {
     /// See [`PipelineCache::queue_render_pipeline()`].
     #[inline]
     pub fn get_render_pipeline_state(&self, id: CachedRenderPipelineId) -> &CachedPipelineState {
-        &self.pipelines[id.0].state
+        // If the pipeline id isn't in `pipelines`, it's queued in `new_pipelines`
+        self.pipelines
+            .get(id.0)
+            .map_or(&CachedPipelineState::Queued, |pipeline| &pipeline.state)
     }
 
     /// Get the state of a cached compute pipeline.
@@ -616,12 +631,18 @@ impl PipelineCache {
     /// See [`PipelineCache::queue_compute_pipeline()`].
     #[inline]
     pub fn get_compute_pipeline_state(&self, id: CachedComputePipelineId) -> &CachedPipelineState {
-        &self.pipelines[id.0].state
+        // If the pipeline id isn't in `pipelines`, it's queued in `new_pipelines`
+        self.pipelines
+            .get(id.0)
+            .map_or(&CachedPipelineState::Queued, |pipeline| &pipeline.state)
     }
 
     /// Get the render pipeline descriptor a cached render pipeline was inserted from.
     ///
     /// See [`PipelineCache::queue_render_pipeline()`].
+    ///
+    /// **Note**: Be careful calling this method. It will panic if called with a pipeline that
+    /// has been queued but has not yet been processed by [`PipelineCache::process_queue()`].
     #[inline]
     pub fn get_render_pipeline_descriptor(
         &self,
@@ -636,6 +657,9 @@ impl PipelineCache {
     /// Get the compute pipeline descriptor a cached render pipeline was inserted from.
     ///
     /// See [`PipelineCache::queue_compute_pipeline()`].
+    ///
+    /// **Note**: Be careful calling this method. It will panic if called with a pipeline that
+    /// has been queued but has not yet been processed by [`PipelineCache::process_queue()`].
     #[inline]
     pub fn get_compute_pipeline_descriptor(
         &self,
@@ -657,7 +681,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
-            &self.pipelines[id.0].state
+            &self.pipelines.get(id.0)?.state
         {
             Some(pipeline)
         } else {
@@ -691,7 +715,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_compute_pipeline(&self, id: CachedComputePipelineId) -> Option<&ComputePipeline> {
         if let CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline)) =
-            &self.pipelines[id.0].state
+            &self.pipelines.get(id.0)?.state
         {
             Some(pipeline)
         } else {
@@ -947,10 +971,10 @@ impl PipelineCache {
 
     /// Process the pipeline queue and create all pending pipelines if possible.
     ///
-    /// This is generally called automatically during the [`RenderSet::Render`] step, but can
+    /// This is generally called automatically during the [`RenderSystems::Render`] step, but can
     /// be called manually to force creation at a different time.
     ///
-    /// [`RenderSet::Render`]: crate::RenderSet::Render
+    /// [`RenderSystems::Render`]: crate::RenderSystems::Render
     pub fn process_queue(&mut self) {
         let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
@@ -1078,6 +1102,10 @@ fn create_pipeline_task(
     target_os = "macos",
     not(feature = "multi_threaded")
 ))]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
     _sync: bool,
@@ -1089,6 +1117,10 @@ fn create_pipeline_task(
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(

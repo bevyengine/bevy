@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{Local, Query, ResMut, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
@@ -126,7 +126,8 @@ pub struct SyncToRenderWorld;
 /// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
 ///
 /// Can also be used as a newtype wrapper for render world entities.
-#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, Component)]
+#[component(clone_behavior = Ignore)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     #[inline]

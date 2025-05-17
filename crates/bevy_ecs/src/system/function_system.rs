@@ -183,7 +183,7 @@ impl SystemMeta {
 /// [`SystemState`] values created can be cached to improve performance,
 /// and *must* be cached and reused in order for system parameters that rely on local state to work correctly.
 /// These include:
-/// - [`Added`](crate::query::Added) and [`Changed`](crate::query::Changed) query filters
+/// - [`Added`](crate::query::Added), [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) query filters
 /// - [`Local`](crate::system::Local) variables that hold state
 /// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
 ///
@@ -694,6 +694,11 @@ where
     }
 
     #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.system_meta.component_access_set
+    }
+
+    #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.system_meta.archetype_component_access
     }
@@ -972,6 +977,7 @@ macro_rules! impl_system_function {
             #[inline]
             fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
+                    _: PhantomData<In>,
                     mut f: impl FnMut(In::Param<'_>, $($param,)*)->Out,
                     input: In::Inner<'_>,
                     $($param: $param,)*
@@ -979,7 +985,7 @@ macro_rules! impl_system_function {
                     f(In::wrap(input), $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, input, $($param),*)
+                call_inner(PhantomData::<In>, self, input, $($param),*)
             }
         }
     };

@@ -6,7 +6,7 @@ use crate::{
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
 use core::{
@@ -823,11 +823,12 @@ mod tests {
     use crate::{
         change_detection::MaybeLocation,
         component::{Component, ComponentIds, Components, ComponentsRegistrator, Tick},
-        entity::Entity,
+        entity::{Entity, EntityRow},
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},
     };
     use alloc::vec::Vec;
+    use nonmax::NonMaxU32;
 
     #[derive(Component)]
     struct W<T>(T);
@@ -856,7 +857,9 @@ mod tests {
         let mut table = TableBuilder::with_capacity(0, columns.len())
             .add_column(components.get_info(component_id).unwrap())
             .build();
-        let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
+        let entities = (0..200)
+            .map(|index| Entity::from_raw(EntityRow::new(NonMaxU32::new(index).unwrap())))
+            .collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards
             unsafe {

@@ -74,10 +74,10 @@ mod image {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Image)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Image)));
         commands.spawn((
             ImageNode::new(asset_server.load("branding/bevy_logo_dark.png")),
-            StateScoped(super::Scene::Image),
+            DespawnOnExitState(super::Scene::Image),
         ));
     }
 }
@@ -86,7 +86,7 @@ mod text {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Text)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Text)));
         commands.spawn((
             Text::new("Hello World."),
             TextFont {
@@ -94,7 +94,7 @@ mod text {
                 font_size: 200.,
                 ..default()
             },
-            StateScoped(super::Scene::Text),
+            DespawnOnExitState(super::Scene::Text),
         ));
     }
 }
@@ -103,7 +103,7 @@ mod grid {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Grid)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Grid)));
         // Top-level grid (app frame)
         commands.spawn((
             Node {
@@ -119,7 +119,7 @@ mod grid {
                 ..default()
             },
             BackgroundColor(Color::WHITE),
-            StateScoped(super::Scene::Grid),
+            DespawnOnExitState(super::Scene::Grid),
             children![
                 // Header
                 (
@@ -163,14 +163,14 @@ mod borders {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Borders)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Borders)));
         let root = commands
             .spawn((
                 Node {
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
-                StateScoped(super::Scene::Borders),
+                DespawnOnExitState(super::Scene::Borders),
             ))
             .id();
 
@@ -256,7 +256,7 @@ mod box_shadow {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::BoxShadow)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::BoxShadow)));
 
         commands
             .spawn((
@@ -269,7 +269,7 @@ mod box_shadow {
                     ..default()
                 },
                 BackgroundColor(GREEN.into()),
-                StateScoped(super::Scene::BoxShadow),
+                DespawnOnExitState(super::Scene::BoxShadow),
             ))
             .with_children(|commands| {
                 let example_nodes = [
@@ -339,7 +339,7 @@ mod text_wrap {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::TextWrap)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::TextWrap)));
 
         let root = commands
             .spawn((
@@ -351,7 +351,7 @@ mod text_wrap {
                     ..default()
                 },
                 BackgroundColor(Color::BLACK),
-                StateScoped(super::Scene::TextWrap),
+                DespawnOnExitState(super::Scene::TextWrap),
             ))
             .id();
 
@@ -381,7 +381,7 @@ mod overflow {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Overflow)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Overflow)));
         let image = asset_server.load("branding/icon.png");
 
         commands
@@ -394,7 +394,7 @@ mod overflow {
                     ..Default::default()
                 },
                 BackgroundColor(BLUE.into()),
-                StateScoped(super::Scene::Overflow),
+                DespawnOnExitState(super::Scene::Overflow),
             ))
             .with_children(|parent| {
                 for overflow in [
@@ -445,7 +445,7 @@ mod slice {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Slice)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Slice)));
         let image = asset_server.load("textures/fantasy_ui_borders/numbered_slices.png");
 
         let slicer = TextureSlicer {
@@ -463,7 +463,7 @@ mod slice {
                     justify_content: JustifyContent::SpaceAround,
                     ..default()
                 },
-                StateScoped(super::Scene::Slice),
+                DespawnOnExitState(super::Scene::Slice),
             ))
             .with_children(|parent| {
                 for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
@@ -489,7 +489,7 @@ mod layout_rounding {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::LayoutRounding)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::LayoutRounding)));
 
         commands
             .spawn((
@@ -501,7 +501,7 @@ mod layout_rounding {
                     ..Default::default()
                 },
                 BackgroundColor(Color::WHITE),
-                StateScoped(super::Scene::LayoutRounding),
+                DespawnOnExitState(super::Scene::LayoutRounding),
             ))
             .with_children(|commands| {
                 for i in 2..12 {

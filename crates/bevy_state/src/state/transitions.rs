@@ -12,13 +12,13 @@ use super::{resources::State, states::States};
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] enters the provided state.
 ///
 /// This schedule ignores identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnEnter<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] exits the provided state.
 ///
 /// This schedule ignores identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnExit<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`]
@@ -27,7 +27,7 @@ pub struct OnExit<S: States>(pub S);
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
 ///
 /// This schedule will run on identity transitions.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct OnTransition<S: States> {
     /// The state being exited.
     pub exited: S,
@@ -52,7 +52,7 @@ pub struct OnTransition<S: States> {
 ///
 /// [`PreStartup`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreStartup.html
 /// [`PreUpdate`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreUpdate.html
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct StateTransition;
 
 /// Event sent when any state transition of `S` happens.
@@ -71,7 +71,7 @@ pub struct StateTransitionEvent<S: States> {
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum StateTransitionSteps {
+pub enum StateTransitionSystems {
     /// States apply their transitions from [`NextState`](super::NextState)
     /// and compute functions based on their parent states.
     DependentTransitions,
@@ -82,6 +82,10 @@ pub enum StateTransitionSteps {
     /// Enter schedules are executed in root to leaf order.
     EnterSchedules,
 }
+
+/// Deprecated alias for [`StateTransitionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `StateTransitionSystems`.")]
+pub type StateTransitionSteps = StateTransitionSystems;
 
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 /// System set that runs exit schedule(s) for state `S`.
@@ -191,10 +195,10 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
     let mut schedule = Schedule::new(StateTransition);
     schedule.configure_sets(
         (
-            StateTransitionSteps::DependentTransitions,
-            StateTransitionSteps::ExitSchedules,
-            StateTransitionSteps::TransitionSchedules,
-            StateTransitionSteps::EnterSchedules,
+            StateTransitionSystems::DependentTransitions,
+            StateTransitionSystems::ExitSchedules,
+            StateTransitionSystems::TransitionSchedules,
+            StateTransitionSystems::EnterSchedules,
         )
             .chain(),
     );

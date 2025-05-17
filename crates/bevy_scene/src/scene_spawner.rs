@@ -8,7 +8,7 @@ use bevy_ecs::{
     resource::Resource,
     world::{Mut, World},
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
 use thiserror::Error;
 use uuid::Uuid;
@@ -331,10 +331,7 @@ impl SceneSpawner {
                 Ok(_) => {
                     self.spawned_instances
                         .insert(instance_id, InstanceInfo { entity_map });
-                    let spawned = self
-                        .spawned_dynamic_scenes
-                        .entry(handle.id())
-                        .or_insert_with(HashSet::default);
+                    let spawned = self.spawned_dynamic_scenes.entry(handle.id()).or_default();
                     spawned.insert(instance_id);
 
                     // Scenes with parents need more setup before they are ready.
@@ -915,7 +912,7 @@ mod tests {
         app.update();
         let world = app.world_mut();
 
-        let spawned_root = world.entity(spawned).get::<Children>().unwrap()[0];
+        let spawned_root = world.entity(spawned).get::<Children>().unwrap()[1];
         let children = world.entity(spawned_root).get::<Children>().unwrap();
         assert_eq!(children.len(), 3);
         assert!(world.entity(children[0]).get::<ComponentF>().is_some());

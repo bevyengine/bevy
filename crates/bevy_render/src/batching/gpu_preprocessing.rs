@@ -14,13 +14,13 @@ use bevy_ecs::{
 };
 use bevy_encase_derive::ShaderType;
 use bevy_math::UVec4;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use bytemuck::{Pod, Zeroable};
 use encase::{internal::WriteInto, ShaderSize};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
-use tracing::error;
+use tracing::{error, info};
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
@@ -36,7 +36,7 @@ use crate::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    Render, RenderApp, RenderDebugFlags, RenderSet,
+    Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 
 use super::{BatchMeta, GetBatchData, GetFullBatchData};
@@ -60,11 +60,11 @@ impl Plugin for BatchingPlugin {
             ))
             .add_systems(
                 Render,
-                write_indirect_parameters_buffers.in_set(RenderSet::PrepareResourcesFlush),
+                write_indirect_parameters_buffers.in_set(RenderSystems::PrepareResourcesFlush),
             )
             .add_systems(
                 Render,
-                clear_indirect_parameters_buffers.in_set(RenderSet::ManageViews),
+                clear_indirect_parameters_buffers.in_set(RenderSystems::ManageViews),
             );
     }
 
@@ -110,6 +110,11 @@ impl GpuPreprocessingSupport {
                 GpuPreprocessingMode::PreprocessingOnly
             }
         }
+    }
+
+    /// Returns true if GPU culling is supported on this platform.
+    pub fn is_culling_supported(&self) -> bool {
+        self.max_supported_mode == GpuPreprocessingMode::Culling
     }
 }
 
@@ -387,6 +392,10 @@ where
 }
 
 /// The buffer of GPU preprocessing work items for a single view.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 pub enum PreprocessWorkItemBuffers {
     /// The work items we use if we aren't using indirect drawing.
     ///
@@ -1088,33 +1097,46 @@ impl FromWorld for GpuPreprocessingSupport {
         let adapter = world.resource::<RenderAdapter>();
         let device = world.resource::<RenderDevice>();
 
-        // Filter some Qualcomm devices on Android as they crash when using GPU
-        // preprocessing.
-        // We filter out Adreno 730 and earlier GPUs (except 720, as it's newer
-        // than 730).
+        // Filter Android drivers that are incompatible with GPU preprocessing:
+        // - We filter out Adreno 730 and earlier GPUs (except 720, as it's newer
+        //   than 730).
+        // - We filter out Mali GPUs with driver versions lower than 48.
         fn is_non_supported_android_device(adapter: &RenderAdapter) -> bool {
             crate::get_adreno_model(adapter).is_some_and(|model| model != 720 && model <= 730)
+                || crate::get_mali_driver_version(adapter).is_some_and(|version| version < 48)
         }
 
-        let feature_support = device.features().contains(
+        let culling_feature_support = device.features().contains(
             Features::INDIRECT_FIRST_INSTANCE
                 | Features::MULTI_DRAW_INDIRECT
                 | Features::PUSH_CONSTANTS,
         );
         // Depth downsampling for occlusion culling requires 12 textures
-        let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12;
+        let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12 &&
+            // Even if the adapter supports compute, we might be simulating a lack of
+            // compute via device limits (see `WgpuSettingsPriority::WebGL2` and
+            // `wgpu::Limits::downlevel_webgl2_defaults()`). This will have set all the
+            // `max_compute_*` limits to zero, so we arbitrarily pick one as a canary.
+            device.limits().max_compute_workgroup_storage_size != 0;
+
         let downlevel_support = adapter.get_downlevel_capabilities().flags.contains(
+            DownlevelFlags::COMPUTE_SHADERS |
             DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW
         );
 
-        let max_supported_mode = if !feature_support
-            || device.limits().max_compute_workgroup_size_x == 0
+        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
             || is_non_supported_android_device(adapter)
         {
+            info!(
+                "GPU preprocessing is not supported on this device. \
+                Falling back to CPU preprocessing.",
+            );
             GpuPreprocessingMode::None
-        } else if !(feature_support && limit_support && downlevel_support) {
+        } else if !(culling_feature_support && limit_support && downlevel_support) {
+            info!("Some GPU preprocessing are limited on this device.");
             GpuPreprocessingMode::PreprocessingOnly
         } else {
+            info!("GPU preprocessing is fully supported on this device.");
             GpuPreprocessingMode::Culling
         };
 

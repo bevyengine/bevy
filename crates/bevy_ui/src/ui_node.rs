@@ -31,7 +31,7 @@ pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated in [`super::UiSystem::Stack`].
+    /// Automatically calculated in [`super::UiSystems::Stack`].
     pub stack_index: u32,
     /// The size of the node as width and height in physical pixels.
     ///
@@ -1178,7 +1178,7 @@ pub struct OverflowClipMargin {
 
 impl OverflowClipMargin {
     pub const DEFAULT: Self = Self {
-        visual_box: OverflowClipBox::ContentBox,
+        visual_box: OverflowClipBox::PaddingBox,
         margin: 0.,
     };
 
@@ -1224,9 +1224,9 @@ impl OverflowClipMargin {
 )]
 pub enum OverflowClipBox {
     /// Clip any content that overflows outside the content box
-    #[default]
     ContentBox,
     /// Clip any content that overflows outside the padding box
+    #[default]
     PaddingBox,
     /// Clip any content that overflows outside the border box
     BorderBox,

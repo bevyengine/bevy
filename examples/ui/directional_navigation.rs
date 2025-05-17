@@ -19,7 +19,7 @@ use bevy::{
         backend::HitData,
         pointer::{Location, PointerId},
     },
-    platform_support::collections::{HashMap, HashSet},
+    platform::collections::{HashMap, HashSet},
     prelude::*,
     render::camera::NormalizedRenderTarget,
 };
@@ -388,7 +388,7 @@ fn interact_with_focused_button(
                     // This field isn't used, so we're just setting it to a placeholder value
                     pointer_location: Location {
                         target: NormalizedRenderTarget::Image(
-                            bevy_render::camera::ImageRenderTarget {
+                            bevy::render::camera::ImageRenderTarget {
                                 handle: Handle::default(),
                                 scale_factor: FloatOrd(1.0),
                             },
