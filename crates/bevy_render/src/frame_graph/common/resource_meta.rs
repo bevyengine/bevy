@@ -33,6 +33,17 @@ pub struct ResourceMeta<ResourceType: GraphResource> {
     pub desc: <ResourceType as GraphResource>::Descriptor,
 }
 
+impl BindGroupResourceHandleHelper for ResourceMeta<FrameGraphTexture> {
+    fn make_bind_group_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> BindGroupResourceHandle {
+        let texture = self.imported(frame_graph);
+
+        texture.into_binding()
+    }
+}
+
 impl BindGroupResourceHelper for ResourceMeta<FrameGraphTexture> {
     fn make_binding_group_resource_binding(
         &self,

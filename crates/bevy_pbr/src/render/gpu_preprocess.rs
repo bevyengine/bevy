@@ -35,11 +35,11 @@ use bevy_render::{
         UntypedPhaseBatchedInstanceBuffers,
     },
     experimental::occlusion_culling::OcclusionCulling,
-    frame_graph::{BindGroupHandle, BindGroupResourceHandleHelper, ResourceMaterial},
+    frame_graph::{BindGroupHandle, ResourceMaterial},
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
-        BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, Buffer, BufferBinding,
+        BindGroup, BindGroupEntries, BindGroupLayout, Buffer, BufferBinding,
         CachedComputePipelineId, ComputePipelineDescriptor, DynamicBindGroupLayoutEntries,
         PipelineCache, PushConstantRange, RawBufferVec, Shader, ShaderStages, ShaderType,
         SpecializedComputePipeline, SpecializedComputePipelines, TextureSampleType,
@@ -1834,7 +1834,6 @@ pub fn prepare_preprocess_bind_groups(
                 view: view_entity,
                 late_indexed_indirect_parameters_buffer,
                 late_non_indexed_indirect_parameters_buffer,
-                render_device: &render_device,
                 phase_indirect_parameters_buffers,
                 mesh_culling_data_buffer: &mesh_culling_data_buffer,
                 view_uniforms: &view_uniforms,
@@ -1924,8 +1923,6 @@ struct PreprocessBindGroupBuilder<'a> {
     /// in the late prepass.
     late_non_indexed_indirect_parameters_buffer:
         &'a RawBufferVec<LatePreprocessWorkItemIndirectParameters>,
-    /// The device.
-    render_device: &'a RenderDevice,
     /// The buffers that store indirect draw parameters.
     phase_indirect_parameters_buffers: &'a UntypedPhaseIndirectParametersBuffers,
     /// The GPU buffer that stores the information needed to cull each mesh.
