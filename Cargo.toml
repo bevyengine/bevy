@@ -812,6 +812,7 @@ doc-scrape-examples = true
 name = "Texture Atlas"
 description = "Generates a texture atlas (sprite sheet) from individual sprites"
 category = "2D Rendering"
+# Loading asset folders is not supported in Wasm, but required to create the atlas.
 wasm = false
 
 [[example]]
@@ -878,6 +879,7 @@ doc-scrape-examples = true
 name = "2D Wireframe"
 description = "Showcases wireframes for 2d meshes"
 category = "2D Rendering"
+# Wireframes are not supported by WebGL
 wasm = false
 
 # 3D Rendering
@@ -945,6 +947,7 @@ doc-scrape-examples = true
 name = "Anti-aliasing"
 description = "Compares different anti-aliasing methods"
 category = "3D Rendering"
+# Not supported by WebGL
 wasm = false
 
 [[example]]
@@ -989,6 +992,7 @@ doc-scrape-examples = true
 name = "Auto Exposure"
 description = "A scene showcasing auto exposure"
 category = "3D Rendering"
+# Requires computation shaders, which are not supported by WebGL.
 wasm = false
 
 [[example]]
@@ -1045,6 +1049,7 @@ doc-scrape-examples = true
 name = "Screen Space Ambient Occlusion"
 description = "A scene showcasing screen space ambient occlusion"
 category = "3D Rendering"
+# Requires computation shaders, which are not supported by WebGL.
 wasm = false
 
 [[example]]
@@ -1144,6 +1149,7 @@ doc-scrape-examples = true
 name = "Order Independent Transparency"
 description = "Demonstrates how to use OIT"
 category = "3D Rendering"
+# Not supported by WebGL
 wasm = false
 
 [[example]]
@@ -1243,6 +1249,7 @@ doc-scrape-examples = true
 name = "Skybox"
 description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats."
 category = "3D Rendering"
+# Not supported by WebGL
 wasm = false
 
 [[example]]
@@ -1342,6 +1349,7 @@ doc-scrape-examples = true
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
+# Not supported on WebGL
 wasm = false
 
 [[example]]
@@ -1353,6 +1361,8 @@ doc-scrape-examples = true
 name = "Irradiance Volumes"
 description = "Demonstrates irradiance volumes"
 category = "3D Rendering"
+# On WebGL and WebGPU, the number of texture bindings when deferred rendering is in use
+# See <https://github.com/bevyengine/bevy/issues/11885>
 wasm = false
 
 [[example]]
@@ -1365,6 +1375,7 @@ required-features = ["meshlet"]
 name = "Meshlet"
 description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
+# Requires compute shaders, which are not supported by WebGL.
 wasm = false
 setup = [
   [
@@ -1400,7 +1411,7 @@ doc-scrape-examples = true
 name = "Lightmaps"
 description = "Rendering a scene with baked lightmaps"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "no_prepass"
@@ -1553,6 +1564,7 @@ doc-scrape-examples = true
 name = "Custom Loop"
 description = "Demonstrates how to create a custom runner (to update an app manually)"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -1564,6 +1576,7 @@ doc-scrape-examples = true
 name = "Drag and Drop"
 description = "An example that shows how to handle drag and drop in an app"
 category = "Application"
+# Browser drag and drop is not supported
 wasm = false
 
 [[example]]
@@ -1575,6 +1588,7 @@ doc-scrape-examples = true
 name = "Empty"
 description = "An empty application (does nothing)"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -1598,6 +1612,7 @@ required-features = ["bevy_log"]
 name = "Headless"
 description = "An application that runs without default plugins"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
@@ -1620,6 +1635,8 @@ doc-scrape-examples = true
 name = "Log layers"
 description = "Illustrate how to add custom log layers"
 category = "Application"
+# Accesses `time`, which is not available on the web
+# Also doesn't render anything
 wasm = false
 
 [[example]]
@@ -1631,6 +1648,7 @@ doc-scrape-examples = true
 name = "Advanced log layers"
 description = "Illustrate how to transfer data between log layers and Bevy's ECS"
 category = "Application"
+# Doesn't render anything, doesn't create a canvas
 wasm = false
 
 [[example]]
