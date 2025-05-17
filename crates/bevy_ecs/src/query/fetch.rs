@@ -28,7 +28,7 @@ use variadics_please::all_tuples;
 ///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
 ///   but nesting of tuples allows infinite `WorldQuery`s.
 /// - **[`Mut`].**
-///   Mutable resource access, with change detection data.
+///   Mutable component access, with change detection data.
 /// - **[`Entity`].**
 ///   Gets the identifier of the queried entity.
 /// - **[`EntityLocation`].**
