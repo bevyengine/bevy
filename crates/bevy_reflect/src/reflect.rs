@@ -153,7 +153,7 @@ where
     /// - If `Self` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
     ///   Keys which are not present in `self` are inserted.
-    /// - If `Self` is a [`Set`], then each element of `value` is applied to the corresonding
+    /// - If `Self` is a [`Set`], then each element of `value` is applied to the corresponding
     ///   element of `Self`. If an element of `value` does not exist in `Self` then it is
     ///   cloned and inserted.
     /// - If `Self` is none of these, then `value` is downcast to `Self`, cloned, and
