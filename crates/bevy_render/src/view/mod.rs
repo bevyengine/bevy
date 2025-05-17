@@ -723,6 +723,20 @@ pub struct NoCpuCulling;
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
+    /// Creates a new `ViewTarget` with specified textures and format.
+    pub fn new(
+        main_textures: MainTargetTextures,
+        main_texture_format: TextureFormat,
+        out_texture: OutputColorAttachment,
+    ) -> Self {
+        Self {
+            main_texture: main_textures.main_texture.clone(),
+            main_textures,
+            main_texture_format,
+            out_texture,
+        }
+    }
+
     /// Retrieve this target's main texture's color attachment.
     pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
@@ -964,12 +978,19 @@ pub fn prepare_view_uniforms(
 }
 
 #[derive(Clone)]
-struct MainTargetTextures {
+pub struct MainTargetTextures {
     a: ColorAttachment,
     b: ColorAttachment,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
+}
+
+impl MainTargetTextures {
+    /// Creates a new `MainTargetTextures`.
+    pub fn new(a: ColorAttachment, b: ColorAttachment, main_texture: Arc<AtomicUsize>) -> Self {
+        Self { a, b, main_texture }
+    }
 }
 
 /// Prepares the view target [`OutputColorAttachment`] for each view in the current frame.
