@@ -389,6 +389,11 @@ impl LogPlugin {
         (chrome_layer.boxed(), guard)
     }
 
+    #[expect(
+        clippy::allow_attributes,
+        reason = "We can't switch to `expect` for allow(unused_variables) as we use it if not on those platforms"
+    )]
+    #[allow(unused_variables, reason = "Not used on `wasm32`, `android` or `ios")]
     fn build_system_output_layer(custom_format_layer: Option<BoxedLayer>) -> BoxedLayer {
         let layer: BoxedLayer;
         #[cfg(target_arch = "wasm32")]
