@@ -30,6 +30,7 @@ enum BundleFieldKind {
 
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
+const BUNDLE_ATTRIBUTE_NO_EXTRACT: &str = "no_extract";
 
 #[derive(Debug, PartialEq)]
 enum BundleFlag {
@@ -44,9 +45,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut attributes: Vec<BundleFlag> = vec![];
 
     for attr in &ast.attrs {
-        if attr.path().is_ident("bundle") {
+        if attr.path().is_ident(BUNDLE_ATTRIBUTE_NAME) {
             let parsing = attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("no_extract") {
+                if meta.path.is_ident(BUNDLE_ATTRIBUTE_NO_EXTRACT) {
                     attributes.push(BundleFlag::NoExtract);
                     return Ok(());
                 }
