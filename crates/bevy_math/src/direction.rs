@@ -1386,10 +1386,9 @@ mod tests {
             Dir4::W.slerp(Dir4::Y, 0.5),
             Dir4::from_xyzw(0.0, ops::sqrt(0.5f32), 0.0, ops::sqrt(0.5f32)).unwrap()
         );
-
         assert_relative_eq!(
             Dir4::W.slerp(Dir4::Y, 1.0 / 3.0),
-            Dir4::from_xyzw(0.0, 0.5, 0.0, 0.75_f32.sqrt()).unwrap(),
+            Dir4::from_xyzw(0.0, 0.5, 0.0, ops::sqrt(0.75_f32)).unwrap(),
             epsilon = 0.000001
         );
     }
