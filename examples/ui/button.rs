@@ -35,17 +35,17 @@ fn button_system(
             Interaction::Pressed => {
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                border_color.0 = RED.into();
+                *border_color = BorderColor::all(RED.into());
             }
             Interaction::Hovered => {
                 **text = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                *border_color = BorderColor::all(Color::WHITE);
             }
             Interaction::None => {
                 **text = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
+                *border_color = BorderColor::all(Color::BLACK);
             }
         }
     }
@@ -78,7 +78,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle + use<> {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
             BorderRadius::MAX,
             BackgroundColor(NORMAL_BUTTON),
             children![(

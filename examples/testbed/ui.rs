@@ -227,7 +227,7 @@ mod borders {
                             ..default()
                         },
                         BackgroundColor(MAROON.into()),
-                        BorderColor(RED.into()),
+                        BorderColor::all(RED.into()),
                         Outline {
                             width: Val::Px(10.),
                             offset: Val::Px(10.),
@@ -319,7 +319,7 @@ mod box_shadow {
                             border: UiRect::all(Val::Px(2.)),
                             ..default()
                         },
-                        BorderColor(WHITE.into()),
+                        BorderColor::all(WHITE.into()),
                         border_radius,
                         BackgroundColor(BLUE.into()),
                         BoxShadow::new(
@@ -417,7 +417,7 @@ mod overflow {
                                 overflow,
                                 ..default()
                             },
-                            BorderColor(RED.into()),
+                            BorderColor::all(RED.into()),
                             BackgroundColor(Color::WHITE),
                         ))
                         .with_children(|parent| {
@@ -519,7 +519,7 @@ mod layout_rounding {
                                         ..Default::default()
                                     },
                                     BackgroundColor(MAROON.into()),
-                                    BorderColor(DARK_BLUE.into()),
+                                    BorderColor::all(DARK_BLUE.into()),
                                 ));
                             }
                         });
