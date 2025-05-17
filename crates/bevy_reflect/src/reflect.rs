@@ -181,11 +181,11 @@ where
     /// # Panics
     ///
     /// Derived implementations of this method will panic:
-    /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is
+    /// - If the type of `value` is not of the same kind as `Self` (e.g. if `Self` is
     ///   a `List`, while `value` is a `Struct`).
-    /// - If `T` is any complex type and the corresponding fields or elements of
+    /// - If `Self` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
-    /// - If `T` is an opaque type and `self` cannot be downcast to `T`
+    /// - If `Self` is an opaque type and `value` cannot be downcast to `Self`
     fn apply(&mut self, value: &dyn PartialReflect) {
         PartialReflect::try_apply(self, value).unwrap();
     }
