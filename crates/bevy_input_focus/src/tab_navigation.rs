@@ -221,7 +221,7 @@ impl TabNavigation<'_, '_> {
         action: NavAction,
     ) -> Result<Entity, TabNavigationError> {
         // List of all focusable entities found.
-        let mut focusable: Vec<(Entity, TabIndex)> =
+        let mut focusable: Vec<(Entity, TabIndex, usize)> =
             Vec::with_capacity(self.tabindex_query.iter().len());
 
         match tabgroup {
@@ -229,7 +229,7 @@ impl TabNavigation<'_, '_> {
                 // We're in a modal tab group, then gather all tab indices in that group.
                 if let Ok((_, _, children)) = self.tabgroup_query.get(tg_entity) {
                     for child in children.iter() {
-                        self.gather_focusable(&mut focusable, *child);
+                        self.gather_focusable(&mut focusable, *child, 0);
                     }
                 }
             }
@@ -245,9 +245,12 @@ impl TabNavigation<'_, '_> {
                 tab_groups.sort_by_key(|(_, tg)| tg.order);
 
                 // Search group descendants
-                tab_groups.iter().for_each(|(tg_entity, _)| {
-                    self.gather_focusable(&mut focusable, *tg_entity);
-                });
+                tab_groups
+                    .iter()
+                    .enumerate()
+                    .for_each(|(idx, (tg_entity, _))| {
+                        self.gather_focusable(&mut focusable, *tg_entity, idx);
+                    });
             }
         }
 
@@ -255,8 +258,14 @@ impl TabNavigation<'_, '_> {
             return Err(TabNavigationError::NoFocusableEntities);
         }
 
-        // Stable sort by tabindex
-        focusable.sort_by_key(|(_, idx)| *idx);
+        // Sort by TabGroup and then TabIndex
+        focusable.sort_by(|(_, a_tab_idx, a_group), (_, b_tab_idx, b_group)| {
+            if a_group == b_group {
+                a_tab_idx.cmp(b_tab_idx)
+            } else {
+                a_group.cmp(b_group)
+            }
+        });
 
         let index = focusable.iter().position(|e| Some(e.0) == focus.0);
         let count = focusable.len();
@@ -267,31 +276,36 @@ impl TabNavigation<'_, '_> {
             (None, NavAction::Previous) | (_, NavAction::Last) => count - 1,
         };
         match focusable.get(next) {
-            Some((entity, _)) => Ok(*entity),
+            Some((entity, _, _)) => Ok(*entity),
             None => Err(TabNavigationError::FailedToNavigateToNextFocusableEntity),
         }
     }
 
     /// Gather all focusable entities in tree order.
-    fn gather_focusable(&self, out: &mut Vec<(Entity, TabIndex)>, parent: Entity) {
+    fn gather_focusable(
+        &self,
+        out: &mut Vec<(Entity, TabIndex, usize)>,
+        parent: Entity,
+        tab_group_idx: usize,
+    ) {
         if let Ok((entity, tabindex, children)) = self.tabindex_query.get(parent) {
             if let Some(tabindex) = tabindex {
                 if tabindex.0 >= 0 {
-                    out.push((entity, *tabindex));
+                    out.push((entity, *tabindex, tab_group_idx));
                 }
             }
             if let Some(children) = children {
                 for child in children.iter() {
                     // Don't traverse into tab groups, as they are handled separately.
                     if self.tabgroup_query.get(*child).is_err() {
-                        self.gather_focusable(out, *child);
+                        self.gather_focusable(out, *child, tab_group_idx);
                     }
                 }
             }
         } else if let Ok((_, tabgroup, children)) = self.tabgroup_query.get(parent) {
             if !tabgroup.modal {
                 for child in children.iter() {
-                    self.gather_focusable(out, *child);
+                    self.gather_focusable(out, *child, tab_group_idx);
                 }
             }
         }
@@ -396,5 +410,46 @@ mod tests {
 
         let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
         assert_eq!(last_entity, Ok(tab_entity_2));
+    }
+
+    #[test]
+    fn test_tab_navigation_between_groups_is_sorted_by_group() {
+        let mut app = App::new();
+        let world = app.world_mut();
+
+        let tab_group_1 = world.spawn(TabGroup::new(0)).id();
+        let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_1))).id();
+        let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_1))).id();
+
+        let tab_group_2 = world.spawn(TabGroup::new(1)).id();
+        let tab_entity_3 = world.spawn((TabIndex(0), ChildOf(tab_group_2))).id();
+        let tab_entity_4 = world.spawn((TabIndex(1), ChildOf(tab_group_2))).id();
+
+        let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
+        let tab_navigation = system_state.get(world);
+        assert_eq!(tab_navigation.tabgroup_query.iter().count(), 2);
+        assert_eq!(tab_navigation.tabindex_query.iter().count(), 4);
+
+        let next_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
+        assert_eq!(next_entity, Ok(tab_entity_2));
+
+        let prev_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Previous);
+        assert_eq!(prev_entity, Ok(tab_entity_1));
+
+        let first_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::First);
+        assert_eq!(first_entity, Ok(tab_entity_1));
+
+        let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
+        assert_eq!(last_entity, Ok(tab_entity_4));
+
+        let next_from_end_of_group_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Next);
+        assert_eq!(next_from_end_of_group_entity, Ok(tab_entity_3));
+
+        let prev_entity_from_start_of_group =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_3), NavAction::Previous);
+        assert_eq!(prev_entity_from_start_of_group, Ok(tab_entity_2));
     }
 }
