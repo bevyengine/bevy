@@ -129,16 +129,29 @@ struct ActiveCooldown;
 fn activate_ability(
     mut commands: Commands,
     mut interaction_query: Query<
-        (Entity, &Interaction, &mut Cooldown, &Name),
-        (Changed<Interaction>, With<Button>, Without<ActiveCooldown>),
+        (
+            Entity,
+            &Interaction,
+            &mut Cooldown,
+            &Name,
+            Option<&ActiveCooldown>,
+        ),
+        (Changed<Interaction>, With<Button>),
     >,
     mut text: Query<&mut Text>,
 ) -> Result {
-    for (entity, interaction, mut cooldown, name) in &mut interaction_query {
+    for (entity, interaction, mut cooldown, name, on_cooldown) in &mut interaction_query {
         if *interaction == Interaction::Pressed {
-            cooldown.0.reset();
-            commands.entity(entity).insert(ActiveCooldown);
-            **text.single_mut()? = format!("You ate {name}");
+            if on_cooldown.is_none() {
+                cooldown.0.reset();
+                commands.entity(entity).insert(ActiveCooldown);
+                **text.single_mut()? = format!("You ate {name}");
+            } else {
+                **text.single_mut()? = format!(
+                    "You can eat {name} again in {} seconds.",
+                    cooldown.0.remaining_secs().ceil()
+                );
+            }
         }
     }
 
