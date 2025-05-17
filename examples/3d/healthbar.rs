@@ -1,4 +1,4 @@
-//! A simple 3D scene with light shining over a cube sitting on a plane. (todo)
+//! A simple UI health bar which
 
 use bevy::color::palettes::css::{GREEN, RED};
 use bevy::prelude::*;
@@ -7,6 +7,9 @@ const BAR_HEIGHT: f32 = 15.0;
 const BAR_WIDTH: f32 = 150.0;
 const HALF_BAR_HEIGHT: f32 = BAR_HEIGHT / 2.0;
 const HALF_BAR_WIDTH: f32 = BAR_WIDTH / 2.0;
+
+#[derive(Component)]
+struct Health(f32);
 
 #[derive(Component)]
 struct HealthBar {
@@ -25,7 +28,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, update_ui)
+        .add_systems(Update, (update_health_bar, update_health))
         .add_systems(Update, move_cube)
         .run();
 }
@@ -50,6 +53,7 @@ fn setup(
             MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
             Transform::from_translation(entity_spawn),
             Movable,
+            Health(42.0),
         ))
         .id();
     // light
@@ -68,7 +72,6 @@ fn setup(
 
     let health_bar_root = commands
         .spawn((
-            Name::from("Root Healthbar"),
             Node {
                 width: Val::Px(BAR_WIDTH),
                 height: Val::Px(BAR_HEIGHT),
@@ -76,7 +79,7 @@ fn setup(
                 display: Display::Flex,
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
+            BackgroundColor(Color::BLACK),
             children![()],
         ))
         .id();
@@ -103,12 +106,17 @@ fn setup(
     commands.entity(health_bar_root).add_child(health_bar_nodes);
 }
 
-fn update_ui(
+fn update_health(time: Res<Time>, mut health_query: Query<&mut Health>) {
+    for mut health in health_query.iter_mut() {
+        health.0 = (time.elapsed().as_secs_f32().sin() + 1.0) * 50.0;
+    }
+}
+
+fn update_health_bar(
     mut health_bar_query: Query<(&mut Node, &HealthBar)>,
     mut health_bar_root_query: Query<&mut Node, Without<HealthBar>>,
-    target_query: Query<&GlobalTransform>,
+    target_query: Query<(&GlobalTransform, &Health)>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
-    time: Res<Time>,
 ) {
     let camera = camera_query.0;
     let cam_transform = camera_query.1;
@@ -117,7 +125,7 @@ fn update_ui(
         let mut root = health_bar_root_query
             .get_mut(health_bar_component.root_node)
             .unwrap();
-        let target = target_query.get(health_bar_component.target).unwrap();
+        let (target, target_health) = target_query.get(health_bar_component.target).unwrap();
         let world_position = target.translation();
 
         let viewport_position = camera
@@ -126,11 +134,12 @@ fn update_ui(
         root.left = Val::Px(viewport_position.x - HALF_BAR_WIDTH);
         root.top = Val::Px(viewport_position.y - HALF_BAR_HEIGHT);
 
-        let hp = (time.elapsed().as_secs_f32().sin() + 0.5) * 100.0;
-        health_bar_node.width = Val::Percent(hp);
+        health_bar_node.width = Val::Percent(target_health.0);
     }
 }
 
+// Some placeholder movement so that we can see that the
+// health bar is correctly following the cube around
 fn move_cube(time: Res<Time>, mut movables: Query<&mut Transform, With<Movable>>) {
     for mut transform in movables.iter_mut() {
         transform.translation.x = time.elapsed_secs().sin() * 2.0;
