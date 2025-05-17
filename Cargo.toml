@@ -4371,5 +4371,5 @@ crate-type = ["lib"]
 [package.metadata.example.selection_wheel]
 name = "Selection Wheel"
 description = "Example selection wheel input menu"
-category = "Helpers"
+category = "Usage"
 wasm = true

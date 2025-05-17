@@ -12,21 +12,6 @@ use bevy::{
     prelude::*,
 };
 
-const NUM_BUTTONS: usize = 8;
-
-#[derive(Resource, Default)]
-struct WheelSelected {
-    selected: Option<Entity>,
-}
-
-#[derive(Component)]
-struct WheelButton {
-    label: String,
-}
-
-#[derive(Component)]
-struct WheelCenter;
-
 fn main() {
     App::new()
         .add_plugins((
@@ -47,6 +32,21 @@ fn main() {
         )
         .run();
 }
+
+const NUM_BUTTONS: usize = 8;
+
+#[derive(Resource, Default)]
+struct WheelSelected {
+    selected: Option<Entity>,
+}
+
+#[derive(Component)]
+struct WheelButton {
+    label: String,
+}
+
+#[derive(Component)]
+struct WheelCenter;
 
 fn setup(
     mut commands: Commands,
