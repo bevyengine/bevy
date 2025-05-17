@@ -299,6 +299,20 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
         WithInputFromWrapper::new(self)
     }
 
+    /// Dynamically modify system states using arbitrary config tokens.
+    /// Systems may intercept the config token and modify system states accordingly.
+    ///
+    /// In most cases, [`FunctionSystem`] relays the config token to each [`SystemParam`]
+    /// by calling [`SystemParam::configurate`].
+    ///
+    /// Example config tokens:
+    /// [`LocalConfig`]
+    fn with_config(self, config: &mut dyn core::any::Any) -> Self::System {
+        let mut system = Self::into_system(self);
+        system.configurate(config);
+        system
+    }
+
     /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
     #[inline]
     fn system_type_id(&self) -> TypeId {

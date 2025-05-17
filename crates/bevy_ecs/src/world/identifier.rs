@@ -53,7 +53,9 @@ unsafe impl SystemParam for WorldId {
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(_: &mut World, _: &mut SystemMeta) -> Self::State {}
+    fn default_state() {}
+
+    fn init_state(_: &mut World, _: &mut SystemMeta, _state: &mut ()) {}
 
     #[inline]
     unsafe fn get_param<'world, 'state>(

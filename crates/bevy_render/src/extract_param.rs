@@ -71,12 +71,17 @@ where
     type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let mut main_world = world.resource_mut::<MainWorld>();
+    fn default_state() -> Self::State {
         ExtractState {
-            state: SystemState::new(&mut main_world),
-            main_world_state: Res::<MainWorld>::init_state(world, system_meta),
+            state: SystemState::default(),
+            main_world_state: Res::<MainWorld>::default_state(),
         }
+    }
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta, state: &mut Self::State) {
+        let mut main_world = world.resource_mut::<MainWorld>();
+        state.state.init(&mut main_world);
+        Res::<MainWorld>::init_state(world, system_meta, &mut state.main_world_state);
     }
 
     #[inline]

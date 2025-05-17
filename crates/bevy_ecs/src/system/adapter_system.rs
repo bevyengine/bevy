@@ -191,6 +191,10 @@ where
         self.system.initialize(world);
     }
 
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.system.configurate(config);
+    }
+
     #[inline]
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.system.update_archetype_component_access(world);
