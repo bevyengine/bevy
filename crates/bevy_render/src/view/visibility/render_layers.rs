@@ -9,12 +9,12 @@ pub type Layer = usize;
 
 /// Defines which rendering layers an entity belongs to.
 ///
-/// Cameras will only render entities whose render layers intersect their own.
+/// A camera renders an entity only when their render layers intersect.
 ///
-/// Entities - including Cameras - without this component belong to layer '0', as do entities with the
-/// [`Default`] value of this component.
+/// The [`Default`] instance of `RenderLayers` contains layer `0`, the first layer. Entities
+/// without this component also belong to layer `0`.
 ///
-/// Entities belonging to no layers, i.e. with an empty `RenderLayers` component, are invisible.
+/// An empty `RenderLayers` makes the entity invisible.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
