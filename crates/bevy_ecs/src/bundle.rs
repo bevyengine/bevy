@@ -2092,6 +2092,26 @@ mod tests {
         }
     }
 
+    #[derive(Bundle)]
+    #[bundle(no_extract)]
+    struct BundleNoExtract {
+        b: B,
+        no_from_comp: crate::spawn::SpawnRelatedBundle<ChildOf, Spawn<C>>,
+    }
+
+    #[test]
+    fn can_spawn_bundle_without_extract() {
+        let mut world = World::new();
+        let id = world
+            .spawn(BundleNoExtract {
+                b: B,
+                no_from_comp: Children::spawn(Spawn(C)),
+            })
+            .id();
+
+        assert!(world.entity(id).get::<Children>().is_some());
+    }
+
     #[test]
     fn component_hook_order_spawn_despawn() {
         let mut world = World::new();

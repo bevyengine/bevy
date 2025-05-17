@@ -8,6 +8,8 @@ mod query_data;
 mod query_filter;
 mod world_query;
 
+use std::ops::Not;
+
 use crate::{
     component::map_entities, query_data::derive_query_data_impl,
     query_filter::derive_query_filter_impl,
@@ -29,10 +31,34 @@ enum BundleFieldKind {
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 
+#[derive(Debug, PartialEq)]
+enum BundleFlag {
+    NoExtract,
+}
+
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
+
+    let mut attributes: Vec<BundleFlag> = vec![];
+
+    for attr in &ast.attrs {
+        if attr.path().is_ident("bundle") {
+            let parsing = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("no_extract") {
+                    attributes.push(BundleFlag::NoExtract);
+                    return Ok(());
+                }
+
+                Err(meta.error("unrecognized flag"))
+            });
+
+            if let Err(error) = parsing {
+                return error.into_compile_error().into();
+            }
+        }
+    }
 
     let named_fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
         Ok(fields) => fields,
@@ -128,6 +154,23 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
+    let from_components = attributes.contains(&BundleFlag::NoExtract).not().then(|| quote! {
+        // SAFETY:
+        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
+        #[allow(deprecated)]
+        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
+            #[allow(unused_variables, non_snake_case)]
+            unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
+            where
+                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
+            {
+                Self{
+                    #(#field_from_components)*
+                }
+            }
+        }
+    });
+
     TokenStream::from(quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
@@ -157,20 +200,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        // SAFETY:
-        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
-        #[allow(deprecated)]
-        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
-            #[allow(unused_variables, non_snake_case)]
-            unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
-            where
-                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
-            {
-                Self{
-                    #(#field_from_components)*
-                }
-            }
-        }
+        #from_components
 
         #[allow(deprecated)]
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
