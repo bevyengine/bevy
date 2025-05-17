@@ -1,8 +1,7 @@
 //! Display the Inventory of a specific Player in a Grid
 //! using a custom Relationship to associate items (Entities)
 //! with a Player
-use bevy::{color::palettes::tailwind::*, prelude::*};
-use bevy_ecs::spawn::SpawnIter;
+use bevy::{color::palettes::tailwind::*, prelude::*, spawn::SpawnIter};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
