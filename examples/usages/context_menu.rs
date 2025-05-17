@@ -5,6 +5,7 @@ use bevy::{
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
     prelude::*,
 };
+use std::fmt::Debug;
 
 #[derive(Event)]
 struct OpenContextMenu {
@@ -26,41 +27,27 @@ fn main() {
         .add_systems(Startup, setup)
         .add_observer(on_trigger_menu)
         .add_observer(on_trigger_close_menus)
-        .add_observer(
-            |trigger: Trigger<Pointer<Over>>,
-             mut query: Query<&mut TextColor>,
-             children: Query<&Children>| {
-                let Ok(children) = children.get(trigger.target()) else {
-                    return Ok(());
-                };
-
-                for child in children.iter() {
-                    if let Ok(mut color) = query.get_mut(child) {
-                        color.0 = basic::RED.into();
-                    }
-                }
-
-                Ok(())
-            },
-        )
-        .add_observer(
-            |trigger: Trigger<Pointer<Out>>,
-             mut query: Query<&mut TextColor>,
-             children: Query<&Children>| {
-                let Ok(children) = children.get(trigger.target()) else {
-                    return Ok(());
-                };
-
-                for child in children.iter() {
-                    if let Ok(mut color) = query.get_mut(child) {
-                        color.0 = basic::WHITE.into();
-                    }
-                }
-
-                Ok(())
-            },
-        )
+        .add_observer(create_hover_observer::<Out>(basic::WHITE))
+        .add_observer(create_hover_observer::<Over>(basic::RED))
         .run();
+}
+
+fn create_hover_observer<T: Debug + Clone + Reflect>(
+    color: Srgba,
+) -> impl FnMut(Trigger<Pointer<T>>, Query<&mut TextColor>, Query<&Children>) {
+    move |trigger: Trigger<Pointer<T>>,
+          mut query: Query<&mut TextColor>,
+          children: Query<&Children>| {
+        let Ok(children) = children.get(trigger.target()) else {
+            return;
+        };
+
+        for child in children.iter() {
+            if let Ok(mut col) = query.get_mut(child) {
+                col.0 = color.into();
+            }
+        }
+    }
 }
 
 fn setup(mut commands: Commands) {
