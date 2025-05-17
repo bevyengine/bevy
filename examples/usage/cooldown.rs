@@ -47,7 +47,7 @@ fn setup(
         )),
     ));
     commands.spawn((
-        Text::new("*Click some foot to eat it*"),
+        Text::new("*Click some food to eat it*"),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
