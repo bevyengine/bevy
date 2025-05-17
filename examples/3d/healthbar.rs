@@ -1,10 +1,12 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane. (todo)
 
-use bevy::color::palettes::css::{GREEN, RED, YELLOW};
-use bevy::input::common_conditions::input_just_pressed;
+use bevy::color::palettes::css::{GREEN, RED};
 use bevy::prelude::*;
-use bevy_remote::http::RemoteHttpPlugin;
-use bevy_remote::RemotePlugin;
+
+const BAR_HEIGHT: f32 = 15.0;
+const BAR_WIDTH: f32 = 150.0;
+const HALF_BAR_HEIGHT: f32 = BAR_HEIGHT / 2.0;
+const HALF_BAR_WIDTH: f32 = BAR_WIDTH / 2.0;
 
 /// Marker for the health bar root UI node
 #[derive(Component)]
@@ -40,10 +42,7 @@ impl Movable {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(RemotePlugin::default())
-        .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, (setup, setup_ui))
-        // .add_systems(Update, update_ui.run_if(input_just_pressed(MouseButton::Left)))
         .add_systems(Update, update_ui)
         .add_systems(Update, move_cube)
         .run();
@@ -86,32 +85,18 @@ fn setup(
 }
 
 /// todo comment
-fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
-
+fn setup_ui(mut commands: Commands) {
     commands.spawn((
         Name::from("Root Healthbar"),
         Node {
-            position_type: PositionType::Absolute,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            justify_items: JustifyItems::Center,
+            width: Val::Px(BAR_WIDTH),
+            height: Val::Px(BAR_HEIGHT),
+            padding: UiRect::all(Val::Px(4.)),
+            display: Display::Flex,
             ..default()
         },
-        HealthBarRoot,
+        BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
         children![(
-            Node {
-                width: Val::Px(150.0),
-                height: Val::Px(65.0),
-                //flex_basis: Val::Percent(100.0),
-                //align_self: AlignSelf::Stretch,
-                padding: UiRect::all(Val::Px(10.)),
-                justify_self: JustifySelf::Center,
-                align_self: AlignSelf::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-            children![(
                 Node {
                     align_items: AlignItems::Stretch,
                     width: Val::Percent(100.),
@@ -125,16 +110,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                     HealthBar
                 )],
             )],
-        )], // children![(
-            //     Text::new("42"),
-            //     TextFont {
-            //         font: font_handle.clone(),
-            //         font_size: 33.0,
-            //         ..default()
-            //     },
-            //     TextColor(Color::srgb(1.0, 1.0, 1.0)),
-            //     BackgroundColor(Color::srgba(0.9, 0.1, 0.1, 0.5)),
-            // )],
+        HealthBarRoot,
     ));
 }
 
@@ -154,8 +130,8 @@ fn update_ui(
         let viewport_position = camera
             .world_to_viewport(cam_transform, world_position)
             .unwrap();
-        health_bar_node.left = Val::Px(viewport_position.x);
-        health_bar_node.top = Val::Px(viewport_position.y);
+        health_bar_node.left = Val::Px(viewport_position.x - HALF_BAR_WIDTH);
+        health_bar_node.top = Val::Px(viewport_position.y - HALF_BAR_HEIGHT);
 
         let hp = (time.elapsed().as_secs_f32().sin() + 0.5) * 100.0;
         health_bar_child_query.width = Val::Percent(hp);
