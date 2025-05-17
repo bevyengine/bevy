@@ -366,6 +366,7 @@ Example | Description
 Example | Description
 --- | ---
 [Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
+[Selection Wheel](../examples/usage/selection_wheel.rs) | Example selection wheel input menu
 [Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ## Input
