@@ -563,7 +563,7 @@ bevy_image = { path = "crates/bevy_image", version = "0.16.0-dev", default-featu
 bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.16.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
-async-std = "1.13"
+async-io = "2"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "2.0"
