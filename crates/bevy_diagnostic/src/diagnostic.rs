@@ -113,7 +113,9 @@ impl core::fmt::Display for DiagnosticPath {
 /// A single measurement of a [`Diagnostic`].
 #[derive(Debug)]
 pub struct DiagnosticMeasurement {
+    /// When this measurement was taken.
     pub time: Instant,
+    /// Value of the measurement.
     pub value: f64,
 }
 
@@ -122,12 +124,14 @@ pub struct DiagnosticMeasurement {
 #[derive(Debug)]
 pub struct Diagnostic {
     path: DiagnosticPath,
+    /// Suffix to use when logging measurements for this [`Diagnostic`], for example to show units.
     pub suffix: Cow<'static, str>,
     history: VecDeque<DiagnosticMeasurement>,
     sum: f64,
     ema: f64,
     ema_smoothing_factor: f64,
     max_history_length: usize,
+    /// Disabled [`Diagnostic`]s are not measured or logged.
     pub is_enabled: bool,
 }
 
@@ -219,6 +223,7 @@ impl Diagnostic {
         self
     }
 
+    /// Get the [`DiagnosticPath`] that identifies this [`Diagnostic`].
     pub fn path(&self) -> &DiagnosticPath {
         &self.path
     }
@@ -282,10 +287,12 @@ impl Diagnostic {
         self.max_history_length
     }
 
+    /// All measured values from this [`Diagnostic`], up to the configured maximum history length.
     pub fn values(&self) -> impl Iterator<Item = &f64> {
         self.history.iter().map(|x| &x.value)
     }
 
+    /// All measurements from this [`Diagnostic`], up to the configured maximum history length.
     pub fn measurements(&self) -> impl Iterator<Item = &DiagnosticMeasurement> {
         self.history.iter()
     }
@@ -310,10 +317,12 @@ impl DiagnosticsStore {
         self.diagnostics.insert(diagnostic.path.clone(), diagnostic);
     }
 
+    /// Get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
     pub fn get(&self, path: &DiagnosticPath) -> Option<&Diagnostic> {
         self.diagnostics.get(path)
     }
 
+    /// Get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
     pub fn get_mut(&mut self, path: &DiagnosticPath) -> Option<&mut Diagnostic> {
         self.diagnostics.get_mut(path)
     }
