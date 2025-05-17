@@ -75,7 +75,7 @@ jobs:
         run: cargo run -p ci -- lints
 
   miri:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # testing
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
