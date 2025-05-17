@@ -93,41 +93,48 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
         Name::from("Root Healthbar"),
         Node {
             position_type: PositionType::Absolute,
-            width: Val::Px(150.0),
-            height: Val::Px(65.0),
-            //flex_basis: Val::Percent(100.0),
-            align_self: AlignSelf::Stretch,
-            //justify_content: JustifyContent::Center,
-            //align_items: AlignItems::Center,
-            padding: UiRect::all(Val::Px(10.)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            justify_items: JustifyItems::Center,
             ..default()
         },
-        BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
         HealthBarRoot,
         children![(
             Node {
-                align_items: AlignItems::Stretch,
-                width: Val::Percent(100.),
-                //height: Val::Px(100.),
+                width: Val::Px(150.0),
+                height: Val::Px(65.0),
+                //flex_basis: Val::Percent(100.0),
+                //align_self: AlignSelf::Stretch,
+                padding: UiRect::all(Val::Px(10.)),
+                justify_self: JustifySelf::Center,
+                align_self: AlignSelf::Center,
                 ..default()
             },
-            BackgroundColor(Color::from(RED)),
+            BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
             children![(
-                Node::default(),
-                BackgroundColor(Color::from(GREEN)),
-                HealthBar
+                Node {
+                    align_items: AlignItems::Stretch,
+                    width: Val::Percent(100.),
+                    //height: Val::Px(100.),
+                    ..default()
+                },
+                BackgroundColor(Color::from(RED)),
+                children![(
+                    Node::default(),
+                    BackgroundColor(Color::from(GREEN)),
+                    HealthBar
+                )],
             )],
-        )],
-        // children![(
-        //     Text::new("42"),
-        //     TextFont {
-        //         font: font_handle.clone(),
-        //         font_size: 33.0,
-        //         ..default()
-        //     },
-        //     TextColor(Color::srgb(1.0, 1.0, 1.0)),
-        //     BackgroundColor(Color::srgba(0.9, 0.1, 0.1, 0.5)),
-        // )],
+        )], // children![(
+            //     Text::new("42"),
+            //     TextFont {
+            //         font: font_handle.clone(),
+            //         font_size: 33.0,
+            //         ..default()
+            //     },
+            //     TextColor(Color::srgb(1.0, 1.0, 1.0)),
+            //     BackgroundColor(Color::srgba(0.9, 0.1, 0.1, 0.5)),
+            // )],
     ));
 }
 
