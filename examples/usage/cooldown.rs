@@ -1,17 +1,21 @@
 //! Demonstrates implementing a cooldown in UI.
-//! We create three buttons with 2, 1, and 5 seconds cooldown.
+//!
+//! You might want a system like this for abilities, buffs or consumables.
+//! We create four food buttons to eat with 2, 1, 10, and 4 seconds cooldown.
 
-use bevy::{
-    color::palettes::tailwind,
-    ecs::spawn::SpawnIter,
-    prelude::*,
-};
+use bevy::{color::palettes::tailwind, ecs::spawn::SpawnIter, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (activate_ability, animate_cooldowns))
+        .add_systems(
+            Update,
+            (
+                activate_ability,
+                animate_cooldowns.run_if(any_with_component::<ActiveCooldown>),
+            ),
+        )
         .run();
 }
 
@@ -35,31 +39,29 @@ fn setup(
         },
         Children::spawn(SpawnIter(
             [
-                Ability {
+                FoodItem {
                     name: "an apple",
                     cooldown: 2.,
                     index: 2,
                 },
-                Ability {
+                FoodItem {
                     name: "a burger",
                     cooldown: 1.,
                     index: 23,
                 },
-                Ability {
+                FoodItem {
                     name: "chocolate",
                     cooldown: 10.,
                     index: 32,
                 },
-                Ability {
+                FoodItem {
                     name: "cherries",
                     cooldown: 4.,
                     index: 41,
                 },
             ]
             .into_iter()
-            .map(move |ability| {
-                build_ability(ability, texture.clone(), texture_atlas_layout.clone())
-            }),
+            .map(move |food| build_ability(food, texture.clone(), texture_atlas_layout.clone())),
         )),
     ));
     commands.spawn((
@@ -73,34 +75,35 @@ fn setup(
     ));
 }
 
-struct Ability {
+struct FoodItem {
     name: &'static str,
     cooldown: f32,
     index: usize,
 }
 
 fn build_ability(
-    ability: Ability,
+    food: FoodItem,
     texture: Handle<Image>,
     layout: Handle<TextureAtlasLayout>,
 ) -> impl Bundle {
-    let Ability {
+    let FoodItem {
         name,
         cooldown,
         index,
-    } = ability;
+    } = food;
     let name = Name::new(name);
 
+    // Every food item is a button with a child node.
+    // The child node's height will be animated to be at 100% at the beginning
+    // of a cooldown, effectively graying out the whole button, and then getting smaller over time.
     (
         Node {
             width: Val::Px(80.0),
             height: Val::Px(80.0),
             flex_direction: FlexDirection::ColumnReverse,
-            overflow: Overflow::clip(),
-            overflow_clip_margin: OverflowClipMargin::content_box(),
             ..default()
         },
-        BackgroundColor(SLATE_400.into()),
+        BackgroundColor(tailwind::SLATE_400.into()),
         Button,
         ImageNode::from_atlas_image(texture, TextureAtlas { layout, index }),
         Cooldown(Timer::from_seconds(cooldown, TimerMode::Once)),
@@ -111,7 +114,7 @@ fn build_ability(
                 height: Val::Percent(0.),
                 ..default()
             },
-            BackgroundColor(SLATE_50.with_alpha(0.5).into()),
+            BackgroundColor(tailwind::SLATE_50.with_alpha(0.5).into()),
         )],
     )
 }
