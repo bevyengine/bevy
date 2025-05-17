@@ -75,7 +75,7 @@ jobs:
         run: cargo run -p ci -- lints
 
   miri:
-    runs-on: macos-latest
+    runs-on: windows-latest # switch back to `macos-latest` once miri no longer fails on it
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
