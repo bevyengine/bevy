@@ -4361,3 +4361,15 @@ name = "Extended Bindless Material"
 description = "Demonstrates bindless `ExtendedMaterial`"
 category = "Shaders"
 wasm = false
+
+
+[[example]]
+name = "inventory"
+path = "examples/usage/inventory.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.inventory]
+name = "Inventory"
+description = "Display a Player's Inventory in a grid"
+category = "Usage"
+wasm = false
