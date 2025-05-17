@@ -2,7 +2,7 @@
 //! We create three buttons with 2, 1, and 5 seconds cooldown.
 
 use bevy::{
-    color::palettes::tailwind::{SLATE_400, SLATE_50},
+    color::palettes::tailwind,
     ecs::spawn::SpawnIter,
     prelude::*,
 };
