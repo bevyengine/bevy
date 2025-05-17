@@ -19,22 +19,7 @@ struct HealthBar {
 // Define a struct to keep some information about our entity.
 // Here it's an arbitrary movement speed, the spawn location, and a maximum distance from it.
 #[derive(Component)]
-struct Movable {
-    spawn: Vec3,
-    max_distance: f32,
-    speed: f32,
-}
-
-// Implement a utility function for easier Movable struct creation.
-impl Movable {
-    fn new(spawn: Vec3) -> Self {
-        Movable {
-            spawn,
-            max_distance: 5.0,
-            speed: 2.0,
-        }
-    }
-}
+struct Movable;
 
 fn main() {
     App::new()
@@ -64,7 +49,7 @@ fn setup(
             Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
             MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
             Transform::from_translation(entity_spawn),
-            Movable::new(entity_spawn),
+            Movable,
         ))
         .id();
     // light
@@ -146,14 +131,9 @@ fn update_ui(
     }
 }
 
-/// This system will move all Movable entities with a Transform
-fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
-    for (mut transform, mut cube) in &mut cubes {
-        // Check if the entity moved too far from its spawn, if so invert the moving direction.
-        if (cube.spawn - transform.translation).length() > cube.max_distance {
-            cube.speed *= -1.0;
-        }
-        let direction = transform.local_x();
-        transform.translation += direction * cube.speed * timer.delta_secs();
+fn move_cube(time: Res<Time>, mut movables: Query<&mut Transform, With<Movable>>) {
+    for mut transform in movables.iter_mut() {
+        transform.translation.x = time.elapsed_secs().sin() * 2.0;
+        transform.translation.z = time.elapsed_secs().cos() * 2.0;
     }
 }
