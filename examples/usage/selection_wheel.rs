@@ -134,7 +134,7 @@ fn update_selected_system(
 
         // Update button styling
         for (entity, _, children) in query_buttons.iter() {
-            let child = children.get(0).unwrap();
+            let child = children.first().unwrap();
             let color = if Some(entity) == selected.selected {
                 Color::BLACK
             } else {
