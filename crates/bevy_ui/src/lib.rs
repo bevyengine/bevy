@@ -15,6 +15,7 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+pub mod gradients;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
 
@@ -35,6 +36,7 @@ mod ui_node;
 
 pub use focus::*;
 pub use geometry::*;
+pub use gradients::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -59,6 +61,7 @@ pub mod prelude {
     pub use {
         crate::{
             geometry::*,
+            gradients::*,
             ui_material::*,
             ui_node::*,
             widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
@@ -176,6 +179,13 @@ impl Plugin for UiPlugin {
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
+            .register_type::<ColorStop>()
+            .register_type::<AngularColorStop>()
+            .register_type::<Position>()
+            .register_type::<RadialGradientShape>()
+            .register_type::<Gradient>()
+            .register_type::<BackgroundGradient>()
+            .register_type::<BorderGradient>()
             .register_type::<ComputedNodeTarget>()
             .configure_sets(
                 PostUpdate,
