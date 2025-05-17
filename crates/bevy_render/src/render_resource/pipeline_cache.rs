@@ -208,7 +208,11 @@ impl ShaderCache {
                     }
 
                     composer.add_composable_module(shader.into())?;
+                } else {
+                    Err(PipelineCacheError::ShaderImportNotYetAvailable)?;
                 }
+            } else {
+                Err(PipelineCacheError::ShaderImportNotYetAvailable)?;
             }
             // if we fail to add a module the composer will tell us what is missing
         }
