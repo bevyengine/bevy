@@ -245,6 +245,15 @@ bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
+# Provides raytraced lighting (do not use, not yet ready for users)
+bevy_solari = [
+  "bevy_internal/bevy_solari",
+  "bevy_asset",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_render",
+]
+
 # Provides sprite functionality
 bevy_sprite = [
   "bevy_internal/bevy_sprite",
@@ -1242,6 +1251,18 @@ doc-scrape-examples = true
 [package.metadata.example.skybox]
 name = "Skybox"
 description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats."
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "solari"
+path = "examples/3d/solari.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari"]
+
+[package.metadata.example.solari]
+name = "Solari"
+description = "Demonstrates realtime dynamic global illumination rendering using Bevy Solari."
 category = "3D Rendering"
 wasm = false
 
@@ -4361,3 +4382,6 @@ name = "Extended Bindless Material"
 description = "Demonstrates bindless `ExtendedMaterial`"
 category = "Shaders"
 wasm = false
+
+[patch.crates-io]
+naga_oil = { git = "https://github.com/JMS55/naga_oil", rev = "82476f83023da017be4963eaafc0f7b30e811bc3" }
