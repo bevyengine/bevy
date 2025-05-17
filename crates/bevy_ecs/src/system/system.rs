@@ -123,7 +123,7 @@ pub trait System: Send + Sync + 'static {
     /// Validates that all parameters can be acquired and that system can run without panic.
     /// Built-in executors use this to prevent invalid systems from running.
     ///
-    /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
+    /// However calling and respecting [`System::validate_param_unsafe`] or its safe variant
     /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
     /// should provide their own safety mechanism to prevent undefined behavior.
     ///

@@ -144,7 +144,7 @@ impl Volume {
 
     /// Returns the volume in decibels as a float.
     ///
-    /// If the volume is silent / off / muted, i.e. it's underlying linear scale
+    /// If the volume is silent / off / muted, i.e. its underlying linear scale
     /// is `0.0`, this method returns negative infinity.
     pub fn to_decibels(&self) -> f32 {
         match self {
