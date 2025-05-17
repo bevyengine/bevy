@@ -34,27 +34,28 @@ impl<'a, 'b> BindGroupBindingBuilder<'a, 'b> {
         }
     }
 
-    pub fn push_bind_group_resource_binding<T: IntoBindGroupResourceBinding>(
+    pub fn add_binding<T: IntoBindGroupResourceBinding>(
         mut self,
-        binding: T,
+        binding: u32,
+        resource: T,
     ) -> Self {
         self.entries.push(BindGroupEntryBinding {
-            binding: self.entries.len() as u32,
-            resource: binding.into_binding(),
+            binding,
+            resource: resource.into_binding(),
         });
 
         self
     }
 
-    pub fn push_bind_group_resource_handle<T: IntoBindGroupResourceHandle>(self, value: T) -> Self {
-        let handle = T::into_binding(value);
-        self.push_bind_group_resource(&handle)
+    pub fn add_handle<T: IntoBindGroupResourceHandle>(self, binding: u32, resource: T) -> Self {
+        let resource = T::into_binding(resource);
+        self.add_helper(binding, &resource)
     }
 
-    pub fn push_bind_group_resource<T: BindGroupResourceHelper>(self, value: &T) -> Self {
-        let binding =
-            value.make_binding_group_resource_binding(self.pass_builder.pass_node_builder());
-        self.push_bind_group_resource_binding(binding)
+    pub fn add_helper<T: BindGroupResourceHelper>(self, binding: u32, resource: &T) -> Self {
+        let resource =
+            resource.make_binding_group_resource_binding(self.pass_builder.pass_node_builder());
+        self.add_binding(binding, resource)
     }
 
     pub fn build(self) -> BindGroupBinding {

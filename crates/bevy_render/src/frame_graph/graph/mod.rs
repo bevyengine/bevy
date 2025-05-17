@@ -2,16 +2,21 @@ mod buffer;
 mod graph_runner;
 mod texture;
 
+use std::borrow::Cow;
+
 pub use graph_runner::*;
 
 use alloc::sync::Arc;
 
 use bevy_ecs::resource::Resource;
 
+use crate::render_resource::BindGroupLayout;
+
 use super::{
-    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, DevicePass, FrameGraphError,
-    GraphResourceNodeHandle, ImportedResource, PassBuilder, PassNode, PassNodeBuilder,
-    RenderContext, ResourceBoard, ResourceBoardKey, ResourceNode, TypeHandle, VirtualResource,
+    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, BindGroupHandleBuilder, DevicePass,
+    FrameGraphError, GraphResourceNodeHandle, ImportedResource, PassBuilder, PassNode,
+    PassNodeBuilder, RenderContext, ResourceBoard, ResourceBoardKey, ResourceNode, TypeHandle,
+    VirtualResource,
 };
 
 pub trait ImportToFrameGraph
@@ -176,6 +181,14 @@ impl FrameGraph {
 
     pub fn create_pass_builder(&mut self, name: &str) -> PassBuilder {
         PassBuilder::new(self.create_pass_node_bulder(name))
+    }
+
+    pub fn create_bind_group_handle_builder(
+        &mut self,
+        label: Option<Cow<'static, str>>,
+        layout: BindGroupLayout,
+    ) -> BindGroupHandleBuilder {
+        BindGroupHandleBuilder::new(label, layout, self)
     }
 
     pub fn pass_node(&mut self, name: &str) -> &mut PassNode {

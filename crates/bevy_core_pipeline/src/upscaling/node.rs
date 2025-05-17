@@ -60,8 +60,8 @@ impl ViewNode for UpscalingNode {
 
         let bind_group = pass_builder
             .create_bind_group_builder(None, blit_pipeline.texture_bind_group.clone())
-            .push_bind_group_resource(main_texture)
-            .push_bind_group_resource_handle(&blit_pipeline.sampler)
+            .add_helper(0, main_texture)
+            .add_handle(1, &blit_pipeline.sampler)
             .build();
 
         pass_builder

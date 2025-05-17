@@ -1,19 +1,26 @@
-pub mod bind_group_drawing;
+pub mod bind_group_binding;
 pub mod bind_group_entry_binding;
 pub mod bind_group_entry_handle;
 pub mod bind_group_handle;
 
-pub use bind_group_drawing::*;
+pub use bind_group_binding::*;
 pub use bind_group_entry_binding::*;
 pub use bind_group_entry_handle::*;
 pub use bind_group_handle::*;
 
 use crate::{
-    frame_graph::PassNodeBuilder,
+    frame_graph::{FrameGraph, PassNodeBuilder},
     render_resource::{Buffer, Texture},
 };
 
 use super::TextureViewInfo;
+
+pub trait BindGroupResourceHandleHelper {
+    fn make_bind_group_resource_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> BindGroupResourceHandle;
+}
 
 pub trait BindGroupResourceHelper {
     fn make_binding_group_resource_binding(

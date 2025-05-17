@@ -162,9 +162,9 @@ impl ViewNode for BloomNode {
                     Some("bloom_downsampling_first_bind_group".into()),
                     downsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_group_resource(view_texture)
-                .push_bind_group_resource_handle(&downsampling_pipeline_res.sampler)
-                .push_bind_group_resource(&uniforms_binding)
+                .add_helper(0, view_texture)
+                .add_handle(1, &downsampling_pipeline_res.sampler)
+                .add_helper(2, &uniforms_binding)
                 .build();
 
             pass_builder
@@ -198,12 +198,15 @@ impl ViewNode for BloomNode {
                     Some("bloom_downsampling_bind_group".into()),
                     downsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_group_resource_binding((
-                    &bind_group_bloom_texture_read,
-                    &bloom_texture.get_texture_view_info(bind_group_mip),
-                ))
-                .push_bind_group_resource_handle(&downsampling_pipeline_res.sampler)
-                .push_bind_group_resource(&uniforms_binding)
+                .add_binding(
+                    0,
+                    (
+                        &bind_group_bloom_texture_read,
+                        &bloom_texture.get_texture_view_info(bind_group_mip),
+                    ),
+                )
+                .add_handle(1, &downsampling_pipeline_res.sampler)
+                .add_handle(2, &uniforms_binding)
                 .build();
 
             pass_builder
@@ -237,12 +240,15 @@ impl ViewNode for BloomNode {
                     Some("bloom_upsampling_bind_group".into()),
                     upsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_group_resource_binding((
-                    &bind_group_bloom_texture_read,
-                    &bloom_texture.get_texture_view_info(bind_group_mip),
-                ))
-                .push_bind_group_resource_handle(&downsampling_pipeline_res.sampler)
-                .push_bind_group_resource(&uniforms_binding)
+                .add_binding(
+                    0,
+                    (
+                        &bind_group_bloom_texture_read,
+                        &bloom_texture.get_texture_view_info(bind_group_mip),
+                    ),
+                )
+                .add_handle(1, &downsampling_pipeline_res.sampler)
+                .add_handle(2, &uniforms_binding)
                 .build();
 
             let blend = compute_blend_factor(
@@ -285,12 +291,15 @@ impl ViewNode for BloomNode {
                     Some("bloom_upsampling_bind_group".into()),
                     upsampling_pipeline_res.bind_group_layout.clone(),
                 )
-                .push_bind_group_resource_binding((
-                    &bloom_texture_read,
-                    &bloom_texture.get_texture_view_info(mip),
-                ))
-                .push_bind_group_resource_handle(&downsampling_pipeline_res.sampler)
-                .push_bind_group_resource(&uniforms_binding)
+                .add_binding(
+                    0,
+                    (
+                        &bloom_texture_read,
+                        &bloom_texture.get_texture_view_info(mip),
+                    ),
+                )
+                .add_handle(2, &downsampling_pipeline_res.sampler)
+                .add_handle(3, &uniforms_binding)
                 .build();
 
             let blend =

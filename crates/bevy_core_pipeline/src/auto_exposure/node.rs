@@ -123,15 +123,15 @@ impl Node for AutoExposureNode {
 
         let compute_bind_group = pass_builder
             .create_bind_group_builder(None, pipeline.histogram_layout.clone())
-            .push_bind_group_resource(&globals_buffer_binding)
-            .push_bind_group_resource(&auto_exposure_buffers_setting_binding)
-            .push_bind_group_resource(source)
-            .push_bind_group_resource(&mask.texture)
-            .push_bind_group_resource(&compensation_curve.texture)
-            .push_bind_group_resource(&compensation_curve_extents)
-            .push_bind_group_resource(&resources.histogram)
-            .push_bind_group_resource(&auto_exposure_buffers_state_binding)
-            .push_bind_group_resource(&view_uniforms_binding)
+            .add_handle(0, &globals_buffer_binding)
+            .add_handle(1, &auto_exposure_buffers_setting_binding)
+            .add_helper(2, source)
+            .add_helper(3, &mask.texture)
+            .add_helper(4, &compensation_curve.texture)
+            .add_handle(5,&compensation_curve_extents)
+            .add_helper(6,&resources.histogram)
+            .add_handle(7,&auto_exposure_buffers_state_binding)
+            .add_handle(8, &view_uniforms_binding)
             .build();
 
         let mut builder = pass_builder.create_compute_pass_builder();

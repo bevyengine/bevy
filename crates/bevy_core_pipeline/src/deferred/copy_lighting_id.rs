@@ -94,7 +94,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
                 Some("copy_deferred_lighting_id_bind_group".into()),
                 copy_deferred_lighting_id_pipeline.layout.clone(),
             )
-            .push_bind_group_resource(&deferred_lighting_pass_id_texture.texture)
+            .add_helper(0,&deferred_lighting_pass_id_texture.texture)
             .build();
 
         let deferred_lighting_id_depth_texture =
