@@ -5,7 +5,7 @@
 use bevy::color::palettes::css::{GREEN, RED};
 use bevy::prelude::*;
 
-const BAR_HEIGHT: f32 = 15.0;
+const BAR_HEIGHT: f32 = 25.0;
 const BAR_WIDTH: f32 = 150.0;
 const HALF_BAR_HEIGHT: f32 = BAR_HEIGHT / 2.0;
 const HALF_BAR_WIDTH: f32 = BAR_WIDTH / 2.0;
@@ -17,8 +17,7 @@ struct Health(f32);
 struct HealthBar {
     /// The target entity that the health bar should follow
     target: Entity,
-    /// The root UI node used to position the health bar
-    root_node: Entity,
+    health_text_entity: Entity,
 }
 
 fn main() {
@@ -34,6 +33,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // circular base
     commands.spawn((
@@ -77,7 +77,16 @@ fn setup(
             BackgroundColor(Color::BLACK),
         ))
         .id();
-
+    
+    let health_text = commands
+        .spawn((
+            Text::new("42"),
+            TextFont {
+                font_size: 14.0,
+                ..default()
+            },
+        )).id();
+    
     let health_bar_nodes = commands
         .spawn((
             Node {
@@ -87,13 +96,13 @@ fn setup(
             },
             HealthBar {
                 target: cube_id,
-                root_node: health_bar_root,
+                health_text_entity: health_text,
             },
             BackgroundColor(Color::from(GREEN)),
         ))
         .id();
 
-    commands.entity(health_bar_root).add_child(health_bar_nodes);
+    commands.entity(health_bar_root).add_children(&[health_text, health_bar_nodes]);
 }
 
 fn update_health(time: Res<Time>, mut health_query: Query<&mut Health>) {
@@ -103,18 +112,20 @@ fn update_health(time: Res<Time>, mut health_query: Query<&mut Health>) {
 }
 
 fn update_health_bar(
-    mut health_bar_query: Query<(&mut Node, &HealthBar)>,
+    mut health_bar_query: Query<(&mut Node, &HealthBar, &ChildOf)>,
     mut health_bar_root_query: Query<&mut Node, Without<HealthBar>>,
+    mut health_bar_text_query: Query<&mut Text, Without<HealthBar>>,
     target_query: Query<(&GlobalTransform, &Health)>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
 ) {
     let camera = camera_query.0;
     let cam_transform = camera_query.1;
 
-    for (mut health_bar_node, health_bar_component) in health_bar_query.iter_mut() {
+    for (mut health_bar_node, health_bar_component, child_of) in health_bar_query.iter_mut() {
         let mut root = health_bar_root_query
-            .get_mut(health_bar_component.root_node)
+            .get_mut(child_of.0)
             .unwrap();
+        let mut health_text = health_bar_text_query.get_mut(health_bar_component.health_text_entity).unwrap();
         let (target, target_health) = target_query.get(health_bar_component.target).unwrap();
 
         let target_world_position = target.translation();
@@ -126,6 +137,7 @@ fn update_health_bar(
         root.top = Val::Px(target_viewport_position.y - HALF_BAR_HEIGHT);
 
         health_bar_node.width = Val::Percent(target_health.0);
+        health_text.0 = format!("{:.0}", target_health.0);
     }
 }
 
