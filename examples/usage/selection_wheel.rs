@@ -55,18 +55,51 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
 
+    let text_field = |text: &str| {
+        (
+            TextFont {
+                font_size: 12.0,
+                ..default()
+            },
+            Text::new(text),
+        )
+    };
+    commands.spawn((
+        Name::new("Input help"),
+        Node {
+            display: Display::Flex,
+            position_type: PositionType::Absolute,
+            flex_direction: FlexDirection::Column,
+            column_gap: Val::Px(5.0),
+            left: Val::Px(10.0),
+            top: Val::Px(10.0),
+            ..default()
+        },
+        children![
+            text_field("Press Enter to select the focused button"),
+            text_field("Press Escape to clear the selection"),
+            text_field("Press Tab or Shift+Tab to cycle focus through buttons"),
+            text_field("Press Arrow keys to cycle focus through buttons"),
+            text_field("Press number keys to select a button"),
+            text_field("Use the mouse to hover over buttons and click to select"),
+        ],
+    ));
+
     // TODO: This could use a ring segment primitive: https://github.com/bevyengine/bevy/issues/10572
     // TODO: This should be a UI node instead of a Mesh2d with MeshPicking, which requires custom UI meshes or primitives: https://github.com/bevyengine/bevy/issues/14187
     let button_mesh = meshes.add(CircularSector::new(200.0, PI / NUM_BUTTONS as f32));
 
+    // Spawn a tab group as the parent of all buttons
     let tab_group = commands
         .spawn((
+            Name::new("Selection Wheel"),
             Transform::default(),
             TabGroup::default(),
             Visibility::default(),
         ))
         .id();
 
+    // Spawn all the buttons
     for i in 0..NUM_BUTTONS {
         let percent = i as f32 / NUM_BUTTONS as f32;
         let color = Color::hsl(360.0 * percent, 0.95, 0.7);
@@ -96,6 +129,7 @@ fn setup(
             .observe(on_hover);
     }
 
+    // Spawn the center of the wheel which shows the selected button
     commands.spawn((
         WheelCenter,
         Pickable::IGNORE,
@@ -110,7 +144,6 @@ fn on_click(trigger: Trigger<Pointer<Click>>, mut selected: ResMut<WheelSelected
     selected.selected = Some(trigger.target);
 }
 
-// TODO: add/remove styling on focus change, needs some way of reacting to focus lost?
 fn on_hover(trigger: Trigger<Pointer<Over>>, mut focus: ResMut<InputFocus>) {
     focus.set(trigger.target);
 }
@@ -165,13 +198,7 @@ fn focus_system(
 
 /// Handle all keyboard input for the selection wheel
 ///
-/// Keyboard inputs:
-/// - Left/right arrow keys to cycle focus through buttons
-/// - Number keys to select a button
-/// - Enter to select the focused button
-/// - Escape to clear selection
-/// - Tab to cycle focus through buttons (handled by the input focus system)
-/// - Shift+Tab to cycle focus through buttons in reverse (handled by the input focus system)
+/// Tab navigation is handled automatically by [`bevy::input_focus`].
 fn keyboard_system(
     mut keyboard_input_events: EventReader<KeyboardInput>,
     mut focus: ResMut<InputFocus>,
@@ -230,7 +257,7 @@ fn gamepad_system(
     }
 }
 
-// TODO: upstream this?
+// TODO: add this as a method on KeyCode?
 fn as_digit(keycode: KeyCode) -> Option<i32> {
     let digit = match keycode {
         KeyCode::Digit0 | KeyCode::Numpad0 => 0,
