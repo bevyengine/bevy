@@ -1,8 +1,8 @@
 //! Distance-based fog visual effects are used in many games to give a soft falloff of visibility to the player for performance and/or visual design reasons. The further away something in a 3D world is from the camera, the more it's mixed or completely overwritten by a given color.
 //!
-//! In Bevy we can add the `DistanceFog` component to the same entity as our `Camera3d` to apply a distance fog effect. It has fields for color, directional light parameters, and how the fog falls off over distance. And that's it! The distance fog is now applied to the camera.
+//! In Bevy we can add the [`DistanceFog`] component to the same entity as our [`Camera3d`] to apply a distance fog effect. It has fields for color, directional light parameters, and how the fog falls off over distance. And that's it! The distance fog is now applied to the camera.
 //!
-//! The `FogFalloff` field controls most of the behavior of the fog through different descriptions of fog "curves". I.e. `FogFalloff::Linear` lets us define a start and end distance where up until the start distance none of the fog color is mixed in and by the end distance the fog color is as mixed in as it can be. `FogFalloff::Exponential` on the other hand uses an exponential curve to drive how "visible" things are with a density value.
+//! The [`FogFalloff`] field controls most of the behavior of the fog through different descriptions of fog "curves". I.e. [`FogFalloff::Linear`] lets us define a start and end distance where up until the start distance none of the fog color is mixed in and by the end distance the fog color is as mixed in as it can be. [`FogFalloff::Exponential`] on the other hand uses an exponential curve to drive how "visible" things are with a density value.
 //!
 //! [Atmospheric fog](https://bevyengine.org/examples/3d-rendering/atmospheric-fog/) is another fog type that uses this same method of setup, but isn't covered here as it is a kind of fog that is most often used to imply distance and size in clear weather, while the ones shown off here are much more "dense".
 //!
