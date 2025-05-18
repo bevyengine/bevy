@@ -9,7 +9,7 @@ run: install
 	xcrun simctl launch --console $(DEVICE) org.bevyengine.example
 
 boot-sim:
-	xcrun simctl boot $(DEVICE) || true
+	open -a Simulator && xcrun simctl boot $(DEVICE) || true
 
 install: xcodebuild-simulator boot-sim
 	xcrun simctl install $(DEVICE) build/Build/Products/Debug-iphonesimulator/bevy_mobile_example.app
