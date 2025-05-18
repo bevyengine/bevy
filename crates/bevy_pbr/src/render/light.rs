@@ -220,7 +220,8 @@ pub fn extract_lights(
     mut commands: Commands,
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
-    global_point_lights: Extract<Res<GlobalVisibleClusterableObjects>>,
+    global_visible_clusterable: Extract<Res<GlobalVisibleClusterableObjects>>,
+    cubemap_visible_entities: Extract<Query<RenderEntity, With<CubemapVisibleEntities>>>,
     point_lights: Extract<
         Query<(
             Entity,
@@ -276,6 +277,16 @@ pub fn extract_lights(
     if directional_light_shadow_map.is_changed() {
         commands.insert_resource(directional_light_shadow_map.clone());
     }
+
+    // Clear previous visible entities for all cubemapped lights as they might not be in the
+    // `global_visible_clusterable` list anymore.
+    commands.try_insert_batch(
+        cubemap_visible_entities
+            .iter()
+            .map(|render_entity| (render_entity, RenderCubemapVisibleEntities::default()))
+            .collect::<Vec<_>>(),
+    );
+
     // This is the point light shadow map texel size for one face of the cube as a distance of 1.0
     // world unit from the light.
     // point_light_texel_size = 2.0 * 1.0 * tan(PI / 4.0) / cube face width in texels
@@ -286,7 +297,7 @@ pub fn extract_lights(
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
-    for entity in global_point_lights.iter().copied() {
+    for entity in global_visible_clusterable.iter().copied() {
         let Ok((
             main_entity,
             render_entity,
@@ -350,7 +361,7 @@ pub fn extract_lights(
     commands.try_insert_batch(point_lights_values);
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
-    for entity in global_point_lights.iter().copied() {
+    for entity in global_visible_clusterable.iter().copied() {
         if let Ok((
             main_entity,
             render_entity,
