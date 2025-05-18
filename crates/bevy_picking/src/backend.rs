@@ -84,7 +84,7 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    /// Construct a [`PointerHits`].
+    /// Construct [`PointerHits`].
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
