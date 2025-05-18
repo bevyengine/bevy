@@ -66,11 +66,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
-            io::Error::new(
-                io::ErrorKind::Other,
-                std::format!("non-utf8 path: {}", path.display()),
-            )
-            .into(),
+            io::Error::other(std::format!("non-utf8 path: {}", path.display())).into(),
         )
     })?;
 
@@ -104,14 +100,11 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             }
         }
         Err(err) => Err(AssetReaderError::Io(
-            io::Error::new(
-                io::ErrorKind::Other,
-                std::format!(
-                    "unexpected error while loading asset {}: {}",
-                    path.display(),
-                    err
-                ),
-            )
+            io::Error::other(std::format!(
+                "unexpected error while loading asset {}: {}",
+                path.display(),
+                err
+            ))
             .into(),
         )),
     }
