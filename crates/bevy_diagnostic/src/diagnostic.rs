@@ -322,7 +322,7 @@ impl DiagnosticsStore {
         self.diagnostics.get(path)
     }
 
-    /// Get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
+    /// Mutably get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
     pub fn get_mut(&mut self, path: &DiagnosticPath) -> Option<&mut Diagnostic> {
         self.diagnostics.get_mut(path)
     }
