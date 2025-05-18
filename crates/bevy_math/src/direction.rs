@@ -999,13 +999,16 @@ impl Dir4 {
         if angle.is_nan() {
             return self;
         }
-        if angle < 0.001 || angle == PI {
+        if angle == 0.0 || angle == PI {
             // Lerp for when the geometric slerp would divide by 0.
             let mut result = self.as_vec4().lerp(*rhs, s);
             if result == Vec4::splat(0.0) {
+                // This little block of code prevents it from ever being 0.
+                // After testing with Dir3 for quite a while it mirrors the behavior of Dir3's slerp method.
+                // Perhaps it should be improved, but I'm reaching my limit
                 result = self.map(|f| if f != 0.0 { 8.940697e-8 } else { 0.0 });
             }
-            return Dir4::new(result).unwrap();
+            return Dir4(result);
         }
         // Geometric slerp.
         let p0 = (sin((1.0 - s) * angle) / sin(angle)) * self;
@@ -1414,7 +1417,7 @@ mod tests {
 
         assert_relative_eq!(
             Dir4::X.slerp(Dir4::NEG_X, 0.5),
-            Dir4::from_xyzw(8.940697e-8, 0.0, 0.0, 0.0).unwrap(),
+            Dir4(Vec4::new(8.940697e-8, 0.0, 0.0, 0.0)),
             epsilon = 0.000001
         );
     }
