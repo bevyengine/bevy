@@ -511,7 +511,7 @@ impl Schedule {
     /// Iterates the change ticks of all systems in the schedule and clamps any older than
     /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub fn check_change_ticks(&mut self, change_tick: Tick) {
         for system in &mut self.executable.systems {
             if !is_apply_deferred(system) {
                 system.check_change_tick(change_tick);

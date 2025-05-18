@@ -38,9 +38,9 @@ use crate::{
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentIds, ComponentInfo,
-        ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
-        RequiredComponents, RequiredComponentsError, Tick,
+        CheckChangeTicks, Component, ComponentDescriptor, ComponentHooks, ComponentId,
+        ComponentIds, ComponentInfo, ComponentTicks, Components, ComponentsQueuedRegistrator,
+        ComponentsRegistrator, Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{Entities, Entity, EntityDoesNotExistError, EntityLocation},
     entity_disabling::DefaultQueryFilters,
@@ -2980,6 +2980,8 @@ impl World {
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(change_tick);
         }
+
+        self.trigger(CheckChangeTicks(change_tick));
 
         self.last_check_tick = change_tick;
     }

@@ -15,6 +15,7 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
+use bevy_ecs_macros::Event;
 use bevy_platform::sync::Arc;
 use bevy_platform::{
     collections::{HashMap, HashSet},
@@ -2626,6 +2627,41 @@ impl Tick {
         } else {
             false
         }
+    }
+}
+
+/// An observer `Event` that can be used to maintain `Tick`s in custom data structures, enabling to make
+/// use of bevy's periodic checks that clamps ticks to a certain range, preventing overflows and thus
+/// keeping methods like [`Tick::is_newer_than`] reliably return `false` for ticks that got too old.
+///
+/// # Example
+///
+/// Here a schedule is stored in a custom resource. This way the systems in it would not have their change
+/// ticks automatically updated via [`World::check_change_ticks`], possibly causing `Tick`-related bugs on
+/// long-running apps.
+///
+/// To fix that, add an observer for this event that calls the schedule's
+/// [`Schedule::check_change_ticks`](bevy_ecs::schedule::Schedule::check_change_ticks).
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::component::CheckChangeTicks;
+///
+/// #[derive(Resource)]
+/// struct CustomSchedule(Schedule);
+///
+/// # let mut world = World::new();
+/// world.add_observer(|tick: Trigger<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
+///     schedule.0.check_change_ticks(tick.get());
+/// });
+/// ```
+#[derive(Debug, Clone, Copy, Event)]
+pub struct CheckChangeTicks(pub(crate) Tick);
+
+impl CheckChangeTicks {
+    /// Get the `Tick` that can be used as the parameter of [`Tick::check_tick`].
+    pub fn get(self) -> Tick {
+        self.0
     }
 }
 
