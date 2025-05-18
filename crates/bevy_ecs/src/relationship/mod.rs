@@ -15,7 +15,7 @@ use crate::{
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     error::{ignore, CommandWithEntity, HandleError},
     system::entity_command::{self},
-    world::{DeferredWorld, EntityWorldMut},
+    world::{DeferredWorld, EntityWorldMut, World},
 };
 use log::warn;
 
@@ -117,9 +117,23 @@ pub trait Relationship: Component + Sized {
             {
                 relationship_target.collection_mut_risky().add(entity);
             } else {
-                let mut target = <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-                target.collection_mut_risky().add(entity);
-                world.commands().entity(target_entity).insert(target);
+                // Commands may be deferred (e.g., in batch mode), so the world should be inspected from within the command itself.
+                // Note: this may introduce small performance overhead (about 10%) due to additional commands and lookups.
+                world.commands().queue(move |world: &mut World| {
+                    if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
+                        if let Some(mut relationship_target) =
+                            target_entity_mut.get_mut::<Self::RelationshipTarget>()
+                        {
+                            relationship_target.collection_mut_risky().add(entity);
+                        } else {
+                            let mut target =
+                                <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
+                            target.collection_mut_risky().add(entity);
+
+                            target_entity_mut.insert(target);
+                        }
+                    }
+                });
             }
         } else {
             warn!(
@@ -351,6 +365,25 @@ mod tests {
         let b = world.spawn(Likes(a)).id();
         let c = world.spawn(Likes(a)).id();
         assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+    }
+
+    #[test]
+    fn spawn_batch() {
+        #[derive(Component)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes(pub Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world
+            .spawn_batch((0..10).map(|_| Likes(a)))
+            .collect::<Vec<_>>();
+
+        assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, b);
     }
 
     #[test]
