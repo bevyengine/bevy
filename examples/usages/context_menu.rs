@@ -31,17 +31,17 @@ fn main() {
         .add_systems(Startup, setup)
         .add_observer(on_trigger_menu)
         .add_observer(on_trigger_close_menus)
-        .add_observer(create_hover_observer::<Out>(basic::WHITE))
-        .add_observer(create_hover_observer::<Over>(basic::RED))
+        .add_observer(text_color_on_hover::<Out>(basic::WHITE.into()))
+        .add_observer(text_color_on_hover::<Over>(basic::RED.into()))
         .run();
 }
 
 /// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
-fn create_hover_observer<T: Debug + Clone + Reflect>(
-    color: Srgba,
+fn text_color_on_hover<T: Debug + Clone + Reflect>(
+    color: Color,
 ) -> impl FnMut(Trigger<Pointer<T>>, Query<&mut TextColor>, Query<&Children>) {
     move |mut trigger: Trigger<Pointer<T>>,
-          mut query: Query<&mut TextColor>,
+          mut text_color: Query<&mut TextColor>,
           children: Query<&Children>| {
         let Ok(children) = children.get(trigger.event().target) else {
             return;
@@ -50,8 +50,8 @@ fn create_hover_observer<T: Debug + Clone + Reflect>(
 
         // find the text among children and change its color
         for child in children.iter() {
-            if let Ok(mut col) = query.get_mut(child) {
-                col.0 = color.into();
+            if let Ok(mut col) = text_color.get_mut(child) {
+                col.0 = color;
             }
         }
     }
@@ -109,14 +109,14 @@ fn on_trigger_menu(trigger: Trigger<OpenContextMenu>, mut commands: Commands) {
         ))
         .observe(
             |trigger: Trigger<Pointer<Pressed>>,
-             query: Query<&ContextMenuItem>,
+             menu_items: Query<&ContextMenuItem>,
              mut clear_col: ResMut<ClearColor>,
              mut commands: Commands| {
                 // Note that we want to know the target of the `Pointer<Pressed>` event (Button) here.
                 // Not to be confused with the trigger `target`
                 let target = trigger.event().target;
 
-                if let Ok(item) = query.get(target) {
+                if let Ok(item) = menu_items.get(target) {
                     clear_col.0 = item.0.into();
                     commands.trigger(CloseContextMenus);
                 }
