@@ -30,7 +30,7 @@ use crate::{
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 /// A plugin that manages GPU memory for mesh data.
@@ -158,6 +158,10 @@ pub struct MeshBufferSlice<'a> {
 pub struct SlabId(pub NonMaxU32);
 
 /// Data for a single slab.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 enum Slab {
     /// A slab that can contain multiple objects.
     General(GeneralSlab),
@@ -311,7 +315,7 @@ impl Plugin for MeshAllocatorPlugin {
             .add_systems(
                 Render,
                 allocate_and_free_meshes
-                    .in_set(RenderSet::PrepareAssets)
+                    .in_set(RenderSystems::PrepareAssets)
                     .before(prepare_assets::<RenderMesh>),
             );
     }

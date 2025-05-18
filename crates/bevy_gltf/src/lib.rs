@@ -97,11 +97,15 @@ mod vertex_attributes;
 
 extern crate alloc;
 
+use alloc::sync::Arc;
+use std::sync::Mutex;
+
 use bevy_platform::collections::HashMap;
 
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
-use bevy_image::CompressedImageFormats;
+use bevy_ecs::prelude::Resource;
+use bevy_image::{CompressedImageFormats, ImageSamplerDescriptor};
 use bevy_mesh::MeshVertexAttribute;
 use bevy_render::renderer::RenderDevice;
 
@@ -115,10 +119,57 @@ pub mod prelude {
 
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
+// Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
+/// Stores default [`ImageSamplerDescriptor`] in main world.
+#[derive(Resource)]
+pub struct DefaultGltfImageSampler(Arc<Mutex<ImageSamplerDescriptor>>);
+
+impl DefaultGltfImageSampler {
+    /// Creates a new [`DefaultGltfImageSampler`].
+    pub fn new(descriptor: &ImageSamplerDescriptor) -> Self {
+        Self(Arc::new(Mutex::new(descriptor.clone())))
+    }
+
+    /// Returns the current default [`ImageSamplerDescriptor`].
+    pub fn get(&self) -> ImageSamplerDescriptor {
+        self.0.lock().unwrap().clone()
+    }
+
+    /// Makes a clone of internal [`Arc`] pointer.
+    ///
+    /// Intended only to be used by code with no access to ECS.
+    pub fn get_internal(&self) -> Arc<Mutex<ImageSamplerDescriptor>> {
+        self.0.clone()
+    }
+
+    /// Replaces default [`ImageSamplerDescriptor`].
+    ///
+    /// Doesn't apply to samplers already built on top of it, i.e. `GltfLoader`'s output.
+    /// Assets need to manually be reloaded.
+    pub fn set(&self, descriptor: &ImageSamplerDescriptor) {
+        *self.0.lock().unwrap() = descriptor.clone();
+    }
+}
+
 /// Adds support for glTF file loading to the app.
-#[derive(Default)]
 pub struct GltfPlugin {
-    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    /// The default image sampler to lay glTF sampler data on top of.
+    ///
+    /// Can be modified with [`DefaultGltfImageSampler`] resource.
+    pub default_sampler: ImageSamplerDescriptor,
+    /// Registry for custom vertex attributes.
+    ///
+    /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
+    pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+}
+
+impl Default for GltfPlugin {
+    fn default() -> Self {
+        GltfPlugin {
+            default_sampler: ImageSamplerDescriptor::linear(),
+            custom_vertex_attributes: HashMap::default(),
+        }
+    }
 }
 
 impl GltfPlugin {
@@ -157,9 +208,13 @@ impl Plugin for GltfPlugin {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
             None => CompressedImageFormats::NONE,
         };
+        let default_sampler_resource = DefaultGltfImageSampler::new(&self.default_sampler);
+        let default_sampler = default_sampler_resource.get_internal();
+        app.insert_resource(default_sampler_resource);
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
+            default_sampler,
         });
     }
 }

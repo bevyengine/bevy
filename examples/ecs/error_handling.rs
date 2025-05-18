@@ -169,7 +169,7 @@ fn failing_system(world: &mut World) -> Result {
 fn failing_commands(mut commands: Commands) {
     commands
         // This entity doesn't exist!
-        .entity(Entity::from_raw(12345678))
+        .entity(Entity::from_raw_u32(12345678).unwrap())
         // Normally, this failed command would panic,
         // but since we've set the global error handler to `warn`
         // it will log a warning instead.

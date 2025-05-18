@@ -47,6 +47,11 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes the relation `R` between this entity and all its related entities.
+    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+        self.remove::<R::RelationshipTarget>()
+    }
+
     /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
     ///
     /// If the `related` has duplicates, a related entity will take the index of its last occurrence in `related`.
@@ -81,7 +86,7 @@ impl<'w> EntityWorldMut<'w> {
         let id = self.id();
         self.world_scope(|world| {
             for (offset, related) in related.iter().enumerate() {
-                let index = index + offset;
+                let index = index.saturating_add(offset);
                 if world
                     .get::<R>(*related)
                     .is_some_and(|relationship| relationship.get() == id)
@@ -376,6 +381,13 @@ impl<'a> EntityCommands<'a> {
         })
     }
 
+    /// Removes the relation `R` between this entity and all its related entities.
+    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+        self.queue(|mut entity: EntityWorldMut| {
+            entity.clear_related::<R>();
+        })
+    }
+
     /// Relates the given entities to this entity with the relation `R`, starting at this particular index.
     ///
     /// If the `related` has duplicates, a related entity will take the index of its last occurrence in `related`.
@@ -519,6 +531,16 @@ impl<'w, R: Relationship> RelatedSpawner<'w, R> {
     pub fn target_entity(&self) -> Entity {
         self.target
     }
+
+    /// Returns a reference to the underlying [`World`].
+    pub fn world(&self) -> &World {
+        self.world
+    }
+
+    /// Returns a mutable reference to the underlying [`World`].
+    pub fn world_mut(&mut self) -> &mut World {
+        self.world
+    }
 }
 
 /// Uses commands to spawn related "source" entities with the given [`Relationship`], targeting
@@ -612,5 +634,20 @@ mod tests {
         for entity in [a, b, c, d] {
             assert!(!world.entity(entity).contains::<TestComponent>());
         }
+    }
+
+    #[test]
+    fn remove_all_related() {
+        let mut world = World::new();
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(a)).id();
+
+        world.entity_mut(a).clear_related::<ChildOf>();
+
+        assert_eq!(world.entity(a).get::<Children>(), None);
+        assert_eq!(world.entity(b).get::<ChildOf>(), None);
+        assert_eq!(world.entity(c).get::<ChildOf>(), None);
     }
 }

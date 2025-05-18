@@ -218,6 +218,7 @@ impl Schedules {
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
     match kind {
+        #[expect(deprecated, reason = "We still need to support this.")]
         ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
         ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
         #[cfg(feature = "std")]

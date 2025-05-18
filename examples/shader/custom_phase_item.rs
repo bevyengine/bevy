@@ -32,7 +32,7 @@ use bevy::{
         },
         renderer::{RenderDevice, RenderQueue},
         view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderSystems,
     },
 };
 use bytemuck::{Pod, Zeroable};
@@ -180,9 +180,9 @@ fn main() {
         .add_render_command::<Opaque3d, DrawCustomPhaseItemCommands>()
         .add_systems(
             Render,
-            prepare_custom_phase_item_buffers.in_set(RenderSet::Prepare),
+            prepare_custom_phase_item_buffers.in_set(RenderSystems::Prepare),
         )
-        .add_systems(Render, queue_custom_phase_item.in_set(RenderSet::Queue));
+        .add_systems(Render, queue_custom_phase_item.in_set(RenderSystems::Queue));
 
     app.run();
 }

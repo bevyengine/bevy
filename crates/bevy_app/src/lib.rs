@@ -55,7 +55,7 @@ pub mod prelude {
         main_schedule::{
             First, FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, Last, Main,
             PostStartup, PostUpdate, PreStartup, PreUpdate, RunFixedMainLoop,
-            RunFixedMainLoopSystem, SpawnScene, Startup, Update,
+            RunFixedMainLoopSystems, SpawnScene, Startup, Update,
         },
         sub_app::SubApp,
         Plugin, PluginGroup, TaskPoolOptions, TaskPoolPlugin,
