@@ -16,7 +16,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bitflags::bitflags;
 #[cfg(not(feature = "tonemapping_luts"))]
@@ -118,7 +118,7 @@ impl Plugin for TonemappingPlugin {
             .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
             .add_systems(
                 Render,
-                prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
+                prepare_view_tonemapping_pipelines.in_set(RenderSystems::Prepare),
             );
     }
 

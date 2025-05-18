@@ -55,12 +55,6 @@ pub trait Tuple: PartialReflect {
     /// Drain the fields of this tuple to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Clones the tuple into a [`DynamicTuple`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_tuple` instead")]
-    fn clone_dynamic(&self) -> DynamicTuple {
-        self.to_dynamic_tuple()
-    }
-
     /// Creates a new [`DynamicTuple`] from this tuple.
     fn to_dynamic_tuple(&self) -> DynamicTuple {
         DynamicTuple {
