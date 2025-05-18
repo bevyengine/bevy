@@ -7,17 +7,21 @@ use bevy::{
 };
 use std::fmt::Debug;
 
+// event opening a new context menu at position `pos`
 #[derive(Event)]
 struct OpenContextMenu {
     pos: Vec2,
 }
 
+// event will be send to close currently open context menus
 #[derive(Event)]
 struct CloseContextMenus;
 
+// marker component identifying root of a context menu
 #[derive(Component)]
 struct ContextMenu;
 
+// context menu item data storing what background color `Srgba` it activates
 #[derive(Component)]
 struct ContextMenuItem(Srgba);
 
@@ -32,16 +36,18 @@ fn main() {
         .run();
 }
 
+// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
 fn create_hover_observer<T: Debug + Clone + Reflect>(
     color: Srgba,
 ) -> impl FnMut(Trigger<Pointer<T>>, Query<&mut TextColor>, Query<&Children>) {
     move |trigger: Trigger<Pointer<T>>,
           mut query: Query<&mut TextColor>,
           children: Query<&Children>| {
-        let Ok(children) = children.get(trigger.target()) else {
+        let Ok(children) = children.get(trigger.event().target) else {
             return;
         };
 
+        // find the text among children and change its color
         for child in children.iter() {
             if let Ok(mut col) = query.get_mut(child) {
                 col.0 = color.into();
@@ -53,9 +59,9 @@ fn create_hover_observer<T: Debug + Clone + Reflect>(
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    commands.spawn(button()).observe(
+    commands.spawn(background_and_button()).observe(
         // any click bubbling up here should lead to closing any open menu
-        |_trigger: Trigger<Pointer<Pressed>>, mut commands: Commands| {
+        |_: Trigger<Pointer<Pressed>>, mut commands: Commands| {
             commands.trigger(CloseContextMenus);
         },
     );
@@ -105,6 +111,8 @@ fn on_trigger_menu(trigger: Trigger<OpenContextMenu>, mut commands: Commands) {
              query: Query<&ContextMenuItem>,
              mut clear_col: ResMut<ClearColor>,
              mut commands: Commands| {
+                // Note that we want to know the target of the `Pointer<Pressed>` event (Button) here.
+                // Not to be confused with the trigger `target`
                 let target = trigger.event().target;
 
                 if let Ok(item) = query.get(target) {
@@ -137,9 +145,9 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle + use<> {
     )
 }
 
-fn button() -> impl Bundle + use<> {
+fn background_and_button() -> impl Bundle + use<> {
     (
-        Name::new("button"),
+        Name::new("background"),
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
@@ -151,6 +159,7 @@ fn button() -> impl Bundle + use<> {
         Children::spawn(SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
             parent
                 .spawn((
+                    Name::new("button"),
                     Button,
                     Node {
                         width: Val::Px(250.0),
@@ -176,6 +185,8 @@ fn button() -> impl Bundle + use<> {
                 ))
                 .observe(
                     |mut trigger: Trigger<Pointer<Pressed>>, mut commands: Commands| {
+                        // by default this event would bubble up further leading to the `CloseContextMenus`
+                        // event being triggered and undoing the opening of one here right away.
                         trigger.propagate(false);
 
                         debug!("click: {}", trigger.pointer_location.position);
