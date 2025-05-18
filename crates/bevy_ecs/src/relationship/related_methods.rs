@@ -1,10 +1,12 @@
 use crate::{
     bundle::Bundle,
     entity::{hash_set::EntityHashSet, Entity},
+    event::Event,
+    observer::Observer,
     relationship::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
     },
-    system::{Commands, EntityCommands},
+    system::{Commands, EntityCommands, IntoObserverSystem},
     world::{EntityWorldMut, World},
 };
 use bevy_platform::prelude::{Box, Vec};
@@ -525,6 +527,17 @@ impl<'w, R: Relationship> RelatedSpawner<'w, R> {
     /// entity this spawner was initialized with.
     pub fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         self.world.spawn(R::from(self.target))
+    }
+
+    /// Creates an [`Observer`] listening for events of type 'E' targeting the 'target'
+    /// entity this spawner was initialized with. No relationship 'R' is created
+    /// between the [`Observer`] and the 'target' entity.
+    pub fn observe_target<E: Event, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, B, M>,
+    ) -> EntityWorldMut<'_> {
+        self.world
+            .spawn(Observer::new(observer).with_entity(self.target))
     }
 
     /// Returns the "target entity" used when spawning entities with an `R` [`Relationship`].
