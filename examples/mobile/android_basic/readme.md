@@ -4,7 +4,7 @@ This folder instructs you how to build android apps with `cargo-apk`, a deprecat
 
 ## Setup
 
-```sh
+```bash
 rustup target add aarch64-linux-android armv7-linux-androideabi
 cargo install cargo-apk
 ```
@@ -35,7 +35,7 @@ For this example, you can replace the `Cargo.toml` with the one within this fold
 
 After setup, you can run it on a device for Android development:
 
-```sh
+```bash
 cargo apk run -p bevy_mobile_example
 ```
 
@@ -43,8 +43,8 @@ Please refer example [README](../../README.md#debugging) for debugging instructi
 
 ## Old phones
 
-Bevy by default targets Android API level 33 in its examples which is the <!-- markdown-link-check-disable -->
-[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
+Bevy by default targets Android API level 33 in its examples which is the
+[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk).
 Users of older phones may want to use an older API when testing.
 
 To use a different API, the following fields must be updated in `Cargo.toml`:

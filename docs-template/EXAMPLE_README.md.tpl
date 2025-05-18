@@ -1,17 +1,15 @@
-<!-- MD024 - The Headers from the Platform-Specific Examples should be identical  -->
 <!-- Use 'cargo run -p build-templated-pages -- build-example-page' to generate the final example README.md -->
-<!-- markdownlint-disable-file MD024 -->
 
 # Examples
 
 These examples demonstrate the main features of Bevy and how to use them.
 To run an example, use the command `cargo run --example <Example>`, and add the option `--features x11` or `--features wayland` to force the example to run on a specific window compositor, e.g.
 
-```sh
+```bash
 cargo run --features wayland --example hello_world
 ```
 
-**⚠️ Note: for users of releases on crates.io!**
+## For users of releases on crates.io
 
 There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
 
@@ -65,25 +63,25 @@ git checkout v0.4.0
 <!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
 
-Example | Description
---- | ---
-[`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
+| Example | Description |
+| --- | --- |
+| [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world" |
 
 # Cross-Platform Examples
 {% for category, details in all_examples %}
 ## {{ category }}
 
 {% if details.description is string %}{{ details.description }}
-{% endif %}Example | Description
---- | ---
-{% for example in details.examples %}[{{ example.name }}](../{{ example.path }}) | {{ example.description }}
+{% endif %}| Example | Description |
+| --- | --- |
+{% for example in details.examples %}| [{{ example.name }}](../{{ example.path }}) | {{ example.description }} |
 {% endfor %}{% endfor %}
 # Tests
 
-Example | Description
---- | ---
-[How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing)
-[How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
+| Example | Description |
+| --- | --- |
+| [How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing) |
+| [How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources |
 
 # Platform-Specific Examples
 
@@ -91,7 +89,7 @@ Example | Description
 
 ### Setup
 
-```sh
+```bash
 rustup target add aarch64-linux-android
 cargo install cargo-ndk
 ```
@@ -106,13 +104,13 @@ Alternatively, you can install Android Studio.
 
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
-```sh
+```bash
 cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
 ```
 
 For example, to compile to a 64-bit ARM platform:
 
-```sh
+```bash
 cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
@@ -122,7 +120,7 @@ See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other optio
 
 After this you can build it with `gradlew`:
 
-```sh
+```bash
 ./gradlew build
 ```
 
@@ -142,7 +140,7 @@ Alternatively, you can modify project files to include it when building an APK. 
 
 You can view the logs with the following command:
 
-```sh
+```bash
 adb logcat | grep 'RustStdoutStderr\|bevy\|wgpu'
 ```
 
@@ -150,14 +148,14 @@ In case of an error getting a GPU or setting it up, you can try settings logs of
 
 Sometimes, running the app complains about an unknown activity. This may be fixed by uninstalling the application:
 
-```sh
+```bash
 adb uninstall org.bevyengine.example
 ```
 
 ### Old phones
 
-In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
-[requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
+In its examples, Bevy targets the minimum Android API that Play Store
+[requires](https://developer.android.com/google/play/requirements/target-sdk) to upload and update apps.
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
@@ -170,11 +168,12 @@ Then build it as the [Build & Run](#build--run) section stated above.
 
 #### About `cargo-apk`
 
-You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
+You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`.
+If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
-Example | File | Description
---- | --- | ---
-`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
+| Example | File | Description |
+| --- | --- | --- |
+|`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound |
 
 ## iOS
 
@@ -186,7 +185,7 @@ You need to install the correct rust targets:
 - `x86_64-apple-ios`: iOS simulator on x86 processors
 - `aarch64-apple-ios-sim`: iOS simulator on Apple processors
 
-```sh
+```bash
 rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 ```
 
@@ -194,7 +193,7 @@ rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 
 Using bash:
 
-```sh
+```bash
 cd examples/mobile
 make run
 ```
@@ -203,28 +202,28 @@ In an ideal world, this will boot up, install and run the app for the first
 iOS simulator in your `xcrun simctl list devices`. If this fails, you can
 specify the simulator device UUID via:
 
-```sh
+```bash
 DEVICE_ID=${YOUR_DEVICE_ID} make run
 ```
 
 If you'd like to see xcode do stuff, you can run
 
-```sh
+```bash
 open bevy_mobile_example.xcodeproj/
 ```
 
 which will open xcode. You then must push the zoom zoom play button and wait
 for the magic.
 
-Example | File | Description
---- | --- | ---
-`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
+| Example | File | Description |
+| --- | --- | --- |
+| `ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound |
 
 ## Wasm
 
 ### Setup
 
-```sh
+```bash
 rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli
 ```
@@ -234,7 +233,7 @@ cargo install wasm-bindgen-cli
 Following is an example for `lighting`. For other examples, change the `lighting` in the
 following commands.
 
-```sh
+```bash
 cargo build --release --example lighting --target wasm32-unknown-unknown
 wasm-bindgen --out-name wasm_example \
   --out-dir examples/wasm/target \
@@ -243,12 +242,12 @@ wasm-bindgen --out-name wasm_example \
 
 The first command will build the example for the wasm target, creating a binary. Then,
 [wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create
-javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`, which can be loaded using this
-[example HTML file](./wasm/index.html).
+javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`,
+which can be loaded using this [example HTML file](./wasm/index.html).
 
 Then serve `examples/wasm` directory to browser. i.e.
 
-```sh
+```bash
 # cargo install basic-http-server
 basic-http-server examples/wasm
 
@@ -274,9 +273,9 @@ This helper will log the command used to build the examples.
 
 ### Audio in the browsers
 
-For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
+For the moment, everything is single threaded. This can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games. You will have to experiment with your game.
 
-In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
+In browsers, audio is not authorized to start without being triggered by a user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interacts with your game.
 
 ### Optimizing
 
@@ -286,14 +285,14 @@ the steps described in [the quick-start guide](https://bevyengine.org/learn/quic
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:
 
-```sh
+```bash
 cargo build --profile wasm-release --example lighting --target wasm32-unknown-unknown
 ```
 
 To apply `wasm-opt`, first locate the `.wasm` file generated in the `--out-dir` of the
 earlier `wasm-bindgen-cli` command (the filename should end with `_bg.wasm`), then run:
 
-```sh
+```bash
 wasm-opt -Oz --output optimized.wasm examples/wasm/target/lighting_bg.wasm
 mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 ```
@@ -304,14 +303,14 @@ may not be worth keeping due to compilation time increases.
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
 
-profile                           | wasm-opt | no wasm-opt
-----------------------------------|----------|-------------
-Default                           | 8.5M     | 13.0M
-opt-level = "z"                   | 6.1M     | 12.7M
-"z" + lto = "thin"                | 5.9M     | 12M
-"z" + lto = "fat"                 | 5.1M     | 9.4M
-"z" + "thin" + codegen-units = 1  | 5.3M     | 11M
-"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M
+| profile                          | wasm-opt | no wasm-opt |
+| -------------------------------- | -------- | ----------- |
+| Default                          | 8.5M     | 13.0M       |
+| opt-level = "z"                  | 6.1M     | 12.7M       |
+| "z" + lto = "thin"               | 5.9M     | 12M         |
+| "z" + lto = "fat"                | 5.1M     | 9.4M        |
+| "z" + "thin" + codegen-units = 1 | 5.3M     | 11M         |
+| "z" + "fat"  + codegen-units = 1 | 4.8M     | 8.5M        |
 
 ### Loading Assets
 

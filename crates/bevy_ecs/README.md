@@ -26,7 +26,7 @@ Bevy ECS is Bevy's implementation of the ECS pattern. Unlike other Rust ECS impl
 
 ### Components
 
-Components are normal Rust structs. They are data stored in a `World` and specific instances of Components correlate to Entities.
+Components are normal Rust `struct`s. They are data stored in a `World` and specific instances of Components correlate to Entities.
 
 ```rust
 use bevy_ecs::prelude::*;
@@ -181,7 +181,7 @@ fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
 
 ### Change Detection
 
-Bevy ECS tracks _all_ changes to Components and Resources.
+Bevy ECS tracks *all* changes to Components and Resources.
 
 Queries can filter for changed Components:
 
@@ -228,8 +228,8 @@ Bevy ECS supports multiple component storage types.
 
 Components can be stored in:
 
-* **Tables**: Fast and cache friendly iteration, but slower adding and removing of components. This is the default storage type.
-* **Sparse Sets**: Fast adding and removing of components, but slower iteration.
+- **Tables**: Fast and cache friendly iteration, but slower adding and removing of components. This is the default storage type.
+- **Sparse Sets**: Fast adding and removing of components, but slower iteration.
 
 Component storage types are configurable, and they default to table storage if the storage is not manually defined.
 
@@ -326,7 +326,7 @@ world.trigger(MyEvent {
 });
 ```
 
-These differ from `EventReader` and `EventWriter` in that they are "reactive". Rather than happening at a specific point in a schedule, they happen _immediately_ whenever a trigger happens. Triggers can trigger other triggers, and they all will be evaluated at the same time!
+These differ from `EventReader` and `EventWriter` in that they are "reactive". Rather than happening at a specific point in a schedule, they happen *immediately* whenever a trigger happens. Triggers can trigger other triggers, and they all will be evaluated at the same time!
 
 Events can also be triggered to target specific entities:
 

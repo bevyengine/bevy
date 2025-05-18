@@ -64,7 +64,7 @@ sudo dnf install alsa-lib-devel.x86_64
 
 Or if there are errors such as:
 
-```txt
+```text
   --- stderr
   thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: "`\"pkg-config\" \"--libs\" \"--cflags\" \"libudev\"` did not exit successfully: exit status: 1\n--- stderr\nPackage libudev was not found in the pkg-config search path.\nPerhaps you should add the directory containing `libudev.pc'\nto the PKG_CONFIG_PATH environment variable\nNo package 'libudev' found\n"', /home/<user>/.cargo/registry/src/github.com-1ecc6299db9ec823/libudev-sys-0.1.4/build.rs:38:41
   stack backtrace:
@@ -87,7 +87,7 @@ error: build failed
 
 Set the `PKG_CONFIG_PATH` env var to `/usr/lib/<target>/pkgconfig/`. For example on an x86_64 system:
 
-```txt
+```text
 export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
 ```
 
@@ -138,8 +138,8 @@ If running nix on a non NixOS system (such as ubuntu, arch etc.), [NixGL](https:
 to link graphics drivers into the context of software installed by nix:
 
 1. Install a system specific nixGL wrapper ([docs](https://github.com/nix-community/nixGL)).
-   * If you're running a nvidia GPU choose `nixVulkanNvidia`.
-   * Otherwise, choose another wrapper appropriate for your system.
+   - If you're running a nvidia GPU choose `nixVulkanNvidia`.
+   - Otherwise, choose another wrapper appropriate for your system.
 2. Run `nixVulkanNvidia-xxx.xxx.xx cargo run` to compile a bevy program, where `xxx-xxx-xx` denotes the graphics driver version `nixVulkanNvidia` was compiled with.
 
 This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
@@ -180,15 +180,24 @@ sudo swupd bundle-add devpkg-libgudev
 
 ## [Alpine Linux](https://alpinelinux.org/)
 
-Run the following command to install `GNU C compiler, standard C development libraries, pkg-config, X11 development libraries, ALSA development libraries, eudev development libraries`:
+In order to install:
 
-```sh
+- GNU C compiler
+- standard C development libraries
+- pkg-config
+- X11 development libraries
+- ALSA development libraries
+- eudev development libraries
+
+run the following command:
+
+```bash
 sudo apk add gcc libc-dev pkgconf libx11-dev alsa-lib-dev eudev-dev
 ```
 
 Install a GPU renderer for you graphics card. For Intel integrated GPUs:
 
-```sh
+```bash
 sudo apk add mesa-vulkan-intel
 ```
 
@@ -201,14 +210,14 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 ## [Solus](https://getsol.us)
 
-```sh
+```bash
 sudo eopkg it -c system.devel
 sudo eopkg it g++ libx11-devel alsa-lib-devel
 ```
 
 If using Wayland, you may also need to install
 
-```sh
+```bash
 sudo eopkg it wayland-devel libxkbcommon-devel
 ```
 
@@ -218,6 +227,6 @@ Compiling with clang is also possible - replace the `g++` package with `llvm-cla
 
 It is necessary to have the hgame module loaded in order to satisfy gli-rs. It will still throw an error, but the program should run successfully. You can make sure the kernel module is loaded on start up by adding the following line to /boot/loader.conf:
 
-```sh
+```bash
 hgame_load="YES"
 ```

@@ -6,6 +6,6 @@ working on Bevy.
 
 To generate the file:
 
-```sh
+```bash
 cargo run > ../../src/test_colors.rs
 ```

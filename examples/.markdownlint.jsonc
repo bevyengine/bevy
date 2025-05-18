@@ -1,0 +1,6 @@
+{
+    "extends": "../.markdownlint.jsonc",
+    "no-duplicate-heading": {
+        "siblings_only": true
+    }
+}

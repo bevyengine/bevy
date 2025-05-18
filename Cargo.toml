@@ -2929,7 +2929,7 @@ These examples are used to test the performance and stability of various parts o
 
 Due to the focus on performance it's recommended to run the stress tests in release mode:
 
-```sh
+```bash
 cargo run --release --example <example name>
 ```
 """
