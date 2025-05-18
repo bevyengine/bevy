@@ -58,7 +58,7 @@ use self::{
 };
 use crate::{graph::NodePbr, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetId, Handle};
+use bevy_asset::{embedded_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
@@ -74,8 +74,8 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    load_shader_library,
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::Shader,
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{self, prepare_view_targets, Msaa, Visibility, VisibilityClass},
@@ -84,11 +84,6 @@ use bevy_render::{
 use bevy_transform::components::Transform;
 use derive_more::From;
 use tracing::error;
-
-const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d90ac78c-500f-48aa-b488-cc98eb3f6314");
-const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("db8d9001-6ca7-4d00-968a-d5f5b96b89c3");
 
 /// Provides a plugin for rendering large amounts of high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
 ///
@@ -152,84 +147,19 @@ impl Plugin for MeshletPlugin {
             std::process::exit(1);
         }
 
-        load_internal_asset!(
-            app,
-            MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
-            "clear_visibility_buffer.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_BINDINGS_SHADER_HANDLE,
-            "meshlet_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            super::MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
-            "visibility_buffer_resolve.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_CULL_SHARED_HANDLE,
-            "meshlet_cull_shared.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_INSTANCE_CULLING_SHADER_HANDLE,
-            "cull_instances.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_BVH_CULLING_SHADER_HANDLE,
-            "cull_bvh.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_MESHLET_CULLING_SHADER_HANDLE,
-            "cull_clusters.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
-            "visibility_buffer_software_raster.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
-            "visibility_buffer_hardware_raster.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_MESH_MATERIAL_SHADER_HANDLE,
-            "meshlet_mesh_material.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
-            "resolve_render_targets.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
-            "remap_1d_to_2d_dispatch.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_FILL_COUNTS_SHADER_HANDLE,
-            "fill_counts.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "clear_visibility_buffer.wgsl");
+        load_shader_library!(app, "meshlet_bindings.wgsl");
+        load_shader_library!(app, "visibility_buffer_resolve.wgsl");
+        load_shader_library!(app, "meshlet_cull_shared.wgsl");
+        embedded_asset!(app, "cull_instances.wgsl");
+        embedded_asset!(app, "cull_bvh.wgsl");
+        embedded_asset!(app, "cull_clusters.wgsl");
+        embedded_asset!(app, "visibility_buffer_software_raster.wgsl");
+        embedded_asset!(app, "visibility_buffer_hardware_raster.wgsl");
+        embedded_asset!(app, "meshlet_mesh_material.wgsl");
+        embedded_asset!(app, "resolve_render_targets.wgsl");
+        embedded_asset!(app, "remap_1d_to_2d_dispatch.wgsl");
+        embedded_asset!(app, "fill_counts.wgsl");
 
         app.init_asset::<MeshletMesh>()
             .register_asset_loader(MeshletMeshLoader);

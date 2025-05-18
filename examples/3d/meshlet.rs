@@ -14,7 +14,7 @@ use bevy::{
     render::render_resource::AsBindGroup,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
-use std::{f32::consts::PI, path::Path, process::ExitCode};
+use std::{f32::consts::PI, process::ExitCode};
 
 const ASSET_URL: &str =
     "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh";

@@ -1,6 +1,6 @@
 use super::{
-    instance_manager::InstanceManager, resource_manager::ResourceManager,
-    MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+    instance_manager::InstanceManager, pipelines::MeshletPipelines,
+    resource_manager::ResourceManager,
 };
 use crate::{environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume, *};
 use bevy_core_pipeline::{
@@ -32,6 +32,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     material_pipeline: Res<MaterialPipeline>,
     mesh_pipeline: Res<MeshPipeline>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
+    meshlet_pipelines: Res<MeshletPipelines>,
     render_material_instances: Res<RenderMaterialInstances>,
     material_bind_group_allocators: Res<MaterialBindGroupAllocators>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
@@ -194,7 +195,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 layout,
                 push_constant_ranges: vec![],
                 vertex: VertexState {
-                    shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
                     buffers: Vec::new(),
@@ -210,8 +211,9 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: match material.properties.get_shader(MeshletFragmentShader) {
-                        Some(shader) => shader.clone(),
-                        None => MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                        ShaderRef::Default => meshlet_pipelines.meshlet_mesh_material.clone(),
+                        ShaderRef::Handle(handle) => handle,
+                        ShaderRef::Path(path) => asset_server.load(path),
                     },
                     shader_defs,
                     entry_point: material_fragment.entry_point,
@@ -264,6 +266,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
     prepass_pipeline: Res<PrepassPipeline>,
     material_bind_group_allocators: Res<MaterialBindGroupAllocators>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
+    meshlet_pipelines: Res<MeshletPipelines>,
     render_material_instances: Res<RenderMaterialInstances>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     mut views: Query<
@@ -387,7 +390,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 ],
                 push_constant_ranges: vec![],
                 vertex: VertexState {
-                    shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                    shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
                     buffers: Vec::new(),
@@ -402,7 +405,11 @@ pub fn prepare_material_meshlet_meshes_prepass(
                 }),
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
-                    shader: fragment_shader,
+                    shader: match fragment_shader {
+                        ShaderRef::Default => meshlet_pipelines.meshlet_mesh_material.clone(),
+                        ShaderRef::Handle(handle) => handle,
+                        ShaderRef::Path(path) => asset_server.load(path),
+                    },
                     shader_defs,
                     entry_point,
                     targets: material_fragment.targets,
