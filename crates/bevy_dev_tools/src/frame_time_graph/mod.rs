@@ -4,6 +4,7 @@ use bevy_app::{Plugin, Update};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::system::{Res, ResMut};
+use bevy_math::ops::log2;
 use bevy_reflect::TypePath;
 use bevy_render::{
     render_resource::{AsBindGroup, Shader, ShaderRef, ShaderType},
@@ -59,8 +60,8 @@ impl FrameTimeGraphConfigUniform {
         Self {
             dt_min,
             dt_max,
-            dt_min_log2: dt_min.log2(),
-            dt_max_log2: dt_max.log2(),
+            dt_min_log2: log2(dt_min),
+            dt_max_log2: log2(dt_max),
             proportional_width: u32::from(proportional_width),
         }
     }
@@ -92,7 +93,7 @@ fn update_frame_time_values(
     diagnostics_store: Res<DiagnosticsStore>,
     config: Option<Res<FpsOverlayConfig>>,
 ) {
-    if !config.map_or(true, |c| c.frame_time_graph_config.enabled) {
+    if !config.is_none_or(|c| c.frame_time_graph_config.enabled) {
         return;
     }
     let Some(frame_time) = diagnostics_store.get(&FrameTimeDiagnosticsPlugin::FRAME_TIME) else {
