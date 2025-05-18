@@ -344,6 +344,9 @@ impl Plugin for LogPlugin {
 }
 
 impl LogPlugin {
+    /// Build a [`BoxedLayer`] that will filter which logs are outputted.
+    /// It will read the `RUST_LOG` env variable to override the settings
+    /// on a given run, the default will fallback to the provided `level` and `filter`
     fn build_filter_layer(level: Level, filter: &str) -> BoxedLayer {
         let default_filter = { format!("{},{}", level, filter) };
 
@@ -368,6 +371,9 @@ impl LogPlugin {
     }
 
     #[cfg(feature = "tracing-chrome")]
+    /// [`BoxedLayer`] to build the necessary output when the `tracing-chrome` feature is enabled.
+    /// The [`tracing_chrome::FlushGuard`] must be kept around till we don't need to output logs
+    /// any more
     fn build_chrome_layer() -> (BoxedLayer, tracing_chrome::FlushGuard) {
         let mut layer = tracing_chrome::ChromeLayerBuilder::new();
         if let Ok(path) = std::env::var("TRACE_CHROME") {
@@ -394,6 +400,11 @@ impl LogPlugin {
         reason = "We can't switch to `expect` for allow(unused_variables) as we use it if not on those platforms"
     )]
     #[allow(unused_variables, reason = "Not used on `wasm32`, `android` or `ios")]
+    /// Build a [`BoxedLayer`] that outputs logs to the system default.
+    /// On most platforms, it will be `stderr` with [`tracing_subscriber::fmt::Layer`], expect on `android`, `ios` and` wasm32` where it
+    /// uses those system default log infrastructure.
+    /// It is possible to override how you output those logs by providing a `custom_format_layer`.
+    /// Note that won't have an effect on platform that don't use [`tracing_subscriber::fmt::Layer`]
     fn build_system_output_layer(custom_format_layer: Option<BoxedLayer>) -> BoxedLayer {
         let layer: BoxedLayer;
         #[cfg(target_arch = "wasm32")]
@@ -418,11 +429,11 @@ impl LogPlugin {
         ))]
         {
             layer = {
-                // note: the implementation of `Default` reads from the env var NO_COLOR
-                // to decide whether to use ANSI color codes, which is common convention
-                // https://no-color.org/
                 let fmt_layer = custom_format_layer.unwrap_or_else(|| {
                     tracing_subscriber::fmt::Layer::default()
+                        // note: the implementation of `Default` reads from the env var NO_COLOR
+                        // to decide whether to use ANSI color codes, which is common convention
+                        // https://no-color.org/
                         .with_writer(std::io::stderr)
                         .boxed()
                 });
