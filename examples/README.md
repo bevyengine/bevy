@@ -68,6 +68,7 @@ git checkout v0.4.0
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
+  - [usage](#usage)
 
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
@@ -587,6 +588,12 @@ Example | Description
 [Window Drag Move](../examples/window/window_drag_move.rs) | Demonstrates drag move and drag resize without window decoration
 [Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
+
+## usage
+
+Example | Description
+--- | ---
+[Projectile follow moving](../examples/usage/projectile_follow_moving.rs) | A projectile is fired on mousclick following a moving target.
 
 # Tests
 
