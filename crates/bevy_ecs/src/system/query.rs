@@ -115,7 +115,7 @@ use core::{
 /// ```
 ///
 /// Note that the filter is `With<ComponentB>`, not `With<&ComponentB>`. Unlike query data, `With`
-/// does require components to be behind a reference.
+/// does not require components to be behind a reference.
 ///
 /// ## `QueryData` or `QueryFilter` tuples
 ///
