@@ -7,21 +7,21 @@ use bevy::{
 };
 use std::fmt::Debug;
 
-// event opening a new context menu at position `pos`
+/// event opening a new context menu at position `pos`
 #[derive(Event)]
 struct OpenContextMenu {
     pos: Vec2,
 }
 
-// event will be send to close currently open context menus
+/// event will be send to close currently open context menus
 #[derive(Event)]
 struct CloseContextMenus;
 
-// marker component identifying root of a context menu
+/// marker component identifying root of a context menu
 #[derive(Component)]
 struct ContextMenu;
 
-// context menu item data storing what background color `Srgba` it activates
+/// context menu item data storing what background color `Srgba` it activates
 #[derive(Component)]
 struct ContextMenuItem(Srgba);
 
@@ -36,16 +36,17 @@ fn main() {
         .run();
 }
 
-// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
+/// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
 fn create_hover_observer<T: Debug + Clone + Reflect>(
     color: Srgba,
 ) -> impl FnMut(Trigger<Pointer<T>>, Query<&mut TextColor>, Query<&Children>) {
-    move |trigger: Trigger<Pointer<T>>,
+    move |mut trigger: Trigger<Pointer<T>>,
           mut query: Query<&mut TextColor>,
           children: Query<&Children>| {
         let Ok(children) = children.get(trigger.event().target) else {
             return;
         };
+        trigger.propagate(false);
 
         // find the text among children and change its color
         for child in children.iter() {
@@ -129,7 +130,6 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle + use<> {
         ContextMenuItem(col),
         Button,
         Node {
-            justify_content: JustifyContent::Center,
             padding: UiRect::all(Val::Px(5.0)),
             ..default()
         },
