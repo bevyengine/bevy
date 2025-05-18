@@ -1,0 +1,37 @@
+[package]
+name = "bevy_reflect_derive"
+version = "0.16.0-dev"
+edition = "2024"
+description = "Derive implementations for bevy_reflect"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[lib]
+proc-macro = true
+
+[features]
+default = []
+# When enabled, allows documentation comments to be processed by the reflection macros
+documentation = []
+# Enables macro logic related to function reflection
+functions = []
+
+[dependencies]
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.16.0-dev" }
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full"] }
+uuid = { version = "1.13.1", features = ["v4"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
+uuid = { version = "1.13.1", default-features = false, features = ["js"] }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

@@ -1,54 +1,79 @@
-use std::ops::Mul;
+use core::ops::Mul;
 
 use super::Transform;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_math::{ops, Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
+use derive_more::derive::From;
 
-/// Describe the position of an entity relative to the reference frame.
+#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
+#[cfg(feature = "bevy-support")]
+use bevy_ecs::{component::Component, hierarchy::validate_parent_has_component};
+
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::reflect::ReflectComponent,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
+
+/// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace coordinates.
 ///
-/// * To place or move an entity, you should set its [`Transform`].
-/// * [`GlobalTransform`] is fully managed by bevy, you cannot mutate it, use
-///   [`Transform`] instead.
+/// You cannot directly mutate [`GlobalTransform`]; instead, you change an entity's transform by manipulating
+/// its [`Transform`], which indirectly causes Bevy to update its [`GlobalTransform`].
+///
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
+///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
-/// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to world space coordinates,
+/// if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
-/// [`GlobalTransform`] is the position of an entity relative to the reference frame.
-///
-/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+/// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform`] of each ancestor
+/// entity which has a Transform. This is done automatically by Bevy-internal systems in the [`TransformSystems::Propagate`]
+/// system set.
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
+/// [`TransformSystems::Propagate`]: crate::TransformSystems::Propagate
+///
 /// # Examples
 ///
-/// - [`transform`]
+/// - [`transform`][transform_example]
 ///
-/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+/// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+#[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component),
+    component(on_insert = validate_parent_has_component::<GlobalTransform>)
+)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, PartialEq, Debug, Clone)
+)]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct GlobalTransform(Affine3A);
 
 macro_rules! impl_local_axis {
     ($pos_name: ident, $neg_name: ident, $axis: ident) => {
-        #[doc=std::concat!("Return the local ", std::stringify!($pos_name), " vector (", std::stringify!($axis) ,").")]
+        #[doc=core::concat!("Return the local ", core::stringify!($pos_name), " vector (", core::stringify!($axis) ,").")]
         #[inline]
-        pub fn $pos_name(&self) -> Vec3 {
-            (self.0.matrix3 * Vec3::$axis).normalize()
+        pub fn $pos_name(&self) -> Dir3 {
+            Dir3::new_unchecked((self.0.matrix3 * Vec3::$axis).normalize())
         }
 
-        #[doc=std::concat!("Return the local ", std::stringify!($neg_name), " vector (-", std::stringify!($axis) ,").")]
+        #[doc=core::concat!("Return the local ", core::stringify!($neg_name), " vector (-", core::stringify!($axis) ,").")]
         #[inline]
-        pub fn $neg_name(&self) -> Vec3 {
+        pub fn $neg_name(&self) -> Dir3 {
             -self.$pos_name()
         }
     };
@@ -82,6 +107,12 @@ impl GlobalTransform {
         GlobalTransform(Affine3A::from_scale(scale))
     }
 
+    #[doc(hidden)]
+    #[inline]
+    pub fn from_isometry(iso: Isometry3d) -> Self {
+        Self(iso.into())
+    }
+
     /// Returns the 3d affine transformation matrix as a [`Mat4`].
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
@@ -108,6 +139,19 @@ impl GlobalTransform {
         }
     }
 
+    /// Returns the isometric part of the transformation as an [isometry]. Any scaling done by the
+    /// transformation will be ignored.
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output
+    /// will be invalid.
+    ///
+    /// [isometry]: Isometry3d
+    #[inline]
+    pub fn to_isometry(&self) -> Isometry3d {
+        let (_, rotation, translation) = self.0.to_scale_rotation_translation();
+        Isometry3d::new(translation, rotation)
+    }
+
     /// Returns the [`Transform`] `self` would have if it was a child of an entity
     /// with the `parent` [`GlobalTransform`].
     ///
@@ -115,10 +159,9 @@ impl GlobalTransform {
     /// Say you have an entity `e1` that you want to turn into a child of `e2`,
     /// but you want `e1` to keep the same global transform, even after re-parenting. You would use:
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
-    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
-    /// # use bevy_hierarchy::{prelude::Parent, BuildChildren};
+    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands, ChildOf};
     /// #[derive(Component)]
     /// struct ToReparent {
     ///     new_parent: Entity,
@@ -133,7 +176,7 @@ impl GlobalTransform {
     ///             *transform = initial.reparented_to(parent_transform);
     ///             commands.entity(entity)
     ///                 .remove::<ToReparent>()
-    ///                 .set_parent(to_reparent.new_parent);
+    ///                 .insert(ChildOf(to_reparent.new_parent));
     ///         }
     ///     }
     /// }
@@ -177,15 +220,75 @@ impl GlobalTransform {
         self.0.translation
     }
 
+    /// Get the rotation as a [`Quat`].
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
+    ///
+    /// # Warning
+    ///
+    /// This is calculated using `to_scale_rotation_translation`, meaning that you
+    /// should probably use it directly if you also need translation or scale.
+    #[inline]
+    pub fn rotation(&self) -> Quat {
+        self.to_scale_rotation_translation().1
+    }
+
+    /// Get the scale as a [`Vec3`].
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
+    ///
+    /// Some of the computations overlap with `to_scale_rotation_translation`, which means you should use
+    /// it instead if you also need rotation.
+    #[inline]
+    pub fn scale(&self) -> Vec3 {
+        //Formula based on glam's implementation https://github.com/bitshifter/glam-rs/blob/2e4443e70c709710dfb25958d866d29b11ed3e2b/src/f32/affine3a.rs#L290
+        let det = self.0.matrix3.determinant();
+        Vec3::new(
+            self.0.matrix3.x_axis.length() * ops::copysign(1., det),
+            self.0.matrix3.y_axis.length(),
+            self.0.matrix3.z_axis.length(),
+        )
+    }
+
     /// Get an upper bound of the radius from the given `extents`.
     #[inline]
     pub fn radius_vec3a(&self, extents: Vec3A) -> f32 {
         (self.0.matrix3 * extents).length()
     }
 
-    /// Transforms the given `point`, applying shear, scale, rotation and translation.
+    /// Transforms the given point from local space to global space, applying shear, scale, rotation and translation.
     ///
-    /// This moves `point` into the local space of this [`GlobalTransform`].
+    /// It can be used like this:
+    ///
+    /// ```
+    /// # use bevy_transform::prelude::{GlobalTransform};
+    /// # use bevy_math::prelude::Vec3;
+    /// let global_transform = GlobalTransform::from_xyz(1., 2., 3.);
+    /// let local_point = Vec3::new(1., 2., 3.);
+    /// let global_point = global_transform.transform_point(local_point);
+    /// assert_eq!(global_point, Vec3::new(2., 4., 6.));
+    /// ```
+    ///
+    /// ```
+    /// # use bevy_transform::prelude::{GlobalTransform};
+    /// # use bevy_math::Vec3;
+    /// let global_point = Vec3::new(2., 4., 6.);
+    /// let global_transform = GlobalTransform::from_xyz(1., 2., 3.);
+    /// let local_point = global_transform.affine().inverse().transform_point3(global_point);
+    /// assert_eq!(local_point, Vec3::new(1., 2., 3.))
+    /// ```
+    ///
+    /// To apply shear, scale, and rotation *without* applying translation, different functions are available:
+    /// ```
+    /// # use bevy_transform::prelude::{GlobalTransform};
+    /// # use bevy_math::prelude::Vec3;
+    /// let global_transform = GlobalTransform::from_xyz(1., 2., 3.);
+    /// let local_direction = Vec3::new(1., 2., 3.);
+    /// let global_direction = global_transform.affine().transform_vector3(local_direction);
+    /// assert_eq!(global_direction, Vec3::new(1., 2., 3.));
+    /// let roundtripped_local_direction = global_transform.affine().inverse().transform_vector3(global_direction);
+    /// assert_eq!(roundtripped_local_direction, local_direction);
+    /// ```
     #[inline]
     pub fn transform_point(&self, point: Vec3) -> Vec3 {
         self.0.transform_point3(point)
@@ -211,15 +314,9 @@ impl From<Transform> for GlobalTransform {
     }
 }
 
-impl From<Affine3A> for GlobalTransform {
-    fn from(affine: Affine3A) -> Self {
-        Self(affine)
-    }
-}
-
 impl From<Mat4> for GlobalTransform {
-    fn from(matrix: Mat4) -> Self {
-        Self(Affine3A::from_mat4(matrix))
+    fn from(world_from_local: Mat4) -> Self {
+        Self(Affine3A::from_mat4(world_from_local))
     }
 }
 
@@ -304,5 +401,19 @@ mod test {
             t1.compute_transform(),
             t1_prime.compute_transform(),
         );
+    }
+
+    #[test]
+    fn scale() {
+        let test_values = [-42.42, 0., 42.42];
+        for x in test_values {
+            for y in test_values {
+                for z in test_values {
+                    let scale = Vec3::new(x, y, z);
+                    let gt = GlobalTransform::from_scale(scale);
+                    assert_eq!(gt.scale(), gt.to_scale_rotation_translation().0);
+                }
+            }
+        }
     }
 }

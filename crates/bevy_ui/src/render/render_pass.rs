@@ -1,37 +1,35 @@
-use std::ops::Range;
+use core::ops::Range;
 
-use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::UiCameraConfig, DefaultCameraView};
+use super::{ImageNodeBindGroups, UiBatch, UiMeta, UiViewTarget};
+use crate::UiCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
+use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
+    camera::ExtractedCamera,
     render_graph::*,
     render_phase::*,
-    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
+    render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
     renderer::*,
     view::*,
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<
-        (
-            &'static RenderPhase<TransparentUi>,
-            &'static ViewTarget,
-            Option<&'static UiCameraConfig>,
-        ),
-        With<ExtractedView>,
-    >,
-    default_camera_view_query: QueryState<&'static DefaultCameraView>,
+    ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,
+    ui_view_target_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera)>,
+    ui_camera_view_query: QueryState<&'static UiCameraView>,
 }
 
 impl UiPassNode {
     pub fn new(world: &mut World) -> Self {
         Self {
             ui_view_query: world.query_filtered(),
-            default_camera_view_query: world.query(),
+            ui_view_target_query: world.query(),
+            ui_camera_view_query: world.query(),
         }
     }
 }
@@ -39,7 +37,8 @@ impl UiPassNode {
 impl Node for UiPassNode {
     fn update(&mut self, world: &mut World) {
         self.ui_view_query.update_archetypes(world);
-        self.default_camera_view_query.update_archetypes(world);
+        self.ui_view_target_query.update_archetypes(world);
+        self.ui_camera_view_query.update_archetypes(world);
     }
 
     fn run(
@@ -48,75 +47,88 @@ impl Node for UiPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        // Extract the UI view.
         let input_view_entity = graph.view_entity();
 
-        let Ok((transparent_phase, target, camera_ui)) =
-            self.ui_view_query.get_manual(world, input_view_entity)
+        let Some(transparent_render_phases) =
+            world.get_resource::<ViewSortedRenderPhases<TransparentUi>>()
         else {
             return Ok(());
         };
+
+        // Query the UI view components.
+        let Ok((view, ui_view_target)) = self.ui_view_query.get_manual(world, input_view_entity)
+        else {
+            return Ok(());
+        };
+
+        let Ok((target, camera)) = self
+            .ui_view_target_query
+            .get_manual(world, ui_view_target.0)
+        else {
+            return Ok(());
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get(&view.retained_view_entity)
+        else {
+            return Ok(());
+        };
+
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
-        // Don't render UI for cameras where it is explicitly disabled
-        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false })) {
-            return Ok(());
-        }
 
-        // use the "default" view entity if it is defined
-        let view_entity = if let Ok(default_view) = self
-            .default_camera_view_query
+        // use the UI view entity if it is defined
+        let view_entity = if let Ok(ui_camera_view) = self
+            .ui_camera_view_query
             .get_manual(world, input_view_entity)
         {
-            default_view.0
+            ui_camera_view.0
         } else {
             input_view_entity
         };
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
-                load: LoadOp::Load,
-                store: true,
-            }))],
+            color_attachments: &[Some(target.get_unsampled_color_attachment())],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
-
-        transparent_phase.render(&mut render_pass, world, view_entity);
+        if let Some(viewport) = camera.viewport.as_ref() {
+            render_pass.set_camera_viewport(viewport);
+        }
+        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the ui phase {err:?}");
+        }
 
         Ok(())
     }
 }
 
 pub struct TransparentUi {
-    pub sort_key: (FloatOrd, u32),
-    pub entity: Entity,
+    pub sort_key: FloatOrd,
+    pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
+    pub index: usize,
+    pub indexed: bool,
 }
 
 impl PhaseItem for TransparentUi {
-    type SortKey = (FloatOrd, u32);
-
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
     }
 
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
     }
 
     #[inline]
@@ -130,13 +142,32 @@ impl PhaseItem for TransparentUi {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index.clone()
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
+    }
+}
+
+impl SortedPhaseItem for TransparentUi {
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(SortedPhaseItem::sort_key);
+    }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
     }
 }
 
@@ -157,59 +188,82 @@ pub type DrawUi = (
 pub struct SetUiViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
     type Param = SRes<UiMeta>;
-    type ViewWorldQuery = Read<ViewUniformOffset>;
-    type ItemWorldQuery = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
-        _entity: (),
+        _entity: Option<()>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(
-            I,
-            ui_meta.into_inner().view_bind_group.as_ref().unwrap(),
-            &[view_uniform.offset],
-        );
+        let Some(view_bind_group) = ui_meta.into_inner().view_bind_group.as_ref() else {
+            return RenderCommandResult::Failure("view_bind_group not available");
+        };
+        pass.set_bind_group(I, view_bind_group, &[view_uniform.offset]);
         RenderCommandResult::Success
     }
 }
 pub struct SetUiTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
-    type Param = SRes<UiImageBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<UiBatch>;
+    type Param = SRes<ImageNodeBindGroups>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
+        batch: Option<&'w UiBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
+        let Some(batch) = batch else {
+            return RenderCommandResult::Skip;
+        };
+
         pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
 }
+
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type Param = SRes<UiMeta>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<UiBatch>;
+    type ViewQuery = ();
+    type ItemQuery = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: &'w UiBatch,
+        batch: Option<&'w UiBatch>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
-        pass.draw(batch.range.clone(), 0..1);
+        let Some(batch) = batch else {
+            return RenderCommandResult::Skip;
+        };
+        let ui_meta = ui_meta.into_inner();
+        let Some(vertices) = ui_meta.vertices.buffer() else {
+            return RenderCommandResult::Failure("missing vertices to draw ui");
+        };
+        let Some(indices) = ui_meta.indices.buffer() else {
+            return RenderCommandResult::Failure("missing indices to draw ui");
+        };
+
+        // Store the vertices
+        pass.set_vertex_buffer(0, vertices.slice(..));
+        // Define how to "connect" the vertices
+        pass.set_index_buffer(
+            indices.slice(..),
+            0,
+            bevy_render::render_resource::IndexFormat::Uint32,
+        );
+        // Draw the vertices
+        pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
     }
 }

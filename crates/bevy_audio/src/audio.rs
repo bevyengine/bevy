@@ -1,78 +1,36 @@
-use crate::{AudioSource, Decodable};
+use crate::{AudioSource, Decodable, Volume};
 use bevy_asset::{Asset, Handle};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
-
-/// Defines the volume to play an audio source at.
-#[derive(Clone, Copy, Debug)]
-pub enum Volume {
-    /// A volume level relative to the global volume.
-    Relative(VolumeLevel),
-    /// A volume level that ignores the global volume.
-    Absolute(VolumeLevel),
-}
-
-impl Default for Volume {
-    fn default() -> Self {
-        Self::Relative(VolumeLevel::default())
-    }
-}
-
-impl Volume {
-    /// Create a new volume level relative to the global volume.
-    pub fn new_relative(volume: f32) -> Self {
-        Self::Relative(VolumeLevel::new(volume))
-    }
-    /// Create a new volume level that ignores the global volume.
-    pub fn new_absolute(volume: f32) -> Self {
-        Self::Absolute(VolumeLevel::new(volume))
-    }
-}
-
-/// A volume level equivalent to a non-negative float.
-#[derive(Clone, Copy, Deref, DerefMut, Debug)]
-pub struct VolumeLevel(pub(crate) f32);
-
-impl Default for VolumeLevel {
-    fn default() -> Self {
-        Self(1.0)
-    }
-}
-
-impl VolumeLevel {
-    /// Create a new volume level.
-    pub fn new(volume: f32) -> Self {
-        debug_assert!(volume >= 0.0);
-        Self(volume)
-    }
-    /// Get the value of the volume level.
-    pub fn get(&self) -> f32 {
-        self.0
-    }
-
-    /// Zero (silent) volume level
-    pub const ZERO: Self = VolumeLevel(0.0);
-}
+use bevy_reflect::prelude::*;
 
 /// The way Bevy manages the sound playback.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
+    ///
+    /// Note: It is not possible to reuse an `AudioPlayer` after it has finished playing and
+    /// the underlying `AudioSink` or `SpatialAudioSink` has been drained.
+    ///
+    /// To replay a sound, the audio components provided by `AudioPlayer` must be removed and
+    /// added again.
     Once,
     /// Repeat the sound forever.
     Loop,
-    /// Despawn the entity when the sound finishes playing.
+    /// Despawn the entity and its children when the sound finishes playing.
     Despawn,
     /// Remove the audio components from the entity, when the sound finishes playing.
     Remove,
 }
 
 /// Initial settings to be used when audio starts playing.
+///
 /// If you would like to control the audio while it is playing, query for the
 /// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
 /// components. Changes to this component will *not* be applied to already-playing audio.
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, Reflect)]
+#[reflect(Clone, Default, Component, Debug)]
 pub struct PlaybackSettings {
     /// The desired playback behavior.
     pub mode: PlaybackMode,
@@ -84,6 +42,11 @@ pub struct PlaybackSettings {
     /// Useful for "deferred playback", if you want to prepare
     /// the entity, but hear the sound later.
     pub paused: bool,
+    /// Whether to create the sink in muted state or not.
+    ///
+    /// This is useful for audio that should be initially muted. You can still
+    /// set the initial volume and it is applied when the audio is unmuted.
+    pub muted: bool,
     /// Enables spatial audio for this source.
     ///
     /// See also: [`SpatialListener`].
@@ -91,55 +54,62 @@ pub struct PlaybackSettings {
     /// Note: Bevy does not currently support HRTF or any other high-quality 3D sound rendering
     /// features. Spatial audio is implemented via simple left-right stereo panning.
     pub spatial: bool,
+    /// Optional scale factor applied to the positions of this audio source and the listener,
+    /// overriding the default value configured on [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
+    pub spatial_scale: Option<SpatialScale>,
 }
 
 impl Default for PlaybackSettings {
     fn default() -> Self {
-        // TODO: what should the default be: ONCE/DESPAWN/REMOVE?
         Self::ONCE
     }
 }
 
 impl PlaybackSettings {
     /// Will play the associated audio source once.
+    ///
+    /// Note: It is not possible to reuse an `AudioPlayer` after it has finished playing and
+    /// the underlying `AudioSink` or `SpatialAudioSink` has been drained.
+    ///
+    /// To replay a sound, the audio components provided by `AudioPlayer` must be removed and
+    /// added again.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Once,
-        volume: Volume::Relative(VolumeLevel(1.0)),
+        volume: Volume::Linear(1.0),
         speed: 1.0,
         paused: false,
+        muted: false,
         spatial: false,
+        spatial_scale: None,
     };
 
     /// Will play the associated audio source in a loop.
     pub const LOOP: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Loop,
-        volume: Volume::Relative(VolumeLevel(1.0)),
-        speed: 1.0,
-        paused: false,
-        spatial: false,
+        ..PlaybackSettings::ONCE
     };
 
     /// Will play the associated audio source once and despawn the entity afterwards.
     pub const DESPAWN: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Despawn,
-        volume: Volume::Relative(VolumeLevel(1.0)),
-        speed: 1.0,
-        paused: false,
-        spatial: false,
+        ..PlaybackSettings::ONCE
     };
 
     /// Will play the associated audio source once and remove the audio components afterwards.
     pub const REMOVE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Remove,
-        volume: Volume::Relative(VolumeLevel(1.0)),
-        speed: 1.0,
-        paused: false,
-        spatial: false,
+        ..PlaybackSettings::ONCE
     };
 
     /// Helper to start in a paused state.
     pub const fn paused(mut self) -> Self {
         self.paused = true;
+        self
+    }
+
+    /// Helper to start muted.
+    pub const fn muted(mut self) -> Self {
+        self.muted = true;
         self
     }
 
@@ -160,13 +130,20 @@ impl PlaybackSettings {
         self.spatial = spatial;
         self
     }
+
+    /// Helper to use a custom spatial scale.
+    pub const fn with_spatial_scale(mut self, spatial_scale: SpatialScale) -> Self {
+        self.spatial_scale = Some(spatial_scale);
+        self
+    }
 }
 
 /// Settings for the listener for spatial audio sources.
 ///
 /// This must be accompanied by `Transform` and `GlobalTransform`.
 /// Only one entity with a `SpatialListener` should be present at any given time.
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Clone, Default, Component, Debug)]
 pub struct SpatialListener {
     /// Left ear position relative to the `GlobalTransform`.
     pub left_ear_offset: Vec3,
@@ -193,42 +170,23 @@ impl SpatialListener {
     }
 }
 
-/// Use this [`Resource`] to control the global volume of all audio with a [`Volume::Relative`] volume.
-///
-/// Note: changing this value will not affect already playing audio.
-#[derive(Resource, Default, Clone, Copy)]
-pub struct GlobalVolume {
-    /// The global volume of all audio.
-    pub volume: VolumeLevel,
-}
-
-impl GlobalVolume {
-    /// Create a new [`GlobalVolume`] with the given volume.
-    pub fn new(volume: f32) -> Self {
-        Self {
-            volume: VolumeLevel::new(volume),
-        }
-    }
-}
-
-/// The scale factor applied to the positions of audio sources and listeners for
+/// A scale factor applied to the positions of audio sources and listeners for
 /// spatial audio.
 ///
-/// You may need to adjust this scale to fit your world's units.
-///
 /// Default is `Vec3::ONE`.
-#[derive(Resource, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Clone, Default)]
 pub struct SpatialScale(pub Vec3);
 
 impl SpatialScale {
     /// Create a new `SpatialScale` with the same value for all 3 dimensions.
-    pub fn new(scale: f32) -> Self {
+    pub const fn new(scale: f32) -> Self {
         Self(Vec3::splat(scale))
     }
 
     /// Create a new `SpatialScale` with the same value for `x` and `y`, and `0.0`
     /// for `z`.
-    pub fn new_2d(scale: f32) -> Self {
+    pub const fn new_2d(scale: f32) -> Self {
         Self(Vec3::new(scale, scale, 0.0))
     }
 }
@@ -239,37 +197,51 @@ impl Default for SpatialScale {
     }
 }
 
-/// Bundle for playing a standard bevy audio asset
-pub type AudioBundle = AudioSourceBundle<AudioSource>;
-
-/// Bundle for playing a sound.
+/// The default scale factor applied to the positions of audio sources and listeners for
+/// spatial audio. Can be overridden for individual sounds in [`PlaybackSettings`].
 ///
-/// Insert this bundle onto an entity to trigger a sound source to begin playing.
+/// You may need to adjust this scale to fit your world's units.
+///
+/// Default is `Vec3::ONE`.
+#[derive(Resource, Default, Clone, Copy, Reflect)]
+#[reflect(Resource, Default, Clone)]
+pub struct DefaultSpatialScale(pub SpatialScale);
+
+/// A component for playing a sound.
+///
+/// Insert this component onto an entity to trigger an audio source to begin playing.
 ///
 /// If the handle refers to an unavailable asset (such as if it has not finished loading yet),
 /// the audio will not begin playing immediately. The audio will play when the asset is ready.
 ///
 /// When Bevy begins the audio playback, an [`AudioSink`][crate::AudioSink] component will be
 /// added to the entity. You can use that component to control the audio settings during playback.
-#[derive(Bundle)]
-pub struct AudioSourceBundle<Source = AudioSource>
+///
+/// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
+/// `PlaybackSettings` component will *not* affect already-playing audio.
+#[derive(Component, Reflect)]
+#[reflect(Component, Clone)]
+#[require(PlaybackSettings)]
+pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>)
+where
+    Source: Asset + Decodable;
+
+impl<Source> Clone for AudioPlayer<Source>
 where
     Source: Asset + Decodable,
 {
-    /// Asset containing the audio data to play.
-    pub source: Handle<Source>,
-    /// Initial settings that the audio starts playing with.
-    /// If you would like to control the audio while it is playing,
-    /// query for the [`AudioSink`][crate::AudioSink] component.
-    /// Changes to this component will *not* be applied to already-playing audio.
-    pub settings: PlaybackSettings,
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
 }
 
-impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
-    fn default() -> Self {
-        Self {
-            source: Default::default(),
-            settings: Default::default(),
-        }
+impl AudioPlayer<AudioSource> {
+    /// Creates a new [`AudioPlayer`] with the given [`Handle<AudioSource>`].
+    ///
+    /// For convenience reasons, this hard-codes the [`AudioSource`] type. If you want to
+    /// initialize an [`AudioPlayer`] with a different type, just initialize it directly using normal
+    /// tuple struct syntax.
+    pub fn new(source: Handle<AudioSource>) -> Self {
+        Self(source)
     }
 }

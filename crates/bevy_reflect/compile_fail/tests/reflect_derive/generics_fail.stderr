@@ -1,0 +1,58 @@
+error[E0277]: `NoReflect` can not be reflected
+   --> tests/reflect_derive/generics_fail.rs:18:21
+    |
+18  |     foo.get_field::<NoReflect>("a").unwrap();
+    |         ---------   ^^^^^^^^^ the trait `Reflect` is not implemented for `NoReflect`
+    |         |
+    |         required by a bound introduced by this call
+    |
+    = note: Try using `#[derive(Reflect)]`
+    = help: the following other types implement trait `Reflect`:
+              bool
+              char
+              isize
+              i8
+              i16
+              i32
+              i64
+              i128
+            and 74 others
+note: required by a bound in `bevy_reflect::GetField::get_field`
+   --> $BEVY_ROOT/crates/bevy_reflect/src/struct_trait.rs:244:21
+    |
+244 |     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T>;
+    |                     ^^^^^^^ required by this bound in `GetField::get_field`
+
+error[E0277]: `NoReflect` does not provide type registration information
+  --> tests/reflect_derive/generics_fail.rs:14:36
+   |
+14 |     let mut foo: Box<dyn Struct> = Box::new(Foo::<NoReflect> { a: NoReflect(42.0) });
+   |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Invalid Type
+   |
+   = help: the trait `GetTypeRegistration` is not implemented for `NoReflect`, which is required by `Foo<NoReflect>: bevy_reflect::Struct`
+   = note: Try using `#[derive(Reflect)]`
+   = help: the following other types implement trait `GetTypeRegistration`:
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
+           and 67 others
+   = note: required for `NoReflect` to implement `RegisterForReflection`
+note: required for `Foo<NoReflect>` to implement `bevy_reflect::Struct`
+  --> tests/reflect_derive/generics_fail.rs:3:10
+   |
+3  | #[derive(Reflect)]
+   |          ^^^^^^^ unsatisfied trait bound introduced in this `derive` macro
+4  | #[reflect(from_reflect = false)]
+5  | struct Foo<T> {
+   |        ^^^^^^
+   = note: required for the cast from `Box<Foo<NoReflect>>` to `Box<(dyn bevy_reflect::Struct + 'static)>`
+   = note: this error originates in the derive macro `Reflect` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

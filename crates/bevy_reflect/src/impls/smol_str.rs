@@ -1,19 +1,26 @@
-use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect};
-use bevy_reflect_derive::impl_reflect_value;
+use crate::{std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect_derive::impl_reflect_opaque;
 
-impl_reflect_value!(::smol_str::SmolStr(Debug, Hash, PartialEq, Default));
+impl_reflect_opaque!(::smol_str::SmolStr(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Default,
+    Serialize,
+    Deserialize,
+));
 
 #[cfg(test)]
 mod tests {
-    use crate::{FromReflect, Reflect};
+    use crate::{FromReflect, PartialReflect};
     use smol_str::SmolStr;
 
     #[test]
     fn should_partial_eq_smolstr() {
-        let a: &dyn Reflect = &SmolStr::new("A");
-        let a2: &dyn Reflect = &SmolStr::new("A");
-        let b: &dyn Reflect = &SmolStr::new("B");
+        let a: &dyn PartialReflect = &SmolStr::new("A");
+        let a2: &dyn PartialReflect = &SmolStr::new("A");
+        let b: &dyn PartialReflect = &SmolStr::new("B");
         assert_eq!(Some(true), a.reflect_partial_eq(a2));
         assert_eq!(Some(false), a.reflect_partial_eq(b));
     }

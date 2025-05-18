@@ -12,19 +12,63 @@ permissions:
   pull-requests: 'write'
 
 jobs:
-  comment-on-breaking-change-label:
+  comment-on-migration-guide-label:
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'C-Breaking-Change' && !contains(github.event.pull_request.body, '## Migration Guide')
+    if: github.event.label.name == 'M-Needs-Migration-Guide'
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+      - name: Get changes
+        id: get_changes
+        shell: bash {0}
+        run: |
+          git fetch --depth=1 origin $BASE_SHA
+          git diff --exit-code $BASE_SHA $HEAD_SHA -- ./release-content/migration-guides
+          echo "found_changes=$?" >> $GITHUB_OUTPUT
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       - uses: actions/github-script@v7
+        if: steps.get_changes.outputs.found_changes == '0'
         with:
           script: |
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `It looks like your PR is a breaking change, but you didn't provide a migration guide.
+              body: `It looks like your PR is a breaking change, but **you didn't provide a migration guide**.
 
-              Could you add some context on what users should update when this change get released in a new version of Bevy?
-              It will be used to help writing the migration guide for the version. Putting it after a \`## Migration Guide\` will help it get automatically picked up by our tooling.`
+              Please review the [instructions for writing migration guides](https://github.com/bevyengine/bevy/tree/main/release-content/migration_guides.md), then expand or revise the content in the [migration guides directory](https://github.com/bevyengine/bevy/tree/main/release-content/migration-guides) to reflect your changes.`
+            })
+  comment-on-release-note-label:
+    runs-on: ubuntu-latest
+    if: github.event.label.name == 'M-Needs-Release-Note'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+      - name: Get changes
+        id: get_changes
+        shell: bash {0}
+        run: |
+          git fetch --depth=1 origin $BASE_SHA
+          git diff --exit-code $BASE_SHA $HEAD_SHA -- ./release-content/release-notes
+          echo "found_changes=$?" >> $GITHUB_OUTPUT
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/github-script@v7
+        if: steps.get_changes.outputs.found_changes == '0'
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `It looks like your PR has been selected for a highlight in the next release blog post, but **you didn't provide a release note**.
+
+              Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes) to showcase your changes.`
             })

@@ -1,4 +1,5 @@
 use crate::{FromType, Reflect};
+use alloc::boxed::Box;
 
 /// A struct used to provide the default value of a type.
 ///

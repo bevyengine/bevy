@@ -1,6 +1,5 @@
-use bevy_utils::hashbrown::hash_set::IntoIter;
-use bevy_utils::HashSet;
-use std::any::{Any, TypeId};
+use bevy_platform::collections::{hash_set::IntoIter, HashSet};
+use core::any::{Any, TypeId};
 
 /// A filter used to control which types can be added to a [`DynamicScene`].
 ///
@@ -48,7 +47,7 @@ impl SceneFilter {
     ///
     /// [`Denylist`]: SceneFilter::Denylist
     pub fn allow_all() -> Self {
-        Self::Denylist(HashSet::new())
+        Self::Denylist(HashSet::default())
     }
 
     /// Creates a filter where all types are denied.
@@ -57,7 +56,7 @@ impl SceneFilter {
     ///
     /// [`Allowlist`]: SceneFilter::Allowlist
     pub fn deny_all() -> Self {
-        Self::Allowlist(HashSet::new())
+        Self::Allowlist(HashSet::default())
     }
 
     /// Allow the given type, `T`.
@@ -89,7 +88,7 @@ impl SceneFilter {
     pub fn allow_by_id(mut self, type_id: TypeId) -> Self {
         match &mut self {
             Self::Unset => {
-                self = Self::Allowlist(HashSet::from([type_id]));
+                self = Self::Allowlist([type_id].into_iter().collect());
             }
             Self::Allowlist(list) => {
                 list.insert(type_id);
@@ -129,7 +128,7 @@ impl SceneFilter {
     #[must_use]
     pub fn deny_by_id(mut self, type_id: TypeId) -> Self {
         match &mut self {
-            Self::Unset => self = Self::Denylist(HashSet::from([type_id])),
+            Self::Unset => self = Self::Denylist([type_id].into_iter().collect()),
             Self::Allowlist(list) => {
                 list.remove(&type_id);
             }
@@ -223,7 +222,7 @@ impl IntoIterator for SceneFilter {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            Self::Unset => HashSet::new().into_iter(),
+            Self::Unset => Default::default(),
             Self::Allowlist(list) | Self::Denylist(list) => list.into_iter(),
         }
     }

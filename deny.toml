@@ -1,32 +1,42 @@
+[graph]
 all-features = true
 
 [advisories]
-db-path = "~/.cargo/advisory-db"
-db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "deny"
-yanked = "deny"
-notice = "deny"
-ignore = []
+version = 2
+ignore = [
+  # paste was announced as unmaintained with no explanation or replacement
+  # See: https://rustsec.org/advisories/RUSTSEC-2024-0436
+  # Bevy relies on this in multiple indirect ways, so ignoring it is the only feasible current solution
+  "RUSTSEC-2024-0436",
+  # unmaintained: postcard -> heapless -> atomic-polyfill
+  # See https://github.com/jamesmunns/postcard/issues/223
+  "RUSTSEC-2023-0089",
+]
 
 [licenses]
-unlicensed = "deny"
-copyleft = "deny"
-default = "deny"
+version = 2
 allow = [
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CC0-1.0",
+  "ISC",
   "MIT",
   "MIT-0",
-  "Apache-2.0",
-  "BSD-3-Clause",
-  "ISC",
+  "Unlicense",
   "Zlib",
-  "0BSD",
-  "BSD-2-Clause",
-  "CC0-1.0",
 ]
+
 exceptions = [
   { name = "unicode-ident", allow = [
     "Unicode-DFS-2016",
+    "Unicode-3.0",
+  ] },
+  { name = "symphonia", allow = [
+    "MPL-2.0",
   ] },
   { name = "symphonia-bundle-flac", allow = [
     "MPL-2.0",
@@ -52,16 +62,13 @@ exceptions = [
   { name = "symphonia-format-isomp4", allow = [
     "MPL-2.0",
   ] },
-  { name = "symphonia-format-wav", allow = [
+  { name = "symphonia-format-riff", allow = [
     "MPL-2.0",
   ] },
   { name = "symphonia-metadata", allow = [
     "MPL-2.0",
   ] },
   { name = "symphonia-utils-xiph", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia", allow = [
     "MPL-2.0",
   ] },
 ]
@@ -76,9 +83,17 @@ deny = [
   { name = "glam", deny-multiple-versions = true },
   { name = "raw-window-handle", deny-multiple-versions = true },
 ]
+skip = [
+  { name = "bevy_math", reason = "bevy_math has a path dev dependency on itself without a version" },
+]
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
+
+# thiserror is the preferred way to derive error types
+[[bans.features]]
+crate = "derive_more"
+deny = ["error"]

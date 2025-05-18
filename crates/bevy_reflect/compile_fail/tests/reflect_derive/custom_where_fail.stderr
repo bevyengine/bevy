@@ -1,0 +1,8 @@
+error: expected `:`
+  --> tests/reflect_derive/custom_where_fail.rs:15:44
+   |
+15 | #[reflect(where T: std::fmt::Debug, MyTrait)]
+   |                                            ^
+
+error: aborting due to 1 previous error
+

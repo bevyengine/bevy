@@ -1,16 +1,15 @@
-use std::{
-    marker::PhantomData,
-    thread::{self, ThreadId},
-};
+use core::marker::PhantomData;
+use std::thread::{self, ThreadId};
 
-use async_executor::{Executor, Task};
+use crate::executor::Executor;
+use async_task::Task;
 use futures_lite::Future;
 
 /// An executor that can only be ticked on the thread it was instantiated on. But
 /// can spawn `Send` tasks from other threads.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// # use std::sync::{Arc, atomic::{AtomicI32, Ordering}};
 /// use bevy_tasks::ThreadExecutor;
 ///
@@ -86,7 +85,7 @@ impl<'task> ThreadExecutor<'task> {
 
     /// Returns true if `self` and `other`'s executor is same
     pub fn is_same(&self, other: &Self) -> bool {
-        std::ptr::eq(self, other)
+        core::ptr::eq(self, other)
     }
 }
 
@@ -106,7 +105,7 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
     }
 
     /// Synchronously try to tick a task on the executor.
-    /// Returns false if if does not find a task to tick.
+    /// Returns false if does not find a task to tick.
     pub fn try_tick(&self) -> bool {
         self.executor.executor.try_tick()
     }
@@ -115,7 +114,7 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     #[test]
     fn test_ticker() {
@@ -123,7 +122,7 @@ mod tests {
         let ticker = executor.ticker();
         assert!(ticker.is_some());
 
-        std::thread::scope(|s| {
+        thread::scope(|s| {
             s.spawn(|| {
                 let ticker = executor.ticker();
                 assert!(ticker.is_none());

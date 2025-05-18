@@ -1,3 +1,7 @@
+//! Definitions of Bevy's error codes that might occur at runtime.
+//!
+//! These either manifest as a warning or a panic.
+
 #[doc = include_str!("../B0001.md")]
 pub struct B0001;
 

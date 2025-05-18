@@ -1,0 +1,39 @@
+[files]
+extend-exclude = [
+  "*.pbxproj", # metadata file
+  "*.patch",   # Automatically generated files that should not be manually modified.
+  "*.bin",     # Binary files
+  ".git/",     # Version control files
+]
+ignore-hidden = false
+
+# Match Inside a Word - Case Insensitive
+[default.extend-words]
+LOD = "LOD"                             # Level of detail
+reparametrization = "reparametrization" # Mathematical term in curve context (reparameterize)
+reparametrize = "reparametrize"
+reparametrized = "reparametrized"
+
+# Match a Whole Word - Case Sensitive
+[default.extend-identifiers]
+Ba = "Ba"         # Bitangent for Anisotropy
+ba = "ba"         # Part of an accessor in WGSL - weights.ba
+fLenOt = "fLenOt"
+iFO_a = "iFO_a"
+iFO_b = "iFO_b"
+ser = "ser"       # ron::ser - Serializer
+toi = "toi"       # Time of impact
+vOt = "vOt"
+vOt2 = "vOt2"
+
+[default]
+locale = "en-us"
+# Ignored typos regexes
+extend-ignore-re = [
+  "\\bBelen Masia\\b",            # The surname of one of the authors of SMAA
+  "\\bBig Sur\\b",                # macOS Big Sur
+  "\\bgeneric-rpg-ui-inventario", # Inventory in Portuguese
+  "\\bmetalness\\b",              # Rendering term (metallicity)
+  "\\bNDKs\\b",                   # NDK - Native  Development Kit
+  "\\bPNGs\\b",                   # PNG - Portable Network Graphics file format
+]

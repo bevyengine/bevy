@@ -1,0 +1,39 @@
+error[E0382]: borrow of moved value: `x`
+  --> tests/example_tests/basic_test.rs:13:15
+   |
+7  |     let x = String::new();
+   |         - move occurs because `x` has type `String`, which does not implement the `Copy` trait
+8  |     // Help diagnostics need to be annotated
+9  |     let y = x;
+   |             - value moved here
+...
+13 |     println!("{x}");
+   |               ^^^ value borrowed here after move
+   |
+   = note: this error originates in the macro `$crate::format_args_nl` which comes from the expansion of the macro `println` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider cloning the value if the performance cost is acceptable
+   |
+9  |     let y = x.clone();
+   |              ++++++++
+
+error[E0382]: borrow of moved value: `x`
+  --> tests/example_tests/basic_test.rs:22:15
+   |
+16 |     let x = String::new();
+   |         - move occurs because `x` has type `String`, which does not implement the `Copy` trait
+...
+19 |     let y = x;
+   |             - value moved here
+...
+22 |     println!("{x}");
+   |               ^^^ value borrowed here after move
+   |
+   = note: this error originates in the macro `$crate::format_args_nl` which comes from the expansion of the macro `println` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider cloning the value if the performance cost is acceptable
+   |
+19 |     let y = x.clone();
+   |              ++++++++
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0382`.

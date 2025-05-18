@@ -4,7 +4,12 @@
 //! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of characters.
 //! You should change the provided font with another one to test other languages input.
 
-use bevy::{input::keyboard::KeyboardInput, prelude::*};
+use std::mem;
+
+use bevy::{
+    input::keyboard::{Key, KeyboardInput},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -15,7 +20,6 @@ fn main() {
             (
                 toggle_ime,
                 listen_ime_events,
-                listen_received_character_events,
                 listen_keyboard_input_events,
                 bubbling_text,
             ),
@@ -24,95 +28,58 @@ fn main() {
 }
 
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
+    // The default font has a limited number of glyphs, so use the full version for
+    // sections that will hold text input.
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
-    commands.spawn(
-        TextBundle::from_sections([
-            TextSection {
-                value: "IME Enabled: ".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 20.0,
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "false\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 30.0,
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "IME Active: ".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 20.0,
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "false\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 30.0,
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "click to toggle IME, press return to start a new line\n\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 18.0,
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "".to_string(),
-                style: TextStyle {
-                    font,
-                    font_size: 25.0,
-                    ..default()
-                },
-            },
-        ])
-        .with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+        children![
+            TextSpan::new("Click to toggle IME. Press return to start a new line.\n\n",),
+            TextSpan::new("IME Enabled: "),
+            TextSpan::new("false\n"),
+            TextSpan::new("IME Active:  "),
+            TextSpan::new("false\n"),
+            TextSpan::new("IME Buffer:  "),
+            (
+                TextSpan::new("\n"),
+                TextFont {
+                    font: font.clone(),
+                    ..default()
+                },
+            ),
+        ],
+    ));
 
-    commands.spawn(Text2dBundle {
-        text: Text::from_section(
-            "".to_string(),
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 100.0,
-                ..default()
-            },
-        ),
-        ..default()
-    });
+    commands.spawn((
+        Text2d::new(""),
+        TextFont {
+            font,
+            font_size: 100.0,
+            ..default()
+        },
+    ));
 }
 
 fn toggle_ime(
-    input: Res<Input<MouseButton>>,
-    mut windows: Query<&mut Window>,
-    mut text: Query<&mut Text, With<Node>>,
+    input: Res<ButtonInput<MouseButton>>,
+    mut window: Single<&mut Window>,
+    status_text: Single<Entity, (With<Node>, With<Text>)>,
+    mut ui_writer: TextUiWriter,
 ) {
     if input.just_pressed(MouseButton::Left) {
-        let mut window = windows.single_mut();
-
         window.ime_position = window.cursor_position().unwrap();
         window.ime_enabled = !window.ime_enabled;
 
-        let mut text = text.single_mut();
-        text.sections[1].value = format!("{}\n", window.ime_enabled);
+        *ui_writer.text(*status_text, 3) = format!("{}\n", window.ime_enabled);
     }
 }
 
@@ -120,9 +87,6 @@ fn toggle_ime(
 struct Bubble {
     timer: Timer,
 }
-
-#[derive(Component)]
-struct ImePreedit;
 
 fn bubbling_text(
     mut commands: Commands,
@@ -133,68 +97,86 @@ fn bubbling_text(
         if bubble.timer.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         }
-        transform.translation.y += time.delta_seconds() * 100.0;
+        transform.translation.y += time.delta_secs() * 100.0;
     }
 }
 
 fn listen_ime_events(
     mut events: EventReader<Ime>,
-    mut status_text: Query<&mut Text, With<Node>>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
+    status_text: Single<Entity, (With<Node>, With<Text>)>,
+    mut edit_text: Single<&mut Text2d, (Without<Node>, Without<Bubble>)>,
+    mut ui_writer: TextUiWriter,
 ) {
     for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
-                status_text.single_mut().sections[5].value = format!("IME buffer: {value}");
+                *ui_writer.text(*status_text, 7) = format!("{value}\n");
             }
             Ime::Preedit { cursor, .. } if cursor.is_none() => {
-                status_text.single_mut().sections[5].value = "".to_string();
+                *ui_writer.text(*status_text, 7) = "\n".to_string();
             }
             Ime::Commit { value, .. } => {
-                edit_text.single_mut().sections[0].value.push_str(value);
+                edit_text.push_str(value);
             }
             Ime::Enabled { .. } => {
-                status_text.single_mut().sections[3].value = "true\n".to_string();
+                *ui_writer.text(*status_text, 5) = "true\n".to_string();
             }
             Ime::Disabled { .. } => {
-                status_text.single_mut().sections[3].value = "false\n".to_string();
+                *ui_writer.text(*status_text, 5) = "false\n".to_string();
             }
             _ => (),
         }
     }
 }
 
-fn listen_received_character_events(
-    mut events: EventReader<ReceivedCharacter>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
-) {
-    for event in events.read() {
-        edit_text.single_mut().sections[0].value.push(event.char);
-    }
-}
-
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
-    mut edit_text: Query<(Entity, &mut Text), (Without<Node>, Without<Bubble>)>,
+    edit_text: Single<(&mut Text2d, &TextFont), (Without<Node>, Without<Bubble>)>,
 ) {
+    let (mut text, style) = edit_text.into_inner();
     for event in events.read() {
-        match event.key_code {
-            Some(KeyCode::Return) => {
-                let (entity, text) = edit_text.single();
-                commands.entity(entity).insert(Bubble {
-                    timer: Timer::from_seconds(5.0, TimerMode::Once),
-                });
+        // Only trigger changes when the key is first pressed.
+        if !event.state.is_pressed() {
+            continue;
+        }
 
-                commands.spawn(Text2dBundle {
-                    text: Text::from_section("".to_string(), text.sections[0].style.clone()),
-                    ..default()
-                });
+        match (&event.logical_key, &event.text) {
+            (Key::Enter, _) => {
+                if text.is_empty() {
+                    continue;
+                }
+                let old_value = mem::take(&mut **text);
+
+                commands.spawn((
+                    Text2d::new(old_value),
+                    style.clone(),
+                    Bubble {
+                        timer: Timer::from_seconds(5.0, TimerMode::Once),
+                    },
+                ));
             }
-            Some(KeyCode::Back) => {
-                edit_text.single_mut().1.sections[0].value.pop();
+            (Key::Backspace, _) => {
+                text.pop();
+            }
+            (_, Some(inserted_text)) => {
+                // Make sure the text doesn't have any control characters,
+                // which can happen when keys like Escape are pressed
+                if inserted_text.chars().all(is_printable_char) {
+                    text.push_str(inserted_text);
+                }
             }
             _ => continue,
         }
     }
+}
+
+// this logic is taken from egui-winit:
+// https://github.com/emilk/egui/blob/adfc0bebfc6be14cee2068dee758412a5e0648dc/crates/egui-winit/src/lib.rs#L1014-L1024
+fn is_printable_char(chr: char) -> bool {
+    let is_in_private_use_area = ('\u{e000}'..='\u{f8ff}').contains(&chr)
+        || ('\u{f0000}'..='\u{ffffd}').contains(&chr)
+        || ('\u{100000}'..='\u{10fffd}').contains(&chr);
+
+    !is_in_private_use_area && !chr.is_ascii_control()
 }

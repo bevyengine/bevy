@@ -1,8 +1,11 @@
 use bevy_ecs::prelude::*;
+use bevy_image::BevyDefault as _;
 use bevy_render::{
-    render_resource::*,
+    render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        *,
+    },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ViewTarget, ViewUniform},
 };
 
@@ -16,41 +19,24 @@ impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(ViewUniform::min_size()),
-                },
-                count: None,
-            }],
-            label: Some("ui_view_layout"),
-        });
+        let view_layout = render_device.create_bind_group_layout(
+            "ui_view_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                uniform_buffer::<ViewUniform>(true),
+            ),
+        );
 
-        let image_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("ui_image_layout"),
-        });
+        let image_layout = render_device.create_bind_group_layout(
+            "ui_image_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
+                ),
+            ),
+        );
 
         UiPipeline {
             view_layout,
@@ -62,6 +48,7 @@ impl FromWorld for UiPipeline {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub hdr: bool,
+    pub anti_alias: bool,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -79,9 +66,21 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
                 // mode
                 VertexFormat::Uint32,
+                // border radius
+                VertexFormat::Float32x4,
+                // border thickness
+                VertexFormat::Float32x4,
+                // border size
+                VertexFormat::Float32x2,
+                // position relative to the center
+                VertexFormat::Float32x2,
             ],
         );
-        let shader_defs = Vec::new();
+        let shader_defs = if key.anti_alias {
+            vec!["ANTI_ALIAS".into()]
+        } else {
+            Vec::new()
+        };
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -122,6 +121,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

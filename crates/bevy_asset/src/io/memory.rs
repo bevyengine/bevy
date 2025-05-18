@@ -1,20 +1,19 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use bevy_utils::{BoxedFuture, HashMap};
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
+use bevy_platform::collections::HashMap;
+use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
 use futures_lite::{ready, Stream};
 use parking_lot::RwLock;
-use std::{
-    path::{Path, PathBuf},
-    pin::Pin,
-    sync::Arc,
-    task::Poll,
-};
+use std::path::{Path, PathBuf};
+
+use super::AsyncSeekForward;
 
 #[derive(Default, Debug)]
 struct DirInternal {
-    assets: HashMap<String, Data>,
-    metadata: HashMap<String, Data>,
-    dirs: HashMap<String, Dir>,
+    assets: HashMap<Box<str>, Data>,
+    metadata: HashMap<Box<str>, Data>,
+    dirs: HashMap<Box<str>, Dir>,
     path: PathBuf,
 }
 
@@ -46,12 +45,22 @@ impl Dir {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0.write().assets.insert(
-            path.file_name().unwrap().to_string_lossy().to_string(),
+            path.file_name().unwrap().to_string_lossy().into(),
             Data {
                 value: value.into(),
                 path: path.to_owned(),
             },
         );
+    }
+
+    /// Removes the stored asset at `path` and returns the `Data` stored if found and otherwise `None`.
+    pub fn remove_asset(&self, path: &Path) -> Option<Data> {
+        let mut dir = self.clone();
+        if let Some(parent) = path.parent() {
+            dir = self.get_or_insert_dir(parent);
+        }
+        let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
+        dir.0.write().assets.remove(&key)
     }
 
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
@@ -60,7 +69,7 @@ impl Dir {
             dir = self.get_or_insert_dir(parent);
         }
         dir.0.write().metadata.insert(
-            path.file_name().unwrap().to_string_lossy().to_string(),
+            path.file_name().unwrap().to_string_lossy().into(),
             Data {
                 value: value.into(),
                 path: path.to_owned(),
@@ -73,7 +82,7 @@ impl Dir {
         let mut full_path = PathBuf::new();
         for c in path.components() {
             full_path.push(c);
-            let name = c.as_os_str().to_string_lossy().to_string();
+            let name = c.as_os_str().to_string_lossy().into();
             dir = {
                 let dirs = &mut dir.0.write().dirs;
                 dirs.entry(name)
@@ -141,13 +150,18 @@ impl Stream for DirStream {
 
     fn poll_next(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
         let dir = this.dir.0.read();
 
         let dir_index = this.dir_index;
-        if let Some(dir_path) = dir.dirs.keys().nth(dir_index).map(|d| dir.path.join(d)) {
+        if let Some(dir_path) = dir
+            .dirs
+            .keys()
+            .nth(dir_index)
+            .map(|d| dir.path.join(d.as_ref()))
+        {
             this.dir_index += 1;
             Poll::Ready(Some(dir_path))
         } else {
@@ -216,10 +230,10 @@ struct DataReader {
 
 impl AsyncRead for DataReader {
     fn poll_read(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        mut self: Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
-    ) -> std::task::Poll<futures_io::Result<usize>> {
+    ) -> Poll<futures_io::Result<usize>> {
         if self.bytes_read >= self.data.value().len() {
             Poll::Ready(Ok(0))
         } else {
@@ -231,63 +245,83 @@ impl AsyncRead for DataReader {
     }
 }
 
+impl AsyncSeekForward for DataReader {
+    fn poll_seek_forward(
+        mut self: Pin<&mut Self>,
+        _cx: &mut core::task::Context<'_>,
+        offset: u64,
+    ) -> Poll<std::io::Result<u64>> {
+        let result = self
+            .bytes_read
+            .try_into()
+            .map(|bytes_read: u64| bytes_read + offset);
+
+        if let Ok(new_pos) = result {
+            self.bytes_read = new_pos as _;
+            Poll::Ready(Ok(new_pos as _))
+        } else {
+            Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek position is out of range",
+            )))
+        }
+    }
+}
+
+impl Reader for DataReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+        stackfuture::StackFuture::from(async {
+            if self.bytes_read >= self.data.value().len() {
+                Ok(0)
+            } else {
+                buf.extend_from_slice(&self.data.value()[self.bytes_read..]);
+                let n = self.data.value().len() - self.bytes_read;
+                self.bytes_read = self.data.value().len();
+                Ok(n)
+            }
+        })
+    }
+}
+
 impl AssetReader for MemoryAssetReader {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_asset(path)
-                .map(|data| {
-                    let reader: Box<Reader> = Box::new(DataReader {
-                        data,
-                        bytes_read: 0,
-                    });
-                    reader
-                })
-                .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
-        })
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        self.root
+            .get_asset(path)
+            .map(|data| DataReader {
+                data,
+                bytes_read: 0,
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_metadata(path)
-                .map(|data| {
-                    let reader: Box<Reader> = Box::new(DataReader {
-                        data,
-                        bytes_read: 0,
-                    });
-                    reader
-                })
-                .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
-        })
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        self.root
+            .get_metadata(path)
+            .map(|data| DataReader {
+                data,
+                bytes_read: 0,
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn read_directory<'a>(
+    async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        Box::pin(async move {
-            self.root
-                .get_dir(path)
-                .map(|dir| {
-                    let stream: Box<PathStream> = Box::new(DirStream::new(dir));
-                    stream
-                })
-                .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
-        })
+    ) -> Result<Box<PathStream>, AssetReaderError> {
+        self.root
+            .get_dir(path)
+            .map(|dir| {
+                let stream: Box<PathStream> = Box::new(DirStream::new(dir));
+                stream
+            })
+            .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, std::result::Result<bool, AssetReaderError>> {
-        Box::pin(async move { Ok(self.root.get_dir(path).is_some()) })
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        Ok(self.root.get_dir(path).is_some())
     }
 }
 

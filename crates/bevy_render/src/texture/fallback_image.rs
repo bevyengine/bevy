@@ -1,17 +1,17 @@
-use crate::{render_resource::*, texture::DefaultImageSampler};
+use crate::{
+    render_asset::RenderAssetUsages,
+    render_resource::*,
+    renderer::{RenderDevice, RenderQueue},
+    texture::{DefaultImageSampler, GpuImage},
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
-    system::{Resource, SystemParam},
+    resource::Resource,
+    system::SystemParam,
 };
-use bevy_utils::HashMap;
-use wgpu::{Extent3d, TextureFormat};
-
-use crate::{
-    prelude::Image,
-    renderer::{RenderDevice, RenderQueue},
-    texture::{image::TextureFormatPixelInfo, BevyDefault, GpuImage, ImageSampler},
-};
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
+use bevy_platform::collections::HashMap;
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common
@@ -33,6 +33,20 @@ pub struct FallbackImage {
     pub cube_array: GpuImage,
     /// Fallback image for [`TextureViewDimension::D3`].
     pub d3: GpuImage,
+}
+
+impl FallbackImage {
+    /// Returns the appropriate fallback image for the given texture dimension.
+    pub fn get(&self, texture_dimension: TextureViewDimension) -> &GpuImage {
+        match texture_dimension {
+            TextureViewDimension::D1 => &self.d1,
+            TextureViewDimension::D2 => &self.d2,
+            TextureViewDimension::D2Array => &self.d2_array,
+            TextureViewDimension::Cube => &self.cube,
+            TextureViewDimension::CubeArray => &self.cube_array,
+            TextureViewDimension::D3 => &self.d3,
+        }
+    }
 }
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains a _zero-filled_ "fallback image",
@@ -76,9 +90,15 @@ fn fallback_image_new(
     let image_dimension = dimension.compatible_texture_dimension();
     let mut image = if create_texture_with_data {
         let data = vec![value; format.pixel_size()];
-        Image::new_fill(extents, image_dimension, &data, format)
+        Image::new_fill(
+            extents,
+            image_dimension,
+            &data,
+            format,
+            RenderAssetUsages::RENDER_WORLD,
+        )
     } else {
-        let mut image = Image::default();
+        let mut image = Image::default_uninit();
         image.texture_descriptor.dimension = TextureDimension::D2;
         image.texture_descriptor.size = extents;
         image.texture_descriptor.format = format;
@@ -90,7 +110,12 @@ fn fallback_image_new(
     }
 
     let texture = if create_texture_with_data {
-        render_device.create_texture_with_data(render_queue, &image.texture_descriptor, &image.data)
+        render_device.create_texture_with_data(
+            render_queue,
+            &image.texture_descriptor,
+            TextureDataOrder::default(),
+            &image.data.expect("Image has no data"),
+        )
     } else {
         render_device.create_texture(&image.texture_descriptor)
     };
@@ -111,7 +136,7 @@ fn fallback_image_new(
         texture_view,
         texture_format: image.texture_descriptor.format,
         sampler,
-        size: image.size_f32(),
+        size: image.texture_descriptor.size,
         mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }

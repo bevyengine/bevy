@@ -1,10 +1,13 @@
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 use bevy_macro_utils::BevyManifest;
 use proc_macro::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DeriveInput, Path};
 
-pub(crate) fn bevy_asset_path() -> syn::Path {
-    BevyManifest::default().get_path("bevy_asset")
+pub(crate) fn bevy_asset_path() -> Path {
+    BevyManifest::shared().get_path("bevy_asset")
 }
 
 const DEPENDENCY_ATTRIBUTE: &str = "dependency";

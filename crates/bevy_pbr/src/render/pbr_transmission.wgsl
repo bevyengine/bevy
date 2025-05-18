@@ -3,17 +3,19 @@
 #import bevy_pbr::{
     lighting,
     prepass_utils,
-    utils::{PI, interleaved_gradient_noise},
+    utils::interleaved_gradient_noise,
     utils,
     mesh_view_bindings as view_bindings,
 };
 
-#import bevy_core_pipeline::tonemapping::{
-    approximate_inverse_tone_mapping
-};
+#import bevy_render::maths::PI
+
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping::approximate_inverse_tone_mapping
+#endif
 
 fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
-    // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
+    // Calculate the ratio between refraction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
 
     // Calculate incidence vector (opposite to view vector) and its dot product with the mesh normal
@@ -24,11 +26,11 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     let k = 1.0 - eta * eta * (1.0 - NdotI * NdotI);
     let T = eta * I - (eta * NdotI + sqrt(k)) * N;
 
-    // Calculate the exit position of the refracted ray, by propagating refacted direction through thickness
+    // Calculate the exit position of the refracted ray, by propagating refracted direction through thickness
     let exit_position = world_position.xyz + T * thickness;
 
     // Transform exit_position into clip space
-    let clip_exit_position = view_bindings::view.view_proj * vec4<f32>(exit_position, 1.0);
+    let clip_exit_position = view_bindings::view.clip_from_world * vec4<f32>(exit_position, 1.0);
 
     // Scale / offset position so that coordinate is in right space for sampling transmissive background texture
     let offset_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;
@@ -41,6 +43,9 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     } else {
         background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, perceptual_roughness);
     }
+
+    // Compensate for exposure, since the background color is coming from an already exposure-adjusted texture
+    background_color = vec4(background_color.rgb / view_bindings::view.exposure, background_color.a);
 
     // Dot product of the refracted direction with the exit normal (Note: We assume the exit normal is the entry normal but inverted)
     let MinusNdotT = dot(-N, T);

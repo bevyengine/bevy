@@ -3,29 +3,31 @@ use crate::io::{
     memory::Dir,
     AssetSourceEvent, AssetWatcher,
 };
-use bevy_log::warn;
-use bevy_utils::{Duration, HashMap};
-use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, FileIdMap};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use bevy_platform::collections::HashMap;
+use core::time::Duration;
+use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
 use parking_lot::RwLock;
 use std::{
     fs::File,
     io::{BufReader, Read},
     path::{Path, PathBuf},
-    sync::Arc,
 };
+use tracing::warn;
 
 /// A watcher for assets stored in the `embedded` asset source. Embedded assets are assets whose
 /// bytes have been embedded into the Rust binary using the [`embedded_asset`](crate::embedded_asset) macro.
 /// This watcher will watch for changes to the "source files", read the contents of changed files from the file system
 /// and overwrite the initial static bytes of the file embedded in the binary with the new dynamically loaded bytes.
 pub struct EmbeddedWatcher {
-    _watcher: Debouncer<RecommendedWatcher, FileIdMap>,
+    _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
 }
 
 impl EmbeddedWatcher {
+    /// Creates a new `EmbeddedWatcher` that watches for changes to the embedded assets in the given `dir`.
     pub fn new(
         dir: Dir,
-        root_paths: Arc<RwLock<HashMap<PathBuf, PathBuf>>>,
+        root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,
         sender: crossbeam_channel::Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Self {
@@ -49,7 +51,7 @@ impl AssetWatcher for EmbeddedWatcher {}
 /// the initial static bytes from the file embedded in the binary.
 pub(crate) struct EmbeddedEventHandler {
     sender: crossbeam_channel::Sender<AssetSourceEvent>,
-    root_paths: Arc<RwLock<HashMap<PathBuf, PathBuf>>>,
+    root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,
     root: PathBuf,
     dir: Dir,
     last_event: Option<AssetSourceEvent>,
@@ -61,7 +63,7 @@ impl FilesystemEventHandler for EmbeddedEventHandler {
 
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
         let (local_path, is_meta) = get_asset_path(&self.root, absolute_path);
-        let final_path = self.root_paths.read().get(&local_path)?.clone();
+        let final_path = self.root_paths.read().get(local_path.as_path())?.clone();
         if is_meta {
             warn!("Meta file asset hot-reloading is not supported yet: {final_path:?}");
         }

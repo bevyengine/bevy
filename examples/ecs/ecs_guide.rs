@@ -27,9 +27,10 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     prelude::*,
-    utils::Duration,
 };
+use core::time::Duration;
 use rand::random;
+use std::fmt;
 
 // COMPONENTS: Pieces of functionality we add to entities. These are just normal Rust data types
 //
@@ -44,6 +45,25 @@ struct Player {
 #[derive(Component)]
 struct Score {
     value: usize,
+}
+
+// Enums can also be used as components.
+// This component tracks how many consecutive rounds a player has/hasn't scored in.
+#[derive(Component)]
+enum PlayerStreak {
+    Hot(usize),
+    None,
+    Cold(usize),
+}
+
+impl fmt::Display for PlayerStreak {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PlayerStreak::Hot(n) => write!(f, "{n} round hot streak"),
+            PlayerStreak::None => write!(f, "0 round streak"),
+            PlayerStreak::Cold(n) => write!(f, "{n} round cold streak"),
+        }
+    }
 }
 
 // RESOURCES: "Global" state accessible by systems. These are also just normal Rust data types!
@@ -85,20 +105,38 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
     );
 }
 
-// This system updates the score for each entity with the "Player" and "Score" component.
-fn score_system(mut query: Query<(&Player, &mut Score)>) {
-    for (player, mut score) in &mut query {
+// This system updates the score for each entity with the `Player`, `Score` and `PlayerStreak` components.
+fn score_system(mut query: Query<(&Player, &mut Score, &mut PlayerStreak)>) {
+    for (player, mut score, mut streak) in &mut query {
         let scored_a_point = random::<bool>();
         if scored_a_point {
+            // Accessing components immutably is done via a regular reference - `player`
+            // has type `&Player`.
+            //
+            // Accessing components mutably is performed via type `Mut<T>` - `score`
+            // has type `Mut<Score>` and `streak` has type `Mut<PlayerStreak>`.
+            //
+            // `Mut<T>` implements `Deref<T>`, so struct fields can be updated using
+            // standard field update syntax ...
             score.value += 1;
+            // ... and matching against enums requires dereferencing them
+            *streak = match *streak {
+                PlayerStreak::Hot(n) => PlayerStreak::Hot(n + 1),
+                PlayerStreak::Cold(_) | PlayerStreak::None => PlayerStreak::Hot(1),
+            };
             println!(
-                "{} scored a point! Their score is: {}",
-                player.name, score.value
+                "{} scored a point! Their score is: {} ({})",
+                player.name, score.value, *streak
             );
         } else {
+            *streak = match *streak {
+                PlayerStreak::Hot(_) | PlayerStreak::None => PlayerStreak::Cold(1),
+                PlayerStreak::Cold(n) => PlayerStreak::Cold(n + 1),
+            };
+
             println!(
-                "{} did not score a point! Their score is: {}",
-                player.name, score.value
+                "{} did not score a point! Their score is: {} ({})",
+                player.name, score.value, *streak
             );
         }
     }
@@ -106,8 +144,8 @@ fn score_system(mut query: Query<(&Player, &mut Score)>) {
     // this game isn't very fun is it :)
 }
 
-// This system runs on all entities with the "Player" and "Score" components, but it also
-// accesses the "GameRules" resource to determine if a player has won.
+// This system runs on all entities with the `Player` and `Score` components, but it also
+// accesses the `GameRules` resource to determine if a player has won.
 fn score_check_system(
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
@@ -130,17 +168,18 @@ fn game_over_system(
 ) {
     if let Some(ref player) = game_state.winning_player {
         println!("{player} won the game!");
-        app_exit_events.send(AppExit);
+        app_exit_events.write(AppExit::Success);
     } else if game_state.current_round == game_rules.max_rounds {
         println!("Ran out of rounds. Nobody wins!");
-        app_exit_events.send(AppExit);
+        app_exit_events.write(AppExit::Success);
     }
 }
 
 // This is a "startup" system that runs exactly once when the app starts up. Startup systems are
 // generally used to create the initial "state" of our game. The only thing that distinguishes a
-// "startup" system from a "normal" system is how it is registered:      Startup:
-// app.add_systems(Startup, startup_system)      Normal:  app.add_systems(Update, normal_system)
+// "startup" system from a "normal" system is how it is registered:
+//      Startup: app.add_systems(Startup, startup_system)
+//      Normal:  app.add_systems(Update, normal_system)
 fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
     commands.insert_resource(GameRules {
@@ -157,12 +196,14 @@ fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
                 name: "Alice".to_string(),
             },
             Score { value: 0 },
+            PlayerStreak::None,
         ),
         (
             Player {
                 name: "Bob".to_string(),
             },
             Score { value: 0 },
+            PlayerStreak::None,
         ),
     ]);
 
@@ -189,6 +230,7 @@ fn new_player_system(
                 name: format!("Player {}", game_state.total_players),
             },
             Score { value: 0 },
+            PlayerStreak::None,
         ));
 
         println!("Player {} joined the game!", game_state.total_players);
@@ -199,7 +241,6 @@ fn new_player_system(
 // "exclusive system".
 // WARNING: These will block all parallel execution of other systems until they finish, so they
 // should generally be avoided if you want to maximize parallelism.
-#[allow(dead_code)]
 fn exclusive_player_system(world: &mut World) {
     // this does the same thing as "new_player_system"
     let total_players = world.resource_mut::<GameState>().total_players;
@@ -216,6 +257,7 @@ fn exclusive_player_system(world: &mut World) {
                 name: format!("Player {}", total_players + 1),
             },
             Score { value: 0 },
+            PlayerStreak::None,
         ));
 
         let mut game_state = world.resource_mut::<GameState>();
@@ -224,8 +266,9 @@ fn exclusive_player_system(world: &mut World) {
 }
 
 // Sometimes systems need to be stateful. Bevy's ECS provides the `Local` system parameter
-// for this case. A `Local<T>` refers to a value owned by the system of type `T`, which is automatically
-// initialized using `T`'s `FromWorld`* implementation. In this system's `Local` (`counter`), `T` is `u32`.
+// for this case. A `Local<T>` refers to a value of type `T` that is owned by the system.
+// This value is automatically initialized using `T`'s `FromWorld`* implementation upon the system's initialization.
+// In this system's `Local` (`counter`), `T` is `u32`.
 // Therefore, on the first turn, `counter` has a value of 0.
 //
 // *: `FromWorld` is a trait which creates a value using the contents of the `World`.
@@ -240,7 +283,7 @@ fn print_at_end_round(mut counter: Local<u32>) {
 /// A group of related system sets, used for controlling the order of systems. Systems can be
 /// added to any number of sets.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-enum MySet {
+enum MySystems {
     BeforeRound,
     Round,
     AfterRound,
@@ -287,7 +330,12 @@ fn main() {
         .configure_sets(
             Update,
             // chain() will ensure sets run in the order they are listed
-            (MySet::BeforeRound, MySet::Round, MySet::AfterRound).chain(),
+            (
+                MySystems::BeforeRound,
+                MySystems::Round,
+                MySystems::AfterRound,
+            )
+                .chain(),
         )
         // The add_systems function is powerful. You can define complex system configurations with ease!
         .add_systems(
@@ -300,9 +348,9 @@ fn main() {
                     exclusive_player_system,
                 )
                     // All of the systems in the tuple above will be added to this set
-                    .in_set(MySet::BeforeRound),
+                    .in_set(MySystems::BeforeRound),
                 // This `Round` system will run after the `BeforeRound` systems thanks to the chained set configuration
-                score_system.in_set(MySet::Round),
+                score_system.in_set(MySystems::Round),
                 // These `AfterRound` systems will run after the `Round` systems thanks to the chained set configuration
                 (
                     score_check_system,
@@ -310,7 +358,7 @@ fn main() {
                     // with sets!
                     game_over_system.after(score_check_system),
                 )
-                    .in_set(MySet::AfterRound),
+                    .in_set(MySystems::AfterRound),
             ),
         )
         // This call to run() starts the app we just built!

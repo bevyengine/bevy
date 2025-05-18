@@ -1,0 +1,67 @@
+[package]
+name = "bevy_state"
+version = "0.16.0-dev"
+edition = "2024"
+description = "Finite state machines for Bevy"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[features]
+default = ["std", "bevy_reflect", "bevy_app"]
+
+# Functionality
+
+## Adds runtime reflection support using `bevy_reflect`.
+bevy_reflect = [
+  "dep:bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "bevy_app?/bevy_reflect",
+]
+
+## Adds integration with the `bevy_app` plugin API.
+bevy_app = ["dep:bevy_app"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "bevy_ecs/std",
+  "bevy_utils/std",
+  "bevy_reflect?/std",
+  "bevy_app?/std",
+  "bevy_platform/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_ecs/critical-section",
+  "bevy_utils/critical-section",
+  "bevy_app?/critical-section",
+  "bevy_reflect?/critical-section",
+  "bevy_platform/critical-section",
+]
+
+[dependencies]
+# bevy
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_state_macros = { path = "macros", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
+variadics_please = "1.1"
+
+# other
+log = { version = "0.4", default-features = false }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options"]
+all-features = true

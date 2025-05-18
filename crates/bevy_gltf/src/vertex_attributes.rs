@@ -1,9 +1,5 @@
-use bevy_render::{
-    mesh::{MeshVertexAttribute, VertexAttributeValues as Values},
-    prelude::Mesh,
-    render_resource::VertexFormat,
-};
-use bevy_utils::HashMap;
+use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues as Values, VertexFormat};
+use bevy_platform::collections::HashMap;
 use gltf::{
     accessor::{DataType, Dimensions},
     mesh::util::{ReadColors, ReadJoints, ReadTexCoords, ReadWeights},
@@ -49,7 +45,7 @@ impl<'a> BufferAccessor<'a> {
     /// Creates an iterator over the elements in this accessor
     fn iter<T: gltf::accessor::Item>(self) -> Result<gltf::accessor::Iter<'a, T>, AccessFailed> {
         gltf::accessor::Iter::new(self.accessor, |buffer: gltf::Buffer| {
-            self.buffer_data.get(buffer.index()).map(|v| v.as_slice())
+            self.buffer_data.get(buffer.index()).map(Vec::as_slice)
         })
         .ok_or(AccessFailed::MalformedData)
     }
@@ -255,7 +251,7 @@ pub(crate) fn convert_attribute(
     semantic: gltf::Semantic,
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
-    custom_vertex_attributes: &HashMap<String, MeshVertexAttribute>,
+    custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
     if let Some((attribute, conversion)) = match &semantic {
         gltf::Semantic::Positions => Some((Mesh::ATTRIBUTE_POSITION, ConversionMode::Any)),
@@ -271,8 +267,8 @@ pub(crate) fn convert_attribute(
             Some((Mesh::ATTRIBUTE_JOINT_WEIGHT, ConversionMode::JointWeight))
         }
         gltf::Semantic::Extras(name) => custom_vertex_attributes
-            .get(name)
-            .map(|attr| (attr.clone(), ConversionMode::Any)),
+            .get(name.as_str())
+            .map(|attr| (*attr, ConversionMode::Any)),
         _ => None,
     } {
         let raw_iter = VertexAttributeIter::from_accessor(accessor.clone(), buffer_data);

@@ -1,0 +1,48 @@
+[package]
+name = "bevy_remote"
+version = "0.16.0-dev"
+edition = "2024"
+description = "The Bevy Remote Protocol"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[features]
+default = ["http"]
+http = ["dep:async-io", "dep:smol-hyper"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", features = [
+  "serialize",
+] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+  "serialize",
+] }
+
+# other
+anyhow = "1"
+hyper = { version = "1", features = ["server", "http1"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+http-body-util = "0.1"
+async-channel = "2"
+
+# dependencies that will not compile on wasm
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+async-io = { version = "2", optional = true }
+smol-hyper = { version = "0.1", optional = true }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

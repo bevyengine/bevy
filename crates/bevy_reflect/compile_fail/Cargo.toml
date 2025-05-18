@@ -1,0 +1,26 @@
+[package]
+name = "bevy_reflect_compile_fail"
+edition = "2024"
+description = "Compile fail tests for Bevy Engine's reflection system"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+bevy_reflect = { path = "../", features = ["functions"] }
+
+[dev-dependencies]
+compile_fail_utils = { path = "../../../tools/compile_fail_utils" }
+
+[[test]]
+name = "derive"
+harness = false
+
+[[test]]
+name = "func"
+harness = false
+
+[[test]]
+name = "remote"
+harness = false
