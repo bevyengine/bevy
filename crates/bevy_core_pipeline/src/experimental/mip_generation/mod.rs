@@ -46,7 +46,6 @@ use bevy_render::{
         TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
     },
     renderer::RenderDevice,
-    texture::TextureCache,
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
     Render, RenderApp, RenderSet,
 };
@@ -582,8 +581,6 @@ impl ViewDepthPyramid {
 
     /// Allocates a new depth pyramid for a depth buffer with the given size.
     pub fn new(
-        render_device: &RenderDevice,
-        texture_cache: &mut TextureCache,
         depth_pyramid_dummy_texture: &TextureViewMeta,
         size: UVec2,
         texture_label: &'static str,
@@ -652,7 +649,6 @@ impl ViewDepthPyramid {
     /// `downsample_depth.wgsl` shader.
     pub fn create_bind_group<'a>(
         &'a self,
-        render_device: &RenderDevice,
         label: &'static str,
         bind_group_layout: &BindGroupLayout,
         source_image: BindGroupResourceHandle,
@@ -713,15 +709,11 @@ impl ViewDepthPyramid {
 /// Creates depth pyramids for views that have occlusion culling enabled.
 pub fn prepare_view_depth_pyramids(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    mut texture_cache: ResMut<TextureCache>,
     depth_pyramid_dummy_texture: Res<DepthPyramidDummyTexture>,
     views: Query<(Entity, &ExtractedView), (With<OcclusionCulling>, Without<NoIndirectDrawing>)>,
 ) {
     for (view_entity, view) in &views {
         commands.entity(view_entity).insert(ViewDepthPyramid::new(
-            &render_device,
-            &mut texture_cache,
             &depth_pyramid_dummy_texture,
             view.viewport.zw(),
             "view depth pyramid texture",
@@ -741,7 +733,6 @@ pub struct ViewDownsampleDepthBindGroup(BindGroupHandle);
 /// culling enabled.
 fn prepare_downsample_depth_view_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     downsample_depth_pipelines: Res<DownsampleDepthPipelines>,
     view_depth_textures: Query<
         (
@@ -774,7 +765,6 @@ fn prepare_downsample_depth_view_bind_groups(
             .entity(view_entity)
             .insert(ViewDownsampleDepthBindGroup(
                 view_depth_pyramid.create_bind_group(
-                    &render_device,
                     if is_multisampled {
                         "downsample multisample depth bind group"
                     } else {
