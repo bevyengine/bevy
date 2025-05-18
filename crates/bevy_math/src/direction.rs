@@ -4,7 +4,7 @@ use crate::{
     Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
 };
 
-use core::f32::consts::FRAC_1_SQRT_2;
+use core::f32::consts::{FRAC_1_SQRT_2, PI};
 use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
@@ -968,6 +968,8 @@ impl Dir4 {
     /// When `s == 0.0`, the result will be equal to `self`.
     /// When `s == 1.0`, the result will be equal to `rhs`.
     ///
+    /// If the angle of between `self` and `rhs` is invalid it returns `self`.
+    ///
     /// # Example
     ///
     /// ```
@@ -991,11 +993,23 @@ impl Dir4 {
     /// ```
     #[inline]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
-        // This uses a geometric slerp as opposed to the Quaternion slerp Dir3 uses
+        // This uses a geometric slerp as opposed to the Quaternion slerp Dir3 uses.
+        // When the values are too small to use slerp it falls back on a regular lerp.
         let angle = acos(self.dot(*rhs));
+        if angle.is_nan() {
+            return self;
+        }
+        if angle < 0.001 || angle == PI {
+            // Lerp for when the geometric slerp would divide by 0.
+            let mut result = self.as_vec4().lerp(*rhs, s);
+            if result == Vec4::splat(0.0) {
+                result = self.map(|f| if f != 0.0 { 8.940697e-8 } else { 0.0 });
+            }
+            return Dir4::new(result).unwrap();
+        }
+        // Geometric slerp.
         let p0 = (sin((1.0 - s) * angle) / sin(angle)) * self;
         let p1 = (sin(s * angle) / sin(angle)) * rhs;
-
         Dir4::new(p0 + p1).unwrap()
     }
 
@@ -1389,6 +1403,18 @@ mod tests {
         assert_relative_eq!(
             Dir4::W.slerp(Dir4::Y, 1.0 / 3.0),
             Dir4::from_xyzw(0.0, 0.5, 0.0, ops::sqrt(0.75_f32)).unwrap(),
+            epsilon = 0.000001
+        );
+
+        assert_relative_eq!(
+            Dir4::X.slerp(Dir4::X, 1.0 / 3.0),
+            Dir4::X,
+            epsilon = 0.000001
+        );
+
+        assert_relative_eq!(
+            Dir4::X.slerp(Dir4::NEG_X, 0.5),
+            Dir4::from_xyzw(8.940697e-8, 0.0, 0.0, 0.0).unwrap(),
             epsilon = 0.000001
         );
     }
