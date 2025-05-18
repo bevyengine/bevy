@@ -19,7 +19,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use std::{hash::Hash, num::NonZeroU32, ops::Deref};
 
-const MAX_MESH_COUNT: Option<NonZeroU32> = NonZeroU32::new(5_000);
+const MAX_MESH_SLAB_COUNT: Option<NonZeroU32> = NonZeroU32::new(500);
 const MAX_TEXTURE_COUNT: Option<NonZeroU32> = NonZeroU32::new(5_000);
 
 /// Average angular diameter of the sun as seen from earth.
@@ -247,7 +247,7 @@ impl FromWorld for RaytracingSceneBindings {
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
-                count: MAX_MESH_COUNT,
+                count: MAX_MESH_SLAB_COUNT,
             },
             BindGroupLayoutEntry {
                 binding: 1,
@@ -257,7 +257,7 @@ impl FromWorld for RaytracingSceneBindings {
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
-                count: MAX_MESH_COUNT,
+                count: MAX_MESH_SLAB_COUNT,
             },
             BindGroupLayoutEntry {
                 binding: 2,
