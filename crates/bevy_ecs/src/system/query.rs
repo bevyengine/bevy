@@ -209,7 +209,7 @@ use core::{
 /// # #[derive(Component)]
 /// # struct ComponentB;
 /// #
-/// // A queried items must contain `ComponentA`. If they also contain `ComponentB`, its value will
+/// // Queried items must contain `ComponentA`. If they also contain `ComponentB`, its value will
 /// // be fetched as well.
 /// fn optional_component_query(query: Query<(&ComponentA, Option<&ComponentB>)>) {
 ///     // ...
