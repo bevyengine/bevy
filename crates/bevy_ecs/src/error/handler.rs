@@ -1,9 +1,8 @@
-#[cfg(feature = "configurable_error_handler")]
-use bevy_platform::sync::OnceLock;
 use core::fmt::Display;
 
-use crate::{component::Tick, error::BevyError};
+use crate::{component::Tick, error::BevyError, prelude::Resource};
 use alloc::borrow::Cow;
+use derive_more::derive::{Deref, DerefMut};
 
 /// Context for a [`BevyError`] to aid in debugging.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -77,53 +76,6 @@ impl ErrorContext {
     }
 }
 
-/// A global error handler. This can be set at startup, as long as it is set before
-/// any uses. This should generally be configured _before_ initializing the app.
-///
-/// This should be set inside of your `main` function, before initializing the Bevy app.
-/// The value of this error handler can be accessed using the [`default_error_handler`] function,
-/// which calls [`OnceLock::get_or_init`] to get the value.
-///
-/// **Note:** this is only available when the `configurable_error_handler` feature of `bevy_ecs` (or `bevy`) is enabled!
-///
-/// # Example
-///
-/// ```
-/// # use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, warn};
-/// GLOBAL_ERROR_HANDLER.set(warn).expect("The error handler can only be set once, globally.");
-/// // initialize Bevy App here
-/// ```
-///
-/// To use this error handler in your app for custom error handling logic:
-///
-/// ```rust
-/// use bevy_ecs::error::{default_error_handler, GLOBAL_ERROR_HANDLER, BevyError, ErrorContext, panic};
-///
-/// fn handle_errors(error: BevyError, ctx: ErrorContext) {
-///    let error_handler = default_error_handler();
-///    error_handler(error, ctx);        
-/// }
-/// ```
-///
-/// # Warning
-///
-/// As this can *never* be overwritten, library code should never set this value.
-#[cfg(feature = "configurable_error_handler")]
-pub static GLOBAL_ERROR_HANDLER: OnceLock<fn(BevyError, ErrorContext)> = OnceLock::new();
-
-/// The default error handler. This defaults to [`panic()`],
-/// but if set, the [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
-/// The `configurable_error_handler` feature must be enabled to change this from the panicking default behavior,
-/// as there may be runtime overhead.
-#[inline]
-pub fn default_error_handler() -> fn(BevyError, ErrorContext) {
-    #[cfg(not(feature = "configurable_error_handler"))]
-    return panic;
-
-    #[cfg(feature = "configurable_error_handler")]
-    return *GLOBAL_ERROR_HANDLER.get_or_init(|| panic);
-}
-
 macro_rules! inner {
     ($call:path, $e:ident, $c:ident) => {
         $call!(
@@ -133,6 +85,25 @@ macro_rules! inner {
             $e
         );
     };
+}
+
+/// Defines how Bevy reacts to errors.
+pub type ErrorHandler = fn(BevyError, ErrorContext);
+
+/// Error handler to call when an error is not handled otherwise.
+/// Defaults to [`panic()`].
+///
+/// When updated while a [`Schedule`] is running, it doesn't take effect for
+/// that schedule until it's completed.
+///
+/// [`Schedule`]: crate::schedule::Schedule
+#[derive(Resource, Deref, DerefMut, Copy, Clone)]
+pub struct DefaultErrorHandler(pub ErrorHandler);
+
+impl Default for DefaultErrorHandler {
+    fn default() -> Self {
+        Self(panic)
+    }
 }
 
 /// Error handler that panics with the system error.
