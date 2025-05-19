@@ -158,6 +158,10 @@ pub struct MeshBufferSlice<'a> {
 pub struct SlabId(pub NonMaxU32);
 
 /// Data for a single slab.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 enum Slab {
     /// A slab that can contain multiple objects.
     General(GeneralSlab),
