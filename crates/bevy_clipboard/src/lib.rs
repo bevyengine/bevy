@@ -35,7 +35,7 @@ pub enum ClipboardRead {
 
 impl ClipboardRead {
     /// The result of an attempt to read from the clipboard, if it is ready.
-    /// If the result is still pending returns `None`.
+    /// If the result is still pending, returns `None`.
     pub fn poll_result(&mut self) -> Option<Result<String, ClipboardError>> {
         match self {
             Self::Pending(shared) => {
