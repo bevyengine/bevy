@@ -71,13 +71,9 @@ impl Default for Clipboard {
 pub struct Clipboard;
 
 impl Clipboard {
-    /// Fetches UTF-8 text from the clipboard.
+    /// Fetches UTF-8 text from the clipboard and returns it via a `ClipboardRead`.
     ///
-    /// On Windows and Unix this completed immediately, while
-    ///
-    /// # Errors
-    ///
-    /// Returns error if clipboard is empty or contents are not UTF-8 text.
+    /// On Windows and Unix `ClipboardRead`s are completed instantly, on wasm32 the result is fetched asynchronously.
     pub fn fetch_text(&mut self) -> ClipboardRead {
         #[cfg(unix)]
         {
@@ -157,49 +153,25 @@ impl Clipboard {
 }
 
 /// An error that might happen during a clipboard operation.
-///
-/// Note that both the `Display` and the `Debug` trait is implemented for this type in such a way
-/// that they give a short human-readable description of the error; however the documentation
-/// gives a more detailed explanation for each error kind.
-///
-/// Copied from `arboard::Error`
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum ClipboardError {
-    /// The clipboard contents were not available in the requested format.
-    /// This could either be due to the clipboard being empty or the clipboard contents having
-    /// an incompatible format to the requested one (eg when calling `get_image` on text)
+    /// Clipboard contents were unavailable or not in the expected format.
     ContentNotAvailable,
 
-    /// The selected clipboard is not supported by the current configuration (system and/or environment).
-    ///
-    /// This can be caused by a few conditions:
-    /// - Using the Primary clipboard with an older Wayland compositor (that doesn't support version 2)
-    /// - Using the Secondary clipboard on Wayland
+    /// No suitable clipboard backend was available
     ClipboardNotSupported,
 
-    /// The native clipboard is not accessible due to being held by an other party.
-    ///
-    /// This "other party" could be a different process or it could be within
-    /// the same program. So for example you may get this error when trying
-    /// to interact with the clipboard from multiple threads at once.
-    ///
-    /// Note that it's OK to have multiple `Clipboard` instances. The underlying
-    /// implementation will make sure that the native clipboard is only
-    /// opened for transferring data and then closed as soon as possible.
+    /// Clipboard access is temporarily locked by another process or thread.
     ClipboardOccupied,
 
-    /// The image or the text that was about the be transferred to/from the clipboard could not be
-    /// converted to the appropriate format.
+    /// The data could not be converted to or from the required format.
     ConversionFailure,
 
     /// The clipboard content was already taken from the `ClipboardRead`.
     ContentTaken,
 
-    /// Any error that doesn't fit the other error types.
-    ///
-    /// The `description` field is only meant to help the developer and should not be relied on as a
-    /// means to identify an error case during runtime.
+    /// An unkown error
     Unknown {
         /// String describing the error
         description: String,
