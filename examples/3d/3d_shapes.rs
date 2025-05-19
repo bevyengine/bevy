@@ -1,5 +1,14 @@
-//! This example demonstrates the built-in 3d shapes in Bevy.
-//! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
+//! Here we use shape primitives to generate meshes for 3d objects, attaching a runtime-generated patterned texture to each 3d object.
+//!
+//! "Shape primitives" here are just the mathematical definition of certain shapes, they're not meshes on their own! A sphere with radius `1.0` can be defined with [`Sphere::new(1.0)`][Sphere::new] but all this does is store the radius. So we need to turn these shape descriptions, these shape primitives, into meshes.
+//!
+//! While a shape is not a mesh, turning it into one in Bevy is easy. In this example we call [`meshes.add(/* Shape here! */)`][Assets<Mesh>::add] on the shape, which works because this method asks for something that can be turned into the asset type it stores and because there's an implementation for [`From`] on primitive shapes into meshes that will get call.
+//!
+//! [`Extrusion`] lets us turn 2D shape primitives into versions of those shapes that have volume by extruding them. A 1x1 square that gets wrapped in this with an extrusion depth of 2 will give us a rectangular prism of size 1x1x2, but here we're just extruding these 2d shapes by depth 1.
+//!
+//! The material applied to these shapes is a texture that we generate at run time by looping through a "palette" of RGBA values (stored adjacent to each other in the array) and writing values to positions in another array that represents the buffer for an 8x8 texture. This texture is then registered with the assets system just one time, with that [`Handle<StandardMaterial>`] then applied to all the shapes in this example.
+//!
+//! Both the mesh and material need to be wrapped in their own "newtypes." The mesh and material are [`Handle<Mesh>`] and [`Handle<StandardMaterial>`] at the moment, which are not components. Handles are put behind "newtypes" to prevent ambiguity, as some entities might want to have handles to meshes (or images, or materials etc.) for different purposes! All we need to do to make them rendering-relevant components is wrap the mesh handle and the material handle in [`Mesh3d`] and [`MeshMaterial3d`] respectively.
 //!
 //! You can toggle wireframes with the space bar except on wasm. Wasm does not support
 //! `POLYGON_MODE_LINE` on the gpu.
