@@ -2,10 +2,14 @@
 
 extern crate alloc;
 
-use alloc::sync::Arc;
-use bevy_platform::sync::Mutex;
+use bevy_ecs::resource::Resource;
 
-pub use clipboard::*;
+use {alloc::sync::Arc, bevy_platform::sync::Mutex};
+
+/// The clipboard prelude
+pub mod prelude {
+    pub use crate::{Clipboard, ClipboardContents};
+}
 
 /// Clipboard plugin
 #[derive(Default)]
@@ -38,69 +42,36 @@ impl ClipboardContents {
     }
 }
 
-#[cfg(windows)]
-mod clipboard {
-    use crate::ClipboardContents;
-    use crate::ClipboardError;
-    use bevy_ecs::resource::Resource;
+/// Resource providing access to the clipboard
+#[cfg(unix)]
+#[derive(Resource)]
+pub struct Clipboard(Option<arboard::Clipboard>);
 
-    /// Resource providing access to the clipboard
-    #[derive(Resource, Default)]
-    pub struct Clipboard;
-
-    impl Clipboard {
-        /// Fetches UTF-8 text from the clipboard and returns it.
-        ///
-        /// # Errors
-        ///
-        /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn fetch_text(&mut self) -> ClipboardContents {
-            ClipboardContents::Ready({
-                arboard::Clipboard::new()
-                    .and_then(|mut clipboard| clipboard.get_text())
-                    .map_err(ClipboardError::from)
-            })
-        }
-
-        /// Places the text onto the clipboard. Any valid UTF-8 string is accepted.
-        ///
-        /// # Errors
-        ///
-        /// Returns error if `text` failed to be stored on the clipboard.
-        pub fn set_text<'a, T: Into<alloc::borrow::Cow<'a, str>>>(
-            &mut self,
-            text: T,
-        ) -> Result<(), ClipboardError> {
-            arboard::Clipboard::new()
-                .and_then(|mut clipboard| clipboard.set_text(text))
-                .map_err(ClipboardError::from)
+#[cfg(unix)]
+impl Default for Clipboard {
+    fn default() -> Self {
+        {
+            Self(arboard::Clipboard::new().ok())
         }
     }
 }
 
-#[cfg(unix)]
-mod clipboard {
-    use super::*;
+/// Resource providing access to the clipboard
+#[cfg(not(unix))]
+#[derive(Resource, Default)]
+pub struct Clipboard;
 
-    use bevy_ecs::resource::Resource;
-
-    /// Resource providing access to the clipboard
-    #[derive(Resource)]
-    pub struct Clipboard(Option<arboard::Clipboard>);
-
-    impl Default for Clipboard {
-        fn default() -> Self {
-            Self(arboard::Clipboard::new().ok())
-        }
-    }
-
-    impl Clipboard {
-        /// Fetches UTF-8 text from the clipboard and returns it.
-        ///
-        /// # Errors
-        ///
-        /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn fetch_text(&mut self) -> ClipboardContents {
+impl Clipboard {
+    /// Fetches UTF-8 text from the clipboard and returns it.
+    ///
+    /// On Windows and Unix this completed immediately, while
+    ///
+    /// # Errors
+    ///
+    /// Returns error if clipboard is empty or contents are not UTF-8 text.
+    pub fn fetch_text(&mut self) -> ClipboardContents {
+        #[cfg(unix)]
+        {
             ClipboardContents::Ready(if let Some(clipboard) = self.0.as_mut() {
                 clipboard.get_text().map_err(ClipboardError::from)
             } else {
@@ -108,42 +79,17 @@ mod clipboard {
             })
         }
 
-        /// Places the text onto the clipboard. Any valid UTF-8 string is accepted.
-        ///
-        /// # Errors
-        ///
-        /// Returns error if `text` failed to be stored on the clipboard.
-        pub fn set_text<'a, T: Into<alloc::borrow::Cow<'a, str>>>(
-            &mut self,
-            text: T,
-        ) -> Result<(), ClipboardError> {
-            if let Some(clipboard) = self.0.as_mut() {
-                clipboard.set_text(text).map_err(ClipboardError::from)
-            } else {
-                Err(ClipboardError::ClipboardNotSupported)
-            }
+        #[cfg(windows)]
+        {
+            ClipboardContents::Ready(
+                arboard::Clipboard::new()
+                    .and_then(|mut clipboard| clipboard.get_text())
+                    .map_err(ClipboardError::from),
+            )
         }
-    }
-}
 
-#[cfg(target_arch = "wasm32")]
-mod clipboard {
-    use super::*;
-    use crate::ClipboardError;
-    use bevy_ecs::resource::Resource;
-    use wasm_bindgen_futures::JsFuture;
-
-    /// Resource providing access to the clipboard
-    #[derive(Resource, Default)]
-    pub struct Clipboard;
-
-    impl Clipboard {
-        /// Fetches UTF-8 text from the clipboard and returns it.
-        ///
-        /// # Errors
-        ///
-        /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn fetch_text(&mut self) -> ClipboardContents {
+        #[cfg(target_arch = "wasm32")]
+        {
             if let Some(clipboard) = web_sys::window().map(|w| w.navigator().clipboard()) {
                 let shared = Arc::new(Mutex::new(None));
                 let shared_clone = shared.clone();
@@ -160,17 +106,35 @@ mod clipboard {
                 ClipboardContents::Ready(Err(ClipboardError::ClipboardNotSupported))
             }
         }
+    }
 
-        /// Places the text onto the clipboard. Any valid UTF-8 string is accepted.
-        ///
-        /// # Errors
-        ///
-        /// Returns error if `text` failed to be stored on the clipboard.
-        pub fn set_text<'a, T: Into<alloc::borrow::Cow<'a, str>>>(
-            &mut self,
-            text: T,
-        ) -> Result<(), ClipboardError> {
-            let text = text.into().to_string();
+    /// Places the text onto the clipboard. Any valid UTF-8 string is accepted.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if `text` failed to be stored on the clipboard.
+    pub fn set_text<'a, T: Into<alloc::borrow::Cow<'a, str>>>(
+        &mut self,
+        text: T,
+    ) -> Result<(), ClipboardError> {
+        #[cfg(unix)]
+        {
+            if let Some(clipboard) = self.0.as_mut() {
+                clipboard.set_text(text).map_err(ClipboardError::from)
+            } else {
+                Err(ClipboardError::ClipboardNotSupported)
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            arboard::Clipboard::new()
+                .and_then(|mut clipboard| clipboard.set_text(text))
+                .map_err(ClipboardError::from)
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
             if let Some(clipboard) = web_sys::window().map(|w| w.navigator().clipboard()) {
                 wasm_bindgen_futures::spawn_local(async move {
                     let _ = JsFuture::from(clipboard.write_text(&text)).await;
@@ -179,39 +143,6 @@ mod clipboard {
             } else {
                 Err(ClipboardError::ClipboardNotSupported)
             }
-        }
-    }
-}
-
-#[cfg(not(any(windows, unix, target_arch = "wasm32")))]
-mod clipboard {
-    use crate::ClipboardError;
-    use bevy_ecs::resource::Resource;
-
-    /// Resource providing access to the clipboard
-    #[derive(Resource, Default)]
-    pub struct Clipboard;
-
-    impl Clipboard {
-        /// Fetches UTF-8 text from the clipboard and returns it.
-        ///
-        /// # Errors
-        ///
-        /// Returns error if clipboard is empty or contents are not UTF-8 text.
-        pub fn fetch_text(&mut self) -> Result<ClipboardContents, ClipboardError> {
-            Err(ClipboardError::ClipboardNotSupported)
-        }
-
-        /// Places the text onto the clipboard. Any valid UTF-8 string is accepted.
-        ///
-        /// # Errors
-        ///
-        /// Returns error if `text` failed to be stored on the clipboard.
-        pub fn set_text<'a, T: Into<alloc::borrow::Cow<'a, str>>>(
-            &mut self,
-            _: T,
-        ) -> Result<(), ClipboardError> {
-            Err(ClipboardError::ClipboardNotSupported)
         }
     }
 }
