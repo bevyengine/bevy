@@ -16,14 +16,17 @@ use super::OrderedRelationshipSourceCollection;
 /// Detects cycles when traversing relationships.
 #[derive(Default, Debug)]
 struct CyclicTraversalDetector {
-    visited: EntityHashSet
+    visited: EntityHashSet,
 }
 
 #[cfg(debug_assertions)]
 impl CyclicTraversalDetector {
     fn check(&mut self, node: Entity) {
         if self.visited.contains(&node) {
-            panic!("Cyclical traversal detected - have already visited entity {:?}", node);
+            panic!(
+                "Cyclical traversal detected - have already visited entity {:?}",
+                node
+            );
         }
         self.visited.insert(node);
     }
@@ -346,8 +349,7 @@ impl<'w> EntityWorldMut<'w> {
     fn insert_recursive_impl<S: RelationshipTarget>(
         &mut self,
         bundle: impl Bundle + Clone,
-        #[cfg(debug_assertions)]
-        cycle_detector: &mut CyclicTraversalDetector,
+        #[cfg(debug_assertions)] cycle_detector: &mut CyclicTraversalDetector,
     ) -> &mut Self {
         #[cfg(debug_assertions)]
         cycle_detector.check(self.id());
@@ -357,13 +359,11 @@ impl<'w> EntityWorldMut<'w> {
             let related_vec: Vec<Entity> = relationship_target.iter().collect();
             for related in related_vec {
                 self.world_scope(|world| {
-                    world
-                        .entity_mut(related)
-                        .insert_recursive_impl::<S>(
-                            bundle.clone(),
-                            #[cfg(debug_assertions)]
-                            cycle_detector
-                        );
+                    world.entity_mut(related).insert_recursive_impl::<S>(
+                        bundle.clone(),
+                        #[cfg(debug_assertions)]
+                        cycle_detector,
+                    );
                 });
             }
         }
@@ -395,8 +395,7 @@ impl<'w> EntityWorldMut<'w> {
 
     fn remove_recursive_impl<S: RelationshipTarget, B: Bundle>(
         &mut self,
-        #[cfg(debug_assertions)]
-        cycle_detector: &mut CyclicTraversalDetector,
+        #[cfg(debug_assertions)] cycle_detector: &mut CyclicTraversalDetector,
     ) -> &mut Self {
         #[cfg(debug_assertions)]
         cycle_detector.check(self.id());
@@ -408,7 +407,7 @@ impl<'w> EntityWorldMut<'w> {
                 self.world_scope(|world| {
                     world.entity_mut(related).remove_recursive_impl::<S, B>(
                         #[cfg(debug_assertions)]
-                        cycle_detector
+                        cycle_detector,
                     );
                 });
             }
