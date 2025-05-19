@@ -1463,11 +1463,16 @@ fn load_node(
                         });
                     }
 
+                    //Use material name for mesh entity's Name when available
                     if let Some(name) = material.name() {
-                        mesh_entity.insert(GltfMaterialName(String::from(name)));
+                        mesh_entity.insert((
+                            Name::new(name.to_string()),
+                            GltfMaterialName(name.to_string()),
+                        ));
+                    } else {
+                        mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
                     }
 
-                    mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
                     // Mark for adding skinned mesh
                     if let Some(skin) = gltf_node.skin() {
                         entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
