@@ -174,7 +174,7 @@ pub enum ClipboardError {
     /// The clipboard content was already taken from the `ClipboardRead`.
     ContentTaken,
 
-    /// An unkown error
+    /// An unknown error
     Unknown {
         /// String describing the error
         description: String,
