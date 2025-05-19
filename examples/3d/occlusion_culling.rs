@@ -32,9 +32,9 @@ use bevy::{
         experimental::occlusion_culling::OcclusionCulling,
         render_graph::{self, NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel},
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
-        renderer::{RenderAdapter, RenderContext, RenderDevice},
+        renderer::{RenderContext, RenderDevice},
         settings::WgpuFeatures,
-        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSet,
+        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSystems,
     },
 };
 use bytemuck::Pod;
@@ -140,7 +140,7 @@ struct SavedIndirectParametersData {
 
 impl FromWorld for SavedIndirectParameters {
     fn from_world(world: &mut World) -> SavedIndirectParameters {
-        let render_adapter = world.resource::<RenderAdapter>();
+        let render_device = world.resource::<RenderDevice>();
         SavedIndirectParameters(Arc::new(Mutex::new(SavedIndirectParametersData {
             data: vec![],
             count: 0,
@@ -152,7 +152,7 @@ impl FromWorld for SavedIndirectParameters {
             // supports `multi_draw_indirect_count`. So, if we don't have that
             // feature, then we don't bother to display how many meshes were
             // culled.
-            occlusion_culling_introspection_supported: render_adapter
+            occlusion_culling_introspection_supported: render_device
                 .features()
                 .contains(WgpuFeatures::MULTI_DRAW_INDIRECT_COUNT),
         })))
@@ -220,7 +220,8 @@ impl Plugin for ReadbackIndirectParametersPlugin {
             .add_systems(ExtractSchedule, readback_indirect_parameters)
             .add_systems(
                 Render,
-                create_indirect_parameters_staging_buffers.in_set(RenderSet::PrepareResourcesFlush),
+                create_indirect_parameters_staging_buffers
+                    .in_set(RenderSystems::PrepareResourcesFlush),
             )
             // Add the node that allows us to read the indirect parameters back
             // from the GPU to the CPU, which allows us to determine how many
@@ -450,8 +451,10 @@ impl render_graph::Node for ReadbackIndirectParametersNode {
             Some(indirect_parameters_staging_data_buffer),
             Some(indirect_parameters_staging_batch_sets_buffer),
         ) = (
-            phase_indirect_parameters_buffers.indexed_data_buffer(),
-            phase_indirect_parameters_buffers.indexed_batch_sets_buffer(),
+            phase_indirect_parameters_buffers.indexed.data_buffer(),
+            phase_indirect_parameters_buffers
+                .indexed
+                .batch_sets_buffer(),
             indirect_parameters_mapping_buffers.data.as_ref(),
             indirect_parameters_mapping_buffers.batch_sets.as_ref(),
         )
@@ -501,8 +504,10 @@ fn create_indirect_parameters_staging_buffers(
 
     // Fetch the indirect parameters buffers that we're going to copy from.
     let (Some(indexed_data_buffer), Some(indexed_batch_set_buffer)) = (
-        phase_indirect_parameters_buffers.indexed_data_buffer(),
-        phase_indirect_parameters_buffers.indexed_batch_sets_buffer(),
+        phase_indirect_parameters_buffers.indexed.data_buffer(),
+        phase_indirect_parameters_buffers
+            .indexed
+            .batch_sets_buffer(),
     ) else {
         return;
     };

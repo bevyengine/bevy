@@ -65,11 +65,11 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::Has,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -79,7 +79,7 @@ use bevy_render::{
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{self, prepare_view_targets, Msaa, Visibility, VisibilityClass},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::Transform;
 use derive_more::From;
@@ -253,13 +253,11 @@ impl Plugin for MeshletPlugin {
                 Core3d,
                 (
                     NodeMeshlet::VisibilityBufferRasterPass,
-                    NodePbr::ShadowPass,
+                    NodePbr::EarlyShadowPass,
                     //
                     NodeMeshlet::Prepass,
                     //
                     NodeMeshlet::DeferredPrepass,
-                    Node3d::DeferredPrepass,
-                    Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     //
                     Node3d::StartMainPass,
@@ -279,12 +277,12 @@ impl Plugin for MeshletPlugin {
             .add_systems(
                 Render,
                 (
-                    perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
+                    perform_pending_meshlet_mesh_writes.in_set(RenderSystems::PrepareAssets),
                     configure_meshlet_views
                         .after(prepare_view_targets)
-                        .in_set(RenderSet::ManageViews),
-                    prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
-                    prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        .in_set(RenderSystems::ManageViews),
+                    prepare_meshlet_per_frame_resources.in_set(RenderSystems::PrepareResources),
+                    prepare_meshlet_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             );
     }
@@ -292,7 +290,7 @@ impl Plugin for MeshletPlugin {
 
 /// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
 #[component(on_add = view::add_visibility_class::<MeshletMesh3d>)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);

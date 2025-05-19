@@ -13,7 +13,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetEvents, AssetId, RenderAssetUsages};
+use bevy_asset::{AssetApp, AssetEventSystems, AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -73,7 +73,7 @@ impl Plugin for MeshPlugin {
                 PostUpdate,
                 mark_3d_meshes_as_changed_if_their_assets_changed
                     .ambiguous_with(VisibilitySystems::CalculateBounds)
-                    .before(AssetEvents),
+                    .before(AssetEventSystems),
             );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -208,7 +208,7 @@ impl RenderAsset for RenderMesh {
     fn prepare_asset(
         mesh: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        (images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {

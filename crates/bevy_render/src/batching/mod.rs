@@ -9,8 +9,8 @@ use nonmax::NonMaxU32;
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, InputUniformIndex,
-        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, ViewBinnedRenderPhases,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItemExtraIndex,
+        SortedPhaseItem, SortedRenderPhase, ViewBinnedRenderPhases,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
     sync_world::MainEntity,
@@ -148,14 +148,12 @@ pub trait GetFullBatchData: GetBatchData {
         query_item: MainEntity,
     ) -> Option<NonMaxU32>;
 
-    /// Writes the [`gpu_preprocessing::IndirectParametersMetadata`] necessary
-    /// to draw this batch into the given metadata buffer at the given index.
+    /// Writes the [`gpu_preprocessing::IndirectParametersGpuMetadata`]
+    /// necessary to draw this batch into the given metadata buffer at the given
+    /// index.
     ///
     /// This is only used if GPU culling is enabled (which requires GPU
     /// preprocessing).
-    ///
-    /// * `mesh_index` describes the index of the first mesh instance in this
-    ///   batch in the `MeshInputUniform` buffer.
     ///
     /// * `indexed` is true if the mesh is indexed or false if it's non-indexed.
     ///
@@ -172,7 +170,6 @@ pub trait GetFullBatchData: GetBatchData {
     /// * `indirect_parameters_offset` is the index in that buffer at which to
     ///   write the metadata.
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
@@ -190,6 +187,7 @@ where
         phase.multidrawable_meshes.sort_unstable_keys();
         phase.batchable_meshes.sort_unstable_keys();
         phase.unbatchable_meshes.sort_unstable_keys();
+        phase.non_mesh_items.sort_unstable_keys();
     }
 }
 

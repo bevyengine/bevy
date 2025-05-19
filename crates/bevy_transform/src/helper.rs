@@ -123,8 +123,8 @@ mod tests {
         for transform in transforms {
             let mut e = app.world_mut().spawn(transform);
 
-            if let Some(entity) = entity {
-                e.insert(ChildOf(entity));
+            if let Some(parent) = entity {
+                e.insert(ChildOf(parent));
             }
 
             entity = Some(e.id());

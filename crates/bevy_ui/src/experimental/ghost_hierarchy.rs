@@ -20,7 +20,7 @@ use smallvec::SmallVec;
 #[cfg(feature = "ghost_nodes")]
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[cfg_attr(feature = "ghost_nodes", derive(Default))]
-#[reflect(Component, Debug)]
+#[reflect(Component, Debug, Clone)]
 #[require(Visibility, Transform, ComputedNodeTarget)]
 pub struct GhostNode;
 
@@ -150,7 +150,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 
     /// Returns the UI parent of the provided entity.
     pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
-        self.parents_query.get(entity).ok().map(|parent| parent.0)
+        self.parents_query.get(entity).ok().map(ChildOf::parent)
     }
 
     /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.

@@ -1,4 +1,6 @@
-use crate::material_bind_groups::{MaterialBindGroupAllocator, MaterialBindingId};
+use crate::material_bind_groups::{
+    FallbackBindlessResources, MaterialBindGroupAllocator, MaterialBindingId,
+};
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
@@ -6,7 +8,7 @@ use crate::meshlet::{
 };
 use crate::*;
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{Asset, AssetEvents, AssetId, AssetServer, UntypedAssetId};
+use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId};
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
@@ -19,7 +21,6 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
-use bevy_ecs::entity::EntityHash;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
@@ -28,10 +29,15 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::hash_map::Entry;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::camera::extract_cameras;
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
+use bevy_render::render_asset::prepare_assets;
+use bevy_render::renderer::RenderQueue;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
@@ -41,11 +47,12 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderDevice,
     sync_world::MainEntity,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewVisibility},
     Extract,
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
+use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
 use tracing::error;
 
@@ -281,7 +288,7 @@ where
                 PostUpdate,
                 (
                     mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    check_entities_needing_specialization::<M>.after(AssetEvents),
+                    check_entities_needing_specialization::<M>.after(AssetEventSystems),
                 )
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
@@ -299,7 +306,7 @@ where
                 .init_resource::<EntitySpecializationTicks<M>>()
                 .init_resource::<SpecializedMaterialPipelineCache<M>>()
                 .init_resource::<DrawFunctions<Shadow>>()
-                .init_resource::<RenderMaterialInstances<M>>()
+                .init_resource::<RenderMaterialInstances>()
                 .add_render_command::<Shadow, DrawPrepass<M>>()
                 .add_render_command::<Transmissive3d, DrawMaterial<M>>()
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
@@ -309,27 +316,35 @@ where
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_mesh_materials::<M>.before(ExtractMeshesSet),
-                        extract_entities_needs_specialization::<M>,
+                        extract_mesh_materials::<M>.in_set(MaterialExtractionSystems),
+                        early_sweep_material_instances::<M>
+                            .after(MaterialExtractionSystems)
+                            .before(late_sweep_material_instances),
+                        extract_entities_needs_specialization::<M>.after(extract_cameras),
                     ),
                 )
                 .add_systems(
                     Render,
                     (
                         specialize_material_meshes::<M>
-                            .in_set(RenderSet::PrepareMeshes)
+                            .in_set(RenderSystems::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>)
                             .after(prepare_assets::<RenderMesh>)
-                            .after(collect_meshes_for_gpu_building),
+                            .after(collect_meshes_for_gpu_building)
+                            .after(set_mesh_motion_vector_flags),
                         queue_material_meshes::<M>
-                            .in_set(RenderSet::QueueMeshes)
+                            .in_set(RenderSystems::QueueMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>),
                     ),
                 )
                 .add_systems(
                     Render,
-                    prepare_material_bind_groups::<M>
-                        .in_set(RenderSet::PrepareBindGroups)
+                    (
+                        prepare_material_bind_groups::<M>,
+                        write_material_bind_group_buffers::<M>,
+                    )
+                        .chain()
+                        .in_set(RenderSystems::PrepareBindGroups)
                         .after(prepare_assets::<PreparedMaterial<M>>),
                 );
 
@@ -341,12 +356,15 @@ where
                     .add_systems(
                         Render,
                         (
-                            check_views_lights_need_specialization.in_set(RenderSet::PrepareAssets),
+                            check_views_lights_need_specialization
+                                .in_set(RenderSystems::PrepareAssets),
+                            // specialize_shadows::<M> also needs to run after prepare_assets::<PreparedMaterial<M>>,
+                            // which is fine since ManageViews is after PrepareAssets
                             specialize_shadows::<M>
-                                .in_set(RenderSet::PrepareMeshes)
-                                .after(prepare_assets::<PreparedMaterial<M>>),
+                                .in_set(RenderSystems::ManageViews)
+                                .after(prepare_lights),
                             queue_shadows::<M>
-                                .in_set(RenderSet::QueueMeshes)
+                                .in_set(RenderSystems::QueueMeshes)
                                 .after(prepare_assets::<PreparedMaterial<M>>),
                         ),
                     );
@@ -356,7 +374,7 @@ where
             render_app.add_systems(
                 Render,
                 queue_material_meshlet_meshes::<M>
-                    .in_set(RenderSet::QueueMeshes)
+                    .in_set(RenderSystems::QueueMeshes)
                     .run_if(resource_exists::<InstanceManager>),
             );
 
@@ -364,7 +382,7 @@ where
             render_app.add_systems(
                 Render,
                 prepare_material_meshlet_meshes_main_opaque_pass::<M>
-                    .in_set(RenderSet::QueueMeshes)
+                    .in_set(RenderSystems::QueueMeshes)
                     .after(prepare_assets::<PreparedMaterial<M>>)
                     .before(queue_material_meshlet_meshes::<M>)
                     .run_if(resource_exists::<InstanceManager>),
@@ -389,6 +407,14 @@ where
         }
     }
 }
+
+/// A dummy [`AssetId`] that we use as a placeholder whenever a mesh doesn't
+/// have a material.
+///
+/// See the comments in [`RenderMaterialInstances::mesh_material`] for more
+/// information.
+pub(crate) static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> =
+    AssetId::<StandardMaterial>::invalid();
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
@@ -509,7 +535,7 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
-            bindless: material_bind_groups::material_uses_bindless_resources::<M>(render_device),
+            bindless: material_uses_bindless_resources::<M>(render_device),
             marker: PhantomData,
         }
     }
@@ -528,7 +554,7 @@ pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
     type Param = (
         SRes<RenderAssets<PreparedMaterial<M>>>,
-        SRes<RenderMaterialInstances<M>>,
+        SRes<RenderMaterialInstances>,
         SRes<MaterialBindGroupAllocator<M>>,
     );
     type ViewQuery = ();
@@ -550,17 +576,20 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
         let material_instances = material_instances.into_inner();
         let material_bind_group_allocator = material_bind_group_allocator.into_inner();
 
-        let Some(material_asset_id) = material_instances.get(&item.main_entity()) else {
+        let Some(material_instance) = material_instances.instances.get(&item.main_entity()) else {
             return RenderCommandResult::Skip;
         };
-        let Some(material) = materials.get(*material_asset_id) else {
+        let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
+            return RenderCommandResult::Skip;
+        };
+        let Some(material) = materials.get(material_asset_id) else {
             return RenderCommandResult::Skip;
         };
         let Some(material_bind_group) = material_bind_group_allocator.get(material.binding.group)
         else {
             return RenderCommandResult::Skip;
         };
-        let Some(bind_group) = material_bind_group.get_bind_group() else {
+        let Some(bind_group) = material_bind_group.bind_group() else {
             return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, bind_group, &[]);
@@ -568,15 +597,52 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     }
 }
 
-/// Stores all extracted instances of a [`Material`] in the render world.
-#[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterialInstances<M: Material>(pub MainEntityHashMap<AssetId<M>>);
+/// Stores all extracted instances of all [`Material`]s in the render world.
+#[derive(Resource, Default)]
+pub struct RenderMaterialInstances {
+    /// Maps from each entity in the main world to the
+    /// [`RenderMaterialInstance`] associated with it.
+    pub instances: MainEntityHashMap<RenderMaterialInstance>,
+    /// A monotonically-increasing counter, which we use to sweep
+    /// [`RenderMaterialInstances::instances`] when the entities and/or required
+    /// components are removed.
+    current_change_tick: Tick,
+}
 
-impl<M: Material> Default for RenderMaterialInstances<M> {
-    fn default() -> Self {
-        Self(Default::default())
+impl RenderMaterialInstances {
+    /// Returns the mesh material ID for the entity with the given mesh, or a
+    /// dummy mesh material ID if the mesh has no material ID.
+    ///
+    /// Meshes almost always have materials, but in very specific circumstances
+    /// involving custom pipelines they won't. (See the
+    /// `specialized_mesh_pipelines` example.)
+    pub(crate) fn mesh_material(&self, entity: MainEntity) -> UntypedAssetId {
+        match self.instances.get(&entity) {
+            Some(render_instance) => render_instance.asset_id,
+            None => DUMMY_MESH_MATERIAL.into(),
+        }
     }
 }
+
+/// The material associated with a single mesh instance in the main world.
+///
+/// Note that this uses an [`UntypedAssetId`] and isn't generic over the
+/// material type, for simplicity.
+pub struct RenderMaterialInstance {
+    /// The material asset.
+    pub(crate) asset_id: UntypedAssetId,
+    /// The [`RenderMaterialInstances::current_change_tick`] at which this
+    /// material instance was last modified.
+    last_change_tick: Tick,
+}
+
+/// A [`SystemSet`] that contains all `extract_mesh_materials` systems.
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct MaterialExtractionSystems;
+
+/// Deprecated alias for [`MaterialExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `MaterialExtractionSystems`.")]
+pub type ExtractMaterialsSet = MaterialExtractionSystems;
 
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
@@ -634,7 +700,7 @@ pub const fn screen_space_specular_transmission_pipeline_key(
 ///
 /// As [`crate::render::mesh::collect_meshes_for_gpu_building`] only considers
 /// meshes that were newly extracted, and it writes information from the
-/// [`RenderMeshMaterialIds`] into the
+/// [`RenderMaterialInstances`] into the
 /// [`crate::render::mesh::MeshInputUniform`], we must tell
 /// [`crate::render::mesh::extract_meshes_for_gpu_building`] to re-extract a
 /// mesh if its material changed. Otherwise, the material binding information in
@@ -643,7 +709,10 @@ pub const fn screen_space_specular_transmission_pipeline_key(
 /// [`crate::render::mesh::extract_meshes_for_gpu_building`] re-extracts a mesh
 /// is to mark its [`Mesh3d`] as changed, so that's what this system does.
 fn mark_meshes_as_changed_if_their_materials_changed<M>(
-    mut changed_meshes_query: Query<&mut Mesh3d, Changed<MeshMaterial3d<M>>>,
+    mut changed_meshes_query: Query<
+        &mut Mesh3d,
+        Or<(Changed<MeshMaterial3d<M>>, AssetChanged<MeshMaterial3d<M>>)>,
+    >,
 ) where
     M: Material,
 {
@@ -652,51 +721,138 @@ fn mark_meshes_as_changed_if_their_materials_changed<M>(
     }
 }
 
-/// Fills the [`RenderMaterialInstances`] and [`RenderMeshMaterialIds`]
-/// resources from the meshes in the scene.
+/// Fills the [`RenderMaterialInstances`] resources from the meshes in the
+/// scene.
 fn extract_mesh_materials<M: Material>(
-    mut material_instances: ResMut<RenderMaterialInstances<M>>,
-    mut material_ids: ResMut<RenderMeshMaterialIds>,
+    mut material_instances: ResMut<RenderMaterialInstances>,
     changed_meshes_query: Extract<
         Query<
             (Entity, &ViewVisibility, &MeshMaterial3d<M>),
             Or<(Changed<ViewVisibility>, Changed<MeshMaterial3d<M>>)>,
         >,
     >,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
-    mut removed_materials_query: Extract<RemovedComponents<MeshMaterial3d<M>>>,
 ) {
+    let last_change_tick = material_instances.current_change_tick;
+
     for (entity, view_visibility, material) in &changed_meshes_query {
         if view_visibility.get() {
-            material_instances.insert(entity.into(), material.id());
-            material_ids.insert(entity.into(), material.id().into());
+            material_instances.instances.insert(
+                entity.into(),
+                RenderMaterialInstance {
+                    asset_id: material.id().untyped(),
+                    last_change_tick,
+                },
+            );
         } else {
-            material_instances.remove(&MainEntity::from(entity));
-            material_ids.remove(entity.into());
+            material_instances
+                .instances
+                .remove(&MainEntity::from(entity));
+        }
+    }
+}
+
+/// Removes mesh materials from [`RenderMaterialInstances`] when their
+/// [`MeshMaterial3d`] components are removed.
+///
+/// This is tricky because we have to deal with the case in which a material of
+/// type A was removed and replaced with a material of type B in the same frame
+/// (which is actually somewhat common of an operation). In this case, even
+/// though an entry will be present in `RemovedComponents<MeshMaterial3d<A>>`,
+/// we must not remove the entry in `RenderMaterialInstances` which corresponds
+/// to material B. To handle this case, we use change ticks to avoid removing
+/// the entry if it was updated this frame.
+///
+/// This is the first of two sweep phases. Because this phase runs once per
+/// material type, we need a second phase in order to guarantee that we only
+/// bump [`RenderMaterialInstances::current_change_tick`] once.
+fn early_sweep_material_instances<M>(
+    mut material_instances: ResMut<RenderMaterialInstances>,
+    mut removed_materials_query: Extract<RemovedComponents<MeshMaterial3d<M>>>,
+) where
+    M: Material,
+{
+    let last_change_tick = material_instances.current_change_tick;
+
+    for entity in removed_materials_query.read() {
+        if let Entry::Occupied(occupied_entry) = material_instances.instances.entry(entity.into()) {
+            // Only sweep the entry if it wasn't updated this frame.
+            if occupied_entry.get().last_change_tick != last_change_tick {
+                occupied_entry.remove();
+            }
+        }
+    }
+}
+
+/// Removes mesh materials from [`RenderMaterialInstances`] when their
+/// [`ViewVisibility`] components are removed.
+///
+/// This runs after all invocations of [`early_sweep_material_instances`] and is
+/// responsible for bumping [`RenderMaterialInstances::current_change_tick`] in
+/// preparation for a new frame.
+pub(crate) fn late_sweep_material_instances(
+    mut material_instances: ResMut<RenderMaterialInstances>,
+    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
+) {
+    let last_change_tick = material_instances.current_change_tick;
+
+    for entity in removed_visibilities_query.read() {
+        if let Entry::Occupied(occupied_entry) = material_instances.instances.entry(entity.into()) {
+            // Only sweep the entry if it wasn't updated this frame. It's
+            // possible that a `ViewVisibility` component was removed and
+            // re-added in the same frame.
+            if occupied_entry.get().last_change_tick != last_change_tick {
+                occupied_entry.remove();
+            }
         }
     }
 
-    for entity in removed_visibilities_query
-        .read()
-        .chain(removed_materials_query.read())
-    {
-        // Only queue a mesh for removal if we didn't pick it up above.
-        // It's possible that a necessary component was removed and re-added in
-        // the same frame.
-        if !changed_meshes_query.contains(entity) {
-            material_instances.remove(&MainEntity::from(entity));
-            material_ids.remove(entity.into());
-        }
-    }
+    material_instances
+        .current_change_tick
+        .set(last_change_tick.get() + 1);
 }
 
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
+    mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
+    mut specialized_prepass_material_pipeline_cache: Option<
+        ResMut<SpecializedPrepassMaterialPipelineCache<M>>,
+    >,
+    mut specialized_shadow_material_pipeline_cache: Option<
+        ResMut<SpecializedShadowMaterialPipelineCache<M>>,
+    >,
+    views: Query<&ExtractedView>,
     ticks: SystemChangeTick,
 ) where
     M: Material,
 {
+    // Clean up any despawned entities, we do this first in case the removed material was re-added
+    // the same frame, thus will appear both in the removed components list and have been added to
+    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
+    for entity in removed_mesh_material_components.read() {
+        entity_specialization_ticks.remove(&MainEntity::from(entity));
+        for view in views {
+            if let Some(cache) =
+                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
+            if let Some(cache) = specialized_prepass_material_pipeline_cache
+                .as_mut()
+                .and_then(|c| c.get_mut(&view.retained_view_entity))
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
+            if let Some(cache) = specialized_shadow_material_pipeline_cache
+                .as_mut()
+                .and_then(|c| c.get_mut(&view.retained_view_entity))
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
+        }
+    }
+
     for entity in entities_needing_specialization.iter() {
         // Update the entity's specialization tick with this run's tick
         entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
@@ -735,11 +891,22 @@ impl<M> Default for EntitySpecializationTicks<M> {
     }
 }
 
+/// Stores the [`SpecializedMaterialViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedMaterialPipelineCache<M> {
-    // (view_entity, material_entity) -> (tick, pipeline_id)
+    // view entity -> view pipeline cache
     #[deref]
-    map: HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
+    map: HashMap<RetainedViewEntity, SpecializedMaterialViewPipelineCache<M>>,
+    marker: PhantomData<M>,
+}
+
+/// Stores the cached render pipeline ID for each entity in a single view, as
+/// well as the last time it was changed.
+#[derive(Deref, DerefMut)]
+pub struct SpecializedMaterialViewPipelineCache<M> {
+    // material entity -> (tick, pipeline_id)
+    #[deref]
+    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
     marker: PhantomData<M>,
 }
 
@@ -752,31 +919,47 @@ impl<M> Default for SpecializedMaterialPipelineCache<M> {
     }
 }
 
+impl<M> Default for SpecializedMaterialViewPipelineCache<M> {
+    fn default() -> Self {
+        Self {
+            map: MainEntityHashMap::default(),
+            marker: PhantomData,
+        }
+    }
+}
+
 pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
-        Or<(
-            Changed<Mesh3d>,
-            AssetChanged<Mesh3d>,
-            Changed<MeshMaterial3d<M>>,
-            AssetChanged<MeshMaterial3d<M>>,
-        )>,
+        (
+            Or<(
+                Changed<Mesh3d>,
+                AssetChanged<Mesh3d>,
+                Changed<MeshMaterial3d<M>>,
+                AssetChanged<MeshMaterial3d<M>>,
+            )>,
+            With<MeshMaterial3d<M>>,
+        ),
     >,
+    mut par_local: Local<Parallel<Vec<Entity>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
 ) where
     M: Material,
 {
     entities_needing_specialization.clear();
-    for entity in &needs_specialization {
-        entities_needing_specialization.push(entity);
-    }
+
+    needs_specialization
+        .par_iter()
+        .for_each(|entity| par_local.borrow_local_mut().push(entity));
+
+    par_local.drain_into(&mut entities_needing_specialization);
 }
 
 pub fn specialize_material_meshes<M: Material>(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     (
@@ -792,7 +975,7 @@ pub fn specialize_material_meshes<M: Material>(
         Res<ViewSortedRenderPhases<Transmissive3d>>,
         Res<ViewSortedRenderPhases<Transparent3d>>,
     ),
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
     entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
@@ -804,7 +987,13 @@ pub fn specialize_material_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view_entity, view, visible_entities) in &views {
+    // Record the retained IDs of all shadow views so that we can expire old
+    // pipeline IDs.
+    let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
+
+    for (view, visible_entities) in &views {
+        all_views.insert(view.retained_view_entity);
+
         if !transparent_render_phases.contains_key(&view.retained_view_entity)
             && !opaque_render_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_render_phases.contains_key(&view.retained_view_entity)
@@ -813,15 +1002,32 @@ pub fn specialize_material_meshes<M: Material>(
             continue;
         }
 
-        let Some(view_key) = view_key_cache.get(view_entity) else {
+        let Some(view_key) = view_key_cache.get(&view.retained_view_entity) else {
             continue;
         };
 
+        let view_tick = view_specialization_ticks
+            .get(&view.retained_view_entity)
+            .unwrap();
+        let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
+            .entry(view.retained_view_entity)
+            .or_default();
+
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let view_tick = view_specialization_ticks.get(view_entity).unwrap();
+            let Some(material_instance) = render_material_instances.instances.get(visible_entity)
+            else {
+                continue;
+            };
+            let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
+                continue;
+            };
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
-            let last_specialized_tick = specialized_material_pipeline_cache
-                .get(&(*view_entity, *visible_entity))
+            let last_specialized_tick = view_specialized_material_pipeline_cache
+                .get(visible_entity)
                 .map(|(tick, _)| *tick);
             let needs_specialization = last_specialized_tick.is_none_or(|tick| {
                 view_tick.is_newer_than(tick, ticks.this_run())
@@ -830,17 +1036,10 @@ pub fn specialize_material_meshes<M: Material>(
             if !needs_specialization {
                 continue;
             }
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                continue;
-            };
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
-            else {
-                continue;
-            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let Some(material) = render_materials.get(*material_asset_id) else {
+            let Some(material) = render_materials.get(material_asset_id) else {
                 continue;
             };
             let Some(material_bind_group) =
@@ -901,12 +1100,14 @@ pub fn specialize_material_meshes<M: Material>(
                 }
             };
 
-            specialized_material_pipeline_cache.insert(
-                (*view_entity, *visible_entity),
-                (ticks.this_run(), pipeline_id),
-            );
+            view_specialized_material_pipeline_cache
+                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
         }
     }
+
+    // Delete specialized pipelines belonging to views that have expired.
+    specialized_material_pipeline_cache
+        .retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
 }
 
 /// For each view, iterates over all the meshes visible from that view and adds
@@ -914,19 +1115,19 @@ pub fn specialize_material_meshes<M: Material>(
 pub fn queue_material_meshes<M: Material>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view_entity, view, visible_entities) in &views {
+    for (view, visible_entities) in &views {
         let (
             Some(opaque_phase),
             Some(alpha_mask_phase),
@@ -942,10 +1143,16 @@ pub fn queue_material_meshes<M: Material>(
             continue;
         };
 
+        let Some(view_specialized_material_pipeline_cache) =
+            specialized_material_pipeline_cache.get(&view.retained_view_entity)
+        else {
+            continue;
+        };
+
         let rangefinder = view.rangefinder3d();
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some((current_change_tick, pipeline_id)) = specialized_material_pipeline_cache
-                .get(&(*view_entity, *visible_entity))
+            let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
+                .get(visible_entity)
                 .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
             else {
                 continue;
@@ -958,14 +1165,18 @@ pub fn queue_material_meshes<M: Material>(
                 continue;
             }
 
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+            let Some(material_instance) = render_material_instances.instances.get(visible_entity)
+            else {
+                continue;
+            };
+            let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
-            let Some(material) = render_materials.get(*material_asset_id) else {
+            let Some(material) = render_materials.get(material_asset_id) else {
                 continue;
             };
 
@@ -988,6 +1199,11 @@ pub fn queue_material_meshes<M: Material>(
                 }
                 RenderPhaseType::Opaque => {
                     if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        // Even though we aren't going to insert the entity into
+                        // a bin, we still want to update its cache entry. That
+                        // way, we know we don't need to re-examine it in future
+                        // frames.
+                        opaque_phase.update_cache(*visible_entity, None, current_change_tick);
                         continue;
                     }
                     let batch_set_key = Opaque3dBatchSetKey {
@@ -1057,7 +1273,7 @@ pub fn queue_material_meshes<M: Material>(
 
 /// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource, Default, Debug)]
+#[reflect(Resource, Default, Debug, Clone)]
 pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
 
 impl DefaultOpaqueRendererMethod {
@@ -1097,6 +1313,7 @@ impl DefaultOpaqueRendererMethod {
 ///
 /// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be used.
 #[derive(Default, Clone, Copy, Debug, PartialEq, Reflect)]
+#[reflect(Default, Clone, PartialEq)]
 pub enum OpaqueRendererMethod {
     #[default]
     Forward,
@@ -1181,8 +1398,8 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             render_device,
             pipeline,
             default_opaque_render_method,
-            ref mut bind_group_allocator,
-            ref mut render_material_bindings,
+            bind_group_allocator,
+            render_material_bindings,
             opaque_draw_functions,
             alpha_mask_draw_functions,
             transmissive_draw_functions,
@@ -1191,14 +1408,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             alpha_mask_prepass_draw_functions,
             opaque_deferred_draw_functions,
             alpha_mask_deferred_draw_functions,
-            ref mut material_param,
+            material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        // Allocate a material binding ID if needed.
-        let material_binding_id = *render_material_bindings
-            .entry(material_id.into())
-            .or_insert_with(|| bind_group_allocator.allocate());
-
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
@@ -1264,10 +1476,27 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             false,
         ) {
             Ok(unprepared) => {
-                bind_group_allocator.init(render_device, material_binding_id, unprepared);
+                // Allocate or update the material.
+                let binding = match render_material_bindings.entry(material_id.into()) {
+                    Entry::Occupied(mut occupied_entry) => {
+                        // TODO: Have a fast path that doesn't require
+                        // recreating the bind group if only buffer contents
+                        // change. For now, we just delete and recreate the bind
+                        // group.
+                        bind_group_allocator.free(*occupied_entry.get());
+                        let new_binding = bind_group_allocator
+                            .allocate_unprepared(unprepared, &pipeline.material_layout);
+                        *occupied_entry.get_mut() = new_binding;
+                        new_binding
+                    }
+                    Entry::Vacant(vacant_entry) => *vacant_entry.insert(
+                        bind_group_allocator
+                            .allocate_unprepared(unprepared, &pipeline.material_layout),
+                    ),
+                };
 
                 Ok(PreparedMaterial {
-                    binding: material_binding_id,
+                    binding,
                     properties: MaterialProperties {
                         alpha_mode: material.alpha_mode(),
                         depth_bias: material.depth_bias(),
@@ -1299,11 +1528,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                 ) {
                     Ok(prepared_bind_group) => {
                         // Store the resulting bind group directly in the slot.
-                        bind_group_allocator.init_custom(
-                            material_binding_id,
-                            prepared_bind_group.bind_group,
-                            prepared_bind_group.data,
-                        );
+                        let material_binding_id =
+                            bind_group_allocator.allocate_prepared(prepared_bind_group);
+                        render_material_bindings.insert(material_id.into(), material_binding_id);
 
                         Ok(PreparedMaterial {
                             binding: material_binding_id,
@@ -1336,14 +1563,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
     fn unload_asset(
         source_asset: AssetId<Self::SourceAsset>,
-        (
-            _,
-            _,
-            _,
-            ref mut bind_group_allocator,
-            ref mut render_material_bindings,
-            ..,
-        ): &mut SystemParamItem<Self::Param>,
+        (_, _, _, bind_group_allocator, render_material_bindings, ..): &mut SystemParamItem<
+            Self::Param,
+        >,
     ) {
         let Some(material_binding_id) = render_material_bindings.remove(&source_asset.untyped())
         else {
@@ -1368,8 +1590,8 @@ impl From<BindGroup> for MaterialBindGroupId {
     }
 }
 
-/// A system that creates and/or recreates any bind groups that contain
-/// materials that were modified this frame.
+/// Creates and/or recreates any bind groups that contain materials that were
+/// modified this frame.
 pub fn prepare_material_bind_groups<M>(
     mut allocator: ResMut<MaterialBindGroupAllocator<M>>,
     render_device: Res<RenderDevice>,
@@ -1378,5 +1600,20 @@ pub fn prepare_material_bind_groups<M>(
 ) where
     M: Material,
 {
-    allocator.prepare_bind_groups(&render_device, &fallback_image, &fallback_resources);
+    allocator.prepare_bind_groups(&render_device, &fallback_resources, &fallback_image);
+}
+
+/// Uploads the contents of all buffers that the [`MaterialBindGroupAllocator`]
+/// manages to the GPU.
+///
+/// Non-bindless allocators don't currently manage any buffers, so this method
+/// only has an effect for bindless allocators.
+pub fn write_material_bind_group_buffers<M>(
+    mut allocator: ResMut<MaterialBindGroupAllocator<M>>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) where
+    M: Material,
+{
+    allocator.write_buffers(&render_device, &render_queue);
 }
