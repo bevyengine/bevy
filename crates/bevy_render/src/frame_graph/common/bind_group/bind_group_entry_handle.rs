@@ -209,6 +209,15 @@ impl IntoBindGroupResourceHandle for GraphResourceNodeHandle<FrameGraphTexture> 
     }
 }
 
+impl IntoBindGroupResourceHandle for &GraphResourceNodeHandle<FrameGraphTexture> {
+    fn into_binding(self) -> BindGroupResourceHandle {
+        BindGroupResourceHandle::TextureView(BindingResourceTextureViewHandle {
+            texture: self.clone(),
+            texture_view_info: TextureViewInfo::default(),
+        })
+    }
+}
+
 impl IntoBindGroupResourceHandle
     for (
         &GraphResourceNodeHandle<FrameGraphTexture>,

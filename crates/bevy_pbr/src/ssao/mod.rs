@@ -20,8 +20,8 @@ use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     frame_graph::{
-        BindGroupHandle, EncoderCommandBuilder, FrameGraph, FrameGraphTexture, ResourceMeta,
-        TextureInfo,
+        BindGroupHandle, EncoderCommandBuilder, FrameGraph, FrameGraphTexture, ResourceMaterial,
+        ResourceMeta, TextureInfo, TextureViewInfo,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
@@ -38,6 +38,7 @@ use bevy_render::{
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_utils::default;
 use core::mem;
 use tracing::{error, warn};
 
@@ -294,7 +295,7 @@ struct SsaoPipelines {
     ssao_bind_group_layout: BindGroupLayout,
     spatial_denoise_bind_group_layout: BindGroupLayout,
 
-    hilbert_index_lut: TextureView,
+    hilbert_index_lut: Texture,
     point_clamp_sampler: Sampler,
     linear_clamp_sampler: Sampler,
 }
@@ -305,27 +306,25 @@ impl FromWorld for SsaoPipelines {
         let render_queue = world.resource::<RenderQueue>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let hilbert_index_lut = render_device
-            .create_texture_with_data(
-                render_queue,
-                &(TextureDescriptor {
-                    label: Some("ssao_hilbert_index_lut"),
-                    size: Extent3d {
-                        width: HILBERT_WIDTH as u32,
-                        height: HILBERT_WIDTH as u32,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::R16Uint,
-                    usage: TextureUsages::TEXTURE_BINDING,
-                    view_formats: &[],
-                }),
-                TextureDataOrder::default(),
-                bytemuck::cast_slice(&generate_hilbert_index_lut()),
-            )
-            .create_view(&TextureViewDescriptor::default());
+        let hilbert_index_lut = render_device.create_texture_with_data(
+            render_queue,
+            &(TextureDescriptor {
+                label: Some("ssao_hilbert_index_lut"),
+                size: Extent3d {
+                    width: HILBERT_WIDTH as u32,
+                    height: HILBERT_WIDTH as u32,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Uint,
+                usage: TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            }),
+            TextureDataOrder::default(),
+            bytemuck::cast_slice(&generate_hilbert_index_lut()),
+        );
 
         let point_clamp_sampler = render_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Nearest,
@@ -660,19 +659,125 @@ struct SsaoBindGroups {
     spatial_denoise_bind_group: BindGroupHandle,
 }
 
+fn create_depth_view(mip_level: u32) -> TextureViewInfo {
+    TextureViewInfo {
+        label: Some("ssao_preprocessed_depth_texture_mip_view".into()),
+        base_mip_level: mip_level,
+        format: Some(TextureFormat::R16Float),
+        dimension: Some(TextureViewDimension::D2),
+        mip_level_count: Some(1),
+        ..default()
+    }
+}
+
 fn prepare_ssao_bind_groups(
-    mut _commands: Commands,
-    _render_device: Res<RenderDevice>,
-    _pipelines: Res<SsaoPipelines>,
-    _view_uniforms: Res<ViewUniforms>,
-    _global_uniforms: Res<GlobalsBuffer>,
-    _views: Query<(
+    mut commands: Commands,
+    pipelines: Res<SsaoPipelines>,
+    view_uniforms: Res<ViewUniforms>,
+    global_uniforms: Res<GlobalsBuffer>,
+    views: Query<(
         Entity,
         &ScreenSpaceAmbientOcclusionResources,
         &ViewPrepassTextures,
     )>,
+    mut frame_graph: ResMut<FrameGraph>,
 ) {
-    //todo
+    let (Some(view_uniforms_handle), Some(globals_uniforms_handle)) = (
+        view_uniforms
+            .uniforms
+            .make_binding_resource_handle(&mut frame_graph),
+        global_uniforms
+            .buffer
+            .make_binding_resource_handle(&mut frame_graph),
+    ) else {
+        return;
+    };
+
+    for (entity, ssao_resources, prepass_textures) in &views {
+        let common_bind_group = frame_graph
+            .create_bind_group_handle_builder(
+                Some("ssao_common_bind_group".into()),
+                &pipelines.common_bind_group_layout,
+            )
+            .add_handle(0, &pipelines.point_clamp_sampler)
+            .add_handle(1, &pipelines.linear_clamp_sampler)
+            .add_handle(2, &view_uniforms_handle)
+            .build();
+
+        let depth = prepass_textures
+            .depth
+            .as_ref()
+            .unwrap()
+            .texture
+            .make_binding_resource_handle(&mut frame_graph);
+
+        let preprocessed_depth_texture_handle = ssao_resources
+            .preprocessed_depth_texture
+            .imported(&mut frame_graph);
+
+        let preprocess_depth_bind_group = frame_graph
+            .create_bind_group_handle_builder(
+                Some("ssao_preprocess_depth_bind_group".into()),
+                &pipelines.preprocess_depth_bind_group_layout,
+            )
+            .add_handle(0, &depth)
+            .add_handle(
+                1,
+                (&preprocessed_depth_texture_handle, &create_depth_view(0)),
+            )
+            .add_handle(
+                2,
+                (&preprocessed_depth_texture_handle, &create_depth_view(1)),
+            )
+            .add_handle(
+                3,
+                (&preprocessed_depth_texture_handle, &create_depth_view(2)),
+            )
+            .add_handle(
+                4,
+                (&preprocessed_depth_texture_handle, &create_depth_view(3)),
+            )
+            .add_handle(
+                5,
+                (&preprocessed_depth_texture_handle, &create_depth_view(4)),
+            )
+            .build();
+
+        let hilbert_index_lut_handle = pipelines.hilbert_index_lut.imported(&mut frame_graph);
+
+        let thickness_buffer_handle = ssao_resources.thickness_buffer.imported(&mut frame_graph);
+
+        let ssao_bind_group = frame_graph
+            .create_bind_group_handle_builder(
+                Some("ssao_ssao_bind_group".into()),
+                &pipelines.ssao_bind_group_layout,
+            )
+            .add_handle(0, &preprocessed_depth_texture_handle)
+            .add_helper(1, &prepass_textures.normal.as_ref().unwrap().texture)
+            .add_handle(2, &hilbert_index_lut_handle)
+            .add_helper(3, &ssao_resources.ssao_noisy_texture)
+            .add_helper(4, &ssao_resources.depth_differences_texture)
+            .add_handle(5, &globals_uniforms_handle)
+            .add_handle(6, &thickness_buffer_handle)
+            .build();
+
+        let spatial_denoise_bind_group = frame_graph
+            .create_bind_group_handle_builder(
+                Some("ssao_spatial_denoise_bind_group".into()),
+                &pipelines.spatial_denoise_bind_group_layout,
+            )
+            .add_helper(0, &ssao_resources.ssao_noisy_texture)
+            .add_helper(1, &ssao_resources.depth_differences_texture)
+            .add_helper(2, &ssao_resources.screen_space_ambient_occlusion_texture)
+            .build();
+
+        commands.entity(entity).insert(SsaoBindGroups {
+            common_bind_group,
+            preprocess_depth_bind_group,
+            ssao_bind_group,
+            spatial_denoise_bind_group,
+        });
+    }
 }
 
 fn generate_hilbert_index_lut() -> [[u16; 64]; 64] {
