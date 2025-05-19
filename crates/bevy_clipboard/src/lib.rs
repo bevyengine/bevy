@@ -28,16 +28,24 @@ impl bevy_app::Plugin for ClipboardPlugin {
 pub enum ClipboardContents {
     /// The clipboard contents are ready to be accessed.
     Ready(Result<String, ClipboardError>),
-    /// The clipboard contents are still being fetched.
+    /// The clipboard contents are being fetched asynchronously.
     Pending(Arc<Mutex<Option<Result<String, ClipboardError>>>>),
 }
 
 impl ClipboardContents {
-    /// Returns the contents of the clipboard if they are ready.
-    pub fn get_or_poll(&self) -> Option<Result<String, ClipboardError>> {
+    /// Take the contents of the clipboard if they are ready.
+    /// Otherwise returns `None`.
+    pub fn try_take(&mut self) -> Option<Result<String, ClipboardError>> {
         match self {
-            ClipboardContents::Ready(result) => Some(result.clone()),
-            ClipboardContents::Pending(shared) => shared.lock().unwrap().clone(),
+            Self::Pending(shared) => {
+                if let Some(contents) = shared.lock().ok().and_then(|mut inner| inner.take()) {
+                    *self = Self::Ready(Err(ClipboardError::ContentTaken));
+                    Some(contents)
+                } else {
+                    None
+                }
+            }
+            Self::Ready(inner) => Some(std::mem::replace(inner, Err(ClipboardError::ContentTaken))),
         }
     }
 }
@@ -183,6 +191,9 @@ pub enum ClipboardError {
     /// The image or the text that was about the be transferred to/from the clipboard could not be
     /// converted to the appropriate format.
     ConversionFailure,
+
+    /// The clipboard content has already taken from the `ClipboardContents`.
+    ContentTaken,
 
     /// Any error that doesn't fit the other error types.
     ///

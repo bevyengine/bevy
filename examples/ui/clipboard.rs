@@ -123,7 +123,7 @@ fn paste_text_system(
     mut text_query: Query<(&mut Text, &mut TextColor), With<PasteTarget>>,
 ) {
     if let Some(contents) = paste.as_mut() {
-        if let Some(contents) = contents.get_or_poll() {
+        if let Some(contents) = contents.try_take() {
             let (message, color) = match contents {
                 Ok(text) => (text, Color::WHITE),
                 Err(error) => (format!("{error:?}"), RED.into()),
