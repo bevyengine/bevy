@@ -116,6 +116,7 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
 
+    // TODO: Replace with a custom sound, or rename file
     let score_sound = asset_server.load("sounds/breakout_collision.ogg");
     commands.insert_resource(ScoreSound(score_sound));
 
@@ -151,10 +152,8 @@ fn reset(
     mut score: ResMut<Score>,
     mut collision_events: EventReader<CollisionEvent>,
     mut spawn_pipe_events: EventWriter<SpawnPipeEvent>,
-    score_text: Query<&mut Text, With<ScoreText>>,
-    pipes: Query<Entity, With<Pipe>>,
-    pipe_markers: Query<Entity, With<PipeMarker>>,
-    bird: Query<Entity, With<Bird>>,
+    mut score_text: Single<&mut Text, With<ScoreText>>,
+    to_remove: Query<Entity, Or<(With<Bird>, With<Pipe>, With<PipeMarker>)>>,
     asset_server: Res<AssetServer>,
 ) {
     if collision_events.is_empty() {
@@ -164,23 +163,13 @@ fn reset(
     collision_events.clear();
 
     // Remove any entities left over from the previous game (if any)
-    for ent in bird {
-        commands.entity(ent).despawn();
-    }
-
-    for ent in pipes {
-        commands.entity(ent).despawn();
-    }
-
-    for ent in pipe_markers {
+    for ent in to_remove {
         commands.entity(ent).despawn();
     }
 
     // Set the score to 0
     score.0 = 0;
-    for mut text in score_text {
-        text.0 = 0.to_string();
-    }
+    score_text.0 = 0.to_string();
 
     // Spawn a new bird
     commands.spawn((
@@ -264,8 +253,8 @@ fn check_collisions(
 /// Add a pipe each time the timer finishes
 fn add_pipes(
     mut timer: ResMut<PipeTimer>,
-    time: Res<Time>,
     mut events: EventWriter<SpawnPipeEvent>,
+    time: Res<Time>,
 ) {
     timer.tick(time.delta());
 
@@ -276,10 +265,10 @@ fn add_pipes(
 
 fn spawn_pipe(
     mut events: EventReader<SpawnPipeEvent>,
-    window_size: Res<WindowSize>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    window_size: Res<WindowSize>,
 ) {
     if events.is_empty() {
         return;
