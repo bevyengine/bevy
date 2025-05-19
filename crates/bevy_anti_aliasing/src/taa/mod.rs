@@ -20,24 +20,28 @@ use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
-    frame_graph::FrameGraph,
+    frame_graph::{
+        ColorAttachment, FrameGraph, FrameGraphTexture, ResourceMeta, TextureInfo, TextureView,
+        TextureViewInfo,
+    },
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
-        ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState, PipelineCache,
-        PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
-        Shader, ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState, Operations,
+        PipelineCache, PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDimension, TextureFormat, TextureSampleType,
+        TextureUsages,
     },
     renderer::RenderDevice,
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
-    texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
+use tracing::warn;
 
 const TAA_SHADER_HANDLE: Handle<Shader> = weak_handle!("fea20d50-86b6-4069-aa32-374346aec00c");
 
@@ -167,12 +171,81 @@ impl ViewNode for TemporalAntiAliasNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
-        (_camera, _view_target, _taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
+        frame_graph: &mut FrameGraph,
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
-        _world: &World,
+        world: &World,
     ) -> Result<(), NodeRunError> {
+        if *msaa != Msaa::Off {
+            warn!("Temporal anti-aliasing requires MSAA to be disabled");
+            return Ok(());
+        }
+
+        let (Some(pipelines), Some(pipeline_cache)) = (
+            world.get_resource::<TaaPipeline>(),
+            world.get_resource::<PipelineCache>(),
+        ) else {
+            return Ok(());
+        };
+
+        let (Some(_), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
+            pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
+            &prepass_textures.motion_vectors,
+            &prepass_textures.depth,
+        ) else {
+            return Ok(());
+        };
+
+        let post_process = view_target.post_process_write();
+
+        let taa_bind_group_handle = frame_graph
+            .create_bind_group_handle_builder(
+                Some("taa_bind_group".into()),
+                &pipelines.taa_bind_group_layout,
+            )
+            .add_helper(0, post_process.source)
+            .add_helper(1, &taa_history_textures.read)
+            .add_helper(2, &prepass_motion_vectors_texture.texture)
+            .add_helper(3, &prepass_depth_texture.texture)
+            .add_handle(4, &pipelines.nearest_sampler)
+            .add_handle(5, &pipelines.linear_sampler)
+            .build();
+
+        let mut pass_builder = frame_graph.create_pass_builder("taa_node");
+
+        let destination = pass_builder.write_material(post_process.destination);
+
+        let taa_history_texture = pass_builder.write_material(&taa_history_textures.write);
+
+        let mut color_attachments = vec![];
+
+        color_attachments.push(Some(ColorAttachment {
+            view: TextureView {
+                texture: destination,
+                desc: TextureViewInfo::default(),
+            },
+            resolve_target: None,
+            ops: Operations::default(),
+        }));
+
+        color_attachments.push(Some(ColorAttachment {
+            view: TextureView {
+                texture: taa_history_texture,
+                desc: TextureViewInfo::default(),
+            },
+            resolve_target: None,
+            ops: Operations::default(),
+        }));
+
+        pass_builder
+            .create_render_pass_builder("taa_pass")
+            .add_color_attachments(color_attachments)
+            .set_render_pipeline(taa_pipeline_id.0)
+            .set_bind_group_handle(0, &taa_bind_group_handle, &[])
+            .set_camera_viewport(camera.viewport.clone())
+            .draw(0..3, 0..1);
+
         Ok(())
     }
 }
@@ -348,20 +421,24 @@ fn prepare_taa_jitter_and_mip_bias(
 
 #[derive(Component)]
 pub struct TemporalAntiAliasHistoryTextures {
-    write: CachedTexture,
-    read: CachedTexture,
+    write: ResourceMeta<FrameGraphTexture>,
+    read: ResourceMeta<FrameGraphTexture>,
+}
+
+impl TemporalAntiAliasHistoryTextures {
+    pub fn get_taa_history_1_texture_key(entity: Entity) -> String {
+        format!("taa_history_1_texture_{}", entity)
+    }
 }
 
 fn prepare_taa_history_textures(
     mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
     views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
 ) {
     for (entity, camera, view) in &views {
         if let Some(physical_target_size) = camera.physical_target_size {
-            let mut texture_descriptor = TextureDescriptor {
+            let mut texture_info = TextureInfo {
                 label: None,
                 size: Extent3d {
                     depth_or_array_layers: 1,
@@ -377,14 +454,22 @@ fn prepare_taa_history_textures(
                     TextureFormat::bevy_default()
                 },
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
+                view_formats: vec![],
             };
 
-            texture_descriptor.label = Some("taa_history_1_texture");
-            let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
+            texture_info.label = Some("taa_history_1_texture".into());
 
-            texture_descriptor.label = Some("taa_history_2_texture");
-            let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
+            let history_1_texture = ResourceMeta {
+                key: TemporalAntiAliasHistoryTextures::get_taa_history_1_texture_key(entity),
+                desc: texture_info.clone(),
+            };
+
+            texture_info.label = Some("taa_history_2_texture".into());
+
+            let history_2_texture = ResourceMeta {
+                key: TemporalAntiAliasHistoryTextures::get_taa_history_1_texture_key(entity),
+                desc: texture_info.clone(),
+            };
 
             let textures = if frame_count.0 % 2 == 0 {
                 TemporalAntiAliasHistoryTextures {
