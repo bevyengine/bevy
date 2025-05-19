@@ -291,7 +291,7 @@ fn merge_interaction_states(
 /// Typically, a simple hoverable entity or widget will have this component added to it. More
 /// complex widgets can have this component added to each hoverable part.
 ///
-/// The computational cost of keeping the `Hovering` components up to date is relatuively cheap,
+/// The computational cost of keeping the `Hovering` components up to date is relatively cheap,
 /// and linear in the number of entities that have the `Hovering` component inserted.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
