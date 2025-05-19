@@ -1,7 +1,7 @@
 //! This example demonstrates accessing the clipboard to retrieve and display text.
 
 use bevy::{
-    clipboard::{Clipboard, ClipboardContents},
+    clipboard::{Clipboard, ClipboardRead},
     color::palettes::css::{GREY, NAVY, RED},
     diagnostic::FrameTimeDiagnosticsPlugin,
     prelude::*,
@@ -109,7 +109,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn paste_text_system(
-    mut paste: Local<Option<ClipboardContents>>,
+    mut paste: Local<Option<ClipboardRead>>,
     mut clipboard: ResMut<Clipboard>,
     mut interaction_query: Query<
         (
@@ -123,7 +123,7 @@ fn paste_text_system(
     mut text_query: Query<(&mut Text, &mut TextColor), With<PasteTarget>>,
 ) {
     if let Some(contents) = paste.as_mut() {
-        if let Some(contents) = contents.try_take() {
+        if let Some(contents) = contents.poll_result() {
             let (message, color) = match contents {
                 Ok(text) => (text, Color::WHITE),
                 Err(error) => (format!("{error:?}"), RED.into()),

@@ -8,7 +8,7 @@ use {alloc::sync::Arc, bevy_platform::sync::Mutex};
 
 /// The clipboard prelude
 pub mod prelude {
-    pub use crate::{Clipboard, ClipboardContents};
+    pub use crate::{Clipboard, ClipboardRead};
 }
 
 /// Clipboard plugin
@@ -21,21 +21,22 @@ impl bevy_app::Plugin for ClipboardPlugin {
     }
 }
 
-/// Contents of the clipboard.
+/// Represents an attempt to read from the clipboard.
 ///
-/// Depending on the platform, the contents may be available immediately or fetched asynchronously.
+/// On desktop targets the result is available immediately.
+/// On wasm32 the result is fetched asynchronously.
 #[derive(Debug)]
-pub enum ClipboardContents {
+pub enum ClipboardRead {
     /// The clipboard contents are ready to be accessed.
     Ready(Result<String, ClipboardError>),
     /// The clipboard contents are being fetched asynchronously.
     Pending(Arc<Mutex<Option<Result<String, ClipboardError>>>>),
 }
 
-impl ClipboardContents {
-    /// Take the contents of the clipboard if they are ready.
-    /// Otherwise returns `None`.
-    pub fn try_take(&mut self) -> Option<Result<String, ClipboardError>> {
+impl ClipboardRead {
+    /// The result of an attempt to read from the clipboard, if it is ready.
+    /// If the result is still pending returns `None`.
+    pub fn poll_result(&mut self) -> Option<Result<String, ClipboardError>> {
         match self {
             Self::Pending(shared) => {
                 if let Some(contents) = shared.lock().ok().and_then(|mut inner| inner.take()) {
@@ -70,17 +71,17 @@ impl Default for Clipboard {
 pub struct Clipboard;
 
 impl Clipboard {
-    /// Fetches UTF-8 text from the clipboard and returns it.
+    /// Fetches UTF-8 text from the clipboard.
     ///
     /// On Windows and Unix this completed immediately, while
     ///
     /// # Errors
     ///
     /// Returns error if clipboard is empty or contents are not UTF-8 text.
-    pub fn fetch_text(&mut self) -> ClipboardContents {
+    pub fn fetch_text(&mut self) -> ClipboardRead {
         #[cfg(unix)]
         {
-            ClipboardContents::Ready(if let Some(clipboard) = self.0.as_mut() {
+            ClipboardRead::Ready(if let Some(clipboard) = self.0.as_mut() {
                 clipboard.get_text().map_err(ClipboardError::from)
             } else {
                 Err(ClipboardError::ClipboardNotSupported)
@@ -89,7 +90,7 @@ impl Clipboard {
 
         #[cfg(windows)]
         {
-            ClipboardContents::Ready(
+            ClipboardRead::Ready(
                 arboard::Clipboard::new()
                     .and_then(|mut clipboard| clipboard.get_text())
                     .map_err(ClipboardError::from),
@@ -109,9 +110,9 @@ impl Clipboard {
                     };
                     shared.lock().unwrap().replace(text);
                 });
-                ClipboardContents::Pending(shared_clone)
+                ClipboardRead::Pending(shared_clone)
             } else {
-                ClipboardContents::Ready(Err(ClipboardError::ClipboardNotSupported))
+                ClipboardRead::Ready(Err(ClipboardError::ClipboardNotSupported))
             }
         }
     }
@@ -192,7 +193,7 @@ pub enum ClipboardError {
     /// converted to the appropriate format.
     ConversionFailure,
 
-    /// The clipboard content has already taken from the `ClipboardContents`.
+    /// The clipboard content was already taken from the `ClipboardRead`.
     ContentTaken,
 
     /// Any error that doesn't fit the other error types.
