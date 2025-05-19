@@ -33,13 +33,6 @@ bevy_reflect = ["dep:bevy_reflect"]
 ## Extends reflection support to functions.
 reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
 
-## Use the configurable global error handler as the default error handler.
-##
-## This is typically used to turn panics from the ECS into loggable errors.
-## This may be useful for production builds,
-## but can result in a measurable performance impact, especially for commands.
-configurable_error_handler = []
-
 ## Enables automatic backtrace capturing in BevyError
 backtrace = ["std"]
 
