@@ -410,7 +410,7 @@ mod tests {
         error::Result,
         name::Name,
         prelude::{AnyOf, EntityRef, Trigger},
-        query::{Added, Changed, Or, With, Without},
+        query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
@@ -1327,6 +1327,25 @@ mod tests {
     }
 
     #[test]
+    fn system_state_spawned() {
+        let mut world = World::default();
+        world.spawn_empty();
+        let spawn_tick = world.change_tick();
+
+        let mut system_state: SystemState<Option<Single<SpawnDetails, Spawned>>> =
+            SystemState::new(&mut world);
+        {
+            let query = system_state.get(&world);
+            assert_eq!(query.unwrap().spawned_at(), spawn_tick);
+        }
+
+        {
+            let query = system_state.get(&world);
+            assert!(query.is_none());
+        }
+    }
+
+    #[test]
     #[should_panic]
     fn system_state_invalid_world() {
         let mut world = World::default();
@@ -1547,6 +1566,21 @@ mod tests {
             }
 
             fn immutable_query(_: Query<(&A, &B), Changed<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B, SpawnDetails), Spawned>) {
+                for _ in &mut query {}
+
+                immutable_query(query.as_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B, SpawnDetails), Spawned>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
             sys.initialize(&mut world);

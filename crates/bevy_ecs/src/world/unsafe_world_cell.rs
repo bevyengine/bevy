@@ -7,6 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    error::{DefaultErrorHandler, ErrorHandler},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -705,6 +706,18 @@ impl<'w> UnsafeWorldCell<'w> {
             (*self.ptr).last_trigger_id = (*self.ptr).last_trigger_id.wrapping_add(1);
         }
     }
+
+    /// Convenience method for accessing the world's default error handler,
+    ///
+    /// # Safety
+    /// Must have read access to [`DefaultErrorHandler`].
+    #[inline]
+    pub unsafe fn default_error_handler(&self) -> ErrorHandler {
+        self.get_resource::<DefaultErrorHandler>()
+            .copied()
+            .unwrap_or_default()
+            .0
+    }
 }
 
 impl Debug for UnsafeWorldCell<'_> {
@@ -1146,6 +1159,17 @@ impl<'w> UnsafeEntityCell<'w> {
             .entities()
             .entity_get_spawned_or_despawned_by(self.entity)
             .map(|o| o.unwrap())
+    }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(self) -> Tick {
+        // SAFETY: UnsafeEntityCell is only constructed for living entities and offers no despawn method
+        unsafe {
+            self.world()
+                .entities()
+                .entity_get_spawned_or_despawned_unchecked(self.entity)
+                .1
+        }
     }
 }
 

@@ -17,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout, YAxisOrientation,
+    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -228,7 +228,6 @@ impl TextPipeline {
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
-        y_axis_orientation: YAxisOrientation,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
@@ -348,10 +347,6 @@ impl TextPipeline {
                     let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
                     let y =
                         line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
-                    let y = match y_axis_orientation {
-                        YAxisOrientation::TopToBottom => y,
-                        YAxisOrientation::BottomToTop => box_size.y - y,
-                    };
 
                     let position = Vec2::new(x, y);
 
@@ -532,7 +527,7 @@ fn get_attrs<'a>(
     face_info: &'a FontFaceInfo,
     scale_factor: f64,
 ) -> Attrs<'a> {
-    let attrs = Attrs::new()
+    Attrs::new()
         .metadata(span_index)
         .family(Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
@@ -545,8 +540,7 @@ fn get_attrs<'a>(
             }
             .scale(scale_factor as f32),
         )
-        .color(cosmic_text::Color(color.to_linear().as_u32()));
-    attrs
+        .color(cosmic_text::Color(color.to_linear().as_u32()))
 }
 
 /// Calculate the size of the text area for the given buffer.
