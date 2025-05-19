@@ -133,9 +133,11 @@ impl<'a> RenderContext<'a> {
         self.command_buffer_queue.push(command_buffer);
     }
 
-    pub fn create_command_encoder(&mut self) -> CommandEncoder {
-        self.render_device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+    pub fn create_command_encoder(
+        &mut self,
+        desc: &wgpu::CommandEncoderDescriptor,
+    ) -> CommandEncoder {
+        self.render_device.create_command_encoder(desc)
     }
 
     pub fn command_encoder(&mut self) -> &mut CommandEncoder {

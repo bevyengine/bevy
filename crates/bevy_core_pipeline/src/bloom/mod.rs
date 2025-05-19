@@ -146,7 +146,7 @@ impl ViewNode for BloomNode {
 
         let view_texture = view_target.get_main_texture();
 
-        let mut pass_builder = frame_graph.create_pass_builder("bloom");
+        let mut pass_builder = frame_graph.create_pass_builder("bloom_node");
 
         let color_attachment = view_target.get_unsampled_attachment(&mut pass_builder);
 
@@ -168,8 +168,7 @@ impl ViewNode for BloomNode {
                 .build();
 
             pass_builder
-                .create_render_pass_builder()
-                .set_pass_name("bloom_downsampling_first_pass")
+                .create_render_pass_builder("bloom_downsampling_first_pass")
                 .add_color_attachment(ColorAttachment {
                     view: TextureView {
                         texture: bloom_texture_write,
@@ -210,8 +209,7 @@ impl ViewNode for BloomNode {
                 .build();
 
             pass_builder
-                .create_render_pass_builder()
-                .set_pass_name("bloom_downsampling_pass")
+                .create_render_pass_builder("bloom_downsampling_pass")
                 .add_color_attachment(ColorAttachment {
                     view: TextureView {
                         texture: bloom_texture_write,
@@ -258,8 +256,7 @@ impl ViewNode for BloomNode {
             );
 
             pass_builder
-                .create_render_pass_builder()
-                .set_pass_name("bloom_upsampling_pass")
+                .create_render_pass_builder("bloom_upsampling_pass")
                 .add_color_attachment(ColorAttachment {
                     view: TextureView {
                         texture: bloom_texture_write,
@@ -298,16 +295,15 @@ impl ViewNode for BloomNode {
                         &bloom_texture.get_texture_view_info(mip),
                     ),
                 )
-                .add_handle(2, &downsampling_pipeline_res.sampler)
-                .add_handle(3, &uniforms_binding)
+                .add_handle(1, &downsampling_pipeline_res.sampler)
+                .add_handle(2, &uniforms_binding)
                 .build();
 
             let blend =
                 compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
 
             pass_builder
-                .create_render_pass_builder()
-                .set_pass_name("bloom_upsampling_final_pass")
+                .create_render_pass_builder("bloom_upsampling_final_pass")
                 .add_color_attachment(color_attachment)
                 .set_render_pipeline(upsampling_pipeline_ids.id_final)
                 .set_bind_group(0, &upsampling_bind_group, &[uniform_index.index()])

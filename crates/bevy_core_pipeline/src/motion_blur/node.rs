@@ -81,13 +81,12 @@ impl ViewNode for MotionBlurNode {
             .add_handle(4, &globals_handle)
             .build();
 
-        let mut pass_builder = frame_graph.create_pass_builder("motion_blur_pass");
+        let mut pass_builder = frame_graph.create_pass_builder("motion_blur_node");
 
         let destination = pass_builder.write_material(post_process.destination);
 
         pass_builder
-            .create_render_pass_builder()
-            .set_pass_name("motion_blur_pass")
+            .create_render_pass_builder("motion_blur_pass")
             .add_color_attachment(ColorAttachment {
                 view: TextureView {
                     texture: destination,

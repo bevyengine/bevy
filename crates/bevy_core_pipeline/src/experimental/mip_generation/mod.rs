@@ -688,10 +688,9 @@ impl ViewDepthPyramid {
     ) {
         let mut pass_builder = frame_graph.create_pass_builder(label);
 
-        let mut compute_pass_builder = pass_builder.create_compute_pass_builder();
+        let mut compute_pass_builder = pass_builder.create_compute_pass_builder(label);
 
         compute_pass_builder
-            .set_pass_name(label)
             .set_compute_pipeline(downsample_depth_first_pipeline_id)
             // Pass the mip count as a push constant, for simplicity.
             .set_push_constants(0, &self.mip_count.to_le_bytes())

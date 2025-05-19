@@ -28,8 +28,9 @@ impl<'a, 'b> Drop for RenderPassBuilder<'a, 'b> {
 }
 
 impl<'a, 'b> RenderPassBuilder<'a, 'b> {
-    pub fn new(pass_builder: &'b mut PassBuilder<'a>) -> Self {
-        let render_pass = RenderPass::default();
+    pub fn new(pass_builder: &'b mut PassBuilder<'a>, name: &str) -> Self {
+        let mut render_pass = RenderPass::default();
+        render_pass.set_pass_name(name);
 
         Self {
             render_pass,
@@ -91,12 +92,6 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
                 self.pass_builder.pass_node_builder().name
             );
         }
-    }
-
-    pub fn set_pass_name(&mut self, name: &str) -> &mut Self {
-        self.render_pass.set_pass_name(name);
-
-        self
     }
 
     pub fn end_pipeline_statistics_query(&mut self) -> &mut Self {

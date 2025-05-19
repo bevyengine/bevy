@@ -85,14 +85,13 @@ impl ViewNode for MsaaWritebackNode {
             .add_handle(1, &blit_pipeline.sampler)
             .build();
 
-        let mut pass_builder = frame_graph.create_pass_builder("msaa_writeback");
+        let mut pass_builder = frame_graph.create_pass_builder("msaa_writeback_node");
 
         let destination = pass_builder.write_material(post_process.destination);
         let source = pass_builder.write_material(target.sampled_main_texture().unwrap());
 
         pass_builder
-            .create_render_pass_builder()
-            .set_pass_name("msaa_writeback")
+            .create_render_pass_builder("msaa_writeback")
             .add_color_attachment(ColorAttachment {
                 view: TextureView {
                     texture: source,

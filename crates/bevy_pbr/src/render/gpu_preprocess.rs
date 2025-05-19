@@ -622,9 +622,8 @@ impl Node for EarlyGpuPreprocessNode {
 
         let mut pass_builder = frame_graph.create_pass_builder("early mesh preprocessing");
 
-        let mut compute_pass_builder = pass_builder.create_compute_pass_builder();
-
-        compute_pass_builder.set_pass_name("early mesh preprocessing");
+        let mut compute_pass_builder =
+            pass_builder.create_compute_pass_builder("early mesh preprocessing");
 
         let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
         all_views.push(graph.view_entity());
@@ -880,8 +879,8 @@ impl Node for LateGpuPreprocessNode {
         };
 
         let mut pass_builder = frame_graph.create_pass_builder("late mesh preprocessing");
-        let mut compute_pass_builder = pass_builder.create_compute_pass_builder();
-        compute_pass_builder.set_pass_name("late mesh preprocessing");
+        let mut compute_pass_builder =
+            pass_builder.create_compute_pass_builder("late mesh preprocessing");
 
         // Run the compute passes.
         for (view, bind_groups, view_uniform_offset) in self.view_query.iter_manual(world) {
@@ -1117,8 +1116,7 @@ fn run_build_indirect_parameters_node(
 
     let mut pass_buidler = frame_graph.create_pass_builder(label);
 
-    let mut compute_pass_builder = pass_buidler.create_compute_pass_builder();
-    compute_pass_builder.set_pass_name(label);
+    let mut compute_pass_builder = pass_buidler.create_compute_pass_builder(label);
 
     // Loop over each phase. As each has as separate set of buffers, we need to
     // build indirect parameters individually for each phase.

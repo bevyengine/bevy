@@ -3,13 +3,12 @@ use alloc::sync::Arc;
 use super::{
     FrameGraph, FrameGraphError, GraphRawResourceNodeHandle, GraphResource,
     GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass, PassBuilder,
-    PassTrait, ResourceBoardKey, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
-    TypeEquals,
+    ResourceBoardKey, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite, TypeEquals,
 };
 
 pub struct PassNodeBuilder<'a> {
     pub(crate) graph: &'a mut FrameGraph,
-   pub(crate) name: String,
+    pub(crate) name: String,
     writes: Vec<GraphRawResourceNodeHandle>,
     reads: Vec<GraphRawResourceNodeHandle>,
     pass: Option<Pass>,
@@ -25,8 +24,9 @@ impl<'a> Drop for PassNodeBuilder<'a> {
 }
 
 impl<'a> PassNodeBuilder<'a> {
-    pub fn set_pass<T: PassTrait>(&mut self, pass: T) {
-        self.pass = Some(Pass::new(pass))
+    pub fn set_pass(&mut self, mut pass: Pass) {
+        pass.label = Some(self.name.clone().into());
+        self.pass = Some(pass)
     }
 
     pub fn create_pass_builder(self) -> PassBuilder<'a> {

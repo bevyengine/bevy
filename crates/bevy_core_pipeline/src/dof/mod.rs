@@ -491,8 +491,7 @@ impl ViewNode for DepthOfFieldNode {
                 .build();
 
             pass_builder
-                .create_render_pass_builder()
-                .set_pass_name(pipeline_render_info.pass_label)
+                .create_render_pass_builder(pipeline_render_info.pass_label)
                 .add_color_attachments(color_attachments)
                 .set_render_pipeline(pipeline_render_info.pipeline)
                 .set_bind_group_handle(0, &view_bind_group, &[view_uniform_offset.offset])

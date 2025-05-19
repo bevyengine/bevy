@@ -81,14 +81,13 @@ impl Node for UiPassNode {
             input_view_entity
         };
 
-        let mut pass_builder = frame_graph.create_pass_builder("ui_pass");
+        let mut pass_builder = frame_graph.create_pass_builder("ui_pass_node");
 
         let color_attachment = target.get_unsampled_attachment(&mut pass_builder);
 
-        let mut render_pass_builder = pass_builder.create_render_pass_builder();
+        let mut render_pass_builder = pass_builder.create_render_pass_builder("ui_pass");
 
         render_pass_builder
-            .set_pass_name("ui_pass")
             .add_color_attachment(color_attachment)
             .set_camera_viewport(camera.viewport.clone());
 

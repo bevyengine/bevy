@@ -401,7 +401,7 @@ impl ViewNode for PostProcessingNode {
         let source = post_process.source;
 
         let mut pass_builder =
-            PassBuilder::new(frame_graph.create_pass_node_bulder("postprocessing pass"));
+            PassBuilder::new(frame_graph.create_pass_node_bulder("postprocessing_pass_node"));
 
         let bind_group = pass_builder
             .create_bind_group_builder(
@@ -419,10 +419,9 @@ impl ViewNode for PostProcessingNode {
 
         let destination = pass_builder.write_material(destination);
 
-        let mut builder = pass_builder.create_render_pass_builder();
+        let mut builder = pass_builder.create_render_pass_builder("postprocessing_pass");
 
         builder
-            .set_pass_name("postprocessing pass")
             .add_color_attachment(ColorAttachment {
                 view: TextureView {
                     texture: destination,

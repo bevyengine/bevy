@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::{
     camera::{ClearColor, ExtractedCamera, NormalizedRenderTarget, SortedCameras},
-    frame_graph::{ColorAttachmentOwner, FrameGraph, RenderPass},
+    frame_graph::{ColorAttachmentOwner, FrameGraph},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     view::ExtractedWindows,
 };
@@ -84,20 +84,18 @@ impl Node for CameraDriverNode {
                 continue;
             };
 
-            let mut builder = frame_graph.create_pass_node_bulder("no_camera_clear_pass");
+            let mut pass_builder = frame_graph.create_pass_builder("no_camera_clear_pass");
 
-            let mut render_pass = RenderPass::default();
-
-            render_pass.add_raw_color_attachment(Some(ColorAttachmentOwner {
-                view: swap_chain_texture_view.deref().clone(),
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(clear_color_global.to_linear().into()),
-                    store: StoreOp::Store,
-                },
-            }));
-
-            builder.set_pass(render_pass);
+            pass_builder
+                .create_render_pass_builder("no_camera_clear_pass")
+                .add_raw_color_attachment(ColorAttachmentOwner {
+                    view: swap_chain_texture_view.deref().clone(),
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(clear_color_global.to_linear().into()),
+                        store: StoreOp::Store,
+                    },
+                });
         }
 
         Ok(())

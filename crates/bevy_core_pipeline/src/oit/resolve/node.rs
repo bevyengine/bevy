@@ -52,13 +52,12 @@ impl ViewNode for OitResolveNode {
             .add_helper(0, &depth.texture)
             .build();
 
-        let mut pass_builder = frame_graph.create_pass_builder("oit_resolve_pass");
+        let mut pass_builder = frame_graph.create_pass_builder("oit_resolve_node");
 
         let color_attachment = view_target.get_color_attachment(&mut pass_builder);
 
         pass_builder
-            .create_render_pass_builder()
-            .set_pass_name("oit_resolve_pass")
+            .create_render_pass_builder("oit_resolve_pass")
             .add_color_attachment(color_attachment)
             .set_camera_viewport(camera.viewport.clone())
             .set_render_pipeline(oit_resolve_pipeline_id.0)

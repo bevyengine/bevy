@@ -67,7 +67,7 @@ impl ViewNode for TonemappingNode {
         let lut_image_handle = lut_image.make_texture_view_binding(frame_graph);
 
         let mut pass_builder =
-            PassBuilder::new(frame_graph.create_pass_node_bulder("tonemapping_pass"));
+            PassBuilder::new(frame_graph.create_pass_node_bulder("tonemapping_node"));
 
         let bing_group = pass_builder
             .create_bind_group_builder(None, tonemapping_pipeline.texture_bind_group.clone())
@@ -80,10 +80,9 @@ impl ViewNode for TonemappingNode {
 
         let destination = pass_builder.write_material(destination);
 
-        let mut builder = pass_builder.create_render_pass_builder();
+        let mut builder = pass_builder.create_render_pass_builder("tonemapping_pass");
 
         builder
-            .set_pass_name("tonemapping_pass")
             .add_color_attachment(ColorAttachment {
                 view: TextureView {
                     texture: destination,

@@ -99,16 +99,16 @@ impl ViewNode for MainTransmissivePass3dNode {
                     }
 
                     let mut pass_builder =
-                        frame_graph.create_pass_builder("main_transmissive_pass_3d");
+                        frame_graph.create_pass_builder("main_transmissive_pass_3d_node");
 
                     let color_attachment = target.get_color_attachment(&mut pass_builder);
                     let depth_stencil_attachment =
                         depth.get_depth_stencil_attachment(&mut pass_builder, StoreOp::Store);
 
-                    let mut builder = pass_builder.create_render_pass_builder();
+                    let mut builder =
+                        pass_builder.create_render_pass_builder("main_transmissive_pass_3d");
 
                     builder
-                        .set_pass_name("main_transmissive_pass_3d")
                         .add_color_attachment(color_attachment)
                         .set_depth_stencil_attachment(depth_stencil_attachment)
                         .set_camera_viewport(camera.viewport.clone());
@@ -127,17 +127,17 @@ impl ViewNode for MainTransmissivePass3dNode {
                 }
             } else {
                 let mut pass_builder = PassBuilder::new(
-                    frame_graph.create_pass_node_bulder("main_transmissive_pass_3d"),
+                    frame_graph.create_pass_node_bulder("main_transmissive_pass_3d_node"),
                 );
 
                 let color_attachment = target.get_color_attachment(&mut pass_builder);
                 let depth_stencil_attachment =
                     depth.get_depth_stencil_attachment(&mut pass_builder, StoreOp::Store);
 
-                let mut builder = pass_builder.create_render_pass_builder();
+                let mut builder =
+                    pass_builder.create_render_pass_builder("main_transmissive_pass_3d");
 
                 builder
-                    .set_pass_name("main_transmissive_pass_3d")
                     .add_color_attachment(color_attachment)
                     .set_depth_stencil_attachment(depth_stencil_attachment)
                     .set_camera_viewport(camera.viewport.clone());

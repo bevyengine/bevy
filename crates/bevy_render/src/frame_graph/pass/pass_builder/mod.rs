@@ -11,47 +11,16 @@ use std::{borrow::Cow, mem::take};
 use crate::{
     frame_graph::{
         BindGroupBindingBuilder, EncoderCommand, EncoderCommandBuilder, PassNodeBuilder,
-        RenderContext, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
+        ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
     },
     render_resource::BindGroupLayout,
 };
 
-use super::{EncoderExecutor, PassTrait};
-
-#[derive(Default)]
-pub struct DynamicPass {
-    begin_encoder_commands: Vec<EncoderCommand>,
-    executors: Vec<Box<dyn EncoderExecutor>>,
-    end_encoder_commands: Vec<EncoderCommand>,
-}
-
-impl PassTrait for DynamicPass {
-    fn render(&self, render_context: &mut RenderContext) {
-        render_context.flush_encoder();
-
-        let mut command_encoder = render_context.create_command_encoder();
-
-        for begin_encoder_command in self.begin_encoder_commands.iter() {
-            begin_encoder_command.draw(&mut command_encoder);
-        }
-
-        for executor in self.executors.iter() {
-            executor.execute(&mut command_encoder, render_context);
-        }
-
-        for end_encoder_command in self.end_encoder_commands.iter() {
-            end_encoder_command.draw(&mut command_encoder);
-        }
-
-        let command_buffer = command_encoder.finish();
-
-        render_context.add_command_buffer(command_buffer);
-    }
-}
+use super::{EncoderExecutor, Pass};
 
 pub struct PassBuilder<'a> {
     pub(crate) pass_node_builder: PassNodeBuilder<'a>,
-    pass: DynamicPass,
+    pass: Pass,
 }
 
 impl<'a> Drop for PassBuilder<'a> {
@@ -79,7 +48,7 @@ impl<'a> PassBuilder<'a> {
     pub fn new(pass_node_builder: PassNodeBuilder<'a>) -> Self {
         PassBuilder {
             pass_node_builder,
-            pass: DynamicPass::default(),
+            pass: Pass::default(),
         }
     }
 
@@ -113,12 +82,12 @@ impl<'a> PassBuilder<'a> {
         self.pass.executors.push(Box::new(executor));
     }
 
-    pub fn create_render_pass_builder<'b>(&'b mut self) -> RenderPassBuilder<'a, 'b> {
-        RenderPassBuilder::new(self)
+    pub fn create_render_pass_builder<'b>(&'b mut self, name: &str) -> RenderPassBuilder<'a, 'b> {
+        RenderPassBuilder::new(self, name)
     }
 
-    pub fn create_compute_pass_builder<'b>(&'b mut self) -> ComputePassBuilder<'a, 'b> {
-        ComputePassBuilder::new(self)
+    pub fn create_compute_pass_builder<'b>(&'b mut self, name: &str) -> ComputePassBuilder<'a, 'b> {
+        ComputePassBuilder::new(self, name)
     }
 
     pub fn create_encoder_pass_builder<'b>(&'b mut self) -> EncoderPassBuilder<'a, 'b> {

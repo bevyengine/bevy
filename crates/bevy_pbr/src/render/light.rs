@@ -2284,11 +2284,10 @@ impl ShadowPassNode {
                     .depth_attachment
                     .get_attachment(StoreOp::Store, &mut pass_builder);
 
-                let mut render_pass_builder = pass_builder.create_render_pass_builder();
+                let mut render_pass_builder =
+                    pass_builder.create_render_pass_builder(&view_light.pass_name);
 
-                render_pass_builder
-                    .set_pass_name(&view_light.pass_name)
-                    .set_depth_stencil_attachment(depth_stencil_attachment);
+                render_pass_builder.set_depth_stencil_attachment(depth_stencil_attachment);
 
                 let render_device = world.resource::<RenderDevice>();
 

@@ -205,10 +205,9 @@ fn run_deferred_prepass<'w>(
     let view_entity = graph.view_entity();
 
     {
-        let mut render_pass_builder = pass_builder.create_render_pass_builder();
+        let mut render_pass_builder = pass_builder.create_render_pass_builder(label);
 
         render_pass_builder
-            .set_pass_name(label)
             .add_color_attachments(color_attachments)
             .set_camera_viewport(camera.viewport.clone());
 

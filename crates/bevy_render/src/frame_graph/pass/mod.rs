@@ -3,6 +3,8 @@ pub mod encoder_pass;
 pub mod pass_builder;
 pub mod render_pass;
 
+use std::borrow::Cow;
+
 pub use compute_pass::*;
 pub use encoder_pass::*;
 pub use pass_builder::*;
@@ -10,37 +12,36 @@ pub use render_pass::*;
 
 use wgpu::CommandEncoder;
 
-use super::RenderContext;
+use super::{EncoderCommand, RenderContext};
 
-pub struct Pass(Box<dyn PassTrait>);
-
-impl Default for Pass {
-    fn default() -> Self {
-        Pass(Box::new(EmptyPass))
-    }
+#[derive(Default)]
+pub struct Pass {
+    pub label: Option<Cow<'static, str>>,
+    begin_encoder_commands: Vec<EncoderCommand>,
+    executors: Vec<Box<dyn EncoderExecutor>>,
+    end_encoder_commands: Vec<EncoderCommand>,
 }
 
 impl Pass {
-    pub fn new<T: PassTrait>(pass: T) -> Pass {
-        Pass(Box::new(pass))
-    }
-
-    pub fn execute(&self, render_context: &mut RenderContext) {
-        self.0.render(render_context);
-    }
-}
-
-pub trait EncoderExecutor: 'static + Send + Sync {
-    fn execute(&self, command_encoder: &mut CommandEncoder, render_context: &mut RenderContext);
-}
-
-impl<T: EncoderExecutor> PassTrait for T {
-    fn render(&self, render_context: &mut RenderContext) {
+    pub fn render(&self, render_context: &mut RenderContext) {
         render_context.flush_encoder();
 
-        let mut command_encoder = render_context.create_command_encoder();
+        let mut command_encoder =
+            render_context.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: self.label.as_deref()
+            });
 
-        self.execute(&mut command_encoder, render_context);
+        for begin_encoder_command in self.begin_encoder_commands.iter() {
+            begin_encoder_command.draw(&mut command_encoder);
+        }
+
+        for executor in self.executors.iter() {
+            executor.execute(&mut command_encoder, render_context);
+        }
+
+        for end_encoder_command in self.end_encoder_commands.iter() {
+            end_encoder_command.draw(&mut command_encoder);
+        }
 
         let command_buffer = command_encoder.finish();
 
@@ -48,14 +49,6 @@ impl<T: EncoderExecutor> PassTrait for T {
     }
 }
 
-pub trait PassTrait: 'static + Send + Sync {
-    fn render(&self, render_context: &mut RenderContext);
-}
-
-pub struct EmptyPass;
-
-impl PassTrait for EmptyPass {
-    fn render(&self, render_context: &mut RenderContext) {
-        render_context.flush_encoder();
-    }
+pub trait EncoderExecutor: 'static + Send + Sync {
+    fn execute(&self, command_encoder: &mut CommandEncoder, render_context: &mut RenderContext);
 }

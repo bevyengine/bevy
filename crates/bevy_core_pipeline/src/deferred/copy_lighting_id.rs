@@ -87,22 +87,22 @@ impl ViewNode for CopyDeferredLightingIdNode {
             return Ok(());
         };
 
-        let mut pass_builder = frame_graph.create_pass_builder("copy_deferred_lighting_id_pass");
+        let mut pass_builder =
+            frame_graph.create_pass_builder("copy_deferred_lighting_id_node");
 
         let bind_group = pass_builder
             .create_bind_group_builder(
                 Some("copy_deferred_lighting_id_bind_group".into()),
                 copy_deferred_lighting_id_pipeline.layout.clone(),
             )
-            .add_helper(0,&deferred_lighting_pass_id_texture.texture)
+            .add_helper(0, &deferred_lighting_pass_id_texture.texture)
             .build();
 
         let deferred_lighting_id_depth_texture =
             pass_builder.write_material(&deferred_lighting_pass_id_texture.texture);
 
         pass_builder
-            .create_render_pass_builder()
-            .set_pass_name("copy_deferred_lighting_id_pass")
+            .create_render_pass_builder("copy_deferred_lighting_id_pass")
             .set_depth_stencil_attachment(DepthStencilAttachment {
                 view: TextureView {
                     texture: deferred_lighting_id_depth_texture,

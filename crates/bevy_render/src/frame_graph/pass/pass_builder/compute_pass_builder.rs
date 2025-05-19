@@ -5,7 +5,9 @@ use wgpu::QuerySet;
 
 use crate::{
     frame_graph::{
-        BindGroupBinding, BindGroupHandle, ComputePass, ComputePassCommandBuilder, FrameGraphBuffer, PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite
+        BindGroupBinding, BindGroupHandle, ComputePass, ComputePassCommandBuilder,
+        FrameGraphBuffer, PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceRef,
+        ResourceWrite,
     },
     render_resource::{BindGroup, CachedComputePipelineId},
 };
@@ -24,8 +26,9 @@ impl<'a, 'b> Drop for ComputePassBuilder<'a, 'b> {
 }
 
 impl<'a, 'b> ComputePassBuilder<'a, 'b> {
-    pub fn new(pass_builder: &'b mut PassBuilder<'a>) -> Self {
-        let compute_pass = ComputePass::default();
+    pub fn new(pass_builder: &'b mut PassBuilder<'a>, name: &str) -> Self {
+        let mut compute_pass = ComputePass::default();
+        compute_pass.set_pass_name(name);
 
         Self {
             compute_pass,
@@ -59,12 +62,6 @@ impl<'a, 'b> ComputePassBuilder<'a, 'b> {
 
     pub fn set_push_constants(&mut self, offset: u32, data: &[u8]) -> &mut Self {
         self.compute_pass.set_push_constants(offset, data);
-
-        self
-    }
-
-    pub fn set_pass_name(&mut self, name: &str) -> &mut Self {
-        self.compute_pass.set_pass_name(name);
 
         self
     }

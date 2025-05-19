@@ -56,7 +56,7 @@ impl ViewNode for UpscalingNode {
         let main_texture = target.get_main_texture();
 
         let mut pass_builder =
-            PassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_pass"));
+            PassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_node"));
 
         let bind_group = pass_builder
             .create_bind_group_builder(None, blit_pipeline.texture_bind_group.clone())
@@ -65,8 +65,7 @@ impl ViewNode for UpscalingNode {
             .build();
 
         pass_builder
-            .create_render_pass_builder()
-            .set_pass_name("upscaling_pass")
+            .create_render_pass_builder("upscaling_pass")
             .add_raw_color_attachment(target.out_texture_color_attachment(converted_clear_color))
             .set_bind_group(0, &bind_group, &[])
             .set_render_pipeline(upscaling_target.0)

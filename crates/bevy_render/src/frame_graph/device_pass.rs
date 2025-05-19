@@ -33,7 +33,7 @@ impl DevicePass {
         self.request_resources(render_context);
 
         if let Some(pass) = &self.pass {
-            pass.execute(render_context);
+            pass.render(render_context);
         }
         self.release_resources(render_context);
     }

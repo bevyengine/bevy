@@ -52,17 +52,17 @@ impl ViewNode for MainTransparentPass3dNode {
 
             let render_device = world.resource::<RenderDevice>();
 
-            let mut pass_builder =
-                PassBuilder::new(frame_graph.create_pass_node_bulder("main_transparent_pass_3d"));
+            let mut pass_builder = PassBuilder::new(
+                frame_graph.create_pass_node_bulder("main_transparent_pass_3d_node"),
+            );
 
             let color_attachment = target.get_color_attachment(&mut pass_builder);
-            let depth_stencil_attachment = depth
-                .get_depth_stencil_attachment(&mut pass_builder, StoreOp::Store);
+            let depth_stencil_attachment =
+                depth.get_depth_stencil_attachment(&mut pass_builder, StoreOp::Store);
 
-            let mut builder = pass_builder.create_render_pass_builder();
+            let mut builder = pass_builder.create_render_pass_builder("main_transparent_pass_3d");
 
             builder
-                .set_pass_name("main_transparent_pass_3d")
                 .add_color_attachment(color_attachment)
                 .set_depth_stencil_attachment(depth_stencil_attachment)
                 .set_camera_viewport(camera.viewport.clone());
@@ -79,15 +79,11 @@ impl ViewNode for MainTransparentPass3dNode {
         // reset for the next render pass so add an empty render pass without a custom viewport
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         if camera.viewport.is_some() {
-            #[cfg(feature = "trace")]
-            let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
-
             let mut pass_node_builder =
-                frame_graph.create_pass_node_bulder("reset_viewport_pass_3d");
+                frame_graph.create_pass_node_bulder("reset_viewport_pass_3d_node");
             let color_attachment = target.get_color_attachment(&mut pass_node_builder)?;
-            let mut builder = RenderPassBuilder::new(pass_node_builder);
-            Builder
-                .set_pass_name("reset_viewport_pass_3d")
+            let mut builder = frame_graph
+                .create_pass_node_bulder("reset_viewport_pass_3d")
                 .add_color_attachment(color_attachment);
         }
 
