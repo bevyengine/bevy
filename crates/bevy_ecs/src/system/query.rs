@@ -2036,7 +2036,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// |`QueryData` parameter type|Access required|
     /// |----|----|
     /// |`Entity`, `EntityLocation`,<br/>`SpawnDetails`, `&Archetype`,<br/>`Has<T>`, `PhantomData<T>`|No access|
-    /// |`EntityMut`|Read and write access to all components|
+    /// |[`EntityMut`](crate::world::EntityMut)|Read and write access to all components|
     /// |`EntityRef`|Read access to all components|
     /// |`&T`, `Ref<T>`|Read and required access to `T`|
     /// |`&mut T`, `Mut<T>`|Read, write and required access to `T`|
