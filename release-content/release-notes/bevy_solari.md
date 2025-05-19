@@ -17,6 +17,7 @@ Direct lighting is light that that is emitted from a light source, bounces off o
 In Bevy, direct lighting comes from analytical light components (`DirectionalLight`, `PointLight`, `SpotLight`) and shadow maps. Indirect lighting comes from a hardcoded `AmbientLight`, baked lighting components (`EnvironmentMapLight`, `IrradianceVolume`, `Lightmap`), and screen-space calculations (`ScreenSpaceAmbientOcclusion`, `ScreenSpaceReflections`, `specular_transmission`, `diffuse_transmission`).
 
 The problem with these methods is that they all have large downsides:
+
 * Emissive meshes do not cast light onto other objects, either direct or indirect.
 * Shadow maps are very expensive to render and consume a lot of memory, so you're limited to using only a few shadow casting lights. Good quality can be difficult to obtain in large scenes.
 * Baked lighting does not update in realtime as objects and lights move around, is low resolution/quality, and requires time to bake, slowing down game production.

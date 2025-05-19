@@ -12,7 +12,7 @@ use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::Shader,
     renderer::RenderDevice,
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use extract::extract_pathtracer;
 use node::PathtracerNode;
@@ -53,7 +53,7 @@ impl Plugin for PathtracingPlugin {
             .add_systems(ExtractSchedule, extract_pathtracer)
             .add_systems(
                 Render,
-                prepare_pathtracer_accumulation_texture.in_set(RenderSet::PrepareResources),
+                prepare_pathtracer_accumulation_texture.in_set(RenderSystems::PrepareResources),
             )
             .add_render_graph_node::<ViewNodeRunner<PathtracerNode>>(
                 Core3d,

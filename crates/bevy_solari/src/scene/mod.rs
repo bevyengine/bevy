@@ -19,7 +19,7 @@ use bevy_render::{
     render_asset::prepare_assets,
     render_resource::{BufferUsages, Shader},
     renderer::RenderDevice,
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use binder::prepare_raytracing_scene_bindings;
 use blas::{prepare_raytracing_blas, BlasManager};
@@ -80,10 +80,10 @@ impl Plugin for RaytracingScenePlugin {
                 Render,
                 (
                     prepare_raytracing_blas
-                        .in_set(RenderSet::PrepareAssets)
+                        .in_set(RenderSystems::PrepareAssets)
                         .before(prepare_assets::<RenderMesh>)
                         .after(allocate_and_free_meshes),
-                    prepare_raytracing_scene_bindings.in_set(RenderSet::PrepareBindGroups),
+                    prepare_raytracing_scene_bindings.in_set(RenderSystems::PrepareBindGroups),
                 ),
             );
     }
