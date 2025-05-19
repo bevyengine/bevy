@@ -39,7 +39,6 @@ pub mod entity_disabling;
 pub mod error;
 pub mod event;
 pub mod hierarchy;
-pub mod identifier;
 pub mod name;
 pub mod never;
 pub mod observer;
