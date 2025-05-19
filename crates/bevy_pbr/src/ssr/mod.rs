@@ -25,13 +25,14 @@ use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    frame_graph::{ColorAttachment, TextureView, TextureViewInfo},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types, AddressMode, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
-        FragmentState, PipelineCache, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-        SamplerDescriptor, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        FragmentState, Operations, PipelineCache, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
@@ -275,20 +276,74 @@ impl ViewNode for ScreenSpaceReflectionsNode {
     fn run<'w>(
         &self,
         _: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
+        frame_graph: &mut FrameGraph,
         (
-            _view_target,
-            _view_uniform_offset,
-            _view_lights_offset,
-            _view_fog_offset,
-            _view_light_probes_offset,
-            _view_ssr_offset,
-            _view_environment_map_offset,
-            _view_bind_group,
-            _ssr_pipeline_id,
+            view_target,
+            view_uniform_offset,
+            view_lights_offset,
+            view_fog_offset,
+            view_light_probes_offset,
+            view_ssr_offset,
+            view_environment_map_offset,
+            view_bind_group,
+            ssr_pipeline_id,
         ): QueryItem<'w, Self::ViewQuery>,
-        _world: &'w World,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
+        // Grab the render pipeline.
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let Some(_) = pipeline_cache.get_render_pipeline(**ssr_pipeline_id) else {
+            return Ok(());
+        };
+
+        // Set up a standard pair of postprocessing textures.
+        let post_process = view_target.post_process_write();
+
+        // Create the bind group for this view.
+        let ssr_pipeline = world.resource::<ScreenSpaceReflectionsPipeline>();
+
+        let ssr_bind_group_handle = frame_graph
+            .create_bind_group_handle_builder(
+                Some("SSR bind group".into()),
+                &ssr_pipeline.bind_group_layout,
+            )
+            .add_helper(0, post_process.source)
+            .add_handle(1, &ssr_pipeline.color_sampler)
+            .add_handle(2, &ssr_pipeline.depth_linear_sampler)
+            .add_handle(3, &ssr_pipeline.depth_nearest_sampler)
+            .build();
+
+        let mut pass_builder = frame_graph.create_pass_builder("screen_space_reflections_node");
+
+        let destination = pass_builder.write_material(post_process.destination);
+
+        pass_builder
+            .create_render_pass_builder("SSR pass")
+            .add_color_attachment(ColorAttachment {
+                view: TextureView {
+                    texture: destination,
+                    desc: TextureViewInfo::default(),
+                },
+                resolve_target: None,
+                ops: Operations::default(),
+            })
+            .set_render_pipeline(**ssr_pipeline_id)
+            .set_bind_group_handle(
+                0,
+                &view_bind_group.value,
+                &[
+                    view_uniform_offset.offset,
+                    view_lights_offset.offset,
+                    view_fog_offset.offset,
+                    **view_light_probes_offset,
+                    **view_ssr_offset,
+                    **view_environment_map_offset,
+                ],
+            )
+            // Perform the SSR render pass.
+            .set_bind_group_handle(1, &ssr_bind_group_handle, &[])
+            .draw(0..3, 0..1);
+
         Ok(())
     }
 }
