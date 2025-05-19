@@ -50,7 +50,7 @@ pub struct SystemInfo {
     pub os: String,
     /// System kernel version.
     pub kernel: String,
-    /// CPU brand, for example 'Apple M1 Max'.
+    /// CPU model name.
     pub cpu: String,
     /// Physical core count.
     pub core_count: String,
