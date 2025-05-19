@@ -484,7 +484,7 @@ impl ViewNode for DepthOfFieldNode {
             let global_bind_group = pass_builder
                 .create_bind_group_builder(
                     Some("depth of field global bind group".into()),
-                    global_bind_group_layout.layout.clone(),
+                    &global_bind_group_layout.layout,
                 )
                 .add_handle(0, &depth_of_field_uniforms_binding)
                 .add_handle(1, &global_bind_group_layout.color_texture_sampler)

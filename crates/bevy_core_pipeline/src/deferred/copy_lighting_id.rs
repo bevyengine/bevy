@@ -93,7 +93,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         let bind_group = pass_builder
             .create_bind_group_builder(
                 Some("copy_deferred_lighting_id_bind_group".into()),
-                copy_deferred_lighting_id_pipeline.layout.clone(),
+                &copy_deferred_lighting_id_pipeline.layout,
             )
             .add_helper(0, &deferred_lighting_pass_id_texture.texture)
             .build();

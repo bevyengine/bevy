@@ -297,7 +297,7 @@ fn prepare_skybox_bind_groups(
     for (entity, skybox, skybox_uniform_index) in &views {
         if let Some(skybox) = images.get(&skybox.image) {
             let skybox_binding = skybox
-                .make_texture_view_binding(&mut frame_graph)
+                .make_texture_view_handle(&mut frame_graph)
                 .into_binding();
 
             let bind_group_handle = BindGroupHandle {

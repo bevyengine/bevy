@@ -110,7 +110,7 @@ impl GpuImage {
         UVec2::new(self.size.width, self.size.height)
     }
 
-    pub fn make_texture_view_binding(
+    pub fn make_texture_view_handle(
         &self,
         frame_graph: &mut FrameGraph,
     ) -> BindingResourceTextureViewHandle {

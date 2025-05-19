@@ -69,9 +69,9 @@ impl<'a> PassBuilder<'a> {
     pub fn create_bind_group_builder<'b>(
         &'b mut self,
         label: Option<Cow<'static, str>>,
-        layout: BindGroupLayout,
+        layout: &BindGroupLayout,
     ) -> BindGroupBindingBuilder<'a, 'b> {
-        BindGroupBindingBuilder::new(label, layout, self)
+        BindGroupBindingBuilder::new(label, layout.clone(), self)
     }
 
     pub fn pass_node_builder(&mut self) -> &mut PassNodeBuilder<'a> {

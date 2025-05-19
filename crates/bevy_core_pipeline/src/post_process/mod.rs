@@ -406,7 +406,7 @@ impl ViewNode for PostProcessingNode {
         let bind_group = pass_builder
             .create_bind_group_builder(
                 Some("postprocessing bind group".into()),
-                post_processing_pipeline.bind_group_layout.clone(),
+                &post_processing_pipeline.bind_group_layout,
             )
             .add_helper(0, source)
             .add_handle(1, &post_processing_pipeline.source_sampler)

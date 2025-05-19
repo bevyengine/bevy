@@ -64,13 +64,13 @@ impl ViewNode for TonemappingNode {
 
         let lut_image = get_lut_image(gpu_images, tonemapping_luts, tonemapping, fallback_image);
 
-        let lut_image_handle = lut_image.make_texture_view_binding(frame_graph);
+        let lut_image_handle = lut_image.make_texture_view_handle(frame_graph);
 
         let mut pass_builder =
             PassBuilder::new(frame_graph.create_pass_node_bulder("tonemapping_node"));
 
         let bing_group = pass_builder
-            .create_bind_group_builder(None, tonemapping_pipeline.texture_bind_group.clone())
+            .create_bind_group_builder(None, &tonemapping_pipeline.texture_bind_group)
             .add_handle(0, &view_uniforms_binding)
             .add_helper(1, source)
             .add_handle(2, &tonemapping_pipeline.sampler)

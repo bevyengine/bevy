@@ -588,7 +588,7 @@ pub fn prepare_mesh_view_bind_groups(
         {
             let fallback_ssao = fallback_images
                 .image_for_samplecount(1, TextureFormat::bevy_default())
-                .make_texture_view_binding(&mut frame_graph)
+                .make_texture_view_handle(&mut frame_graph)
                 .into_binding();
             let ssao_view = ssao_resources
                 .map(|t| {
@@ -674,9 +674,9 @@ pub fn prepare_mesh_view_bind_groups(
                     sampler,
                 } => {
                     let diffuse_texture_handle =
-                        diffuse_texture.make_texture_view_binding(&mut frame_graph);
+                        diffuse_texture.make_texture_view_handle(&mut frame_graph);
                     let specular_texture_handle =
-                        specular_texture.make_texture_view_binding(&mut frame_graph);
+                        specular_texture.make_texture_view_handle(&mut frame_graph);
 
                     entries = entries.extend_with_indices((
                         (17, &diffuse_texture_handle),
@@ -693,14 +693,14 @@ pub fn prepare_mesh_view_bind_groups(
                     let diffuse_texture_handles = diffuse_textures
                         .iter()
                         .map(|diffuse_texture| {
-                            diffuse_texture.make_texture_view_binding(&mut frame_graph)
+                            diffuse_texture.make_texture_view_handle(&mut frame_graph)
                         })
                         .collect::<Vec<_>>();
 
                     let specular_texture_handles = specular_textures
                         .iter()
                         .map(|specular_texture| {
-                            specular_texture.make_texture_view_binding(&mut frame_graph)
+                            specular_texture.make_texture_view_handle(&mut frame_graph)
                         })
                         .collect::<Vec<_>>();
 
@@ -727,7 +727,7 @@ pub fn prepare_mesh_view_bind_groups(
 
             match irradiance_volume_bind_group_entries {
                 Some(RenderViewIrradianceVolumeBindGroupEntries::Single { texture, sampler }) => {
-                    let texture = texture.make_texture_view_binding(&mut frame_graph);
+                    let texture = texture.make_texture_view_handle(&mut frame_graph);
 
                     entries = entries.extend_with_indices(((21, &texture), (22, sampler)));
                 }
@@ -737,7 +737,7 @@ pub fn prepare_mesh_view_bind_groups(
                 }) => {
                     let texture_handles = textures
                         .iter()
-                        .map(|texture| texture.make_texture_view_binding(&mut frame_graph))
+                        .map(|texture| texture.make_texture_view_handle(&mut frame_graph))
                         .collect::<Vec<_>>();
 
                     entries = entries
@@ -764,7 +764,7 @@ pub fn prepare_mesh_view_bind_groups(
                 let texture_handles = render_view_decal_bind_group_entries
                     .textures
                     .iter()
-                    .map(|texture| texture.make_texture_view_binding(&mut frame_graph))
+                    .map(|texture| texture.make_texture_view_handle(&mut frame_graph))
                     .collect::<Vec<_>>();
 
                 entries = entries.extend_with_indices((
@@ -779,7 +779,7 @@ pub fn prepare_mesh_view_bind_groups(
 
             let lut_image = get_lut_image(&images, &tonemapping_luts, tonemapping, &fallback_image);
 
-            let lut_texture_binding = lut_image.make_texture_view_binding(&mut frame_graph);
+            let lut_texture_binding = lut_image.make_texture_view_handle(&mut frame_graph);
 
             entries =
                 entries.extend_with_indices(((26, &lut_texture_binding), (27, &lut_image.sampler)));
@@ -808,7 +808,7 @@ pub fn prepare_mesh_view_bind_groups(
                 })
                 .unwrap_or(
                     fallback_image_zero
-                        .make_texture_view_binding(&mut frame_graph)
+                        .make_texture_view_handle(&mut frame_graph)
                         .into_binding(),
                 );
 

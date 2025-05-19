@@ -160,7 +160,7 @@ impl ViewNode for BloomNode {
             let downsampling_first_bind_group = pass_builder
                 .create_bind_group_builder(
                     Some("bloom_downsampling_first_bind_group".into()),
-                    downsampling_pipeline_res.bind_group_layout.clone(),
+                    &downsampling_pipeline_res.bind_group_layout,
                 )
                 .add_helper(0, view_texture)
                 .add_handle(1, &downsampling_pipeline_res.sampler)
@@ -195,7 +195,7 @@ impl ViewNode for BloomNode {
             let downsampling_bind_group = pass_builder
                 .create_bind_group_builder(
                     Some("bloom_downsampling_bind_group".into()),
-                    downsampling_pipeline_res.bind_group_layout.clone(),
+                    &downsampling_pipeline_res.bind_group_layout,
                 )
                 .add_binding(
                     0,
@@ -236,7 +236,7 @@ impl ViewNode for BloomNode {
             let upsampling_bind_group = pass_builder
                 .create_bind_group_builder(
                     Some("bloom_upsampling_bind_group".into()),
-                    upsampling_pipeline_res.bind_group_layout.clone(),
+                    &upsampling_pipeline_res.bind_group_layout,
                 )
                 .add_binding(
                     0,
@@ -286,7 +286,7 @@ impl ViewNode for BloomNode {
             let upsampling_bind_group = pass_builder
                 .create_bind_group_builder(
                     Some("bloom_upsampling_bind_group".into()),
-                    upsampling_pipeline_res.bind_group_layout.clone(),
+                    &upsampling_pipeline_res.bind_group_layout,
                 )
                 .add_binding(
                     0,

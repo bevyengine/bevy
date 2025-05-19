@@ -29,6 +29,7 @@
 //! * Compatibility with SSAA and MSAA.
 //!
 //! [SMAA]: https://www.iryoku.com/smaa/
+
 use bevy_app::{App, Plugin};
 #[cfg(feature = "smaa_luts")]
 use bevy_asset::load_internal_binary_asset;
@@ -56,24 +57,27 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    frame_graph::FrameGraph,
+    frame_graph::{
+        BindGroupHandle, BindGroupResourceHandle, ColorAttachment, DepthStencilAttachment,
+        FrameGraph, FrameGraphTexture, IntoBindGroupResourceHandle, PassBuilder, ResourceMeta,
+        TextureInfo, TextureView, TextureViewInfo,
+    },
     render_asset::RenderAssets,
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
-        AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
-        DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, MultisampleState, PipelineCache,
+        AddressMode, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, CompareFunction, DepthStencilState, DynamicUniformBuffer,
+        Extent3d, FilterMode, FragmentState, LoadOp, MultisampleState, Operations, PipelineCache,
         PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderDefVal, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, StencilFaceState, StencilOperation, StencilState,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-        VertexState,
+        SpecializedRenderPipelines, StencilFaceState, StencilOperation, StencilState, StoreOp,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
-    texture::{CachedTexture, GpuImage, TextureCache},
+    texture::GpuImage,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -101,6 +105,20 @@ pub struct Smaa {
     ///
     /// Generally, you can leave this at its default level.
     pub preset: SmaaPreset,
+}
+
+impl Smaa {
+    pub fn get_edge_detection_color_texture_key(entity: Entity) -> String {
+        format!("smaa_edge_detection_color_texture_{}", entity)
+    }
+
+    pub fn get_edge_detection_stencil_texture_key(entity: Entity) -> String {
+        format!("smaa_edge_detection_stencil_texture_{}", entity)
+    }
+
+    pub fn get_blend_texture_key(entity: Entity) -> String {
+        format!("smaa_blend_texture_{}", entity)
+    }
 }
 
 /// A preset quality level for SMAA.
@@ -234,21 +252,21 @@ pub struct SmaaTextures {
     ///
     /// The second pass (blending weight calculation) reads this texture to do
     /// its work.
-    pub edge_detection_color_texture: CachedTexture,
+    pub edge_detection_color_texture: ResourceMeta<FrameGraphTexture>,
 
     /// The 8-bit stencil texture that records which pixels the first pass
     /// touched, so that the second pass doesn't have to examine other pixels.
     ///
     /// Each texel will contain a 0 if the first pass didn't touch the
     /// corresponding pixel or a 1 if the first pass did touch that pixel.
-    pub edge_detection_stencil_texture: CachedTexture,
+    pub edge_detection_stencil_texture: ResourceMeta<FrameGraphTexture>,
 
     /// A four-channel RGBA texture that stores the output from the second pass
     /// (blending weight calculation).
     ///
     /// The final pass (neighborhood blending) reads this texture to do its
     /// work.
-    pub blend_texture: CachedTexture,
+    pub blend_texture: ResourceMeta<FrameGraphTexture>,
 }
 
 /// A render world component that stores the bind groups necessary to perform
@@ -258,11 +276,11 @@ pub struct SmaaTextures {
 #[derive(Component)]
 pub struct SmaaBindGroups {
     /// The bind group for the first pass (edge detection).
-    pub edge_detection_bind_group: BindGroup,
+    pub edge_detection_bind_group: BindGroupHandle,
     /// The bind group for the second pass (blending weight calculation).
-    pub blending_weight_calculation_bind_group: BindGroup,
+    pub blending_weight_calculation_bind_group: BindGroupHandle,
     /// The bind group for the final pass (neighborhood blending).
-    pub neighborhood_blending_bind_group: BindGroup,
+    pub neighborhood_blending_bind_group: BindGroupHandle,
 }
 
 /// Stores the specialized render pipelines for SMAA.
@@ -685,8 +703,6 @@ fn prepare_smaa_uniforms(
 /// texture.
 fn prepare_smaa_textures(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    mut texture_cache: ResMut<TextureCache>,
     view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
 ) {
     for (entity, camera) in &view_targets {
@@ -701,50 +717,50 @@ fn prepare_smaa_textures(
         };
 
         // Create the two-channel RG texture for phase 1 (edge detection).
-        let edge_detection_color_texture = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("SMAA edge detection color texture"),
+        let edge_detection_color_texture = ResourceMeta {
+            key: Smaa::get_edge_detection_color_texture_key(entity),
+            desc: TextureInfo {
+                label: Some("SMAA edge detection color texture".into()),
                 size: texture_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rg8Unorm,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
         // Create the stencil texture for phase 1 (edge detection).
-        let edge_detection_stencil_texture = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("SMAA edge detection stencil texture"),
+        let edge_detection_stencil_texture = ResourceMeta {
+            key: Smaa::get_edge_detection_stencil_texture_key(entity),
+            desc: TextureInfo {
+                label: Some("SMAA edge detection stencil texture".into()),
                 size: texture_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Stencil8,
                 usage: TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
         // Create the four-channel RGBA texture for phase 2 (blending weight
         // calculation).
-        let blend_texture = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("SMAA blend texture"),
+        let blend_texture = ResourceMeta {
+            key: Smaa::get_blend_texture_key(entity),
+            desc: TextureInfo {
+                label: Some("SMAA blend texture".into()),
                 size: texture_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba8Unorm,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
         commands.entity(entity).insert(SmaaTextures {
             edge_detection_color_texture,
@@ -762,6 +778,7 @@ fn prepare_smaa_bind_groups(
     smaa_pipelines: Res<SmaaPipelines>,
     images: Res<RenderAssets<GpuImage>>,
     view_targets: Query<(Entity, &SmaaTextures), (With<ExtractedView>, With<Smaa>)>,
+    mut frame_graph: ResMut<FrameGraph>,
 ) {
     // Fetch the two lookup textures. These are bundled in this library.
     let (Some(search_texture), Some(area_texture)) = (
@@ -784,36 +801,45 @@ fn prepare_smaa_bind_groups(
             ..default()
         });
 
+        let search_texture_handle = search_texture
+            .make_texture_view_handle(&mut frame_graph)
+            .into_binding();
+        let area_texture_handle = area_texture
+            .make_texture_view_handle(&mut frame_graph)
+            .into_binding();
+
         commands.entity(entity).insert(SmaaBindGroups {
-            edge_detection_bind_group: render_device.create_bind_group(
-                Some("SMAA edge detection bind group"),
-                &smaa_pipelines
-                    .edge_detection
-                    .edge_detection_bind_group_layout,
-                &BindGroupEntries::sequential((&sampler,)),
-            ),
-            blending_weight_calculation_bind_group: render_device.create_bind_group(
-                Some("SMAA blending weight calculation bind group"),
-                &smaa_pipelines
-                    .blending_weight_calculation
-                    .blending_weight_calculation_bind_group_layout,
-                &BindGroupEntries::sequential((
-                    &smaa_textures.edge_detection_color_texture.default_view,
-                    &sampler,
-                    &search_texture.texture_view,
-                    &area_texture.texture_view,
-                )),
-            ),
-            neighborhood_blending_bind_group: render_device.create_bind_group(
-                Some("SMAA neighborhood blending bind group"),
-                &smaa_pipelines
-                    .neighborhood_blending
-                    .neighborhood_blending_bind_group_layout,
-                &BindGroupEntries::sequential((
-                    &smaa_textures.blend_texture.default_view,
-                    &sampler,
-                )),
-            ),
+            edge_detection_bind_group: frame_graph
+                .create_bind_group_handle_builder(
+                    Some("SMAA edge detection bind group".into()),
+                    &smaa_pipelines
+                        .edge_detection
+                        .edge_detection_bind_group_layout,
+                )
+                .add_handle(0, &sampler)
+                .build(),
+            blending_weight_calculation_bind_group: frame_graph
+                .create_bind_group_handle_builder(
+                    Some("SMAA blending weight calculation bind group".into()),
+                    &smaa_pipelines
+                        .blending_weight_calculation
+                        .blending_weight_calculation_bind_group_layout,
+                )
+                .add_helper(0, &smaa_textures.edge_detection_color_texture)
+                .add_handle(1, &sampler)
+                .add_handle(2, &search_texture_handle)
+                .add_handle(3, &area_texture_handle)
+                .build(),
+            neighborhood_blending_bind_group: frame_graph
+                .create_bind_group_handle_builder(
+                    Some("SMAA neighborhood blending bind group".into()),
+                    &smaa_pipelines
+                        .neighborhood_blending
+                        .neighborhood_blending_bind_group_layout,
+                )
+                .add_helper(0, &smaa_textures.blend_texture)
+                .add_handle(1, &sampler)
+                .build(),
         });
     }
 }
@@ -830,18 +856,261 @@ impl ViewNode for SmaaNode {
     fn run<'w>(
         &self,
         _: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
+        frame_graph: &mut FrameGraph,
         (
-            _view_target,
-            _view_pipelines,
-            _view_smaa_uniform_offset,
-            _smaa_textures,
-            _view_smaa_bind_groups,
+            view_target,
+            view_pipelines,
+            view_smaa_uniform_offset,
+            smaa_textures,
+            view_smaa_bind_groups,
         ): QueryItem<'w, Self::ViewQuery>,
-        _world: &'w World,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let smaa_pipelines = world.resource::<SmaaPipelines>();
+        let smaa_info_uniform_buffer = world.resource::<SmaaInfoUniformBuffer>();
+
+        // Fetch the render pipelines.
+        let (
+            Some(_),
+            Some(_),
+            Some(_),
+        ) = (
+            pipeline_cache.get_render_pipeline(view_pipelines.edge_detection_pipeline_id),
+            pipeline_cache
+                .get_render_pipeline(view_pipelines.blending_weight_calculation_pipeline_id),
+            pipeline_cache.get_render_pipeline(view_pipelines.neighborhood_blending_pipeline_id),
+        )
+        else {
+            return Ok(());
+        };
+
+        let (Some(smaa_info_uniform_buffer_handle),) =
+            (smaa_info_uniform_buffer.make_binding_resource_handle(frame_graph),)
+        else {
+            return Ok(());
+        };
+
+        let post_process = view_target.post_process_write();
+
+        let mut pass_builder = frame_graph.create_pass_builder("smaa_node");
+
+        // Stage 1: Edge detection pass.
+        perform_edge_detection(
+            &mut pass_builder,
+            smaa_pipelines,
+            smaa_textures,
+            view_smaa_bind_groups,
+            &smaa_info_uniform_buffer_handle,
+            view_smaa_uniform_offset,
+            view_pipelines.edge_detection_pipeline_id,
+            post_process.source,
+        );
+
+        // Stage 2: Blending weight calculation pass.
+        perform_blending_weight_calculation(
+            &mut pass_builder,
+            smaa_pipelines,
+            smaa_textures,
+            view_smaa_bind_groups,
+            &smaa_info_uniform_buffer_handle,
+            view_smaa_uniform_offset,
+            view_pipelines.blending_weight_calculation_pipeline_id,
+            post_process.source,
+        );
+
+        // Stage 3: Neighborhood blending pass.
+        perform_neighborhood_blending(
+            &mut pass_builder,
+            smaa_pipelines,
+            view_smaa_bind_groups,
+            &smaa_info_uniform_buffer_handle,
+            view_smaa_uniform_offset,
+            view_pipelines.neighborhood_blending_pipeline_id,
+            post_process.source,
+            post_process.destination,
+        );
+
         Ok(())
     }
+}
+
+/// Performs edge detection (phase 1).
+///
+/// This runs as part of the [`SmaaNode`]. It reads from the source texture and
+/// writes to the two-channel RG edges texture. Additionally, it ensures that
+/// all pixels it didn't touch are stenciled out so that phase 2 won't have to
+/// examine them.
+fn perform_edge_detection<'a>(
+    pass_builder: &mut PassBuilder<'a>,
+    smaa_pipelines: &SmaaPipelines,
+    smaa_textures: &SmaaTextures,
+    view_smaa_bind_groups: &SmaaBindGroups,
+    smaa_info_uniform_buffer_handle: &BindGroupResourceHandle,
+    view_smaa_uniform_offset: &SmaaInfoUniformOffset,
+    edge_detection_pipeline_id: CachedRenderPipelineId,
+    source: &ResourceMeta<FrameGraphTexture>,
+) {
+    // Create the edge detection bind group.
+    let postprocess_bind_group_handle = pass_builder
+        .create_bind_group_builder(
+            None,
+            &smaa_pipelines.edge_detection.postprocess_bind_group_layout,
+        )
+        .add_helper(0, source)
+        .add_handle(1, smaa_info_uniform_buffer_handle)
+        .build();
+
+    let edge_detection_color_texture =
+        pass_builder.write_material(&smaa_textures.edge_detection_color_texture);
+
+    let edge_detection_stencil_texture =
+        pass_builder.write_material(&smaa_textures.edge_detection_stencil_texture);
+
+    pass_builder
+        .create_render_pass_builder("SMAA edge detection pass")
+        .add_color_attachment(ColorAttachment {
+            view: TextureView {
+                texture: edge_detection_color_texture,
+                desc: TextureViewInfo::default(),
+            },
+            resolve_target: None,
+            ops: default(),
+        })
+        .set_depth_stencil_attachment(DepthStencilAttachment {
+            view: TextureView {
+                texture: edge_detection_stencil_texture,
+                desc: TextureViewInfo::default(),
+            },
+            depth_ops: None,
+            stencil_ops: Some(Operations {
+                load: LoadOp::Clear(0),
+                store: StoreOp::Store,
+            }),
+        })
+        .set_render_pipeline(edge_detection_pipeline_id)
+        .set_bind_group(
+            0,
+            &postprocess_bind_group_handle,
+            &[**view_smaa_uniform_offset],
+        )
+        .set_bind_group_handle(1, &view_smaa_bind_groups.edge_detection_bind_group, &[])
+        .set_stencil_reference(1)
+        .draw(0..3, 0..1);
+}
+
+/// Performs blending weight calculation (phase 2).
+///
+/// This runs as part of the [`SmaaNode`]. It reads the edges texture and writes
+/// to the blend weight texture, using the stencil buffer to avoid processing
+/// pixels it doesn't need to examine.
+fn perform_blending_weight_calculation<'a>(
+    pass_builder: &mut PassBuilder<'a>,
+    smaa_pipelines: &SmaaPipelines,
+    smaa_textures: &SmaaTextures,
+    view_smaa_bind_groups: &SmaaBindGroups,
+    smaa_info_uniform_buffer_handle: &BindGroupResourceHandle,
+    view_smaa_uniform_offset: &SmaaInfoUniformOffset,
+    blending_weight_calculation_pipeline_id: CachedRenderPipelineId,
+    source: &ResourceMeta<FrameGraphTexture>,
+) {
+    let postprocess_bind_group_handle = pass_builder
+        .create_bind_group_builder(
+            None,
+            &smaa_pipelines.edge_detection.postprocess_bind_group_layout,
+        )
+        .add_helper(0, source)
+        .add_handle(1, smaa_info_uniform_buffer_handle)
+        .build();
+
+    let blend_texture = pass_builder.write_material(&smaa_textures.blend_texture);
+
+    let edge_detection_stencil_texture =
+        pass_builder.write_material(&smaa_textures.edge_detection_stencil_texture);
+
+    pass_builder
+        .create_render_pass_builder("SMAA edge detection pass")
+        .add_color_attachment(ColorAttachment {
+            view: TextureView {
+                texture: blend_texture,
+                desc: TextureViewInfo::default(),
+            },
+            resolve_target: None,
+            ops: default(),
+        })
+        .set_depth_stencil_attachment(DepthStencilAttachment {
+            view: TextureView {
+                texture: edge_detection_stencil_texture,
+                desc: TextureViewInfo::default(),
+            },
+            depth_ops: None,
+            stencil_ops: Some(Operations {
+                load: LoadOp::Load,
+                store: StoreOp::Discard,
+            }),
+        })
+        .set_render_pipeline(blending_weight_calculation_pipeline_id)
+        .set_bind_group(
+            0,
+            &postprocess_bind_group_handle,
+            &[**view_smaa_uniform_offset],
+        )
+        .set_bind_group_handle(
+            1,
+            &view_smaa_bind_groups.blending_weight_calculation_bind_group,
+            &[],
+        )
+        .set_stencil_reference(1)
+        .draw(0..3, 0..1);
+}
+
+/// Performs blending weight calculation (phase 3).
+///
+/// This runs as part of the [`SmaaNode`]. It reads from the blend weight
+/// texture. It's the only phase that writes to the postprocessing destination.
+fn perform_neighborhood_blending<'a>(
+    pass_builder: &mut PassBuilder<'a>,
+    smaa_pipelines: &SmaaPipelines,
+    view_smaa_bind_groups: &SmaaBindGroups,
+    smaa_info_uniform_buffer_handle: &BindGroupResourceHandle,
+    view_smaa_uniform_offset: &SmaaInfoUniformOffset,
+    neighborhood_blending_pipeline_id: CachedRenderPipelineId,
+    source: &ResourceMeta<FrameGraphTexture>,
+    destination: &ResourceMeta<FrameGraphTexture>,
+) {
+    let postprocess_bind_group_handle = pass_builder
+        .create_bind_group_builder(
+            None,
+            &smaa_pipelines.edge_detection.postprocess_bind_group_layout,
+        )
+        .add_helper(0, source)
+        .add_handle(1, smaa_info_uniform_buffer_handle)
+        .build();
+
+    let destination = pass_builder.write_material(destination);
+
+    pass_builder
+        .create_render_pass_builder("SMAA neighborhood blending pass")
+        .add_color_attachment(ColorAttachment {
+            view: TextureView {
+                texture: destination,
+                desc: TextureViewInfo::default(),
+            },
+            resolve_target: None,
+            ops: default(),
+        })
+        .set_render_pipeline(neighborhood_blending_pipeline_id)
+        .set_bind_group(
+            0,
+            &postprocess_bind_group_handle,
+            &[**view_smaa_uniform_offset],
+        )
+        .set_bind_group_handle(
+            1,
+            &view_smaa_bind_groups.neighborhood_blending_bind_group,
+            &[],
+        )
+        .draw(0..3, 0..1);
 }
 
 impl SmaaPreset {

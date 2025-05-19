@@ -122,7 +122,7 @@ impl Node for AutoExposureNode {
         let mut pass_builder = frame_graph.create_pass_builder("auto_exposure_pass");
 
         let compute_bind_group = pass_builder
-            .create_bind_group_builder(None, pipeline.histogram_layout.clone())
+            .create_bind_group_builder(None, &pipeline.histogram_layout)
             .add_handle(0, &globals_buffer_binding)
             .add_handle(1, &auto_exposure_buffers_setting_binding)
             .add_helper(2, source)

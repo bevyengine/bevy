@@ -59,7 +59,7 @@ impl ViewNode for UpscalingNode {
             PassBuilder::new(frame_graph.create_pass_node_bulder("upscaling_node"));
 
         let bind_group = pass_builder
-            .create_bind_group_builder(None, blit_pipeline.texture_bind_group.clone())
+            .create_bind_group_builder(None, &blit_pipeline.texture_bind_group)
             .add_helper(0, main_texture)
             .add_handle(1, &blit_pipeline.sampler)
             .build();
