@@ -58,21 +58,21 @@ impl Node for CasNode {
             return Ok(());
         };
 
-        let view_target = target.post_process_write();
+        let post_process = target.post_process_write();
 
         let bind_group = frame_graph
             .create_bind_group_handle_builder(
                 Some("cas_bind_group".into()),
                 &sharpening_pipeline.texture_bind_group,
             )
-            .add_helper(0, view_target.source)
+            .add_helper(0, post_process.source)
             .add_handle(1, &sharpening_pipeline.sampler)
             .add_handle(2, &uniforms_handle)
             .build();
 
         let mut pass_builder = frame_graph.create_pass_builder("cas_node");
 
-        let destination = pass_builder.write_material(view_target.destination);
+        let destination = pass_builder.write_material(post_process.destination);
 
         pass_builder
             .create_render_pass_builder("contrast_adaptive_sharpening")
