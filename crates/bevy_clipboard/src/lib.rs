@@ -146,6 +146,7 @@ impl Clipboard {
         #[cfg(target_arch = "wasm32")]
         {
             if let Some(clipboard) = web_sys::window().map(|w| w.navigator().clipboard()) {
+                let text = text.into().to_string();
                 wasm_bindgen_futures::spawn_local(async move {
                     let _ = JsFuture::from(clipboard.write_text(&text)).await;
                 });
