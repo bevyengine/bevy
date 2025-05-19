@@ -1,10 +1,9 @@
 use crate::{
-    ops::{acos, sin},
     primitives::{Primitive2d, Primitive3d},
     Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
 };
 
-use core::f32::consts::{FRAC_1_SQRT_2, PI};
+use core::f32::consts::FRAC_1_SQRT_2;
 use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
@@ -960,62 +959,6 @@ impl Dir4 {
         self.0
     }
 
-    /// Performs a spherical linear interpolation between `self` and `rhs`
-    /// based on the value `s`.
-    ///
-    /// This corresponds to interpolating between the two directions at a constant angular velocity.
-    ///
-    /// When `s == 0.0`, the result will be equal to `self`.
-    /// When `s == 1.0`, the result will be equal to `rhs`.
-    ///
-    /// If the angle of between `self` and `rhs` is invalid it returns `self`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_math::Dir4;
-    /// # use approx::{assert_relative_eq, RelativeEq};
-    /// #
-    /// let dir1 = Dir4::W;
-    /// let dir2 = Dir4::Y;
-    ///
-    /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
-    /// #[cfg(feature = "approx")]
-    /// assert_relative_eq!(
-    ///     result1,
-    ///     Dir4::from_xyzw(0.0, 0.5, 0.0, 0.75_f32.sqrt()).unwrap(),
-    ///     epsilon = 0.000001
-    /// );
-    ///
-    /// let result2 = dir1.slerp(dir2, 0.5);
-    /// #[cfg(feature = "approx")]
-    /// assert_relative_eq!(result2, Dir4::from_xyzw(0.0, 0.5_f32.sqrt(), 0.0, 0.5_f32.sqrt()).unwrap());
-    /// ```
-    #[inline]
-    pub fn slerp(self, rhs: Self, s: f32) -> Self {
-        // This uses a geometric slerp as opposed to the Quaternion slerp Dir3 uses.
-        // When the values are too small to use slerp it falls back on a regular lerp.
-        let angle = acos(self.dot(*rhs));
-        if angle.is_nan() {
-            return self;
-        }
-        if angle == 0.0 || angle == PI {
-            // Lerp for when the geometric slerp would divide by 0.
-            let mut result = self.as_vec4().lerp(*rhs, s);
-            if result == Vec4::splat(0.0) {
-                // This little block of code prevents it from ever being 0.
-                // After testing with Dir3 for quite a while it mirrors the behavior of Dir3's slerp method.
-                // Perhaps it should be improved, but I'm reaching my limit
-                result = self.map(|f| if f != 0.0 { 8.940697e-8 } else { 0.0 });
-            }
-            return Dir4(result);
-        }
-        // Geometric slerp.
-        let p0 = (sin((1.0 - s) * angle) / sin(angle)) * self;
-        let p1 = (sin(s * angle) / sin(angle)) * rhs;
-        Dir4::new(p0 + p1).unwrap()
-    }
-
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
     #[inline]
@@ -1379,46 +1322,5 @@ mod tests {
             "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
-    }
-
-    #[test]
-    fn dir4_slerp() {
-        assert_relative_eq!(
-            Dir4::X.slerp(Dir4::Y, 0.5),
-            Dir4::from_xyzw(ops::sqrt(0.5f32), ops::sqrt(0.5f32), 0.0, 0.0).unwrap()
-        );
-        assert_relative_eq!(Dir4::Y.slerp(Dir4::Z, 0.0), Dir4::Y);
-        assert_relative_eq!(Dir4::Z.slerp(Dir4::X, 1.0), Dir4::X, epsilon = 0.000001);
-        assert_relative_eq!(
-            Dir4::X.slerp(Dir4::Z, 1.0 / 3.0),
-            Dir4::from_xyzw(ops::sqrt(0.75f32), 0.0, 0.5, 0.0).unwrap(),
-            epsilon = 0.000001
-        );
-        assert_relative_eq!(
-            Dir4::Z.slerp(Dir4::Y, 2.0 / 3.0),
-            Dir4::from_xyzw(0.0, ops::sqrt(0.75f32), 0.5, 0.0).unwrap()
-        );
-        assert_relative_eq!(Dir4::W.slerp(Dir4::Z, 0.0), Dir4::W);
-        assert_relative_eq!(
-            Dir4::W.slerp(Dir4::Y, 0.5),
-            Dir4::from_xyzw(0.0, ops::sqrt(0.5f32), 0.0, ops::sqrt(0.5f32)).unwrap()
-        );
-        assert_relative_eq!(
-            Dir4::W.slerp(Dir4::Y, 1.0 / 3.0),
-            Dir4::from_xyzw(0.0, 0.5, 0.0, ops::sqrt(0.75_f32)).unwrap(),
-            epsilon = 0.000001
-        );
-
-        assert_relative_eq!(
-            Dir4::X.slerp(Dir4::X, 1.0 / 3.0),
-            Dir4::X,
-            epsilon = 0.000001
-        );
-
-        assert_relative_eq!(
-            Dir4::X.slerp(Dir4::NEG_X, 0.5),
-            Dir4(Vec4::new(8.940697e-8, 0.0, 0.0, 0.0)),
-            epsilon = 0.000001
-        );
     }
 }
