@@ -2019,7 +2019,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns a [`QueryLens`] that can be used to construct a new [`Query`] giving more
     /// restrictive access to the entities matched by the current query.
     ///
-    /// A transmutes is valid only if `NewD` has a subset of the read, write, and required access
+    /// A transmute is valid only if `NewD` has a subset of the read, write, and required access
     /// of the current query. A precise description of the access required by each parameter
     /// type is given in the table below, but typical uses are to:
     /// * Remove components. e.g. `Query<(&A, &B)>` to `Query<&A>`.
