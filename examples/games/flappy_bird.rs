@@ -9,31 +9,50 @@ use bevy::math::{
 use bevy::prelude::*;
 use rand::Rng;
 
-const BACKGROUND_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+#[derive(Resource, Reflect)]
+struct Settings {
+    background_color: Color,
 
-/// Timer spawning a pipe each time it finishes
-const PIPE_TIMER_DURATION: Duration = Duration::from_millis(2000);
+    /// Timer spawning a pipe each time it finishes
+    pipe_timer_duration: Duration,
 
-/// Movement speed of the pipes
-const PIPE_SPEED: f32 = 200.;
+    /// Movement speed of the pipes
+    pipe_speed: f32,
 
-/// The size of each pipe rectangle
-const PIPE_SIZE: Vec2 = Vec2::new(100., 500.);
+    /// The size of each pipe rectangle
+    pipe_size: Vec2,
 
-/// How large the gap is between the pipes
-const GAP_HEIGHT: f32 = 300.;
+    /// How large the gap is between the pipes
+    gap_height: f32,
 
-/// Gravity applied to the bird
-const GRAVITY: f32 = 700.;
+    /// Gravity applied to the bird
+    gravity: f32,
 
-/// Size of the bird sprite
-const BIRD_SIZE: f32 = 100.;
+    /// Size of the bird sprite
+    bird_size: f32,
 
-/// Acceleration the bird is set to on a flap
-const FLAP_POWER: f32 = 400.;
+    /// Acceleration the bird is set to on a flap
+    flap_power: f32,
 
-/// Horizontal position of the bird
-const BIRD_POSITION: f32 = -500.;
+    /// Horizontal position of the bird
+    bird_position: f32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            background_color: Color::srgb(0.9, 0.9, 0.9),
+            pipe_timer_duration: Duration::from_millis(2000),
+            pipe_speed: 200.,
+            pipe_size: Vec2::new(100., 500.),
+            gap_height: 300.,
+            gravity: 700.,
+            bird_size: 100.,
+            flap_power: 400.,
+            bird_position: -500.,
+        }
+    }
+}
 
 #[derive(Component)]
 struct Bird;
@@ -79,6 +98,7 @@ struct SpawnPipeEvent;
 struct ScoreSound(Handle<AudioSource>);
 
 fn main() {
+    let settings = Settings::default();
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (set_window_size, setup))
@@ -97,12 +117,13 @@ fn main() {
             ),
         )
         .insert_resource(Score(0))
-        .insert_resource(ClearColor(BACKGROUND_COLOR))
+        .insert_resource(ClearColor(settings.background_color))
         .insert_resource(PipeTimer(Timer::new(
-            PIPE_TIMER_DURATION,
+            settings.pipe_timer_duration,
             TimerMode::Repeating,
         )))
         .insert_resource(WindowSize(Vec2::ZERO))
+        .insert_resource(settings)
         .add_event::<CollisionEvent>()
         .add_event::<SpawnPipeEvent>()
         .run();
@@ -155,6 +176,7 @@ fn reset(
     mut score_text: Single<&mut Text, With<ScoreText>>,
     to_remove: Query<Entity, Or<(With<Bird>, With<Pipe>, With<PipeMarker>)>>,
     asset_server: Res<AssetServer>,
+    settings: Res<Settings>,
 ) {
     if collision_events.is_empty() {
         return;
@@ -176,11 +198,11 @@ fn reset(
         Bird,
         Sprite {
             image: asset_server.load("branding/icon.png"),
-            custom_size: Some(Vec2::splat(BIRD_SIZE)),
+            custom_size: Some(Vec2::splat(settings.bird_size)),
             ..default()
         },
-        Transform::from_xyz(BIRD_POSITION, 0., 0.),
-        Velocity(Vec2::new(0., FLAP_POWER)),
+        Transform::from_xyz(settings.bird_position, 0., 0.),
+        Velocity(Vec2::new(0., settings.flap_power)),
     ));
 
     timer.reset();
@@ -196,20 +218,25 @@ fn flap(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mouse_input: Res<ButtonInput<MouseButton>>,
     mut bird_velocity: Single<&mut Velocity, With<Bird>>,
+    settings: Res<Settings>,
 ) {
     if keyboard_input.pressed(KeyCode::Space) || mouse_input.pressed(MouseButton::Left) {
-        bird_velocity.y = FLAP_POWER;
+        bird_velocity.y = settings.flap_power;
     }
 }
 
 /// Apply gravity to the bird and set its rotation
-fn apply_gravity(mut bird: Single<(&mut Transform, &mut Velocity), With<Bird>>, time: Res<Time>) {
+fn apply_gravity(
+    mut bird: Single<(&mut Transform, &mut Velocity), With<Bird>>,
+    time: Res<Time>,
+    settings: Res<Settings>,
+) {
     /// The logistic function, which is an example of a sigmoid function
     fn logistic(x: f32) -> f32 {
         1. / (1. + exp(-x))
     }
 
-    bird.1.y -= GRAVITY * time.delta_secs();
+    bird.1.y -= settings.gravity * time.delta_secs();
 
     // We determine the rotation based on the y-component of the velocity.
     // This is tweaked such that a velocity of 100 is pretty much a 90 degree
@@ -230,19 +257,20 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
 
 /// Check for collision with the borders of the window and the pipes
 fn check_collisions(
+    mut collision_events: EventWriter<CollisionEvent>,
     bird: Single<&Transform, With<Bird>>,
     pipes: Query<&Transform, With<Pipe>>,
     window_size: Res<WindowSize>,
-    mut collision_events: EventWriter<CollisionEvent>,
+    settings: Res<Settings>,
 ) {
     if bird.translation.y.abs() > window_size.y / 2. {
         collision_events.write_default();
         return;
     }
 
-    let bird_collider = BoundingCircle::new(bird.translation.truncate(), BIRD_SIZE / 2.);
+    let bird_collider = BoundingCircle::new(bird.translation.truncate(), settings.bird_size / 2.);
     for pipe in pipes {
-        let pipe_collider = Aabb2d::new(pipe.translation.truncate(), PIPE_SIZE / 2.);
+        let pipe_collider = Aabb2d::new(pipe.translation.truncate(), settings.pipe_size / 2.);
         if bird_collider.intersects(&pipe_collider) {
             collision_events.write_default();
             return;
@@ -269,6 +297,7 @@ fn spawn_pipe(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     window_size: Res<WindowSize>,
+    settings: Res<Settings>,
 ) {
     if events.is_empty() {
         return;
@@ -276,15 +305,16 @@ fn spawn_pipe(
     events.clear();
 
     let color = Color::BLACK;
-    let shape = meshes.add(Rectangle::new(PIPE_SIZE.x, PIPE_SIZE.y));
+    let size = settings.pipe_size;
+    let shape = meshes.add(Rectangle::new(size.x, size.y));
 
     let mut rng = rand::thread_rng();
     let gap_offset: i64 = rng.gen_range(-200..=200);
     let gap_offset: f32 = gap_offset as f32;
 
-    let pipe_offset = PIPE_SIZE.y / 2. + GAP_HEIGHT / 2.;
+    let pipe_offset = size.y / 2. + settings.gap_height / 2.;
 
-    let pipe_location = window_size.x / 2. + PIPE_SIZE.x / 2.;
+    let pipe_location = window_size.x / 2. + size.x / 2.;
 
     // We first spawn in invisible marker that will increase the score once
     // it passes the bird position and then despawns. This assures that each
@@ -292,7 +322,7 @@ fn spawn_pipe(
     commands.spawn((
         PipeMarker,
         Transform::from_xyz(pipe_location, 0.0, 0.0),
-        Velocity(Vec2::new(-PIPE_SPEED, 0.)),
+        Velocity(Vec2::new(-settings.pipe_speed, 0.)),
     ));
 
     // bottom pipe
@@ -301,7 +331,7 @@ fn spawn_pipe(
         Mesh2d(shape.clone()),
         MeshMaterial2d(materials.add(color)),
         Transform::from_xyz(pipe_location, pipe_offset + gap_offset, 0.0),
-        Velocity(Vec2::new(-PIPE_SPEED, 0.)),
+        Velocity(Vec2::new(-settings.pipe_speed, 0.)),
     ));
 
     // top pipe
@@ -310,7 +340,7 @@ fn spawn_pipe(
         Mesh2d(shape),
         MeshMaterial2d(materials.add(color)),
         Transform::from_xyz(pipe_location, -pipe_offset + gap_offset, 0.0),
-        Velocity(Vec2::new(-PIPE_SPEED, 0.)),
+        Velocity(Vec2::new(-settings.pipe_speed, 0.)),
     ));
 }
 
@@ -321,9 +351,10 @@ fn increase_score(
     mut text_query: Query<&mut Text, With<ScoreText>>,
     mut score: ResMut<Score>,
     sound: Res<ScoreSound>,
+    settings: Res<Settings>,
 ) {
     for (entity, transform) in &mut marker_query {
-        if transform.translation.x < BIRD_POSITION {
+        if transform.translation.x < settings.bird_position {
             commands.entity(entity).despawn();
             score.0 += 1;
             text_query.single_mut().unwrap().0 = score.0.to_string();
@@ -337,11 +368,12 @@ fn remove_pipes(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Transform), With<Pipe>>,
     window_size: Res<WindowSize>,
+    settings: Res<Settings>,
 ) {
     for (entity, transform) in &mut query {
         // The entire pipe needs to have left the screen, not just its origin,
         // so we check that the right side of the pipe is off screen.
-        let right_side_of_pipe = transform.translation.x + PIPE_SIZE.x / 2.;
+        let right_side_of_pipe = transform.translation.x + settings.pipe_size.x / 2.;
         if right_side_of_pipe < -window_size.x / 2. {
             commands.entity(entity).despawn();
         }
