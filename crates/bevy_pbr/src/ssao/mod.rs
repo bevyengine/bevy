@@ -19,7 +19,10 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
-    frame_graph::{FrameGraph, FrameGraphTexture, ResourceMeta, TextureInfo},
+    frame_graph::{
+        BindGroupHandle, EncoderCommandBuilder, FrameGraph, FrameGraphTexture, ResourceMeta,
+        TextureInfo,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -218,9 +221,65 @@ impl ViewNode for SsaoNode {
         &self,
         _graph: &mut RenderGraphContext,
         frame_graph: &mut FrameGraph,
-        (_camera, _pipeline_id, _bind_groups, _view_uniform_offset): QueryItem<Self::ViewQuery>,
-        _world: &World,
+        (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewQuery>,
+        world: &World,
     ) -> Result<(), NodeRunError> {
+        let pipelines = world.resource::<SsaoPipelines>();
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let (Some(camera_size), Some(_), Some(_), Some(_)) = (
+            camera.physical_viewport_size,
+            pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
+            pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
+            pipeline_cache.get_compute_pipeline(pipeline_id.0),
+        ) else {
+            return Ok(());
+        };
+
+        let mut pass_builder = frame_graph.create_pass_builder("ssao_node");
+
+        pass_builder.push_debug_group("ssao");
+
+        {
+            pass_builder
+                .create_compute_pass_builder("ssao_preprocess_depth_pass")
+                .set_compute_pipeline(pipelines.preprocess_depth_pipeline)
+                .set_bind_group_handle(0, &bind_groups.preprocess_depth_bind_group, &[])
+                .set_bind_group_handle(
+                    1,
+                    &bind_groups.common_bind_group,
+                    &[view_uniform_offset.offset],
+                )
+                .dispatch_workgroups(camera_size.x.div_ceil(16), camera_size.y.div_ceil(16), 1);
+        }
+
+        {
+            pass_builder
+                .create_compute_pass_builder("ssao_ssao_pass")
+                .set_compute_pipeline(pipeline_id.0)
+                .set_bind_group_handle(0, &bind_groups.ssao_bind_group, &[])
+                .set_bind_group_handle(
+                    1,
+                    &bind_groups.common_bind_group,
+                    &[view_uniform_offset.offset],
+                )
+                .dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
+        }
+
+        {
+            pass_builder
+                .create_compute_pass_builder("ssao_spatial_denoise_pass")
+                .set_compute_pipeline(pipelines.spatial_denoise_pipeline)
+                .set_bind_group_handle(0, &bind_groups.spatial_denoise_bind_group, &[])
+                .set_bind_group_handle(
+                    1,
+                    &bind_groups.common_bind_group,
+                    &[view_uniform_offset.offset],
+                )
+                .dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
+        }
+
+        pass_builder.pop_debug_group();
+
         Ok(())
     }
 }
@@ -595,10 +654,10 @@ fn prepare_ssao_pipelines(
 
 #[derive(Component)]
 struct SsaoBindGroups {
-    common_bind_group: BindGroup,
-    preprocess_depth_bind_group: BindGroup,
-    ssao_bind_group: BindGroup,
-    spatial_denoise_bind_group: BindGroup,
+    common_bind_group: BindGroupHandle,
+    preprocess_depth_bind_group: BindGroupHandle,
+    ssao_bind_group: BindGroupHandle,
+    spatial_denoise_bind_group: BindGroupHandle,
 }
 
 fn prepare_ssao_bind_groups(
