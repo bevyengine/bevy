@@ -3249,6 +3249,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "clipboard"
+path = "examples/ui/clipboard.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.clipboard]
+name = "Clipboard"
+description = "Demonstrates accessing the clipboard to retrieve and display text"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"
 doc-scrape-examples = true
