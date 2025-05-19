@@ -3,10 +3,9 @@
 extern crate alloc;
 
 use bevy_ecs::resource::Resource;
-use {alloc::sync::Arc, bevy_platform::sync::Mutex};
 
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures::JsFuture;
+use {alloc::sync::Arc, bevy_platform::sync::Mutex, wasm_bindgen_futures::JsFuture};
 
 /// The clipboard prelude
 pub mod prelude {
@@ -31,6 +30,7 @@ impl bevy_app::Plugin for ClipboardPlugin {
 pub enum ClipboardRead {
     /// The clipboard contents are ready to be accessed.
     Ready(Result<String, ClipboardError>),
+    #[cfg(target_arch = "wasm32")]
     /// The clipboard contents are being fetched asynchronously.
     Pending(Arc<Mutex<Option<Result<String, ClipboardError>>>>),
 }
@@ -40,6 +40,7 @@ impl ClipboardRead {
     /// If the result is still pending, returns `None`.
     pub fn poll_result(&mut self) -> Option<Result<String, ClipboardError>> {
         match self {
+            #[cfg(target_arch = "wasm32")]
             Self::Pending(shared) => {
                 if let Some(contents) = shared.lock().ok().and_then(|mut inner| inner.take()) {
                     *self = Self::Ready(Err(ClipboardError::ContentTaken));
