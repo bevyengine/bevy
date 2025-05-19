@@ -1,26 +1,42 @@
-use crate::{
-    io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
-    loader_builders::{Deferred, NestedLoader, StaticTyped},
-    meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
-    path::AssetPath,
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
-    UntypedHandle,
-};
-use alloc::{
-    boxed::Box,
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::boxed::Box;
+use core::any::{Any, TypeId};
+
 use atomicow::CowArc;
 use bevy_ecs::world::World;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
-use ron::error::SpannedError;
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use thiserror::Error;
+
+use crate::{meta::AssetHash, path::AssetPath, Asset, Assets, UntypedAssetId, UntypedHandle};
+
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use {
+    crate::{
+        meta::{AssetMetaDyn, ProcessedInfoMinimal, Settings},
+        Handle,
+    },
+    alloc::{
+        string::{String, ToString},
+        vec::Vec,
+    },
+    bevy_tasks::{BoxedFuture, ConditionalSendFuture},
+    serde::{Deserialize, Serialize},
+    thiserror::Error,
+};
+
+#[cfg(feature = "std")]
+use {
+    crate::{
+        io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
+        loader_builders::{Deferred, NestedLoader, StaticTyped},
+        meta::AssetMeta,
+        AssetLoadError, AssetServer, AssetServerMode,
+    },
+    ron::error::SpannedError,
+    std::path::{Path, PathBuf},
+};
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
@@ -28,6 +44,7 @@ use thiserror::Error;
 /// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
 ///
 /// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
+#[cfg(feature = "std")]
 pub trait AssetLoader: Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: Asset;
@@ -51,6 +68,7 @@ pub trait AssetLoader: Send + Sync + 'static {
 }
 
 /// Provides type-erased access to an [`AssetLoader`].
+#[cfg(feature = "std")]
 pub trait ErasedAssetLoader: Send + Sync + 'static {
     /// Asynchronously loads the asset(s) from the bytes provided by [`Reader`].
     fn load<'a>(
@@ -79,6 +97,7 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     fn asset_type_id(&self) -> TypeId;
 }
 
+#[cfg(feature = "std")]
 impl<L> ErasedAssetLoader for L
 where
     L: AssetLoader + Send + Sync,
@@ -295,6 +314,7 @@ impl<A: Asset> AssetContainer for A {
 ///
 /// [`NestedLoader::load`]: crate::NestedLoader::load
 /// [immediately]: crate::Immediate
+#[cfg(feature = "std")]
 #[derive(Error, Debug)]
 pub enum LoadDirectError {
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
@@ -307,6 +327,7 @@ pub enum LoadDirectError {
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
+#[cfg(feature = "std")]
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DeserializeMetaError {
     #[error("Failed to deserialize asset meta: {0:?}")]
@@ -318,6 +339,7 @@ pub enum DeserializeMetaError {
 /// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.
 ///
 /// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
+#[cfg(feature = "std")]
 pub struct LoadContext<'a> {
     pub(crate) asset_server: &'a AssetServer,
     pub(crate) should_load_dependencies: bool,
@@ -329,6 +351,7 @@ pub struct LoadContext<'a> {
     pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
 }
 
+#[cfg(feature = "std")]
 impl<'a> LoadContext<'a> {
     /// Creates a new [`LoadContext`] instance.
     pub(crate) fn new(
@@ -571,6 +594,7 @@ impl<'a> LoadContext<'a> {
 }
 
 /// An error produced when calling [`LoadContext::read_asset_bytes`]
+#[cfg(feature = "std")]
 #[derive(Error, Debug)]
 pub enum ReadAssetBytesError {
     #[error(transparent)]

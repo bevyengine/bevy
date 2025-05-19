@@ -1,17 +1,21 @@
-use alloc::{
-    boxed::Box,
-    string::{String, ToString},
-    vec::Vec,
-};
-
-use crate::{
-    loader::AssetLoader, processor::Process, Asset, AssetPath, DeserializeMetaError,
-    VisitAssetDependencies,
-};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use downcast_rs::{impl_downcast, Downcast};
-use ron::ser::PrettyConfig;
+use log::error;
 use serde::{Deserialize, Serialize};
-use tracing::error;
+
+use crate::{Asset, AssetPath, VisitAssetDependencies};
+
+#[cfg_attr(
+    not(feature = "std"),
+    expect(unused_imports, reason = "only needed with `std` feature")
+)]
+use alloc::string::ToString;
+
+#[cfg(feature = "std")]
+use {
+    crate::{loader::AssetLoader, processor::Process, DeserializeMetaError},
+    ron::ser::PrettyConfig,
+};
 
 pub const META_FORMAT_VERSION: &str = "1.0";
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
@@ -20,6 +24,7 @@ pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
 ///
 /// `L` is the [`AssetLoader`] (if one is configured) for the [`AssetAction`]. This can be `()` if it is not required.
 /// `P` is the [`Process`] processor, if one is configured for the [`AssetAction`]. This can be `()` if it is not required.
+#[cfg(feature = "std")]
 #[derive(Serialize, Deserialize)]
 pub struct AssetMeta<L: AssetLoader, P: Process> {
     /// The version of the meta format being used. This will change whenever a breaking change is made to
@@ -35,6 +40,7 @@ pub struct AssetMeta<L: AssetLoader, P: Process> {
     pub asset: AssetAction<L::Settings, P::Settings>,
 }
 
+#[cfg(feature = "std")]
 impl<L: AssetLoader, P: Process> AssetMeta<L, P> {
     pub fn new(asset: AssetAction<L::Settings, P::Settings>) -> Self {
         Self {
@@ -135,6 +141,7 @@ pub trait AssetMetaDyn: Downcast + Send + Sync {
     fn processed_info_mut(&mut self) -> &mut Option<ProcessedInfo>;
 }
 
+#[cfg(feature = "std")]
 impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
     fn loader_settings(&self) -> Option<&dyn Settings> {
         if let AssetAction::Load { settings, .. } = &self.asset {
@@ -175,6 +182,7 @@ impl<T: 'static> Settings for T where T: Send + Sync {}
 impl_downcast!(Settings);
 
 /// The () processor should never be called. This implementation exists to make the meta format nicer to work with.
+#[cfg(feature = "std")]
 impl Process for () {
     type Settings = ();
     type OutputLoader = ();
@@ -198,6 +206,7 @@ impl VisitAssetDependencies for () {
 }
 
 /// The () loader should never be called. This implementation exists to make the meta format nicer to work with.
+#[cfg(feature = "std")]
 impl AssetLoader for () {
     type Asset = ();
     type Settings = ();
@@ -232,6 +241,10 @@ pub(crate) fn meta_transform_settings<S: Settings>(
     }
 }
 
+#[cfg_attr(
+    not(feature = "std"),
+    expect(dead_code, reason = "only used with `std` currently")
+)]
 pub(crate) fn loader_settings_meta_transform<S: Settings>(
     settings: impl Fn(&mut S) + Send + Sync + 'static,
 ) -> MetaTransform {
@@ -241,6 +254,10 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
 pub type AssetHash = [u8; 32];
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
+#[cfg_attr(
+    not(feature = "std"),
+    expect(dead_code, reason = "only used with `std` currently")
+)]
 pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash {
     let mut hasher = blake3::Hasher::new();
     hasher.update(meta_bytes);
@@ -249,6 +266,10 @@ pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash
 }
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
+#[cfg_attr(
+    not(feature = "std"),
+    expect(dead_code, reason = "only used with `std` currently")
+)]
 pub(crate) fn get_full_asset_hash(
     asset_hash: AssetHash,
     dependency_hashes: impl Iterator<Item = AssetHash>,
