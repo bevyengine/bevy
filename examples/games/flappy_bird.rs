@@ -9,6 +9,14 @@ use bevy::math::{
 use bevy::prelude::*;
 use rand::Rng;
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+enum State {
+    #[default]
+    MainMenu,
+    InGame,
+    GameOver,
+}
+
 #[derive(Resource, Reflect)]
 struct Settings {
     background_color: Color,
@@ -67,6 +75,18 @@ struct PipeMarker;
 #[derive(Component)]
 struct ScoreText;
 
+#[derive(Component)]
+struct StartButton;
+
+#[derive(Component)]
+struct OnMainMenu;
+
+#[derive(Component)]
+struct OnGameScreen;
+
+#[derive(Component)]
+struct OnGameOverScreen;
+
 /// This resource tracks the game's score
 #[derive(Resource, Deref, DerefMut)]
 struct Score(usize);
@@ -78,16 +98,6 @@ struct Velocity(Vec2);
 /// Timer that determines when new pipes are spawned
 #[derive(Resource, Deref, DerefMut)]
 struct PipeTimer(Timer);
-
-/// The size of the window at the start of the game
-///
-/// Handling resizing while the game is playing is quite hard, so we ignore that
-#[derive(Resource, Deref, DerefMut)]
-struct WindowSize(Vec2);
-
-/// Event emitted when the bird touches the edges or a pipe
-#[derive(Event, Default)]
-struct CollisionEvent;
 
 /// Event emitted when a new pipe should be spawned
 #[derive(Event, Default)]
@@ -101,11 +111,24 @@ fn main() {
     let settings = Settings::default();
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, (set_window_size, setup))
+        .add_systems(Startup, setup)
+        .add_systems(OnEnter(State::MainMenu), setup_main_menu)
+        .add_systems(OnExit(State::MainMenu), despawn_screen::<OnMainMenu>)
+        .add_systems(OnEnter(State::GameOver), setup_game_over)
+        .add_systems(OnExit(State::GameOver), despawn_screen::<OnGameOverScreen>)
+        .add_systems(
+            Update,
+            handle_start_button.run_if(in_state(State::MainMenu)),
+        )
+        .add_systems(
+            Update,
+            handle_start_button.run_if(in_state(State::GameOver)),
+        )
+        .add_systems(OnEnter(State::InGame), setup_game)
+        .add_systems(OnExit(State::InGame), teardown_game)
         .add_systems(
             FixedUpdate,
             (
-                reset,
                 add_pipes,
                 spawn_pipe,
                 flap,
@@ -114,7 +137,8 @@ fn main() {
                 check_collisions,
                 increase_score,
                 remove_pipes,
-            ),
+            )
+                .run_if(in_state(State::InGame)),
         )
         .insert_resource(Score(0))
         .insert_resource(ClearColor(settings.background_color))
@@ -122,27 +146,157 @@ fn main() {
             settings.pipe_timer_duration,
             TimerMode::Repeating,
         )))
-        .insert_resource(WindowSize(Vec2::ZERO))
         .insert_resource(settings)
-        .add_event::<CollisionEvent>()
+        .insert_state(State::MainMenu)
         .add_event::<SpawnPipeEvent>()
         .run();
 }
 
+fn despawn_screen<T: Component>(menu: Single<Entity, With<T>>, mut commands: Commands) {
+    commands.entity(*menu).despawn();
+}
+
 /// Set up the camera and score UI
-fn setup(
-    mut commands: Commands,
-    mut collision_events: EventWriter<CollisionEvent>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     // TODO: Replace with a custom sound, or rename file
     let score_sound = asset_server.load("sounds/breakout_collision.ogg");
     commands.insert_resource(ScoreSound(score_sound));
+}
+
+fn setup_main_menu(mut commands: Commands) {
+    commands.spawn((
+        OnMainMenu,
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },
+        children![
+            (
+                Text::new("Flipper Birb"),
+                TextFont {
+                    font_size: 66.0,
+                    ..default()
+                },
+                TextColor(Color::BLACK),
+            ),
+            (
+                Button,
+                StartButton,
+                Node {
+                    width: Val::Px(150.0),
+                    height: Val::Px(65.0),
+                    border: UiRect::all(Val::Px(5.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(20.0)),
+                    ..default()
+                },
+                BorderColor(Color::BLACK),
+                BorderRadius::MAX,
+                BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                children![(
+                    Text::new("Start"),
+                    TextFont {
+                        font_size: 33.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
+                )]
+            )
+        ],
+    ));
+}
+
+fn handle_start_button(
+    query: Query<&Interaction, (Changed<Interaction>, With<StartButton>, With<Button>)>,
+    mut next_state: ResMut<NextState<State>>,
+) {
+    for interaction in query {
+        if *interaction == Interaction::Pressed {
+            next_state.set(State::InGame);
+        }
+    }
+}
+
+fn setup_game_over(mut commands: Commands, score: Res<Score>) {
+    commands.spawn((
+        OnGameOverScreen,
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Column,
+            column_gap: Val::Px(10.0),
+            ..default()
+        },
+        children![
+            (
+                Text::new("Your score was:"),
+                TextFont {
+                    font_size: 30.0,
+                    ..default()
+                },
+                TextColor(Color::BLACK),
+            ),
+            (
+                Text::new(score.to_string()),
+                TextFont {
+                    font_size: 120.0,
+                    ..default()
+                },
+                TextColor(Color::BLACK),
+            ),
+            (
+                Button,
+                StartButton,
+                Node {
+                    width: Val::Px(250.0),
+                    height: Val::Px(65.0),
+                    border: UiRect::all(Val::Px(5.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    margin: UiRect::top(Val::Px(20.0)),
+                    ..default()
+                },
+                BorderColor(Color::BLACK),
+                BorderRadius::MAX,
+                BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                children![(
+                    Text::new("Try Again!"),
+                    TextFont {
+                        font_size: 33.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
+                )]
+            )
+        ],
+    ));
+}
+
+fn setup_game(
+    mut score: ResMut<Score>,
+    mut commands: Commands,
+    mut spawn_pipe_events: EventWriter<SpawnPipeEvent>,
+    mut timer: ResMut<PipeTimer>,
+    asset_server: Res<AssetServer>,
+    settings: Res<Settings>,
+) {
+    // Set the score to 0
+    score.0 = 0;
 
     // Spawn the score UI.
     commands.spawn((
+        OnGameScreen,
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
@@ -162,37 +316,6 @@ fn setup(
         )],
     ));
 
-    // Create a collision event to trigger a reset
-    collision_events.write_default();
-}
-
-/// Clear everything and put everything to its start state
-fn reset(
-    mut commands: Commands,
-    mut timer: ResMut<PipeTimer>,
-    mut score: ResMut<Score>,
-    mut collision_events: EventReader<CollisionEvent>,
-    mut spawn_pipe_events: EventWriter<SpawnPipeEvent>,
-    mut score_text: Single<&mut Text, With<ScoreText>>,
-    to_remove: Query<Entity, Or<(With<Bird>, With<Pipe>, With<PipeMarker>)>>,
-    asset_server: Res<AssetServer>,
-    settings: Res<Settings>,
-) {
-    if collision_events.is_empty() {
-        return;
-    }
-
-    collision_events.clear();
-
-    // Remove any entities left over from the previous game (if any)
-    for ent in to_remove {
-        commands.entity(ent).despawn();
-    }
-
-    // Set the score to 0
-    score.0 = 0;
-    score_text.0 = 0.to_string();
-
     // Spawn a new bird
     commands.spawn((
         Bird,
@@ -209,8 +332,20 @@ fn reset(
     spawn_pipe_events.write_default();
 }
 
-fn set_window_size(window: Single<&mut Window>, mut window_size: ResMut<WindowSize>) {
-    window_size.0 = Vec2::new(window.resolution.width(), window.resolution.height());
+/// Clear everything and put everything to its start state
+fn teardown_game(
+    mut commands: Commands,
+    to_remove: Query<Entity, Or<(With<Bird>, With<Pipe>, With<PipeMarker>)>>,
+    game_ui: Single<Entity, With<OnGameScreen>>,
+) {
+    // Remove any entities left over from the previous game (if any)
+    for ent in to_remove {
+        commands.entity(ent).despawn();
+    }
+
+    let mut ent = commands.entity(*game_ui);
+    ent.despawn_related::<Children>();
+    ent.despawn();
 }
 
 /// Flap on a spacebar or left mouse button press
@@ -257,14 +392,14 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
 
 /// Check for collision with the borders of the window and the pipes
 fn check_collisions(
-    mut collision_events: EventWriter<CollisionEvent>,
+    mut next_state: ResMut<NextState<State>>,
     bird: Single<&Transform, With<Bird>>,
     pipes: Query<&Transform, With<Pipe>>,
-    window_size: Res<WindowSize>,
+    window: Single<&Window>,
     settings: Res<Settings>,
 ) {
-    if bird.translation.y.abs() > window_size.y / 2. {
-        collision_events.write_default();
+    if bird.translation.y.abs() + settings.bird_size / 2. > window.resolution.height() / 2. {
+        next_state.set(State::GameOver);
         return;
     }
 
@@ -272,7 +407,7 @@ fn check_collisions(
     for pipe in pipes {
         let pipe_collider = Aabb2d::new(pipe.translation.truncate(), settings.pipe_size / 2.);
         if bird_collider.intersects(&pipe_collider) {
-            collision_events.write_default();
+            next_state.set(State::GameOver);
             return;
         }
     }
@@ -296,7 +431,7 @@ fn spawn_pipe(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    window_size: Res<WindowSize>,
+    window: Single<&Window>,
     settings: Res<Settings>,
 ) {
     if events.is_empty() {
@@ -314,7 +449,7 @@ fn spawn_pipe(
 
     let pipe_offset = size.y / 2. + settings.gap_height / 2.;
 
-    let pipe_location = window_size.x / 2. + size.x / 2.;
+    let pipe_location = window.resolution.width() / 2. + size.x / 2.;
 
     // We first spawn in invisible marker that will increase the score once
     // it passes the bird position and then despawns. This assures that each
@@ -325,7 +460,7 @@ fn spawn_pipe(
         Velocity(Vec2::new(-settings.pipe_speed, 0.)),
     ));
 
-    // bottom pipe
+    // Spawn the bottom pipe
     commands.spawn((
         Pipe,
         Mesh2d(shape.clone()),
@@ -334,7 +469,7 @@ fn spawn_pipe(
         Velocity(Vec2::new(-settings.pipe_speed, 0.)),
     ));
 
-    // top pipe
+    // Spawn the top pipe
     commands.spawn((
         Pipe,
         Mesh2d(shape),
@@ -367,14 +502,14 @@ fn increase_score(
 fn remove_pipes(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Transform), With<Pipe>>,
-    window_size: Res<WindowSize>,
+    window: Single<&Window>,
     settings: Res<Settings>,
 ) {
     for (entity, transform) in &mut query {
         // The entire pipe needs to have left the screen, not just its origin,
         // so we check that the right side of the pipe is off screen.
         let right_side_of_pipe = transform.translation.x + settings.pipe_size.x / 2.;
-        if right_side_of_pipe < -window_size.x / 2. {
+        if right_side_of_pipe < -window.resolution.width() / 2. {
             commands.entity(entity).despawn();
         }
     }
