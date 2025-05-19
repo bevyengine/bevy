@@ -527,7 +527,7 @@ fn get_attrs<'a>(
     face_info: &'a FontFaceInfo,
     scale_factor: f64,
 ) -> Attrs<'a> {
-    let attrs = Attrs::new()
+    Attrs::new()
         .metadata(span_index)
         .family(Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
@@ -540,8 +540,7 @@ fn get_attrs<'a>(
             }
             .scale(scale_factor as f32),
         )
-        .color(cosmic_text::Color(color.to_linear().as_u32()));
-    attrs
+        .color(cosmic_text::Color(color.to_linear().as_u32()))
 }
 
 /// Calculate the size of the text area for the given buffer.

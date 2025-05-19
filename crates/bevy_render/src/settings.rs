@@ -152,6 +152,10 @@ pub struct RenderResources(
 );
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
     Manual(RenderResources),
