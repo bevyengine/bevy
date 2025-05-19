@@ -118,7 +118,6 @@ pub trait Relationship: Component + Sized {
                 relationship_target.collection_mut_risky().add(entity);
             } else {
                 // Commands may be deferred (e.g., in batch mode), so the world should be inspected from within the command itself.
-                // Note: this may introduce small performance overhead (about 10%) due to additional commands and lookups.
                 world.commands().queue(move |world: &mut World| {
                     if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
                         if let Some(mut relationship_target) =
