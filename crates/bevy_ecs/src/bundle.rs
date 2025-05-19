@@ -18,12 +18,15 @@ use crate::{
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
-    relationship::RelationshipInsertHookMode,
+    relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REPLACE},
+    world::{
+        unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REMOVE,
+        ON_REPLACE,
+    },
 };
 use alloc::{boxed::Box, vec, vec::Vec};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};
@@ -630,13 +633,14 @@ impl BundleInfo {
         let mut bundle_component = 0;
         let after_effect = bundle.get_components(&mut |storage_type, component_ptr| {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
+            // SAFETY: bundle_component is a valid index for this bundle
+            let status = unsafe { bundle_component_status.get_status(bundle_component) };
             match storage_type {
                 StorageType::Table => {
-                    // SAFETY: bundle_component is a valid index for this bundle
-                    let status = unsafe { bundle_component_status.get_status(bundle_component) };
-                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
-                    // the target table contains the component.
-                    let column = table.get_column_mut(component_id).debug_checked_unwrap();
+                    let column =
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
+                        // the target table contains the component.
+                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     match (status, insert_mode) {
                         (ComponentStatus::Added, _) => {
                             column.initialize(table_row, component_ptr, change_tick, caller);
@@ -656,7 +660,16 @@ impl BundleInfo {
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    sparse_set.insert(entity, component_ptr, change_tick, caller);
+                    match (status, insert_mode) {
+                        (ComponentStatus::Added, _) | (_, InsertMode::Replace) => {
+                            sparse_set.insert(entity, component_ptr, change_tick, caller);
+                        }
+                        (ComponentStatus::Existing, InsertMode::Keep) => {
+                            if let Some(drop_fn) = sparse_set.get_drop() {
+                                drop_fn(component_ptr);
+                            }
+                        }
+                    }
                 }
             }
             bundle_component += 1;
@@ -1104,7 +1117,7 @@ impl<'w> BundleInserter<'w> {
         bundle: T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
-        relationship_insert_hook_mode: RelationshipInsertHookMode,
+        relationship_hook_mode: RelationshipHookMode,
     ) -> (EntityLocation, T::Effect) {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
@@ -1130,6 +1143,7 @@ impl<'w> BundleInserter<'w> {
                     entity,
                     archetype_after_insert.iter_existing(),
                     caller,
+                    relationship_hook_mode,
                 );
             }
         }
@@ -1317,7 +1331,7 @@ impl<'w> BundleInserter<'w> {
                         entity,
                         archetype_after_insert.iter_inserted(),
                         caller,
-                        relationship_insert_hook_mode,
+                        relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
@@ -1336,7 +1350,7 @@ impl<'w> BundleInserter<'w> {
                         entity,
                         archetype_after_insert.iter_added(),
                         caller,
-                        relationship_insert_hook_mode,
+                        relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
@@ -1357,6 +1371,274 @@ impl<'w> BundleInserter<'w> {
     pub(crate) fn entities(&mut self) -> &mut Entities {
         // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
         unsafe { &mut self.world.world_mut().entities }
+    }
+}
+
+// SAFETY: We have exclusive world access so our pointers can't be invalidated externally
+pub(crate) struct BundleRemover<'w> {
+    world: UnsafeWorldCell<'w>,
+    bundle_info: ConstNonNull<BundleInfo>,
+    old_and_new_table: Option<(NonNull<Table>, NonNull<Table>)>,
+    old_archetype: NonNull<Archetype>,
+    new_archetype: NonNull<Archetype>,
+}
+
+impl<'w> BundleRemover<'w> {
+    /// Creates a new [`BundleRemover`], if such a remover would do anything.
+    ///
+    /// If `require_all` is true, the [`BundleRemover`] is only created if the entire bundle is present on the archetype.
+    ///
+    /// # Safety
+    /// Caller must ensure that `archetype_id` is valid
+    #[inline]
+    pub(crate) unsafe fn new<T: Bundle>(
+        world: &'w mut World,
+        archetype_id: ArchetypeId,
+        require_all: bool,
+    ) -> Option<Self> {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+        let bundle_id = world
+            .bundles
+            .register_info::<T>(&mut registrator, &mut world.storages);
+        // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
+        unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
+    }
+
+    /// Creates a new [`BundleRemover`], if such a remover would do anything.
+    ///
+    /// If `require_all` is true, the [`BundleRemover`] is only created if the entire bundle is present on the archetype.
+    ///
+    /// # Safety
+    /// Caller must ensure that `bundle_id` exists in `world.bundles` and `archetype_id` is valid.
+    #[inline]
+    pub(crate) unsafe fn new_with_id(
+        world: &'w mut World,
+        archetype_id: ArchetypeId,
+        bundle_id: BundleId,
+        require_all: bool,
+    ) -> Option<Self> {
+        let bundle_info = world.bundles.get_unchecked(bundle_id);
+        // SAFETY: Caller ensures archetype and bundle ids are correct.
+        let new_archetype_id = unsafe {
+            bundle_info.remove_bundle_from_archetype(
+                &mut world.archetypes,
+                &mut world.storages,
+                &world.components,
+                &world.observers,
+                archetype_id,
+                !require_all,
+            )?
+        };
+        if new_archetype_id == archetype_id {
+            return None;
+        }
+        let (old_archetype, new_archetype) =
+            world.archetypes.get_2_mut(archetype_id, new_archetype_id);
+
+        let tables = if old_archetype.table_id() == new_archetype.table_id() {
+            None
+        } else {
+            let (old, new) = world
+                .storages
+                .tables
+                .get_2_mut(old_archetype.table_id(), new_archetype.table_id());
+            Some((old.into(), new.into()))
+        };
+
+        Some(Self {
+            bundle_info: bundle_info.into(),
+            new_archetype: new_archetype.into(),
+            old_archetype: old_archetype.into(),
+            old_and_new_table: tables,
+            world: world.as_unsafe_world_cell(),
+        })
+    }
+
+    /// This can be passed to [`remove`](Self::remove) as the `pre_remove` function if you don't want to do anything before removing.
+    pub fn empty_pre_remove(
+        _: &mut SparseSets,
+        _: Option<&mut Table>,
+        _: &Components,
+        _: &[ComponentId],
+    ) -> (bool, ()) {
+        (true, ())
+    }
+
+    /// Performs the removal.
+    ///
+    /// `pre_remove` should return a bool for if the components still need to be dropped.
+    ///
+    /// # Safety
+    /// The `location` must have the same archetype as the remover.
+    #[inline]
+    pub(crate) unsafe fn remove<T: 'static>(
+        &mut self,
+        entity: Entity,
+        location: EntityLocation,
+        caller: MaybeLocation,
+        pre_remove: impl FnOnce(
+            &mut SparseSets,
+            Option<&mut Table>,
+            &Components,
+            &[ComponentId],
+        ) -> (bool, T),
+    ) -> (EntityLocation, T) {
+        // Hooks
+        // SAFETY: all bundle components exist in World
+        unsafe {
+            // SAFETY: We only keep access to archetype/bundle data.
+            let mut deferred_world = self.world.into_deferred();
+            let bundle_components_in_archetype = || {
+                self.bundle_info
+                    .as_ref()
+                    .iter_explicit_components()
+                    .filter(|component_id| self.old_archetype.as_ref().contains(*component_id))
+            };
+            if self.old_archetype.as_ref().has_replace_observer() {
+                deferred_world.trigger_observers(
+                    ON_REPLACE,
+                    entity,
+                    bundle_components_in_archetype(),
+                    caller,
+                );
+            }
+            deferred_world.trigger_on_replace(
+                self.old_archetype.as_ref(),
+                entity,
+                bundle_components_in_archetype(),
+                caller,
+                RelationshipHookMode::Run,
+            );
+            if self.old_archetype.as_ref().has_remove_observer() {
+                deferred_world.trigger_observers(
+                    ON_REMOVE,
+                    entity,
+                    bundle_components_in_archetype(),
+                    caller,
+                );
+            }
+            deferred_world.trigger_on_remove(
+                self.old_archetype.as_ref(),
+                entity,
+                bundle_components_in_archetype(),
+                caller,
+            );
+        }
+
+        // SAFETY: We still have the cell, so this is unique, it doesn't conflict with other references, and we drop it shortly.
+        let world = unsafe { self.world.world_mut() };
+
+        let (needs_drop, pre_remove_result) = pre_remove(
+            &mut world.storages.sparse_sets,
+            self.old_and_new_table
+                .as_ref()
+                // SAFETY: There is no conflicting access for this scope.
+                .map(|(old, _)| unsafe { &mut *old.as_ptr() }),
+            &world.components,
+            self.bundle_info.as_ref().explicit_components(),
+        );
+
+        // Handle sparse set removes
+        for component_id in self.bundle_info.as_ref().iter_explicit_components() {
+            if self.old_archetype.as_ref().contains(component_id) {
+                world.removed_components.send(component_id, entity);
+
+                // Make sure to drop components stored in sparse sets.
+                // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
+                if let Some(StorageType::SparseSet) =
+                    self.old_archetype.as_ref().get_storage_type(component_id)
+                {
+                    world
+                        .storages
+                        .sparse_sets
+                        .get_mut(component_id)
+                        // Set exists because the component existed on the entity
+                        .unwrap()
+                        // If it was already forgotten, it would not be in the set.
+                        .remove(entity);
+                }
+            }
+        }
+
+        // Handle archetype change
+        let remove_result = self
+            .old_archetype
+            .as_mut()
+            .swap_remove(location.archetype_row);
+        // if an entity was moved into this entity's archetype row, update its archetype row
+        if let Some(swapped_entity) = remove_result.swapped_entity {
+            let swapped_location = world.entities.get(swapped_entity).unwrap();
+
+            world.entities.set(
+                swapped_entity.index(),
+                EntityLocation {
+                    archetype_id: swapped_location.archetype_id,
+                    archetype_row: location.archetype_row,
+                    table_id: swapped_location.table_id,
+                    table_row: swapped_location.table_row,
+                },
+            );
+        }
+
+        // Handle table change
+        let new_location = if let Some((mut old_table, mut new_table)) = self.old_and_new_table {
+            let move_result = if needs_drop {
+                // SAFETY: old_table_row exists
+                unsafe {
+                    old_table
+                        .as_mut()
+                        .move_to_and_drop_missing_unchecked(location.table_row, new_table.as_mut())
+                }
+            } else {
+                // SAFETY: old_table_row exists
+                unsafe {
+                    old_table.as_mut().move_to_and_forget_missing_unchecked(
+                        location.table_row,
+                        new_table.as_mut(),
+                    )
+                }
+            };
+
+            // SAFETY: move_result.new_row is a valid position in new_archetype's table
+            let new_location = unsafe {
+                self.new_archetype
+                    .as_mut()
+                    .allocate(entity, move_result.new_row)
+            };
+
+            // if an entity was moved into this entity's table row, update its table row
+            if let Some(swapped_entity) = move_result.swapped_entity {
+                let swapped_location = world.entities.get(swapped_entity).unwrap();
+
+                world.entities.set(
+                    swapped_entity.index(),
+                    EntityLocation {
+                        archetype_id: swapped_location.archetype_id,
+                        archetype_row: swapped_location.archetype_row,
+                        table_id: swapped_location.table_id,
+                        table_row: location.table_row,
+                    },
+                );
+                world.archetypes[swapped_location.archetype_id]
+                    .set_entity_table_row(swapped_location.archetype_row, location.table_row);
+            }
+
+            new_location
+        } else {
+            // The tables are the same
+            self.new_archetype
+                .as_mut()
+                .allocate(entity, location.table_row)
+        };
+
+        // SAFETY: The entity is valid and has been moved to the new location already.
+        unsafe {
+            world.entities.set(entity.index(), new_location);
+        }
+
+        (new_location, pre_remove_result)
     }
 }
 
@@ -1454,7 +1736,7 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.set(entity.index(), location);
+            entities.set_spawn_despawn(entity.index(), location, caller, self.change_tick);
             (location, after_effect)
         };
 
@@ -1484,7 +1766,7 @@ impl<'w> BundleSpawner<'w> {
                 entity,
                 bundle_info.iter_contributed_components(),
                 caller,
-                RelationshipInsertHookMode::Run,
+                RelationshipHookMode::Run,
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
@@ -1584,7 +1866,7 @@ impl Bundles {
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
+        *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
             T::component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
@@ -1596,8 +1878,7 @@ impl Bundles {
                 unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
-        });
-        id
+        })
     }
 
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.

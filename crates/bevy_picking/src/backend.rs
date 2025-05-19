@@ -42,7 +42,7 @@ pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
         pointer::{PointerId, PointerLocation},
-        PickSet, Pickable,
+        Pickable, PickingSystems,
     };
 }
 
@@ -54,9 +54,9 @@ pub mod prelude {
 ///
 /// Note that systems reading these events in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
-/// against [`PickSet::Backend`](crate::PickSet::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
+/// against [`PickingSystems::Backend`](crate::PickingSystems::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
 #[derive(Event, Debug, Clone, Reflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Clone)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
     pub pointer: prelude::PointerId,
@@ -84,7 +84,7 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+    /// Construct [`PointerHits`].
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -96,6 +96,7 @@ impl PointerHits {
 
 /// Holds data from a successful pointer hit test. See [`HitData::depth`] for important details.
 #[derive(Clone, Debug, PartialEq, Reflect)]
+#[reflect(Clone, PartialEq)]
 pub struct HitData {
     /// The camera entity used to detect this hit. Useful when you need to find the ray that was
     /// casted for this hit when using a raycasting backend.
@@ -113,7 +114,7 @@ pub struct HitData {
 }
 
 impl HitData {
-    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+    /// Construct a [`HitData`].
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,
@@ -130,7 +131,7 @@ pub mod ray {
     use crate::backend::prelude::{PointerId, PointerLocation};
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
-    use bevy_platform_support::collections::{hash_map::Iter, HashMap};
+    use bevy_platform::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::Reflect;
     use bevy_render::camera::Camera;
     use bevy_transform::prelude::GlobalTransform;
@@ -139,6 +140,7 @@ pub mod ray {
     /// Identifies a ray constructed from some (pointer, camera) combination. A pointer can be over
     /// multiple cameras, which is why a single pointer may have multiple rays.
     #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Reflect)]
+    #[reflect(Clone, PartialEq, Hash)]
     pub struct RayId {
         /// The camera whose projection was used to calculate the ray.
         pub camera: Entity,
@@ -176,18 +178,16 @@ pub mod ray {
     /// ```
     #[derive(Clone, Debug, Default, Resource)]
     pub struct RayMap {
-        map: HashMap<RayId, Ray3d>,
+        /// Cartesian product of all pointers and all cameras
+        /// Add your rays here to support picking through indirections,
+        /// e.g. rendered-to-texture cameras
+        pub map: HashMap<RayId, Ray3d>,
     }
 
     impl RayMap {
         /// Iterates over all world space rays for every picking pointer.
         pub fn iter(&self) -> Iter<'_, RayId, Ray3d> {
             self.map.iter()
-        }
-
-        /// The hash map of all rays cast in the current frame.
-        pub fn map(&self) -> &HashMap<RayId, Ray3d> {
-            &self.map
         }
 
         /// Clears the [`RayMap`] and re-populates it with one ray for each
@@ -229,11 +229,8 @@ pub mod ray {
         if !pointer_loc.is_in_viewport(camera, primary_window_entity) {
             return None;
         }
-        let mut viewport_pos = pointer_loc.position;
-        if let Some(viewport) = &camera.viewport {
-            let viewport_logical = camera.to_logical(viewport.physical_position)?;
-            viewport_pos -= viewport_logical;
-        }
-        camera.viewport_to_world(camera_tfm, viewport_pos).ok()
+        camera
+            .viewport_to_world(camera_tfm, pointer_loc.position)
+            .ok()
     }
 }

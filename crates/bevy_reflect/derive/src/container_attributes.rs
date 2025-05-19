@@ -401,9 +401,11 @@ impl ContainerAttributes {
             // Override `lit` if this is a `FromReflect` derive.
             // This typically means a user is opting out of the default implementation
             // from the `Reflect` derive and using the `FromReflect` derive directly instead.
-            (trait_ == ReflectTraitToImpl::FromReflect)
-                .then(|| LitBool::new(true, Span::call_site()))
-                .unwrap_or_else(|| lit.clone())
+            if trait_ == ReflectTraitToImpl::FromReflect {
+                LitBool::new(true, Span::call_site())
+            } else {
+                lit.clone()
+            }
         })?;
 
         if let Some(existing) = &self.from_reflect_attrs.auto_derive {
@@ -434,9 +436,11 @@ impl ContainerAttributes {
             // Override `lit` if this is a `FromReflect` derive.
             // This typically means a user is opting out of the default implementation
             // from the `Reflect` derive and using the `FromReflect` derive directly instead.
-            (trait_ == ReflectTraitToImpl::TypePath)
-                .then(|| LitBool::new(true, Span::call_site()))
-                .unwrap_or_else(|| lit.clone())
+            if trait_ == ReflectTraitToImpl::TypePath {
+                LitBool::new(true, Span::call_site())
+            } else {
+                lit.clone()
+            }
         })?;
 
         if let Some(existing) = &self.type_path_attrs.auto_derive {

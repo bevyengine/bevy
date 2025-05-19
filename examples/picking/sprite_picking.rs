@@ -1,5 +1,5 @@
-//! Demonstrates picking for sprites and sprite atlases. The picking backend only tests against the
-//! sprite bounds, so the sprite atlas can be picked by clicking on its transparent areas.
+//! Demonstrates picking for sprites and sprite atlases.
+//! By default, the sprite picking backend considers a sprite only when a pointer is over an opaque pixel.
 
 use bevy::{prelude::*, sprite::Anchor};
 use std::fmt::Debug;
@@ -38,16 +38,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((Transform::default(), Visibility::default()))
         .with_children(|commands| {
             for (anchor_index, anchor) in [
-                Anchor::TopLeft,
-                Anchor::TopCenter,
-                Anchor::TopRight,
-                Anchor::CenterLeft,
-                Anchor::Center,
-                Anchor::CenterRight,
-                Anchor::BottomLeft,
-                Anchor::BottomCenter,
-                Anchor::BottomRight,
-                Anchor::Custom(Vec2::new(0.5, 0.5)),
+                Anchor::TOP_LEFT,
+                Anchor::TOP_CENTER,
+                Anchor::TOP_RIGHT,
+                Anchor::CENTER_LEFT,
+                Anchor::CENTER,
+                Anchor::CENTER_RIGHT,
+                Anchor::BOTTOM_LEFT,
+                Anchor::BOTTOM_CENTER,
+                Anchor::BOTTOM_RIGHT,
             ]
             .iter()
             .enumerate()

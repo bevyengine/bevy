@@ -83,7 +83,7 @@ fn spawn_sprites(
 
     for (label, text_style, size, scale_mode) in cases {
         position.x += 0.5 * size.x;
-        let mut cmd = commands.spawn((
+        commands.spawn((
             Sprite {
                 image: texture_handle.clone(),
                 custom_size: Some(size),
@@ -91,16 +91,14 @@ fn spawn_sprites(
                 ..default()
             },
             Transform::from_translation(position),
-        ));
-        cmd.with_children(|builder| {
-            builder.spawn((
+            children![(
                 Text2d::new(label),
                 text_style,
                 TextLayout::new_with_justify(JustifyText::Center),
                 Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
-                bevy::sprite::Anchor::TopCenter,
-            ));
-        });
+                bevy::sprite::Anchor::TOP_CENTER,
+            )],
+        ));
         position.x += 0.5 * size.x + gap;
     }
 }

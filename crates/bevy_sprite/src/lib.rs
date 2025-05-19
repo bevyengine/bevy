@@ -21,6 +21,11 @@ mod texture_slice;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_sprite_picking_backend")]
+    #[doc(hidden)]
+    pub use crate::picking_backend::{
+        SpritePickingCamera, SpritePickingMode, SpritePickingPlugin, SpritePickingSettings,
+    };
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
@@ -37,7 +42,7 @@ pub use sprite::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetEvents, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetEventSystems, Assets, Handle};
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
@@ -48,32 +53,12 @@ use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
     view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
 /// Adds support for 2D sprite rendering.
-pub struct SpritePlugin {
-    /// Whether to add the sprite picking backend to the app.
-    #[cfg(feature = "bevy_sprite_picking_backend")]
-    pub add_picking: bool,
-}
-
-#[expect(
-    clippy::allow_attributes,
-    reason = "clippy::derivable_impls is not always linted"
-)]
-#[allow(
-    clippy::derivable_impls,
-    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
-)]
-impl Default for SpritePlugin {
-    fn default() -> Self {
-        Self {
-            #[cfg(feature = "bevy_sprite_picking_backend")]
-            add_picking: true,
-        }
-    }
-}
+#[derive(Default)]
+pub struct SpritePlugin;
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("ed996613-54c0-49bd-81be-1c2d1a0d03c2");
@@ -82,10 +67,14 @@ pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum SpriteSystem {
+pub enum SpriteSystems {
     ExtractSprites,
     ComputeSlices,
 }
+
+/// Deprecated alias for [`SpriteSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
+pub type SpriteSystem = SpriteSystems;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
@@ -117,17 +106,15 @@ impl Plugin for SpritePlugin {
                 (
                     calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
                     (
-                        compute_slices_on_asset_event.before(AssetEvents),
+                        compute_slices_on_asset_event.before(AssetEventSystems),
                         compute_slices_on_sprite_change,
                     )
-                        .in_set(SpriteSystem::ComputeSlices),
+                        .in_set(SpriteSystems::ComputeSlices),
                 ),
             );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
-        if self.add_picking {
-            app.add_plugins(SpritePickingPlugin);
-        }
+        app.add_plugins(SpritePickingPlugin);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -135,12 +122,13 @@ impl Plugin for SpritePlugin {
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
+                .init_resource::<ExtractedSlices>()
                 .init_resource::<SpriteAssetEvents>()
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_sprites.in_set(SpriteSystem::ExtractSprites),
+                        extract_sprites.in_set(SpriteSystems::ExtractSprites),
                         extract_sprite_events,
                     ),
                 )
@@ -148,12 +136,12 @@ impl Plugin for SpritePlugin {
                     Render,
                     (
                         queue_sprites
-                            .in_set(RenderSet::Queue)
+                            .in_set(RenderSystems::Queue)
                             .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                        prepare_sprite_image_bind_groups.in_set(RenderSet::PrepareBindGroups),
-                        prepare_sprite_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
-                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSet::PhaseSort),
-                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSet::PhaseSort),
+                        prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                        prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),
+                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSystems::PhaseSort),
                     ),
                 );
         };
@@ -348,7 +336,7 @@ mod test {
             .world_mut()
             .spawn(Sprite {
                 rect: Some(Rect::new(0., 0., 0.5, 1.)),
-                anchor: Anchor::TopRight,
+                anchor: Anchor::TOP_RIGHT,
                 image: image_handle,
                 ..default()
             })

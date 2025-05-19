@@ -1,22 +1,15 @@
-use alloc::{borrow::ToOwned, collections::VecDeque, vec::Vec};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec::Vec};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::any::TypeId;
 
-#[cfg(feature = "bevy_reflect")]
-use alloc::boxed::Box;
-
-use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
-use crate::entity::hash_map::EntityHashMap;
-use crate::entity::{Entities, EntityMapper};
-use crate::relationship::RelationshipInsertHookMode;
-use crate::system::Commands;
 use crate::{
     bundle::Bundle,
-    component::{Component, ComponentId, ComponentInfo},
-    entity::Entity,
+    component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
+    entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
     query::DebugCheckedUnwrap,
+    relationship::RelationshipHookMode,
     world::World,
 };
 
@@ -91,7 +84,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     #[cfg(feature = "bevy_reflect")]
     type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
     #[cfg(not(feature = "bevy_reflect"))]
-    #[expect(dead_code)]
+    #[expect(dead_code, reason = "type_registry is only used with bevy_reflect")]
     type_registry: Option<&'a ()>,
 }
 
@@ -176,9 +169,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// - Component being written is not registered in the world.
     /// - `ComponentId` of component being written does not match expected `ComponentId`.
     pub fn write_target_component<C: Component>(&mut self, mut component: C) {
-        C::visit_entities_mut(&mut component, |entity| {
-            *entity = self.mapper.get_mapped(*entity);
-        });
+        C::map_entities(&mut component, &mut self.mapper);
         let short_name = disqualified::ShortName::of::<C>();
         if self.target_component_written {
             panic!("Trying to write component '{short_name}' multiple times")
@@ -280,6 +271,17 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.mapper.set_mapped(entity, target);
         self.entity_cloner.clone_queue.push_back(entity);
     }
+
+    /// Queues a deferred clone operation, which will run with exclusive [`World`] access immediately after calling the clone handler for each component on an entity.
+    /// This exists, despite its similarity to [`Commands`](crate::system::Commands), to provide access to the entity mapper in the current context.
+    pub fn queue_deferred(
+        &mut self,
+        deferred: impl FnOnce(&mut World, &mut dyn EntityMapper) + 'static,
+    ) {
+        self.entity_cloner
+            .deferred_commands
+            .push_back(Box::new(deferred));
+    }
 }
 
 /// A configuration determining how to clone entities. This can be built using [`EntityCloner::build`], which
@@ -322,16 +324,10 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::component::{StorageType, ComponentCloneBehavior, Mutable};
-/// #[derive(Clone)]
+/// #[derive(Clone, Component)]
+/// #[component(clone_behavior = clone::<Self>())]
 /// struct SomeComponent;
 ///
-/// impl Component for SomeComponent {
-///     const STORAGE_TYPE: StorageType = StorageType::Table;
-///     type Mutability = Mutable;
-///     fn clone_behavior() -> ComponentCloneBehavior {
-///         ComponentCloneBehavior::clone::<Self>()
-///     }
-/// }
 /// ```
 ///
 /// # Clone Behaviors
@@ -341,7 +337,6 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// 2. component-defined handler using [`Component::clone_behavior`]
 /// 3. default handler override using [`EntityClonerBuilder::with_default_clone_fn`].
 /// 4. reflect-based or noop default clone handler depending on if `bevy_reflect` feature is enabled or not.
-#[derive(Debug)]
 pub struct EntityCloner {
     filter_allows_components: bool,
     filter: HashSet<ComponentId>,
@@ -350,18 +345,20 @@ pub struct EntityCloner {
     linked_cloning: bool,
     default_clone_fn: ComponentCloneFn,
     clone_queue: VecDeque<Entity>,
+    deferred_commands: VecDeque<Box<dyn FnOnce(&mut World, &mut dyn EntityMapper)>>,
 }
 
 impl Default for EntityCloner {
     fn default() -> Self {
         Self {
             filter_allows_components: false,
-            filter: Default::default(),
-            clone_behavior_overrides: Default::default(),
             move_components: false,
             linked_cloning: false,
             default_clone_fn: ComponentCloneBehavior::global_default_fn(),
+            filter: Default::default(),
+            clone_behavior_overrides: Default::default(),
             clone_queue: Default::default(),
+            deferred_commands: Default::default(),
         }
     }
 }
@@ -415,7 +412,7 @@ impl<'a> BundleScratch<'a> {
         self,
         world: &mut World,
         entity: Entity,
-        relationship_hook_insert_mode: RelationshipInsertHookMode,
+        relationship_hook_insert_mode: RelationshipHookMode,
     ) {
         // SAFETY:
         // - All `component_ids` are from the same world as `target` entity
@@ -453,7 +450,7 @@ impl EntityCloner {
         world: &mut World,
         source: Entity,
         mapper: &mut dyn EntityMapper,
-        relationship_hook_insert_mode: RelationshipInsertHookMode,
+        relationship_hook_insert_mode: RelationshipHookMode,
     ) -> Entity {
         let target = mapper.get_mapped(source);
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
@@ -476,10 +473,6 @@ impl EntityCloner {
 
             let archetype = source_entity.archetype();
             bundle_scratch = BundleScratch::with_capacity(archetype.component_count());
-            // SAFETY: no other references to command queue exist
-            let mut commands = unsafe {
-                Commands::new_raw_from_entities(world.get_raw_command_queue(), world.entities())
-            };
 
             for component in archetype.components() {
                 if !self.is_cloning_allowed(&component) {
@@ -527,11 +520,15 @@ impl EntityCloner {
                     )
                 };
 
-                (handler)(&mut commands, &source_component, &mut ctx);
+                (handler)(&source_component, &mut ctx);
             }
         }
 
         world.flush();
+
+        for deferred in self.deferred_commands.drain(..) {
+            (deferred)(world, mapper);
+        }
 
         if !world.entities.contains(target) {
             panic!("Target entity does not exist");
@@ -581,16 +578,15 @@ impl EntityCloner {
         mapper: &mut dyn EntityMapper,
     ) -> Entity {
         // All relationships on the root should have their hooks run
-        let target =
-            self.clone_entity_internal(world, source, mapper, RelationshipInsertHookMode::Run);
+        let target = self.clone_entity_internal(world, source, mapper, RelationshipHookMode::Run);
         let child_hook_insert_mode = if self.linked_cloning {
             // When spawning "linked relationships", we want to ignore hooks for relationships we are spawning, while
             // still registering with original relationship targets that are "not linked" to the current recursive spawn.
-            RelationshipInsertHookMode::RunIfNotLinked
+            RelationshipHookMode::RunIfNotLinked
         } else {
             // If we are not cloning "linked relationships" recursively, then we want any cloned relationship components to
             // register themselves with their original relationship target.
-            RelationshipInsertHookMode::Run
+            RelationshipHookMode::Run
         };
         loop {
             let queued = self.clone_queue.pop_front();
@@ -610,7 +606,6 @@ impl EntityCloner {
 }
 
 /// A builder for configuring [`EntityCloner`]. See [`EntityCloner`] for more information.
-#[derive(Debug)]
 pub struct EntityClonerBuilder<'w> {
     world: &'w mut World,
     entity_cloner: EntityCloner,
@@ -843,10 +838,9 @@ mod tests {
     use super::ComponentCloneCtx;
     use crate::{
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
-        entity::{hash_map::EntityHashMap, Entity, EntityCloner, SourceComponent},
+        entity::{Entity, EntityCloner, EntityHashMap, SourceComponent},
         prelude::{ChildOf, Children, Resource},
         reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
-        system::Commands,
         world::{FromWorld, World},
     };
     use alloc::vec::Vec;
@@ -862,7 +856,6 @@ mod tests {
             component::{Component, ComponentCloneBehavior},
             entity::{EntityCloner, SourceComponent},
             reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
-            system::Commands,
         };
         use alloc::vec;
         use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
@@ -992,11 +985,7 @@ mod tests {
             #[derive(Component, Reflect)]
             struct B;
 
-            fn test_handler(
-                _commands: &mut Commands,
-                source: &SourceComponent,
-                ctx: &mut ComponentCloneCtx,
-            ) {
+            fn test_handler(source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
                 let registry = ctx.type_registry().unwrap();
                 assert!(source.read_reflect(&registry.read()).is_none());
             }
@@ -1234,7 +1223,7 @@ mod tests {
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
-        #[require(C(|| C(5)))]
+        #[require(C(5))]
         struct B;
 
         #[derive(Component, Clone, PartialEq, Debug)]
@@ -1262,7 +1251,7 @@ mod tests {
         struct A;
 
         #[derive(Component, Clone, PartialEq, Debug, Default)]
-        #[require(C(|| C(5)))]
+        #[require(C(5))]
         struct B;
 
         #[derive(Component, Clone, PartialEq, Debug)]
@@ -1288,11 +1277,7 @@ mod tests {
     #[test]
     fn clone_entity_with_dynamic_components() {
         const COMPONENT_SIZE: usize = 10;
-        fn test_handler(
-            _commands: &mut Commands,
-            source: &SourceComponent,
-            ctx: &mut ComponentCloneCtx,
-        ) {
+        fn test_handler(source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
             // SAFETY: the passed in ptr corresponds to copy-able data that matches the type of the source / target component
             unsafe {
                 ctx.write_target_component_ptr(source.ptr());
@@ -1346,9 +1331,9 @@ mod tests {
     fn recursive_clone() {
         let mut world = World::new();
         let root = world.spawn_empty().id();
-        let child1 = world.spawn(ChildOf { parent: root }).id();
-        let grandchild = world.spawn(ChildOf { parent: child1 }).id();
-        let child2 = world.spawn(ChildOf { parent: root }).id();
+        let child1 = world.spawn(ChildOf(root)).id();
+        let grandchild = world.spawn(ChildOf(child1)).id();
+        let child2 = world.spawn(ChildOf(root)).id();
 
         let clone_root = world.spawn_empty().id();
         EntityCloner::build(&mut world)

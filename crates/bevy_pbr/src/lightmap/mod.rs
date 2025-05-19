@@ -47,7 +47,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -64,7 +64,7 @@ use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 use tracing::error;
 
-use crate::{binding_arrays_are_usable, ExtractMeshesSet};
+use crate::{binding_arrays_are_usable, MeshExtractionSystems};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
@@ -88,7 +88,7 @@ pub struct LightmapPlugin;
 /// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Lightmap {
     /// The lightmap texture.
     pub image: Handle<Image>,
@@ -201,9 +201,10 @@ impl Plugin for LightmapPlugin {
             return;
         };
 
-        render_app
-            .init_resource::<RenderLightmaps>()
-            .add_systems(ExtractSchedule, extract_lightmaps.after(ExtractMeshesSet));
+        render_app.init_resource::<RenderLightmaps>().add_systems(
+            ExtractSchedule,
+            extract_lightmaps.after(MeshExtractionSystems),
+        );
     }
 }
 

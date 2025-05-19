@@ -39,10 +39,10 @@ pub mod entity_disabling;
 pub mod error;
 pub mod event;
 pub mod hierarchy;
-pub mod identifier;
 pub mod intern;
 pub mod label;
 pub mod name;
+pub mod never;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
@@ -63,37 +63,33 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(
-        deprecated,
-        reason = "`crate::schedule::apply_deferred` is considered deprecated; however, it may still be used by crates which consume `bevy_ecs`, so its removal here may cause confusion. It is intended to be removed in the Bevy 0.17 cycle."
-    )]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
         component::Component,
-        entity::{Entity, EntityBorrow, EntityMapper},
+        entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
         observer::{Observer, Trigger},
-        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs,
-            IntoSystemSet, Schedule, Schedules, SystemSet,
+            common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs, IntoSystemSet,
+            Schedule, Schedules, SystemSet,
         },
         spawn::{Spawn, SpawnRelated},
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction, WithParamWarnPolicy,
+            SystemParamFunction, When,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
@@ -133,7 +129,7 @@ mod tests {
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
-        entity::Entity,
+        entity::{Entity, EntityMapper},
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
@@ -146,13 +142,11 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
-    use bevy_platform_support::collections::HashSet;
+    use bevy_platform::collections::HashSet;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use core::{
         any::TypeId,
         marker::PhantomData,
-        num::NonZero,
         sync::atomic::{AtomicUsize, Ordering},
     };
     use std::sync::Mutex;
@@ -489,10 +483,9 @@ mod tests {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
@@ -510,10 +503,9 @@ mod tests {
             .par_iter(&world)
             .for_each(|(e, &SparseStored(i))| results.lock().unwrap().push((e, i)));
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
@@ -1543,8 +1535,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        let _ = query.get(&world_a, Entity::from_raw(0));
-        let _ = query.get(&world_b, Entity::from_raw(0));
+        let _ = query.get(&world_a, Entity::from_raw_u32(0).unwrap());
+        let _ = query.get(&world_b, Entity::from_raw_u32(0).unwrap());
     }
 
     #[test]
@@ -1698,97 +1690,6 @@ mod tests {
     }
 
     #[test]
-    fn insert_or_spawn_batch() {
-        let mut world = World::default();
-        let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
-
-        let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
-
-        #[expect(
-            deprecated,
-            reason = "This needs to be supported for now, and therefore still needs the test."
-        )]
-        world.insert_or_spawn_batch(values).unwrap();
-
-        assert_eq!(
-            world.get::<A>(e0),
-            Some(&A(0)),
-            "existing component was preserved"
-        );
-        assert_eq!(
-            world.get::<B>(e0),
-            Some(&B(0)),
-            "pre-existing entity received correct B component"
-        );
-        assert_eq!(
-            world.get::<B>(e1),
-            Some(&B(1)),
-            "new entity was spawned and received correct B component"
-        );
-        assert_eq!(
-            world.get::<C>(e0),
-            Some(&C),
-            "pre-existing entity received C component"
-        );
-        assert_eq!(
-            world.get::<C>(e1),
-            Some(&C),
-            "new entity was spawned and received C component"
-        );
-    }
-
-    #[test]
-    fn insert_or_spawn_batch_invalid() {
-        let mut world = World::default();
-        let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
-        let e2 = world.spawn_empty().id();
-        let invalid_e2 =
-            Entity::from_raw_and_generation(e2.index(), NonZero::<u32>::new(2).unwrap());
-
-        let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
-
-        #[expect(
-            deprecated,
-            reason = "This needs to be supported for now, and therefore still needs the test."
-        )]
-        let result = world.insert_or_spawn_batch(values);
-
-        assert_eq!(
-            result,
-            Err(vec![invalid_e2]),
-            "e2 failed to be spawned or inserted into"
-        );
-
-        assert_eq!(
-            world.get::<A>(e0),
-            Some(&A(0)),
-            "existing component was preserved"
-        );
-        assert_eq!(
-            world.get::<B>(e0),
-            Some(&B(0)),
-            "pre-existing entity received correct B component"
-        );
-        assert_eq!(
-            world.get::<B>(e1),
-            Some(&B(1)),
-            "new entity was spawned and received correct B component"
-        );
-        assert_eq!(
-            world.get::<C>(e0),
-            Some(&C),
-            "pre-existing entity received C component"
-        );
-        assert_eq!(
-            world.get::<C>(e1),
-            Some(&C),
-            "new entity was spawned and received C component"
-        );
-    }
-
-    #[test]
     fn insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
@@ -1876,7 +1777,7 @@ mod tests {
     fn try_insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -1900,7 +1801,7 @@ mod tests {
     fn try_insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -1927,7 +1828,7 @@ mod tests {
         struct X;
 
         #[derive(Component)]
-        #[require(Z(new_z))]
+        #[require(Z = new_z())]
         struct Y {
             value: String,
         }
@@ -2652,7 +2553,7 @@ mod tests {
         struct MyRequired(bool);
 
         #[derive(Component, Default)]
-        #[require(MyRequired(|| MyRequired(false)))]
+        #[require(MyRequired(false))]
         struct MiddleMan;
 
         #[derive(Component, Default)]
@@ -2660,7 +2561,7 @@ mod tests {
         struct ConflictingRequire;
 
         #[derive(Component, Default)]
-        #[require(MyRequired(|| MyRequired(true)))]
+        #[require(MyRequired(true))]
         struct MyComponent;
 
         let mut world = World::new();
@@ -2705,8 +2606,19 @@ mod tests {
         World::new().register_component::<A>();
     }
 
+    #[derive(Default)]
+    struct CaptureMapper(Vec<Entity>);
+    impl EntityMapper for CaptureMapper {
+        fn get_mapped(&mut self, source: Entity) -> Entity {
+            self.0.push(source);
+            source
+        }
+
+        fn set_mapped(&mut self, _source: Entity, _target: Entity) {}
+    }
+
     #[test]
-    fn visit_struct_entities() {
+    fn map_struct_entities() {
         #[derive(Component)]
         #[expect(
             unused,
@@ -2733,30 +2645,22 @@ mod tests {
         let e3 = world.spawn_empty().id();
 
         let mut foo = Foo(1, e1);
-        let mut entities = Vec::new();
-        Component::visit_entities(&foo, |e| entities.push(e));
-        assert_eq!(&entities, &[e1]);
-
-        let mut entities = Vec::new();
-        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
-        assert_eq!(&entities, &[e1]);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut foo, &mut mapper);
+        assert_eq!(&mapper.0, &[e1]);
 
         let mut bar = Bar {
             a: e1,
             b: 1,
             c: vec![e2, e3],
         };
-        let mut entities = Vec::new();
-        Component::visit_entities(&bar, |e| entities.push(e));
-        assert_eq!(&entities, &[e1, e2, e3]);
-
-        let mut entities = Vec::new();
-        Component::visit_entities_mut(&mut bar, |e| entities.push(*e));
-        assert_eq!(&entities, &[e1, e2, e3]);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut bar, &mut mapper);
+        assert_eq!(&mapper.0, &[e1, e2, e3]);
     }
 
     #[test]
-    fn visit_enum_entities() {
+    fn map_enum_entities() {
         #[derive(Component)]
         #[expect(
             unused,
@@ -2779,26 +2683,18 @@ mod tests {
         let e3 = world.spawn_empty().id();
 
         let mut foo = Foo::Bar(1, e1);
-        let mut entities = Vec::new();
-        Component::visit_entities(&foo, |e| entities.push(e));
-        assert_eq!(&entities, &[e1]);
-
-        let mut entities = Vec::new();
-        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
-        assert_eq!(&entities, &[e1]);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut foo, &mut mapper);
+        assert_eq!(&mapper.0, &[e1]);
 
         let mut foo = Foo::Baz {
             a: e1,
             b: 1,
             c: vec![e2, e3],
         };
-        let mut entities = Vec::new();
-        Component::visit_entities(&foo, |e| entities.push(e));
-        assert_eq!(&entities, &[e1, e2, e3]);
-
-        let mut entities = Vec::new();
-        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
-        assert_eq!(&entities, &[e1, e2, e3]);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut foo, &mut mapper);
+        assert_eq!(&mapper.0, &[e1, e2, e3]);
     }
 
     #[expect(
@@ -2827,16 +2723,18 @@ mod tests {
         field1: ComponentB,
     }
 
-    #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    #[derive(Component)]
     struct MyEntities {
+        #[entities]
         entities: Vec<Entity>,
+        #[entities]
         another_one: Entity,
+        #[entities]
         maybe_entity: Option<Entity>,
         #[expect(
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
         )]
-        #[visit_entities(ignore)]
         something_else: String,
     }
 
@@ -2844,6 +2742,29 @@ mod tests {
         dead_code,
         reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
     )]
-    #[derive(Component, VisitEntities, VisitEntitiesMut)]
-    struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
+    #[derive(Component)]
+    struct MyEntitiesTuple(#[entities] Vec<Entity>, #[entities] Entity, usize);
+
+    #[test]
+    fn clone_entities() {
+        use crate::entity::{ComponentCloneCtx, SourceComponent};
+
+        #[derive(Component)]
+        #[component(clone_behavior = Ignore)]
+        struct IgnoreClone;
+
+        #[derive(Component)]
+        #[component(clone_behavior = Default)]
+        struct DefaultClone;
+
+        #[derive(Component)]
+        #[component(clone_behavior = Custom(custom_clone))]
+        struct CustomClone;
+
+        #[derive(Component, Clone)]
+        #[component(clone_behavior = clone::<Self>())]
+        struct CloneFunction;
+
+        fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
+    }
 }

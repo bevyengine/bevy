@@ -36,7 +36,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::GpuImage,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::prelude::default;
 
@@ -98,7 +98,7 @@ pub struct PostProcessingPlugin;
 ///
 /// [Gjøl & Svendsen 2016]: https://github.com/playdeadgames/publications/blob/master/INSIDE/rendering_inside_gdc2016.pdf
 #[derive(Reflect, Component, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct ChromaticAberration {
     /// The lookup texture that determines the color gradient.
     ///
@@ -234,7 +234,7 @@ impl Plugin for PostProcessingPlugin {
                     prepare_post_processing_pipelines,
                     prepare_post_processing_uniforms,
                 )
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderSystems::Prepare),
             )
             .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
                 Core3d,

@@ -25,7 +25,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::Transform;
 use prepass::{SkyboxPrepassPipeline, SKYBOX_PREPASS_SHADER_HANDLE};
@@ -63,11 +63,11 @@ impl Plugin for SkyboxPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_skybox_pipelines.in_set(RenderSet::Prepare),
-                    prepass::prepare_skybox_prepass_pipelines.in_set(RenderSet::Prepare),
-                    prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_skybox_pipelines.in_set(RenderSystems::Prepare),
+                    prepass::prepare_skybox_prepass_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_skybox_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepass::prepare_skybox_prepass_bind_groups
-                        .in_set(RenderSet::PrepareBindGroups),
+                        .in_set(RenderSystems::PrepareBindGroups),
                 ),
             );
     }
@@ -90,7 +90,7 @@ impl Plugin for SkyboxPlugin {
 ///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
 #[derive(Component, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Skybox {
     pub image: Handle<Image>,
     /// Scale factor applied to the skybox image.
