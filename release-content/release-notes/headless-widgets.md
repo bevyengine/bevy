@@ -5,7 +5,7 @@ pull_requests: [19238]
 ---
 
 Bevy's `Button` and `Interaction` components have been around for a long time. Unfortunately
-these components have a numer of shortcomings, such as the fact that they don't use the new
+these components have a number of shortcomings, such as the fact that they don't use the new
 `bevy_picking` framework, or the fact that they are really only useful for creating buttons
 and not other kinds of widgets like sliders.
 
