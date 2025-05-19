@@ -6,7 +6,6 @@ extern crate proc_macro;
 mod component;
 mod query_data;
 mod query_filter;
-mod states;
 mod world_query;
 
 use crate::{
@@ -455,7 +454,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                         <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
                             .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_messages, #field_names))?;
                     )*
-                    Ok(())
+                    Result::Ok(())
                 }
 
                 #[inline]
@@ -546,16 +545,6 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
-}
-
-#[proc_macro_derive(States)]
-pub fn derive_states(input: TokenStream) -> TokenStream {
-    states::derive_states(input)
-}
-
-#[proc_macro_derive(SubStates, attributes(source))]
-pub fn derive_substates(input: TokenStream) -> TokenStream {
-    states::derive_substates(input)
 }
 
 #[proc_macro_derive(FromWorld, attributes(from_world))]

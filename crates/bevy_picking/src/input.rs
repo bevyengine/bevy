@@ -30,7 +30,7 @@ use crate::pointer::{
     Location, PointerAction, PointerButton, PointerId, PointerInput, PointerLocation,
 };
 
-use crate::PickSet;
+use crate::PickingSystems;
 
 /// The picking input prelude.
 ///
@@ -86,7 +86,7 @@ impl Plugin for PointerInputPlugin {
                     touch_pick_events.run_if(PointerInputPlugin::is_touch_enabled),
                 )
                     .chain()
-                    .in_set(PickSet::Input),
+                    .in_set(PickingSystems::Input),
             )
             .add_systems(
                 Last,
