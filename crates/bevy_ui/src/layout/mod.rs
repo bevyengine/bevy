@@ -177,9 +177,11 @@ with UI components as a child of an entity without UI components, your UI layout
             None,
             &mut node_transform_query,
             &ui_children,
-            computed_target.scale_factor.recip(),
+            computed_target.scale_factor,
             Vec2::ZERO,
             Vec2::ZERO,
+            // Call `set_changed` on every descendent's `ComputedNode` if a root node's `ComputedNodeTarget` is changed
+            computed_target.is_changed(),
         );
     }
 
@@ -200,9 +202,10 @@ with UI components as a child of an entity without UI components, your UI layout
             Option<&ScrollPosition>,
         )>,
         ui_children: &UiChildren,
-        inverse_target_scale_factor: f32,
+        scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
+        set_changed: bool,
     ) {
         if let Ok((
             mut node,
@@ -214,6 +217,10 @@ with UI components as a child of an entity without UI components, your UI layout
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
         {
+            if set_changed {
+                node.set_changed();
+            }
+
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
@@ -231,13 +238,9 @@ with UI components as a child of an entity without UI components, your UI layout
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.size != layout_size
-                || node.unrounded_size != unrounded_size
-                || node.inverse_scale_factor != inverse_target_scale_factor
-            {
+            if node.size != layout_size || node.unrounded_size != unrounded_size {
                 node.size = layout_size;
                 node.unrounded_size = unrounded_size;
-                node.inverse_scale_factor = inverse_target_scale_factor;
             }
 
             let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
@@ -257,11 +260,8 @@ with UI components as a child of an entity without UI components, your UI layout
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
-                node.bypass_change_detection().border_radius = border_radius.resolve(
-                    node.size,
-                    viewport_size,
-                    inverse_target_scale_factor.recip(),
-                );
+                node.bypass_change_detection().border_radius =
+                    border_radius.resolve(node.size, viewport_size, scale_factor.recip());
             }
 
             if let Some(outline) = maybe_outline {
@@ -269,7 +269,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 let node = node.bypass_change_detection();
                 node.outline_width = if style.display != Display::None {
                     match outline.width {
-                        Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
+                        Val::Px(w) => Val::Px(w * scale_factor),
                         width => width,
                     }
                     .resolve(node.size().x, viewport_size)
@@ -280,7 +280,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 };
 
                 node.outline_offset = match outline.offset {
-                    Val::Px(offset) => Val::Px(offset / inverse_target_scale_factor),
+                    Val::Px(offset) => Val::Px(offset * scale_factor),
                     offset => offset,
                 }
                 .resolve(node.size().x, viewport_size)
@@ -310,10 +310,8 @@ with UI components as a child of an entity without UI components, your UI layout
                 .unwrap_or_default();
 
             let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(
-                Vec2::ZERO,
-                max_possible_offset * inverse_target_scale_factor,
-            );
+            let clamped_scroll_position =
+                scroll_position.clamp(Vec2::ZERO, max_possible_offset / scale_factor);
 
             if clamped_scroll_position != scroll_position {
                 commands
@@ -321,8 +319,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     .insert(ScrollPosition::from(clamped_scroll_position));
             }
 
-            let physical_scroll_position =
-                (clamped_scroll_position / inverse_target_scale_factor).round();
+            let physical_scroll_position = (clamped_scroll_position * scale_factor).round();
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
@@ -333,9 +330,10 @@ with UI components as a child of an entity without UI components, your UI layout
                     Some(viewport_size),
                     node_transform_query,
                     ui_children,
-                    inverse_target_scale_factor,
+                    scale_factor,
                     layout_size,
                     physical_scroll_position,
+                    set_changed,
                 );
             }
         }
@@ -366,7 +364,7 @@ mod tests {
 
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::update_ui_context_system, ContentSize, LayoutContext,
+        update::compute_node_targets_system, ContentSize, LayoutContext,
     };
 
     // these window dimensions are easy to convert to and from percentage values
@@ -406,7 +404,7 @@ mod tests {
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system,
-                update_ui_context_system,
+                compute_node_targets_system,
                 ApplyDeferred,
                 ui_layout_system,
                 mark_dirty_trees,
@@ -1005,7 +1003,7 @@ mod tests {
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system,
-                update_ui_context_system,
+                compute_node_targets_system,
                 ApplyDeferred,
                 ui_layout_system,
             )

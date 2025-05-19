@@ -18,9 +18,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
+    TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -294,7 +294,6 @@ fn queue_text(
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     scale_factor: f32,
-    inverse_scale_factor: f32,
     block: &TextLayout,
     node: Ref<ComputedNode>,
     mut text_flags: Mut<TextNodeFlags>,
@@ -341,8 +340,8 @@ fn queue_text(
             panic!("Fatal error when processing text: {e}.");
         }
         Ok(()) => {
-            text_layout_info.size.x = scale_value(text_layout_info.size.x, inverse_scale_factor);
-            text_layout_info.size.y = scale_value(text_layout_info.size.y, inverse_scale_factor);
+            text_layout_info.size.x /= scale_factor;
+            text_layout_info.size.y /= scale_factor;
             text_flags.needs_recompute = false;
         }
     }
@@ -365,6 +364,7 @@ pub fn text_system(
     mut text_query: Query<(
         Entity,
         Ref<ComputedNode>,
+        Ref<ComputedNodeTarget>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
@@ -374,8 +374,9 @@ pub fn text_system(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
-        if node.is_changed() || text_flags.needs_recompute {
+    for (entity, node, target, block, text_layout_info, text_flags, mut computed) in &mut text_query
+    {
+        if node.is_changed() || target.is_changed() || text_flags.needs_recompute {
             queue_text(
                 entity,
                 &fonts,
@@ -383,8 +384,7 @@ pub fn text_system(
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                node.inverse_scale_factor.recip(),
-                node.inverse_scale_factor,
+                target.scale_factor,
                 block,
                 node,
                 text_flags,

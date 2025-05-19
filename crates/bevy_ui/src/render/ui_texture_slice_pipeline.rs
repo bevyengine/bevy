@@ -252,10 +252,10 @@ pub fn extract_ui_texture_slices(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedNodeTarget,
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
             &ImageNode,
         )>,
     >,
@@ -263,7 +263,7 @@ pub fn extract_ui_texture_slices(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, target, transform, inherited_visibility, clip, image) in &slicers_query {
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -288,7 +288,7 @@ pub fn extract_ui_texture_slices(
             _ => continue,
         };
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
@@ -325,7 +325,7 @@ pub fn extract_ui_texture_slices(
             atlas_rect,
             flip_x: image.flip_x,
             flip_y: image.flip_y,
-            inverse_scale_factor: uinode.inverse_scale_factor,
+            inverse_scale_factor: target.scale_factor.recip(),
             main_entity: entity.into(),
         });
     }

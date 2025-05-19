@@ -26,7 +26,7 @@ use bevy_utils::default;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use uuid::Uuid;
 
-use crate::{ComputedNode, Node};
+use crate::{ComputedNode, ComputedNodeTarget, Node};
 
 /// Component used to render a [`Camera::target`]  to a node.
 ///
@@ -66,6 +66,7 @@ pub fn viewport_picking(
         &PointerId,
         &mut PointerLocation,
         &ComputedNode,
+        &ComputedNodeTarget,
         &GlobalTransform,
     )>,
     camera_query: Query<&Camera>,
@@ -100,6 +101,7 @@ pub fn viewport_picking(
         &viewport_pointer_id,
         mut viewport_pointer_location,
         computed_node,
+        computed_node_target,
         global_transform,
     ) in &mut viewport_query
     {
@@ -121,8 +123,9 @@ pub fn viewport_picking(
             computed_node.size(),
         );
         // Location::position uses *logical* coordinates
-        let top_left = node_rect.min * computed_node.inverse_scale_factor();
-        let logical_size = computed_node.size() * computed_node.inverse_scale_factor();
+        let inverse_scale_factor = computed_node_target.scale_factor.recip();
+        let top_left = node_rect.min * inverse_scale_factor;
+        let logical_size = computed_node.size() * inverse_scale_factor;
 
         let Some(target) = camera.target.as_image() else {
             continue;
