@@ -221,7 +221,17 @@ pub fn extract_lights(
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
     global_visible_clusterable: Extract<Res<GlobalVisibleClusterableObjects>>,
-    cubemap_visible_entities: Extract<Query<RenderEntity, With<CubemapVisibleEntities>>>,
+    previous_point_lights: Query<
+        Entity,
+        (
+            With<RenderCubemapVisibleEntities>,
+            With<ExtractedPointLight>,
+        ),
+    >,
+    previous_spot_lights: Query<
+        Entity,
+        (With<RenderVisibleMeshEntities>, With<ExtractedPointLight>),
+    >,
     point_lights: Extract<
         Query<(
             Entity,
@@ -278,12 +288,18 @@ pub fn extract_lights(
         commands.insert_resource(directional_light_shadow_map.clone());
     }
 
-    // Clear previous visible entities for all cubemapped lights as they might not be in the
+    // Clear previous visible entities for all point/spot lights as they might not be in the
     // `global_visible_clusterable` list anymore.
     commands.try_insert_batch(
-        cubemap_visible_entities
+        previous_point_lights
             .iter()
             .map(|render_entity| (render_entity, RenderCubemapVisibleEntities::default()))
+            .collect::<Vec<_>>(),
+    );
+    commands.try_insert_batch(
+        previous_spot_lights
+            .iter()
+            .map(|render_entity| (render_entity, RenderVisibleMeshEntities::default()))
             .collect::<Vec<_>>(),
     );
 
