@@ -4,7 +4,7 @@ mod render_layers;
 use core::any::TypeId;
 
 use bevy_ecs::component::HookContext;
-use bevy_ecs::entity::hash_set::EntityHashSet;
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
@@ -14,7 +14,7 @@ use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
 use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 
@@ -34,7 +34,7 @@ use crate::{
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`InheritedVisibility`] component.
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`ChildOf`] target.
@@ -109,7 +109,7 @@ impl PartialEq<&Visibility> for Visibility {
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[component(on_insert = validate_parent_has_component::<Self>)]
 pub struct InheritedVisibility(bool);
 
@@ -152,7 +152,7 @@ impl InheritedVisibility {
 // Note: This can't be a `ComponentId` because the visibility classes are copied
 // into the render world, and component IDs are per-world.
 #[derive(Clone, Component, Default, Reflect, Deref, DerefMut)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
@@ -166,7 +166,7 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct ViewVisibility(bool);
 
 impl ViewVisibility {
@@ -219,9 +219,9 @@ pub struct NoFrustumCulling;
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct VisibleEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: TypeIdMap<Vec<Entity>>,
 }
 
@@ -269,9 +269,9 @@ impl VisibleEntities {
 ///
 /// This component is extracted from [`VisibleEntities`].
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct RenderVisibleEntities {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub entities: TypeIdMap<Vec<(Entity, MainEntity)>>,
 }
 
@@ -342,7 +342,7 @@ impl Plugin for VisibilityPlugin {
                 PostUpdate,
                 (CalculateBounds, UpdateFrusta, VisibilityPropagate)
                     .before(CheckVisibility)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystems::Propagate),
             )
             .configure_sets(
                 PostUpdate,
@@ -405,13 +405,13 @@ fn visibility_propagate_system(
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
 ) {
-    for (entity, visibility, parent, children) in &changed {
+    for (entity, visibility, child_of, children) in &changed {
         let is_visible = match visibility {
             Visibility::Visible => true,
             Visibility::Hidden => false,
             // fall back to true if no parent is found or parent lacks components
-            Visibility::Inherited => parent
-                .and_then(|p| visibility_query.get(p.get()).ok())
+            Visibility::Inherited => child_of
+                .and_then(|c| visibility_query.get(c.parent()).ok())
                 .is_none_or(|(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query

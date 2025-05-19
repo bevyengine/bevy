@@ -5,7 +5,7 @@ use core::{
 };
 use smallvec::SmallVec;
 
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_utils::TypeIdMap;
 
 use fixedbitset::FixedBitSet;
@@ -62,7 +62,7 @@ pub(crate) enum Ambiguity {
 
 /// Metadata about how the node fits in the schedule graph
 #[derive(Default)]
-pub(crate) struct GraphInfo {
+pub struct GraphInfo {
     /// the sets that the node belongs to (hierarchy)
     pub(crate) hierarchy: Vec<InternedSystemSet>,
     /// the sets that the node depends on (must run before or after)

@@ -10,13 +10,13 @@ use alloc::{
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
+    error::{DefaultErrorHandler, ErrorHandler},
     event::{event_update_system, EventCursor},
     prelude::*,
-    result::{Error, SystemErrorContext},
-    schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::{IntoObserverSystem, SystemId, SystemInput},
+    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -86,6 +86,7 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
+    default_error_handler: Option<ErrorHandler>,
 }
 
 impl Debug for App {
@@ -118,7 +119,7 @@ impl Default for App {
         app.add_systems(
             First,
             event_update_system
-                .in_set(bevy_ecs::event::EventUpdates)
+                .in_set(bevy_ecs::event::EventUpdateSystems)
                 .run_if(bevy_ecs::event::event_update_condition),
         );
         app.add_event::<AppExit>();
@@ -144,6 +145,7 @@ impl App {
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
+            default_error_handler: None,
         }
     }
 
@@ -302,7 +304,7 @@ impl App {
     pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<M>,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
         self.main_mut().add_systems(schedule, systems);
         self
@@ -330,10 +332,10 @@ impl App {
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
-    pub fn configure_sets(
+    pub fn configure_sets<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        sets: impl IntoSystemSetConfigs,
+        sets: impl IntoScheduleConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
         self.main_mut().configure_sets(schedule, sets);
         self
@@ -1116,7 +1118,12 @@ impl App {
     }
 
     /// Inserts a [`SubApp`] with the given label.
-    pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
+    pub fn insert_sub_app(&mut self, label: impl AppLabel, mut sub_app: SubApp) {
+        if let Some(handler) = self.default_error_handler {
+            sub_app
+                .world_mut()
+                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+        }
         self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
 
@@ -1274,18 +1281,6 @@ impl App {
         self
     }
 
-    /// Set the global system error handler to use for systems that return a [`Result`].
-    ///
-    /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
-    /// for more information.
-    pub fn set_system_error_handler(
-        &mut self,
-        error_handler: fn(Error, SystemErrorContext),
-    ) -> &mut Self {
-        self.main_mut().set_system_error_handler(error_handler);
-        self
-    }
-
     /// Attempts to determine if an [`AppExit`] was raised since the last update.
     ///
     /// Will attempt to return the first [`Error`](AppExit::Error) it encounters.
@@ -1347,13 +1342,56 @@ impl App {
         self.world_mut().add_observer(observer);
         self
     }
+
+    /// Gets the error handler to set for new supapps.
+    ///
+    /// Note that the error handler of existing subapps may differ.
+    pub fn get_error_handler(&self) -> Option<ErrorHandler> {
+        self.default_error_handler
+    }
+
+    /// Set the [default error handler] for the all subapps (including the main one and future ones)
+    /// that do not have one.
+    ///
+    /// May only be called once and should be set by the application, not by libraries.
+    ///
+    /// The handler will be called when an error is produced and not otherwise handled.
+    ///
+    /// # Panics
+    /// Panics if called multiple times.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_app::*;
+    /// # use bevy_ecs::error::warn;
+    /// # fn MyPlugins(_: &mut App) {}
+    /// App::new()
+    ///     .set_error_handler(warn)
+    ///     .add_plugins(MyPlugins)
+    ///     .run();
+    /// ```
+    ///
+    /// [default error handler]: bevy_ecs::error::DefaultErrorHandler
+    pub fn set_error_handler(&mut self, handler: ErrorHandler) -> &mut Self {
+        assert!(
+            self.default_error_handler.is_none(),
+            "`set_error_handler` called multiple times on same `App`"
+        );
+        self.default_error_handler = Some(handler);
+        for sub_app in self.sub_apps.iter_mut() {
+            sub_app
+                .world_mut()
+                .get_resource_or_insert_with(|| DefaultErrorHandler(handler));
+        }
+        self
+    }
 }
 
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
-        #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_tasks"))]
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
     }
     app.finish();
@@ -1446,7 +1484,7 @@ mod tests {
         query::With,
         removal_detection::RemovedComponents,
         resource::Resource,
-        schedule::{IntoSystemConfigs, ScheduleLabel},
+        schedule::{IntoScheduleConfigs, ScheduleLabel},
         system::{Commands, Query},
         world::{FromWorld, World},
     };

@@ -30,7 +30,7 @@ use bevy_ecs::{
 };
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::{SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
@@ -38,6 +38,13 @@ use tracing::warn;
 
 #[cfg(feature = "custom_cursor")]
 pub use crate::custom_cursor::{CustomCursor, CustomCursorImage};
+
+#[cfg(all(
+    feature = "custom_cursor",
+    target_family = "wasm",
+    target_os = "unknown"
+))]
+pub use crate::custom_cursor::CustomCursorUrl;
 
 pub(crate) struct CursorPlugin;
 
@@ -55,7 +62,7 @@ impl Plugin for CursorPlugin {
 
 /// Insert into a window entity to set the cursor for that window.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Debug, Default, PartialEq)]
+#[reflect(Component, Debug, Default, PartialEq, Clone)]
 pub enum CursorIcon {
     #[cfg(feature = "custom_cursor")]
     /// Custom cursor image.

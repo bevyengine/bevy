@@ -20,7 +20,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render::camera::RenderTarget;
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
@@ -30,7 +30,7 @@ use crate::pointer::{
     Location, PointerAction, PointerButton, PointerId, PointerInput, PointerLocation,
 };
 
-use crate::PickSet;
+use crate::PickingSystems;
 
 /// The picking input prelude.
 ///
@@ -48,7 +48,7 @@ pub mod prelude {
 /// This plugin contains several settings, and is added to the world as a resource after initialization.
 /// You can configure pointer input settings at runtime by accessing the resource.
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Clone)]
 pub struct PointerInputPlugin {
     /// Should touch inputs be updated?
     pub is_touch_enabled: bool,
@@ -86,7 +86,7 @@ impl Plugin for PointerInputPlugin {
                     touch_pick_events.run_if(PointerInputPlugin::is_touch_enabled),
                 )
                     .chain()
-                    .in_set(PickSet::Input),
+                    .in_set(PickingSystems::Input),
             )
             .add_systems(
                 Last,
@@ -118,7 +118,7 @@ pub fn mouse_pick_events(
             WindowEvent::CursorMoved(event) => {
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(event.window))
-                        .normalize(primary_window.get_single().ok())
+                        .normalize(primary_window.single().ok())
                     {
                         Some(target) => target,
                         None => continue,
@@ -138,7 +138,7 @@ pub fn mouse_pick_events(
             WindowEvent::MouseButtonInput(input) => {
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(input.window))
-                        .normalize(primary_window.get_single().ok())
+                        .normalize(primary_window.single().ok())
                     {
                         Some(target) => target,
                         None => continue,
@@ -162,7 +162,7 @@ pub fn mouse_pick_events(
 
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(window))
-                        .normalize(primary_window.get_single().ok())
+                        .normalize(primary_window.single().ok())
                     {
                         Some(target) => target,
                         None => continue,
@@ -195,7 +195,7 @@ pub fn touch_pick_events(
             let pointer = PointerId::Touch(touch.id);
             let location = Location {
                 target: match RenderTarget::Window(WindowRef::Entity(touch.window))
-                    .normalize(primary_window.get_single().ok())
+                    .normalize(primary_window.single().ok())
                 {
                     Some(target) => target,
                     None => continue,

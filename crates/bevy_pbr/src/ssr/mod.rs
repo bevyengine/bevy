@@ -12,12 +12,12 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -37,7 +37,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::{once, prelude::default};
 use tracing::info;
@@ -81,7 +81,7 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// bug whereby Naga doesn't generate correct GLSL when sampling depth buffers,
 /// which is required for screen-space raymarching.
 #[derive(Clone, Copy, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[require(DepthPrepass, DeferredPrepass)]
 #[doc(alias = "Ssr")]
 pub struct ScreenSpaceReflections {
@@ -196,10 +196,10 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
 
         render_app
             .init_resource::<ScreenSpaceReflectionsBuffer>()
-            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSet::Prepare))
+            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
                 Render,
-                prepare_ssr_settings.in_set(RenderSet::PrepareResources),
+                prepare_ssr_settings.in_set(RenderSystems::PrepareResources),
             )
             .add_render_graph_node::<ViewNodeRunner<ScreenSpaceReflectionsNode>>(
                 Core3d,

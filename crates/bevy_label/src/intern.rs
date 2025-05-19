@@ -5,7 +5,7 @@
 //! and make comparisons for any type as fast as integers.
 
 use alloc::{borrow::ToOwned, boxed::Box};
-use bevy_platform_support::{
+use bevy_platform::{
     collections::HashSet,
     hash::FixedHasher,
     sync::{PoisonError, RwLock},
@@ -170,7 +170,7 @@ impl<T: ?Sized> Default for Interner<T> {
 #[cfg(test)]
 mod tests {
     use alloc::{boxed::Box, string::ToString};
-    use bevy_platform_support::hash::FixedHasher;
+    use bevy_platform::hash::FixedHasher;
     use core::hash::{BuildHasher, Hash, Hasher};
 
     use crate::intern::{Internable, Interned, Interner};

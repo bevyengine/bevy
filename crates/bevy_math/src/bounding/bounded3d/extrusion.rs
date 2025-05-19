@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn segment() {
         let extrusion = Extrusion::new(
-            Segment2d::from_direction_and_length(Dir2::new_unchecked(Vec2::NEG_Y), 3.),
+            Segment2d::new(Vec2::new(0.0, -1.5), Vec2::new(0.0, 1.5)),
             4.0,
         );
         let translation = Vec3::new(3., 4., 5.);

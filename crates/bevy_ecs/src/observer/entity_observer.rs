@@ -2,12 +2,12 @@ use crate::{
     component::{
         Component, ComponentCloneBehavior, ComponentHook, HookContext, Mutable, StorageType,
     },
-    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder},
-    observer::ObserverState,
-    system::Commands,
+    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
     world::World,
 };
 use alloc::vec::Vec;
+
+use super::Observer;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
 #[derive(Default)]
@@ -28,7 +28,7 @@ impl Component for ObservedBy {
                     let Ok(mut entity_mut) = world.get_entity_mut(e) else {
                         continue;
                     };
-                    let Some(mut state) = entity_mut.get_mut::<ObserverState>() else {
+                    let Some(mut state) = entity_mut.get_mut::<Observer>() else {
                         continue;
                     };
                     state.despawned_watched_entities += 1;
@@ -64,11 +64,11 @@ impl EntityClonerBuilder<'_> {
     }
 }
 
-fn component_clone_observed_by(commands: &mut Commands, ctx: &mut ComponentCloneCtx) {
+fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
     let target = ctx.target();
     let source = ctx.source();
 
-    commands.queue(move |world: &mut World| {
+    ctx.queue_deferred(move |world: &mut World, _mapper: &mut dyn EntityMapper| {
         let observed_by = world
             .get::<ObservedBy>(source)
             .map(|observed_by| observed_by.0.clone())
@@ -78,10 +78,10 @@ fn component_clone_observed_by(commands: &mut Commands, ctx: &mut ComponentClone
             .entity_mut(target)
             .insert(ObservedBy(observed_by.clone()));
 
-        for observer in &observed_by {
+        for observer_entity in observed_by.iter().copied() {
             let mut observer_state = world
-                .get_mut::<ObserverState>(*observer)
-                .expect("Source observer entity must have ObserverState");
+                .get_mut::<Observer>(observer_entity)
+                .expect("Source observer entity must have Observer");
             observer_state.descriptor.entities.push(target);
             let event_types = observer_state.descriptor.events.clone();
             let components = observer_state.descriptor.components.clone();

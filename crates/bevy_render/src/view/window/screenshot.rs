@@ -13,17 +13,17 @@ use crate::{
     renderer::RenderDevice,
     texture::{GpuImage, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::hash_map::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
+    entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::default;
@@ -425,13 +425,14 @@ impl Plugin for ScreenshotPlugin {
                 .init_resource::<RenderScreenshotTargets>()
                 .init_resource::<RenderScreenshotsPrepared>()
                 .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+                .init_resource::<ScreenshotToScreenPipeline>()
                 .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
                 .add_systems(
                     Render,
                     prepare_screenshots
                         .after(prepare_view_attachments)
                         .before(prepare_view_targets)
-                        .in_set(RenderSet::ManageViews),
+                        .in_set(RenderSystems::ManageViews),
                 );
         }
     }

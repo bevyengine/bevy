@@ -19,6 +19,8 @@ pub mod widget;
 pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
+#[cfg(feature = "bevy_ui_picking_backend")]
+use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 // This module is not re-exported, but is instead made public.
@@ -39,12 +41,15 @@ pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
 
-use widget::{ImageNode, ImageNodeSize};
+use widget::{ImageNode, ImageNodeSize, ViewportNode};
 
 /// The UI prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_ui_picking_backend")]
+    #[doc(hidden)]
+    pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
@@ -56,19 +61,20 @@ pub mod prelude {
             geometry::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, ImageNode, Label, NodeImageMode},
+            widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
+        bevy_text::TextBackgroundColor,
     };
 }
 
-use bevy_app::{prelude::*, Animation};
+use bevy_app::{prelude::*, AnimationSystems};
 use bevy_ecs::prelude::*;
-use bevy_input::InputSystem;
-use bevy_render::{camera::CameraUpdateSystem, RenderApp};
-use bevy_transform::TransformSystem;
+use bevy_input::InputSystems;
+use bevy_render::{camera::CameraUpdateSystems, RenderApp};
+use bevy_transform::TransformSystems;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
@@ -79,24 +85,19 @@ pub struct UiPlugin {
     /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
     /// The layout and interaction components will still be updated as normal.
     pub enable_rendering: bool,
-    /// Whether to add the UI picking backend to the app.
-    #[cfg(feature = "bevy_ui_picking_backend")]
-    pub add_picking: bool,
 }
 
 impl Default for UiPlugin {
     fn default() -> Self {
         Self {
             enable_rendering: true,
-            #[cfg(feature = "bevy_ui_picking_backend")]
-            add_picking: true,
         }
     }
 }
 
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum UiSystem {
+pub enum UiSystems {
     /// After this label, input interactions with UI entities have been updated for this frame.
     ///
     /// Runs in [`PreUpdate`].
@@ -109,7 +110,7 @@ pub enum UiSystem {
     ///
     /// Runs in [`PostUpdate`].
     Layout,
-    /// UI systems ordered after [`UiSystem::Layout`].
+    /// UI systems ordered after [`UiSystems::Layout`].
     ///
     /// Runs in [`PostUpdate`].
     PostLayout,
@@ -118,6 +119,10 @@ pub enum UiSystem {
     /// Runs in [`PostUpdate`].
     Stack,
 }
+
+/// Deprecated alias for [`UiSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `UiSystems`.")]
+pub type UiSystem = UiSystems;
 
 /// The current scale of the UI.
 ///
@@ -136,10 +141,10 @@ impl Default for UiScale {
 // Marks systems that can be ambiguous with [`widget::text_system`] if the `bevy_text` feature is enabled.
 // See https://github.com/bevyengine/bevy/pull/11391 for more details.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-struct AmbiguousWithTextSystem;
+struct AmbiguousWithText;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-struct AmbiguousWithUpdateText2DLayout;
+struct AmbiguousWithUpdateText2dLayout;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
@@ -158,6 +163,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiTargetCamera>()
             .register_type::<ImageNode>()
             .register_type::<ImageNodeSize>()
+            .register_type::<ViewportNode>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
@@ -170,25 +176,33 @@ impl Plugin for UiPlugin {
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
+            .register_type::<ComputedNodeTarget>()
             .configure_sets(
                 PostUpdate,
                 (
-                    CameraUpdateSystem,
-                    UiSystem::Prepare.after(Animation),
-                    UiSystem::Content,
-                    UiSystem::Layout,
-                    UiSystem::PostLayout,
+                    CameraUpdateSystems,
+                    UiSystems::Prepare.after(AnimationSystems),
+                    UiSystems::Content,
+                    UiSystems::Layout,
+                    UiSystems::PostLayout,
                 )
                     .chain(),
             )
             .add_systems(
                 PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
+            );
+
+        #[cfg(feature = "bevy_ui_picking_backend")]
+        app.add_plugins(picking_backend::UiPickingPlugin)
+            .add_systems(
+                First,
+                widget::viewport_picking.in_set(PickingSystems::PostInput),
             );
 
         let ui_layout_system_config = ui_layout_system
-            .in_set(UiSystem::Layout)
-            .before(TransformSystem::TransformPropagate);
+            .in_set(UiSystems::Layout)
+            .before(TransformSystems::Propagate);
 
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
@@ -198,31 +212,35 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                update_ui_context_system.in_set(UiSystem::Prepare),
+                update_ui_context_system.in_set(UiSystems::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
-                    .in_set(UiSystem::Stack)
-                    // the systems don't care about stack index
+                    .in_set(UiSystems::Stack)
+                    // These systems don't care about stack index
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
-                    .in_set(AmbiguousWithTextSystem),
-                update_clipping_system.after(TransformSystem::TransformPropagate),
+                    .ambiguous_with(widget::update_viewport_render_target_size)
+                    .in_set(AmbiguousWithText),
+                update_clipping_system.after(TransformSystems::Propagate),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
-                    .in_set(UiSystem::Content)
-                    .in_set(AmbiguousWithTextSystem)
-                    .in_set(AmbiguousWithUpdateText2DLayout),
+                    .in_set(UiSystems::Content)
+                    .in_set(AmbiguousWithText)
+                    .in_set(AmbiguousWithUpdateText2dLayout),
+                // Potential conflicts: `Assets<Image>`
+                // `widget::text_system` and `bevy_text::update_text2d_layout` run independently
+                // since this system will only ever update viewport images.
+                widget::update_viewport_render_target_size
+                    .in_set(UiSystems::PostLayout)
+                    .in_set(AmbiguousWithText)
+                    .in_set(AmbiguousWithUpdateText2dLayout),
             ),
         );
-        build_text_interop(app);
 
-        #[cfg(feature = "bevy_ui_picking_backend")]
-        if self.add_picking {
-            app.add_plugins(picking_backend::UiPickingPlugin);
-        }
+        build_text_interop(app);
 
         if !self.enable_rendering {
             return;
@@ -264,7 +282,7 @@ fn build_text_interop(app: &mut App) {
                 widget::measure_text_system,
             )
                 .chain()
-                .in_set(UiSystem::Content)
+                .in_set(UiSystems::Content)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 // Potential conflict: `Assets<Image>`
@@ -275,9 +293,9 @@ fn build_text_interop(app: &mut App) {
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::text_system
-                .in_set(UiSystem::PostLayout)
+                .in_set(UiSystems::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
-                .before(bevy_asset::AssetEvents)
+                .before(bevy_asset::AssetEventSystems)
                 // Text2d and bevy_ui text are entirely on separate entities
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 .ambiguous_with(bevy_text::update_text2d_layout)
@@ -289,11 +307,11 @@ fn build_text_interop(app: &mut App) {
 
     app.configure_sets(
         PostUpdate,
-        AmbiguousWithTextSystem.ambiguous_with(widget::text_system),
+        AmbiguousWithText.ambiguous_with(widget::text_system),
     );
 
     app.configure_sets(
         PostUpdate,
-        AmbiguousWithUpdateText2DLayout.ambiguous_with(bevy_text::update_text2d_layout),
+        AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_text::update_text2d_layout),
     );
 }
