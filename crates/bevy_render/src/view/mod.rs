@@ -751,6 +751,10 @@ impl ViewTarget {
         format!("main_texture_sampled_{}", entity)
     }
 
+    pub fn sampled_main_texture(&self) -> Option<&ResourceMeta<FrameGraphTexture>> {
+        self.main_textures.a.resolve_target.as_ref()
+    }
+
     pub fn main_texture_info(&self) -> &TextureInfo {
         &self.main_textures.desc
     }

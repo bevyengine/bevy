@@ -4,10 +4,11 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
+use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    frame_graph::FrameGraph,
+    frame_graph::{ColorAttachment, FrameGraph, TextureView, TextureViewInfo},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     view::{Msaa, ViewTarget},
@@ -59,10 +60,57 @@ impl ViewNode for MsaaWritebackNode {
     fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
-        (_target, _blit_pipeline_id, _msaa): QueryItem<'w, Self::ViewQuery>,
+        frame_graph: &mut FrameGraph,
+        (target, blit_pipeline_id, msaa): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        if *msaa == Msaa::Off {
+            return Ok(());
+        }
+
+        let blit_pipeline = world.resource::<BlitPipeline>();
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let Some(_) = pipeline_cache.get_render_pipeline(blit_pipeline_id.0) else {
+            return Ok(());
+        };
+
+        // The current "main texture" needs to be bound as an input resource, and we need the "other"
+        // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
+        // as a post process write!
+        let post_process = target.post_process_write();
+
+        let bind_group_handle = frame_graph
+            .create_bind_group_handle_builder(None, &blit_pipeline.texture_bind_group)
+            .add_helper(0, post_process.source)
+            .add_handle(1, &blit_pipeline.sampler)
+            .build();
+
+        let mut pass_builder = frame_graph.create_pass_builder("msaa_writeback");
+
+        let destination = pass_builder.write_material(post_process.destination);
+        let source = pass_builder.write_material(target.sampled_main_texture().unwrap());
+
+        pass_builder
+            .create_render_pass_builder()
+            .set_pass_name("msaa_writeback")
+            .add_color_attachment(ColorAttachment {
+                view: TextureView {
+                    texture: source,
+                    desc: TextureViewInfo::default(),
+                },
+                resolve_target: Some(TextureView {
+                    texture: destination,
+                    desc: TextureViewInfo::default(),
+                }),
+                ops: Operations {
+                    load: LoadOp::Clear(LinearRgba::BLACK.into()),
+                    store: StoreOp::Store,
+                },
+            })
+            .set_render_pipeline(blit_pipeline_id.0)
+            .set_bind_group_handle(0, &bind_group_handle, &[])
+            .draw(0..3, 0..1);
+
         Ok(())
     }
 }
