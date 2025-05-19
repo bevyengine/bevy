@@ -15,7 +15,7 @@ env:
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly-2025-05-16 # pinned until a fix for https://github.com/rust-lang/miri/issues/4323 is released
   RUSTFLAGS: "-D warnings"
-  BINSTALL_VERSION: "v1.12.3"
+  BINSTALL_VERSION: "v1.12.5"
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
