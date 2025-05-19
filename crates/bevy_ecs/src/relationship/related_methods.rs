@@ -12,6 +12,23 @@ use core::{marker::PhantomData, mem};
 
 use super::OrderedRelationshipSourceCollection;
 
+#[cfg(debug_assertions)]
+/// Detects cycles when traversing relationships.
+#[derive(Default, Debug)]
+struct CyclicTraversalDetector {
+    visited: EntityHashSet
+}
+
+#[cfg(debug_assertions)]
+impl CyclicTraversalDetector {
+    fn check(&mut self, node: Entity) {
+        if self.visited.contains(&node) {
+            panic!("Cyclical traversal detected - have already visited entity {:?}", node);
+        }
+        self.visited.insert(node);
+    }
+}
+
 impl<'w> EntityWorldMut<'w> {
     /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
     pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
@@ -301,7 +318,6 @@ impl<'w> EntityWorldMut<'w> {
         }
         self
     }
-
     /// Inserts a component or bundle of components into the entity and all related entities,
     /// traversing the relationship tracked in `S` in a breadth-first manner.
     ///
@@ -309,12 +325,33 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
-    // We could keep track of a list of visited entities and track cycles,
-    // but this is not a very well-defined operation (or hard to write) for arbitrary relationships.
+    ///
+    /// # Panics
+    ///
+    /// Panics when debug assertions are enabled and a cycle is detected.
     pub fn insert_recursive<S: RelationshipTarget>(
         &mut self,
         bundle: impl Bundle + Clone,
     ) -> &mut Self {
+        #[cfg(debug_assertions)]
+        {
+            let mut detector = CyclicTraversalDetector::default();
+            self.insert_recursive_impl::<S>(bundle, &mut detector);
+        }
+        #[cfg(not(debug_assertions))]
+        self.insert_recursive_impl::<S>(bundle);
+        self
+    }
+
+    fn insert_recursive_impl<S: RelationshipTarget>(
+        &mut self,
+        bundle: impl Bundle + Clone,
+        #[cfg(debug_assertions)]
+        cycle_detector: &mut CyclicTraversalDetector,
+    ) -> &mut Self {
+        #[cfg(debug_assertions)]
+        cycle_detector.check(self.id());
+
         self.insert(bundle.clone());
         if let Some(relationship_target) = self.get::<S>() {
             let related_vec: Vec<Entity> = relationship_target.iter().collect();
@@ -322,7 +359,11 @@ impl<'w> EntityWorldMut<'w> {
                 self.world_scope(|world| {
                     world
                         .entity_mut(related)
-                        .insert_recursive::<S>(bundle.clone());
+                        .insert_recursive_impl::<S>(
+                            bundle.clone(),
+                            #[cfg(debug_assertions)]
+                            cycle_detector
+                        );
                 });
             }
         }
@@ -337,13 +378,38 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
+    ///
+    /// # Panics
+    ///
+    /// Panics when debug assertions are enabled and a cycle is detected.
     pub fn remove_recursive<S: RelationshipTarget, B: Bundle>(&mut self) -> &mut Self {
+        #[cfg(debug_assertions)]
+        {
+            let mut detector = CyclicTraversalDetector::default();
+            self.remove_recursive_impl::<S, B>(&mut detector);
+        }
+        #[cfg(not(debug_assertions))]
+        self.remove_recursive_impl::<S, B>();
+        self
+    }
+
+    fn remove_recursive_impl<S: RelationshipTarget, B: Bundle>(
+        &mut self,
+        #[cfg(debug_assertions)]
+        cycle_detector: &mut CyclicTraversalDetector,
+    ) -> &mut Self {
+        #[cfg(debug_assertions)]
+        cycle_detector.check(self.id());
+
         self.remove::<B>();
         if let Some(relationship_target) = self.get::<S>() {
             let related_vec: Vec<Entity> = relationship_target.iter().collect();
             for related in related_vec {
                 self.world_scope(|world| {
-                    world.entity_mut(related).remove_recursive::<S, B>();
+                    world.entity_mut(related).remove_recursive_impl::<S, B>(
+                        #[cfg(debug_assertions)]
+                        cycle_detector
+                    );
                 });
             }
         }
@@ -474,6 +540,10 @@ impl<'a> EntityCommands<'a> {
     ///
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
+    ///
+    /// # Panics
+    ///
+    /// Panics when debug assertions are enabled and a cycle is detected.
     pub fn insert_recursive<S: RelationshipTarget>(
         &mut self,
         bundle: impl Bundle + Clone,
@@ -490,6 +560,10 @@ impl<'a> EntityCommands<'a> {
     ///
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
+    ///
+    /// # Panics
+    ///
+    /// Panics when debug assertions are enabled and a cycle is detected.
     pub fn remove_recursive<S: RelationshipTarget, B: Bundle>(&mut self) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| {
             entity.remove_recursive::<S, B>();
@@ -649,5 +723,35 @@ mod tests {
         assert_eq!(world.entity(a).get::<Children>(), None);
         assert_eq!(world.entity(b).get::<ChildOf>(), None);
         assert_eq!(world.entity(c).get::<ChildOf>(), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Cyclical traversal detected")]
+    fn reject_cyclical_insert_recursive() {
+        // a -> b -> c -> a
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(b)).id();
+        world.entity_mut(c).add_one_related::<ChildOf>(a);
+
+        world
+            .entity_mut(a)
+            .insert_recursive::<Children>(TestComponent);
+    }
+
+    #[test]
+    #[should_panic(expected = "Cyclical traversal detected")]
+    fn reject_cyclical_remove_recursive() {
+        // a -> b -> c -> a
+        let mut world = World::new();
+        let a = world.spawn(TestComponent).id();
+        let b = world.spawn((ChildOf(a), TestComponent)).id();
+        let c = world.spawn((ChildOf(b), TestComponent)).id();
+        world.entity_mut(c).add_one_related::<ChildOf>(a);
+
+        world
+            .entity_mut(a)
+            .remove_recursive::<Children, TestComponent>();
     }
 }
