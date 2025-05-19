@@ -392,6 +392,7 @@ impl Plugin for PickingPlugin {
             .register_type::<Self>()
             .register_type::<Pickable>()
             .register_type::<hover::PickingInteraction>()
+            .register_type::<hover::Hovering>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
@@ -407,7 +408,7 @@ pub struct InteractionPlugin;
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         use events::*;
-        use hover::{generate_hovermap, update_interactions};
+        use hover::{generate_hovermap, update_hovering_states, update_interactions};
 
         app.init_resource::<hover::HoverMap>()
             .init_resource::<hover::PreviousHoverMap>()
@@ -429,7 +430,12 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Scroll>>()
             .add_systems(
                 PreUpdate,
-                (generate_hovermap, update_interactions, pointer_events)
+                (
+                    generate_hovermap,
+                    update_interactions,
+                    update_hovering_states,
+                    pointer_events,
+                )
                     .chain()
                     .in_set(PickingSystems::Hover),
             );

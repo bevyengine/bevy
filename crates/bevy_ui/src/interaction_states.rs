@@ -8,12 +8,8 @@
 use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
     component::{Component, HookContext},
-    entity::Entity,
-    hierarchy::ChildOf,
-    system::{Query, Res},
     world::DeferredWorld,
 };
-use bevy_picking::{hover::HoverMap, pointer::PointerId};
 
 /// A marker component to indicate that a widget is disabled and should be "grayed out".
 /// This is used to prevent user interaction with the widget. It should not, however, prevent
@@ -62,34 +58,4 @@ fn on_add_checked(mut world: DeferredWorld, context: HookContext) {
         true => accesskit::Toggled::True,
         false => accesskit::Toggled::False,
     });
-}
-
-/// Component which indicates that the entity is interested in knowing when the mouse is hovering
-/// over it or any of its children. Using this component lets users use regular Bevy change
-/// detection for hover enter and leave transitions instead of having to rely on observers or hooks.
-///
-/// TODO: This component and it's associated system isn't UI-specific, and could be moved to the
-/// bevy_picking crate.
-#[derive(Debug, Clone, Copy, Component, Default)]
-pub struct Hovering(pub bool);
-
-// TODO: This should be registered as a system after the hover map is updated.
-pub(crate) fn update_hover_states(
-    hover_map: Option<Res<HoverMap>>,
-    mut hovers: Query<(Entity, &mut Hovering)>,
-    parent_query: Query<&ChildOf>,
-) {
-    let Some(hover_map) = hover_map else { return };
-    let hover_set = hover_map.get(&PointerId::Mouse);
-    for (entity, mut hoverable) in hovers.iter_mut() {
-        let is_hovering = match hover_set {
-            Some(map) => map.iter().any(|(ha, _)| {
-                *ha == entity || parent_query.iter_ancestors(*ha).any(|e| e == entity)
-            }),
-            None => false,
-        };
-        if hoverable.0 != is_hovering {
-            hoverable.0 = is_hovering;
-        }
-    }
 }
