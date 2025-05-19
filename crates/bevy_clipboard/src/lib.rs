@@ -204,7 +204,7 @@ impl From<arboard::Error> for ClipboardError {
             arboard::Error::ConversionFailure => ClipboardError::ConversionFailure,
             arboard::Error::Unknown { description } => ClipboardError::Unknown { description },
             _ => ClipboardError::Unknown {
-                description: "".to_owned(),
+                description: "Unknown arboard error variant".to_owned(),
             },
         }
     }
