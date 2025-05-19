@@ -119,17 +119,17 @@ pub struct Mesh {
     morph_targets: Option<Handle<Image>>,
     morph_target_names: Option<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
-    /// Whether or not to build a BLAS for use with bevy_solari raytracing.
+    /// Whether or not to build a BLAS for use with `bevy_solari` raytracing.
     ///
-    /// Note that this is _not_ whether the mesh is _compatible_ with bevy_solari raytracing.
+    /// Note that this is _not_ whether the mesh is _compatible_ with `bevy_solari` raytracing.
     /// This field just controls whether or not a BLAS gets built for this mesh, assuming that
     /// the mesh is compatible.
     ///
     /// The use case for this field is setting it to true for low resolution proxy meshes you want to use for raytracing,
     /// and false for higher resolution versions of the mesh that you want to use for raster.
     ///
-    /// Does nothing if not used with bevy_solari, or if the mesh is not compatible
-    /// with bevy_solari (see bevy_solari's docs).
+    /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
+    /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
 }
 
