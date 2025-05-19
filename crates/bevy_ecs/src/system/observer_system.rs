@@ -4,15 +4,16 @@ use core::marker::PhantomData;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
+    error::Result,
+    never::Never,
     prelude::{Bundle, Trigger},
-    query::Access,
-    result::Result,
+    query::{Access, FilteredAccessSet},
     schedule::{Fallible, Infallible},
     system::{input::SystemIn, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use super::IntoSystem;
+use super::{IntoSystem, SystemParamValidationError};
 
 /// Implemented for [`System`]s that have a [`Trigger`] as the first argument.
 pub trait ObserverSystem<E: 'static, B: Bundle, Out = Result>:
@@ -45,7 +46,7 @@ pub trait IntoObserverSystem<E: 'static, B: Bundle, M, Out = Result>: Send + 'st
     fn into_system(this: Self) -> Self::System;
 }
 
-impl<E, B, M, Out, S> IntoObserverSystem<E, B, (Fallible, M), Out> for S
+impl<E, B, M, S, Out> IntoObserverSystem<E, B, (Fallible, M), Out> for S
 where
     S: IntoSystem<Trigger<'static, E, B>, Out, M> + Send + 'static,
     S::System: ObserverSystem<E, B, Out>,
@@ -66,7 +67,19 @@ where
     E: Send + Sync + 'static,
     B: Bundle,
 {
-    type System = InfallibleObserverWrapper<E, B, S::System>;
+    type System = InfallibleObserverWrapper<E, B, S::System, ()>;
+
+    fn into_system(this: Self) -> Self::System {
+        InfallibleObserverWrapper::new(IntoSystem::into_system(this))
+    }
+}
+impl<E, B, M, S> IntoObserverSystem<E, B, (Never, M), Result> for S
+where
+    S: IntoSystem<Trigger<'static, E, B>, Never, M> + Send + 'static,
+    E: Send + Sync + 'static,
+    B: Bundle,
+{
+    type System = InfallibleObserverWrapper<E, B, S::System, Never>;
 
     fn into_system(this: Self) -> Self::System {
         InfallibleObserverWrapper::new(IntoSystem::into_system(this))
@@ -74,12 +87,12 @@ where
 }
 
 /// A wrapper that converts an observer system that returns `()` into one that returns `Ok(())`.
-pub struct InfallibleObserverWrapper<E, B, S> {
+pub struct InfallibleObserverWrapper<E, B, S, Out> {
     observer: S,
-    _marker: PhantomData<(E, B)>,
+    _marker: PhantomData<(E, B, Out)>,
 }
 
-impl<E, B, S> InfallibleObserverWrapper<E, B, S> {
+impl<E, B, S, Out> InfallibleObserverWrapper<E, B, S, Out> {
     /// Create a new `InfallibleObserverWrapper`.
     pub fn new(observer: S) -> Self {
         Self {
@@ -89,11 +102,12 @@ impl<E, B, S> InfallibleObserverWrapper<E, B, S> {
     }
 }
 
-impl<E, B, S> System for InfallibleObserverWrapper<E, B, S>
+impl<E, B, S, Out> System for InfallibleObserverWrapper<E, B, S, Out>
 where
-    S: ObserverSystem<E, B, ()>,
+    S: ObserverSystem<E, B, Out>,
     E: Send + Sync + 'static,
     B: Bundle,
+    Out: Send + Sync + 'static,
 {
     type In = Trigger<'static, E, B>;
     type Out = Result;
@@ -106,6 +120,11 @@ where
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.observer.component_access()
+    }
+
+    #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        self.observer.component_access_set()
     }
 
     #[inline]
@@ -139,12 +158,6 @@ where
     }
 
     #[inline]
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        self.observer.run(input, world);
-        Ok(())
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.observer.apply_deferred(world);
     }
@@ -155,7 +168,10 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         self.observer.validate_param_unsafe(world)
     }
 

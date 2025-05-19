@@ -105,14 +105,15 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 ///   which means that Bevy would *only* render the "front" of each triangle, which
 ///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 #[derive(Asset, Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub struct Mesh {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
     /// Uses a [`BTreeMap`] because, unlike `HashMap`, it has a defined iteration order,
     /// which allows easy stable `VertexBuffers` (i.e. same buffer order)
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
     morph_targets: Option<Handle<Image>>,
@@ -909,13 +910,16 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(tangents)) =
+        if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
+                let handedness = tangent[3];
                 let scaled_tangent = Vec3::from_slice(tangent) * transform.scale;
-                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
+                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero())
+                    .extend(handedness)
+                    .to_array();
             });
         }
     }
@@ -981,12 +985,15 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(tangents)) =
+        if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents
             tangents.iter_mut().for_each(|tangent| {
-                *tangent = (rotation * Vec3::from_slice(tangent).normalize_or_zero()).to_array();
+                let handedness = tangent[3];
+                *tangent = (rotation * Vec3::from_slice(tangent).normalize_or_zero())
+                    .extend(handedness)
+                    .to_array();
             });
         }
     }
@@ -1033,13 +1040,17 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(tangents)) =
+        if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling
             tangents.iter_mut().for_each(|tangent| {
+                let handedness = tangent[3];
                 let scaled_tangent = Vec3::from_slice(tangent) * scale;
-                *tangent = scaled_tangent.normalize_or_zero().to_array();
+                *tangent = scaled_tangent
+                    .normalize_or_zero()
+                    .extend(handedness)
+                    .to_array();
             });
         }
     }

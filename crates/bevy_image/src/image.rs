@@ -4,6 +4,8 @@ use super::basis::*;
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+#[cfg(not(feature = "bevy_reflect"))]
+use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -336,15 +338,16 @@ impl ImageFormat {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(opaque, Default, Debug)
+    reflect(opaque, Default, Debug, Clone)
 )]
+#[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub struct Image {
     /// Raw pixel data.
     /// If the image is being used as a storage texture which doesn't need to be initialized by the
-    /// CPU, then this should be `None`
-    /// Otherwise, it should always be `Some`
+    /// CPU, then this should be `None`.
+    /// Otherwise, it should always be `Some`.
     pub data: Option<Vec<u8>>,
-    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
+    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
@@ -928,16 +931,11 @@ impl Image {
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
     pub fn from_buffer(
-        #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
-        #[expect(
-            clippy::allow_attributes,
-            reason = "`unused_variables` may not always lint"
-        )]
-        #[allow(
-            unused_variables,
-            reason = "`supported_compressed_formats` is needed where the image format is `Basis`, `Dds`, or `Ktx2`; if these are disabled, then `supported_compressed_formats` is unused."
+        #[cfg_attr(
+            not(any(feature = "basis-universal", feature = "dds", feature = "ktx2")),
+            expect(unused_variables, reason = "only used with certain features")
         )]
         supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
@@ -958,13 +956,7 @@ impl Image {
                 basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(
-                #[cfg(debug_assertions)]
-                name,
-                buffer,
-                supported_compressed_formats,
-                is_srgb,
-            )?,
+            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?

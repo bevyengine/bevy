@@ -102,7 +102,7 @@
 //! in the ECS. Each of these methods uses the `bevy/` prefix, which is a namespace reserved for
 //! BRP built-in methods.
 //!
-//! ### bevy/get
+//! ### `bevy/get`
 //!
 //! Retrieve the values of one or more components from an entity.
 //!
@@ -123,7 +123,7 @@
 //!
 //! `result`: A map associating each type name to its value on the requested entity.
 //!
-//! ### bevy/query
+//! ### `bevy/query`
 //!
 //! Perform a query over components in the ECS, returning all matching entities and their associated
 //! component values.
@@ -143,8 +143,8 @@
 //!     on entities in order for them to be included in results.
 //!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
 //!     present on entities in order for them to be included in results.
-//!   - `strict` (optional): A flag to enable strict mode which will fail if any one of the
-//!     components is not present or can not be reflected. Defaults to false.
+//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the components
+//!   is not present or can not be reflected. Defaults to false.
 //!
 //! `result`: An array, each of which is an object containing:
 //! - `entity`: The ID of a query-matching entity.
@@ -155,7 +155,7 @@
 //!
 //!
 //!
-//! ### bevy/spawn
+//! ### `bevy/spawn`
 //!
 //! Create a new entity with the provided components and return the resulting entity ID.
 //!
@@ -165,7 +165,7 @@
 //! `result`:
 //! - `entity`: The ID of the newly spawned entity.
 //!
-//! ### bevy/destroy
+//! ### `bevy/destroy`
 //!
 //! Despawn the entity with the given ID.
 //!
@@ -174,7 +174,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/remove
+//! ### `bevy/remove`
 //!
 //! Delete one or more components from an entity.
 //!
@@ -184,7 +184,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/insert
+//! ### `bevy/insert`
 //!
 //! Insert one or more components into an entity.
 //!
@@ -207,7 +207,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/reparent
+//! ### `bevy/reparent`
 //!
 //! Assign a new parent to one or more entities.
 //!
@@ -218,7 +218,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/list
+//! ### `bevy/list`
 //!
 //! List all registered components or all components present on an entity.
 //!
@@ -230,7 +230,7 @@
 //!
 //! `result`: An array of fully-qualified type names of components.
 //!
-//! ### bevy/get+watch
+//! ### `bevy/get+watch`
 //!
 //! Watch the values of one or more components from an entity.
 //!
@@ -258,7 +258,7 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
-//! ### bevy/list+watch
+//! ### `bevy/list+watch`
 //!
 //! Watch all components present on an entity.
 //!
@@ -274,6 +274,52 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
+//! ### `bevy/get_resource`
+//!
+//! Extract the value of a given resource from the world.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource to get.
+//!
+//! `result`:
+//! - `value`: The value of the resource in the world.
+//!
+//! ### `bevy/insert_resource`
+//!
+//! Insert the given resource into the world with the given value.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource to insert.
+//! - `value`: The value of the resource to be inserted.
+//!
+//! `result`: null.
+//!
+//! ### `bevy/remove_resource`
+//!
+//! Remove the given resource from the world.
+//!
+//! `params`
+//! - `resource`: The [fully-qualified type name] of the resource to remove.
+//!
+//! `result`: null.
+//!
+//! ### `bevy/mutate_resource`
+//!
+//! Mutate a field in a resource.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource to mutate.
+//! - `path`: The path of the field within the resource. See
+//!   [`GetPath`](bevy_reflect::GetPath#syntax) for more information on formatting this string.
+//! - `value`: The value to be inserted at `path`.
+//!
+//! `result`: null.
+//!
+//! ### `bevy/list_resources`
+//!
+//! List all reflectable registered resource types. This method has no parameters.
+//!
+//! `result`: An array of [fully-qualified type names] of registered resource types.
 //!
 //! ## Custom methods
 //!
@@ -324,11 +370,11 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     resource::Resource,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
+    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_utils::prelude::default;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -337,6 +383,7 @@ use std::sync::RwLock;
 pub mod builtin_methods;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod schemas;
 
 const CHANNEL_SIZE: usize = 16;
 
@@ -425,12 +472,12 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_list_request,
             )
             .with_method(
-                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
-                builtin_methods::export_registry_types,
-            )
-            .with_method(
                 builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
                 builtin_methods::process_remote_mutate_component_request,
+            )
+            .with_method(
+                builtin_methods::RPC_DISCOVER_METHOD,
+                builtin_methods::process_remote_list_methods_request,
             )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,
@@ -439,6 +486,30 @@ impl Default for RemotePlugin {
             .with_watching_method(
                 builtin_methods::BRP_LIST_AND_WATCH_METHOD,
                 builtin_methods::process_remote_list_watching_request,
+            )
+            .with_method(
+                builtin_methods::BRP_GET_RESOURCE_METHOD,
+                builtin_methods::process_remote_get_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_INSERT_RESOURCE_METHOD,
+                builtin_methods::process_remote_insert_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REMOVE_RESOURCE_METHOD,
+                builtin_methods::process_remote_remove_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_MUTATE_RESOURCE_METHOD,
+                builtin_methods::process_remote_mutate_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_LIST_RESOURCES_METHOD,
+                builtin_methods::process_remote_list_resources_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
+                builtin_methods::export_registry_types,
             )
     }
 }
@@ -472,34 +543,38 @@ impl Plugin for RemotePlugin {
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
                 RemoteLast,
-                (RemoteSet::ProcessRequests, RemoteSet::Cleanup).chain(),
+                (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
             )
             .add_systems(
                 RemoteLast,
                 (
                     (process_remote_requests, process_ongoing_watching_requests)
                         .chain()
-                        .in_set(RemoteSet::ProcessRequests),
-                    remove_closed_watching_requests.in_set(RemoteSet::Cleanup),
+                        .in_set(RemoteSystems::ProcessRequests),
+                    remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
                 ),
             );
     }
 }
 
 /// Schedule that contains all systems to process Bevy Remote Protocol requests
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct RemoteLast;
 
 /// The systems sets of the [`RemoteLast`] schedule.
 ///
 /// These can be useful for ordering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RemoteSet {
+pub enum RemoteSystems {
     /// Processing of remote requests.
     ProcessRequests,
     /// Cleanup (remove closed watchers etc)
     Cleanup,
 }
+
+/// Deprecated alias for [`RemoteSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RemoteSystems`.")]
+pub type RemoteSet = RemoteSystems;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
@@ -564,6 +639,11 @@ impl RemoteMethods {
     /// Get a [`RemoteMethodSystemId`] with its method name.
     pub fn get(&self, method: &str) -> Option<&RemoteMethodSystemId> {
         self.0.get(method)
+    }
+
+    /// Get a [`Vec<String>`] with method names.
+    pub fn methods(&self) -> Vec<String> {
+        self.0.keys().cloned().collect()
     }
 }
 
@@ -718,6 +798,26 @@ impl BrpError {
         }
     }
 
+    /// Resource was not present in the world.
+    #[must_use]
+    pub fn resource_not_present(resource: &str) -> Self {
+        Self {
+            code: error_codes::RESOURCE_NOT_PRESENT,
+            message: format!("Resource `{resource}` not present in the world"),
+            data: None,
+        }
+    }
+
+    /// An arbitrary resource error. Possibly related to reflection.
+    #[must_use]
+    pub fn resource_error<E: ToString>(error: E) -> Self {
+        Self {
+            code: error_codes::RESOURCE_ERROR,
+            message: error.to_string(),
+            data: None,
+        }
+    }
+
     /// An arbitrary internal error.
     #[must_use]
     pub fn internal<E: ToString>(error: E) -> Self {
@@ -772,6 +872,12 @@ pub mod error_codes {
 
     /// Cannot reparent an entity to itself.
     pub const SELF_REPARENT: i16 = -23404;
+
+    /// Could not reflect or find resource.
+    pub const RESOURCE_ERROR: i16 = -23501;
+
+    /// Could not find resource in the world.
+    pub const RESOURCE_NOT_PRESENT: i16 = -23502;
 }
 
 /// The result of a request.

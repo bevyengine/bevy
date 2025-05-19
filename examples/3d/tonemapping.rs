@@ -1,9 +1,10 @@
 //! This examples compares Tonemapping options
 
 use bevy::{
+    asset::UnapprovedPathMode,
     core_pipeline::tonemapping::Tonemapping,
     pbr::CascadeShadowConfigBuilder,
-    platform_support::collections::HashMap,
+    platform::collections::HashMap,
     prelude::*,
     reflect::TypePath,
     render::{
@@ -19,7 +20,12 @@ const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(AssetPlugin {
+                // We enable loading assets from arbitrary filesystem paths as this example allows
+                // drag and dropping a local image for color grading
+                unapproved_path_mode: UnapprovedPathMode::Allow,
+                ..default()
+            }),
             MaterialPlugin::<ColorGradientMaterial>::default(),
         ))
         .insert_resource(CameraTransform(
@@ -212,7 +218,7 @@ fn drag_drop_image(
             mat.base_color_texture = Some(new_image.clone());
 
             // Despawn the image viewer instructions
-            if let Ok(text_entity) = text.get_single() {
+            if let Ok(text_entity) = text.single() {
                 commands.entity(text_entity).despawn();
             }
         }

@@ -10,13 +10,13 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [dependencies]
-glam = { version = "0.29", default-features = false, features = ["bytemuck"] }
+glam = { version = "0.29.3", default-features = false, features = ["bytemuck"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = [
   "from",
   "into",
 ] }
-itertools = { version = "0.13.0", default-features = false }
+itertools = { version = "0.14.0", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
@@ -37,7 +37,7 @@ rand = "0.8"
 rand_chacha = "0.3"
 # Enable the approx feature when testing.
 bevy_math = { path = ".", default-features = false, features = ["approx"] }
-glam = { version = "0.29", default-features = false, features = ["approx"] }
+glam = { version = "0.29.3", default-features = false, features = ["approx"] }
 
 [features]
 default = ["std", "rand", "curve"]
@@ -77,6 +77,9 @@ rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
 curve = []
 # Enable bevy_reflect (requires alloc)
 bevy_reflect = ["dep:bevy_reflect", "alloc"]
+# Enable libm mathematical functions as a fallback for no_std environments.
+# Can be overridden with std feature.
+nostd-libm = ["dep:libm", "glam/nostd-libm"]
 
 [lints]
 workspace = true

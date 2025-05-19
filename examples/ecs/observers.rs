@@ -1,7 +1,7 @@
 //! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
-    platform_support::collections::{HashMap, HashSet},
+    platform::collections::{HashMap, HashSet},
     prelude::*,
 };
 use rand::{Rng, SeedableRng};
@@ -144,7 +144,7 @@ fn on_remove_mine(
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
     // If a triggered event is targeting a specific entity you can access it with `.target()`
     let id = trigger.target();
-    let Some(mut entity) = commands.get_entity(id) else {
+    let Ok(mut entity) = commands.get_entity(id) else {
         return;
     };
     info!("Boom! {} exploded.", id.index());
@@ -175,7 +175,7 @@ fn handle_click(
     windows: Query<&Window>,
     mut commands: Commands,
 ) {
-    let Ok(windows) = windows.get_single() else {
+    let Ok(windows) = windows.single() else {
         return;
     };
 

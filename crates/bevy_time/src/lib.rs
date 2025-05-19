@@ -41,7 +41,7 @@ use bevy_ecs::{
     event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
     prelude::*,
 };
-use bevy_platform_support::time::Instant;
+use bevy_platform::time::Instant;
 use core::time::Duration;
 
 #[cfg(feature = "std")]
@@ -57,7 +57,11 @@ pub struct TimePlugin;
 /// Updates the elapsed time. Any system that interacts with [`Time`] component should run after
 /// this.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-pub struct TimeSystem;
+pub struct TimeSystems;
+
+/// Deprecated alias for [`TimeSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `TimeSystems`.")]
+pub type TimeSystem = TimeSystems;
 
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
@@ -79,12 +83,12 @@ impl Plugin for TimePlugin {
         app.add_systems(
             First,
             time_system
-                .in_set(TimeSystem)
+                .in_set(TimeSystems)
                 .ambiguous_with(event_update_system),
         )
         .add_systems(
             RunFixedMainLoop,
-            run_fixed_main_schedule.in_set(RunFixedMainLoopSystem::FixedMainLoop),
+            run_fixed_main_schedule.in_set(RunFixedMainLoopSystems::FixedMainLoop),
         );
 
         // Ensure the events are not dropped until `FixedMain` systems can observe them
@@ -109,7 +113,7 @@ pub enum TimeUpdateStrategy {
     /// [`Time`] will be updated to the specified [`Instant`] value each frame.
     /// In order for time to progress, this value must be manually updated each frame.
     ///
-    /// Note that the `Time` resource will not be updated until [`TimeSystem`] runs.
+    /// Note that the `Time` resource will not be updated until [`TimeSystems`] runs.
     ManualInstant(Instant),
     /// [`Time`] will be incremented by the specified [`Duration`] each frame.
     ManualDuration(Duration),
@@ -160,12 +164,13 @@ pub fn time_system(
         None => None,
     };
 
-    #[cfg(not(feature = "std"))]
-    let sent_time = None;
-
     match update_strategy.as_ref() {
         TimeUpdateStrategy::Automatic => {
+            #[cfg(feature = "std")]
             real_time.update_with_instant(sent_time.unwrap_or_else(Instant::now));
+
+            #[cfg(not(feature = "std"))]
+            real_time.update_with_instant(Instant::now());
         }
         TimeUpdateStrategy::ManualInstant(instant) => real_time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => real_time.update_with_duration(*duration),
@@ -175,6 +180,7 @@ pub fn time_system(
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};

@@ -9,7 +9,7 @@ use tracing::error;
 pub enum DynamicTextureAtlasBuilderError {
     #[error("Couldn't allocate space to add the image requested")]
     FailedToAllocateSpace,
-    /// Attempted to add a texture to an uninitialzied atlas
+    /// Attempted to add a texture to an uninitialized atlas
     #[error("cannot add texture to uninitialized atlas texture")]
     UninitializedAtlas,
     /// Attempted to add an uninitialized texture to an atlas

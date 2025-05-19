@@ -4,7 +4,7 @@ use crate::{
     system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
@@ -823,6 +823,7 @@ impl ScheduleState {
 }
 
 #[cfg(all(test, feature = "bevy_debug_stepping"))]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use super::*;
     use crate::{prelude::*, schedule::ScheduleLabel};

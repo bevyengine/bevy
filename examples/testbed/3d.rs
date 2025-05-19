@@ -15,6 +15,7 @@ fn main() {
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Gltf), gltf::setup)
         .add_systems(OnEnter(Scene::Animation), animation::setup)
+        .add_systems(OnEnter(Scene::Gizmos), gizmos::setup)
         .add_systems(OnEnter(Scene::Forward), deferred::setup)
         .add_systems(
             OnEnter(Scene::ForwardPrepass),
@@ -43,6 +44,7 @@ fn main() {
                 .chain(),
         )
         .add_systems(Update, switch_scene)
+        .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)))
         .add_systems(
             Update,
             (
@@ -70,6 +72,7 @@ enum Scene {
     Bloom,
     Gltf,
     Animation,
+    Gizmos,
     Forward,
     ForwardPrepass,
     Deferred,
@@ -83,7 +86,8 @@ impl Next for Scene {
             Scene::Light => Scene::Bloom,
             Scene::Bloom => Scene::Gltf,
             Scene::Gltf => Scene::Animation,
-            Scene::Animation => Scene::Forward,
+            Scene::Animation => Scene::Gizmos,
+            Scene::Gizmos => Scene::Forward,
             Scene::Forward => Scene::ForwardPrepass,
             Scene::ForwardPrepass => Scene::Deferred,
             Scene::Deferred => Scene::RemoveForwardPrepass,
@@ -126,7 +130,7 @@ mod light {
                 perceptual_roughness: 1.0,
                 ..default()
             })),
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -136,7 +140,7 @@ mod light {
                 ..default()
             })),
             Transform::from_xyz(0.0, 1.0, 0.0),
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -147,7 +151,7 @@ mod light {
                 ..default()
             },
             Transform::from_xyz(1.0, 2.0, 0.0),
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -160,7 +164,7 @@ mod light {
                 ..default()
             },
             Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -174,13 +178,13 @@ mod light {
                 rotation: Quat::from_rotation_x(-PI / 4.),
                 ..default()
             },
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
 
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
     }
 }
@@ -207,7 +211,7 @@ mod bloom {
             Tonemapping::TonyMcMapface,
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             Bloom::NATURAL,
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
 
         let material_emissive1 = materials.add(StandardMaterial {
@@ -232,7 +236,7 @@ mod bloom {
                 Mesh3d(mesh.clone()),
                 MeshMaterial3d(material),
                 Transform::from_xyz(z as f32 * 2.0, 0.0, 0.0),
-                StateScoped(CURRENT_SCENE),
+                DespawnOnExitState(CURRENT_SCENE),
             ));
         }
     }
@@ -253,7 +257,7 @@ mod gltf {
                 intensity: 250.0,
                 ..default()
             },
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -261,13 +265,13 @@ mod gltf {
                 shadows_enabled: true,
                 ..default()
             },
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
         commands.spawn((
             SceneRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
             )),
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
     }
 }
@@ -304,7 +308,7 @@ mod animation {
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -313,13 +317,13 @@ mod animation {
                 shadows_enabled: true,
                 ..default()
             },
-            StateScoped(CURRENT_SCENE),
+            DespawnOnExitState(CURRENT_SCENE),
         ));
 
         commands
             .spawn((
                 SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
-                StateScoped(CURRENT_SCENE),
+                DespawnOnExitState(CURRENT_SCENE),
             ))
             .observe(pause_animation_frame);
     }
@@ -348,13 +352,35 @@ mod animation {
     }
 }
 
+mod gizmos {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            DespawnOnExitState(super::Scene::Gizmos),
+        ));
+    }
+
+    pub fn draw_gizmos(mut gizmos: Gizmos) {
+        gizmos.cuboid(
+            Transform::from_translation(Vec3::X * 2.0).with_scale(Vec3::splat(2.0)),
+            RED,
+        );
+        gizmos
+            .sphere(Isometry3d::from_translation(Vec3::X * -2.0), 1.0, GREEN)
+            .resolution(30_000 / 3);
+    }
+}
+
 mod deferred {
     use bevy::{
+        anti_aliasing::fxaa::Fxaa,
         asset::{AssetServer, Assets},
         color::{Color, Srgba},
-        core_pipeline::{
-            fxaa::Fxaa,
-            prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+        core_pipeline::prepass::{
+            DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
         },
         gltf::GltfAssetLabel,
         image::ImageLoaderSettings,
@@ -367,9 +393,10 @@ mod deferred {
         prelude::{
             Camera, Camera3d, Commands, Component, Cuboid, Deref, DerefMut, Entity,
             EnvironmentMapLight, Mesh, Mesh3d, Meshable, Msaa, Plane3d, Res, ResMut, Resource,
-            Single, Sphere, State, StateScoped, Transform, With,
+            Single, Sphere, State, Transform, With,
         },
         scene::SceneRoot,
+        state::state_scoped::DespawnOnExitState,
         time::{Time, Timer},
         utils::default,
     };
@@ -412,7 +439,7 @@ mod deferred {
                 ..default()
             },
             Fxaa::default(),
-            StateScoped(*scene.get()),
+            DespawnOnExitState(*scene.get()),
         ));
 
         commands.spawn((
@@ -433,14 +460,14 @@ mod deferred {
                 0.0,
                 -std::f32::consts::FRAC_PI_4,
             )),
-            StateScoped(*scene.get()),
+            DespawnOnExitState(*scene.get()),
         ));
 
         // FlightHelmet
         let helmet_scene = asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
-        commands.spawn((SceneRoot(helmet_scene), StateScoped(*scene.get())));
+        commands.spawn((SceneRoot(helmet_scene), DespawnOnExitState(*scene.get())));
 
         let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
         forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
@@ -450,7 +477,7 @@ mod deferred {
         commands.spawn((
             Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
             MeshMaterial3d(forward_mat_h.clone()),
-            StateScoped(*scene.get()),
+            DespawnOnExitState(*scene.get()),
         ));
 
         let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
@@ -461,13 +488,13 @@ mod deferred {
             Mesh3d(cube_h.clone()),
             MeshMaterial3d(forward_mat_h.clone()),
             Transform::from_xyz(-0.3, 0.5, -0.2),
-            StateScoped(*scene.get()),
+            DespawnOnExitState(*scene.get()),
         ));
         commands.spawn((
             Mesh3d(cube_h),
             MeshMaterial3d(forward_mat_h),
             Transform::from_xyz(0.2, 0.5, 0.2),
-            StateScoped(*scene.get()),
+            DespawnOnExitState(*scene.get()),
         ));
 
         let sphere_color = Color::srgb(10.0, 4.0, 1.0);
@@ -480,7 +507,7 @@ mod deferred {
             MeshMaterial3d(materials.add(unlit_mat)),
             sphere_pos,
             NotShadowCaster,
-            StateScoped(*scene.get()),
+            DespawnOnExitState(*scene.get()),
         ));
         // Light
         commands.spawn((
@@ -492,7 +519,7 @@ mod deferred {
                 ..default()
             },
             sphere_pos,
-            StateScoped(*scene.get()),
+            DespawnOnExitState(*scene.get()),
         ));
 
         // sky
@@ -507,7 +534,7 @@ mod deferred {
             Transform::from_scale(Vec3::splat(1_000_000.0)),
             NotShadowCaster,
             NotShadowReceiver,
-            StateScoped(*scene.get()),
+            DespawnOnExitState(*scene.get()),
         ));
 
         // The normal map. Note that to generate it in the GIMP image editor, you should
@@ -543,7 +570,7 @@ mod deferred {
             MeshMaterial3d(parallax_material),
             Transform::from_xyz(0.4, 0.2, -0.8),
             ParallaxCube,
-            StateScoped(*scene.get()),
+            DespawnOnExitState(*scene.get()),
         ));
     }
 
