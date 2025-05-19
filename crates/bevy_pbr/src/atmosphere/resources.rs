@@ -13,9 +13,9 @@ use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     camera::Camera,
     extract_component::ComponentUniforms,
+    frame_graph::{BindGroupHandle, FrameGraph, FrameGraphTexture, ResourceMeta, TextureInfo},
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
 
@@ -419,23 +419,39 @@ pub(super) fn queue_render_sky_pipelines(
 
 #[derive(Component)]
 pub struct AtmosphereTextures {
-    pub transmittance_lut: CachedTexture,
-    pub multiscattering_lut: CachedTexture,
-    pub sky_view_lut: CachedTexture,
-    pub aerial_view_lut: CachedTexture,
+    pub transmittance_lut: ResourceMeta<FrameGraphTexture>,
+    pub multiscattering_lut: ResourceMeta<FrameGraphTexture>,
+    pub sky_view_lut: ResourceMeta<FrameGraphTexture>,
+    pub aerial_view_lut: ResourceMeta<FrameGraphTexture>,
+}
+
+impl AtmosphereTextures {
+    pub fn get_transmittance_lut_key(entity: Entity) -> String {
+        format!("transmittance_lut_{}", entity)
+    }
+
+    pub fn get_multiscattering_lut_key(entity: Entity) -> String {
+        format!("multiscattering_lut{}", entity)
+    }
+
+    pub fn get_sky_view_lut_key(entity: Entity) -> String {
+        format!("sky_view_lut{}", entity)
+    }
+
+    pub fn get_aerial_view_lut_key(entity: Entity) -> String {
+        format!("aerial_view_lut{}", entity)
+    }
 }
 
 pub(super) fn prepare_atmosphere_textures(
     views: Query<(Entity, &AtmosphereSettings), With<Atmosphere>>,
-    render_device: Res<RenderDevice>,
-    mut texture_cache: ResMut<TextureCache>,
     mut commands: Commands,
 ) {
     for (entity, lut_settings) in &views {
-        let transmittance_lut = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("transmittance_lut"),
+        let transmittance_lut = ResourceMeta {
+            key: AtmosphereTextures::get_transmittance_lut_key(entity),
+            desc: TextureInfo {
+                label: Some("transmittance_lut".into()),
                 size: Extent3d {
                     width: lut_settings.transmittance_lut_size.x,
                     height: lut_settings.transmittance_lut_size.y,
@@ -446,14 +462,14 @@ pub(super) fn prepare_atmosphere_textures(
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
-        let multiscattering_lut = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("multiscattering_lut"),
+        let multiscattering_lut = ResourceMeta {
+            key: AtmosphereTextures::get_multiscattering_lut_key(entity),
+            desc: TextureInfo {
+                label: Some("multiscattering_lut".into()),
                 size: Extent3d {
                     width: lut_settings.multiscattering_lut_size.x,
                     height: lut_settings.multiscattering_lut_size.y,
@@ -464,14 +480,14 @@ pub(super) fn prepare_atmosphere_textures(
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
-        let sky_view_lut = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("sky_view_lut"),
+        let sky_view_lut = ResourceMeta {
+            key: AtmosphereTextures::get_sky_view_lut_key(entity),
+            desc: TextureInfo {
+                label: Some("sky_view_lut".into()),
                 size: Extent3d {
                     width: lut_settings.sky_view_lut_size.x,
                     height: lut_settings.sky_view_lut_size.y,
@@ -482,14 +498,14 @@ pub(super) fn prepare_atmosphere_textures(
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
-        let aerial_view_lut = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("aerial_view_lut"),
+        let aerial_view_lut = ResourceMeta {
+            key: AtmosphereTextures::get_aerial_view_lut_key(entity),
+            desc: TextureInfo {
+                label: Some("aerial_view_lut".into()),
                 size: Extent3d {
                     width: lut_settings.aerial_view_lut_size.x,
                     height: lut_settings.aerial_view_lut_size.y,
@@ -500,9 +516,9 @@ pub(super) fn prepare_atmosphere_textures(
                 dimension: TextureDimension::D3,
                 format: TextureFormat::Rgba16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+                view_formats: vec![],
             },
-        );
+        };
 
         commands.entity(entity).insert({
             AtmosphereTextures {
@@ -591,11 +607,11 @@ pub(super) fn prepare_atmosphere_transforms(
 
 #[derive(Component)]
 pub(crate) struct AtmosphereBindGroups {
-    pub transmittance_lut: BindGroup,
-    pub multiscattering_lut: BindGroup,
-    pub sky_view_lut: BindGroup,
-    pub aerial_view_lut: BindGroup,
-    pub render_sky: BindGroup,
+    pub transmittance_lut: BindGroupHandle,
+    pub multiscattering_lut: BindGroupHandle,
+    pub sky_view_lut: BindGroupHandle,
+    pub aerial_view_lut: BindGroupHandle,
+    pub render_sky: BindGroupHandle,
 }
 
 pub(super) fn prepare_atmosphere_bind_groups(
@@ -603,21 +619,132 @@ pub(super) fn prepare_atmosphere_bind_groups(
         (Entity, &AtmosphereTextures, &ViewDepthTexture, &Msaa),
         (With<Camera3d>, With<Atmosphere>),
     >,
-    _render_device: Res<RenderDevice>,
-    _layouts: Res<AtmosphereBindGroupLayouts>,
-    _render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
-    _samplers: Res<AtmosphereSamplers>,
-    _view_uniforms: Res<ViewUniforms>,
-    _lights_uniforms: Res<LightMeta>,
-    _atmosphere_transforms: Res<AtmosphereTransforms>,
-    _atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
-    _settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
-
-    mut _commands: Commands,
+    layouts: Res<AtmosphereBindGroupLayouts>,
+    render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
+    samplers: Res<AtmosphereSamplers>,
+    view_uniforms: Res<ViewUniforms>,
+    lights_uniforms: Res<LightMeta>,
+    atmosphere_transforms: Res<AtmosphereTransforms>,
+    atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
+    settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
+    mut commands: Commands,
+    mut frame_graph: ResMut<FrameGraph>,
 ) {
     if views.iter().len() == 0 {
         return;
     }
 
-    //todo
+    let atmosphere_handle = atmosphere_uniforms
+        .make_binding_resource_handle(&mut frame_graph)
+        .expect("Failed to prepare atmosphere bind groups. Atmosphere uniform buffer missing");
+
+    let transforms_handle = atmosphere_transforms
+        .uniforms()
+        .make_binding_resource_handle(&mut frame_graph)
+        .expect("Failed to prepare atmosphere bind groups. Atmosphere transforms buffer missing");
+
+    let settings_handle = settings_uniforms
+        .make_binding_resource_handle(&mut frame_graph)
+        .expect(
+            "Failed to prepare atmosphere bind groups. AtmosphereSettings uniform buffer missing",
+        );
+
+    let view_handle = view_uniforms
+        .uniforms
+        .make_binding_resource_handle(&mut frame_graph)
+        .expect("Failed to prepare atmosphere bind groups. View uniform buffer missing");
+
+    let lights_handle = lights_uniforms
+        .view_gpu_lights
+        .make_binding_resource_handle(&mut frame_graph)
+        .expect("Failed to prepare atmosphere bind groups. Lights uniform buffer missing");
+
+    for (entity, textures, view_depth_texture, msaa) in &views {
+        let transmittance_lut = frame_graph
+            .create_bind_group_handle_builder(
+                Some("transmittance_lut_bind_group".into()),
+                &layouts.transmittance_lut,
+            )
+            .add_handle(0, &atmosphere_handle)
+            .add_handle(1, &settings_handle)
+            .add_helper(13, &textures.transmittance_lut)
+            .build();
+
+        let multiscattering_lut = frame_graph
+            .create_bind_group_handle_builder(
+                Some("multiscattering_lut_bind_group".into()),
+                &layouts.multiscattering_lut,
+            )
+            .add_handle(0, &atmosphere_handle)
+            .add_handle(1, &settings_handle)
+            .add_helper(5, &textures.transmittance_lut)
+            .add_handle(6, &samplers.transmittance_lut)
+            .add_helper(13, &textures.multiscattering_lut)
+            .build();
+
+        let sky_view_lut = frame_graph
+            .create_bind_group_handle_builder(
+                Some("sky_view_lut_bind_group".into()),
+                &layouts.sky_view_lut,
+            )
+            .add_handle(0, &atmosphere_handle)
+            .add_handle(1, &settings_handle)
+            .add_handle(2, &transforms_handle)
+            .add_handle(3, &view_handle)
+            .add_handle(4, &lights_handle)
+            .add_helper(5, &textures.transmittance_lut)
+            .add_handle(6, &samplers.transmittance_lut)
+            .add_helper(7, &textures.multiscattering_lut)
+            .add_handle(8, &samplers.multiscattering_lut)
+            .add_helper(13, &textures.sky_view_lut)
+            .build();
+
+        let aerial_view_lut = frame_graph
+            .create_bind_group_handle_builder(
+                Some("aerial_view_lut_bind_group".into()),
+                &layouts.aerial_view_lut,
+            )
+            .add_handle(0, &atmosphere_handle)
+            .add_handle(1, &settings_handle)
+            .add_handle(2, &transforms_handle)
+            .add_handle(3, &view_handle)
+            .add_handle(4, &lights_handle)
+            .add_helper(5, &textures.transmittance_lut)
+            .add_handle(6, &samplers.transmittance_lut)
+            .add_helper(7, &textures.multiscattering_lut)
+            .add_handle(8, &samplers.multiscattering_lut)
+            .add_helper(13, &textures.aerial_view_lut)
+            .build();
+
+        let render_sky = frame_graph
+            .create_bind_group_handle_builder(
+                Some("render_sky_bind_group".into()),
+                if *msaa == Msaa::Off {
+                    &render_sky_layouts.render_sky
+                } else {
+                    &render_sky_layouts.render_sky_msaa
+                },
+            )
+            .add_handle(0, &atmosphere_handle)
+            .add_handle(1, &settings_handle)
+            .add_handle(2, &transforms_handle)
+            .add_handle(3, &view_handle)
+            .add_handle(4, &lights_handle)
+            .add_helper(5, &textures.transmittance_lut)
+            .add_handle(6, &samplers.transmittance_lut)
+            .add_helper(9, &textures.sky_view_lut)
+            .add_handle(10, &samplers.sky_view_lut)
+            .add_helper(11, &textures.aerial_view_lut)
+            .add_handle(12, &samplers.aerial_view_lut)
+            .add_helper(13, &view_depth_texture.texture)
+            .build();
+
+        commands.entity(entity).insert(AtmosphereBindGroups {
+            transmittance_lut,
+            multiscattering_lut,
+            sky_view_lut,
+            aerial_view_lut,
+            render_sky,
+        });
+    }
 }
