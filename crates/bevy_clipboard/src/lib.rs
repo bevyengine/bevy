@@ -36,7 +36,7 @@ pub enum ClipboardRead {
 }
 
 impl ClipboardRead {
-    /// The result of an attempt to read from the clipboard, if it is ready.
+    /// The result of an attempt to read from the clipboard, once ready.
     /// If the result is still pending, returns `None`.
     pub fn poll_result(&mut self) -> Option<Result<String, ClipboardError>> {
         match self {
@@ -49,7 +49,9 @@ impl ClipboardRead {
                     None
                 }
             }
-            Self::Ready(inner) => Some(std::mem::replace(inner, Err(ClipboardError::ContentTaken))),
+            Self::Ready(inner) => {
+                Some(core::mem::replace(inner, Err(ClipboardError::ContentTaken)))
+            }
         }
     }
 }
