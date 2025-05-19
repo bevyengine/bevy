@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{ops::cos, Mat4, Vec3};
 use bevy_pbr::{ExtractedDirectionalLight, MeshMaterial3d, StandardMaterial};
 use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
@@ -17,13 +17,13 @@ use bevy_render::{
     texture::{FallbackImage, GpuImage},
 };
 use bevy_transform::components::GlobalTransform;
-use std::{hash::Hash, num::NonZeroU32, ops::Deref};
+use core::{hash::Hash, num::NonZeroU32, ops::Deref};
 
 const MAX_MESH_SLAB_COUNT: Option<NonZeroU32> = NonZeroU32::new(500);
 const MAX_TEXTURE_COUNT: Option<NonZeroU32> = NonZeroU32::new(5_000);
 
 /// Average angular diameter of the sun as seen from earth.
-/// https://en.wikipedia.org/wiki/Angular_diameter#Use_in_astronomy
+/// <https://en.wikipedia.org/wiki/Angular_diameter#Use_in_astronomy>
 const SUN_ANGULAR_DIAMETER_RADIANS: f32 = 0.00930842;
 
 #[derive(Resource)]
@@ -193,7 +193,7 @@ pub fn prepare_raytracing_scene_bindings(
 
         directional_lights.push(GpuDirectionalLight {
             direction_to_light: directional_light.transform.back().into(),
-            cos_theta_max: (SUN_ANGULAR_DIAMETER_RADIANS / 2.0).cos(),
+            cos_theta_max: cos(SUN_ANGULAR_DIAMETER_RADIANS / 2.0),
             illuminance: directional_light.color * directional_light.illuminance,
         });
 

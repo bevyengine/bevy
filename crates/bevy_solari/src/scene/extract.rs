@@ -24,7 +24,7 @@ pub fn extract_raytracing_scene(
     for (render_entity, mesh, material, transform) in &instances {
         commands
             .entity(render_entity)
-            .insert((mesh.clone(), material.clone(), transform.clone()));
+            .insert((mesh.clone(), material.clone(), *transform));
     }
 }
 
