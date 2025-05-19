@@ -305,6 +305,8 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Despawns the children of this entity.
     /// This entity will not be despawned.
+    ///
+    /// This is a specialization of [`despawn_related`](EntityWorldMut::despawn_related), a more general method for despawning via relationships.
     pub fn despawn_children(&mut self) -> &mut Self {
         self.despawn_related::<Children>();
         self
