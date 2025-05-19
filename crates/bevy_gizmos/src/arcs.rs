@@ -136,11 +136,11 @@ where
     ///
     /// # Arguments
     /// - `angle`: sets how much of a circle circumference is passed, e.g. PI is half a circle. This
-    ///     value should be in the range (-2 * PI..=2 * PI)
+    ///   value should be in the range (-2 * PI..=2 * PI)
     /// - `radius`: distance between the arc and its center point
     /// - `isometry` defines the translation and rotation of the arc.
-    ///              - the translation specifies the center of the arc
-    ///              - the rotation is counter-clockwise starting from `Vec3::Y`
+    ///   - the translation specifies the center of the arc
+    ///   - the rotation is counter-clockwise starting from `Vec3::Y`
     /// - `color`: color of the arc
     ///
     /// # Builder methods
@@ -219,10 +219,10 @@ where
     ///
     /// # Notes
     /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
-    ///     the points is coincident with `center`, nothing is rendered.
+    ///   the points is coincident with `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
-    ///     `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
-    ///     the results will behave as if this were the case
+    ///   `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
+    ///   the results will behave as if this were the case
     #[inline]
     pub fn short_arc_3d_between(
         &mut self,
@@ -265,10 +265,10 @@ where
     ///
     /// # Notes
     /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
-    ///     the points is coincident with `center`, nothing is rendered.
+    ///   the points is coincident with `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
-    ///     `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
-    ///     the results will behave as if this were the case.
+    ///   `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
+    ///   the results will behave as if this were the case.
     #[inline]
     pub fn long_arc_3d_between(
         &mut self,
@@ -352,10 +352,10 @@ where
     ///
     /// # Notes
     /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
-    ///     the points is coincident with `center`, nothing is rendered.
+    ///   the points is coincident with `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
-    ///     `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
-    ///     the results will behave as if this were the case
+    ///   `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
+    ///   the results will behave as if this were the case
     #[inline]
     pub fn short_arc_2d_between(
         &mut self,
@@ -398,10 +398,10 @@ where
     ///
     /// # Notes
     /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
-    ///     the points is coincident with `center`, nothing is rendered.
+    ///   the points is coincident with `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
-    ///     `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
-    ///     the results will behave as if this were the case.
+    ///   `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
+    ///   the results will behave as if this were the case.
     #[inline]
     pub fn long_arc_2d_between(
         &mut self,

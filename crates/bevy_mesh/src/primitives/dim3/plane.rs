@@ -5,7 +5,7 @@ use bevy_reflect::prelude::*;
 
 /// A builder used for creating a [`Mesh`] with a [`Plane3d`] shape.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct PlaneMeshBuilder {
     /// The [`Plane3d`] shape.
     pub plane: Plane3d,

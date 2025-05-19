@@ -26,7 +26,7 @@ use core::{
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
 #[derive(Event, Debug, Clone, Into)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Clone))]
 pub struct RemovedComponentEntity(Entity);
 
 /// Wrapper around a [`EventCursor<RemovedComponentEntity>`] so that we

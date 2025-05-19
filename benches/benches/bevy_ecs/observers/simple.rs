@@ -1,6 +1,10 @@
 use core::hint::black_box;
 
-use bevy_ecs::{entity::Entity, event::Event, observer::Trigger, world::World};
+use bevy_ecs::{
+    event::Event,
+    observer::{Trigger, TriggerTargets},
+    world::World,
+};
 
 use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
@@ -46,6 +50,6 @@ fn empty_listener_base(trigger: Trigger<EventBase>) {
     black_box(trigger);
 }
 
-fn send_base_event(world: &mut World, entities: &Vec<Entity>) {
+fn send_base_event(world: &mut World, entities: impl TriggerTargets) {
     world.trigger_targets(EventBase, entities);
 }

@@ -254,6 +254,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 /// SAFETY: we assert fields are readonly below
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
+                    const IS_READ_ONLY: bool = true;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
                     type Item<'__w> = #read_only_item_struct_name #user_ty_generics_with_world;
 
@@ -265,6 +266,14 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                                 #field_idents: <#read_only_field_types>::shrink(item.#field_idents),
                             )*
                         }
+                    }
+
+                    fn provide_extra_access(
+                        state: &mut Self::State,
+                        access: &mut #path::query::Access<#path::component::ComponentId>,
+                        available_access: &#path::query::Access<#path::component::ComponentId>,
+                    ) {
+                        #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
                     }
 
                     /// SAFETY: we call `fetch` for each member that implements `Fetch`.
@@ -284,10 +293,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             quote! {}
         };
 
+        let is_read_only = !attributes.is_mutable;
+
         quote! {
             /// SAFETY: we assert fields are readonly below
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
+                const IS_READ_ONLY: bool = #is_read_only;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
                 type Item<'__w> = #item_struct_name #user_ty_generics_with_world;
 
@@ -299,6 +311,14 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                             #field_idents: <#field_types>::shrink(item.#field_idents),
                         )*
                     }
+                }
+
+                fn provide_extra_access(
+                    state: &mut Self::State,
+                    access: &mut #path::query::Access<#path::component::ComponentId>,
+                    available_access: &#path::query::Access<#path::component::ComponentId>,
+                ) {
+                    #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
                 }
 
                 /// SAFETY: we call `fetch` for each member that implements `Fetch`.

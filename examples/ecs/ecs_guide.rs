@@ -168,10 +168,10 @@ fn game_over_system(
 ) {
     if let Some(ref player) = game_state.winning_player {
         println!("{player} won the game!");
-        app_exit_events.send(AppExit::Success);
+        app_exit_events.write(AppExit::Success);
     } else if game_state.current_round == game_rules.max_rounds {
         println!("Ran out of rounds. Nobody wins!");
-        app_exit_events.send(AppExit::Success);
+        app_exit_events.write(AppExit::Success);
     }
 }
 
@@ -283,7 +283,7 @@ fn print_at_end_round(mut counter: Local<u32>) {
 /// A group of related system sets, used for controlling the order of systems. Systems can be
 /// added to any number of sets.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-enum MySet {
+enum MySystems {
     BeforeRound,
     Round,
     AfterRound,
@@ -330,7 +330,12 @@ fn main() {
         .configure_sets(
             Update,
             // chain() will ensure sets run in the order they are listed
-            (MySet::BeforeRound, MySet::Round, MySet::AfterRound).chain(),
+            (
+                MySystems::BeforeRound,
+                MySystems::Round,
+                MySystems::AfterRound,
+            )
+                .chain(),
         )
         // The add_systems function is powerful. You can define complex system configurations with ease!
         .add_systems(
@@ -343,9 +348,9 @@ fn main() {
                     exclusive_player_system,
                 )
                     // All of the systems in the tuple above will be added to this set
-                    .in_set(MySet::BeforeRound),
+                    .in_set(MySystems::BeforeRound),
                 // This `Round` system will run after the `BeforeRound` systems thanks to the chained set configuration
-                score_system.in_set(MySet::Round),
+                score_system.in_set(MySystems::Round),
                 // These `AfterRound` systems will run after the `Round` systems thanks to the chained set configuration
                 (
                     score_check_system,
@@ -353,7 +358,7 @@ fn main() {
                     // with sets!
                     game_over_system.after(score_check_system),
                 )
-                    .in_set(MySet::AfterRound),
+                    .in_set(MySystems::AfterRound),
             ),
         )
         // This call to run() starts the app we just built!

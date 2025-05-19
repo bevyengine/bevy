@@ -1,15 +1,17 @@
 use core::any::TypeId;
 
+use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
     component::ComponentCloneBehavior,
-    entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
+    entity::{Entity, EntityHashMap, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    relationship::RelationshipHookMode,
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath};
+use bevy_reflect::TypePath;
 
 /// A composition of [`World`] objects.
 ///
@@ -124,10 +126,8 @@ impl Scene {
                         .get_info(component_id)
                         .expect("component_ids in archetypes should have ComponentInfo");
 
-                    match component_info.clone_behavior() {
-                        ComponentCloneBehavior::Ignore
-                        | ComponentCloneBehavior::RelationshipTarget(_) => continue,
-                        _ => {}
+                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                        continue;
                     }
 
                     let registration = type_registry
@@ -144,7 +144,9 @@ impl Scene {
 
                     let Some(component) = reflect_component
                         .reflect(self.world.entity(scene_entity.id()))
-                        .map(PartialReflect::clone_value)
+                        .map(|component| {
+                            clone_reflect_value(component.as_partial_reflect(), registration)
+                        })
                     else {
                         continue;
                     };
@@ -157,6 +159,7 @@ impl Scene {
                             component.as_partial_reflect(),
                             &type_registry,
                             mapper,
+                            RelationshipHookMode::Skip,
                         );
                     });
                 }

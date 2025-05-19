@@ -16,7 +16,7 @@ fn draw_cursor(
     windows: Query<&Window>,
     mut gizmos: Gizmos,
 ) {
-    let Ok(windows) = windows.get_single() else {
+    let Ok(windows) = windows.single() else {
         return;
     };
 
