@@ -1,15 +1,14 @@
 use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
-    entity::Entity,
-    storage::{Column, TableRow},
+    entity::{Entity, EntityGeneration},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, panic::Location};
-use nonmax::NonMaxUsize;
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZeroUsize, panic::Location};
+use nonmax::{NonMaxU32, NonMaxUsize};
 
-type EntityIndex = u32;
+use super::ThinColumn;
 
 #[derive(Debug)]
 pub(crate) struct SparseArray<I, V = I> {
@@ -111,20 +110,51 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 }
 
+/// Represents the row of an [`Entity`] within a [`ComponentSparseSet`].
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
+#[repr(transparent)]
+pub struct SparseSetRow(NonMaxU32);
+
+impl SparseSetRow {
+    /// Creates a `SparseSetRow`.
+    #[inline]
+    pub const fn new(index: NonMaxU32) -> Self {
+        Self(index)
+    }
+
+    /// Gets the index of the row.
+    #[inline]
+    pub const fn index(self) -> usize {
+        self.0.get() as usize
+    }
+
+    /// Gets the index of the row.
+    #[inline]
+    pub const fn index_u32(self) -> u32 {
+        self.0.get()
+    }
+}
+
 /// A sparse data structure of [`Component`](crate::component::Component)s.
 ///
 /// Designed for relatively fast insertions and deletions.
-#[derive(Debug)]
 pub struct ComponentSparseSet {
-    dense: Column,
-    // Internally this only relies on the Entity index to keep track of where the component data is
-    // stored for entities that are alive. The generation is not required, but is stored
-    // in debug builds to validate that access is correct.
-    #[cfg(not(debug_assertions))]
-    entities: Vec<EntityIndex>,
-    #[cfg(debug_assertions)]
-    entities: Vec<Entity>,
-    sparse: SparseArray<EntityIndex, TableRow>,
+    /// This maps [`EntityRow`] to a [`TableRow`], an index in [`data`](Self::data).
+    entity_to_row: Vec<Option<(SparseSetRow, EntityGeneration)>>,
+    /// The rows that are free in [`data`](Self::data).
+    ///
+    /// # Safety
+    ///
+    /// These must be valid indices into all the data and change detection lists.
+    free_rows: Vec<SparseSetRow>,
+    /// The length of the column buffer.
+    buffer_len: usize,
+    /// The capacity of the column buffer.
+    buffer_capacity: usize,
+    /// This is effectively a `Vec<MaybeUninit<MyComponent>>`, but it has the layout and drop for `MyComponent`.
+    /// So, this needs it's drop to be temporarily disabled when dropping uninit data.
+    column: ThinColumn,
 }
 
 impl ComponentSparseSet {
@@ -132,29 +162,109 @@ impl ComponentSparseSet {
     /// initial `capacity`.
     pub(crate) fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
-            dense: Column::with_capacity(component_info, capacity),
-            entities: Vec::with_capacity(capacity),
-            sparse: Default::default(),
+            entity_to_row: Vec::new(),
+            free_rows: Vec::new(),
+            column: ThinColumn::with_capacity(component_info, capacity),
+            buffer_len: 0,
+            buffer_capacity: capacity,
         }
     }
 
     /// Removes all of the values stored within.
     pub(crate) fn clear(&mut self) {
-        self.dense.clear();
-        self.entities.clear();
-        self.sparse.clear();
+        let Self {
+            entity_to_row,
+            free_rows,
+            buffer_len,
+            buffer_capacity: _,
+            column,
+        } = self;
+
+        if let Some(drop) = column.data.drop {
+            for row in entity_to_row.iter().filter_map(|row| row.map(|row| row.0)) {
+                // SAFETY: We have &mut and clearing all rows. This value will never be accessed again.
+                unsafe { drop(column.data.get_unchecked_mut(row.index()).promote()) }
+            }
+        }
+
+        free_rows.clear();
+        entity_to_row.clear();
+        *buffer_len = 0;
     }
 
     /// Returns the number of component values in the sparse set.
     #[inline]
-    pub fn len(&self) -> usize {
-        self.dense.len()
+    pub fn len(&self) -> u32 {
+        // There can't be more than u32::MAX entities, so the length is always less than that.
+        (self.buffer_len - self.free_rows.len()) as u32
     }
 
     /// Returns `true` if the sparse set contains no component values.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.dense.len() == 0
+        self.buffer_len == self.free_rows.len()
+    }
+
+    #[inline]
+    fn get_row_of(&self, entity: Entity) -> Option<SparseSetRow> {
+        self.entity_to_row
+            .get(entity.index() as usize)
+            .copied()
+            .flatten()
+            .and_then(|(row, generation)| (entity.generation() == generation).then_some(row))
+    }
+
+    #[inline]
+    fn set_row_of(&mut self, entity: Entity, row: SparseSetRow) {
+        self.entity_to_row.resize(
+            self.entity_to_row.len().max((entity.index() + 1) as usize),
+            None,
+        );
+        // SAFETY: We just resized
+        unsafe {
+            *self
+                .entity_to_row
+                .get_unchecked_mut(entity.index() as usize) = Some((row, entity.generation()));
+        }
+    }
+
+    /// Reserves `additional` elements worth of capacity within the column buffer.
+    #[inline]
+    fn extend_buffer_by_1(&mut self) {
+        self.buffer_len += 1;
+        if self.buffer_capacity < self.buffer_len {
+            self.realoc_buffer();
+        }
+    }
+
+    /// Called when the length exceeds the buffer.
+    /// This is marked cold to help with branch prediction.
+    // TODO: Hint unlikely instead.
+    #[inline(always)]
+    #[cold]
+    fn realoc_buffer(&mut self) {
+        if self.buffer_capacity == 0 {
+            const STARTING_CAPACITY: usize = 256;
+            // SAFETY: the current capacity is 0
+            unsafe {
+                self.column
+                    .alloc(NonZeroUsize::new_unchecked(STARTING_CAPACITY));
+            }
+            self.buffer_capacity = STARTING_CAPACITY;
+        } else {
+            let new_capacity = self.buffer_capacity * 2;
+
+            // SAFETY:
+            // - `column_cap` is indeed the columns' capacity
+            unsafe {
+                self.column.realloc(
+                    NonZeroUsize::new_unchecked(self.buffer_capacity),
+                    NonZeroUsize::new_unchecked(new_capacity),
+                );
+            };
+
+            self.buffer_capacity = new_capacity;
+        }
     }
 
     /// Inserts the `entity` key and component `value` pair into this sparse
@@ -169,41 +279,53 @@ impl ComponentSparseSet {
         value: OwningPtr<'_>,
         change_tick: Tick,
         caller: MaybeLocation,
-    ) {
-        if let Some(&dense_index) = self.sparse.get(entity.index()) {
-            #[cfg(debug_assertions)]
-            assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.dense.replace(dense_index, value, change_tick, caller);
-        } else {
-            let dense_index = self.dense.len();
-            self.dense
-                .push(value, ComponentTicks::new(change_tick), caller);
-            self.sparse
-                .insert(entity.index(), TableRow::from_usize(dense_index));
-            #[cfg(debug_assertions)]
-            assert_eq!(self.entities.len(), dense_index);
-            #[cfg(not(debug_assertions))]
-            self.entities.push(entity.index());
-            #[cfg(debug_assertions)]
-            self.entities.push(entity);
+    ) -> SparseSetRow {
+        match self
+            .entity_to_row
+            .get(entity.index() as usize)
+            .copied()
+            .flatten()
+        {
+            Some((row, generation)) => {
+                debug_assert_eq!(generation, entity.generation(), "An entity is being inserted into a sparse set, but the sparse set, still has an earlier generation of the entity!");
+                // SAFETY: Caller ensures value is correct, row is in bounds,
+                // the current value was initialized and present.
+                unsafe {
+                    self.column.replace(row.index(), value, change_tick, caller);
+                }
+                row
+            }
+            None => {
+                if let Some(row) = self.free_rows.pop() {
+                    self.set_row_of(entity, row);
+                    // SAFETY: Caller ensures value is correct, free_rows ensures the row is in bound,
+                    // and the previous value at the row was already dropped.
+                    unsafe {
+                        self.column
+                            .initialize(row.index(), value, change_tick, caller);
+                    }
+                    row
+                } else {
+                    let idx = self.buffer_len as u32;
+                    // SAFETY: There are never more than u32::MAX entity rows and this row was not present.
+                    let row = unsafe { SparseSetRow::new(NonMaxU32::new_unchecked(idx)) };
+                    self.set_row_of(entity, row);
+                    self.extend_buffer_by_1();
+                    // SAFETY: Caller ensures value is correct, and we just made the row in bounds.
+                    unsafe {
+                        self.column
+                            .initialize(row.index(), value, change_tick, caller);
+                    }
+                    row
+                }
+            }
         }
     }
 
     /// Returns `true` if the sparse set has a component value for the provided `entity`.
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
-        #[cfg(debug_assertions)]
-        {
-            if let Some(&dense_index) = self.sparse.get(entity.index()) {
-                #[cfg(debug_assertions)]
-                assert_eq!(entity, self.entities[dense_index.as_usize()]);
-                true
-            } else {
-                false
-            }
-        }
-        #[cfg(not(debug_assertions))]
-        self.sparse.contains(entity.index())
+        self.get_row_of(entity).is_some()
     }
 
     /// Returns a reference to the entity's component value.
@@ -211,11 +333,9 @@ impl ComponentSparseSet {
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {
-        self.sparse.get(entity.index()).map(|&dense_index| {
-            #[cfg(debug_assertions)]
-            assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            // SAFETY: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.get_data_unchecked(dense_index) }
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct.
+            unsafe { self.column.data.get_unchecked(row.index()) }
         })
     }
 
@@ -231,20 +351,22 @@ impl ComponentSparseSet {
         TickCells<'_>,
         MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
     )> {
-        let dense_index = *self.sparse.get(entity.index())?;
-        #[cfg(debug_assertions)]
-        assert_eq!(entity, self.entities[dense_index.as_usize()]);
-        // SAFETY: if the sparse index points to something in the dense vec, it exists
-        unsafe {
-            Some((
-                self.dense.get_data_unchecked(dense_index),
-                TickCells {
-                    added: self.dense.get_added_tick_unchecked(dense_index),
-                    changed: self.dense.get_changed_tick_unchecked(dense_index),
-                },
-                self.dense.get_changed_by_unchecked(dense_index),
-            ))
-        }
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct.
+            unsafe {
+                (
+                    self.column.data.get_unchecked(row.index()),
+                    TickCells {
+                        added: self.column.added_ticks.get_unchecked(row.index()),
+                        changed: self.column.changed_ticks.get_unchecked(row.index()),
+                    },
+                    self.column
+                        .changed_by
+                        .as_ref()
+                        .map(|changed_by| changed_by.get_unchecked(row.index())),
+                )
+            }
+        })
     }
 
     /// Returns a reference to the "added" tick of the entity's component value.
@@ -252,11 +374,10 @@ impl ComponentSparseSet {
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
     pub fn get_added_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
-        let dense_index = *self.sparse.get(entity.index())?;
-        #[cfg(debug_assertions)]
-        assert_eq!(entity, self.entities[dense_index.as_usize()]);
-        // SAFETY: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(self.dense.get_added_tick_unchecked(dense_index)) }
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct.
+            unsafe { self.column.added_ticks.get_unchecked(row.index()) }
+        })
     }
 
     /// Returns a reference to the "changed" tick of the entity's component value.
@@ -264,11 +385,10 @@ impl ComponentSparseSet {
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
     pub fn get_changed_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
-        let dense_index = *self.sparse.get(entity.index())?;
-        #[cfg(debug_assertions)]
-        assert_eq!(entity, self.entities[dense_index.as_usize()]);
-        // SAFETY: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(self.dense.get_changed_tick_unchecked(dense_index)) }
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct.
+            unsafe { self.column.changed_ticks.get_unchecked(row.index()) }
+        })
     }
 
     /// Returns a reference to the "added" and "changed" ticks of the entity's component value.
@@ -276,11 +396,16 @@ impl ComponentSparseSet {
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
     pub fn get_ticks(&self, entity: Entity) -> Option<ComponentTicks> {
-        let dense_index = *self.sparse.get(entity.index())?;
-        #[cfg(debug_assertions)]
-        assert_eq!(entity, self.entities[dense_index.as_usize()]);
-        // SAFETY: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(self.dense.get_ticks_unchecked(dense_index)) }
+        self.get_row_of(entity).map(|row| {
+            // SAFETY: row is correct. We only change ticks with &mut self, and we have &self.
+            unsafe {
+                TickCells {
+                    added: self.column.added_ticks.get_unchecked(row.index()),
+                    changed: self.column.changed_ticks.get_unchecked(row.index()),
+                }
+                .read()
+            }
+        })
     }
 
     /// Returns a reference to the calling location that last changed the entity's component value.
@@ -291,12 +416,11 @@ impl ComponentSparseSet {
         &self,
         entity: Entity,
     ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
-        MaybeLocation::new_with_flattened(|| {
-            let dense_index = *self.sparse.get(entity.index())?;
-            #[cfg(debug_assertions)]
-            assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            // SAFETY: if the sparse index points to something in the dense vec, it exists
-            unsafe { Some(self.dense.get_changed_by_unchecked(dense_index)) }
+        self.column.changed_by.as_ref().map(|changed_by| {
+            self.get_row_of(entity).map(|row| {
+                // SAFETY: row is correct.
+                unsafe { changed_by.get_unchecked(row.index()) }
+            })
         })
     }
 
@@ -304,29 +428,23 @@ impl ComponentSparseSet {
     /// or `None` if it doesn't need to be dropped.
     #[inline]
     pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.dense.get_drop()
+        self.column.data.drop
     }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).
     #[must_use = "The returned pointer must be used to drop the removed component."]
     pub(crate) fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
-        self.sparse.remove(entity.index()).map(|dense_index| {
-            #[cfg(debug_assertions)]
-            assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.entities.swap_remove(dense_index.as_usize());
-            let is_last = dense_index.as_usize() == self.dense.len() - 1;
-            // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
-            let (value, _, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
-            if !is_last {
-                let swapped_entity = self.entities[dense_index.as_usize()];
-                #[cfg(not(debug_assertions))]
-                let index = swapped_entity;
-                #[cfg(debug_assertions)]
-                let index = swapped_entity.index();
-                *self.sparse.get_mut(index).unwrap() = dense_index;
+        self.get_row_of(entity).map(|row| {
+            self.free_rows.push(row);
+            // SAFETY: The entity row must be in bounds or it wouldn't have had a sparse set row.
+            unsafe {
+                *self
+                    .entity_to_row
+                    .get_unchecked_mut(entity.index() as usize) = None;
             }
-            value
+            // SAFETY: row is correct. We just freed this row, so nothing will ever access this value again.
+            unsafe { self.column.data.get_unchecked_mut(row.index()).promote() }
         })
     }
 
@@ -334,31 +452,67 @@ impl ComponentSparseSet {
     ///
     /// Returns `true` if `entity` had a component value in the sparse set.
     pub(crate) fn remove(&mut self, entity: Entity) -> bool {
-        if let Some(dense_index) = self.sparse.remove(entity.index()) {
-            #[cfg(debug_assertions)]
-            assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.entities.swap_remove(dense_index.as_usize());
-            let is_last = dense_index.as_usize() == self.dense.len() - 1;
-            // SAFETY: if the sparse index points to something in the dense vec, it exists
-            unsafe {
-                self.dense.swap_remove_unchecked(dense_index);
+        let dropper = self.get_drop();
+        match self.remove_and_forget(entity) {
+            Some(to_drop) => {
+                if let Some(dropper) = dropper {
+                    // SAFETY: We have authority to drop this.
+                    unsafe { dropper(to_drop) }
+                }
+                true
             }
-            if !is_last {
-                let swapped_entity = self.entities[dense_index.as_usize()];
-                #[cfg(not(debug_assertions))]
-                let index = swapped_entity;
-                #[cfg(debug_assertions)]
-                let index = swapped_entity.index();
-                *self.sparse.get_mut(index).unwrap() = dense_index;
-            }
-            true
-        } else {
-            false
+            None => false,
         }
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        self.dense.check_change_ticks(change_tick);
+        let Self {
+            entity_to_row,
+            free_rows: _,
+            buffer_len: _,
+            buffer_capacity: _,
+            column,
+        } = self;
+        for row in entity_to_row.iter().filter_map(|row| row.map(|row| row.0)) {
+            // SAFETY: We have &mut and the row is in bounds
+            unsafe {
+                column
+                    .added_ticks
+                    .get_unchecked_mut(row.index())
+                    .get_mut()
+                    .check_tick(change_tick);
+
+                column
+                    .changed_ticks
+                    .get_unchecked_mut(row.index())
+                    .get_mut()
+                    .check_tick(change_tick);
+            }
+        }
+    }
+}
+
+impl Drop for ComponentSparseSet {
+    fn drop(&mut self) {
+        let Self {
+            entity_to_row,
+            free_rows: _,
+            buffer_len,
+            buffer_capacity,
+            column,
+        } = self;
+
+        if let Some(drop) = column.data.drop {
+            for row in entity_to_row.iter().filter_map(|row| row.map(|row| row.0)) {
+                // SAFETY: We have &mut and are being dropped
+                unsafe { drop(column.data.get_unchecked_mut(row.index()).promote()) }
+            }
+        }
+
+        // SAFETY: Values are correct, and it is being dropped.
+        unsafe {
+            column.drop_and_forget_data(*buffer_capacity, *buffer_len);
+        }
     }
 }
 
