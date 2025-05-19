@@ -335,21 +335,6 @@ impl BlobVec {
         unsafe { PtrMut::new(self.data) }
     }
 
-    /// Get a reference to the entire [`BlobVec`] as if it were an array with elements of type `T`
-    ///
-    /// # Safety
-    /// The type `T` must be the type of the items in this [`BlobVec`].
-    pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
-        // SAFETY: the inner data will remain valid for as long as 'self.
-        unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }
-    }
-
-    /// Returns the drop function for values stored in the vector,
-    /// or `None` if they don't need to be dropped.
-    #[inline]
-    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.drop
-    }
     /// Clears the vector, removing (and dropping) all values.
     ///
     /// Note that this method has no effect on the allocated capacity of the vector.
