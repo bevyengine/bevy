@@ -47,16 +47,18 @@ use bevy::{
         },
         render_resource::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, 
-            SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-            TextureFormat, VertexState,
+            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, SpecializedMeshPipeline,
+            SpecializedMeshPipelineError, SpecializedMeshPipelines, TextureFormat, VertexState,
         },
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
     },
 };
-use bevy_render::{frame_graph::FrameGraph, render_resource::RenderPipelineDescriptor};
+use bevy_render::{
+    frame_graph::FrameGraph, render_phase::TrackedRenderPass,
+    render_resource::RenderPipelineDescriptor, renderer::RenderDevice,
+};
 use nonmax::NonMaxU32;
 
 const SHADER_ASSET_PATH: &str = "shaders/custom_stencil.wgsl";
@@ -587,10 +589,43 @@ impl ViewNode for CustomDrawNode {
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut FrameGraph,
+        frame_graph: &mut FrameGraph,
         (camera, view, target): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        // First, we need to get our phases resource
+        let Some(stencil_phases) = world.get_resource::<ViewSortedRenderPhases<Stencil3d>>() else {
+            return Ok(());
+        };
+
+        // Get the view entity from the graph
+        let view_entity = graph.view_entity();
+
+        // Get the phase for the current view running our node
+        let Some(stencil_phase) = stencil_phases.get(&view.retained_view_entity) else {
+            return Ok(());
+        };
+
+        let mut pass_builder = frame_graph.create_pass_builder("custom_draw_node");
+
+        let color_attachment = target.get_color_attachment(&mut pass_builder);
+
+        let mut render_pass_builder = pass_builder.create_render_pass_builder("stencil pass");
+
+        render_pass_builder
+            .add_color_attachment(color_attachment)
+            .set_camera_viewport(camera.viewport.clone());
+
+        let render_device = world.resource::<RenderDevice>();
+
+        let mut tracked_render_pass = TrackedRenderPass::new(&render_device, render_pass_builder);
+
+        // Render the phase
+        // This will execute each draw functions of each phase items queued in this phase
+        if let Err(err) = stencil_phase.render(&mut tracked_render_pass, world, view_entity) {
+            error!("Error encountered while rendering the stencil phase {err:?}");
+        }
+
         Ok(())
     }
 }
