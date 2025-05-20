@@ -65,7 +65,7 @@ impl SystemExecutor for SimpleExecutor {
         #[cfg(feature = "hotpatching")]
         let should_update_hotpatch = !world
             .get_resource::<Events<HotPatched>>()
-            .map(|e| e.is_empty())
+            .map(Events::is_empty)
             .unwrap_or(true);
 
         for system_index in 0..schedule.systems.len() {
@@ -202,7 +202,7 @@ fn evaluate_and_fold_conditions(
     #[cfg(feature = "hotpatching")]
     let should_update_hotpatch = !world
         .get_resource::<Events<HotPatched>>()
-        .map(|e| e.is_empty())
+        .map(Events::is_empty)
         .unwrap_or(true);
 
     #[expect(
