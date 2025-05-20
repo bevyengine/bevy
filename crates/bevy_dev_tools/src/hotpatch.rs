@@ -16,8 +16,8 @@ impl Plugin for HotPatchPlugin {
         let (sender, receiver) = crossbeam_channel::bounded::<HotPatched>(1);
 
         // Connects to the dioxus CLI that will handle rebuilds
-        // On a successful rebuild it sends a `HotReload` message with the new jump table
-        // When receiving that message, update the table and sends a `HotPatched` message through the channel
+        // On a successful rebuild the CLI sends a `HotReload` message with the new jump table
+        // When receiving that message, update the table and send a `HotPatched` message through the channel
         connect(move |msg| {
             if let DevserverMsg::HotReload(hot_reload_msg) = msg {
                 if let Some(jumptable) = hot_reload_msg.jump_table {
