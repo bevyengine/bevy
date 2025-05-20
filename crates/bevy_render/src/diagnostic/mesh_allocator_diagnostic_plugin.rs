@@ -12,12 +12,17 @@ const MESH_ALLOCATOR_SLABS: DiagnosticPath = DiagnosticPath::const_new("mesh_all
 const MESH_ALLOCATOR_SLABS_SIZE: DiagnosticPath =
     DiagnosticPath::const_new("mesh_allocator_slabs_size");
 
+/// Number of meshes allocated into slabs
+const MESH_ALLOCATOR_ALLOCATIONS: DiagnosticPath =
+    DiagnosticPath::const_new("mesh_allocator_allocations");
+
 pub struct MeshAllocatorDiagnosticPlugin;
 
 impl Plugin for MeshAllocatorDiagnosticPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.register_diagnostic(Diagnostic::new(MESH_ALLOCATOR_SLABS).with_suffix(" slabs"))
             .register_diagnostic(Diagnostic::new(MESH_ALLOCATOR_SLABS_SIZE).with_suffix(" bytes"))
+            .register_diagnostic(Diagnostic::new(MESH_ALLOCATOR_ALLOCATIONS).with_suffix(" meshes"))
             .init_resource::<MeshAllocatorMeasurements>()
             .add_systems(PreUpdate, add_mesh_allocator_measurement);
 
@@ -31,6 +36,7 @@ impl Plugin for MeshAllocatorDiagnosticPlugin {
 struct MeshAllocatorMeasurements {
     slabs: AtomicUsize,
     slabs_size: AtomicU64,
+    allocations: AtomicUsize,
 }
 
 fn add_mesh_allocator_measurement(
@@ -42,6 +48,9 @@ fn add_mesh_allocator_measurement(
     });
     diagnostics.add_measurement(&MESH_ALLOCATOR_SLABS_SIZE, || {
         measurements.slabs_size.load(Ordering::Relaxed) as f64
+    });
+    diagnostics.add_measurement(&MESH_ALLOCATOR_ALLOCATIONS, || {
+        measurements.allocations.load(Ordering::Relaxed) as f64
     });
 }
 
@@ -55,4 +64,7 @@ fn measure_allocator(
     measurements
         .slabs_size
         .store(allocator.slabs_size(), Ordering::Relaxed);
+    measurements
+        .allocations
+        .store(allocator.allocations(), Ordering::Relaxed);
 }
