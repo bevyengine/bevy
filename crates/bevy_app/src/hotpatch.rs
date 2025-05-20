@@ -14,6 +14,8 @@ impl Plugin for HotPatchPlugin {
         connect(move |msg| {
             if let DevserverMsg::HotReload(hot_reload_msg) = msg {
                 if let Some(jumptable) = hot_reload_msg.jump_table {
+                    // SAFETY: This is not unsafe, but anything using the updated jump table is.
+                    // The table must be built carefully
                     unsafe { apply_patch(jumptable).unwrap() };
                     sender.send(HotPatched).unwrap();
                 }
