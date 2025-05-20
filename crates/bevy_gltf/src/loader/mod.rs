@@ -79,7 +79,7 @@ use self::{
             alpha_mode, material_label, needs_tangents, uv_channel,
             warn_on_differing_texture_transforms,
         },
-        mesh::{mesh_name, primitive_topology},
+        mesh::{primitive_name, primitive_topology},
         scene::{node_name, node_transform},
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
