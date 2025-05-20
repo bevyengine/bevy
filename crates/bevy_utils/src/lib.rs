@@ -22,9 +22,6 @@ pub mod prelude {
     pub use crate::default;
 }
 
-pub mod synccell;
-pub mod syncunsafecell;
-
 mod default;
 mod once;
 #[cfg(feature = "std")]
