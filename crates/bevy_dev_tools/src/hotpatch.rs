@@ -15,6 +15,9 @@ impl Plugin for HotPatchPlugin {
     fn build(&self, app: &mut crate::App) {
         let (sender, receiver) = crossbeam_channel::bounded::<HotPatched>(1);
 
+        // Connects to the dioxus CLI that will handle rebuilds
+        // On a successful rebuild it sends a `HotReload` message with the new jump table
+        // When receiving that message, update the table and sends a `HotPatched` message through the channel
         connect(move |msg| {
             if let DevserverMsg::HotReload(hot_reload_msg) = msg {
                 if let Some(jumptable) = hot_reload_msg.jump_table {
@@ -26,6 +29,7 @@ impl Plugin for HotPatchPlugin {
             }
         });
 
+        // Adds a system that will read the channel for new `HotPatched`, and forward them as event to the ECS
         app.add_event::<HotPatched>().add_systems(
             Last,
             move |mut events: EventWriter<HotPatched>| {
