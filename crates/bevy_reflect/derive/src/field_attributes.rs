@@ -5,8 +5,8 @@
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
 use crate::{
-    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
-    REFLECT_ATTRIBUTE_NAME,
+    attribute_parser::terminated_parser, conversion::Conversion,
+    custom_attributes::CustomAttributes, REFLECT_ATTRIBUTE_NAME,
 };
 use quote::ToTokens;
 use syn::{parse::ParseStream, Attribute, LitStr, Meta, Token, Type};
@@ -17,6 +17,7 @@ mod kw {
     syn::custom_keyword!(clone);
     syn::custom_keyword!(default);
     syn::custom_keyword!(remote);
+    pub use crate::conversion::kw::from;
 }
 
 pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
@@ -92,6 +93,8 @@ pub(crate) struct FieldAttributes {
     pub custom_attributes: CustomAttributes,
     /// For defining the remote wrapper type that should be used in place of the field for reflection logic.
     pub remote: Option<Type>,
+    /// Sets the conversion behavior of this field
+    pub conversions: Vec<Conversion>,
 }
 
 impl FieldAttributes {
@@ -137,6 +140,9 @@ impl FieldAttributes {
             self.parse_clone(input)
         } else if lookahead.peek(kw::default) {
             self.parse_default(input)
+        } else if lookahead.peek(kw::from) {
+            self.conversions.push(Conversion::parse_from_attr(input)?);
+            Ok(())
         } else if lookahead.peek(kw::remote) {
             self.parse_remote(input)
         } else {
