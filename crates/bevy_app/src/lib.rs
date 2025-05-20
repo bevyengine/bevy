@@ -6,7 +6,11 @@
     )
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
-#![forbid(unsafe_code)]
+#![cfg_attr(
+    feature = "hotpatching",
+    expect(unsafe_code, reason = "Unsafe code for system hotpatching.")
+)]
+#![cfg_attr(not(feature = "hotpatching"), forbid(unsafe_code))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -24,6 +28,8 @@ extern crate alloc;
 extern crate self as bevy_app;
 
 mod app;
+#[cfg(feature = "hotpatching")]
+mod hotpatch;
 mod main_schedule;
 mod panic_handler;
 mod plugin;
@@ -35,6 +41,8 @@ mod task_pool_plugin;
 mod terminal_ctrl_c_handler;
 
 pub use app::*;
+#[cfg(feature = "hotpatching")]
+pub use hotpatch::HotPatchPlugin;
 pub use main_schedule::*;
 pub use panic_handler::*;
 pub use plugin::*;
