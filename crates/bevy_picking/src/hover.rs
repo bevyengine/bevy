@@ -37,7 +37,7 @@ type OverMap = HashMap<PointerId, LayerMap>;
 ///
 /// Maps pointers to the entities they are hovering over.
 ///
-/// "Hovered" refers to the *hover* state, which is not the same as whether or not a picking
+/// "Hovering" refers to the *hover* state, which is not the same as whether or not a picking
 /// backend is reporting hits between a pointer and an entity. A pointer is "hovering" an entity
 /// only if the pointer is hitting the entity (as reported by a picking backend) *and* no entities
 /// between it and the pointer block interactions.
