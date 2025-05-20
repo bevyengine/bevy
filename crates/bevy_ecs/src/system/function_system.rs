@@ -687,7 +687,7 @@ where
     fn refresh_hotpatch(&mut self) {
         let new = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run).ptr_address();
         if new != self.current_ptr {
-            log::info!("system {} hotpatched", self.name());
+            log::debug!("system {} hotpatched", self.name());
         }
         self.current_ptr = new;
     }
