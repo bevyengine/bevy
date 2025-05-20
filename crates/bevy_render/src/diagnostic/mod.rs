@@ -4,6 +4,7 @@
 
 pub(crate) mod internal;
 mod mesh_allocator_diagnostic_plugin;
+mod render_asset_diagnostic_plugin;
 #[cfg(feature = "tracing-tracy")]
 mod tracy_gpu;
 
@@ -17,7 +18,10 @@ use crate::{renderer::RenderAdapterInfo, RenderApp};
 use self::internal::{
     sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
 };
-pub use mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin;
+pub use self::{
+    mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
+    render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
+};
 
 use super::{RenderDevice, RenderQueue};
 
