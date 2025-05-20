@@ -23,7 +23,7 @@ use bevy_render::{
     sync_world::TemporaryRenderEntity,
     texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use binding_types::{sampler, texture_2d};
@@ -53,13 +53,13 @@ impl Plugin for UiTextureSlicerPlugin {
                 .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_ui_texture_slices.in_set(RenderUiSystem::ExtractTextureSlice),
+                    extract_ui_texture_slices.in_set(RenderUiSystems::ExtractTextureSlice),
                 )
                 .add_systems(
                     Render,
                     (
-                        queue_ui_slices.in_set(RenderSet::Queue),
-                        prepare_ui_slices.in_set(RenderSet::PrepareBindGroups),
+                        queue_ui_slices.in_set(RenderSystems::Queue),
+                        prepare_ui_slices.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
         }

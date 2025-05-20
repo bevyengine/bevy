@@ -14,9 +14,9 @@ use bevy_ecs::{
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_render::camera::CameraUpdateSystem;
 
 use accesskit::{Node, Rect, Role};
+use bevy_render::camera::CameraUpdateSystems;
 
 fn calc_label(
     text_reader: &mut TextUiReader,
@@ -150,8 +150,8 @@ impl Plugin for AccessibilityPlugin {
             PostUpdate,
             (
                 calc_bounds
-                    .after(bevy_transform::TransformSystem::TransformPropagate)
-                    .after(CameraUpdateSystem)
+                    .after(bevy_transform::TransformSystems::Propagate)
+                    .after(CameraUpdateSystems)
                     // the listed systems do not affect calculated size
                     .ambiguous_with(crate::ui_stack_system),
                 button_changed,

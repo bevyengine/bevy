@@ -22,7 +22,7 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::BorderRect;
 use bytemuck::{Pod, Zeroable};
@@ -75,13 +75,13 @@ where
                 .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
+                    extract_ui_material_nodes::<M>.in_set(RenderUiSystems::ExtractBackgrounds),
                 )
                 .add_systems(
                     Render,
                     (
-                        queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
-                        prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
+                        queue_ui_material_nodes::<M>.in_set(RenderSystems::Queue),
+                        prepare_uimaterial_nodes::<M>.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
         }
