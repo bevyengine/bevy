@@ -3,6 +3,8 @@
 use bevy_ecs::{event::EventWriter, HotPatched};
 use dioxus_devtools::{connect, subsecond::apply_patch, DevserverMsg};
 
+pub use dioxus_devtools::subsecond::{call, HotFunction};
+
 use crate::{Last, Plugin};
 
 /// Plugin connecting to Dioxus CLI to enable hot patching.
