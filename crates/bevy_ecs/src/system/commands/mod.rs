@@ -1068,6 +1068,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
     /// with the entity that stores the observer.
     ///
+    /// `observer` can be any system whose first parameter is a [`Trigger`].
+    ///
     /// **Calling [`observe`](EntityCommands::observe) on the returned
     /// [`EntityCommands`] will observe the observer itself, which you very
     /// likely do not want.**
