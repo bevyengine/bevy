@@ -38,12 +38,12 @@ impl HttpSourceAssetReader {
     }
 
     /// See [`crate::io::get_meta_path`]
-    fn make_meta_uri(&self, path: &Path) -> Option<PathBuf> {
+    fn make_meta_uri(&self, path: &Path) -> PathBuf {
         let mut uri = self.make_uri(path);
-        let mut extension = path.extension()?.to_os_string();
+        let mut extension = path.extension().unwrap_or_default().to_os_string();
         extension.push(".meta");
         uri.set_extension(extension);
-        Some(uri)
+        uri
     }
 }
 
@@ -71,7 +71,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     })?;
 
     #[cfg(feature = "http_source_cache")]
-    if let Some(data) = http_asset_cache::try_load_from_cache(str_path)? {
+    if let Some(data) = http_asset_cache::try_load_from_cache(str_path).await? {
         return Ok(Box::new(VecReader::new(data)));
     }
     use ureq::Agent;
@@ -87,7 +87,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             reader.read_to_end(&mut buffer)?;
 
             #[cfg(feature = "http_source_cache")]
-            http_asset_cache::save_to_cache(str_path, &buffer)?;
+            http_asset_cache::save_to_cache(str_path, &buffer).await?;
 
             Ok(Box::new(VecReader::new(buffer)))
         }
@@ -119,12 +119,8 @@ impl AssetReader for HttpSourceAssetReader {
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<dyn Reader>, AssetReaderError> {
-        match self.make_meta_uri(path) {
-            Some(uri) => get(uri).await,
-            None => Err(AssetReaderError::NotFound(
-                "source path has no extension".into(),
-            )),
-        }
+        let uri = self.make_meta_uri(path);
+        get(uri).await
     }
 
     async fn is_directory<'a>(&'a self, _path: &'a Path) -> Result<bool, AssetReaderError> {
@@ -147,10 +143,12 @@ mod http_asset_cache {
     use alloc::string::String;
     use alloc::vec::Vec;
     use core::hash::{Hash, Hasher};
+    use futures_lite::AsyncWriteExt;
     use std::collections::hash_map::DefaultHasher;
-    use std::fs::{self, File};
-    use std::io::{self, Read, Write};
+    use std::io;
     use std::path::PathBuf;
+
+    use crate::io::Reader;
 
     const CACHE_DIR: &str = ".http-asset-cache";
 
@@ -160,28 +158,28 @@ mod http_asset_cache {
         std::format!("{:x}", hasher.finish())
     }
 
-    pub fn try_load_from_cache(url: &str) -> Result<Option<Vec<u8>>, io::Error> {
+    pub async fn try_load_from_cache(url: &str) -> Result<Option<Vec<u8>>, io::Error> {
         let filename = url_to_hash(url);
         let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
 
         if cache_path.exists() {
-            let mut file = File::open(&cache_path)?;
+            let mut file = async_fs::File::open(&cache_path).await?;
             let mut buffer = Vec::new();
-            file.read_to_end(&mut buffer)?;
+            file.read_to_end(&mut buffer).await?;
             Ok(Some(buffer))
         } else {
             Ok(None)
         }
     }
 
-    pub fn save_to_cache(url: &str, data: &[u8]) -> Result<(), io::Error> {
+    pub async fn save_to_cache(url: &str, data: &[u8]) -> Result<(), io::Error> {
         let filename = url_to_hash(url);
         let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
 
-        fs::create_dir_all(CACHE_DIR).ok();
+        async_fs::create_dir_all(CACHE_DIR).await.ok();
 
-        let mut cache_file = File::create(&cache_path)?;
-        cache_file.write_all(data)?;
+        let mut cache_file = async_fs::File::create(&cache_path).await?;
+        cache_file.write_all(data).await?;
 
         Ok(())
     }
@@ -218,7 +216,6 @@ mod tests {
         assert_eq!(
             HttpSourceAssetReader::Http
                 .make_meta_uri(Path::new("example.com/favicon.png"))
-                .expect("cannot create meta uri")
                 .to_str()
                 .unwrap(),
             "http://example.com/favicon.png.meta"
@@ -230,7 +227,6 @@ mod tests {
         assert_eq!(
             HttpSourceAssetReader::Https
                 .make_meta_uri(Path::new("example.com/favicon.png"))
-                .expect("cannot create meta uri")
                 .to_str()
                 .unwrap(),
             "https://example.com/favicon.png.meta"
@@ -240,8 +236,11 @@ mod tests {
     #[test]
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
-            HttpSourceAssetReader::Https.make_meta_uri(Path::new("example.com/favicon")),
-            None
+            HttpSourceAssetReader::Https
+                .make_meta_uri(Path::new("example.com/favicon"))
+                .to_str()
+                .unwrap(),
+            "https://example.com/favicon.meta"
         );
     }
 }
