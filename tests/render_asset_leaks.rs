@@ -151,6 +151,71 @@ fn check_standard_material_churn_leak() {
     }
 }
 
+#[ignore = "FIXME Failing test"]
+#[test]
+fn check_mesh_churn_insert_leak() {
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins
+            .build()
+            .disable::<AudioPlugin>()
+            .disable::<WinitPlugin>()
+            .disable::<WindowPlugin>(),
+        LogDiagnosticsPlugin {
+            wait_duration: Duration::ZERO,
+            ..Default::default()
+        },
+        RenderAssetDiagnosticPlugin::<RenderMesh>::new(" meshes"),
+        MeshAllocatorDiagnosticPlugin,
+    ))
+    .add_systems(Startup, mesh_setup)
+    .add_systems(
+        Update,
+        (churn_using_insert::<Mesh>, crash_on_mesh_leak_detection),
+    );
+
+    app.finish();
+    app.cleanup();
+
+    for _ in 0..100 {
+        app.update();
+    }
+}
+
+#[ignore = "FIXME Failing test"]
+#[test]
+fn check_standard_material_churn_insert_leak() {
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins
+            .build()
+            .disable::<AudioPlugin>()
+            .disable::<WinitPlugin>()
+            .disable::<WindowPlugin>(),
+        LogDiagnosticsPlugin {
+            wait_duration: Duration::ZERO,
+            ..Default::default()
+        },
+        RenderAssetDiagnosticPlugin::<PreparedMaterial<StandardMaterial>>::new(" materials"),
+        MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::default(),
+    ))
+    .add_systems(Startup, mesh_setup)
+    .add_systems(
+        Update,
+        (
+            churn_using_insert::<StandardMaterial>,
+            crash_on_material_leak_detection::<StandardMaterial>,
+        ),
+    );
+
+    app.finish();
+    app.cleanup();
+
+    for _ in 0..100 {
+        app.update();
+    }
+}
+
 #[derive(Resource)]
 struct Leaker<A: Asset>(Vec<Handle<A>>);
 
@@ -185,12 +250,22 @@ fn churn<A: Asset>(mut assets: ResMut<Assets<A>>, mut leaker: ResMut<Leaker<A>>)
     }
 }
 
+fn churn_using_insert<A: Asset>(mut assets: ResMut<Assets<A>>, leaker: Res<Leaker<A>>) {
+    for id in &leaker.0 {
+        let asset = assets.remove(id.id()).unwrap();
+        assets.insert(id.id(), asset);
+    }
+}
+
 fn crash_on_mesh_leak_detection(diagnostic_store: Res<DiagnosticsStore>) {
-    if let (Some(render_meshes), Some(allocations)) = (
+    if let (Some(render_meshes), Some(slab_size), Some(allocations)) = (
         diagnostic_store
             .get_measurement(
                 &RenderAssetDiagnosticPlugin::<RenderMesh>::render_asset_diagnostic_path(),
             )
+            .filter(|diag| diag.value > 0.),
+        diagnostic_store
+            .get_measurement(MeshAllocatorDiagnosticPlugin::slabs_size_diagnostic_path())
             .filter(|diag| diag.value > 0.),
         diagnostic_store
             .get_measurement(MeshAllocatorDiagnosticPlugin::allocations_diagnostic_path())
@@ -200,20 +275,31 @@ fn crash_on_mesh_leak_detection(diagnostic_store: Res<DiagnosticsStore>) {
             allocations.value < render_meshes.value * 10.,
             "Detected leak"
         );
+        assert!(
+            slab_size.value < (1 << 30) as f64,
+            "Exceeded 1GB of allocations."
+        );
     }
 }
 
 fn crash_on_material_leak_detection<M: Material>(diagnostic_store: Res<DiagnosticsStore>) {
-    if let (Some(materials), Some(allocations)) = (
+    if let (Some(materials), Some(slab_size), Some(allocations)) = (
         diagnostic_store
             .get_measurement(
                 &RenderAssetDiagnosticPlugin::<PreparedMaterial<M>>::render_asset_diagnostic_path(),
             )
             .filter(|diag| diag.value > 0.),
         diagnostic_store
+            .get_measurement(&MaterialAllocatorDiagnosticPlugin::<M>::slabs_size_diagnostic_path())
+            .filter(|diag| diag.value > 0.),
+        diagnostic_store
             .get_measurement(&MaterialAllocatorDiagnosticPlugin::<M>::allocations_diagnostic_path())
             .filter(|diag| diag.value > 0.),
     ) {
         assert!(allocations.value < materials.value * 10., "Detected leak");
+        assert!(
+            slab_size.value < (1 << 30) as f64,
+            "Exceeded 1GB of allocations."
+        );
     }
 }
