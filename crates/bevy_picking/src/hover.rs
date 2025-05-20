@@ -280,8 +280,8 @@ fn merge_interaction_states(
 /// enters or leaves an entity. Users should insert this component on an entity to indicate interest
 /// in knowing about hover state changes.
 ///
-/// This is similar to the old Bevy [`Interaction`] component, except that it only tracks hover
-/// state, not button presses or other interactions.
+/// This is similar to the old Bevy [`bevy_ui::Interaction`] component, except that it only tracks
+/// hover state, not button presses or other interactions.
 ///
 /// The component's boolean value will be `true` whenever the pointer is currently hovering over the
 /// entity, or any of the entity's children. This value is guaranteed to only be mutated when the
@@ -303,12 +303,13 @@ pub fn update_hovering_states(
     mut hovers: Query<(Entity, &mut Hovering)>,
     parent_query: Query<&ChildOf>,
 ) {
+    // Don't do any work if there's no hover map.
+    let Some(hover_map) = hover_map else { return };
+
     // Don't bother collecting ancestors if there are no hovers.
     if hovers.is_empty() {
         return;
     }
-
-    let Some(hover_map) = hover_map else { return };
 
     // Set which contains the hovered for the current pointer entity and its ancestors. The capacity
     // is based on the likely tree depth of the hierarchy, which is typically greater for UI (because
@@ -316,7 +317,7 @@ pub fn update_hovering_states(
     // cases.
     let mut hover_ancestors = EntityHashSet::with_capacity(32);
     if let Some(map) = hover_map.get(&PointerId::Mouse) {
-        for (hovered_entity, _) in map.iter() {
+        for hovered_entity in map.keys() {
             hover_ancestors.insert(*hovered_entity);
             hover_ancestors.extend(parent_query.iter_ancestors(*hovered_entity));
         }

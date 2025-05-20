@@ -19,7 +19,7 @@ In the web development world, "headless" widget libraries, such as react-headles
 become popular. These provide standardized widgets that implement all of the correct interactions and
 behavioral logic, including integration with screen readers, but which are unstyled. It's the
 responsibility of the game developer to provide the visual style and animation for the widgets,
-which can fit the overall style of the game.
+which can fit the overall style of their game.
 
 With this release, Bevy introduces a collection of headless or "core" widgets. These are components
 which can be added to any UI Node to get widget-like behavior. The core widget set includes buttons,
@@ -40,7 +40,7 @@ These components include:
 - `Checked` is a boolean component that stores the checked state of a checkbox or radio button.
 - `ButtonPressed` is used for a button-like widget, and will be true while the button is held down.
 
-The combination of `Hovering` and `ButtonPressed` fulfils the same purpose as the old `Interaction`
+The combination of `Hovering` and `ButtonPressed` fulfills the same purpose as the old `Interaction`
 component, except that now we can also represent "roll-off" behavior (the state where you click
 on a button and then, while holding the mouse down, move the pointer out of the button's bounds).
 It also provides additional flexibility in cases where a widget has multiple hoverable parts,
