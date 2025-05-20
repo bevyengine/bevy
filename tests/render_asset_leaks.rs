@@ -9,7 +9,10 @@ use bevy::{
     audio::AudioPlugin,
     color::Color,
     diagnostic::{DiagnosticsStore, LogDiagnosticsPlugin},
-    ecs::system::{Res, ResMut},
+    ecs::{
+        resource::Resource,
+        system::{Commands, Res, ResMut},
+    },
     math::primitives::Sphere,
     pbr::{
         diagnostic::MaterialAllocatorDiagnosticPlugin, Material, PreparedMaterial, StandardMaterial,
@@ -22,7 +25,6 @@ use bevy::{
     winit::WinitPlugin,
     DefaultPlugins,
 };
-use bevy_ecs::{resource::Resource, system::Commands};
 
 #[test]
 fn check_mesh_leak() {
