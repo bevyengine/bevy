@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    BindGroupEntryBinding, BindGroupResourceBinding, BindGroupResourceHelper,
+    BindGroupEntryBinding, BindGroupResourceBinding, BindGroupResourceBindingHelper,
     BindingResourceBuffer, BindingResourceTextureView, IntoBindGroupResourceBinding,
 };
 
@@ -25,7 +25,7 @@ impl BindGroupEntryHandle {
     pub fn get_ref(&self, pass_node_builder: &mut PassNodeBuilder) -> BindGroupEntryBinding {
         let resource = self
             .resource
-            .make_binding_group_resource_binding(pass_node_builder);
+            .make_bind_group_resource_binding(pass_node_builder);
 
         BindGroupEntryBinding {
             binding: self.binding,
@@ -55,8 +55,8 @@ pub struct BindingResourceTextureViewHandle {
     pub texture_view_info: TextureViewInfo,
 }
 
-impl BindGroupResourceHelper for BindGroupResourceHandle {
-    fn make_binding_group_resource_binding(
+impl BindGroupResourceBindingHelper for BindGroupResourceHandle {
+    fn make_bind_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding {

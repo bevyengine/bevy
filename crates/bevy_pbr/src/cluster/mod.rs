@@ -17,7 +17,9 @@ use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
-    frame_graph::{BindGroupResourceHandle, FrameGraph},
+    frame_graph::{
+        BindGroupResourceHandle, FrameGraph, IntoBindGroupResourceHandle, ResourceMaterial,
+    },
     render_resource::{
         BindingResource, Buffer, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
         UniformBuffer,
@@ -757,7 +759,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn make_clusterable_object_index_lists_binding_resource_handle(
+    pub fn make_clusterable_object_index_lists_bind_resource_handle(
         &self,
         frame_graph: &mut FrameGraph,
     ) -> Option<BindGroupResourceHandle> {
@@ -765,11 +767,15 @@ impl ViewClusterBindings {
             ViewClusterBuffers::Uniform {
                 clusterable_object_index_lists,
                 ..
-            } => clusterable_object_index_lists.make_binding_resource_handle(frame_graph),
+            } => clusterable_object_index_lists
+                .buffer()
+                .map(|buffer| buffer.imported(frame_graph).into_binding()),
             ViewClusterBuffers::Storage {
                 clusterable_object_index_lists,
                 ..
-            } => clusterable_object_index_lists.make_binding_resource_handle(frame_graph),
+            } => clusterable_object_index_lists
+                .buffer()
+                .map(|buffer| buffer.imported(frame_graph).into_binding()),
         }
     }
 
@@ -786,7 +792,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn make_offsets_and_counts_binding_resource_handle(
+    pub fn make_offsets_and_counts_bind_resource_handle(
         &self,
         frame_graph: &mut FrameGraph,
     ) -> Option<BindGroupResourceHandle> {
@@ -794,11 +800,15 @@ impl ViewClusterBindings {
             ViewClusterBuffers::Uniform {
                 cluster_offsets_and_counts,
                 ..
-            } => cluster_offsets_and_counts.make_binding_resource_handle(frame_graph),
+            } => cluster_offsets_and_counts
+                .buffer()
+                .map(|buffer| buffer.imported(frame_graph).into_binding()),
             ViewClusterBuffers::Storage {
                 cluster_offsets_and_counts,
                 ..
-            } => cluster_offsets_and_counts.make_binding_resource_handle(frame_graph),
+            } => cluster_offsets_and_counts
+                .buffer()
+                .map(|buffer| buffer.imported(frame_graph).into_binding()),
         }
     }
 

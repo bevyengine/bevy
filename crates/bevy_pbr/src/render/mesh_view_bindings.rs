@@ -640,7 +640,7 @@ pub fn prepare_mesh_view_bind_groups(
                 (
                     9,
                     cluster_bindings
-                        .make_clusterable_object_index_lists_binding_resource_handle(
+                        .make_clusterable_object_index_lists_bind_resource_handle(
                             &mut frame_graph,
                         )
                         .unwrap(),
@@ -648,7 +648,7 @@ pub fn prepare_mesh_view_bind_groups(
                 (
                     10,
                     cluster_bindings
-                        .make_offsets_and_counts_binding_resource_handle(&mut frame_graph)
+                        .make_offsets_and_counts_bind_resource_handle(&mut frame_graph)
                         .unwrap(),
                 ),
                 (11, &globals_buffer_binding),

@@ -22,15 +22,15 @@ pub trait BindGroupResourceHandleHelper {
     ) -> BindGroupResourceHandle;
 }
 
-pub trait BindGroupResourceHelper {
-    fn make_binding_group_resource_binding(
+pub trait BindGroupResourceBindingHelper {
+    fn make_bind_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding;
 }
 
-impl BindGroupResourceHelper for Buffer {
-    fn make_binding_group_resource_binding(
+impl BindGroupResourceBindingHelper for Buffer {
+    fn make_bind_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding {
@@ -40,8 +40,8 @@ impl BindGroupResourceHelper for Buffer {
     }
 }
 
-impl BindGroupResourceHelper for Texture {
-    fn make_binding_group_resource_binding(
+impl BindGroupResourceBindingHelper for Texture {
+    fn make_bind_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding {

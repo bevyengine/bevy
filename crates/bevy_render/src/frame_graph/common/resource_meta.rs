@@ -7,7 +7,7 @@ use crate::frame_graph::{
 
 use super::{
     BindGroupResourceBinding, BindGroupResourceHandle, BindGroupResourceHandleHelper,
-    BindGroupResourceHelper, BindingResourceTextureView, IntoBindGroupResourceHandle,
+    BindGroupResourceBindingHelper, BindingResourceTextureView, IntoBindGroupResourceHandle,
     TexelCopyTextureInfo, TextureViewInfo,
 };
 
@@ -44,8 +44,8 @@ impl BindGroupResourceHandleHelper for ResourceMeta<FrameGraphTexture> {
     }
 }
 
-impl BindGroupResourceHelper for ResourceMeta<FrameGraphTexture> {
-    fn make_binding_group_resource_binding(
+impl BindGroupResourceBindingHelper for ResourceMeta<FrameGraphTexture> {
+    fn make_bind_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding {

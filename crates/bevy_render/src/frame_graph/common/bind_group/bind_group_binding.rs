@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    BindGroupEntryBinding, BindGroupResourceBinding, BindGroupResourceHelper,
+    BindGroupEntryBinding, BindGroupResourceBinding, BindGroupResourceBindingHelper,
     IntoBindGroupResourceBinding, IntoBindGroupResourceHandle,
 };
 
@@ -52,9 +52,9 @@ impl<'a, 'b> BindGroupBindingBuilder<'a, 'b> {
         self.add_helper(binding, &resource)
     }
 
-    pub fn add_helper<T: BindGroupResourceHelper>(self, binding: u32, resource: &T) -> Self {
+    pub fn add_helper<T: BindGroupResourceBindingHelper>(self, binding: u32, resource: &T) -> Self {
         let resource =
-            resource.make_binding_group_resource_binding(self.pass_builder.pass_node_builder());
+            resource.make_bind_group_resource_binding(self.pass_builder.pass_node_builder());
         self.add_binding(binding, resource)
     }
 
