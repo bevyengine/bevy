@@ -6,6 +6,7 @@ pub mod ui_texture_slice_pipeline;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
+mod gradient;
 
 use crate::widget::{ImageNode, ViewportNode};
 use crate::{
@@ -48,6 +49,7 @@ use bevy_render::{
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
+use gradient::GradientPlugin;
 
 use crate::{Display, Node};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -94,6 +96,7 @@ pub mod stack_z_offsets {
     pub const BOX_SHADOW: f32 = -0.1;
     pub const TEXTURE_SLICE: f32 = 0.0;
     pub const NODE: f32 = 0.0;
+    pub const GRADIENT: f32 = 0.1;
     pub const MATERIAL: f32 = 0.18267;
 }
 
@@ -112,6 +115,7 @@ pub enum RenderUiSystems {
     ExtractTextShadows,
     ExtractText,
     ExtractDebug,
+    ExtractGradient,
 }
 
 /// Deprecated alias for [`RenderUiSystems`].
@@ -196,6 +200,7 @@ pub fn build_ui_render(app: &mut App) {
     }
 
     app.add_plugins(UiTextureSlicerPlugin);
+    app.add_plugins(GradientPlugin);
     app.add_plugins(BoxShadowPlugin);
 }
 
@@ -1078,6 +1083,10 @@ pub mod shader_flags {
     /// Ordering: top left, top right, bottom right, bottom left.
     pub const CORNERS: [u32; 4] = [0, 2, 2 | 4, 4];
     pub const BORDER: u32 = 8;
+    pub const RADIAL: u32 = 16;
+    pub const FILL_START: u32 = 32;
+    pub const FILL_END: u32 = 64;
+    pub const CONIC: u32 = 128;
 }
 
 pub fn queue_uinodes(
