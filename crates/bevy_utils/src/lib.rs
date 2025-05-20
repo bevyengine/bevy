@@ -24,6 +24,7 @@ pub mod prelude {
 
 pub mod synccell;
 pub mod syncunsafecell;
+mod wgpu_wrapper;
 
 mod default;
 mod once;
@@ -34,6 +35,8 @@ mod parallel_queue;
 pub use once::OnceFlag;
 
 pub use default::default;
+
+pub use wgpu_wrapper::WgpuWrapper;
 
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
