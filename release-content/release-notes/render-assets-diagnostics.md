@@ -6,7 +6,7 @@ pull_requests: [19311]
 
 ## Goals
 
-Create diagnostics plugins `MeshAllocatorDiagnosticPlugin`, `MaterialDiagnosticPlugin` and `RenderAssetDiagnosticPlugin`
+Create diagnostics plugins `MeshAllocatorDiagnosticPlugin`, `MaterialAllocatorDiagnosticPlugin` and `RenderAssetDiagnosticPlugin`
 that collect measurements related to `MeshAllocator`s, `MaterialBindGroupAllocator`, and `RenderAssets` respectively.
 
 `MeshAllocatorDiagnosticPlugin` and `MaterialDiagnosticPlugin` measure the number of slabs, the total size of memory
