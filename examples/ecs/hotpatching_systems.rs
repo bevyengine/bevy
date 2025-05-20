@@ -1,13 +1,18 @@
-//! This example demonstrates how to hotpatch systems.
+//! This example demonstrates how to hot patch systems.
 //!
 //! It needs to be run with the dioxus CLI:
 //! ```sh
 //! dx serve --hot-patch --example hotpatching_systems --features hotpatching
 //! ```
 //!
+//! All systems are automatically hot patchable.
+//!
 //! You can change the text in the `update_text` system, or the color in the
 //! `on_click` system, and those changes will be hotpatched into the running
 //! application.
+//!
+//! It's also possible to make any function hot patchable by wrapping it with
+//! `bevy::dev_tools::hotpatch::call`.
 
 use std::time::Duration;
 
@@ -16,16 +21,9 @@ use bevy::{color::palettes, prelude::*};
 fn main() {
     let (sender, receiver) = crossbeam_channel::unbounded::<()>();
 
-    std::thread::spawn(move || {
-        while receiver.recv().is_ok() {
-            let start = bevy::platform::time::Instant::now();
-            // You can also make any part outside of a system hot patchable by wrapping it
-            // In this part, only the duration is hot patchable:
-            let duration = bevy::dev_tools::hotpatch::call(|| Duration::from_secs(2));
-            std::thread::sleep(duration);
-            info!("done after {:?}", start.elapsed());
-        }
-    });
+    // This function is here to demonstrate how to make something hot patchable outside of a system
+    // It uses a thread for simplicity but could be an async task, an asset loader, ...
+    start_thread(receiver);
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -36,6 +34,8 @@ fn main() {
 }
 
 fn update_text(mut text: Single<&mut Text>) {
+    // Anything in the body of a system can be changed.
+    // Changes to this string should be immediately visible in the example.
     text.0 = "before".to_string();
 }
 
@@ -44,6 +44,8 @@ fn on_click(
     mut color: Single<&mut TextColor>,
     task_sender: Res<TaskSender>,
 ) {
+    // Observers are also hot patchable.
+    // If you change this color and click on the text in the example, it will have the new color.
     color.0 = palettes::tailwind::RED_600.into();
 
     let _ = task_sender.0.send(());
@@ -74,4 +76,19 @@ fn setup(mut commands: Commands) {
             )],
         ))
         .observe(on_click);
+}
+
+fn start_thread(receiver: crossbeam_channel::Receiver<()>) {
+    std::thread::spawn(move || {
+        while receiver.recv().is_ok() {
+            let start = bevy::platform::time::Instant::now();
+
+            // You can also make any part outside of a system hot patchable by wrapping it
+            // In this part, only the duration is hot patchable:
+            let duration = bevy::dev_tools::hotpatch::call(|| Duration::from_secs(2));
+
+            std::thread::sleep(duration);
+            info!("done after {:?}", start.elapsed());
+        }
+    });
 }
