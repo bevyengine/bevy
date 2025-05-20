@@ -1,3 +1,5 @@
+//! Utilities for hotpatching code.
+
 use bevy_ecs::{event::EventWriter, HotPatched};
 use dioxus_devtools::{connect, subsecond::apply_patch, DevserverMsg};
 

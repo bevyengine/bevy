@@ -71,12 +71,6 @@ web = [
   "dep:console_error_panic_hook",
 ]
 
-hotpatching = [
-  "bevy_ecs/hotpatching",
-  "dep:dioxus-devtools",
-  "dep:crossbeam-channel",
-]
-
 [dependencies]
 # bevy
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
@@ -93,8 +87,6 @@ variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 cfg-if = "1.0.0"
-dioxus-devtools = { git = "https://github.com/mockersf/dioxus", branch = "typed-hotfn-pointer", optional = true }
-crossbeam-channel = { version = "0.5.0", optional = true }
 
 [target.'cfg(any(unix, windows))'.dependencies]
 ctrlc = { version = "3.4.4", optional = true }

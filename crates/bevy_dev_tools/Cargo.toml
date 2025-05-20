@@ -11,6 +11,12 @@ keywords = ["bevy"]
 [features]
 bevy_ci_testing = ["serde", "ron"]
 
+hotpatching = [
+  "bevy_ecs/hotpatching",
+  "dep:dioxus-devtools",
+  "dep:crossbeam-channel",
+]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
@@ -33,6 +39,8 @@ bevy_state = { path = "../bevy_state", version = "0.16.0-dev" }
 serde = { version = "1.0", features = ["derive"], optional = true }
 ron = { version = "0.8.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+dioxus-devtools = { git = "https://github.com/mockersf/dioxus", branch = "typed-hotfn-pointer", optional = true }
+crossbeam-channel = { version = "0.5.0", optional = true }
 
 [lints]
 workspace = true
