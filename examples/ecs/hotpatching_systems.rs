@@ -19,8 +19,8 @@ fn main() {
         .run();
 }
 
-fn update_text(mut tex: Single<&mut Text>) {
-    **text = "before".to_string();
+fn update_text(mut text: Single<&mut Text>) {
+    text.0 = "before".to_string();
 }
 
 fn on_click(_click: Trigger<Pointer<Click>>, mut color: Single<&mut TextColor>) {
