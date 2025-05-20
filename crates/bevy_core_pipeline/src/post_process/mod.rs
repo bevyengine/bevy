@@ -383,7 +383,7 @@ impl ViewNode for PostProcessingNode {
         };
 
         // We need the chromatic aberration LUT to be present.
-        let Some(_) = gpu_image_assets.get(&chromatic_aberration.color_lut) else {
+        let Some(chromatic_aberration_lut) = gpu_image_assets.get(&chromatic_aberration.color_lut) else {
             return Ok(());
         };
 
@@ -399,6 +399,8 @@ impl ViewNode for PostProcessingNode {
 
         let destination = post_process.destination;
         let source = post_process.source;
+        
+        let chromatic_aberration_lut_handle = chromatic_aberration_lut.make_texture_view_handle(frame_graph);
 
         let mut pass_builder =
             PassBuilder::new(frame_graph.create_pass_node_bulder("postprocessing_pass_node"));
@@ -410,11 +412,12 @@ impl ViewNode for PostProcessingNode {
             )
             .add_helper(0, source)
             .add_handle(1, &post_processing_pipeline.source_sampler)
+            .add_handle(2, &chromatic_aberration_lut_handle)
             .add_handle(
-                2,
+                3,
                 &post_processing_pipeline.chromatic_aberration_lut_sampler,
             )
-            .add_handle(3, &chromatic_aberration_binding)
+            .add_handle(4, &chromatic_aberration_binding)
             .build();
 
         let destination = pass_builder.write_material(destination);
