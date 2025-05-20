@@ -221,7 +221,7 @@ fn spawn_button(
                 margin: UiRect::horizontal(Val::Px(2.)),
                 ..Default::default()
             },
-            BorderColor(if active {
+            BorderColor::all(if active {
                 ACTIVE_BORDER_COLOR
             } else {
                 INACTIVE_BORDER_COLOR
@@ -345,7 +345,7 @@ fn update_radio_buttons_colors(
                     )
                 };
 
-                border_query.get_mut(id).unwrap().0 = border_color;
+                *border_query.get_mut(id).unwrap() = BorderColor::all(border_color);
                 for &child in children_query.get(id).into_iter().flatten() {
                     color_query.get_mut(child).unwrap().0 = inner_color;
                     for &grandchild in children_query.get(child).into_iter().flatten() {

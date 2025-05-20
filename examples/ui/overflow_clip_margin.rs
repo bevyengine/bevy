@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(GRAY.into()),
-                                BorderColor(Color::BLACK),
+                                BorderColor::all(Color::BLACK),
                             ))
                             .with_children(|parent| {
                                 parent

@@ -102,7 +102,7 @@ fn test(
                 border: UiRect::all(Val::Px(5.0)),
                 ..default()
             },
-            BorderColor(Color::WHITE),
+            BorderColor::all(Color::WHITE),
             ViewportNode::new(camera),
         ))
         .observe(on_drag_viewport);
