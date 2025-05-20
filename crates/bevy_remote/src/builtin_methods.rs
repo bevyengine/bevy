@@ -1490,13 +1490,14 @@ mod tests {
             "Deserialized value does not match original"
         );
     }
+
     use super::*;
 
     #[test]
     fn serialization_tests() {
         test_serialize_deserialize(BrpQueryRow {
             components: Default::default(),
-            entity: Entity::from_raw(0),
+            entity: Entity::from_raw_u32(0).unwrap(),
             has: Default::default(),
         });
         test_serialize_deserialize(BrpListWatchingResponse::default());
@@ -1510,7 +1511,7 @@ mod tests {
             ..Default::default()
         });
         test_serialize_deserialize(BrpListParams {
-            entity: Entity::from_raw(0),
+            entity: Entity::from_raw_u32(0).unwrap(),
         });
     }
 }

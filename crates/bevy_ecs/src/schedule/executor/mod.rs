@@ -6,6 +6,7 @@ mod single_threaded;
 use alloc::{borrow::Cow, vec, vec::Vec};
 use core::any::TypeId;
 
+#[expect(deprecated, reason = "We still need to support this.")]
 pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
 
 #[cfg(feature = "std")]
@@ -18,7 +19,7 @@ use crate::{
     component::{ComponentId, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn, SystemParamValidationError},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -53,6 +54,10 @@ pub enum ExecutorKind {
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
     /// immediately after running each system.
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use SingleThreaded instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
+    )]
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     #[cfg(feature = "std")]
@@ -118,17 +123,6 @@ impl SystemSchedule {
     }
 }
 
-/// See [`ApplyDeferred`].
-#[deprecated(
-    since = "0.16.0",
-    note = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."
-)]
-#[expect(
-    non_upper_case_globals,
-    reason = "This item is deprecated; as such, its previous name needs to stay."
-)]
-pub const apply_deferred: ApplyDeferred = ApplyDeferred;
-
 /// A special [`System`] that instructs the executor to call
 /// [`System::apply_deferred`] on the systems that have run but not applied
 /// their [`Deferred`] system parameters (like [`Commands`]) or other system buffers.
@@ -172,6 +166,10 @@ impl System for ApplyDeferred {
     fn component_access(&self) -> &Access<ComponentId> {
         // This system accesses no components.
         const { &Access::new() }
+    }
+
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        const { &FilteredAccessSet::new() }
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
@@ -267,38 +265,54 @@ impl IntoSystemSet<()> for ApplyDeferred {
 mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
+    #[cfg(feature = "std")]
+    use crate::world::unsafe_world_cell::UnsafeWorldCell;
     use crate::{
         error::Result,
         system::{ReadOnlySystem, ScheduleSystem},
-        world::{unsafe_world_cell::UnsafeWorldCell, World},
+        world::World,
     };
 
     /// # Safety
     /// See `System::run_unsafe`.
+    // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
         let result = system.run_unsafe((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
     }
 
     /// # Safety
     /// See `ReadOnlySystem::run_unsafe`.
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "currently only used with the std feature")
-    )]
+    // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: UnsafeWorldCell,
     ) -> O {
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run_unsafe((), world))
     }
 
     #[inline(never)]
     pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) -> Result {
         let result = system.run((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
+        black_box(());
+        result
+    }
+
+    #[inline(never)]
+    pub(super) fn run_without_applying_deferred(
+        system: &mut ScheduleSystem,
+        world: &mut World,
+    ) -> Result {
+        let result = system.run_without_applying_deferred((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
     }
@@ -308,6 +322,7 @@ mod __rust_begin_short_backtrace {
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
     ) -> O {
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run((), world))
     }
 }
@@ -325,6 +340,7 @@ mod tests {
     struct TestComponent;
 
     const EXECUTORS: [ExecutorKind; 3] = [
+        #[expect(deprecated, reason = "We still need to test this.")]
         ExecutorKind::Simple,
         ExecutorKind::SingleThreaded,
         ExecutorKind::MultiThreaded,
@@ -385,6 +401,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
+        #[expect(deprecated, reason = "We still need to test this.")]
         schedule.set_executor_kind(ExecutorKind::Simple);
         schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);

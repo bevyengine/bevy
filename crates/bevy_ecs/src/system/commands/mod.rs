@@ -12,12 +12,11 @@ pub use parallel_scope::*;
 
 use alloc::boxed::Box;
 use core::marker::PhantomData;
-use log::error;
 
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode, NoBundleEffect},
-    change_detection::{MaybeLocation, Mut},
+    change_detection::Mut,
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
@@ -89,8 +88,8 @@ use crate::{
 /// A [`Command`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an [error handler](crate::error) if the `Result` is an error.
 ///
-/// The [default error handler](crate::error::default_error_handler) panics.
-/// It can be configured by setting the `GLOBAL_ERROR_HANDLER`.
+/// The default error handler panics. It can be configured via
+/// the [`DefaultErrorHandler`](crate::error::DefaultErrorHandler) resource.
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`Commands::queue_handled`].
@@ -509,7 +508,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// If the [`Command`] returns a [`Result`],
-    /// it will be handled using the [default error handler](crate::error::default_error_handler).
+    /// it will be handled using the [default error handler](crate::error::DefaultErrorHandler).
     ///
     /// To use a custom error handler, see [`Commands::queue_handled`].
     ///
@@ -624,57 +623,6 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating entities, if needed,
-    /// and for adding a bundle to each entity.
-    ///
-    /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
-    /// (it can also be a collection).
-    ///
-    /// When the command is applied,
-    /// for each (`Entity`, `Bundle`) pair in the given `bundles_iter`,
-    /// the `Entity` is spawned, if it does not exist already.
-    /// Then, the `Bundle` is added to the entity.
-    ///
-    /// This method is equivalent to iterating `bundles_iter`,
-    /// calling [`spawn`](Self::spawn) for each bundle,
-    /// and passing it to [`insert`](EntityCommands::insert),
-    /// but it is faster due to memory pre-allocation.
-    ///
-    /// # Note
-    ///
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an ID space (which doesn't happen by default).
-    #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
-    )]
-    pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
-    where
-        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
-    {
-        let caller = MaybeLocation::caller();
-        self.queue(move |world: &mut World| {
-
-            #[expect(
-                deprecated,
-                reason = "This needs to be supported for now, and the outer item is deprecated too."
-            )]
-            if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
-                bundles_iter,
-                caller,
-            ) {
-                error!(
-                    "{caller}: Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
-                    core::any::type_name::<B>(),
-                    invalid_entities
-                );
-            }
-        });
-    }
-
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
     /// based on a batch of `(Entity, Bundle)` pairs.
     ///
@@ -695,7 +643,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// This command will fail if any of the given entities do not exist.
     ///
     /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by the [default error handler](crate::error::default_error_handler).
+    /// which will be handled by the [default error handler](crate::error::DefaultErrorHandler).
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
@@ -726,7 +674,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// This command will fail if any of the given entities do not exist.
     ///
     /// It will internally return a [`TryInsertBatchError`](crate::world::error::TryInsertBatchError),
-    /// which will be handled by the [default error handler](crate::error::default_error_handler).
+    /// which will be handled by the [default error handler](crate::error::DefaultErrorHandler).
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -1123,6 +1071,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// **Calling [`observe`](EntityCommands::observe) on the returned
     /// [`EntityCommands`] will observe the observer itself, which you very
     /// likely do not want.**
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given system is an exclusive system.
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -1223,8 +1175,8 @@ impl<'w, 's> Commands<'w, 's> {
 /// An [`EntityCommand`] can return a [`Result`](crate::error::Result),
 /// which will be passed to an [error handler](crate::error) if the `Result` is an error.
 ///
-/// The [default error handler](crate::error::default_error_handler) panics.
-/// It can be configured by setting the `GLOBAL_ERROR_HANDLER`.
+/// The default error handler panics. It can be configured via
+/// the [`DefaultErrorHandler`](crate::error::DefaultErrorHandler) resource.
 ///
 /// Alternatively, you can customize the error handler for a specific command
 /// by calling [`EntityCommands::queue_handled`].
@@ -1797,14 +1749,6 @@ impl<'a> EntityCommands<'a> {
     pub fn despawn(&mut self) {
         self.queue_handled(entity_command::despawn(), warn);
     }
-    /// Despawns the provided entity and its descendants.
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use entity.despawn(), which now automatically despawns recursively."
-    )]
-    pub fn despawn_recursive(&mut self) {
-        self.despawn();
-    }
 
     /// Despawns the entity.
     ///
@@ -1824,7 +1768,7 @@ impl<'a> EntityCommands<'a> {
     /// Pushes an [`EntityCommand`] to the queue,
     /// which will get executed for the current [`Entity`].
     ///
-    /// The [default error handler](crate::error::default_error_handler)
+    /// The [default error handler](crate::error::DefaultErrorHandler)
     /// will be used to handle error cases.
     /// Every [`EntityCommand`] checks whether the entity exists at the time of execution
     /// and returns an error if it does not.

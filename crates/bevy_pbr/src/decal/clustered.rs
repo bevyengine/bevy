@@ -43,7 +43,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::{self, ViewVisibility, Visibility, VisibilityClass},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bytemuck::{Pod, Zeroable};
@@ -173,10 +173,13 @@ impl Plugin for ClusteredDecalPlugin {
             .add_systems(
                 Render,
                 prepare_decals
-                    .in_set(RenderSet::ManageViews)
+                    .in_set(RenderSystems::ManageViews)
                     .after(prepare_lights),
             )
-            .add_systems(Render, upload_decals.in_set(RenderSet::PrepareResources));
+            .add_systems(
+                Render,
+                upload_decals.in_set(RenderSystems::PrepareResources),
+            );
     }
 }
 

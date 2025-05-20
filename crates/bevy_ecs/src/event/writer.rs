@@ -98,38 +98,4 @@ impl<'w, E: Event> EventWriter<'w, E> {
     {
         self.events.send_default()
     }
-
-    /// Sends an `event`, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This method returns the [ID](`EventId`) of the sent `event`.
-    ///
-    /// See [`Events`] for details.
-    #[deprecated(since = "0.16.0", note = "Use `EventWriter::write` instead.")]
-    #[track_caller]
-    pub fn send(&mut self, event: E) -> EventId<E> {
-        self.write(event)
-    }
-
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than sending each event individually.
-    /// This method returns the [IDs](`EventId`) of the sent `events`.
-    ///
-    /// See [`Events`] for details.
-    #[deprecated(since = "0.16.0", note = "Use `EventWriter::write_batch` instead.")]
-    #[track_caller]
-    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
-        self.write_batch(events)
-    }
-
-    /// Sends the default value of the event. Useful when the event is an empty struct.
-    /// This method returns the [ID](`EventId`) of the sent `event`.
-    ///
-    /// See [`Events`] for details.
-    #[deprecated(since = "0.16.0", note = "Use `EventWriter::write_default` instead.")]
-    #[track_caller]
-    pub fn send_default(&mut self) -> EventId<E>
-    where
-        E: Default,
-    {
-        self.write_default()
-    }
 }

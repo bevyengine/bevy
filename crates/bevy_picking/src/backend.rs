@@ -42,7 +42,7 @@ pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
         pointer::{PointerId, PointerLocation},
-        PickSet, Pickable,
+        Pickable, PickingSystems,
     };
 }
 
@@ -54,7 +54,7 @@ pub mod prelude {
 ///
 /// Note that systems reading these events in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
-/// against [`PickSet::Backend`](crate::PickSet::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
+/// against [`PickingSystems::Backend`](crate::PickingSystems::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
 #[derive(Event, Debug, Clone, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct PointerHits {
@@ -84,7 +84,7 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+    /// Construct [`PointerHits`].
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -114,7 +114,7 @@ pub struct HitData {
 }
 
 impl HitData {
-    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+    /// Construct a [`HitData`].
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,
