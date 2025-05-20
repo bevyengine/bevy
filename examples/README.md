@@ -780,6 +780,12 @@ Bevy has a helper to build its examples:
 - Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
 - Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
 
+Debug mode:
+Add the `--debug` flag to build in debug mode instead of release:
+```
+cargo run -p build-wasm-example -- --api webgl2 --debug load_gltf
+```
+
 This helper will log the command used to build the examples.
 
 ### Audio in the browsers
