@@ -8,7 +8,7 @@ use crate::{mesh::allocator::MeshAllocator, Extract, ExtractSchedule, RenderApp}
 /// Number of meshes allocated by the allocator
 const MESH_ALLOCATOR_SLABS: DiagnosticPath = DiagnosticPath::const_new("mesh_allocator_slabs");
 
-/// Number of meshes allocated by the allocator
+/// Total size of all slabs
 const MESH_ALLOCATOR_SLABS_SIZE: DiagnosticPath =
     DiagnosticPath::const_new("mesh_allocator_slabs_size");
 
