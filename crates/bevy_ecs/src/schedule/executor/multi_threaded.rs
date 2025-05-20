@@ -450,7 +450,7 @@ impl ExecutorState {
             .environment
             .world_cell
             .get_resource::<Events<HotPatched>>()
-            .map(|e| e.is_empty())
+            .map(Events::is_empty)
             .unwrap_or(true);
 
         // can't borrow since loop mutably borrows `self`
