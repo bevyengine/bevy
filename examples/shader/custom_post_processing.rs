@@ -30,7 +30,7 @@ use bevy::{
         RenderApp,
     },
 };
-use bevy_render::frame_graph::FrameGraph;
+use bevy_render::frame_graph::{ColorAttachment, FrameGraph, TextureView, TextureViewInfo};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/post_processing.wgsl";
@@ -143,10 +143,63 @@ impl ViewNode for PostProcessNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut FrameGraph,
+        frame_graph: &mut FrameGraph,
         (view_target, _post_process_settings, settings_index): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        // Get the pipeline resource that contains the global data we need
+        // to create the render pipeline
+        let post_process_pipeline = world.resource::<PostProcessPipeline>();
+
+        // The pipeline cache is a cache of all previously created pipelines.
+        // It is required to avoid creating a new pipeline each frame,
+        // which is expensive due to shader compilation.
+        let pipeline_cache = world.resource::<PipelineCache>();
+
+        // Get the pipeline from the cache
+        let Some(_) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id) else {
+            return Ok(());
+        };
+
+        // Get the settings uniform binding
+        let settings_uniforms = world.resource::<ComponentUniforms<PostProcessSettings>>();
+        let Some(settings_handle) = settings_uniforms
+            .uniforms()
+            .make_binding_resource_handle(frame_graph)
+        else {
+            return Ok(());
+        };
+
+        let post_process = view_target.post_process_write();
+
+        let bind_group_handle = frame_graph
+            .create_bind_group_handle_builder(
+                Some("post_process_bind_group".into()),
+                &post_process_pipeline.layout,
+            )
+            .add_helper(0, post_process.source)
+            .add_handle(1, &post_process_pipeline.sampler)
+            .add_handle(2, &settings_handle)
+            .build();
+
+        let mut pass_builder = frame_graph.create_pass_builder("post_process_node");
+
+        let destination = pass_builder.write_material(post_process.destination);
+
+        pass_builder
+            .create_render_pass_builder("post_process_pass")
+            .add_color_attachment(ColorAttachment {
+                view: TextureView {
+                    texture: destination,
+                    desc: TextureViewInfo::default(),
+                },
+                resolve_target: None,
+                ops: Operations::default(),
+            })
+            .set_render_pipeline(post_process_pipeline.pipeline_id)
+            .set_bind_group_handle(0, &bind_group_handle, &[settings_index.index()])
+            .draw(0..3, 0..1);
+
         Ok(())
     }
 }
