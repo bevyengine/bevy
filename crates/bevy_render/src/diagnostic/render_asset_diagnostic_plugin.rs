@@ -12,7 +12,6 @@ use crate::{
 
 pub struct RenderAssetDiagnosticPlugin<A: RenderAsset> {
     suffix: &'static str,
-    path: DiagnosticPath,
     _phantom: PhantomData<A>,
 }
 
@@ -20,17 +19,22 @@ impl<A: RenderAsset> RenderAssetDiagnosticPlugin<A> {
     pub fn new(suffix: &'static str) -> Self {
         Self {
             suffix,
-            path: DiagnosticPath::from_components(["render_asset", type_name::<A>()]),
             _phantom: PhantomData,
         }
+    }
+
+    pub fn render_asset_diagnostic_path() -> DiagnosticPath {
+        DiagnosticPath::from_components(["render_asset", type_name::<A>()])
     }
 }
 
 impl<A: RenderAsset> Plugin for RenderAssetDiagnosticPlugin<A> {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_diagnostic(Diagnostic::new(self.path.clone()).with_suffix(self.suffix))
-            .init_resource::<RenderAssetMeasurements<A>>()
-            .add_systems(PreUpdate, add_render_asset_measurement::<A>);
+        app.register_diagnostic(
+            Diagnostic::new(Self::render_asset_diagnostic_path()).with_suffix(self.suffix),
+        )
+        .init_resource::<RenderAssetMeasurements<A>>()
+        .add_systems(PreUpdate, add_render_asset_measurement::<A>);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, measure_render_asset::<A>);
@@ -58,7 +62,7 @@ fn add_render_asset_measurement<A: RenderAsset>(
     measurements: Res<RenderAssetMeasurements<A>>,
 ) {
     diagnostics.add_measurement(
-        &DiagnosticPath::from_components(["render_asset", type_name::<A>()]),
+        &RenderAssetDiagnosticPlugin::<A>::render_asset_diagnostic_path(),
         || measurements.assets.load(Ordering::Relaxed) as f64,
     );
 }
