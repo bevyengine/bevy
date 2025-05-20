@@ -71,7 +71,7 @@ fn check_standard_material_leak() {
             ..Default::default()
         },
         RenderAssetDiagnosticPlugin::<PreparedMaterial<StandardMaterial>>::new(" materials"),
-        MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::default(),
+        MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::new(" standard materials"),
     ))
     .add_systems(Startup, mesh_setup)
     .add_systems(
@@ -132,7 +132,7 @@ fn check_standard_material_churn_leak() {
             ..Default::default()
         },
         RenderAssetDiagnosticPlugin::<PreparedMaterial<StandardMaterial>>::new(" materials"),
-        MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::default(),
+        MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::new(" standard materials"),
     ))
     .add_systems(Startup, mesh_setup)
     .add_systems(
@@ -197,7 +197,7 @@ fn check_standard_material_churn_insert_leak() {
             ..Default::default()
         },
         RenderAssetDiagnosticPlugin::<PreparedMaterial<StandardMaterial>>::new(" materials"),
-        MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::default(),
+        MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::new(" standard materials"),
     ))
     .add_systems(Startup, mesh_setup)
     .add_systems(
