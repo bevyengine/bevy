@@ -24,6 +24,7 @@ pub mod prelude {
 
 pub mod synccell;
 pub mod syncunsafecell;
+#[cfg(feature = "std")]
 mod wgpu_wrapper;
 
 mod default;
@@ -36,6 +37,7 @@ pub use once::OnceFlag;
 
 pub use default::default;
 
+#[cfg(feature = "std")]
 pub use wgpu_wrapper::WgpuWrapper;
 
 #[cfg(feature = "std")]
