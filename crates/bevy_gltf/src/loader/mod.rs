@@ -79,7 +79,7 @@ use self::{
             alpha_mode, material_label, needs_tangents, uv_channel,
             warn_on_differing_texture_transforms,
         },
-        mesh::{primitive_name, primitive_topology},
+        mesh::{mesh_name, primitive_topology},
         scene::{node_name, node_transform},
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
@@ -1465,13 +1465,10 @@ fn load_node(
 
                     //Use material name for mesh entity's Name when available
                     if let Some(name) = material.name() {
-                        mesh_entity.insert((
-                            Name::new(name.to_string()),
-                            GltfMaterialName(name.to_string()),
-                        ));
-                    } else {
-                        mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
+                        mesh_entity.insert(GltfMaterialName(name.to_string()));
                     }
+
+                    mesh_entity.insert(Name::new(mesh_name(&mesh, &material)));
 
                     // Mark for adding skinned mesh
                     if let Some(skin) = gltf_node.skin() {
