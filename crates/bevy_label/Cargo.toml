@@ -1,0 +1,23 @@
+[package]
+name = "bevy_label"
+version = "0.16.0-dev"
+edition = "2024"
+description = "Bevy Engine's labeling traits"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+categories = []
+rust-version = "1.85.0"
+
+[dependencies]
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
+  "alloc",
+] }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

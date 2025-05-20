@@ -82,6 +82,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
 ] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false }
+bevy_label = { path = "../bevy_label", version = "0.16.0-dev", default-features = false }
 
 # other
 downcast-rs = { version = "2", default-features = false }

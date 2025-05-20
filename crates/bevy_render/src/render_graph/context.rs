@@ -3,7 +3,8 @@ use crate::{
     render_resource::{Buffer, Sampler, TextureView},
 };
 use alloc::borrow::Cow;
-use bevy_ecs::{entity::Entity, intern::Interned};
+use bevy_ecs::entity::Entity;
+use bevy_label::intern::Interned;
 use thiserror::Error;
 
 use super::{InternedRenderSubGraph, RenderLabel, RenderSubGraph};

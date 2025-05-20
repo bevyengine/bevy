@@ -12,7 +12,6 @@ use bevy_ecs::{
     component::RequiredComponentsError,
     error::{DefaultErrorHandler, ErrorHandler},
     event::{event_update_system, EventCursor},
-    intern::Interned,
     prelude::*,
     schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
@@ -30,7 +29,10 @@ use std::{
     process::{ExitCode, Termination},
 };
 
-bevy_ecs::define_label!(
+use bevy_label::intern::Interned;
+pub use bevy_label::DynEq;
+
+bevy_label::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     #[diagnostic::on_unimplemented(
         note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
@@ -38,8 +40,6 @@ bevy_ecs::define_label!(
     AppLabel,
     APP_LABEL_INTERNER
 );
-
-pub use bevy_ecs::label::DynEq;
 
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
