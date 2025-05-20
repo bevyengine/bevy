@@ -4414,5 +4414,5 @@ required-features = ["hotpatching"]
 [package.metadata.example.hotpatching_systems]
 name = "Hotpatching Systems"
 description = "Demonstrates how to hotpatch systems"
-category = "Ecs"
+category = "ECS (Entity Component System)"
 wasm = false
