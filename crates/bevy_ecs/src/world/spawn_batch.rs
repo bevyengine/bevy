@@ -41,8 +41,8 @@ where
         let length = upper.unwrap_or(lower);
         world.entities.reserve(length as u32);
 
-        // We cannot reuse the same spawner if the bundle has any fragmenting by value components
-        // since the target archetype depends on the bundle value, not just its type.
+        // We cannot reuse the same spawner if the bundle has any fragmenting value components
+        // since the target archetype depends on the bundle value and not just its type.
         let spawner_or_world = if I::Item::has_fragmenting_values() {
             BundleSpawnerOrWorld::World(world)
         } else {

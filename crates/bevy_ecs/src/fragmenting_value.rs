@@ -289,7 +289,7 @@ impl DynamicFragmentingValue {
 
 /// Dynamic vtable for [`FragmentingValue`].
 /// This is used by [`crate::component::ComponentDescriptor`] to work with dynamic fragmenting components.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct FragmentingValueVtable {
     eq: fn(NonNull<u8>, &dyn FragmentingValue) -> bool,
     hash: fn(NonNull<u8>) -> u64,

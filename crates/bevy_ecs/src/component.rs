@@ -1155,6 +1155,7 @@ impl Debug for ComponentDescriptor {
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
             .field("clone_behavior", &self.clone_behavior)
+            .field("fragmenting_value_vtable", &self.fragmenting_value_vtable)
             .finish()
     }
 }
@@ -1190,10 +1191,10 @@ impl ComponentDescriptor {
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
-    /// - If `fragmenting_value_vtable` is not `None`:
-    ///     - It must be usable on a pointer with a value of the layout `layout`
-    ///     - mutable should be `false`
-    ///     - storage type must not be `StorageType::Table`
+    /// - if `fragmenting_value_vtable` is not `None`, it must be usable on a pointer with a value of the layout `layout`
+    ///
+    /// # Panics
+    /// This will panic if `fragmenting_value_vtable` is not `None` and `mutable` is `true`. Fragmenting value components must be immutable.
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
@@ -1203,6 +1204,9 @@ impl ComponentDescriptor {
         clone_behavior: ComponentCloneBehavior,
         fragmenting_value_vtable: Option<FragmentingValueVtable>,
     ) -> Self {
+        if fragmenting_value_vtable.is_some() && mutable {
+            panic!("Fragmenting value components must be immutable");
+        }
         Self {
             name: name.into(),
             storage_type,
