@@ -69,6 +69,11 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.0.refresh_hotpatch();
+    }
+
+    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.0.apply_deferred(world);
     }
@@ -186,6 +191,11 @@ where
         self.system.run_unsafe(&mut self.value, world)
     }
 
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
+    }
+
     fn apply_deferred(&mut self, world: &mut World) {
         self.system.apply_deferred(world);
     }
@@ -291,6 +301,11 @@ where
             .as_mut()
             .expect("System input value was not found. Did you forget to initialize the system before running it?");
         self.system.run_unsafe(value, world)
+    }
+
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
     }
 
     fn apply_deferred(&mut self, world: &mut World) {

@@ -135,6 +135,11 @@ where
     }
 
     #[inline]
+    fn refresh_hotpatch(&mut self) {
+        // TODO: support exclusive systems
+    }
+
+    #[inline]
     fn apply_deferred(&mut self, _world: &mut World) {
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system

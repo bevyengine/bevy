@@ -152,6 +152,11 @@ where
     }
 
     #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.observer.refresh_hotpatch();
+    }
+
+    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.observer.apply_deferred(world);
     }

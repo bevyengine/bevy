@@ -59,6 +59,9 @@ pub mod world;
 
 pub use bevy_ptr as ptr;
 
+#[cfg(feature = "hotpatching")]
+use event::Event;
+
 /// The ECS prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
@@ -2759,3 +2762,10 @@ mod tests {
         fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
     }
 }
+
+/// Event triggered when a hotpatch happens.
+///
+/// Systems should refresh their inner pointers.
+#[cfg(feature = "hotpatching")]
+#[derive(Event, Default)]
+pub struct HotPatched;
