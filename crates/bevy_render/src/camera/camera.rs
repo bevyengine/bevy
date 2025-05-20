@@ -333,8 +333,9 @@ pub struct Camera {
     pub msaa_writeback: bool,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
-    /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
-    pub sub_camera_view: Option<SubCameraView>,
+    /// If set, this camera will still render to its entire viewport, but its projection will
+    /// adjust to only render the specified [`SubRect`] of the total view.
+    pub crop: Option<SubRect>,
 }
 
 fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
@@ -355,7 +356,7 @@ impl Default for Camera {
             hdr: false,
             msaa_writeback: true,
             clear_color: Default::default(),
-            sub_camera_view: None,
+            crop: None,
         }
     }
 }
@@ -955,7 +956,7 @@ pub fn camera_system(
                 || camera.is_added()
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
-                || camera.computed.old_sub_camera_view != camera.sub_camera_view
+                || camera.computed.old_sub_camera_view != camera.crop
             {
                 let new_computed_target_info = normalized_target.get_render_target_info(
                     windows,
@@ -1001,7 +1002,7 @@ pub fn camera_system(
                 if let Some(size) = camera.logical_viewport_size() {
                     if size.x != 0.0 && size.y != 0.0 {
                         camera_projection.update(size.x, size.y);
-                        camera.computed.clip_from_view = match &camera.sub_camera_view {
+                        camera.computed.clip_from_view = match &camera.crop {
                             Some(sub_view) => {
                                 camera_projection.get_clip_from_view_for_sub(sub_view)
                             }
@@ -1016,8 +1017,8 @@ pub fn camera_system(
             camera.computed.old_viewport_size = viewport_size;
         }
 
-        if camera.computed.old_sub_camera_view != camera.sub_camera_view {
-            camera.computed.old_sub_camera_view = camera.sub_camera_view;
+        if camera.computed.old_sub_camera_view != camera.crop {
+            camera.computed.old_sub_camera_view = camera.crop;
         }
     }
 }
