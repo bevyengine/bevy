@@ -25,7 +25,11 @@ use bevy::{
     },
     winit::WinitPlugin,
 };
-use bevy_render::frame_graph::FrameGraph;
+use bevy_render::{
+    frame_graph::{FrameGraph, TexelCopyBufferInfo, TexelCopyTextureInfo},
+    render_asset::RenderAssets,
+    render_resource::TexelCopyBufferLayout,
+};
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     ops::{Deref, DerefMut},
@@ -340,9 +344,57 @@ impl render_graph::Node for ImageCopyDriver {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        _frame_graph: &mut FrameGraph,
-        _world: &World,
+        frame_graph: &mut FrameGraph,
+        world: &World,
     ) -> Result<(), NodeRunError> {
+        let image_copiers = world.get_resource::<ImageCopiers>().unwrap();
+        let gpu_images = world
+            .get_resource::<RenderAssets<bevy::render::texture::GpuImage>>()
+            .unwrap();
+
+        for image_copier in image_copiers.iter() {
+            if !image_copier.enabled() {
+                continue;
+            }
+
+            let src_image = gpu_images.get(&image_copier.src_image).unwrap();
+
+            let mut pass_buider = frame_graph.create_pass_builder("image_copy_driver");
+
+            let block_dimensions = src_image.texture_format.block_dimensions();
+            let block_size = src_image.texture_format.block_copy_size(None).unwrap();
+
+            // Calculating correct size of image row because
+            // copy_texture_to_buffer can copy image only by rows aligned wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
+            // That's why image in buffer can be little bit wider
+            // This should be taken into account at copy from buffer stage
+            let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
+                (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
+            );
+
+            let src_image_binding = pass_buider.read_material(&src_image.texture);
+            let image_copier = pass_buider.write_material(&image_copier.buffer);
+
+            pass_buider
+                .create_encoder_pass_builder()
+                .copy_texture_to_buffer(
+                    TexelCopyTextureInfo::new(src_image_binding),
+                    TexelCopyBufferInfo {
+                        buffer: image_copier,
+                        layout: TexelCopyBufferLayout {
+                            offset: 0,
+                            bytes_per_row: Some(
+                                std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
+                                    .unwrap()
+                                    .into(),
+                            ),
+                            rows_per_image: None,
+                        },
+                    },
+                    src_image.size,
+                );
+        }
+
         Ok(())
     }
 }

@@ -2,16 +2,16 @@ use wgpu::{Extent3d, ImageSubresourceRange, QuerySet};
 
 use super::{
     BeginPipelineStatisticsQueryParameter, ClearBufferParameter, ClearTextureParameter,
-    CopyTextureToTextureParameter, DispatchWorkgroupsIndirectParameter,
-    DispatchWorkgroupsParameter, EndPipelineStatisticsQueryParameter, InsertDebugMarkerParameter,
-    PopDebugGroupParameter, PushDebugGroupParameter, RenderContext, SetBindGroupParameter,
-    SetComputePipelineParameter, SetPushConstantsComputeParameter, SetRawBindGroupParameter,
-    WriteTimestampParameter,
+    CopyTextureToBufferParameter, CopyTextureToTextureParameter,
+    DispatchWorkgroupsIndirectParameter, DispatchWorkgroupsParameter,
+    EndPipelineStatisticsQueryParameter, InsertDebugMarkerParameter, PopDebugGroupParameter,
+    PushDebugGroupParameter, RenderContext, SetBindGroupParameter, SetComputePipelineParameter,
+    SetPushConstantsComputeParameter, SetRawBindGroupParameter, WriteTimestampParameter,
 };
 use crate::{
     frame_graph::{
         BindGroupBinding, FrameGraphBuffer, FrameGraphTexture, ResourceBinding, ResourceRead,
-        ResourceRef, ResourceWrite, TexelCopyTextureInfo,
+        ResourceRef, ResourceWrite, TexelCopyBufferInfo, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedComputePipelineId},
 };
@@ -19,6 +19,19 @@ use std::ops::Deref;
 
 pub trait ComputePassCommandBuilder {
     fn add_compute_pass_command(&mut self, value: ComputePassCommand);
+
+    fn copy_texture_to_buffer(
+        &mut self,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyBufferInfo<ResourceWrite>,
+        copy_size: Extent3d,
+    ) {
+        self.add_compute_pass_command(ComputePassCommand::new(CopyTextureToBufferParameter {
+            source,
+            destination,
+            copy_size,
+        }));
+    }
 
     fn clear_buffer(
         &mut self,
@@ -175,6 +188,30 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
             compute_pass,
             render_context,
         }
+    }
+
+    pub fn copy_texture_to_buffer(
+        &mut self,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyBufferInfo<ResourceWrite>,
+        copy_size: Extent3d,
+    ) {
+        let source_texture = self.render_context.get_resource(&source.texture);
+        let destination_buffer = self.render_context.get_resource(&destination.buffer);
+
+        self.command_encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfoBase {
+                texture: &source_texture.resource,
+                mip_level: source.mip_level,
+                origin: source.origin,
+                aspect: source.aspect,
+            },
+            wgpu::TexelCopyBufferInfoBase {
+                buffer: &destination_buffer.resource,
+                layout: destination.layout,
+            },
+            copy_size,
+        );
     }
 
     pub fn clear_buffer(

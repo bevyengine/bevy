@@ -3,19 +3,20 @@ use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
 
 use super::{
     BeginPipelineStatisticsQueryParameter, ClearBufferParameter, ClearTextureParameter,
-    CopyTextureToTextureParameter, DrawIndexedIndirectParameter, DrawIndexedParameter,
-    DrawIndirectParameter, DrawParameter, EndPipelineStatisticsQueryParameter, FrameGraphBuffer,
-    InsertDebugMarkerParameter, MultiDrawIndexedIndirectCountParameter,
-    MultiDrawIndexedIndirectParameter, MultiDrawIndirectParameter, PopDebugGroupParameter,
-    PushDebugGroupParameter, RenderContext, ResourceRead, ResourceRef, SetBindGroupParameter,
-    SetBlendConstantParameter, SetIndexBufferParameter, SetPushConstantsParameter,
-    SetRawBindGroupParameter, SetRenderPipelineParameter, SetScissorRectParameter,
-    SetStencilReferenceParameter, SetVertexBufferParameter, SetViewportParameter,
-    WriteTimestampParameter,
+    CopyTextureToBufferParameter, CopyTextureToTextureParameter, DrawIndexedIndirectParameter,
+    DrawIndexedParameter, DrawIndirectParameter, DrawParameter,
+    EndPipelineStatisticsQueryParameter, FrameGraphBuffer, InsertDebugMarkerParameter,
+    MultiDrawIndexedIndirectCountParameter, MultiDrawIndexedIndirectParameter,
+    MultiDrawIndirectParameter, PopDebugGroupParameter, PushDebugGroupParameter, RenderContext,
+    ResourceRead, ResourceRef, SetBindGroupParameter, SetBlendConstantParameter,
+    SetIndexBufferParameter, SetPushConstantsParameter, SetRawBindGroupParameter,
+    SetRenderPipelineParameter, SetScissorRectParameter, SetStencilReferenceParameter,
+    SetVertexBufferParameter, SetViewportParameter, WriteTimestampParameter,
 };
 use crate::{
     frame_graph::{
-        BindGroupBinding, FrameGraphTexture, ResourceBinding, ResourceWrite, TexelCopyTextureInfo,
+        BindGroupBinding, FrameGraphTexture, ResourceBinding, ResourceWrite, TexelCopyBufferInfo,
+        TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedRenderPipelineId},
 };
@@ -24,6 +25,19 @@ use std::ops::Deref;
 
 pub trait RenderPassCommandBuilder {
     fn add_render_pass_command(&mut self, value: RenderPassCommand);
+
+    fn copy_texture_to_buffer(
+        &mut self,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyBufferInfo<ResourceWrite>,
+        copy_size: Extent3d,
+    ) {
+        self.add_render_pass_command(RenderPassCommand::new(CopyTextureToBufferParameter {
+            source,
+            destination,
+            copy_size,
+        }));
+    }
 
     fn clear_buffer(
         &mut self,
@@ -329,6 +343,30 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
             render_pass,
             render_context,
         }
+    }
+
+    pub fn copy_texture_to_buffer(
+        &mut self,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyBufferInfo<ResourceWrite>,
+        copy_size: Extent3d,
+    ) {
+        let source_texture = self.render_context.get_resource(&source.texture);
+        let destination_buffer = self.render_context.get_resource(&destination.buffer);
+
+        self.command_encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfoBase {
+                texture: &source_texture.resource,
+                mip_level: source.mip_level,
+                origin: source.origin,
+                aspect: source.aspect,
+            },
+            wgpu::TexelCopyBufferInfoBase {
+                buffer: &destination_buffer.resource,
+                layout: destination.layout,
+            },
+            copy_size,
+        );
     }
 
     pub fn clear_buffer(

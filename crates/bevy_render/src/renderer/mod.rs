@@ -16,9 +16,7 @@ use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
 use bevy_time::TimeSender;
-use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, DeviceType, Instance, Queue, RequestAdapterOptions,
-};
+use wgpu::{Adapter, AdapterInfo, DeviceType, Instance, Queue, RequestAdapterOptions};
 
 pub fn setup_frame_graph_system(world: &mut World) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
@@ -394,12 +392,4 @@ pub async fn initialize_renderer(
         RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
         RenderAdapter(adapter),
     )
-}
-
-enum QueuedCommandBuffer<'w> {
-    Ready(CommandBuffer),
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    Task(Box<dyn FnOnce(RenderDevice) -> CommandBuffer + 'w + Send>),
-    #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-    Task(Box<dyn FnOnce(RenderDevice) -> CommandBuffer + 'w>),
 }

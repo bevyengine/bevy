@@ -5,7 +5,7 @@ use wgpu::{Extent3d, ImageSubresourceRange};
 
 use crate::frame_graph::{
     EncoderPass, EncoderPassCommandBuilder, FrameGraphBuffer, FrameGraphTexture, ResourceMaterial,
-    ResourceRead, ResourceRef, ResourceWrite, TexelCopyTextureInfo,
+    ResourceRead, ResourceRef, ResourceWrite, TexelCopyBufferInfo, TexelCopyTextureInfo,
 };
 
 use super::PassBuilder;
@@ -43,6 +43,18 @@ impl<'a, 'b> EncoderPassBuilder<'a, 'b> {
         material: &M,
     ) -> ResourceRef<M::ResourceType, ResourceWrite> {
         self.pass_builder.write_material(material)
+    }
+
+    pub fn copy_texture_to_buffer(
+        &mut self,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyBufferInfo<ResourceWrite>,
+        copy_size: Extent3d,
+    ) -> &mut Self {
+        self.encoder_pass
+            .copy_texture_to_buffer(source, destination, copy_size);
+
+        self
     }
 
     pub fn copy_texture_to_texture(

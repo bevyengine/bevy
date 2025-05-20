@@ -6,7 +6,7 @@ use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
 use crate::{
     frame_graph::{
         BindGroupBinding, FrameGraphBuffer, FrameGraphTexture, RenderPassContext, ResourceRead,
-        ResourceRef, ResourceWrite, TexelCopyTextureInfo,
+        ResourceRef, ResourceWrite, TexelCopyBufferInfo, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedComputePipelineId, CachedRenderPipelineId},
 };
@@ -72,6 +72,42 @@ impl ErasedRenderPassCommand for ClearTextureParameter {
 impl ErasedEncoderPassCommand for ClearTextureParameter {
     fn draw(&self, command_encoder_context: &mut EncoderPassContext) {
         command_encoder_context.clear_texture(&self.texture_ref, &self.subresource_range);
+    }
+}
+
+pub struct CopyTextureToBufferParameter {
+    pub source: TexelCopyTextureInfo<ResourceRead>,
+    pub destination: TexelCopyBufferInfo<ResourceWrite>,
+    pub copy_size: Extent3d,
+}
+
+impl ErasedComputePassCommand for CopyTextureToBufferParameter {
+    fn draw(&self, compute_pass_context: &mut ComputePassContext) {
+        compute_pass_context.copy_texture_to_buffer(
+            self.source.clone(),
+            self.destination.clone(),
+            self.copy_size.clone(),
+        );
+    }
+}
+
+impl ErasedRenderPassCommand for CopyTextureToBufferParameter {
+    fn draw(&self, render_pass_context: &mut RenderPassContext) {
+        render_pass_context.copy_texture_to_buffer(
+            self.source.clone(),
+            self.destination.clone(),
+            self.copy_size.clone(),
+        );
+    }
+}
+
+impl ErasedEncoderPassCommand for CopyTextureToBufferParameter {
+    fn draw(&self, command_encoder_context: &mut EncoderPassContext) {
+        command_encoder_context.copy_texture_to_buffer(
+            self.source.clone(),
+            self.destination.clone(),
+            self.copy_size.clone(),
+        );
     }
 }
 

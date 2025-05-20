@@ -1,12 +1,37 @@
-use wgpu::{Origin3d, TextureAspect};
+use wgpu::{Origin3d, TexelCopyBufferLayout, TextureAspect};
 
-use crate::frame_graph::{FrameGraphTexture, ResourceRef};
+use crate::frame_graph::{FrameGraphBuffer, FrameGraphTexture, ResourceRef};
+
+pub struct TexelCopyBufferInfo<ViewType> {
+    pub buffer: ResourceRef<FrameGraphBuffer, ViewType>,
+    pub layout: TexelCopyBufferLayout,
+}
+
+impl<ViewType> Clone for TexelCopyBufferInfo<ViewType> {
+    fn clone(&self) -> Self {
+        Self {
+            buffer: self.buffer.clone(),
+            layout: self.layout.clone(),
+        }
+    }
+}
 
 pub struct TexelCopyTextureInfo<ViewType> {
     pub mip_level: u32,
     pub texture: ResourceRef<FrameGraphTexture, ViewType>,
     pub origin: Origin3d,
     pub aspect: TextureAspect,
+}
+
+impl<ViewType> TexelCopyTextureInfo<ViewType> {
+    pub fn new(texture: ResourceRef<FrameGraphTexture, ViewType>) -> Self {
+        TexelCopyTextureInfo {
+            mip_level: 0,
+            texture,
+            origin: Origin3d::ZERO,
+            aspect: TextureAspect::All,
+        }
+    }
 }
 
 impl<ViewType> Clone for TexelCopyTextureInfo<ViewType> {

@@ -2,15 +2,28 @@ use wgpu::{Extent3d, ImageSubresourceRange};
 
 use crate::frame_graph::{
     FrameGraphBuffer, FrameGraphTexture, ResourceRead, ResourceRef, ResourceWrite,
-    TexelCopyTextureInfo,
+    TexelCopyBufferInfo, TexelCopyTextureInfo,
 };
 
 use super::{
-    ClearBufferParameter, ClearTextureParameter, CopyTextureToTextureParameter, RenderContext,
+    ClearBufferParameter, ClearTextureParameter, CopyTextureToBufferParameter, CopyTextureToTextureParameter, RenderContext
 };
 
 pub trait EncoderPassCommandBuilder {
     fn add_encoder_pass_command(&mut self, value: EncoderPassCommand);
+
+     fn copy_texture_to_buffer(
+        &mut self,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyBufferInfo<ResourceWrite>,
+        copy_size: Extent3d,
+    ) {
+        self.add_encoder_pass_command(EncoderPassCommand::new(CopyTextureToBufferParameter {
+            source,
+            destination,
+            copy_size,
+        }));
+    }
 
     fn clear_buffer(
         &mut self,
@@ -72,6 +85,30 @@ pub struct EncoderPassContext<'a, 'b> {
 }
 
 impl<'a, 'b> EncoderPassContext<'a, 'b> {
+    pub fn copy_texture_to_buffer(
+        &mut self,
+        source: TexelCopyTextureInfo<ResourceRead>,
+        destination: TexelCopyBufferInfo<ResourceWrite>,
+        copy_size: Extent3d,
+    ) {
+        let source_texture = self.render_context.get_resource(&source.texture);
+        let destination_buffer = self.render_context.get_resource(&destination.buffer);
+
+        self.command_encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfoBase {
+                texture: &source_texture.resource,
+                mip_level: source.mip_level,
+                origin: source.origin,
+                aspect: source.aspect,
+            },
+            wgpu::TexelCopyBufferInfoBase {
+                buffer: &destination_buffer.resource,
+                layout: destination.layout,
+            },
+            copy_size,
+        );
+    }
+
     pub fn clear_buffer(
         &mut self,
         buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
