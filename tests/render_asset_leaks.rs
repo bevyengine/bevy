@@ -74,7 +74,7 @@ fn check_standard_material_leak() {
     .add_systems(
         Update,
         (
-            touch_mutably::<Mesh>,
+            touch_mutably::<StandardMaterial>,
             crash_on_material_leak_detection::<StandardMaterial>,
         ),
     );
@@ -124,7 +124,7 @@ fn crash_on_mesh_leak_detection(diagnostic_store: Res<DiagnosticsStore>) {
             .filter(|diag| diag.value > 0.),
     ) {
         assert!(
-            render_meshes.value < allocations.value * 10.,
+            allocations.value < render_meshes.value * 10.,
             "Detected leak"
         );
     }
@@ -141,6 +141,6 @@ fn crash_on_material_leak_detection<M: Material>(diagnostic_store: Res<Diagnosti
             .get_measurement(&MaterialAllocatorDiagnosticPlugin::<M>::allocations_diagnostic_path())
             .filter(|diag| diag.value > 0.),
     ) {
-        assert!(materials.value < allocations.value * 10., "Detected leak");
+        assert!(allocations.value < materials.value * 10., "Detected leak");
     }
 }
