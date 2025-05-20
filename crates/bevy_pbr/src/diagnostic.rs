@@ -8,9 +8,27 @@ use bevy_render::{Extract, ExtractSchedule, RenderApp};
 
 use crate::{Material, MaterialBindGroupAllocator};
 
-#[derive(Default)]
 pub struct MaterialAllocatorDiagnosticPlugin<M: Material> {
+    suffix: &'static str,
     _phantom: PhantomData<M>,
+}
+
+impl<M: Material> MaterialAllocatorDiagnosticPlugin<M> {
+    pub fn new(suffix: &'static str) -> Self {
+        Self {
+            suffix,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<M: Material> Default for MaterialAllocatorDiagnosticPlugin<M> {
+    fn default() -> Self {
+        Self {
+            suffix: " materials",
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<M: Material> MaterialAllocatorDiagnosticPlugin<M> {
@@ -37,7 +55,7 @@ impl<M: Material> Plugin for MaterialAllocatorDiagnosticPlugin<M> {
             Diagnostic::new(Self::slabs_size_diagnostic_path()).with_suffix(" bytes"),
         )
         .register_diagnostic(
-            Diagnostic::new(Self::allocations_diagnostic_path()).with_suffix(" meshes"),
+            Diagnostic::new(Self::allocations_diagnostic_path()).with_suffix(self.suffix),
         )
         .init_resource::<MaterialAllocatorMeasurements<M>>()
         .add_systems(PreUpdate, add_material_allocator_measurement::<M>);
