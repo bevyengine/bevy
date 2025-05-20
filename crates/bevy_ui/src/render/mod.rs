@@ -997,7 +997,7 @@ pub fn extract_text_background_colors(
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
-                    transform: Affine2::from(transform) * Affine2::from_translation(rect.center()),
+                    transform: transform * Affine2::from_translation(rect.center()),
                     flip_x: false,
                     flip_y: false,
                     border: uinode.border(),
