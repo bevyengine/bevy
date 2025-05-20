@@ -280,7 +280,7 @@ fn merge_interaction_states(
 /// enters or leaves an entity. Users should insert this component on an entity to indicate interest
 /// in knowing about hover state changes.
 ///
-/// This is similar to the old Bevy [`bevy_ui::Interaction`] component, except that it only tracks
+/// This is similar to the old Bevy [`Interaction`] component, except that it only tracks
 /// hover state, not button presses or other interactions.
 ///
 /// The component's boolean value will be `true` whenever the pointer is currently hovering over the
@@ -296,6 +296,8 @@ fn merge_interaction_states(
 ///
 /// The computational cost of keeping the `Hovering` components up to date is relatively cheap,
 /// and linear in the number of entities that have the `Hovering` component inserted.
+///
+/// [`Interaction`]: https://docs.rs/bevy/0.15.0/bevy/prelude/enum.Interaction.html
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 pub struct Hovering(pub bool);

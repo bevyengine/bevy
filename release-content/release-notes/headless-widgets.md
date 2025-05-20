@@ -15,11 +15,12 @@ in harmony with the game's overall visual theme. But writing new and unique widg
 skill and subtlety, particularly if we want first-class accessibility support. It's not a burden we
 want to put on the average indie developer.
 
-In the web development world, "headless" widget libraries, such as react-headless and reakit have
-become popular. These provide standardized widgets that implement all of the correct interactions and
-behavioral logic, including integration with screen readers, but which are unstyled. It's the
-responsibility of the game developer to provide the visual style and animation for the widgets,
-which can fit the overall style of their game.
+In the web development world, "headless" widget libraries, such as
+[headlessui](https://headlessui.com/) and [reakit](https://reakit.io/) have become popular. These
+provide standardized widgets that implement all of the correct interactions and behavioral logic,
+including integration with screen readers, but which are unstyled. It's the responsibility of the
+game developer to provide the visual style and animation for the widgets, which can fit the overall
+style of their game.
 
 With this release, Bevy introduces a collection of headless or "core" widgets. These are components
 which can be added to any UI Node to get widget-like behavior. The core widget set includes buttons,
