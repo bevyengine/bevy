@@ -1077,6 +1077,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
+    ///
+    /// [`Trigger`]: crate::observer::Trigger
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
