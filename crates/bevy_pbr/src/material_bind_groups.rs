@@ -611,6 +611,45 @@ where
             }
         }
     }
+
+    /// Get number of allocated slabs for bindless material, returns 0 if it is
+    /// [`Self::NonBindless`].
+    pub fn slab_count(&self) -> usize {
+        match self {
+            Self::Bindless(bless) => bless.slabs.len(),
+            Self::NonBindless(_) => 0,
+        }
+    }
+
+    /// Get total size of slabs allocated for bindless material, returns 0 if it is
+    /// [`Self::NonBindless`].
+    pub fn slabs_size(&self) -> usize {
+        match self {
+            Self::Bindless(bless) => bless
+                .slabs
+                .iter()
+                .flat_map(|slab| {
+                    slab.data_buffers
+                        .iter()
+                        .map(|(_, buffer)| buffer.buffer.len())
+                })
+                .sum(),
+            Self::NonBindless(_) => 0,
+        }
+    }
+
+    /// Get number of bindless material allocations in slabs, returns 0 if it is
+    /// [`Self::NonBindless`].
+    pub fn allocations(&self) -> u64 {
+        match self {
+            Self::Bindless(bless) => bless
+                .slabs
+                .iter()
+                .map(|slab| u64::from(slab.allocated_resource_count))
+                .sum(),
+            Self::NonBindless(_) => 0,
+        }
+    }
 }
 
 impl<M> MaterialBindlessIndexTable<M>

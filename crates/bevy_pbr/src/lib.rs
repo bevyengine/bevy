@@ -29,6 +29,7 @@ mod cluster;
 mod components;
 pub mod decal;
 pub mod deferred;
+pub mod diagnostic;
 mod extended_material;
 mod fog;
 mod light;
