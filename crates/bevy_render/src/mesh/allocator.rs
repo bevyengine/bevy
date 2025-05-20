@@ -424,6 +424,10 @@ impl MeshAllocator {
         self.slabs.iter().map(|slab| slab.1.buffer_size()).sum()
     }
 
+    pub fn allocations(&self) -> usize {
+        self.mesh_id_to_index_slab.len()
+    }
+
     /// Given a slab and a mesh with data located with it, returns the buffer
     /// and range of that mesh data within the slab.
     fn mesh_slice_in_slab(
