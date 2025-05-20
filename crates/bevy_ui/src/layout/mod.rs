@@ -1,7 +1,8 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
+    ui_transform::{UiGlobalTransform, UiTransform},
     BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
-    Outline, OverflowAxis, ScrollPosition, Val,
+    Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -12,9 +13,9 @@ use bevy_ecs::{
     system::{Commands, Query, ResMut},
     world::Ref,
 };
-use bevy_math::Vec2;
+
+use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
 use thiserror::Error;
 use tracing::warn;
 use ui_surface::UiSurface;
@@ -81,9 +82,10 @@ pub fn ui_layout_system(
     )>,
     computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
-    mut node_transform_query: Query<(
+    mut node_update_query: Query<(
         &mut ComputedNode,
-        &mut Transform,
+        &UiTransform,
+        &mut UiGlobalTransform,
         &Node,
         Option<&LayoutConfig>,
         Option<&BorderRadius>,
@@ -175,7 +177,8 @@ with UI components as a child of an entity without UI components, your UI layout
             &mut ui_surface,
             true,
             None,
-            &mut node_transform_query,
+            Affine2::IDENTITY,
+            &mut node_update_query,
             &ui_children,
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
@@ -190,9 +193,11 @@ with UI components as a child of an entity without UI components, your UI layout
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
         root_size: Option<Vec2>,
-        node_transform_query: &mut Query<(
+        mut inherited_transform: Affine2,
+        node_update_query: &mut Query<(
             &mut ComputedNode,
-            &mut Transform,
+            &UiTransform,
+            &mut UiGlobalTransform,
             &Node,
             Option<&LayoutConfig>,
             Option<&BorderRadius>,
@@ -206,13 +211,14 @@ with UI components as a child of an entity without UI components, your UI layout
     ) {
         if let Ok((
             mut node,
-            mut transform,
+            transform,
+            mut global_transform,
             style,
             maybe_layout_config,
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
-        )) = node_transform_query.get_mut(entity)
+        )) = node_update_query.get_mut(entity)
         {
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
@@ -255,6 +261,21 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let viewport_size = root_size.unwrap_or(node.size);
 
+            let node_transform = Affine2::from_scale_angle_translation(
+                transform.scale,
+                transform.rotation,
+                transform.translation.resolve(
+                    inverse_target_scale_factor,
+                    layout_size,
+                    viewport_size,
+                ) + node_center,
+            );
+            inherited_transform *= node_transform;
+
+            if inherited_transform != **global_transform {
+                *global_transform = inherited_transform.into();
+            }
+
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
                 node.bypass_change_detection().border_radius = border_radius.resolve(
@@ -268,28 +289,28 @@ with UI components as a child of an entity without UI components, your UI layout
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
                 node.outline_width = if style.display != Display::None {
-                    match outline.width {
-                        Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
-                        width => width,
-                    }
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.)
+                    outline
+                        .width
+                        .resolve(
+                            inverse_target_scale_factor.recip(),
+                            node.size().x,
+                            viewport_size,
+                        )
+                        .unwrap_or(0.)
+                        .max(0.)
                 } else {
                     0.
                 };
 
-                node.outline_offset = match outline.offset {
-                    Val::Px(offset) => Val::Px(offset / inverse_target_scale_factor),
-                    offset => offset,
-                }
-                .resolve(node.size().x, viewport_size)
-                .unwrap_or(0.)
-                .max(0.);
-            }
-
-            if transform.translation.truncate() != node_center {
-                transform.translation = node_center.extend(0.);
+                node.outline_offset = outline
+                    .offset
+                    .resolve(
+                        inverse_target_scale_factor.recip(),
+                        node.size().x,
+                        viewport_size,
+                    )
+                    .unwrap_or(0.)
+                    .max(0.);
             }
 
             let scroll_position: Vec2 = maybe_scroll_position
@@ -331,7 +352,8 @@ with UI components as a child of an entity without UI components, your UI layout
                     ui_surface,
                     use_rounding,
                     Some(viewport_size),
-                    node_transform_query,
+                    inherited_transform,
+                    node_update_query,
                     ui_children,
                     inverse_target_scale_factor,
                     layout_size,
@@ -354,10 +376,7 @@ mod tests {
     use bevy_platform::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::systems::mark_dirty_trees;
-    use bevy_transform::{
-        prelude::GlobalTransform,
-        systems::{propagate_parent_transforms, sync_simple_transforms},
-    };
+    use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
     use bevy_window::{
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
@@ -682,23 +701,20 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<ChildOf>>()
+            .query_filtered::<(Entity, &ComputedNode, &UiGlobalTransform), Without<ChildOf>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
-                |option_rect, (entity, node, global_transform)| {
-                    let current_rect = Rect::from_center_size(
-                        global_transform.translation().truncate(),
-                        node.size(),
-                    );
+                |option_rect, (entity, node, transform)| {
+                    let current_rect = Rect::from_center_size(transform.translation, node.size());
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
                         "root ui node {entity} doesn't have a logical size"
                     );
                     assert_ne!(
-                        global_transform.affine(),
-                        GlobalTransform::default().affine(),
-                        "root ui node {entity} global transform is not populated"
+                        *transform,
+                        UiGlobalTransform::default(),
+                        "root ui node {entity} transform is not populated"
                     );
                     let Some((rect, is_overlapping)) = option_rect else {
                         return Some((current_rect, false));
