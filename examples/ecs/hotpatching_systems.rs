@@ -19,14 +19,12 @@ fn main() {
         .run();
 }
 
-fn update_text(mut text_query: Query<&mut Text>) {
-    let mut text = text_query.single_mut().unwrap();
+fn update_text(mut tex: Single<&mut Text>) {
     **text = "before".to_string();
 }
 
-fn on_click(_click: Trigger<Pointer<Click>>, mut color: Query<&mut TextColor>) -> Result {
-    color.single_mut()?.0 = palettes::tailwind::RED_600.into();
-    Ok(())
+fn on_click(_click: Trigger<Pointer<Click>>, mut color: Single<&mut TextColor>) {
+    color.0 = palettes::tailwind::RED_600.into();
 }
 
 fn setup(mut commands: Commands) {
