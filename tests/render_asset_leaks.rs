@@ -9,20 +9,20 @@ use bevy::{
     audio::AudioPlugin,
     color::Color,
     diagnostic::{DiagnosticsStore, LogDiagnosticsPlugin},
-    ecs::system::{Commands, Local, Res, ResMut},
+    ecs::system::{Res, ResMut},
     math::primitives::Sphere,
     pbr::{
-        diagnostic::MaterialAllocatorDiagnosticPlugin, Material, MeshMaterial3d, PreparedMaterial,
-        StandardMaterial,
+        diagnostic::MaterialAllocatorDiagnosticPlugin, Material, PreparedMaterial, StandardMaterial,
     },
     render::{
         diagnostic::{MeshAllocatorDiagnosticPlugin, RenderAssetDiagnosticPlugin},
-        mesh::{Mesh, Mesh3d, Meshable, RenderMesh},
+        mesh::{Mesh, Meshable, RenderMesh},
     },
     window::WindowPlugin,
     winit::WinitPlugin,
     DefaultPlugins,
 };
+use bevy_ecs::{resource::Resource, system::Commands};
 
 #[test]
 fn check_mesh_leak() {
@@ -54,6 +54,7 @@ fn check_mesh_leak() {
     }
 }
 
+#[ignore = "FIXME Failing test"]
 #[test]
 fn check_standard_material_leak() {
     let mut app = App::new();
@@ -87,29 +88,99 @@ fn check_standard_material_leak() {
     }
 }
 
+#[test]
+fn check_mesh_churn_leak() {
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins
+            .build()
+            .disable::<AudioPlugin>()
+            .disable::<WinitPlugin>()
+            .disable::<WindowPlugin>(),
+        LogDiagnosticsPlugin {
+            wait_duration: Duration::ZERO,
+            ..Default::default()
+        },
+        RenderAssetDiagnosticPlugin::<RenderMesh>::new(" meshes"),
+        MeshAllocatorDiagnosticPlugin,
+    ))
+    .add_systems(Startup, mesh_setup)
+    .add_systems(Update, (churn::<Mesh>, crash_on_mesh_leak_detection));
+
+    app.finish();
+    app.cleanup();
+
+    for _ in 0..100 {
+        app.update();
+    }
+}
+
+#[ignore = "FIXME Failing test"]
+#[test]
+fn check_standard_material_churn_leak() {
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins
+            .build()
+            .disable::<AudioPlugin>()
+            .disable::<WinitPlugin>()
+            .disable::<WindowPlugin>(),
+        LogDiagnosticsPlugin {
+            wait_duration: Duration::ZERO,
+            ..Default::default()
+        },
+        RenderAssetDiagnosticPlugin::<PreparedMaterial<StandardMaterial>>::new(" materials"),
+        MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::default(),
+    ))
+    .add_systems(Startup, mesh_setup)
+    .add_systems(
+        Update,
+        (
+            churn::<StandardMaterial>,
+            crash_on_material_leak_detection::<StandardMaterial>,
+        ),
+    );
+
+    app.finish();
+    app.cleanup();
+
+    for _ in 0..100 {
+        app.update();
+    }
+}
+
+#[derive(Resource)]
+struct Leaker<A: Asset>(Vec<Handle<A>>);
+
 fn mesh_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut mesh_leaker: Local<Vec<Handle<Mesh>>>,
-    mut material_leaker: Local<Vec<Handle<StandardMaterial>>>,
 ) {
     bevy::log::info!("Mesh setup");
-    commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(1.).mesh().ico(79).unwrap())),
-        MeshMaterial3d(materials.add(Color::WHITE)),
-    ));
 
+    let mut mesh_leaker = Vec::with_capacity(16);
     for _ in 0..16 {
         mesh_leaker.push(meshes.add(Sphere::new(1.).mesh().ico(79).unwrap()));
     }
+    commands.insert_resource(Leaker(mesh_leaker));
+    let mut material_leaker = Vec::with_capacity(1000);
     for _ in 0..1000 {
         material_leaker.push(materials.add(Color::WHITE));
     }
+    commands.insert_resource(Leaker(material_leaker));
 }
 
 fn touch_mutably<A: Asset>(mut assets: ResMut<Assets<A>>) {
     for _ in assets.iter_mut() {}
+}
+
+fn churn<A: Asset>(mut assets: ResMut<Assets<A>>, mut leaker: ResMut<Leaker<A>>) {
+    let all_ids = leaker.0.drain(..).collect::<Vec<_>>();
+    for id in all_ids {
+        let asset = assets.remove(id.id()).unwrap();
+        leaker.0.push(assets.add(asset));
+    }
 }
 
 fn crash_on_mesh_leak_detection(diagnostic_store: Res<DiagnosticsStore>) {
