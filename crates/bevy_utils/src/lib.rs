@@ -48,6 +48,7 @@ pub mod prelude {
 
 pub mod synccell;
 pub mod syncunsafecell;
+#[cfg(feature = "wgpu_wrapper")]
 mod wgpu_wrapper;
 
 mod default;
