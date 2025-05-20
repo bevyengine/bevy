@@ -112,43 +112,6 @@ impl Viewport {
     }
 }
 
-/// Settings to define a camera sub view.
-///
-/// When [`Camera::sub_camera_view`] is `Some`, only the sub-section of the
-/// image defined by `size` and `offset` (relative to the `full_size` of the
-/// whole image) is projected to the cameras viewport.
-///
-/// Take the example of the following multi-monitor setup:
-/// ```css
-/// ┌───┬───┐
-/// │ A │ B │
-/// ├───┼───┤
-/// │ C │ D │
-/// └───┴───┘
-/// ```
-/// If each monitor is 1920x1080, the whole image will have a resolution of
-/// 3840x2160. For each monitor we can use a single camera with a viewport of
-/// the same size as the monitor it corresponds to. To ensure that the image is
-/// cohesive, we can use a different sub view on each camera:
-/// - Camera A: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,0
-/// - Camera B: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 1920,0
-/// - Camera C: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,1080
-/// - Camera D: `full_size` = 3840x2160, `size` = 1920x1080, `offset` =
-///   1920,1080
-///
-/// However since only the ratio between the values is important, they could all
-/// be divided by 120 and still produce the same image. Camera D would for
-/// example have the following values:
-/// `full_size` = 32x18, `size` = 16x9, `offset` = 16,9
-#[derive(Debug, Clone, Copy, Reflect, PartialEq)]
-#[reflect(Clone, PartialEq, Default)]
-pub struct SubCameraView {
-    /// Size of the entire camera view
-    pub full_size: UVec2,
-    /// Offset of the sub camera
-    pub offset: Vec2,
-    /// Size of the sub camera
-    pub size: UVec2,
 }
 
 impl Default for SubCameraView {
