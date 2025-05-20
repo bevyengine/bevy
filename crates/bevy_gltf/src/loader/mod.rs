@@ -1463,7 +1463,6 @@ fn load_node(
                         });
                     }
 
-                    //Use material name for mesh entity's Name when available
                     if let Some(name) = material.name() {
                         mesh_entity.insert(GltfMaterialName(name.to_string()));
                     }

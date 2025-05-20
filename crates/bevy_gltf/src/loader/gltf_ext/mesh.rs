@@ -7,7 +7,7 @@ use gltf::{
 
 use crate::GltfError;
 
-pub(crate) fn mesh_name(mesh: &Mesh<'_>, material: &Material) -> String {
+pub(crate) fn primitive_name(mesh: &Mesh<'_>, material: &Material) -> String {
     let mesh_name = mesh.name().unwrap_or("Mesh");
 
     if let Some(material_name) = material.name() {
