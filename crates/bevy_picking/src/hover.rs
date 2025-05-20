@@ -284,9 +284,12 @@ fn merge_interaction_states(
 /// hover state, not button presses or other interactions.
 ///
 /// The component's boolean value will be `true` whenever the pointer is currently hovering over the
-/// entity, or any of the entity's children. This value is guaranteed to only be mutated when the
-/// pointer enters or leaves the entity, allowing Bevy change detection to be used efficiently.
-/// This is in contrast to the [`HoverMap`] resource, which is updated every frame.
+/// entity, or any of the entity's children. This is consistent with the behavior of the CSS
+/// `:hover` pseudo-class, which applies to the element and all of its children.
+///
+/// The contained boolean value is guaranteed to only be mutated when the pointer enters or leaves
+/// the entity, allowing Bevy change detection to be used efficiently. This is in contrast to the
+/// [`HoverMap`] resource, which is updated every frame.
 ///
 /// Typically, a simple hoverable entity or widget will have this component added to it. More
 /// complex widgets can have this component added to each hoverable part.
