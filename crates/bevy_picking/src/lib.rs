@@ -392,7 +392,7 @@ impl Plugin for PickingPlugin {
             .register_type::<Self>()
             .register_type::<Pickable>()
             .register_type::<hover::PickingInteraction>()
-            .register_type::<hover::Hovering>()
+            .register_type::<hover::Hovered>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()

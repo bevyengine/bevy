@@ -37,7 +37,7 @@ type OverMap = HashMap<PointerId, LayerMap>;
 ///
 /// Maps pointers to the entities they are hovering over.
 ///
-/// "Hovering" refers to the *hover* state, which is not the same as whether or not a picking
+/// "Hovered" refers to the *hover* state, which is not the same as whether or not a picking
 /// backend is reporting hits between a pointer and an entity. A pointer is "hovering" an entity
 /// only if the pointer is hitting the entity (as reported by a picking backend) *and* no entities
 /// between it and the pointer block interactions.
@@ -294,18 +294,18 @@ fn merge_interaction_states(
 /// Typically, a simple hoverable entity or widget will have this component added to it. More
 /// complex widgets can have this component added to each hoverable part.
 ///
-/// The computational cost of keeping the `Hovering` components up to date is relatively cheap,
-/// and linear in the number of entities that have the `Hovering` component inserted.
+/// The computational cost of keeping the `Hovered` components up to date is relatively cheap,
+/// and linear in the number of entities that have the `Hovered` component inserted.
 ///
 /// [`Interaction`]: https://docs.rs/bevy/0.15.0/bevy/prelude/enum.Interaction.html
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
-pub struct Hovering(pub bool);
+pub struct Hovered(pub bool);
 
-/// Uses [`HoverMap`] changes to update [`Hovering`] components.
+/// Uses [`HoverMap`] changes to update [`Hovered`] components.
 pub fn update_hovering_states(
     hover_map: Option<Res<HoverMap>>,
-    mut hovers: Query<(Entity, &mut Hovering)>,
+    mut hovers: Query<(Entity, &mut Hovered)>,
     parent_query: Query<&ChildOf>,
 ) {
     // Don't do any work if there's no hover map.
@@ -331,7 +331,7 @@ pub fn update_hovering_states(
     // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
     for (entity, mut hoverable) in hovers.iter_mut() {
         let is_hovering = hover_ancestors.contains(&entity);
-        hoverable.set_if_neq(Hovering(is_hovering));
+        hoverable.set_if_neq(Hovered(is_hovering));
     }
 }
 
@@ -348,7 +348,7 @@ mod tests {
 
         // Setup entities
         let hovered_child = world.spawn_empty().id();
-        let hovered_entity = world.spawn(Hovering(false)).add_child(hovered_child).id();
+        let hovered_entity = world.spawn(Hovered(false)).add_child(hovered_child).id();
 
         // Setup hover map with hovered_entity hovered by mouse
         let mut hover_map = HoverMap::default();
@@ -368,8 +368,8 @@ mod tests {
         // Run the system
         assert!(world.run_system_cached(update_hovering_states).is_ok());
 
-        // Check to insure that the hovered entity has the Hovering component set to true
-        let hover = world.get_mut::<Hovering>(hovered_entity).unwrap();
+        // Check to insure that the hovered entity has the Hovered component set to true
+        let hover = world.get_mut::<Hovered>(hovered_entity).unwrap();
         assert!(hover.0);
         assert!(hover.is_changed());
 
@@ -377,7 +377,7 @@ mod tests {
         world.increment_change_tick();
 
         assert!(world.run_system_cached(update_hovering_states).is_ok());
-        let hover = world.get_mut::<Hovering>(hovered_entity).unwrap();
+        let hover = world.get_mut::<Hovered>(hovered_entity).unwrap();
         assert!(hover.0);
 
         // Should not be changed
@@ -389,7 +389,7 @@ mod tests {
         world.increment_change_tick();
 
         assert!(world.run_system_cached(update_hovering_states).is_ok());
-        let hover = world.get_mut::<Hovering>(hovered_entity).unwrap();
+        let hover = world.get_mut::<Hovered>(hovered_entity).unwrap();
         assert!(!hover.0);
         assert!(hover.is_changed());
     }

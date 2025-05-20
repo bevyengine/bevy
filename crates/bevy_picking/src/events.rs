@@ -30,7 +30,7 @@
 //! # Events Types
 //!
 //! The events this module defines fall into a few broad categories:
-//! + Hovering and movement: [`Over`], [`Move`], and [`Out`].
+//! + Hovered and movement: [`Over`], [`Move`], and [`Out`].
 //! + Clicking and pressing: [`Pressed`], [`Released`], and [`Click`].
 //! + Dragging and dropping: [`DragStart`], [`Drag`], [`DragEnd`], [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
 //!
