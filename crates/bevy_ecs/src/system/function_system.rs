@@ -653,7 +653,19 @@ where
         //   will ensure that there are no data access conflicts.
         let params =
             unsafe { F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick) };
-        let out = self.func.run(input, params);
+
+        // SAFETY:
+        // - this is not safe
+        // - no way
+        // - nu uh
+        // - not even marked as unsafe, that's how unsafe this is
+        // - enjoy
+        let out = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run).call((
+            &mut self.func,
+            input,
+            params,
+        ));
+
         self.system_meta.last_run = change_tick;
         out
     }
