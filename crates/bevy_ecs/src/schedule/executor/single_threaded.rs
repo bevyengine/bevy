@@ -8,7 +8,7 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
-    error::{default_error_handler, BevyError, ErrorContext},
+    error::{ErrorContext, ErrorHandler},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     system::RunSystemError,
     world::World,
@@ -51,7 +51,7 @@ impl SystemExecutor for SingleThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: ErrorHandler,
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -74,8 +74,11 @@ impl SystemExecutor for SingleThreadedExecutor {
                 }
 
                 // evaluate system set's conditions
-                let set_conditions_met =
-                    evaluate_and_fold_conditions(&mut schedule.set_conditions[set_idx], world);
+                let set_conditions_met = evaluate_and_fold_conditions(
+                    &mut schedule.set_conditions[set_idx],
+                    world,
+                    error_handler,
+                );
 
                 if !set_conditions_met {
                     self.completed_systems
@@ -87,8 +90,11 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             // evaluate system's conditions
-            let system_conditions_met =
-                evaluate_and_fold_conditions(&mut schedule.system_conditions[system_index], world);
+            let system_conditions_met = evaluate_and_fold_conditions(
+                &mut schedule.system_conditions[system_index],
+                world,
+                error_handler,
+            );
 
             should_run &= system_conditions_met;
 
@@ -175,9 +181,11 @@ impl SingleThreadedExecutor {
     }
 }
 
-fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    let error_handler: fn(BevyError, ErrorContext) = default_error_handler();
-
+fn evaluate_and_fold_conditions(
+    conditions: &mut [BoxedCondition],
+    world: &mut World,
+    error_handler: ErrorHandler,
+) -> bool {
     #[expect(
         clippy::unnecessary_fold,
         reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."

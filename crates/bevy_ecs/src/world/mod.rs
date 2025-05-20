@@ -14,6 +14,7 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
+use crate::error::{DefaultErrorHandler, ErrorHandler};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -976,6 +977,8 @@ impl World {
                         self.as_unsafe_world_cell_readonly(),
                         entity,
                         location,
+                        self.last_change_tick,
+                        self.read_change_tick(),
                     );
                     // SAFETY: `&self` gives read access to the entire world.
                     unsafe { EntityRef::new(cell) }
@@ -985,6 +988,8 @@ impl World {
 
     /// Returns a mutable iterator over all entities in the `World`.
     pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
+        let last_change_tick = self.last_change_tick;
+        let change_tick = self.change_tick();
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {
             archetype
@@ -1001,7 +1006,13 @@ impl World {
                     };
 
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(world_cell, entity, location);
+                    let cell = UnsafeEntityCell::new(
+                        world_cell,
+                        entity,
+                        location,
+                        last_change_tick,
+                        change_tick,
+                    );
                     // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
                     // so none will conflict with one another.
                     unsafe { EntityMut::new(cell) }
@@ -1175,9 +1186,6 @@ impl World {
                 .unwrap_or(EntityLocation::INVALID);
         }
 
-        self.entities
-            .set_spawned_or_despawned_by(entity.index(), caller);
-
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
         after_effect.apply(&mut entity);
@@ -1197,10 +1205,9 @@ impl World {
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
-        self.entities.set(entity.index(), location);
-
+        let change_tick = self.change_tick();
         self.entities
-            .set_spawned_or_despawned_by(entity.index(), caller);
+            .set_spawn_despawn(entity.index(), location, caller, change_tick);
 
         EntityWorldMut::new(self, entity, location)
     }
@@ -2969,6 +2976,7 @@ impl World {
         sparse_sets.check_change_ticks(change_tick);
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
+        self.entities.check_change_ticks(change_tick);
 
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(change_tick);
@@ -3038,6 +3046,16 @@ impl World {
                 .init_dynamic_info(&mut self.storages, &self.components, component_ids);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+
+    /// Convenience method for accessing the world's default error handler,
+    /// which can be overwritten with [`DefaultErrorHandler`].
+    #[inline]
+    pub fn default_error_handler(&self) -> ErrorHandler {
+        self.get_resource::<DefaultErrorHandler>()
+            .copied()
+            .unwrap_or_default()
+            .0
     }
 }
 
@@ -4262,10 +4280,18 @@ mod tests {
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(Some(Location::caller()))
         );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            Some(world.change_tick())
+        );
         world.despawn(entity);
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(Some(Location::caller()))
+        );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            Some(world.change_tick())
         );
         let new = world.spawn_empty().id();
         assert_eq!(entity.index(), new.index());
@@ -4273,10 +4299,18 @@ mod tests {
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(None)
         );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            None
+        );
         world.despawn(new);
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(None)
+        );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            None
         );
     }
 

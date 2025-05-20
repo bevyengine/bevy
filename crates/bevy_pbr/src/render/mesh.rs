@@ -1,6 +1,6 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -837,10 +837,31 @@ pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 pub struct MeshesToReextractNextFrame(MainEntityHashSet);
 
 impl RenderMeshInstanceShared {
-    fn from_components(
+    /// A gpu builder will provide the mesh instance id
+    /// during [`RenderMeshInstanceGpuBuilder::update`].
+    fn for_gpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
         tag: Option<&MeshTag>,
+        not_shadow_caster: bool,
+        no_automatic_batching: bool,
+    ) -> Self {
+        Self::for_cpu_building(
+            previous_transform,
+            mesh,
+            tag,
+            default(),
+            not_shadow_caster,
+            no_automatic_batching,
+        )
+    }
+
+    /// The cpu builder does not have an equivalent [`RenderMeshInstanceGpuBuilder::update`].
+    fn for_cpu_building(
+        previous_transform: Option<&PreviousGlobalTransform>,
+        mesh: &Mesh3d,
+        tag: Option<&MeshTag>,
+        material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
     ) -> Self {
@@ -858,8 +879,7 @@ impl RenderMeshInstanceShared {
         RenderMeshInstanceShared {
             mesh_asset_id: mesh.id(),
             flags: mesh_instance_flags,
-            // This gets filled in later, during `RenderMeshGpuBuilder::update`.
-            material_bindings_index: default(),
+            material_bindings_index,
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
         }
@@ -1309,6 +1329,8 @@ pub type ExtractMeshesSet = MeshExtractionSystems;
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mesh_material_ids: Res<RenderMaterialInstances>,
+    render_material_bindings: Res<RenderMaterialBindings>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
     meshes_query: Extract<
@@ -1362,10 +1384,18 @@ pub fn extract_meshes_for_cpu_building(
                 transmitted_receiver,
             );
 
-            let shared = RenderMeshInstanceShared::from_components(
+            let mesh_material = mesh_material_ids.mesh_material(MainEntity::from(entity));
+
+            let material_bindings_index = render_material_bindings
+                .get(&mesh_material)
+                .copied()
+                .unwrap_or_default();
+
+            let shared = RenderMeshInstanceShared::for_cpu_building(
                 previous_transform,
                 mesh,
                 tag,
+                material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -1570,7 +1600,7 @@ fn extract_mesh_for_gpu_building(
         transmitted_receiver,
     );
 
-    let shared = RenderMeshInstanceShared::from_components(
+    let shared = RenderMeshInstanceShared::for_gpu_building(
         previous_transform,
         mesh,
         tag,
