@@ -42,9 +42,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
+      # At some point this may be merged into `install-linux-deps`, but for now it is its own step.
+      - name: Install additional Linux dependencies for Vulkan
+        if: ${{ runner.os == 'linux' }}
+        run: |
+          sudo add-apt-repository ppa:kisak/turtle -y
+          sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - name: Build & run tests
+        if: ${{ runner.os != 'linux' }}
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- test
+        env:
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+      - name: Build & run tests through xvfb
+        if: ${{ runner.os == 'linux' }}
+        # See tools/ci/src/main.rs for the commands this runs
+        run: xvfb-run cargo run -p ci -- test
         env:
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
