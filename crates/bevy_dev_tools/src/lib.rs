@@ -1,5 +1,9 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
+#![cfg_attr(
+    feature = "hotpatching",
+    expect(unsafe_code, reason = "Unsafe code for system hotpatching.")
+)]
+#![cfg_attr(not(feature = "hotpatching"), forbid(unsafe_code))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -12,6 +16,9 @@ use bevy_app::prelude::*;
 
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
+
+#[cfg(feature = "hotpatching")]
+pub mod hotpatch;
 
 pub mod fps_overlay;
 
