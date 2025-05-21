@@ -81,7 +81,7 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs, IntoSystemSet,
+            common_conditions::*, ApplyDeferred, SystemCondition, IntoScheduleConfigs, IntoSystemSet,
             Schedule, Schedules, SystemSet,
         },
         spawn::{Spawn, SpawnRelated},

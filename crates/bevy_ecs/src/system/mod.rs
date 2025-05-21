@@ -414,7 +414,7 @@ mod tests {
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            common_conditions::resource_exists, ApplyDeferred, Condition, IntoScheduleConfigs,
+            common_conditions::resource_exists, ApplyDeferred, SystemCondition, IntoScheduleConfigs,
             Schedule,
         },
         system::{
