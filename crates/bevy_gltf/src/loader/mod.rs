@@ -1464,10 +1464,11 @@ fn load_node(
                     }
 
                     if let Some(name) = material.name() {
-                        mesh_entity.insert(GltfMaterialName(String::from(name)));
+                        mesh_entity.insert(GltfMaterialName(name.to_string()));
                     }
 
-                    mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
+                    mesh_entity.insert(Name::new(primitive_name(&mesh, &material)));
+
                     // Mark for adding skinned mesh
                     if let Some(skin) = gltf_node.skin() {
                         entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
