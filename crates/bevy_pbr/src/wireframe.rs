@@ -25,31 +25,20 @@ use bevy_platform::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::ExtractedCamera,
-    extract_resource::ExtractResource,
-    mesh::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport}, camera::ExtractedCamera, extract_resource::ExtractResource, mesh::{
         allocator::{MeshAllocator, SlabId},
         Mesh3d, MeshVertexBufferLayoutRef, RenderMesh,
-    },
-    prelude::*,
-    render_asset::{
+    }, prelude::*, render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
-    },
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_phase::{
+    }, render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner}, render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
-    },
-    render_resource::*,
-    sync_world::{MainEntity, MainEntityHashMap},
-    view::{
+    }, render_resource::*, renderer::RenderDevice, sync_world::{MainEntity, MainEntityHashMap}, view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
-    },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
+    }, Extract, Render, RenderApp, RenderDebugFlags, RenderSet
 };
 use bevy_render::{camera::extract_cameras, frame_graph::FrameGraph};
 use core::{hash::Hash, ops::Range};
@@ -369,6 +358,7 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
 
 #[derive(Default)]
 struct Wireframe3dNode;
+
 impl ViewNode for Wireframe3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
@@ -379,11 +369,44 @@ impl ViewNode for Wireframe3dNode {
 
     fn run<'w>(
         &self,
-        _graph: &mut RenderGraphContext,
-        _render_context: &mut FrameGraph,
-        (_camera, _view, _target, _depth): QueryItem<'w, Self::ViewQuery>,
-        _world: &'w World,
+        graph: &mut RenderGraphContext,
+        frame_graph: &mut FrameGraph,
+        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()
+        else {
+            return Ok(());
+        };
+
+        let Some(wireframe_phase) = wireframe_phase.get(&view.retained_view_entity) else {
+            return Ok(());
+        };
+
+        let mut pass_builder = frame_graph.create_pass_builder("wireframe_3d_node");
+
+        let color_attachment = target.get_color_attachment(&mut pass_builder);
+        let depth_stencil_attachment =
+            depth.get_depth_stencil_attachment(&mut pass_builder, StoreOp::Store);
+
+        let mut render_pass_builder = pass_builder.create_render_pass_builder("wireframe_3d_pass");
+
+        render_pass_builder
+            .add_color_attachment(color_attachment)
+            .set_depth_stencil_attachment(depth_stencil_attachment)
+            .set_camera_viewport(camera.viewport.clone());
+
+        let render_device = world.resource::<RenderDevice>();
+
+        let mut tracked_render_pass = TrackedRenderPass::new(&render_device, render_pass_builder);
+
+        if let Err(err) =
+            wireframe_phase.render(&mut tracked_render_pass, world, graph.view_entity())
+        {
+            error!("Error encountered while rendering the stencil phase {err:?}");
+            return Err(NodeRunError::DrawError(err));
+        }
+
         Ok(())
     }
 }
