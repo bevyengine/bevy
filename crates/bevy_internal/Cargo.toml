@@ -279,9 +279,6 @@ custom_cursor = ["bevy_winit/custom_cursor"]
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_ui/ghost_nodes"]
 
-# Use the configurable global error handler as the default error handler.
-configurable_error_handler = ["bevy_ecs/configurable_error_handler"]
-
 # Allows access to the `std` crate. Enabling this feature will prevent compilation
 # on `no_std` targets, but provides access to certain additional features on
 # supported platforms.

@@ -5,7 +5,10 @@ use std::f32::consts::PI;
 use accesskit::{Node as Accessible, Role};
 use bevy::{
     a11y::AccessibilityNode,
-    color::palettes::{basic::LIME, css::DARK_GRAY},
+    color::palettes::{
+        basic::LIME,
+        css::{DARK_GRAY, NAVY},
+    },
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
@@ -162,23 +165,41 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                         ))
                         .with_children(|parent| {
-                            // List items
-                            for i in 0..25 {
-                                parent
-                                    .spawn((
-                                        Text(format!("Item {i}")),
-                                        TextFont {
-                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                            ..default()
-                                        },
-                                        Label,
-                                        AccessibilityNode(Accessible::new(Role::ListItem)),
-                                    ))
-                                    .insert(Pickable {
+                            parent
+                                .spawn((
+                                    Node {
+                                        flex_direction: FlexDirection::Column,
+                                        ..Default::default()
+                                    },
+                                    BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                                        ColorStop::auto(NAVY),
+                                        ColorStop::auto(Color::BLACK),
+                                    ])),
+                                    Pickable {
                                         should_block_lower: false,
-                                        ..default()
-                                    });
-                            }
+                                        ..Default::default()
+                                    },
+                                ))
+                                .with_children(|parent| {
+                                    // List items
+                                    for i in 0..25 {
+                                        parent
+                                            .spawn((
+                                                Text(format!("Item {i}")),
+                                                TextFont {
+                                                    font: asset_server
+                                                        .load("fonts/FiraSans-Bold.ttf"),
+                                                    ..default()
+                                                },
+                                                Label,
+                                                AccessibilityNode(Accessible::new(Role::ListItem)),
+                                            ))
+                                            .insert(Pickable {
+                                                should_block_lower: false,
+                                                ..default()
+                                            });
+                                    }
+                                });
                         });
                 });
 
