@@ -6,7 +6,7 @@ use super::{ClearColorConfig, Projection};
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
-    primitives::Frustum,
+    primitives::{Frustum, SubRect},
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
@@ -112,18 +112,6 @@ impl Viewport {
     }
 }
 
-}
-
-impl Default for SubCameraView {
-    fn default() -> Self {
-        Self {
-            full_size: UVec2::new(1, 1),
-            offset: Vec2::new(0., 0.),
-            size: UVec2::new(1, 1),
-        }
-    }
-}
-
 /// Information about the current [`RenderTarget`].
 #[derive(Default, Debug, Clone)]
 pub struct RenderTargetInfo {
@@ -143,7 +131,7 @@ pub struct ComputedCameraValues {
     target_info: Option<RenderTargetInfo>,
     // size of the `Viewport`
     old_viewport_size: Option<UVec2>,
-    old_sub_camera_view: Option<SubCameraView>,
+    old_crop: Option<SubRect>,
 }
 
 /// How much energy a `Camera3d` absorbs from incoming light.
@@ -956,7 +944,7 @@ pub fn camera_system(
                 || camera.is_added()
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
-                || camera.computed.old_sub_camera_view != camera.crop
+                || camera.computed.old_crop != camera.crop
             {
                 let new_computed_target_info = normalized_target.get_render_target_info(
                     windows,
@@ -1017,8 +1005,8 @@ pub fn camera_system(
             camera.computed.old_viewport_size = viewport_size;
         }
 
-        if camera.computed.old_sub_camera_view != camera.crop {
-            camera.computed.old_sub_camera_view = camera.crop;
+        if camera.computed.old_crop != camera.crop {
+            camera.computed.old_crop = camera.crop;
         }
     }
 }

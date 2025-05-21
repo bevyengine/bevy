@@ -278,16 +278,7 @@ impl SubRect {
 
     //TODO: include this? if so, docs. Also fix it omg.
     pub fn chained(self, inner: &Self) -> Self {
-        let lcm_x = ops::lcm(self.full_size.x, inner.full_size.x);
-        let lcm_y = ops::lcm(self.full_size.y, inner.full_size.y);
-        let lcm = UVec2::new(lcm_x, lcm_y);
-        let inner_ratio = lcm / inner.full_size;
-
-        Self {
-            full_size: lcm,
-            offset: self.offset + inner.offset * inner_ratio.as_vec2(),
-            size: inner.size * inner_ratio,
-        }
+        todo!()
     }
 
     // Returns the inverse of this [`SubRect`].
