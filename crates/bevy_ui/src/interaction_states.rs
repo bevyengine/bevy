@@ -25,23 +25,23 @@ pub struct InteractionDisabled;
 
 // Hook to set the a11y "disabled" state when the widget is disabled.
 fn on_add_disabled(mut world: DeferredWorld, context: HookContext) {
-    let mut entt = world.entity_mut(context.entity);
-    if let Some(mut accessibility) = entt.get_mut::<AccessibilityNode>() {
+    let mut entity = world.entity_mut(context.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_disabled();
     }
 }
 
 // Hook to remove the a11y "disabled" state when the widget is enabled.
 fn on_remove_disabled(mut world: DeferredWorld, context: HookContext) {
-    let mut entt = world.entity_mut(context.entity);
-    if let Some(mut accessibility) = entt.get_mut::<AccessibilityNode>() {
+    let mut entity = world.entity_mut(context.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.clear_disabled();
     }
 }
 
-/// Component that indicates whether a button is currently pressed. This will be true while
-/// a drag action is in progress.
+/// Component that indicates whether a button is currently pressed.
 #[derive(Component, Default, Debug)]
+#[component(immutable)]
 pub struct ButtonPressed(pub bool);
 
 /// Component that indicates whether a checkbox or radio button is in a checked state.
@@ -51,9 +51,9 @@ pub struct Checked(pub bool);
 
 // Hook to set the a11y "checked" state when the checkbox is added.
 fn on_add_checked(mut world: DeferredWorld, context: HookContext) {
-    let mut entt = world.entity_mut(context.entity);
-    let checked = entt.get::<Checked>().unwrap().0;
-    let mut accessibility = entt.get_mut::<AccessibilityNode>().unwrap();
+    let mut entity = world.entity_mut(context.entity);
+    let checked = entity.get::<Checked>().unwrap().0;
+    let mut accessibility = entity.get_mut::<AccessibilityNode>().unwrap();
     accessibility.set_toggled(match checked {
         true => accesskit::Toggled::True,
         false => accesskit::Toggled::False,
