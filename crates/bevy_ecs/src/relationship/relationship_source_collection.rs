@@ -81,6 +81,43 @@ pub trait RelationshipSourceCollection {
     }
 }
 
+/// This trait signals that a [`RelationshipSourceCollection`] preserves insertion order.
+pub trait InsertionOrderedRelationshipSourceCollection: RelationshipSourceCollection {
+    /// Removes the last entity.
+    fn pop_last(&mut self) -> Option<Entity>;
+
+    /// Remove the first entity.
+    fn pop_first(&mut self) -> Option<Entity>;
+}
+
+impl InsertionOrderedRelationshipSourceCollection for Vec<Entity> {
+    fn pop_last(&mut self) -> Option<Entity> {
+        self.pop()
+    }
+
+    fn pop_first(&mut self) -> Option<Entity> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self.remove(0))
+        }
+    }
+}
+
+impl<const N: usize> InsertionOrderedRelationshipSourceCollection for SmallVec<[Entity; N]> {
+    fn pop_last(&mut self) -> Option<Entity> {
+        self.pop()
+    }
+
+    fn pop_first(&mut self) -> Option<Entity> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self.remove(0))
+        }
+    }
+}
+
 /// This trait signals that a [`RelationshipSourceCollection`] is ordered.
 pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     /// Inserts the entity at a specific index.
