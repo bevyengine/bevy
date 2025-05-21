@@ -19,12 +19,11 @@ fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, 
 
     // TODO: this currently treats orthographic projections as perspective
     let projection = view.clip_from_view;
-    let col2 = projection[2];
     var near: f32;
     if projection[3][3] == 1.0 {
-        near = col2.w / col2.z;
+        near = projection[3][2] / projection[2][2];
     } else {
-        near = col2.w;
+        near = projection[3][2];
     }
 
     let world_sphere_center = (world_from_local * vec4<f32>(lod_sphere.xyz, 1.0)).xyz;
@@ -174,9 +173,9 @@ fn should_occlusion_cull_aabb(aabb: MeshletAabb, instance_id: u32) -> bool {
     let col2 = projection[2];
     var near: f32;
     if projection[3][3] == 1.0 {
-        near = col2.w / col2.z;
+        near = projection[3][2] / projection[2][2];
     } else {
-        near = col2.w;
+        near = projection[3][2];
     }
 
     let clip_from_local = occlusion_cull_clip_from_local(instance_id);
