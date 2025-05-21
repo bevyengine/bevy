@@ -34,7 +34,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
 }
 
 /// Object safe version of [`ScheduleBuildPass`].
-pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
+pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug + Any {
     fn build(
         &mut self,
         world: &mut World,
