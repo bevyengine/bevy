@@ -410,7 +410,10 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     /// Use [`run_if`](ScheduleConfigs::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
     /// condition for each contained system separately.
-    fn distributive_run_if<M>(self, condition: impl SystemCondition<M> + Clone) -> ScheduleConfigs<T> {
+    fn distributive_run_if<M>(
+        self,
+        condition: impl SystemCondition<M> + Clone,
+    ) -> ScheduleConfigs<T> {
         self.into_configs().distributive_run_if(condition)
     }
 

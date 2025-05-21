@@ -71,7 +71,9 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-pub trait SystemCondition<Marker, In: SystemInput = ()>: sealed::SystemCondition<Marker, In> {
+pub trait SystemCondition<Marker, In: SystemInput = ()>:
+    sealed::SystemCondition<Marker, In>
+{
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
     ///
@@ -369,7 +371,10 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>: sealed::SystemCondition
     }
 }
 
-impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where F: sealed::SystemCondition<Marker, In> {}
+impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where
+    F: sealed::SystemCondition<Marker, In>
+{
+}
 
 mod sealed {
     use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
@@ -393,7 +398,7 @@ mod sealed {
 
 /// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use super::{SystemCondition, NotSystem};
+    use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
@@ -1078,7 +1083,10 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_changed_to<Marker, CIn, C>(to: bool, condition: C) -> impl SystemCondition<(), CIn>
+    pub fn condition_changed_to<Marker, CIn, C>(
+        to: bool,
+        condition: C,
+    ) -> impl SystemCondition<(), CIn>
     where
         CIn: SystemInput,
         C: SystemCondition<Marker, CIn>,
