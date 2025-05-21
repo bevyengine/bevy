@@ -2763,7 +2763,7 @@ mod tests {
     }
 }
 
-/// Event triggered when a hotpatch happens.
+/// Event sent when a hotpatch happens.
 ///
 /// Systems should refresh their inner pointers.
 #[cfg(feature = "hotpatching")]
