@@ -12,11 +12,15 @@ use bevy::prelude::*;
 use bevy::ui::ColorStop;
 use std::f32::consts::TAU;
 
+#[derive(Resource, Default)]
+struct CurrentColorSpace(InterpolationColorSpace);
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_resource::<CurrentColorSpace>()
         .add_systems(Startup, setup)
-        .add_systems(Update, update)
+        .add_systems(Update, (switch_interpolation_color_space, update))
         .run();
 }
 
@@ -177,6 +181,11 @@ fn setup(mut commands: Commands) {
                     });
                 });
             }
+
+            commands.spawn(Text::new(format!(
+                "{:?}",
+                InterpolationColorSpace::default()
+            )));
         });
 }
 
@@ -189,6 +198,35 @@ fn update(time: Res<Time>, mut query: Query<&mut BackgroundGradient, With<Animat
             if let Gradient::Linear(LinearGradient { angle, .. }) = gradient {
                 *angle += 0.5 * time.delta_secs();
             }
+        }
+    }
+}
+
+fn switch_interpolation_color_space(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut current: ResMut<CurrentColorSpace>,
+    mut gradient_query: Query<&mut BackgroundGradient>,
+    mut label_query: Query<&mut Text>,
+) {
+    if keys.just_pressed(KeyCode::Space) {
+        current.0 = match current.0 {
+            InterpolationColorSpace::OkLab => InterpolationColorSpace::OkLch,
+            InterpolationColorSpace::OkLch => InterpolationColorSpace::OkLchLong,
+            InterpolationColorSpace::OkLchLong => InterpolationColorSpace::Srgb,
+            InterpolationColorSpace::Srgb => InterpolationColorSpace::LinearRgb,
+            InterpolationColorSpace::LinearRgb => InterpolationColorSpace::OkLab,
+        };
+        for mut gradients in gradient_query.iter_mut() {
+            for gradient in gradients.0.iter_mut() {
+                *(match gradient {
+                    Gradient::Linear(linear_gradient) => &mut linear_gradient.color_space,
+                    Gradient::Radial(radial_gradient) => &mut radial_gradient.color_space,
+                    Gradient::Conic(conic_gradient) => &mut conic_gradient.color_space,
+                }) = current.0;
+            }
+        }
+        for mut text in label_query.iter_mut() {
+            text.0 = format!("{:?}", current.0);
         }
     }
 }
