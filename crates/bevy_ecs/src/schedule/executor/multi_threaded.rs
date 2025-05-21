@@ -13,7 +13,7 @@ use std::sync::{Mutex, MutexGuard};
 use tracing::{info_span, Span};
 
 use crate::{
-    error::{default_error_handler, BevyError, ErrorContext, Result},
+    error::{ErrorContext, ErrorHandler, Result},
     prelude::Resource,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     system::ScheduleSystem,
@@ -134,7 +134,7 @@ pub struct ExecutorState {
 struct Context<'scope, 'env, 'sys> {
     environment: &'env Environment<'env, 'sys>,
     scope: &'scope Scope<'scope, 'env, ()>,
-    error_handler: fn(BevyError, ErrorContext),
+    error_handler: ErrorHandler,
 }
 
 impl Default for MultiThreadedExecutor {
@@ -240,7 +240,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: ErrorHandler,
     ) {
         let state = self.state.get_mut().unwrap();
         // reset counts
@@ -484,6 +484,7 @@ impl ExecutorState {
                         system,
                         conditions,
                         context.environment.world_cell,
+                        context.error_handler,
                     )
                 } {
                     self.skip_system_and_signal_dependents(system_index);
@@ -584,9 +585,9 @@ impl ExecutorState {
         system: &mut ScheduleSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
+        error_handler: ErrorHandler,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
-        let error_handler = default_error_handler();
 
         for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
@@ -599,7 +600,11 @@ impl ExecutorState {
             //   required by the conditions.
             // - `update_archetype_component_access` has been called for each run condition.
             let set_conditions_met = unsafe {
-                evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world)
+                evaluate_and_fold_conditions(
+                    &mut conditions.set_conditions[set_idx],
+                    world,
+                    error_handler,
+                )
             };
 
             if !set_conditions_met {
@@ -617,7 +622,11 @@ impl ExecutorState {
         //   required by the conditions.
         // - `update_archetype_component_access` has been called for each run condition.
         let system_conditions_met = unsafe {
-            evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world)
+            evaluate_and_fold_conditions(
+                &mut conditions.system_conditions[system_index],
+                world,
+                error_handler,
+            )
         };
 
         if !system_conditions_met {
@@ -822,9 +831,8 @@ fn apply_deferred(
 unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
+    error_handler: ErrorHandler,
 ) -> bool {
-    let error_handler = default_error_handler();
-
     #[expect(
         clippy::unnecessary_fold,
         reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
