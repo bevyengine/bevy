@@ -256,9 +256,35 @@ impl render_graph::Node for GameOfLifeNode {
     fn run(
         &self,
         _graph: &mut render_graph::RenderGraphContext,
-        _render_context: &mut FrameGraph,
-        _world: &World,
+        frame_graph: &mut FrameGraph,
+        world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
+        let bind_groups = &world.resource::<GameOfLifeImageBindGroups>().0;
+        let pipeline = world.resource::<GameOfLifePipeline>();
+
+        // select the pipeline based on the current state
+        match self.state {
+            GameOfLifeState::Loading => {}
+            GameOfLifeState::Init => {
+                let mut pass_builder = frame_graph.create_pass_builder("game_of_life_node");
+
+                pass_builder
+                    .create_compute_pass_builder("game_of_life_pass")
+                    .set_compute_pipeline(pipeline.init_pipeline)
+                    .set_raw_bind_group(0, Some(&bind_groups[0]), &[])
+                    .dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+            }
+            GameOfLifeState::Update(index) => {
+                let mut pass_builder = frame_graph.create_pass_builder("game_of_life_node");
+
+                pass_builder
+                    .create_compute_pass_builder("game_of_life_pass")
+                    .set_compute_pipeline(pipeline.update_pipeline)
+                    .set_raw_bind_group(0, Some(&bind_groups[index]), &[])
+                    .dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+            }
+        }
+
         Ok(())
     }
 }
