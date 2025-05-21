@@ -6,7 +6,7 @@
 //! |:-------------|:---------------------|
 //! | Space        | Trigger screen shake |
 
-use bevy::{prelude::*, render::camera::SubCameraView, sprite::MeshMaterial2d};
+use bevy::{prelude::*, render::primitives::SubRect, sprite::MeshMaterial2d};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -78,7 +78,7 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera2d,
         Camera {
-            sub_camera_view: Some(SubCameraView {
+            crop: Some(SubRect {
                 full_size: UVec2::new(1000, 700),
                 offset: Vec2::new(0.0, 0.0),
                 size: UVec2::new(1000, 700),
@@ -147,14 +147,13 @@ fn screen_shake(
     if shake > 0.0 {
         for (mut camera, mut transform) in query.iter_mut() {
             // Position
-            let sub_view = camera.sub_camera_view.as_mut().unwrap();
-            let target = sub_view.offset
+            let crop = camera.crop.as_mut().unwrap();
+            let target = crop.offset
                 + Vec2 {
                     x: offset_x,
                     y: offset_y,
                 };
-            sub_view
-                .offset
+            crop.offset
                 .smooth_nudge(&target, CAMERA_DECAY_RATE, time.delta_secs());
 
             // Rotation
@@ -166,11 +165,9 @@ fn screen_shake(
     } else {
         // return camera to the latest position of player (it's fixed in this example case)
         if let Ok((mut camera, mut transform)) = query.single_mut() {
-            let sub_view = camera.sub_camera_view.as_mut().unwrap();
+            let crop = camera.crop.as_mut().unwrap();
             let target = screen_shake.latest_position.unwrap();
-            sub_view
-                .offset
-                .smooth_nudge(&target, 1.0, time.delta_secs());
+            crop.offset.smooth_nudge(&target, 1.0, time.delta_secs());
             transform.rotation = transform.rotation.interpolate_stable(&Quat::IDENTITY, 0.1);
         }
     }
