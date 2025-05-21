@@ -194,13 +194,30 @@ struct ComputeNodeLabel;
 /// The node that will execute the compute shader
 #[derive(Default)]
 struct ComputeNode {}
+
 impl render_graph::Node for ComputeNode {
     fn run(
         &self,
         _graph: &mut render_graph::RenderGraphContext,
-        _render_context: &mut FrameGraph,
-        _world: &World,
+        frame_graph: &mut FrameGraph,
+        world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let pipeline = world.resource::<ComputePipeline>();
+        let bind_group = world.resource::<GpuBufferBindGroup>();
+
+        let Some(_) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) else {
+            return Ok(());
+        };
+
+        let mut pass_builder = frame_graph.create_pass_builder("compute_node");
+
+        pass_builder
+            .create_compute_pass_builder("GPU readback compute pass")
+            .set_raw_bind_group(0, Some(&bind_group.0), &[])
+            .set_compute_pipeline(pipeline.pipeline)
+            .dispatch_workgroups(BUFFER_LEN as u32, 1, 1);
+
         Ok(())
     }
 }
