@@ -115,15 +115,6 @@ impl<T> SystemSet for SystemTypeSet<T> {
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
     }
-
-    fn as_dyn_eq(&self) -> &dyn DynEq {
-        self
-    }
-
-    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        TypeId::of::<Self>().hash(&mut state);
-        self.hash(&mut state);
-    }
 }
 
 /// A [`SystemSet`] implicitly created when using
@@ -145,15 +136,6 @@ impl SystemSet for AnonymousSet {
 
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
-    }
-
-    fn as_dyn_eq(&self) -> &dyn DynEq {
-        self
-    }
-
-    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        TypeId::of::<Self>().hash(&mut state);
-        self.hash(&mut state);
     }
 }
 
