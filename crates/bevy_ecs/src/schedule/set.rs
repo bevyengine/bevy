@@ -19,7 +19,39 @@ use crate::{
 };
 
 define_label!(
-    /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
+    /// A strongly-typed class of labels used to identify a [`Schedule`].
+    ///
+    /// Each schedule in a [`World`] has a unique schedule label value, and
+    /// schedules can be automatically created from labels via [`Schedules::add_systems()`].
+    ///
+    /// # Defining new schedule labels
+    ///
+    /// Most applications should use the predefined schedule labels which implement this trait.
+    /// If you are using [`bevy_ecs`] directly or if you need to run a group of systems outside
+    /// the existing schedules, you may define your own schedule labels by using
+    /// `#[derive(ScheduleLabel)]`.
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::schedule::ScheduleLabel;
+    ///
+    /// // Declare a new schedule label.
+    /// #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    /// struct Update;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// // Add a system to the schedule with that label (creating it automatically).
+    /// fn a_system_function() {}
+    /// world.get_resource_or_init::<Schedules>().add_systems(Update, a_system_function);
+    ///
+    /// // Run the schedule, and therefore run the system.
+    /// world.run_schedule(Update);
+    /// ```
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
+    /// [`Schedules::add_systems()`]: crate::schedule::Schedules::add_systems
+    /// [`World`]: crate::world::World
     #[diagnostic::on_unimplemented(
         note = "consider annotating `{Self}` with `#[derive(ScheduleLabel)]`"
     )]
