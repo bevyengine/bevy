@@ -88,6 +88,7 @@ fn setup_grid(mut commands: Commands) {
                                         stops: color_stops.clone(),
                                         position,
                                         shape,
+                                        ..Default::default()
                                     }),
                                 ));
                             });

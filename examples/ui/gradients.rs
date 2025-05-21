@@ -87,6 +87,7 @@ fn setup(mut commands: Commands) {
                                                 BackgroundGradient::from(LinearGradient {
                                                     angle,
                                                     stops: stops.clone(),
+                                                    ..default()
                                                 }),
                                                 BorderGradient::from(LinearGradient {
                                                     angle: 3. * TAU / 8.,
@@ -95,6 +96,7 @@ fn setup(mut commands: Commands) {
                                                         Color::WHITE.into(),
                                                         ORANGE.into(),
                                                     ],
+                                                    ..default()
                                                 }),
                                             ));
                                         }
@@ -115,10 +117,12 @@ fn setup(mut commands: Commands) {
                             BackgroundGradient::from(LinearGradient {
                                 angle: 0.,
                                 stops: stops.clone(),
+                                ..default()
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
+                                ..default()
                             }),
                             AnimateMarker,
                         ));
@@ -136,10 +140,12 @@ fn setup(mut commands: Commands) {
                                 stops: stops.clone(),
                                 shape: RadialGradientShape::ClosestSide,
                                 position: Position::CENTER,
+                                ..default()
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
+                                ..default()
                             }),
                             AnimateMarker,
                         ));
@@ -159,10 +165,12 @@ fn setup(mut commands: Commands) {
                                     .map(|stop| AngularColorStop::auto(stop.color))
                                     .collect(),
                                 position: Position::CENTER,
+                                ..default()
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
+                                ..default()
                             }),
                             AnimateMarker,
                         ));
