@@ -1,8 +1,9 @@
 use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
+use crate::DUMMY_MESH_MATERIAL;
 use crate::{
     meshlet::asset::MeshletAabb, Material, MaterialBindingId, MeshFlags, MeshTransforms,
     MeshUniform, NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform,
-    RenderMaterialBindings, RenderMaterialInstances, RenderMeshMaterialIds, StandardMaterial,
+    RenderMaterialBindings, RenderMaterialInstances,
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
