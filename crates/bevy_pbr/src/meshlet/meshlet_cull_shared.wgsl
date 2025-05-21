@@ -17,21 +17,20 @@ fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, 
     let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
     let camera_pos = view.world_position;
 
-    // TODO: this currently treats orthographic projections as perspective
     let projection = view.clip_from_view;
-    var near: f32;
     if projection[3][3] == 1.0 {
-        near = projection[3][2] / projection[2][2];
+        let world_sphere_radius = lod_sphere.w * world_scale;
+        let norm_error = simplification_error / world_sphere_radius * 0.25;
+        return norm_error * view.viewport.w < 1.0;
     } else {
-        near = projection[3][2];
+        var near = projection[3][2];
+        let world_sphere_center = (world_from_local * vec4<f32>(lod_sphere.xyz, 1.0)).xyz;
+        let world_sphere_radius = lod_sphere.w * world_scale;
+        let d_pos = world_sphere_center - camera_pos;
+        let d = sqrt(dot(d_pos, d_pos)) - world_sphere_radius;
+        let norm_error = simplification_error / max(d, near) * projection[1][1] * 0.5;
+        return norm_error * view.viewport.w < 1.0;
     }
-
-    let world_sphere_center = (world_from_local * vec4<f32>(lod_sphere.xyz, 1.0)).xyz;
-    let world_sphere_radius = lod_sphere.w * world_scale;
-    let d_pos = world_sphere_center - camera_pos;
-    let d = sqrt(dot(d_pos, d_pos)) - world_sphere_radius;
-    let norm_error = simplification_error / max(d, near) * projection[1][1] * 0.5;
-    return norm_error * view.viewport.w < 1.0;
 }
 
 fn normalize_plane(p: vec4<f32>) -> vec4<f32> {
@@ -96,6 +95,7 @@ fn project_aabb(clip_from_local: mat4x4<f32>, near: f32, aabb: MeshletAabb, out:
     let p7 = p6 + sz;
 
     let depth = min8_4(p0, p1, p2, p3, p4, p5, p6, p7).w;
+    // do not occlusion cull if we are inside the aabb
     if depth < near {
         return false;
     }
@@ -111,42 +111,57 @@ fn project_aabb(clip_from_local: mat4x4<f32>, near: f32, aabb: MeshletAabb, out:
     let min = min8(dp0, dp1, dp2, dp3, dp4, dp5, dp6, dp7);
     let max = max8(dp0, dp1, dp2, dp3, dp4, dp5, dp6, dp7);
     var vaabb = vec4<f32>(min.xy, max.xy);
+    // convert ndc to texture coordinates by rescaling and flipping Y
     vaabb = vaabb.xwzy * vec4<f32>(0.5, -0.5, 0.5, -0.5) + 0.5;
     (*out).min = vec3<f32>(vaabb.xy, min.z);
     (*out).max = vec3<f32>(vaabb.zw, max.z);
     return true;
 }
 
-fn sample_hzb(uv: vec2<f32>, mip: u32, size: vec2<u32>) -> f32 {
-    let mip_size = size >> vec2<u32>(mip);
-    let top_left = vec2<i32>(uv * vec2<f32>(mip_size));
-    let a = textureLoad(depth_pyramid, top_left, i32(mip)).x;
-    let b = textureLoad(depth_pyramid, top_left + vec2<i32>(1, 0), i32(mip)).x;
-    let c = textureLoad(depth_pyramid, top_left + vec2<i32>(0, 1), i32(mip)).x;
-    let d = textureLoad(depth_pyramid, top_left + vec2<i32>(1, 1), i32(mip)).x;
+fn sample_hzb(smin: vec2<u32>, smax: vec2<u32>, mip: i32) -> f32 {
+    let texel = vec4<u32>(0, 1, 2, 3);
+    let sx = min(smin.x + texel, smax.xxxx);
+    let sy = min(smin.y + texel, smax.yyyy);
+    // sampling 16 times a finer mip is worth the extra cost for better culling
+    let a = sample_hzb_row(sx, sy.x, mip);
+    let b = sample_hzb_row(sx, sy.y, mip);
+    let c = sample_hzb_row(sx, sy.z, mip);
+    let d = sample_hzb_row(sx, sy.w, mip);
     return min(min(a, b), min(c, d));
 }
 
-// TODO: We should probably be using a POT HZB texture?
+fn sample_hzb_row(sx: vec4<u32>, sy: u32, mip: i32) -> f32 {
+    let a = textureLoad(depth_pyramid, vec2(sx.x, sy), mip).x;
+    let b = textureLoad(depth_pyramid, vec2(sx.y, sy), mip).x;
+    let c = textureLoad(depth_pyramid, vec2(sx.z, sy), mip).x;
+    let d = textureLoad(depth_pyramid, vec2(sx.w, sy), mip).x;
+    return min(min(a, b), min(c, d));
+}
+
 fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
-    let hzb_size = screen * 0.5f;
+    let hzb_size = ceil(screen);
     let aabb_min = aabb.min.xy * hzb_size;
     let aabb_max = aabb.max.xy * hzb_size;
 
     let min_texel = vec2<u32>(max(aabb_min, vec2<f32>(0.0)));
     let max_texel = vec2<u32>(min(aabb_max, hzb_size - 1.0));
-    let size = max_texel - min_texel + 1u;
+    let size = max_texel - min_texel;
     let max_size = max(size.x, size.y);
 
-    var mip = firstLeadingBit(max_size - 1u);
-    let smin = min_texel >> vec2<u32>(mip);
-    let smax = max_texel >> vec2<u32>(mip);
-    if any(smax - smin > vec2<u32>(1u)) {
+    // note: add 1 before max because the unsigned overflow behavior is intentional
+    // it wraps around firstLeadingBit(0) = ~0 to 0
+    var mip = max(firstLeadingBit(max_size) + 1u, 2u) - 1u;
+    
+    if any((max_texel >> vec2(mip)) > (min_texel >> vec2(mip)) + 3) {
         mip += 1u;
     }
 
-    let uv = ((vec2<f32>(min_texel) + vec2<f32>(max_texel)) * 0.5) / hzb_size;
-    let curr_depth = sample_hzb(uv, mip, vec2<u32>(hzb_size));
+    let smin = min_texel >> vec2<u32>(mip);
+    let smax = max_texel >> vec2<u32>(mip);
+
+    mip -= 1;
+    
+    let curr_depth = sample_hzb(smin, smax, i32(mip));
     return aabb.max.z <= curr_depth;
 }
 
