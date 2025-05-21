@@ -99,7 +99,7 @@ impl RemovedComponentEvents {
     pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
-            .send(RemovedComponentEntity(entity));
+            .write(RemovedComponentEntity(entity));
     }
 }
 
