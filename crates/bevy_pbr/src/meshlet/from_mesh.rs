@@ -831,7 +831,7 @@ impl BvhBuilder {
             let min_child_size = max_child_size >> 3;
             let max_extra_per_node = max_child_size - min_child_size;
             let mut extra = count - max_child_size; // 8 * min_child_size
-            let splits = std::array::from_fn(|_| {
+            let splits = core::array::from_fn(|_| {
                 let size = extra.min(max_extra_per_node);
                 extra -= size;
                 min_child_size + size
@@ -863,7 +863,7 @@ impl BvhBuilder {
 
     fn build_temp(&mut self) -> u32 {
         let mut lods = Vec::with_capacity(self.lods.len());
-        for lod in std::mem::take(&mut self.lods) {
+        for lod in core::mem::take(&mut self.lods) {
             let mut lod: Vec<_> = lod.collect();
             let root = self.build_temp_inner(&mut lod, true);
             let node = &self.nodes[root as usize];
@@ -879,7 +879,6 @@ impl BvhBuilder {
     fn build_inner(
         &self,
         groups: &[TempMeshletGroup],
-        cull_data: &[TempMeshletCullData],
         out: &mut Vec<BvhNode>,
         max_depth: &mut u32,
         node: u32,
@@ -899,8 +898,7 @@ impl BvhBuilder {
                 out.lod_bounds[i] = sphere_to_meshlet(group.lod_bounds);
                 out.child_counts[i] = group.meshlets[1] as _;
             } else {
-                let child_id =
-                    self.build_inner(groups, cull_data, out, max_depth, child_id, depth + 1);
+                let child_id = self.build_inner(groups, out, max_depth, child_id, depth + 1);
                 let child = &out[child_id as usize];
                 let mut aabb = aabb_default();
                 let mut parent_error = 0.0f32;
@@ -931,53 +929,6 @@ impl BvhBuilder {
         onode as _
     }
 
-    fn verify_bvh(
-        &self,
-        out: &[BvhNode],
-        cull_data: &[TempMeshletCullData],
-        reachable: &mut [bool],
-        node: u32,
-    ) {
-        let node = &out[node as usize];
-        for i in 0..8 {
-            let sphere = node.lod_bounds[i];
-            let error = node.aabbs[i].error;
-            if node.child_counts[i] == u8::MAX {
-                let child = &out[node.aabbs[i].child_offset as usize];
-                for i in 0..8 {
-                    if child.child_counts[i] == 0 {
-                        break;
-                    }
-                    assert!(
-                        child.aabbs[i].error <= error,
-                        "BVH errors are not monotonic"
-                    );
-                    let sphere_error = (sphere.center - child.lod_bounds[i].center).length()
-                        - (sphere.radius - child.lod_bounds[i].radius);
-                    assert!(
-                        sphere_error <= 0.0001,
-                        "BVH lod spheres are not monotonic ({sphere_error})"
-                    );
-                }
-                self.verify_bvh(out, cull_data, reachable, node.aabbs[i].child_offset);
-            } else {
-                for m in 0..node.child_counts[i] as u32 {
-                    let mid = (m + node.aabbs[i].child_offset) as usize;
-                    let meshlet = &cull_data[mid];
-                    assert!(meshlet.error <= error, "meshlet errors are not monotonic");
-                    let sphere_error =
-                        (Vec3A::from(sphere.center) - meshlet.lod_group_sphere.center).length()
-                            - (sphere.radius - meshlet.lod_group_sphere.radius());
-                    assert!(
-                        sphere_error <= 0.0001,
-                        "meshlet lod spheres are not monotonic: ({sphere_error})"
-                    );
-                    reachable[mid] = true;
-                }
-            }
-        }
-    }
-
     fn build(
         mut self,
         meshlets: &mut Meshlets,
@@ -998,8 +949,8 @@ impl BvhBuilder {
             );
             remapped_cull_data.extend(group.meshlets.iter().map(|&m| cull_data[m as usize]));
             group.meshlets.resize(2, 0);
-            group.meshlets[0] = first as u32;
-            group.meshlets[1] = count as u32;
+            group.meshlets[0] = first;
+            group.meshlets[1] = count;
         }
         meshlets.meshlets = remap;
         *cull_data = remapped_cull_data;
@@ -1019,7 +970,7 @@ impl BvhBuilder {
             max_depth = 1;
         } else {
             let root = self.build_temp();
-            let root = self.build_inner(&groups, cull_data, &mut out, &mut max_depth, root, 1);
+            let root = self.build_inner(&groups, &mut out, &mut max_depth, root, 1);
             assert_eq!(root, 0, "root must be 0");
 
             let root = &out[0];
@@ -1036,7 +987,7 @@ impl BvhBuilder {
         }
 
         let mut reachable = vec![false; meshlets.meshlets.len()];
-        self.verify_bvh(&out, cull_data, &mut reachable, 0);
+        verify_bvh(&out, cull_data, &mut reachable, 0);
         assert!(
             reachable.iter().all(|&x| x),
             "all meshlets must be reachable"
@@ -1050,6 +1001,52 @@ impl BvhBuilder {
             },
             max_depth,
         )
+    }
+}
+
+fn verify_bvh(
+    out: &[BvhNode],
+    cull_data: &[TempMeshletCullData],
+    reachable: &mut [bool],
+    node: u32,
+) {
+    let node = &out[node as usize];
+    for i in 0..8 {
+        let sphere = node.lod_bounds[i];
+        let error = node.aabbs[i].error;
+        if node.child_counts[i] == u8::MAX {
+            let child = &out[node.aabbs[i].child_offset as usize];
+            for i in 0..8 {
+                if child.child_counts[i] == 0 {
+                    break;
+                }
+                assert!(
+                    child.aabbs[i].error <= error,
+                    "BVH errors are not monotonic"
+                );
+                let sphere_error = (sphere.center - child.lod_bounds[i].center).length()
+                    - (sphere.radius - child.lod_bounds[i].radius);
+                assert!(
+                    sphere_error <= 0.0001,
+                    "BVH lod spheres are not monotonic ({sphere_error})"
+                );
+            }
+            verify_bvh(out, cull_data, reachable, node.aabbs[i].child_offset);
+        } else {
+            for m in 0..node.child_counts[i] as u32 {
+                let mid = (m + node.aabbs[i].child_offset) as usize;
+                let meshlet = &cull_data[mid];
+                assert!(meshlet.error <= error, "meshlet errors are not monotonic");
+                let sphere_error = (Vec3A::from(sphere.center) - meshlet.lod_group_sphere.center)
+                    .length()
+                    - (sphere.radius - meshlet.lod_group_sphere.radius());
+                assert!(
+                    sphere_error <= 0.0001,
+                    "meshlet lod spheres are not monotonic: ({sphere_error})"
+                );
+                reachable[mid] = true;
+            }
+        }
     }
 }
 
