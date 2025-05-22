@@ -614,6 +614,11 @@ impl RadialGradientShape {
 
 /// The color space used for interpolation.
 #[derive(Default, Copy, Clone, Hash, Debug, PartialEq, Eq, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum InterpolationColorSpace {
     /// Interpolates in OKLab space.
     #[default]
