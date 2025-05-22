@@ -293,6 +293,8 @@ impl Diagnostic {
     /// Clear the history of this diagnostic.
     pub fn clear_history(&mut self) {
         self.history.clear();
+        self.sum = 0.0;
+        self.ema = 0.0;
     }
 }
 
