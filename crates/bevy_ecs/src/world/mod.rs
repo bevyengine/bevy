@@ -3403,7 +3403,7 @@ impl World {
 // Schedule-related methods
 impl World {
     /// Adds the specified [`Schedule`] to the world.
-    /// If a schedule already exists with the same [label][Schedule::label], it will be replaced.
+    /// If a schedule already exists with the same [label](Schedule::label), it will be replaced.
     ///
     /// The schedule can later be run
     /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
