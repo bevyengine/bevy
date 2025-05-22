@@ -620,7 +620,7 @@ impl RadialGradientShape {
     reflect(Serialize, Deserialize)
 )]
 pub enum InterpolationColorSpace {
-    /// Interpolates in OKLab space.
+    /// Interpolates in `OKLab` space.
     #[default]
     OkLab,
     /// Interpolates in OKLCH space, taking the shortest hue path.
