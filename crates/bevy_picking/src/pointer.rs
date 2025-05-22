@@ -11,7 +11,7 @@
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_window::PrimaryWindow;
@@ -205,8 +205,8 @@ impl PointerLocation {
 /// - a pointer is not associated with a [`Camera`] because multiple cameras can target the same
 ///   render target. It is up to picking backends to associate a Pointer's `Location` with a
 ///   specific `Camera`, if any.
-#[derive(Debug, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
+#[reflect(Debug, PartialEq, Clone)]
 pub struct Location {
     /// The [`NormalizedRenderTarget`] associated with the pointer, usually a window.
     pub target: NormalizedRenderTarget,

@@ -9,7 +9,7 @@ use crate::{
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     sync_world::MainEntity,
     texture::GpuImage,
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
@@ -24,7 +24,7 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_image::{Image, TextureFormatPixelInfo};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
 use encase::internal::ReadFrom;
@@ -60,8 +60,10 @@ impl Plugin for GpuReadbackPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_buffers.in_set(RenderSet::PrepareResources),
-                        map_buffers.after(render_system).in_set(RenderSet::Render),
+                        prepare_buffers.in_set(RenderSystems::PrepareResources),
+                        map_buffers
+                            .after(render_system)
+                            .in_set(RenderSystems::Render),
                     ),
                 );
         }

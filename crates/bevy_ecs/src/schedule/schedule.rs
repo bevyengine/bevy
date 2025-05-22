@@ -2,6 +2,7 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
+use alloc::borrow::Cow;
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -10,7 +11,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
@@ -26,7 +27,6 @@ use tracing::info_span;
 
 use crate::{
     component::{ComponentId, Components, Tick},
-    error::default_error_handler,
     prelude::Component,
     resource::Resource,
     schedule::*,
@@ -217,6 +217,7 @@ impl Schedules {
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
     match kind {
+        #[expect(deprecated, reason = "We still need to support this.")]
         ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
         ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
         #[cfg(feature = "std")]
@@ -440,7 +441,7 @@ impl Schedule {
         self.initialize(world)
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
-        let error_handler = default_error_handler();
+        let error_handler = world.default_error_handler();
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
@@ -1902,7 +1903,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&'a str>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<Cow<'a, str>>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
@@ -2059,6 +2060,7 @@ mod tests {
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
+        error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, Res, Resource},
         schedule::{
             tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, SystemSet,
@@ -2807,5 +2809,33 @@ mod tests {
             .get_resource::<CheckSystemRan>()
             .expect("CheckSystemRan Resource Should Exist");
         assert_eq!(value.0, 2);
+    }
+
+    #[test]
+    fn test_default_error_handler() {
+        #[derive(Resource, Default)]
+        struct Ran(bool);
+
+        fn system(mut ran: ResMut<Ran>) -> Result {
+            ran.0 = true;
+            Err("I failed!".into())
+        }
+
+        // Test that the default error handler is used
+        let mut world = World::default();
+        world.init_resource::<Ran>();
+        world.insert_resource(DefaultErrorHandler(ignore));
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system).run(&mut world);
+        assert!(world.resource::<Ran>().0);
+
+        // Test that the handler doesn't change within the schedule
+        schedule.add_systems(
+            (|world: &mut World| {
+                world.insert_resource(DefaultErrorHandler(panic));
+            })
+            .before(system),
+        );
+        schedule.run(&mut world);
     }
 }

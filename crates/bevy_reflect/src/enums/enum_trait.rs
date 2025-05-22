@@ -5,8 +5,8 @@ use crate::{
     DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
 };
 use alloc::{boxed::Box, format, string::String};
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::collections::HashMap;
+use bevy_platform::sync::Arc;
 use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].
@@ -124,11 +124,6 @@ pub trait Enum: PartialReflect {
     fn variant_index(&self) -> usize;
     /// The type of the current variant.
     fn variant_type(&self) -> VariantType;
-    // Clones the enum into a [`DynamicEnum`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_enum` instead")]
-    fn clone_dynamic(&self) -> DynamicEnum {
-        self.to_dynamic_enum()
-    }
     /// Creates a new [`DynamicEnum`] from this enum.
     fn to_dynamic_enum(&self) -> DynamicEnum {
         DynamicEnum::from_ref(self)

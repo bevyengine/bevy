@@ -3,7 +3,7 @@ use crate::{
     plugin::Plugin,
     PluginsState,
 };
-use bevy_platform_support::time::Instant;
+use bevy_platform::time::Instant;
 use core::time::Duration;
 
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
@@ -159,9 +159,8 @@ impl Plugin for ScheduleRunnerPlugin {
                         } else {
                             loop {
                                 match tick(&mut app, wait) {
-                                    Ok(Some(_delay)) => {
-                                        #[cfg(feature = "std")]
-                                        std::thread::sleep(_delay);
+                                    Ok(Some(delay)) => {
+                                        bevy_platform::thread::sleep(delay);
                                     }
                                     Ok(None) => continue,
                                     Err(exit) => return exit,

@@ -74,7 +74,7 @@ pub mod internal {
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Local};
-    use bevy_platform_support::time::Instant;
+    use bevy_platform::time::Instant;
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
     use log::info;
     use std::sync::Mutex;
@@ -224,8 +224,7 @@ pub mod internal {
                     .first()
                     .map(|cpu| cpu.brand().trim().to_string())
                     .unwrap_or_else(|| String::from("not available")),
-                core_count: sys
-                    .physical_core_count()
+                core_count: System::physical_core_count()
                     .map(|x| x.to_string())
                     .unwrap_or_else(|| String::from("not available")),
                 // Convert from Bytes to GibiBytes since it's probably what people expect most of the time

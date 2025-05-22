@@ -28,7 +28,7 @@ use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
@@ -81,7 +81,7 @@ impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiPickingSettings>()
             .register_type::<(UiPickingCamera, UiPickingSettings)>()
-            .add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
+            .add_systems(PreUpdate, ui_picking.in_set(PickingSystems::Backend));
     }
 }
 
@@ -104,12 +104,7 @@ pub struct NodeQuery {
 /// we need for determining picking.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(
-        Entity,
-        &Camera,
-        Has<IsDefaultUiCamera>,
-        Has<UiPickingCamera>,
-    )>,
+    camera_query: Query<(Entity, &Camera, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
@@ -128,8 +123,8 @@ pub fn ui_picking(
         // cameras. We want to ensure we return all cameras with a matching target.
         for camera in camera_query
             .iter()
-            .filter(|(_, _, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
-            .map(|(entity, camera, _, _)| {
+            .filter(|(_, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
+            .map(|(entity, camera, _)| {
                 (
                     entity,
                     camera.target.normalize(primary_window.single().ok()),
@@ -139,7 +134,7 @@ pub fn ui_picking(
             .filter(|(_entity, target)| target == &pointer_location.target)
             .map(|(cam_entity, _target)| cam_entity)
         {
-            let Ok((_, camera_data, _, _)) = camera_query.get(camera) else {
+            let Ok((_, camera_data, _)) = camera_query.get(camera) else {
                 continue;
             };
             let mut pointer_pos =
@@ -260,7 +255,7 @@ pub fn ui_picking(
 
         let order = camera_query
             .get(*camera)
-            .map(|(_, cam, _, _)| cam.order)
+            .map(|(_, cam, _)| cam.order)
             .unwrap_or_default() as f32
             + 0.5; // bevy ui can run on any camera, it's a special case
 

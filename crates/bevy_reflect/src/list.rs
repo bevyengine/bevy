@@ -103,12 +103,6 @@ pub trait List: PartialReflect {
     /// [`Vec`] will match the order of items in `self`.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Clones the list, producing a [`DynamicList`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_list` instead")]
-    fn clone_dynamic(&self) -> DynamicList {
-        self.to_dynamic_list()
-    }
-
     /// Creates a new [`DynamicList`] from this list.
     fn to_dynamic_list(&self) -> DynamicList {
         DynamicList {

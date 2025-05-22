@@ -1,13 +1,17 @@
-use bevy_render::mesh::PrimitiveTopology;
+use bevy_mesh::PrimitiveTopology;
 
-use gltf::mesh::{Mesh, Mode, Primitive};
+use gltf::{
+    mesh::{Mesh, Mode},
+    Material,
+};
 
 use crate::GltfError;
 
-pub(crate) fn primitive_name(mesh: &Mesh<'_>, primitive: &Primitive) -> String {
+pub(crate) fn primitive_name(mesh: &Mesh<'_>, material: &Material) -> String {
     let mesh_name = mesh.name().unwrap_or("Mesh");
-    if mesh.primitives().len() > 1 {
-        format!("{}.{}", mesh_name, primitive.index())
+
+    if let Some(material_name) = material.name() {
+        format!("{}.{}", mesh_name, material_name)
     } else {
         mesh_name.to_string()
     }

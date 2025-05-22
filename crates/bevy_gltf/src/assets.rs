@@ -4,10 +4,10 @@
 use bevy_animation::AnimationClip;
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_mesh::{skinning::SkinnedMeshInverseBindposes, Mesh};
 use bevy_pbr::StandardMaterial;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
-use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, Mesh};
 use bevy_scene::Scene;
 
 use crate::GltfAssetLabel;
@@ -214,7 +214,7 @@ impl GltfPrimitive {
     }
 }
 
-/// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_render::mesh::skinning::SkinnedMeshInverseBindposes)
+/// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_mesh::skinning::SkinnedMeshInverseBindposes)
 /// and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin).

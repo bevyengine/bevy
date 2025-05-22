@@ -6,6 +6,7 @@ mod single_threaded;
 use alloc::{borrow::Cow, vec, vec::Vec};
 use core::any::TypeId;
 
+#[expect(deprecated, reason = "We still need to support this.")]
 pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
 
 #[cfg(feature = "std")]
@@ -18,9 +19,9 @@ use crate::{
     component::{ComponentId, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
-    system::{ScheduleSystem, System, SystemIn},
+    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -53,6 +54,10 @@ pub enum ExecutorKind {
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
     /// immediately after running each system.
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use SingleThreaded instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
+    )]
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     #[cfg(feature = "std")]
@@ -118,17 +123,6 @@ impl SystemSchedule {
     }
 }
 
-/// See [`ApplyDeferred`].
-#[deprecated(
-    since = "0.16.0",
-    note = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."
-)]
-#[expect(
-    non_upper_case_globals,
-    reason = "This item is deprecated; as such, its previous name needs to stay."
-)]
-pub const apply_deferred: ApplyDeferred = ApplyDeferred;
-
 /// A special [`System`] that instructs the executor to call
 /// [`System::apply_deferred`] on the systems that have run but not applied
 /// their [`Deferred`] system parameters (like [`Commands`]) or other system buffers.
@@ -172,6 +166,10 @@ impl System for ApplyDeferred {
     fn component_access(&self) -> &Access<ComponentId> {
         // This system accesses no components.
         const { &Access::new() }
+    }
+
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        const { &FilteredAccessSet::new() }
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
@@ -221,10 +219,13 @@ impl System for ApplyDeferred {
 
     fn queue_deferred(&mut self, _world: DeferredWorld) {}
 
-    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        _world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // This system is always valid to run because it doesn't do anything,
         // and only used as a marker for the executor.
-        true
+        Ok(())
     }
 
     fn initialize(&mut self, _world: &mut World) {}
@@ -264,38 +265,54 @@ impl IntoSystemSet<()> for ApplyDeferred {
 mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
+    #[cfg(feature = "std")]
+    use crate::world::unsafe_world_cell::UnsafeWorldCell;
     use crate::{
         error::Result,
         system::{ReadOnlySystem, ScheduleSystem},
-        world::{unsafe_world_cell::UnsafeWorldCell, World},
+        world::World,
     };
 
     /// # Safety
     /// See `System::run_unsafe`.
+    // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
         let result = system.run_unsafe((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
     }
 
     /// # Safety
     /// See `ReadOnlySystem::run_unsafe`.
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "currently only used with the std feature")
-    )]
+    // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: UnsafeWorldCell,
     ) -> O {
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run_unsafe((), world))
     }
 
     #[inline(never)]
     pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) -> Result {
         let result = system.run((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
+        black_box(());
+        result
+    }
+
+    #[inline(never)]
+    pub(super) fn run_without_applying_deferred(
+        system: &mut ScheduleSystem,
+        world: &mut World,
+    ) -> Result {
+        let result = system.run_without_applying_deferred((), world);
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
         result
     }
@@ -305,6 +322,7 @@ mod __rust_begin_short_backtrace {
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
     ) -> O {
+        // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run((), world))
     }
 }
@@ -312,49 +330,260 @@ mod __rust_begin_short_backtrace {
 #[cfg(test)]
 mod tests {
     use crate::{
-        prelude::{IntoScheduleConfigs, Resource, Schedule, SystemSet},
+        prelude::{Component, In, IntoSystem, Resource, Schedule},
         schedule::ExecutorKind,
-        system::Commands,
+        system::{Populated, Res, ResMut, Single},
         world::World,
     };
 
-    #[derive(Resource)]
-    struct R1;
-
-    #[derive(Resource)]
-    struct R2;
+    #[derive(Component)]
+    struct TestComponent;
 
     const EXECUTORS: [ExecutorKind; 3] = [
+        #[expect(deprecated, reason = "We still need to test this.")]
         ExecutorKind::Simple,
         ExecutorKind::SingleThreaded,
         ExecutorKind::MultiThreaded,
     ];
 
+    #[derive(Resource, Default)]
+    struct TestState {
+        populated_ran: bool,
+        single_ran: bool,
+    }
+
+    #[derive(Resource, Default)]
+    struct Counter(u8);
+
+    fn set_single_state(mut _single: Single<&TestComponent>, mut state: ResMut<TestState>) {
+        state.single_ran = true;
+    }
+
+    fn set_populated_state(
+        mut _populated: Populated<&TestComponent>,
+        mut state: ResMut<TestState>,
+    ) {
+        state.populated_ran = true;
+    }
+
     #[test]
-    fn invalid_system_param_skips() {
+    #[expect(clippy::print_stdout, reason = "std and println are allowed in tests")]
+    fn single_and_populated_skipped_and_run() {
         for executor in EXECUTORS {
-            invalid_system_param_skips_core(executor);
+            std::println!("Testing executor: {:?}", executor);
+
+            let mut world = World::new();
+            world.init_resource::<TestState>();
+
+            let mut schedule = Schedule::default();
+            schedule.set_executor_kind(executor);
+            schedule.add_systems((set_single_state, set_populated_state));
+            schedule.run(&mut world);
+
+            let state = world.get_resource::<TestState>().unwrap();
+            assert!(!state.single_ran);
+            assert!(!state.populated_ran);
+
+            world.spawn(TestComponent);
+
+            schedule.run(&mut world);
+            let state = world.get_resource::<TestState>().unwrap();
+            assert!(state.single_ran);
+            assert!(state.populated_ran);
         }
     }
 
-    fn invalid_system_param_skips_core(executor: ExecutorKind) {
+    fn look_for_missing_resource(_res: Res<TestState>) {}
+
+    #[test]
+    #[should_panic]
+    fn missing_resource_panics_simple() {
         let mut world = World::new();
         let mut schedule = Schedule::default();
-        schedule.set_executor_kind(executor);
-        schedule.add_systems(
-            (
-                // This system depends on a system that is always skipped.
-                (|mut commands: Commands| {
-                    commands.insert_resource(R2);
-                }),
-            )
-                .chain(),
-        );
+
+        #[expect(deprecated, reason = "We still need to test this.")]
+        schedule.set_executor_kind(ExecutorKind::Simple);
+        schedule.add_systems(look_for_missing_resource);
         schedule.run(&mut world);
-        assert!(world.get_resource::<R1>().is_none());
-        assert!(world.get_resource::<R2>().is_some());
     }
 
-    #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-    struct S1;
+    #[test]
+    #[should_panic]
+    fn missing_resource_panics_single_threaded() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        schedule.add_systems(look_for_missing_resource);
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn missing_resource_panics_multi_threaded() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.add_systems(look_for_missing_resource);
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    fn piped_systems_first_system_skipped() {
+        // This system should be skipped when run due to no matching entity
+        fn pipe_out(_single: Single<&TestComponent>) -> u8 {
+            42
+        }
+
+        fn pipe_in(_input: In<u8>, mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+
+        let counter = world.resource::<Counter>();
+        assert_eq!(counter.0, 0);
+    }
+
+    #[test]
+    fn piped_system_second_system_skipped() {
+        fn pipe_out(mut counter: ResMut<Counter>) -> u8 {
+            counter.0 += 1;
+            42
+        }
+
+        // This system should be skipped when run due to no matching entity
+        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>) {}
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+        let counter = world.resource::<Counter>();
+        assert_eq!(counter.0, 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn piped_system_first_system_panics() {
+        // This system should panic when run because the resource is missing
+        fn pipe_out(_res: Res<TestState>) -> u8 {
+            42
+        }
+
+        fn pipe_in(_input: In<u8>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn piped_system_second_system_panics() {
+        fn pipe_out() -> u8 {
+            42
+        }
+
+        // This system should panic when run because the resource is missing
+        fn pipe_in(_input: In<u8>, _res: Res<TestState>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+    }
+
+    // This test runs without panicking because we've
+    // decided to use early-out behavior for piped systems
+    #[test]
+    fn piped_system_skip_and_panic() {
+        // This system should be skipped when run due to no matching entity
+        fn pipe_out(_single: Single<&TestComponent>) -> u8 {
+            42
+        }
+
+        // This system should panic when run because the resource is missing
+        fn pipe_in(_input: In<u8>, _res: Res<TestState>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn piped_system_panic_and_skip() {
+        // This system should panic when run because the resource is missing
+
+        fn pipe_out(_res: Res<TestState>) -> u8 {
+            42
+        }
+
+        // This system should be skipped when run due to no matching entity
+        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn piped_system_panic_and_panic() {
+        // This system should panic when run because the resource is missing
+
+        fn pipe_out(_res: Res<TestState>) -> u8 {
+            42
+        }
+
+        // This system should panic when run because the resource is missing
+        fn pipe_in(_input: In<u8>, _res: Res<TestState>) {}
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    fn piped_system_skip_and_skip() {
+        // This system should be skipped when run due to no matching entity
+
+        fn pipe_out(_single: Single<&TestComponent>, mut counter: ResMut<Counter>) -> u8 {
+            counter.0 += 1;
+            42
+        }
+
+        // This system should be skipped when run due to no matching entity
+        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>, mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(pipe_out.pipe(pipe_in));
+        schedule.run(&mut world);
+
+        let counter = world.resource::<Counter>();
+        assert_eq!(counter.0, 0);
+    }
 }

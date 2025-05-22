@@ -19,7 +19,7 @@ pub mod ray_cast;
 use crate::{
     backend::{ray::RayMap, HitData, PointerHits},
     prelude::*,
-    PickSet,
+    PickingSystems,
 };
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -71,7 +71,7 @@ impl Plugin for MeshPickingPlugin {
         app.init_resource::<MeshPickingSettings>()
             .register_type::<MeshPickingSettings>()
             .register_type::<SimplifiedMesh>()
-            .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend));
+            .add_systems(PreUpdate, update_hits.in_set(PickingSystems::Backend));
     }
 }
 
@@ -86,7 +86,7 @@ pub fn update_hits(
     mut ray_cast: MeshRayCast,
     mut output: EventWriter<PointerHits>,
 ) {
-    for (&ray_id, &ray) in ray_map.map().iter() {
+    for (&ray_id, &ray) in ray_map.iter() {
         let Ok((camera, cam_can_pick, cam_layers)) = picking_cameras.get(ray_id.camera) else {
             continue;
         };

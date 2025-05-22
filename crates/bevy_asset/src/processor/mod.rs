@@ -54,11 +54,11 @@ use crate::{
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
     AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
-    MissingAssetLoaderForExtensionError, WriteDefaultMetaError,
+    MissingAssetLoaderForExtensionError, UnapprovedPathMode, WriteDefaultMetaError,
 };
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
@@ -122,6 +122,7 @@ impl AssetProcessor {
             AssetServerMode::Processed,
             AssetMetaCheck::Always,
             false,
+            UnapprovedPathMode::default(),
         );
         Self { server, data }
     }

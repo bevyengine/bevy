@@ -19,7 +19,7 @@ serialize = [
   "serde",
   "bevy_input/serialize",
   "bevy_window/serialize",
-  "bevy_platform_support/serialize",
+  "bevy_platform/serialize",
 ]
 android-native-activity = ["winit/android-native-activity"]
 android-game-activity = ["winit/android-game-activity"]
@@ -40,7 +40,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
 ] }
 
@@ -51,7 +51,7 @@ bevy_image = { path = "../bevy_image", version = "0.16.0-dev", optional = true }
 # other
 # feature rwh_06 refers to window_raw_handle@v0.6
 winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
-accesskit_winit = { version = "0.23", default-features = false, features = [
+accesskit_winit = { version = "0.25", default-features = false, features = [
   "rwh_06",
 ] }
 approx = { version = "0.5", default-features = false }
@@ -60,7 +60,7 @@ raw-window-handle = "0.6"
 serde = { version = "1.0", features = ["derive"], optional = true }
 bytemuck = { version = "1.5", optional = true }
 wgpu-types = { version = "24", optional = true }
-accesskit = "0.17"
+accesskit = "0.18"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -74,7 +74,7 @@ bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = fa
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
