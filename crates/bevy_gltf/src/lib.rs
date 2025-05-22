@@ -193,6 +193,7 @@ impl Plugin for GltfPlugin {
         app.register_type::<GltfExtras>()
             .register_type::<GltfSceneExtras>()
             .register_type::<GltfMeshExtras>()
+            .register_type::<GltfMeshName>()
             .register_type::<GltfMaterialExtras>()
             .register_type::<GltfMaterialName>()
             .init_asset::<Gltf>()
