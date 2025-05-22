@@ -70,6 +70,11 @@ impl LogDiagnosticsState {
         }
     }
 
+    /// Enables filtering with empty filters
+    pub fn enable_filtering(&mut self) {
+        self.filter = Some(HashSet::new());
+    }
+
     /// Disables filtering
     pub fn disable_filtering(&mut self) {
         self.filter = None;
