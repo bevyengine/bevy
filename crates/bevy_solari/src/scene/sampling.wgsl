@@ -18,13 +18,13 @@ fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<
 fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
     let light_count = arrayLength(&light_sources);
     let light_id = rand_range_u(light_count, rng);
-    let light = light_sources[light_id];
+    let light_source = light_sources[light_id];
 
     var radiance: vec3<f32>;
-    if light.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
-        radiance = sample_directional_light(ray_origin, origin_world_normal, light.id, rng);
+    if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
+        radiance = sample_directional_light(ray_origin, origin_world_normal, light_source.id, rng);
     } else {
-        radiance = sample_emissive_mesh(ray_origin, origin_world_normal, light.id, light.kind >> 1u, rng);
+        radiance = sample_emissive_mesh(ray_origin, origin_world_normal, light_source.id, light_source.kind >> 1u, rng);
     }
 
     let inverse_pdf = f32(light_count);
@@ -33,12 +33,12 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
 }
 
 fn sample_directional_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, directional_light_id: u32, rng: ptr<function, u32>) -> vec3<f32> {
-    let light = directional_lights[directional_light_id];
+    let directional_light = directional_lights[directional_light_id];
 
     // Sample a random direction within a cone whose base is the sun approximated as a disk
     // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
     let r = rand_vec2f(rng);
-    let cos_theta = (1.0 - r.x) + r.x * light.cos_theta_max;
+    let cos_theta = (1.0 - r.x) + r.x * directional_light.cos_theta_max;
     let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
     let phi = r.y * 2.0 * PI;
     let x = cos(phi) * sin_theta;
@@ -46,7 +46,7 @@ fn sample_directional_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32
     var ray_direction = vec3(x, y, cos_theta);
 
     // Rotate the ray so that the cone it was sampled from is aligned with the light direction
-    ray_direction = build_orthonormal_basis(light.direction_to_light) * ray_direction;
+    ray_direction = build_orthonormal_basis(directional_light.direction_to_light) * ray_direction;
 
     let ray_hit = trace_ray(ray_origin, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_TERMINATE_ON_FIRST_HIT);
     let visibility = f32(ray_hit.kind == RAY_QUERY_INTERSECTION_NONE);
@@ -54,7 +54,7 @@ fn sample_directional_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32
     let cos_theta_origin = saturate(dot(ray_direction, origin_world_normal));
 
     // No need to divide by the pdf, because we also need to divide by the solid angle to convert from illuminance to luminance, and they cancel out
-    return light.illuminance.rgb * visibility * cos_theta_origin;
+    return directional_light.illuminance.rgb * visibility * cos_theta_origin;
 }
 
 fn sample_emissive_mesh(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, instance_id: u32, triangle_count: u32, rng: ptr<function, u32>) -> vec3<f32> {
