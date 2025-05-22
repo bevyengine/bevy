@@ -4390,3 +4390,14 @@ name = "Extended Bindless Material"
 description = "Demonstrates bindless `ExtendedMaterial`"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "cooldown"
+path = "examples/usage/cooldown.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.cooldown]
+name = "Cooldown"
+description = "Example for cooldown on button clicks"
+category = "Usage"
+wasm = true
