@@ -3,8 +3,6 @@ use bevy_math::ops;
 use bevy_reflect::prelude::*;
 
 /// Use this [`Resource`] to control the global volume of all audio.
-///
-/// Note: Changing [`GlobalVolume`] does not affect already playing audio.
 #[derive(Resource, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct GlobalVolume {
