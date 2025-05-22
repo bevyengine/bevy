@@ -433,9 +433,7 @@ mod tests {
             Diagnostic::new(DiagnosticPath::new("test")).with_max_history_length(5);
         let mut now = Instant::now();
 
-        // Three times in a row...
         for _ in 0..3 {
-            // Fill the diagnostic with measurements...
             for _ in 0..5 {
                 diagnostic.add_measurement(DiagnosticMeasurement {
                     time: now,
@@ -444,10 +442,8 @@ mod tests {
                 // Increase time to test smoothed average.
                 now += Duration::from_secs(1);
             }
-            // Assert that the average and smoothed average are correct...
-            assert!((diagnostic.average().unwrap() - 20.0) < 0.1);
-            assert!((diagnostic.smoothed().unwrap() - 20.0) < 0.1);
-            // And clear the diagnostic history
+            assert!((diagnostic.average().unwrap() - 20.0).abs() < 0.1);
+            assert!((diagnostic.smoothed().unwrap() - 20.0).abs() < 0.1);
             diagnostic.clear_history();
         }
     }
