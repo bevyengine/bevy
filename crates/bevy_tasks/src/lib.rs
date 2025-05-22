@@ -6,6 +6,25 @@
 )]
 #![no_std]
 
+#[cfg(all(feature = "multi_threaded", not(feature = "async_executor")))]
+compile_error!(
+    r#"
+    The "multi_threaded" feature of `bevy_tasks` requires the "async_executor" feature
+    to be enabled alongside it.
+
+    This is because the multi-threaded task pool relies on an executor to run futures,
+    which is provided by the "async_executor" feature.
+
+    Please enable the "async_executor" feature in your `Cargo.toml` for `bevy_tasks`:
+
+    [dependencies]
+    bevy_tasks = { version = "...", default-features = false, features = ["multi_threaded", "async_executor"] }
+
+    If you are using `bevy`'s `DefaultPlugins`, the "async_executor" feature
+    for `bevy_tasks` is typically enabled automatically via Bevy's default features.
+"#
+);
+
 #[cfg(feature = "std")]
 extern crate std;
 
