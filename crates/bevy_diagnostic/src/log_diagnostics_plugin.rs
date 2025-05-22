@@ -81,7 +81,7 @@ impl Default for LogDiagnosticsPlugin {
         LogDiagnosticsPlugin {
             debug: false,
             wait_duration: Duration::from_secs(1),
-            filter: Some(HashSet::new()),
+            filter: None,
         }
     }
 }
