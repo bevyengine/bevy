@@ -20,6 +20,8 @@ pub struct ThinColumn {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    /// Will be updated when inserting or replacing an element.
+    change_tick: Tick,
 }
 
 impl ThinColumn {
@@ -33,6 +35,7 @@ impl ThinColumn {
             added_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_by: MaybeLocation::new_with(|| ThinArrayPtr::with_capacity(capacity)),
+            change_tick: Tick::new(0),
         }
     }
 
@@ -145,19 +148,20 @@ impl ThinColumn {
         &mut self,
         row: TableRow,
         data: OwningPtr<'_>,
-        tick: Tick,
+        change_tick: Tick,
         caller: MaybeLocation,
     ) {
         self.data.initialize_unchecked(row.as_usize(), data);
-        *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = tick;
+        *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = change_tick;
         *self
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
-            .get_mut() = tick;
+            .get_mut() = change_tick;
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
+        self.change_tick = change_tick;
     }
 
     /// Writes component data to the column at given row. Assumes the slot is initialized, drops the previous value.
@@ -182,6 +186,7 @@ impl ThinColumn {
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
+        self.change_tick = change_tick;
     }
 
     /// Removes the element from `other` at `src_row` and inserts it
@@ -201,6 +206,7 @@ impl ThinColumn {
         other_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
+        change_tick: Tick,
     ) {
         debug_assert!(self.data.layout() == other.data.layout());
         // Init the data
@@ -227,6 +233,7 @@ impl ThinColumn {
                 self_changed_by.initialize_unchecked(dst_row.as_usize(), changed_by);
             },
         );
+        self.change_tick = change_tick;
     }
 
     /// Call [`Tick::check_tick`] on all of the ticks stored in this column.
@@ -249,6 +256,8 @@ impl ThinColumn {
                 .get_mut()
                 .check_tick(change_tick);
         }
+
+        self.change_tick.check_tick(change_tick);
     }
 
     /// Clear all the components from this column.
@@ -332,6 +341,12 @@ impl ThinColumn {
             .as_ref()
             .map(|changed_by| changed_by.as_slice(len))
     }
+
+    /// Get change tick of this [`ThinColumn`].
+    /// This change ticks should be used for immutable components only.
+    pub fn get_change_tick(&self) -> Tick {
+        self.change_tick
+    }
 }
 
 /// A type-erased contiguous container for data of a homogeneous type.
@@ -350,6 +365,7 @@ pub struct Column {
     pub(super) added_ticks: Vec<UnsafeCell<Tick>>,
     pub(super) changed_ticks: Vec<UnsafeCell<Tick>>,
     changed_by: MaybeLocation<Vec<UnsafeCell<&'static Location<'static>>>>,
+    change_tick: Tick,
 }
 
 impl Column {
@@ -362,6 +378,7 @@ impl Column {
             added_ticks: Vec::with_capacity(capacity),
             changed_ticks: Vec::with_capacity(capacity),
             changed_by: MaybeLocation::new_with(|| Vec::with_capacity(capacity)),
+            change_tick: Tick::new(0),
         }
     }
 
@@ -394,6 +411,7 @@ impl Column {
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.as_usize()).get_mut())
             .assign(caller);
+        self.change_tick = change_tick;
     }
 
     /// Gets the current number of elements stored in the column.
@@ -471,6 +489,7 @@ impl Column {
             .as_mut()
             .zip(caller)
             .map(|(changed_by, caller)| changed_by.push(UnsafeCell::new(caller)));
+        self.change_tick = ticks.changed;
     }
 
     /// Fetches the data pointer to the first element of the [`Column`].
@@ -662,6 +681,7 @@ impl Column {
         for component_ticks in &mut self.changed_ticks {
             component_ticks.get_mut().check_tick(change_tick);
         }
+        self.change_tick.check_tick(change_tick);
     }
 
     /// Fetches the calling location that last changed the value at `row`.
@@ -703,5 +723,11 @@ impl Column {
     #[inline]
     pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.data.get_drop()
+    }
+
+    /// Get change tick of this [`Column`]. Should be used for immutable components only.
+    #[inline]
+    pub fn get_change_tick(&self) -> Tick {
+        self.change_tick
     }
 }
