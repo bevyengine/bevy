@@ -260,7 +260,7 @@ impl Chain {
 /// # Schedule labels
 ///
 /// Each schedule has a [`ScheduleLabel`] value. This value is used to uniquely identify the
-/// schedule when added to a [`World`]’s schedules, and may be used to specify which schedule
+/// schedule when added to a [`World`]’s [`Schedules`], and may be used to specify which schedule
 /// a system should be added to.
 ///
 /// # Example

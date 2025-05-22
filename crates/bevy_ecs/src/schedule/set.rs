@@ -26,7 +26,7 @@ define_label!(
     ///
     /// # Defining new schedule labels
     ///
-    /// Most applications should use the predefined schedule labels which implement this trait.
+    /// By default, you should use Bevy's premade schedule labels which implement this trait.
     /// If you are using [`bevy_ecs`] directly or if you need to run a group of systems outside
     /// the existing schedules, you may define your own schedule labels by using
     /// `#[derive(ScheduleLabel)]`.
