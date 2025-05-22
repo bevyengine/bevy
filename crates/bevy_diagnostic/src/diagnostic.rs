@@ -431,7 +431,7 @@ mod tests {
     fn test_clear_history() {
         let mut diagnostic =
             Diagnostic::new(DiagnosticPath::new("test")).with_max_history_length(5);
-        let now = Instant::now();
+        let mut now = Instant::now();
 
         // Three times in a row...
         for _ in 0..3 {
@@ -441,9 +441,12 @@ mod tests {
                     time: now,
                     value: 20.0,
                 });
+                // Increase time to test smoothed average.
+                now += Duration::from_secs(1);
             }
-            // Assert that the average is correct...
+            // Assert that the average and smoothed average are correct...
             assert!((diagnostic.average().unwrap() - 20.0) < 0.1);
+            assert!((diagnostic.smoothed().unwrap() - 20.0) < 0.1);
             // And clear the diagnostic history
             diagnostic.clear_history();
         }
