@@ -37,10 +37,10 @@ fn sample_directional_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32
 
     // Sample a random direction within a cone whose base is the sun approximated as a disk
     // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
-    let r = rand_vec2f(rng);
-    let cos_theta = (1.0 - r.x) + r.x * directional_light.cos_theta_max;
+    let random = rand_vec2f(rng);
+    let cos_theta = (1.0 - random.x) + random.x * directional_light.cos_theta_max;
     let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-    let phi = r.y * 2.0 * PI;
+    let phi = random.y * 2.0 * PI;
     let x = cos(phi) * sin_theta;
     let y = sin(phi) * sin_theta;
     var ray_direction = vec3(x, y, cos_theta);
