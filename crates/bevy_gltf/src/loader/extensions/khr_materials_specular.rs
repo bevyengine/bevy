@@ -4,6 +4,8 @@ use gltf::{Document, Material};
 
 use serde_json::Value;
 
+use crate::loader::LoadedTexture;
+
 #[cfg(feature = "pbr_specular_textures")]
 use {
     crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_asset::Handle,
@@ -43,6 +45,7 @@ pub(crate) struct SpecularExtension {
 impl SpecularExtension {
     pub(crate) fn parse(
         _load_context: &mut LoadContext,
+        _loaded_textures: &[LoadedTexture],
         _document: &Document,
         material: &Material,
     ) -> Option<Self> {
@@ -55,6 +58,7 @@ impl SpecularExtension {
         let (_specular_channel, _specular_texture) = parse_material_extension_texture(
             material,
             _load_context,
+            _loaded_textures,
             _document,
             extension,
             "specularTexture",
@@ -65,6 +69,7 @@ impl SpecularExtension {
         let (_specular_color_channel, _specular_color_texture) = parse_material_extension_texture(
             material,
             _load_context,
+            _loaded_textures,
             _document,
             extension,
             "specularColorTexture",

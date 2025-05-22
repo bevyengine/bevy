@@ -32,7 +32,7 @@ pub trait AssetLoader: Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].
-    type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
+    type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a> + Clone;
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
@@ -432,9 +432,7 @@ impl<'a> LoadContext<'a> {
         let label = label.into();
         let loaded_asset: ErasedLoadedAsset = loaded_asset.into();
         let labeled_path = self.asset_path.clone().with_label(label.clone());
-        let handle = self
-            .asset_server
-            .get_or_create_path_handle(labeled_path, None);
+        let handle = self.asset_server.get_or_create_path_handle(labeled_path);
         self.labeled_assets.insert(
             label,
             LabeledAsset {
@@ -518,7 +516,7 @@ impl<'a> LoadContext<'a> {
         label: impl Into<CowArc<'b, str>>,
     ) -> Handle<A> {
         let path = self.asset_path.clone().with_label(label);
-        let handle = self.asset_server.get_or_create_path_handle::<A>(path, None);
+        let handle = self.asset_server.get_or_create_path_handle::<A>(path);
         self.dependencies.insert(handle.id().untyped());
         handle
     }

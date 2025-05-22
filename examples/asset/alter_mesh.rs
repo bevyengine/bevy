@@ -47,6 +47,28 @@ impl Shape {
 #[derive(Component, Debug)]
 struct Left;
 
+// A function that can be passed to `AssetServer::load_with_settings` and sets
+// our desired `RenderAssetUsages`.
+//
+// `RenderAssetUsages::all()` is already the default, so this function could have been
+// omitted and `load_with_settings` replaced with a simple `load`. It's helpful to know it
+// exists, however.
+//
+// `RenderAssetUsages` tells Bevy whether to keep the data around:
+//   - for the GPU (`RenderAssetUsages::RENDER_WORLD`),
+//   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
+//   - or both.
+// `RENDER_WORLD` is necessary to render the mesh, `MAIN_WORLD` is necessary to inspect
+// and modify the mesh (via `ResMut<Assets<Mesh>>`).
+//
+// Since most games will not need to modify meshes at runtime, many developers opt to pass
+// only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the mesh in
+// RAM. For this example however, this would not work, as we need to inspect and modify the
+// mesh at runtime.
+fn settings(settings: &mut GltfLoaderSettings) {
+    settings.load_meshes = RenderAssetUsages::all();
+}
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -55,7 +77,7 @@ fn setup(
     let left_shape = Shape::Cube;
     let right_shape = Shape::Cube;
 
-    // In normal use, you can call `asset_server.load`, however see below for an explanation of
+    // In normal use, you can call `asset_server.load`, however see above for an explanation of
     // `RenderAssetUsages`.
     let left_shape_model = asset_server.load_with_settings(
         GltfAssetLabel::Primitive {
@@ -69,30 +91,16 @@ fn setup(
             primitive: 0,
         }
         .from_asset(left_shape.get_model_path()),
-        // `RenderAssetUsages::all()` is already the default, so the line below could be omitted.
-        // It's helpful to know it exists, however.
-        //
-        // `RenderAssetUsages` tell Bevy whether to keep the data around:
-        //   - for the GPU (`RenderAssetUsages::RENDER_WORLD`),
-        //   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
-        //   - or both.
-        // `RENDER_WORLD` is necessary to render the mesh, `MAIN_WORLD` is necessary to inspect
-        // and modify the mesh (via `ResMut<Assets<Mesh>>`).
-        //
-        // Since most games will not need to modify meshes at runtime, many developers opt to pass
-        // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the mesh in
-        // RAM. For this example however, this would not work, as we need to inspect and modify the
-        // mesh at runtime.
-        |settings: &mut GltfLoaderSettings| settings.load_meshes = RenderAssetUsages::all(),
+        settings,
     );
 
-    // Here, we rely on the default loader settings to achieve a similar result to the above.
-    let right_shape_model = asset_server.load(
+    let right_shape_model = asset_server.load_with_settings(
         GltfAssetLabel::Primitive {
             mesh: 0,
             primitive: 0,
         }
         .from_asset(right_shape.get_model_path()),
+        settings,
     );
 
     // Add a material asset directly to the materials storage
@@ -161,12 +169,13 @@ fn alter_handle(
     // Modify the handle associated with the Shape on the right side. Note that we will only
     // have to load the same path from storage media once: repeated attempts will re-use the
     // asset.
-    mesh.0 = asset_server.load(
+    mesh.0 = asset_server.load_with_settings(
         GltfAssetLabel::Primitive {
             mesh: 0,
             primitive: 0,
         }
         .from_asset(shape.get_model_path()),
+        settings,
     );
 }
 
