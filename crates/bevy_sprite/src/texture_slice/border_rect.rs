@@ -1,3 +1,4 @@
+use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Defines the extents of the border of a rectangle.
@@ -43,6 +44,27 @@ impl BorderRect {
             top: vertical,
             bottom: vertical,
         }
+    }
+
+    pub fn sum_axes(&self) -> Vec2 {
+        Vec2::new(self.left + self.right, self.top + self.bottom)
+    }
+
+    /// Expands the given border rect on all sides by a given expansion amount.
+    pub fn inflate_mut(&mut self, expansion: f32) {
+        self.left += expansion;
+        self.right += expansion;
+        self.top += expansion;
+        self.bottom += expansion;
+    }
+}
+
+impl core::ops::AddAssign for BorderRect {
+    fn add_assign(&mut self, rhs: Self) {
+        self.left += rhs.left;
+        self.right += rhs.right;
+        self.top += rhs.top;
+        self.bottom += rhs.bottom;
     }
 }
 
