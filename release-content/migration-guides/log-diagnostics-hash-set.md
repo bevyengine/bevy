@@ -1,5 +1,5 @@
 ---
-title: Change filters container of `LogDiagnoticsState` to `HashSet`
+title: Change filters container of `LogDiagnosticsState` to `HashSet`
 authors: ["@hukasu"]
 pull_requests: [19323]
 ---
