@@ -422,3 +422,30 @@ impl RegisterDiagnostic for App {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_clear_history() {
+        let mut diagnostic =
+            Diagnostic::new(DiagnosticPath::new("test")).with_max_history_length(5);
+        let now = Instant::now();
+
+        // Three times in a row...
+        for _ in 0..3 {
+            // Fill the diagnostic with measurements...
+            for _ in 0..5 {
+                diagnostic.add_measurement(DiagnosticMeasurement {
+                    time: now,
+                    value: 20.0,
+                });
+            }
+            // Assert that the average is correct...
+            assert!((diagnostic.average().unwrap() - 20.0) < 0.1);
+            // And clear the diagnostic history
+            diagnostic.clear_history();
+        }
+    }
+}
