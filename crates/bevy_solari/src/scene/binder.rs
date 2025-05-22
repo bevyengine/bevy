@@ -12,15 +12,15 @@ use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
     mesh::allocator::MeshAllocator,
     render_asset::RenderAssets,
-    render_resource::*,
+    render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{FallbackImage, GpuImage},
 };
 use bevy_transform::components::GlobalTransform;
 use core::{hash::Hash, num::NonZeroU32, ops::Deref};
 
-const MAX_MESH_SLAB_COUNT: Option<NonZeroU32> = NonZeroU32::new(500);
-const MAX_TEXTURE_COUNT: Option<NonZeroU32> = NonZeroU32::new(5_000);
+const MAX_MESH_SLAB_COUNT: NonZeroU32 = NonZeroU32::new(500).unwrap();
+const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
 
 /// Average angular diameter of the sun as seen from earth.
 /// <https://en.wikipedia.org/wiki/Angular_diameter#Use_in_astronomy>
@@ -238,116 +238,27 @@ impl FromWorld for RaytracingSceneBindings {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let bind_group_layout_entries = &[
-            BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: MAX_MESH_SLAB_COUNT,
-            },
-            BindGroupLayoutEntry {
-                binding: 1,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: MAX_MESH_SLAB_COUNT,
-            },
-            BindGroupLayoutEntry {
-                binding: 2,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: MAX_TEXTURE_COUNT,
-            },
-            BindGroupLayoutEntry {
-                binding: 3,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                count: MAX_TEXTURE_COUNT,
-            },
-            BindGroupLayoutEntry {
-                binding: 4,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 5,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::AccelerationStructure,
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 6,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 7,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 8,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 9,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 10,
-                visibility: ShaderStages::COMPUTE,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-        ];
-
         Self {
             bind_group: None,
             bind_group_layout: render_device.create_bind_group_layout(
                 "raytracing_scene_bind_group_layout",
-                bind_group_layout_entries,
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::COMPUTE,
+                    (
+                        storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
+                        storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
+                        texture_2d(TextureSampleType::Float { filterable: true })
+                            .count(MAX_TEXTURE_COUNT),
+                        sampler(SamplerBindingType::Filtering).count(MAX_TEXTURE_COUNT),
+                        storage_buffer_read_only_sized(false, None),
+                        acceleration_structure(),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                    ),
+                ),
             ),
         }
     }
