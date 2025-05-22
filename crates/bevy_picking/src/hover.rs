@@ -316,10 +316,16 @@ pub fn update_hovering_states(
         return;
     }
 
-    // Set which contains the hovered for the current pointer entity and its ancestors. The capacity
-    // is based on the likely tree depth of the hierarchy, which is typically greater for UI (because
-    // of layout issues) than for 3D scenes. A depth of 32 is a reasonable upper bound for most use
-    // cases.
+    // Algorithm: for each entity having a `Hovered` component, we want to know if the current entry
+    // in the hover map is "within" (that is, in the set of descenants of) that entity. Rather than
+    // doing an expensive breadth-first traversal of children, instead start with the hovermap entry
+    // and search upwards. We can make this even cheaper by building a set of ancestors for the
+    // hovermap entry, and then testing each `Hovered` entity against that set.
+
+    // A set which contains the hovered for the current pointer entity and its ancestors. The
+    // capacity is based on the likely tree depth of the hierarchy, which is typically greater for
+    // UI (because of layout issues) than for 3D scenes. A depth of 32 is a reasonable upper bound
+    // for most use cases.
     let mut hover_ancestors = EntityHashSet::with_capacity(32);
     if let Some(map) = hover_map.get(&PointerId::Mouse) {
         for hovered_entity in map.keys() {
