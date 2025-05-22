@@ -7,7 +7,7 @@ use crate::{
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
-    system::{IntoObserverSystem, ObserverSystem},
+    system::{IntoObserverSystem, ObserverSystem, RunSystemError},
     world::DeferredWorld,
 };
 use bevy_ptr::PtrMut;
@@ -373,37 +373,23 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // - system is the same type erased system from above
     unsafe {
         (*system).update_archetype_component_access(world);
-        match (*system).validate_param_unsafe(world) {
-            Ok(()) => {
-                if let Err(err) = (*system).run_unsafe(trigger, world) {
-                    let handler = state
-                        .error_handler
-                        .unwrap_or_else(|| world.default_error_handler());
-                    handler(
-                        err,
-                        ErrorContext::Observer {
-                            name: (*system).name(),
-                            last_run: (*system).get_last_run(),
-                        },
-                    );
-                };
-                (*system).queue_deferred(world.into_deferred());
-            }
-            Err(e) => {
-                if !e.skipped {
-                    let handler = state
-                        .error_handler
-                        .unwrap_or_else(|| world.default_error_handler());
-                    handler(
-                        e.into(),
-                        ErrorContext::Observer {
-                            name: (*system).name(),
-                            last_run: (*system).get_last_run(),
-                        },
-                    );
-                }
-            }
-        }
+        if let Err(RunSystemError::Failed(err)) = (*system)
+            .validate_param_unsafe(world)
+            .map_err(From::from)
+            .and_then(|()| (*system).run_unsafe(trigger, world))
+        {
+            let handler = state
+                .error_handler
+                .unwrap_or_else(|| world.default_error_handler());
+            handler(
+                err,
+                ErrorContext::Observer {
+                    name: (*system).name(),
+                    last_run: (*system).get_last_run(),
+                },
+            );
+        };
+        (*system).queue_deferred(world.into_deferred());
     }
 }
 

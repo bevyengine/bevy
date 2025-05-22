@@ -2,8 +2,8 @@ use alloc::{borrow::Cow, boxed::Box, format};
 use core::ops::Not;
 
 use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
-    SystemInput,
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, RunSystemError,
+    System, SystemIn, SystemInput,
 };
 
 /// A type-erased run condition stored in a [`Box`].
@@ -59,7 +59,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn identity() -> impl Condition<(), In<bool>> {
-///     IntoSystem::into_system(|In(x)| x)
+///     IntoSystem::into_system(|In(x): In<bool>| x)
 /// }
 ///
 /// # fn always_true() -> bool { true }
@@ -1110,9 +1110,9 @@ impl<S: System<Out: Not>> Adapt<S> for NotMarker {
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out {
-        !run_system(input)
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        run_system(input).map(Not::not)
     }
 }
 
@@ -1148,10 +1148,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, A>) -> B::Out,
-    ) -> Self::Out {
-        a(input) && b(input)
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input)? && b(input)?)
     }
 }
 
@@ -1169,10 +1169,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) && b(input))
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input)? && b(input)?))
     }
 }
 
@@ -1190,10 +1190,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) || b(input))
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input)? || b(input)?))
     }
 }
 
@@ -1211,10 +1211,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) || b(input)
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input)? || b(input)?)
     }
 }
 
@@ -1232,10 +1232,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) ^ b(input))
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input)? ^ b(input)?))
     }
 }
 
@@ -1253,10 +1253,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) ^ b(input)
+        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input)? ^ b(input)?)
     }
 }
 

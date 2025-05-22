@@ -2,8 +2,6 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use variadics_please::all_tuples;
 
 use crate::{
-    error::Result,
-    never::Never,
     schedule::{
         auto_insert_apply_deferred::IgnoreDeferred,
         condition::{BoxedCondition, Condition},
@@ -11,7 +9,7 @@ use crate::{
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },
-    system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
+    system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
 };
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
@@ -557,37 +555,9 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
     }
 }
 
-/// Marker component to allow for conflicting implementations of [`IntoScheduleConfigs`]
-#[doc(hidden)]
-pub struct Infallible;
-
-impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Infallible, Marker)> for F
+impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, Marker> for F
 where
     F: IntoSystem<(), (), Marker>,
-{
-    fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
-        let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
-        ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(Box::new(wrapper)))
-    }
-}
-
-impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Never, Marker)> for F
-where
-    F: IntoSystem<(), Never, Marker>,
-{
-    fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
-        let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
-        ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(Box::new(wrapper)))
-    }
-}
-
-/// Marker component to allow for conflicting implementations of [`IntoScheduleConfigs`]
-#[doc(hidden)]
-pub struct Fallible;
-
-impl<F, Marker> IntoScheduleConfigs<ScheduleSystem, (Fallible, Marker)> for F
-where
-    F: IntoSystem<(), Result, Marker>,
 {
     fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
         let boxed_system = Box::new(IntoSystem::into_system(self));
@@ -595,7 +565,7 @@ where
     }
 }
 
-impl IntoScheduleConfigs<ScheduleSystem, ()> for BoxedSystem<(), Result> {
+impl IntoScheduleConfigs<ScheduleSystem, ()> for BoxedSystem<(), ()> {
     fn into_configs(self) -> ScheduleConfigs<ScheduleSystem> {
         ScheduleConfigs::ScheduleConfig(ScheduleSystem::into_config(self))
     }
