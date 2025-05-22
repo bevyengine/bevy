@@ -322,15 +322,6 @@ impl SubRect {
             size: rect.max - rect.min,
         }
     }
-
-    #[inline]
-    pub fn as_viewport(self) -> Viewport {
-        Viewport {
-            physical_position: self.offset.as_uvec2(),
-            physical_size: self.size,
-            ..Default::default()
-        }
-    }
 }
 
 mod ops {
