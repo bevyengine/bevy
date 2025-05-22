@@ -429,6 +429,8 @@ mod tests {
 
     #[test]
     fn test_clear_history() {
+        const MEASUREMENT: f64 = 20.0;
+
         let mut diagnostic =
             Diagnostic::new(DiagnosticPath::new("test")).with_max_history_length(5);
         let mut now = Instant::now();
@@ -437,13 +439,13 @@ mod tests {
             for _ in 0..5 {
                 diagnostic.add_measurement(DiagnosticMeasurement {
                     time: now,
-                    value: 20.0,
+                    value: MEASUREMENT,
                 });
                 // Increase time to test smoothed average.
                 now += Duration::from_secs(1);
             }
-            assert!((diagnostic.average().unwrap() - 20.0).abs() < 0.1);
-            assert!((diagnostic.smoothed().unwrap() - 20.0).abs() < 0.1);
+            assert!((diagnostic.average().unwrap() - MEASUREMENT).abs() < 0.1);
+            assert!((diagnostic.smoothed().unwrap() - MEASUREMENT).abs() < 0.1);
             diagnostic.clear_history();
         }
     }
