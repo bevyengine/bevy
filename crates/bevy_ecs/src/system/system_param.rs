@@ -224,7 +224,7 @@ pub unsafe trait SystemParam: Sized {
     /// and creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
-    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).a
+    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
     ///
     /// # Safety
     /// `archetype` must be from the [`World`] used to initialize `state` in [`SystemParam::init_state`].
