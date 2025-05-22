@@ -1,11 +1,11 @@
-//! Demonstrates different sub view effects.
+//! Demonstrates different camera crop effects.
 //!
-//! A sub view is essentially a smaller section of a larger viewport. Some use
-//! cases include:
+//! When camera cropping is enabled, a (usually smaller) area of the scene will
+//! be projected to render to the whole viewport. Some use cases include:
 //! - Split one image across multiple cameras, for use in a multimonitor setups
-//! - Magnify a section of the image, by rendering a small sub view in another
+//! - Magnify a section of the image, by rendering a small cropped view in another
 //!   camera
-//! - Rapidly change the sub view offset to get a screen shake effect
+//! - Rapidly change the cropping offset to get a screen shake effect
 use bevy::{
     prelude::*,
     render::{
@@ -57,7 +57,7 @@ fn setup(
 
     // Main perspective camera:
     //
-    // The main perspective image to use as a comparison for the sub views.
+    // The main perspective image to use as a comparison for the cropped views.
     commands.spawn((
         Camera3d::default(),
         Camera::default(),
@@ -70,9 +70,9 @@ fn setup(
     // For this camera, the projection is perspective, and `size` is half the
     // width of the `full_size`, while the x value of `offset` is set to half
     // the value of the full width, causing the right half of the image to be
-    // shown. Since the viewport has an aspect ratio of 1x1 and the sub view has
-    // an aspect ratio of 1x2, the image appears stretched along the horizontal
-    // axis.
+    // shown. Since the viewport has an aspect ratio of 1x1 and the cropped
+    // view has an aspect ratio of 1x2, the image appears stretched along the
+    // horizontal axis.
     commands.spawn((
         Camera3d::default(),
         Camera {
@@ -119,8 +119,8 @@ fn setup(
     // Perspective camera different aspect ratio:
     //
     // For this camera, the projection is perspective, and the aspect ratio of
-    // the sub view (2x1) is different to the aspect ratio of the full view
-    // (2x2). The aspect ratio of the sub view matches the aspect ratio of
+    // the cropped view (2x1) is different to the aspect ratio of the full view
+    // (2x2). The aspect ratio of the cropped views matches the aspect ratio of
     // the viewport and should show an unstretched image of the top half of the
     // full perspective image.
     commands.spawn((
@@ -140,7 +140,7 @@ fn setup(
 
     // Main orthographic camera:
     //
-    // The main orthographic image to use as a comparison for the sub views.
+    // The main orthographic image to use as a comparison for the cropped views.
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
@@ -161,7 +161,7 @@ fn setup(
     //
     // For this camera, the projection is orthographic, and `size` is half the
     // width of the `full_size`, causing the left half of the image to be shown.
-    // Since the viewport has an aspect ratio of 1x1 and the sub view has an
+    // Since the viewport has an aspect ratio of 1x1 and the cropped view has an
     // aspect ratio of 1x2, the image appears stretched along the horizontal axis.
     commands.spawn((
         Camera3d::default(),
@@ -216,8 +216,8 @@ fn setup(
     // Orthographic camera different aspect ratio:
     //
     // For this camera, the projection is orthographic, and the aspect ratio of
-    // the sub view (2x1) is different to the aspect ratio of the full view
-    // (2x2). The aspect ratio of the sub view matches the aspect ratio of
+    // the cropped view (2x1) is different to the aspect ratio of the full view
+    // (2x2). The aspect ratio of the cropped view matches the aspect ratio of
     // the viewport and should show an unstretched image of the top half of the
     // full orthographic image.
     commands.spawn((
