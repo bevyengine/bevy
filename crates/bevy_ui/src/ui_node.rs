@@ -1096,6 +1096,12 @@ impl Overflow {
         self.x.is_visible() && self.y.is_visible()
     }
 
+    /// Overflow is scrollable on at least 1 axis
+    pub const fn is_any_scroll(&self) -> bool {
+        // y is most commonly used for scroll, so it's first, to short-circuit
+        self.y.is_scroll() || self.x.is_scroll()
+    }
+
     pub const fn scroll() -> Self {
         Self {
             x: OverflowAxis::Scroll,
@@ -1151,6 +1157,11 @@ impl OverflowAxis {
     /// Overflow is visible on this axis
     pub const fn is_visible(&self) -> bool {
         matches!(self, Self::Visible)
+    }
+
+    /// Overflow is scroll on this axis
+    pub const fn is_scroll(&self) -> bool {
+        matches!(self, Self::Scroll)
     }
 }
 
