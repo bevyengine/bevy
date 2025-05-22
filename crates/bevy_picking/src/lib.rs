@@ -170,6 +170,7 @@ pub mod window;
 use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
+use hover::update_is_hovered_direct;
 
 /// The picking prelude.
 ///
@@ -392,7 +393,7 @@ impl Plugin for PickingPlugin {
             .register_type::<Self>()
             .register_type::<Pickable>()
             .register_type::<hover::PickingInteraction>()
-            .register_type::<hover::Hovered>()
+            .register_type::<hover::IsHovered>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
@@ -408,7 +409,7 @@ pub struct InteractionPlugin;
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         use events::*;
-        use hover::{generate_hovermap, update_hovering_states, update_interactions};
+        use hover::{generate_hovermap, update_interactions, update_is_hovered};
 
         app.init_resource::<hover::HoverMap>()
             .init_resource::<hover::PreviousHoverMap>()
@@ -433,7 +434,7 @@ impl Plugin for InteractionPlugin {
                 (
                     generate_hovermap,
                     update_interactions,
-                    update_hovering_states,
+                    (update_is_hovered, update_is_hovered_direct),
                     pointer_events,
                 )
                     .chain()

@@ -294,18 +294,42 @@ fn merge_interaction_states(
 /// Typically, a simple hoverable entity or widget will have this component added to it. More
 /// complex widgets can have this component added to each hoverable part.
 ///
-/// The computational cost of keeping the `Hovered` components up to date is relatively cheap,
-/// and linear in the number of entities that have the `Hovered` component inserted.
+/// The computational cost of keeping the `IsHovered` components up to date is relatively cheap,
+/// and linear in the number of entities that have the `IsHovered` component inserted.
 ///
 /// [`Interaction`]: https://docs.rs/bevy/0.15.0/bevy/prelude/enum.Interaction.html
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
-pub struct Hovered(pub bool);
+pub struct IsHovered(pub bool);
 
-/// Uses [`HoverMap`] changes to update [`Hovered`] components.
-pub fn update_hovering_states(
+impl IsHovered {
+    /// Get whether the entity is currently hovered.
+    pub fn get(&self) -> bool {
+        self.0
+    }
+}
+
+/// A component that allows users to use regular Bevy change detection to determine when the pointer
+/// is directly hovering over an entity. Users should insert this component on an entity to indicate
+/// interest in knowing about hover state changes.
+///
+/// This is similar to [`IsHovered`] component, except that it does not include children in the
+/// hover state.
+#[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+pub struct IsHoveredDirect(pub bool);
+
+impl IsHoveredDirect {
+    /// Get whether the entity is currently hovered.
+    pub fn get(&self) -> bool {
+        self.0
+    }
+}
+
+/// Uses [`HoverMap`] changes to update [`IsHovered`] components.
+pub fn update_is_hovered(
     hover_map: Option<Res<HoverMap>>,
-    mut hovers: Query<(Entity, &mut Hovered)>,
+    mut hovers: Query<(Entity, &mut IsHovered)>,
     parent_query: Query<&ChildOf>,
 ) {
     // Don't do any work if there's no hover map.
@@ -316,11 +340,11 @@ pub fn update_hovering_states(
         return;
     }
 
-    // Algorithm: for each entity having a `Hovered` component, we want to know if the current entry
-    // in the hover map is "within" (that is, in the set of descenants of) that entity. Rather than
-    // doing an expensive breadth-first traversal of children, instead start with the hovermap entry
-    // and search upwards. We can make this even cheaper by building a set of ancestors for the
-    // hovermap entry, and then testing each `Hovered` entity against that set.
+    // Algorithm: for each entity having a `IsHovered` component, we want to know if the current
+    // entry in the hover map is "within" (that is, in the set of descenants of) that entity. Rather
+    // than doing an expensive breadth-first traversal of children, instead start with the hovermap
+    // entry and search upwards. We can make this even cheaper by building a set of ancestors for
+    // the hovermap entry, and then testing each `IsHovered` entity against that set.
 
     // A set which contains the hovered for the current pointer entity and its ancestors. The
     // capacity is based on the likely tree depth of the hierarchy, which is typically greater for
@@ -337,7 +361,33 @@ pub fn update_hovering_states(
     // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
     for (entity, mut hoverable) in hovers.iter_mut() {
         let is_hovering = hover_ancestors.contains(&entity);
-        hoverable.set_if_neq(Hovered(is_hovering));
+        hoverable.set_if_neq(IsHovered(is_hovering));
+    }
+}
+
+/// Uses [`HoverMap`] changes to update [`IsHoveredDirect`] components.
+pub fn update_is_hovered_direct(
+    hover_map: Option<Res<HoverMap>>,
+    mut hovers: Query<(Entity, &mut IsHoveredDirect)>,
+) {
+    // Don't do any work if there's no hover map.
+    let Some(hover_map) = hover_map else { return };
+
+    // Don't bother collecting ancestors if there are no hovers.
+    if hovers.is_empty() {
+        return;
+    }
+
+    if let Some(map) = hover_map.get(&PointerId::Mouse) {
+        // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
+        for (entity, mut hoverable) in hovers.iter_mut() {
+            hoverable.set_if_neq(IsHoveredDirect(map.contains_key(&entity)));
+        }
+    } else {
+        // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
+        for (_, mut hoverable) in hovers.iter_mut() {
+            hoverable.set_if_neq(IsHoveredDirect(false));
+        }
     }
 }
 
@@ -348,13 +398,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn update_hovering_is_memoized() {
+    fn update_is_hovered_memoized() {
         let mut world = World::default();
         let camera = world.spawn(Camera::default()).id();
 
         // Setup entities
         let hovered_child = world.spawn_empty().id();
-        let hovered_entity = world.spawn(Hovered(false)).add_child(hovered_child).id();
+        let hovered_entity = world.spawn(IsHovered(false)).add_child(hovered_child).id();
 
         // Setup hover map with hovered_entity hovered by mouse
         let mut hover_map = HoverMap::default();
@@ -372,19 +422,19 @@ mod tests {
         world.insert_resource(hover_map);
 
         // Run the system
-        assert!(world.run_system_cached(update_hovering_states).is_ok());
+        assert!(world.run_system_cached(update_is_hovered).is_ok());
 
-        // Check to insure that the hovered entity has the Hovered component set to true
-        let hover = world.get_mut::<Hovered>(hovered_entity).unwrap();
-        assert!(hover.0);
+        // Check to insure that the hovered entity has the IsHovered component set to true
+        let hover = world.get_mut::<IsHovered>(hovered_entity).unwrap();
+        assert!(hover.get());
         assert!(hover.is_changed());
 
         // Now do it again, but don't change the hover map.
         world.increment_change_tick();
 
-        assert!(world.run_system_cached(update_hovering_states).is_ok());
-        let hover = world.get_mut::<Hovered>(hovered_entity).unwrap();
-        assert!(hover.0);
+        assert!(world.run_system_cached(update_is_hovered).is_ok());
+        let hover = world.get_mut::<IsHovered>(hovered_entity).unwrap();
+        assert!(hover.get());
 
         // Should not be changed
         // NOTE: Test doesn't work - thinks it is always changed
@@ -394,9 +444,97 @@ mod tests {
         world.insert_resource(HoverMap::default());
         world.increment_change_tick();
 
-        assert!(world.run_system_cached(update_hovering_states).is_ok());
-        let hover = world.get_mut::<Hovered>(hovered_entity).unwrap();
-        assert!(!hover.0);
+        assert!(world.run_system_cached(update_is_hovered).is_ok());
+        let hover = world.get_mut::<IsHovered>(hovered_entity).unwrap();
+        assert!(!hover.get());
+        assert!(hover.is_changed());
+    }
+
+    #[test]
+    fn update_is_hovered_direct_self() {
+        let mut world = World::default();
+        let camera = world.spawn(Camera::default()).id();
+
+        // Setup entities
+        let hovered_entity = world.spawn(IsHoveredDirect(false)).id();
+
+        // Setup hover map with hovered_entity hovered by mouse
+        let mut hover_map = HoverMap::default();
+        let mut entity_map = HashMap::new();
+        entity_map.insert(
+            hovered_entity,
+            HitData {
+                depth: 0.0,
+                camera,
+                position: None,
+                normal: None,
+            },
+        );
+        hover_map.insert(PointerId::Mouse, entity_map);
+        world.insert_resource(hover_map);
+
+        // Run the system
+        assert!(world.run_system_cached(update_is_hovered_direct).is_ok());
+
+        // Check to insure that the hovered entity has the IsHoveredDirect component set to true
+        let hover = world.get_mut::<IsHoveredDirect>(hovered_entity).unwrap();
+        assert!(hover.get());
+        assert!(hover.is_changed());
+
+        // Now do it again, but don't change the hover map.
+        world.increment_change_tick();
+
+        assert!(world.run_system_cached(update_is_hovered_direct).is_ok());
+        let hover = world.get_mut::<IsHoveredDirect>(hovered_entity).unwrap();
+        assert!(hover.get());
+
+        // Should not be changed
+        // NOTE: Test doesn't work - thinks it is always changed
+        // assert!(!hover.is_changed());
+
+        // Clear the hover map and run again.
+        world.insert_resource(HoverMap::default());
+        world.increment_change_tick();
+
+        assert!(world.run_system_cached(update_is_hovered_direct).is_ok());
+        let hover = world.get_mut::<IsHoveredDirect>(hovered_entity).unwrap();
+        assert!(!hover.get());
+        assert!(hover.is_changed());
+    }
+
+    #[test]
+    fn update_is_hovered_direct_child() {
+        let mut world = World::default();
+        let camera = world.spawn(Camera::default()).id();
+
+        // Setup entities
+        let hovered_child = world.spawn_empty().id();
+        let hovered_entity = world
+            .spawn(IsHoveredDirect(false))
+            .add_child(hovered_child)
+            .id();
+
+        // Setup hover map with hovered_entity hovered by mouse
+        let mut hover_map = HoverMap::default();
+        let mut entity_map = HashMap::new();
+        entity_map.insert(
+            hovered_child,
+            HitData {
+                depth: 0.0,
+                camera,
+                position: None,
+                normal: None,
+            },
+        );
+        hover_map.insert(PointerId::Mouse, entity_map);
+        world.insert_resource(hover_map);
+
+        // Run the system
+        assert!(world.run_system_cached(update_is_hovered_direct).is_ok());
+
+        // Check to insure that the IsHoveredDirect component is still false
+        let hover = world.get_mut::<IsHoveredDirect>(hovered_entity).unwrap();
+        assert!(!hover.get());
         assert!(hover.is_changed());
     }
 }
