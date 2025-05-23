@@ -14,8 +14,14 @@ use log::{debug, info};
 ///
 /// When no diagnostics are provided, this plugin does nothing.
 pub struct LogDiagnosticsPlugin {
+    /// If `true` then the `Debug` representation of each `Diagnostic` is logged.
+    /// If `false` then a (smoothed) current value and historical average are logged.
+    ///
+    /// Defaults to `false`.
     pub debug: bool,
+    /// Time to wait between logging diagnostics and logging them again.
     pub wait_duration: Duration,
+    /// If `Some` then only these diagnostics are logged.
     pub filter: Option<Vec<DiagnosticPath>>,
 }
 
@@ -52,6 +58,7 @@ impl Plugin for LogDiagnosticsPlugin {
 }
 
 impl LogDiagnosticsPlugin {
+    /// Filter logging to only the paths in `filter`.
     pub fn filtered(filter: Vec<DiagnosticPath>) -> Self {
         LogDiagnosticsPlugin {
             filter: Some(filter),
