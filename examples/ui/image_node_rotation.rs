@@ -31,6 +31,7 @@ use bevy::{
 };
 
 const IMAGE_NODE_SIZE: f32 = 128.;
+const UI_GAPS: f32 = 16.;
 
 fn main() {
     App::new()
@@ -142,14 +143,14 @@ fn build_ui(commands: &mut Commands, image_node: impl Fn(bool) -> ImageNode) {
                 height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
-                row_gap: Val::Px(16.),
+                row_gap: Val::Px(UI_GAPS),
                 ..Default::default()
             },
             children![
                 (
                     Node {
                         flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(16.),
+                        column_gap: Val::Px(UI_GAPS),
                         ..Default::default()
                     },
                     children![
@@ -190,7 +191,7 @@ fn build_ui(commands: &mut Commands, image_node: impl Fn(bool) -> ImageNode) {
                 (
                     Node {
                         flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(16.),
+                        column_gap: Val::Px(UI_GAPS),
                         ..Default::default()
                     },
                     children![
