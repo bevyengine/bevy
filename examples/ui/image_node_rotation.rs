@@ -16,15 +16,21 @@ use bevy::{
     input::{keyboard::KeyCode, ButtonInput},
     math::ops,
     prelude::SpawnRelated,
+    sprite::{BorderRect, SliceScaleMode, TextureSlicer},
     state::{
         app::AppExtStates,
         state::{NextState, OnEnter, OnExit, State, States},
     },
     time::Time,
-    ui::{widget::ImageNode, FlexDirection, JustifyContent, Node, PositionType, Val},
+    ui::{
+        widget::{ImageNode, NodeImageMode},
+        FlexDirection, JustifyContent, Node, PositionType, Val,
+    },
+    utils::default,
     DefaultPlugins,
 };
 use bevy_asset::AssetServer;
+use bevy_image::{ImageLoaderSettings, ImageSampler};
 
 const IMAGE_NODE_SIZE: f32 = 128.;
 
@@ -45,7 +51,7 @@ fn main() {
         .add_systems(Update, (switch_modes, rotate_image_nodes))
         .add_systems(OnEnter(Mode::Image), image_mode)
         .add_systems(OnExit(Mode::Image), drop_previos_ui)
-        .add_systems(OnEnter(Mode::Slices), image_mode)
+        .add_systems(OnEnter(Mode::Slices), slices_mode)
         .add_systems(OnExit(Mode::Slices), drop_previos_ui)
         .run();
 }
@@ -95,6 +101,43 @@ fn drop_previos_ui(mut commands: Commands, ui: Single<Entity, With<UiMarker>>) {
 
 fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
     let branding = asset_server.load("branding/icon.png");
+    build_ui(&mut commands, |flip_y| ImageNode {
+        color: Color::WHITE,
+        image: branding.clone(),
+        flip_y,
+        ..Default::default()
+    });
+}
+
+fn slices_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let image = asset_server.load_with_settings(
+        "textures/fantasy_ui_borders/numbered_slices.png",
+        |settings: &mut ImageLoaderSettings| {
+            // Need to use nearest filtering to avoid bleeding between the slices with tiling
+            settings.sampler = ImageSampler::nearest();
+        },
+    );
+
+    let slicer = TextureSlicer {
+        // `numbered_slices.png` is 48 pixels square. `BorderRect::square(16.)` insets the slicing line from each edge by 16 pixels, resulting in nine slices that are each 16 pixels square.
+        border: BorderRect::all(16.),
+        // With `SliceScaleMode::Tile` the side and center slices are tiled to fill the side and center sections of the target.
+        // And with a `stretch_value` of `1.` the tiles will have the same size as the corresponding slices in the source image.
+        center_scale_mode: SliceScaleMode::Tile { stretch_value: 1. },
+        sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1. },
+        ..default()
+    };
+
+    build_ui(&mut commands, |flip_y| ImageNode {
+        color: Color::WHITE,
+        image: image.clone(),
+        flip_y,
+        image_mode: NodeImageMode::Sliced(slicer.clone()),
+        ..Default::default()
+    });
+}
+
+fn build_ui(commands: &mut Commands, image_node: impl Fn(bool) -> ImageNode) {
     commands.spawn((
         UiMarker,
         Node {
@@ -127,11 +170,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(IMAGE_NODE_SIZE),
                                 ..Default::default()
                             },
-                            ImageNode {
-                                color: Color::WHITE,
-                                image: branding.clone(),
-                                ..Default::default()
-                            }
+                            image_node(false)
                         ),
                         (
                             Node {
@@ -139,11 +178,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(IMAGE_NODE_SIZE),
                                 ..Default::default()
                             },
-                            ImageNode {
-                                color: Color::WHITE,
-                                image: branding.clone(),
-                                ..Default::default()
-                            }
+                            image_node(false)
                         ),
                         (
                             Node {
@@ -151,11 +186,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(IMAGE_NODE_SIZE),
                                 ..Default::default()
                             },
-                            ImageNode {
-                                color: Color::WHITE,
-                                image: branding.clone(),
-                                ..Default::default()
-                            }
+                            image_node(false)
                         ),
                         (
                             Node {
@@ -163,11 +194,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(IMAGE_NODE_SIZE),
                                 ..Default::default()
                             },
-                            ImageNode {
-                                color: Color::WHITE,
-                                image: branding.clone(),
-                                ..Default::default()
-                            }
+                            image_node(false)
                         )
                     ]
                 ),
@@ -184,12 +211,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(IMAGE_NODE_SIZE),
                                 ..Default::default()
                             },
-                            ImageNode {
-                                color: Color::WHITE,
-                                image: branding.clone(),
-                                flip_y: true,
-                                ..Default::default()
-                            }
+                            image_node(true)
                         ),
                         (
                             Node {
@@ -197,12 +219,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(IMAGE_NODE_SIZE),
                                 ..Default::default()
                             },
-                            ImageNode {
-                                color: Color::WHITE,
-                                image: branding.clone(),
-                                flip_y: true,
-                                ..Default::default()
-                            }
+                            image_node(true)
                         ),
                         (
                             Node {
@@ -210,12 +227,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(IMAGE_NODE_SIZE),
                                 ..Default::default()
                             },
-                            ImageNode {
-                                color: Color::WHITE,
-                                image: branding.clone(),
-                                flip_y: true,
-                                ..Default::default()
-                            }
+                            image_node(true)
                         ),
                         (
                             Node {
@@ -223,12 +235,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 height: Val::Px(IMAGE_NODE_SIZE),
                                 ..Default::default()
                             },
-                            ImageNode {
-                                color: Color::WHITE,
-                                image: branding.clone(),
-                                flip_y: true,
-                                ..Default::default()
-                            }
+                            image_node(true)
                         )
                     ]
                 )
