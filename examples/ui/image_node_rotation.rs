@@ -110,12 +110,14 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
+                row_gap: Val::Px(16.),
                 ..Default::default()
             },
             children![
                 (
                     Node {
                         flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(16.),
                         ..Default::default()
                     },
                     children![
@@ -172,6 +174,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
                 (
                     Node {
                         flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(16.),
                         ..Default::default()
                     },
                     children![
