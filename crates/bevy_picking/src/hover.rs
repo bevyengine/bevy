@@ -280,12 +280,10 @@ fn merge_interaction_states(
 /// enters or leaves an entity. Users should insert this component on an entity to indicate interest
 /// in knowing about hover state changes.
 ///
-/// This is similar to the old Bevy [`Interaction`] component, except that it only tracks
-/// hover state, not button presses or other interactions.
-///
-/// The component's boolean value will be `true` whenever the pointer is currently hovering over the
-/// entity, or any of the entity's children. This is consistent with the behavior of the CSS
-/// `:hover` pseudo-class, which applies to the element and all of its children.
+/// The component's boolean value will be `true` whenever the pointer is currently directly hovering
+/// over the entity, or any of the entity's descendants (as defined by the [`ChildOf`]
+/// relationship). This is consistent with the behavior of the CSS `:hover` pseudo-class, which
+/// applies to the element and all of its descendants.
 ///
 /// The contained boolean value is guaranteed to only be mutated when the pointer enters or leaves
 /// the entity, allowing Bevy change detection to be used efficiently. This is in contrast to the
@@ -294,8 +292,8 @@ fn merge_interaction_states(
 /// Typically, a simple hoverable entity or widget will have this component added to it. More
 /// complex widgets can have this component added to each hoverable part.
 ///
-/// The computational cost of keeping the `IsHovered` components up to date is relatively cheap,
-/// and linear in the number of entities that have the `IsHovered` component inserted.
+/// The computational cost of keeping the `IsHovered` components up to date is relatively cheap, and
+/// linear in the number of entities that have the `IsHovered` component inserted.
 ///
 /// [`Interaction`]: https://docs.rs/bevy/0.15.0/bevy/prelude/enum.Interaction.html
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
@@ -313,13 +311,13 @@ impl IsHovered {
 /// is directly hovering over an entity. Users should insert this component on an entity to indicate
 /// interest in knowing about hover state changes.
 ///
-/// This is similar to [`IsHovered`] component, except that it does not include children in the
+/// This is similar to [`IsHovered`] component, except that it does not include descendants in the
 /// hover state.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
-pub struct IsHoveredDirect(pub bool);
+pub struct IsDirectlyHovered(pub bool);
 
-impl IsHoveredDirect {
+impl IsDirectlyHovered {
     /// Get whether the entity is currently hovered.
     pub fn get(&self) -> bool {
         self.0
@@ -365,10 +363,10 @@ pub fn update_is_hovered(
     }
 }
 
-/// Uses [`HoverMap`] changes to update [`IsHoveredDirect`] components.
-pub fn update_is_hovered_direct(
+/// Uses [`HoverMap`] changes to update [`IsDirectlyHovered`] components.
+pub fn update_is_directly_hovered(
     hover_map: Option<Res<HoverMap>>,
-    mut hovers: Query<(Entity, &mut IsHoveredDirect)>,
+    mut hovers: Query<(Entity, &mut IsDirectlyHovered)>,
 ) {
     // Don't do any work if there's no hover map.
     let Some(hover_map) = hover_map else { return };
@@ -381,12 +379,12 @@ pub fn update_is_hovered_direct(
     if let Some(map) = hover_map.get(&PointerId::Mouse) {
         // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
         for (entity, mut hoverable) in hovers.iter_mut() {
-            hoverable.set_if_neq(IsHoveredDirect(map.contains_key(&entity)));
+            hoverable.set_if_neq(IsDirectlyHovered(map.contains_key(&entity)));
         }
     } else {
         // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
         for (_, mut hoverable) in hovers.iter_mut() {
-            hoverable.set_if_neq(IsHoveredDirect(false));
+            hoverable.set_if_neq(IsDirectlyHovered(false));
         }
     }
 }
@@ -456,7 +454,7 @@ mod tests {
         let camera = world.spawn(Camera::default()).id();
 
         // Setup entities
-        let hovered_entity = world.spawn(IsHoveredDirect(false)).id();
+        let hovered_entity = world.spawn(IsDirectlyHovered(false)).id();
 
         // Setup hover map with hovered_entity hovered by mouse
         let mut hover_map = HoverMap::default();
@@ -474,18 +472,18 @@ mod tests {
         world.insert_resource(hover_map);
 
         // Run the system
-        assert!(world.run_system_cached(update_is_hovered_direct).is_ok());
+        assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
 
-        // Check to insure that the hovered entity has the IsHoveredDirect component set to true
-        let hover = world.get_mut::<IsHoveredDirect>(hovered_entity).unwrap();
+        // Check to insure that the hovered entity has the IsDirectlyHovered component set to true
+        let hover = world.get_mut::<IsDirectlyHovered>(hovered_entity).unwrap();
         assert!(hover.get());
         assert!(hover.is_changed());
 
         // Now do it again, but don't change the hover map.
         world.increment_change_tick();
 
-        assert!(world.run_system_cached(update_is_hovered_direct).is_ok());
-        let hover = world.get_mut::<IsHoveredDirect>(hovered_entity).unwrap();
+        assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
+        let hover = world.get_mut::<IsDirectlyHovered>(hovered_entity).unwrap();
         assert!(hover.get());
 
         // Should not be changed
@@ -496,8 +494,8 @@ mod tests {
         world.insert_resource(HoverMap::default());
         world.increment_change_tick();
 
-        assert!(world.run_system_cached(update_is_hovered_direct).is_ok());
-        let hover = world.get_mut::<IsHoveredDirect>(hovered_entity).unwrap();
+        assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
+        let hover = world.get_mut::<IsDirectlyHovered>(hovered_entity).unwrap();
         assert!(!hover.get());
         assert!(hover.is_changed());
     }
@@ -510,7 +508,7 @@ mod tests {
         // Setup entities
         let hovered_child = world.spawn_empty().id();
         let hovered_entity = world
-            .spawn(IsHoveredDirect(false))
+            .spawn(IsDirectlyHovered(false))
             .add_child(hovered_child)
             .id();
 
@@ -530,10 +528,10 @@ mod tests {
         world.insert_resource(hover_map);
 
         // Run the system
-        assert!(world.run_system_cached(update_is_hovered_direct).is_ok());
+        assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
 
-        // Check to insure that the IsHoveredDirect component is still false
-        let hover = world.get_mut::<IsHoveredDirect>(hovered_entity).unwrap();
+        // Check to insure that the IsDirectlyHovered component is still false
+        let hover = world.get_mut::<IsDirectlyHovered>(hovered_entity).unwrap();
         assert!(!hover.get());
         assert!(hover.is_changed());
     }

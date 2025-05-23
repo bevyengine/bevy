@@ -170,7 +170,7 @@ pub mod window;
 use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
-use hover::update_is_hovered_direct;
+use hover::update_is_directly_hovered;
 
 /// The picking prelude.
 ///
@@ -434,7 +434,7 @@ impl Plugin for InteractionPlugin {
                 (
                     generate_hovermap,
                     update_interactions,
-                    (update_is_hovered, update_is_hovered_direct),
+                    (update_is_hovered, update_is_directly_hovered),
                     pointer_events,
                 )
                     .chain()
