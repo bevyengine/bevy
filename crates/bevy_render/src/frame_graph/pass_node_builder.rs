@@ -1,8 +1,8 @@
 use alloc::sync::Arc;
 
 use super::{
-    FrameGraph, FrameGraphError, GraphRawResourceNodeHandle, GraphResource,
-    GraphResourceDescriptor, GraphResourceNodeHandle, ImportToFrameGraph, Pass, PassBuilder,
+    FrameGraph, FrameGraphError, GraphRawResourceNodeHandle, TransientResource,
+    TransientResourceDescriptor, GraphResourceNodeHandle, IntoArcTransientResource, Pass, PassBuilder,
     ResourceBoardKey, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite, TypeEquals,
 };
 
@@ -33,7 +33,7 @@ impl<'a> PassNodeBuilder<'a> {
         PassBuilder::new(self)
     }
 
-    pub fn read_from_board<ResourceType: GraphResource, Key: Into<ResourceBoardKey>>(
+    pub fn read_from_board<ResourceType: TransientResource, Key: Into<ResourceBoardKey>>(
         &mut self,
         key: Key,
     ) -> Result<ResourceRef<ResourceType, ResourceRead>, FrameGraphError> {
@@ -43,7 +43,7 @@ impl<'a> PassNodeBuilder<'a> {
         Ok(read)
     }
 
-    pub fn write_from_board<ResourceType: GraphResource, Key: Into<ResourceBoardKey>>(
+    pub fn write_from_board<ResourceType: TransientResource, Key: Into<ResourceBoardKey>>(
         &mut self,
         key: Key,
     ) -> Result<ResourceRef<ResourceType, ResourceWrite>, FrameGraphError> {
@@ -55,9 +55,9 @@ impl<'a> PassNodeBuilder<'a> {
 
     pub fn get_or_create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
     where
-        DescriptorType: GraphResourceDescriptor
+        DescriptorType: TransientResourceDescriptor
             + TypeEquals<
-                Other = <<DescriptorType as GraphResourceDescriptor>::Resource as GraphResource>::Descriptor,
+                Other = <<DescriptorType as TransientResourceDescriptor>::Resource as TransientResource>::Descriptor,
             >,
     {
         self.graph.get_or_create(name, desc)
@@ -87,16 +87,16 @@ impl<'a> PassNodeBuilder<'a> {
         resource: Arc<ResourceType>,
     ) -> GraphResourceNodeHandle<ResourceType>
     where
-        ResourceType: ImportToFrameGraph,
+        ResourceType: IntoArcTransientResource,
     {
         self.graph.import(name, resource)
     }
 
     pub fn create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
     where
-        DescriptorType: GraphResourceDescriptor
+        DescriptorType: TransientResourceDescriptor
             + TypeEquals<
-                Other = <<DescriptorType as GraphResourceDescriptor>::Resource as GraphResource>::Descriptor,
+                Other = <<DescriptorType as TransientResourceDescriptor>::Resource as TransientResource>::Descriptor,
             >,
     {
         self.graph.create(name, desc)

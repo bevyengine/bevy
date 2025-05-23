@@ -1,18 +1,18 @@
 use bevy_ecs::resource::Resource;
 use std::collections::HashMap;
 
-use super::{AnyFrameGraphResource, AnyFrameGraphResourceDescriptor};
+use super::{AnyTransientResource, AnyFrameGraphResourceDescriptor};
 
 #[derive(Default, Resource)]
 pub struct TransientResourceCache {
-    resources: HashMap<AnyFrameGraphResourceDescriptor, Vec<AnyFrameGraphResource>>,
+    resources: HashMap<AnyFrameGraphResourceDescriptor, Vec<AnyTransientResource>>,
 }
 
 impl TransientResourceCache {
     pub fn get_resource(
         &mut self,
         desc: &AnyFrameGraphResourceDescriptor,
-    ) -> Option<AnyFrameGraphResource> {
+    ) -> Option<AnyTransientResource> {
         if let Some(entry) = self.resources.get_mut(desc) {
             entry.pop()
         } else {
@@ -23,7 +23,7 @@ impl TransientResourceCache {
     pub fn insert_resource(
         &mut self,
         desc: AnyFrameGraphResourceDescriptor,
-        resource: AnyFrameGraphResource,
+        resource: AnyTransientResource,
     ) {
         if let Some(entry) = self.resources.get_mut(&desc) {
             entry.push(resource);

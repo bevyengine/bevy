@@ -13,7 +13,7 @@ pub use render_pass_context::*;
 use wgpu::{AdapterInfo, CommandEncoder};
 
 use super::{
-    ComputePassInfo, FrameGraphBuffer, GraphResource, RenderPassInfoOwner, ResourceRead,
+    ComputePassInfo, TransientBuffer, TransientResource, RenderPassInfoOwner, ResourceRead,
     ResourceRef, ResourceTable, ResourceView, TransientResourceCache,
 };
 use crate::{
@@ -120,7 +120,7 @@ impl<'a> RenderContext<'a> {
             .expect("pipeline mut have")
     }
 
-    pub fn get_resource<ResourceType: GraphResource, View: ResourceView>(
+    pub fn get_resource<ResourceType: TransientResource, View: ResourceView>(
         &self,
         resource_ref: &ResourceRef<ResourceType, View>,
     ) -> &ResourceType {

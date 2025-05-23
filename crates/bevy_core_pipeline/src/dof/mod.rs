@@ -35,7 +35,7 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     frame_graph::{
         BindGroupHandle, ColorAttachment, DynamicBindGroupEntryHandles, FrameGraph,
-        FrameGraphTexture, ResourceMeta, TextureInfo, TextureView, TextureViewInfo,
+        TransientTexture, ResourceMeta, TextureInfo, TextureView, TextureViewInfo,
     },
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
@@ -296,7 +296,7 @@ struct DepthOfFieldPipelineRenderInfo {
 /// This is the same size and format as the main view target texture. It'll only
 /// be present if bokeh is being used.
 #[derive(Component, Deref, DerefMut)]
-pub struct AuxiliaryDepthOfFieldTexture(ResourceMeta<FrameGraphTexture>);
+pub struct AuxiliaryDepthOfFieldTexture(ResourceMeta<TransientTexture>);
 
 impl AuxiliaryDepthOfFieldTexture {
     pub fn get_auxiliary_depth_of_field_texture_key(entity: Entity) -> String {

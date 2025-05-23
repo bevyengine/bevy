@@ -59,7 +59,7 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     frame_graph::{
         BindGroupHandle, BindGroupResourceHandle, ColorAttachment, DepthStencilAttachment,
-        FrameGraph, FrameGraphTexture, IntoBindGroupResourceHandle, PassBuilder, ResourceMeta,
+        FrameGraph, TransientTexture, IntoBindGroupResourceHandle, PassBuilder, ResourceMeta,
         TextureInfo, TextureView, TextureViewInfo,
     },
     render_asset::RenderAssets,
@@ -252,21 +252,21 @@ pub struct SmaaTextures {
     ///
     /// The second pass (blending weight calculation) reads this texture to do
     /// its work.
-    pub edge_detection_color_texture: ResourceMeta<FrameGraphTexture>,
+    pub edge_detection_color_texture: ResourceMeta<TransientTexture>,
 
     /// The 8-bit stencil texture that records which pixels the first pass
     /// touched, so that the second pass doesn't have to examine other pixels.
     ///
     /// Each texel will contain a 0 if the first pass didn't touch the
     /// corresponding pixel or a 1 if the first pass did touch that pixel.
-    pub edge_detection_stencil_texture: ResourceMeta<FrameGraphTexture>,
+    pub edge_detection_stencil_texture: ResourceMeta<TransientTexture>,
 
     /// A four-channel RGBA texture that stores the output from the second pass
     /// (blending weight calculation).
     ///
     /// The final pass (neighborhood blending) reads this texture to do its
     /// work.
-    pub blend_texture: ResourceMeta<FrameGraphTexture>,
+    pub blend_texture: ResourceMeta<TransientTexture>,
 }
 
 /// A render world component that stores the bind groups necessary to perform
@@ -949,7 +949,7 @@ fn perform_edge_detection<'a>(
     smaa_info_uniform_buffer_handle: &BindGroupResourceHandle,
     view_smaa_uniform_offset: &SmaaInfoUniformOffset,
     edge_detection_pipeline_id: CachedRenderPipelineId,
-    source: &ResourceMeta<FrameGraphTexture>,
+    source: &ResourceMeta<TransientTexture>,
 ) {
     // Create the edge detection bind group.
     let postprocess_bind_group_handle = pass_builder
@@ -1012,7 +1012,7 @@ fn perform_blending_weight_calculation<'a>(
     smaa_info_uniform_buffer_handle: &BindGroupResourceHandle,
     view_smaa_uniform_offset: &SmaaInfoUniformOffset,
     blending_weight_calculation_pipeline_id: CachedRenderPipelineId,
-    source: &ResourceMeta<FrameGraphTexture>,
+    source: &ResourceMeta<TransientTexture>,
 ) {
     let postprocess_bind_group_handle = pass_builder
         .create_bind_group_builder(
@@ -1075,8 +1075,8 @@ fn perform_neighborhood_blending<'a>(
     smaa_info_uniform_buffer_handle: &BindGroupResourceHandle,
     view_smaa_uniform_offset: &SmaaInfoUniformOffset,
     neighborhood_blending_pipeline_id: CachedRenderPipelineId,
-    source: &ResourceMeta<FrameGraphTexture>,
-    destination: &ResourceMeta<FrameGraphTexture>,
+    source: &ResourceMeta<TransientTexture>,
+    destination: &ResourceMeta<TransientTexture>,
 ) {
     let postprocess_bind_group_handle = pass_builder
         .create_bind_group_builder(

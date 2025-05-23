@@ -15,7 +15,7 @@ use crate::{
     extract_component::ExtractComponentPlugin,
     frame_graph::{
         ColorAttachment, ColorAttachmentOwner, DepthStencilAttachment, FrameGraph,
-        FrameGraphTexture, PassBuilder, ResourceMeta, TextureInfo, TextureView, TextureViewInfo,
+        TransientTexture, PassBuilder, ResourceMeta, TextureInfo, TextureView, TextureViewInfo,
     },
     prelude::Shader,
     primitives::Frustum,
@@ -617,8 +617,8 @@ pub struct ViewTarget {
 pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAttachment>);
 
 pub struct PostProcessWrite<'a> {
-    pub source: &'a ResourceMeta<FrameGraphTexture>,
-    pub destination: &'a ResourceMeta<FrameGraphTexture>,
+    pub source: &'a ResourceMeta<TransientTexture>,
+    pub destination: &'a ResourceMeta<TransientTexture>,
 }
 
 impl From<ColorGrading> for ColorGradingUniform {
@@ -751,7 +751,7 @@ impl ViewTarget {
         format!("main_texture_sampled_{}", entity)
     }
 
-    pub fn sampled_main_texture(&self) -> Option<&ResourceMeta<FrameGraphTexture>> {
+    pub fn sampled_main_texture(&self) -> Option<&ResourceMeta<TransientTexture>> {
         self.main_textures.a.resolve_target.as_ref()
     }
 
@@ -759,7 +759,7 @@ impl ViewTarget {
         &self.main_textures.desc
     }
 
-    pub fn get_main_texture(&self) -> &ResourceMeta<FrameGraphTexture> {
+    pub fn get_main_texture(&self) -> &ResourceMeta<TransientTexture> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.a.texture
         } else {
@@ -767,7 +767,7 @@ impl ViewTarget {
         }
     }
 
-    pub fn get_main_texture_sampled(&self) -> &ResourceMeta<FrameGraphTexture> {
+    pub fn get_main_texture_sampled(&self) -> &ResourceMeta<TransientTexture> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.resolve_target.as_ref().unwrap()
         } else {
@@ -835,7 +835,7 @@ impl ViewTarget {
 
 #[derive(Component)]
 pub struct ViewDepthTexture {
-    pub texture: ResourceMeta<FrameGraphTexture>,
+    pub texture: ResourceMeta<TransientTexture>,
     clear_value: Option<f32>,
     is_first_call: Arc<AtomicBool>,
 }
@@ -862,7 +862,7 @@ impl ViewDepthTexture {
         }
     }
 
-    pub fn new(texture: ResourceMeta<FrameGraphTexture>, clear_value: Option<f32>) -> Self {
+    pub fn new(texture: ResourceMeta<TransientTexture>, clear_value: Option<f32>) -> Self {
         Self {
             texture,
             clear_value,
@@ -886,7 +886,7 @@ impl ViewDepthTexture {
         })
     }
 
-    pub fn get_depth_texture(&self) -> &ResourceMeta<FrameGraphTexture> {
+    pub fn get_depth_texture(&self) -> &ResourceMeta<TransientTexture> {
         &self.texture
     }
 }
@@ -1080,7 +1080,7 @@ pub fn prepare_view_targets(
             },
         );
 
-        let mut sampled: Option<ResourceMeta<FrameGraphTexture>> = None;
+        let mut sampled: Option<ResourceMeta<TransientTexture>> = None;
 
         if msaa.samples() > 1 {
             let temp_key = ViewTarget::get_main_texture_sampled_key(entity);

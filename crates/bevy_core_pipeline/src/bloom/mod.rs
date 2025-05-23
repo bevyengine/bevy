@@ -19,7 +19,7 @@ use bevy_render::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
     frame_graph::{
-        ColorAttachment, EncoderCommandBuilder, FrameGraph, FrameGraphTexture, ResourceMeta,
+        ColorAttachment, EncoderCommandBuilder, FrameGraph, TransientTexture, ResourceMeta,
         TextureInfo, TextureView, TextureViewInfo,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -366,7 +366,7 @@ impl BloomTexture {
         &self,
         entity: Entity,
         _base_mip_level: u32,
-    ) -> ResourceMeta<FrameGraphTexture> {
+    ) -> ResourceMeta<TransientTexture> {
         let key = format!("{}_{}", Self::BLOOM_TEXTURE_KEY, entity);
         ResourceMeta {
             key,
@@ -374,7 +374,7 @@ impl BloomTexture {
         }
     }
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    pub fn get_resource_meta(&self, base_mip_level: u32) -> ResourceMeta<FrameGraphTexture> {
+    pub fn get_resource_meta(&self, base_mip_level: u32) -> ResourceMeta<TransientTexture> {
         let key = format!("{}_{}", Self::BLOOM_TEXTURE_KEY, base_mip_level);
         ResourceMeta {
             key,

@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     frame_graph::{
-        BindGroupBinding, FrameGraphBuffer, FrameGraphTexture, ResourceBinding, ResourceRead,
+        BindGroupBinding, TransientBuffer, TransientTexture, ResourceBinding, ResourceRead,
         ResourceRef, ResourceWrite, TexelCopyBufferInfo, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedComputePipelineId},
@@ -35,7 +35,7 @@ pub trait ComputePassCommandBuilder {
 
     fn clear_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        buffer_ref: &ResourceRef<TransientBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
     ) {
@@ -48,7 +48,7 @@ pub trait ComputePassCommandBuilder {
 
     fn dispatch_workgroups_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
     ) {
         self.add_compute_pass_command(ComputePassCommand::new(
@@ -68,7 +68,7 @@ pub trait ComputePassCommandBuilder {
 
     fn clear_texture(
         &mut self,
-        texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
+        texture_ref: &ResourceRef<TransientTexture, ResourceWrite>,
         subresource_range: ImageSubresourceRange,
     ) {
         self.add_compute_pass_command(ComputePassCommand::new(ClearTextureParameter {
@@ -216,7 +216,7 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
 
     pub fn clear_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        buffer_ref: &ResourceRef<TransientBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
     ) {
@@ -228,7 +228,7 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
 
     pub fn dispatch_workgroups_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
     ) {
         let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
@@ -243,7 +243,7 @@ impl<'a, 'b> ComputePassContext<'a, 'b> {
 
     pub fn clear_texture(
         &mut self,
-        texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
+        texture_ref: &ResourceRef<TransientTexture, ResourceWrite>,
         subresource_range: &ImageSubresourceRange,
     ) {
         let texture = self.render_context.get_resource(&texture_ref);

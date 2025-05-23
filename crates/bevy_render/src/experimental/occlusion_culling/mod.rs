@@ -10,7 +10,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
 use crate::{
     extract_component::ExtractComponent,
-    frame_graph::{FrameGraphTexture, ResourceMeta, TextureViewInfo},
+    frame_graph::{TransientTexture, ResourceMeta, TextureViewInfo},
     render_resource::Shader,
 };
 
@@ -97,7 +97,7 @@ pub struct OcclusionCulling;
 /// mapping. You don't ordinarily need to add this component yourself.
 #[derive(Clone, Component)]
 pub struct OcclusionCullingSubview {
-    pub depth_texture: ResourceMeta<FrameGraphTexture>,
+    pub depth_texture: ResourceMeta<TransientTexture>,
     /// A texture view of the Z-buffer.
     pub depth_texture_view_info: TextureViewInfo,
     /// The size of the texture along both dimensions.

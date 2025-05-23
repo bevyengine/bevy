@@ -4,7 +4,7 @@ use tracing::warn;
 use wgpu::{Extent3d, ImageSubresourceRange};
 
 use crate::frame_graph::{
-    EncoderPass, EncoderPassCommandBuilder, FrameGraphBuffer, FrameGraphTexture, ResourceMaterial,
+    EncoderPass, EncoderPassCommandBuilder, TransientBuffer, TransientTexture, ResourceMaterial,
     ResourceRead, ResourceRef, ResourceWrite, TexelCopyBufferInfo, TexelCopyTextureInfo,
 };
 
@@ -71,7 +71,7 @@ impl<'a, 'b> EncoderPassBuilder<'a, 'b> {
 
     pub fn clear_texture(
         &mut self,
-        texture_ref: &ResourceRef<FrameGraphTexture, ResourceWrite>,
+        texture_ref: &ResourceRef<TransientTexture, ResourceWrite>,
         subresource_range: ImageSubresourceRange,
     ) -> &mut Self {
         self.encoder_pass
@@ -82,7 +82,7 @@ impl<'a, 'b> EncoderPassBuilder<'a, 'b> {
 
     pub fn clear_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceWrite>,
+        buffer_ref: &ResourceRef<TransientBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
     ) -> &mut Self {

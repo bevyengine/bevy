@@ -1,6 +1,4 @@
-mod buffer;
 mod graph_runner;
-mod texture;
 
 use std::borrow::Cow;
 
@@ -13,42 +11,11 @@ use bevy_ecs::resource::Resource;
 use crate::render_resource::BindGroupLayout;
 
 use super::{
-    AnyFrameGraphResource, AnyFrameGraphResourceDescriptor, BindGroupHandleBuilder, DevicePass,
-    FrameGraphError, GraphResourceNodeHandle, ImportedResource, PassBuilder, PassNode,
-    PassNodeBuilder, RenderContext, ResourceBoard, ResourceBoardKey, ResourceNode, TypeHandle,
-    VirtualResource,
+    BindGroupHandleBuilder, DevicePass, FrameGraphError, GraphResourceNodeHandle,
+    IntoArcTransientResource, PassBuilder, PassNode, PassNodeBuilder, RenderContext, ResourceBoard,
+    ResourceBoardKey, ResourceNode, TransientResource, TransientResourceDescriptor, TypeEquals,
+    TypeHandle, VirtualResource,
 };
-
-pub trait ImportToFrameGraph
-where
-    Self: Sized + GraphResource,
-{
-    fn import(self: Arc<Self>) -> ImportedResource;
-}
-
-pub trait GraphResource: 'static {
-    type Descriptor: GraphResourceDescriptor;
-
-    fn borrow_resource(res: &AnyFrameGraphResource) -> &Self;
-
-    fn get_desc(&self) -> &Self::Descriptor;
-}
-
-pub trait GraphResourceDescriptor: 'static + Clone + Into<AnyFrameGraphResourceDescriptor> {
-    type Resource: GraphResource;
-}
-
-pub trait TypeEquals {
-    type Other;
-    fn same(value: Self) -> Self::Other;
-}
-
-impl<T: Sized> TypeEquals for T {
-    type Other = Self;
-    fn same(value: Self) -> Self::Other {
-        value
-    }
-}
 
 pub struct CompiledFrameGraph {
     device_passes: Vec<DevicePass>,
@@ -160,7 +127,7 @@ impl FrameGraph {
         self.resource_board.put(key, handle);
     }
 
-    pub fn get<ResourceType: GraphResource, K: Into<ResourceBoardKey>>(
+    pub fn get<ResourceType: TransientResource, K: Into<ResourceBoardKey>>(
         &self,
         key: K,
     ) -> Result<GraphResourceNodeHandle<ResourceType>, FrameGraphError> {
@@ -224,7 +191,7 @@ impl FrameGraph {
         resource: Arc<ResourceType>,
     ) -> GraphResourceNodeHandle<ResourceType>
     where
-        ResourceType: ImportToFrameGraph,
+        ResourceType: IntoArcTransientResource,
     {
         let key = name.into();
         if let Some(raw_handle) = self.resource_board.get(&key) {
@@ -233,7 +200,9 @@ impl FrameGraph {
         }
 
         let resource_node_handle = TypeHandle::new(self.resource_nodes.len());
-        let virtual_resource = VirtualResource::Imported(ImportToFrameGraph::import(resource));
+        let virtual_resource = VirtualResource::Imported(
+            IntoArcTransientResource::into_arc_transient_resource(resource),
+        );
         let resource_node = ResourceNode::new(name, resource_node_handle, virtual_resource);
 
         let version = resource_node.version();
@@ -248,9 +217,9 @@ impl FrameGraph {
 
     pub fn get_or_create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
     where
-        DescriptorType: GraphResourceDescriptor
+        DescriptorType: TransientResourceDescriptor
             + TypeEquals<
-                Other = <<DescriptorType as GraphResourceDescriptor>::Resource as GraphResource>::Descriptor,
+                Other = <<DescriptorType as TransientResourceDescriptor>::Resource as TransientResource>::Descriptor,
             >,
     {
         let key = name.into();
@@ -269,9 +238,9 @@ impl FrameGraph {
 
     pub fn create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
     where
-        DescriptorType: GraphResourceDescriptor
+        DescriptorType: TransientResourceDescriptor
             + TypeEquals<
-                Other = <<DescriptorType as GraphResourceDescriptor>::Resource as GraphResource>::Descriptor,
+                Other = <<DescriptorType as TransientResourceDescriptor>::Resource as TransientResource>::Descriptor,
             >,
     {
         let resource_node_handle = TypeHandle::new(self.resource_nodes.len());

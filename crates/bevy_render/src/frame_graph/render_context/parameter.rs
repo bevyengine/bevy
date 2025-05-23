@@ -5,7 +5,7 @@ use wgpu::{Extent3d, ImageSubresourceRange, QuerySet, ShaderStages};
 
 use crate::{
     frame_graph::{
-        BindGroupBinding, FrameGraphBuffer, FrameGraphTexture, RenderPassContext, ResourceRead,
+        BindGroupBinding, TransientBuffer, TransientTexture, RenderPassContext, ResourceRead,
         ResourceRef, ResourceWrite, TexelCopyBufferInfo, TexelCopyTextureInfo,
     },
     render_resource::{BindGroup, CachedComputePipelineId, CachedRenderPipelineId},
@@ -29,7 +29,7 @@ impl ErasedComputePassCommand for DispatchWorkgroupsParameter {
 }
 
 pub struct ClearBufferParameter {
-    pub buffer_ref: ResourceRef<FrameGraphBuffer, ResourceWrite>,
+    pub buffer_ref: ResourceRef<TransientBuffer, ResourceWrite>,
     pub offset: u64,
     pub size: Option<u64>,
 }
@@ -53,7 +53,7 @@ impl ErasedEncoderPassCommand for ClearBufferParameter {
 }
 
 pub struct ClearTextureParameter {
-    pub texture_ref: ResourceRef<FrameGraphTexture, ResourceWrite>,
+    pub texture_ref: ResourceRef<TransientTexture, ResourceWrite>,
     pub subresource_range: ImageSubresourceRange,
 }
 
@@ -148,7 +148,7 @@ impl ErasedEncoderPassCommand for CopyTextureToTextureParameter {
 }
 
 pub struct DispatchWorkgroupsIndirectParameter {
-    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub indirect_offset: u64,
 }
 
@@ -160,7 +160,7 @@ impl ErasedComputePassCommand for DispatchWorkgroupsIndirectParameter {
 }
 
 pub struct DrawIndexedIndirectParameter {
-    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub indirect_offset: u64,
 }
 
@@ -171,7 +171,7 @@ impl ErasedRenderPassCommand for DrawIndexedIndirectParameter {
 }
 
 pub struct MultiDrawIndirectParameter {
-    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub indirect_offset: u64,
     pub count: u32,
 }
@@ -187,9 +187,9 @@ impl ErasedRenderPassCommand for MultiDrawIndirectParameter {
 }
 
 pub struct MultiDrawIndirectCountParameter {
-    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub indirect_offset: u64,
-    pub count_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub count_buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub count_offset: u64,
     pub max_count: u32,
 }
@@ -207,7 +207,7 @@ impl ErasedRenderPassCommand for MultiDrawIndirectCountParameter {
 }
 
 pub struct MultiDrawIndexedIndirectParameter {
-    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub indirect_offset: u64,
     pub count: u32,
 }
@@ -223,9 +223,9 @@ impl ErasedRenderPassCommand for MultiDrawIndexedIndirectParameter {
 }
 
 pub struct MultiDrawIndexedIndirectCountParameter {
-    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub indirect_offset: u64,
-    pub count_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub count_buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub count_offset: u64,
     pub max_count: u32,
 }
@@ -413,7 +413,7 @@ impl ErasedRenderPassCommand for EndPipelineStatisticsQueryParameter {
 }
 
 pub struct DrawIndirectParameter {
-    pub indirect_buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub indirect_buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub indirect_offset: u64,
 }
 
@@ -486,7 +486,7 @@ impl ErasedRenderPassCommand for DrawParameter {
 }
 
 pub struct SetIndexBufferParameter {
-    pub buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub index_format: wgpu::IndexFormat,
     pub offset: u64,
     pub size: u64,
@@ -505,7 +505,7 @@ impl ErasedRenderPassCommand for SetIndexBufferParameter {
 
 pub struct SetVertexBufferParameter {
     pub slot: u32,
-    pub buffer_ref: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub buffer_ref: ResourceRef<TransientBuffer, ResourceRead>,
     pub offset: u64,
     pub size: u64,
 }

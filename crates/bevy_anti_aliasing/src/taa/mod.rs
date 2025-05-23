@@ -21,7 +21,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     frame_graph::{
-        ColorAttachment, FrameGraph, FrameGraphTexture, ResourceMeta, TextureInfo, TextureView,
+        ColorAttachment, FrameGraph, TransientTexture, ResourceMeta, TextureInfo, TextureView,
         TextureViewInfo,
     },
     prelude::{Camera, Projection},
@@ -421,8 +421,8 @@ fn prepare_taa_jitter_and_mip_bias(
 
 #[derive(Component)]
 pub struct TemporalAntiAliasHistoryTextures {
-    write: ResourceMeta<FrameGraphTexture>,
-    read: ResourceMeta<FrameGraphTexture>,
+    write: ResourceMeta<TransientTexture>,
+    read: ResourceMeta<TransientTexture>,
 }
 
 impl TemporalAntiAliasHistoryTextures {

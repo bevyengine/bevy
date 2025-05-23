@@ -2,7 +2,7 @@ use std::num::NonZero;
 
 use crate::{
     frame_graph::{
-        FrameGraphBuffer, FrameGraphTexture, ResourceRead, ResourceRef, TextureViewInfo,
+        TransientBuffer, TransientTexture, ResourceRead, ResourceRef, TextureViewInfo,
     },
     render_resource::Sampler,
 };
@@ -23,14 +23,14 @@ pub enum BindGroupResourceBinding {
 
 #[derive(Clone)]
 pub struct BindingResourceBuffer {
-    pub buffer: ResourceRef<FrameGraphBuffer, ResourceRead>,
+    pub buffer: ResourceRef<TransientBuffer, ResourceRead>,
     pub size: Option<NonZero<u64>>,
     pub offest: u64,
 }
 
 #[derive(Clone)]
 pub struct BindingResourceTextureView {
-    pub texture: ResourceRef<FrameGraphTexture, ResourceRead>,
+    pub texture: ResourceRef<TransientTexture, ResourceRead>,
     pub texture_view_info: TextureViewInfo,
 }
 
@@ -50,7 +50,7 @@ impl IntoBindGroupResourceBinding for &Sampler {
     }
 }
 
-impl IntoBindGroupResourceBinding for &ResourceRef<FrameGraphTexture, ResourceRead> {
+impl IntoBindGroupResourceBinding for &ResourceRef<TransientTexture, ResourceRead> {
     fn into_binding(self) -> BindGroupResourceBinding {
         BindGroupResourceBinding::TextureView(BindingResourceTextureView {
             texture: self.clone(),
@@ -73,7 +73,7 @@ impl IntoBindGroupResourceBinding for &BindGroupResourceBinding {
 
 impl IntoBindGroupResourceBinding
     for (
-        &ResourceRef<FrameGraphTexture, ResourceRead>,
+        &ResourceRef<TransientTexture, ResourceRead>,
         &TextureViewInfo,
     )
 {

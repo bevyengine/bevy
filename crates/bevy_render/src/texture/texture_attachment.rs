@@ -1,6 +1,6 @@
 use crate::{
     frame_graph::{
-        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachment, FrameGraphTexture,
+        ColorAttachment, ColorAttachmentOwner, DepthStencilAttachment, TransientTexture,
         PassBuilder, ResourceMeta, TextureView, TextureViewInfo,
     },
     render_resource::{TextureFormat, TextureView as TextureViewResource},
@@ -13,8 +13,8 @@ use wgpu::{Color, LoadOp, Operations, StoreOp};
 
 #[derive(Clone)]
 pub struct ColorAttachmentHandle {
-    pub texture: ResourceMeta<FrameGraphTexture>,
-    pub resolve_target: Option<ResourceMeta<FrameGraphTexture>>,
+    pub texture: ResourceMeta<TransientTexture>,
+    pub resolve_target: Option<ResourceMeta<TransientTexture>>,
     clear_color: Option<LinearRgba>,
     is_first_call: Arc<AtomicBool>,
 }
@@ -78,8 +78,8 @@ impl ColorAttachmentHandle {
     }
 
     pub fn new(
-        texture: ResourceMeta<FrameGraphTexture>,
-        resolve_target: Option<ResourceMeta<FrameGraphTexture>>,
+        texture: ResourceMeta<TransientTexture>,
+        resolve_target: Option<ResourceMeta<TransientTexture>>,
         clear_color: Option<LinearRgba>,
     ) -> Self {
         Self {
@@ -97,7 +97,7 @@ impl ColorAttachmentHandle {
 
 #[derive(Clone)]
 pub struct DepthAttachmentHandle {
-    pub texture: ResourceMeta<FrameGraphTexture>,
+    pub texture: ResourceMeta<TransientTexture>,
     pub texture_view_info: TextureViewInfo,
     clear_value: Option<f32>,
     is_first_call: Arc<AtomicBool>,
@@ -105,7 +105,7 @@ pub struct DepthAttachmentHandle {
 
 impl DepthAttachmentHandle {
     pub fn new(
-        texture: ResourceMeta<FrameGraphTexture>,
+        texture: ResourceMeta<TransientTexture>,
         texture_view_info: TextureViewInfo,
         clear_value: Option<f32>,
     ) -> Self {

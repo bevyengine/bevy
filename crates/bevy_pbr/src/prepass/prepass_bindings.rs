@@ -1,7 +1,7 @@
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_render::{
     frame_graph::{
-        FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, ResourceMaterial, TextureViewInfo,
+        FrameGraph, TransientTexture, GraphResourceNodeHandle, ResourceMaterial, TextureViewInfo,
     },
     render_resource::{
         binding_types::{
@@ -63,7 +63,7 @@ pub fn get_bind_group_layout_entries(
 pub fn get_bindings(
     prepass_textures: Option<&ViewPrepassTextures>,
     frame_graph: &mut FrameGraph,
-) -> [Option<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)>; 4] {
+) -> [Option<(GraphResourceNodeHandle<TransientTexture>, TextureViewInfo)>; 4] {
     let depth_desc = TextureViewInfo {
         label: Some("prepass_depth".into()),
         aspect: TextureAspect::DepthOnly,

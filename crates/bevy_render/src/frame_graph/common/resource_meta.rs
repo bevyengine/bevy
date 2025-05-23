@@ -1,7 +1,7 @@
 use wgpu::{Origin3d, TextureAspect};
 
 use crate::frame_graph::{
-    FrameGraph, FrameGraphBuffer, FrameGraphTexture, GraphResource, GraphResourceNodeHandle,
+    FrameGraph, TransientBuffer, TransientTexture, TransientResource, GraphResourceNodeHandle,
     PassBuilder, PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceWrite,
 };
 
@@ -13,7 +13,7 @@ use super::{
 
 #[derive(Clone)]
 pub struct TextureViewMeta {
-    pub meta: ResourceMeta<FrameGraphTexture>,
+    pub meta: ResourceMeta<TransientTexture>,
     pub texture_view_info: TextureViewInfo,
 }
 
@@ -28,12 +28,12 @@ impl BindGroupResourceHandleHelper for TextureViewMeta {
     }
 }
 
-pub struct ResourceMeta<ResourceType: GraphResource> {
+pub struct ResourceMeta<ResourceType: TransientResource> {
     pub key: String,
-    pub desc: <ResourceType as GraphResource>::Descriptor,
+    pub desc: <ResourceType as TransientResource>::Descriptor,
 }
 
-impl BindGroupResourceHandleHelper for ResourceMeta<FrameGraphTexture> {
+impl BindGroupResourceHandleHelper for ResourceMeta<TransientTexture> {
     fn make_bind_group_resource_handle(
         &self,
         frame_graph: &mut FrameGraph,
@@ -44,7 +44,7 @@ impl BindGroupResourceHandleHelper for ResourceMeta<FrameGraphTexture> {
     }
 }
 
-impl BindGroupResourceBindingHelper for ResourceMeta<FrameGraphTexture> {
+impl BindGroupResourceBindingHelper for ResourceMeta<TransientTexture> {
     fn make_bind_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
@@ -58,7 +58,7 @@ impl BindGroupResourceBindingHelper for ResourceMeta<FrameGraphTexture> {
     }
 }
 
-impl ResourceMeta<FrameGraphTexture> {
+impl ResourceMeta<TransientTexture> {
     pub fn make_binding_resource_handle(
         &self,
         frame_graph: &mut FrameGraph,
@@ -94,7 +94,7 @@ impl ResourceMeta<FrameGraphTexture> {
     }
 }
 
-impl<ResourceType: GraphResource> Clone for ResourceMeta<ResourceType> {
+impl<ResourceType: TransientResource> Clone for ResourceMeta<ResourceType> {
     fn clone(&self) -> Self {
         ResourceMeta {
             key: self.key.clone(),
@@ -103,8 +103,8 @@ impl<ResourceType: GraphResource> Clone for ResourceMeta<ResourceType> {
     }
 }
 
-impl ResourceMaterial for ResourceMeta<FrameGraphTexture> {
-    type ResourceType = FrameGraphTexture;
+impl ResourceMaterial for ResourceMeta<TransientTexture> {
+    type ResourceType = TransientTexture;
 
     fn imported(
         &self,
@@ -114,8 +114,8 @@ impl ResourceMaterial for ResourceMeta<FrameGraphTexture> {
     }
 }
 
-impl ResourceMaterial for ResourceMeta<FrameGraphBuffer> {
-    type ResourceType = FrameGraphBuffer;
+impl ResourceMaterial for ResourceMeta<TransientBuffer> {
+    type ResourceType = TransientBuffer;
 
     fn imported(
         &self,

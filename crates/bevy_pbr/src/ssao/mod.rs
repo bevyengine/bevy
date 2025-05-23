@@ -20,7 +20,7 @@ use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     frame_graph::{
-        BindGroupHandle, EncoderCommandBuilder, FrameGraph, FrameGraphTexture, ResourceMaterial,
+        BindGroupHandle, EncoderCommandBuilder, FrameGraph, TransientTexture, ResourceMaterial,
         ResourceMeta, TextureInfo, TextureViewInfo,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -511,10 +511,10 @@ fn extract_ssao_settings(
 
 #[derive(Component)]
 pub struct ScreenSpaceAmbientOcclusionResources {
-    pub preprocessed_depth_texture: ResourceMeta<FrameGraphTexture>,
-    pub ssao_noisy_texture: ResourceMeta<FrameGraphTexture>, // Pre-spatially denoised texture
-    pub screen_space_ambient_occlusion_texture: ResourceMeta<FrameGraphTexture>, // Spatially denoised texture
-    pub depth_differences_texture: ResourceMeta<FrameGraphTexture>,
+    pub preprocessed_depth_texture: ResourceMeta<TransientTexture>,
+    pub ssao_noisy_texture: ResourceMeta<TransientTexture>, // Pre-spatially denoised texture
+    pub screen_space_ambient_occlusion_texture: ResourceMeta<TransientTexture>, // Spatially denoised texture
+    pub depth_differences_texture: ResourceMeta<TransientTexture>,
     pub thickness_buffer: Buffer,
 }
 

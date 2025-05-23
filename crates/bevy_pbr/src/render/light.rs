@@ -19,7 +19,7 @@ use bevy_render::experimental::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
 use bevy_render::frame_graph::{
-    FrameGraph, FrameGraphTexture, ResourceMeta, TextureInfo, TextureViewInfo,
+    FrameGraph, TransientTexture, ResourceMeta, TextureInfo, TextureViewInfo,
 };
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
@@ -623,9 +623,9 @@ pub struct ShadowView {
 
 #[derive(Component)]
 pub struct ViewShadowBindings {
-    pub point_light_depth_texture: ResourceMeta<FrameGraphTexture>,
+    pub point_light_depth_texture: ResourceMeta<TransientTexture>,
     pub point_light_depth_texture_view_info: TextureViewInfo,
-    pub directional_light_depth_texture: ResourceMeta<FrameGraphTexture>,
+    pub directional_light_depth_texture: ResourceMeta<TransientTexture>,
     pub directional_light_depth_texture_view_info: TextureViewInfo,
 }
 

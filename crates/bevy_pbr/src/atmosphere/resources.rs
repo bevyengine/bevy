@@ -13,7 +13,7 @@ use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     camera::Camera,
     extract_component::ComponentUniforms,
-    frame_graph::{BindGroupHandle, FrameGraph, FrameGraphTexture, ResourceMeta, TextureInfo},
+    frame_graph::{BindGroupHandle, FrameGraph, TransientTexture, ResourceMeta, TextureInfo},
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
@@ -419,10 +419,10 @@ pub(super) fn queue_render_sky_pipelines(
 
 #[derive(Component)]
 pub struct AtmosphereTextures {
-    pub transmittance_lut: ResourceMeta<FrameGraphTexture>,
-    pub multiscattering_lut: ResourceMeta<FrameGraphTexture>,
-    pub sky_view_lut: ResourceMeta<FrameGraphTexture>,
-    pub aerial_view_lut: ResourceMeta<FrameGraphTexture>,
+    pub transmittance_lut: ResourceMeta<TransientTexture>,
+    pub multiscattering_lut: ResourceMeta<TransientTexture>,
+    pub sky_view_lut: ResourceMeta<TransientTexture>,
+    pub aerial_view_lut: ResourceMeta<TransientTexture>,
 }
 
 impl AtmosphereTextures {

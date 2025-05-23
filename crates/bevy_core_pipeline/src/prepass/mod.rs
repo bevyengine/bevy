@@ -35,7 +35,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::frame_graph::{
-    FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, ResourceMaterial, TextureViewInfo,
+    FrameGraph, TransientTexture, GraphResourceNodeHandle, ResourceMaterial, TextureViewInfo,
 };
 use bevy_render::mesh::allocator::SlabId;
 use bevy_render::render_phase::PhaseItemBatchSetKey;
@@ -142,7 +142,7 @@ impl ViewPrepassTextures {
     pub fn depth(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> Option<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)> {
+    ) -> Option<(GraphResourceNodeHandle<TransientTexture>, TextureViewInfo)> {
         self.depth.as_ref().map(|texture| {
             let texture = texture.texture.imported(frame_graph);
             (texture, TextureViewInfo::default())
@@ -152,7 +152,7 @@ impl ViewPrepassTextures {
     pub fn normal(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> Option<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)> {
+    ) -> Option<(GraphResourceNodeHandle<TransientTexture>, TextureViewInfo)> {
         self.normal.as_ref().map(|texture| {
             let texture = texture.texture.imported(frame_graph);
             (texture, TextureViewInfo::default())
@@ -162,7 +162,7 @@ impl ViewPrepassTextures {
     pub fn motion_vectors(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> Option<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)> {
+    ) -> Option<(GraphResourceNodeHandle<TransientTexture>, TextureViewInfo)> {
         self.motion_vectors.as_ref().map(|texture| {
             let texture = texture.texture.imported(frame_graph);
             (texture, TextureViewInfo::default())
@@ -172,7 +172,7 @@ impl ViewPrepassTextures {
     pub fn deferred(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> Option<(GraphResourceNodeHandle<FrameGraphTexture>, TextureViewInfo)> {
+    ) -> Option<(GraphResourceNodeHandle<TransientTexture>, TextureViewInfo)> {
         self.deferred.as_ref().map(|texture| {
             let texture = texture.texture.imported(frame_graph);
             (texture, TextureViewInfo::default())

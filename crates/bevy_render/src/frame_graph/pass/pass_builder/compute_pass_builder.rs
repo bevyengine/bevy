@@ -6,7 +6,7 @@ use wgpu::QuerySet;
 use crate::{
     frame_graph::{
         BindGroupBinding, BindGroupHandle, ComputePass, ComputePassCommandBuilder,
-        FrameGraphBuffer, PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceRef,
+        TransientBuffer, PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceRef,
         ResourceWrite,
     },
     render_resource::{BindGroup, CachedComputePipelineId},
@@ -52,7 +52,7 @@ impl<'a, 'b> ComputePassBuilder<'a, 'b> {
 
     pub fn dispatch_workgroups_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
     ) -> &mut Self {
         self.compute_pass

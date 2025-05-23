@@ -4,7 +4,7 @@ use bevy_platform::collections::HashMap;
 use wgpu::BufferBinding;
 
 use crate::{
-    frame_graph::{FrameGraphBuffer, PassBuilder, RenderContext, ResourceBinding},
+    frame_graph::{TransientBuffer, PassBuilder, RenderContext, ResourceBinding},
     render_resource::BindGroupLayout,
 };
 
@@ -76,7 +76,7 @@ pub struct BindGroupBinding {
 
 pub enum BindingResource<'a> {
     Buffer {
-        buffer: &'a FrameGraphBuffer,
+        buffer: &'a TransientBuffer,
         size: Option<NonZero<u64>>,
         offset: u64,
     },
@@ -87,7 +87,7 @@ pub enum BindingResource<'a> {
 
 pub enum BindingResourceTemp<'a> {
     Buffer {
-        buffer: &'a FrameGraphBuffer,
+        buffer: &'a TransientBuffer,
         size: Option<NonZero<u64>>,
         offset: u64,
     },

@@ -1,4 +1,4 @@
-use crate::frame_graph::{FrameGraph, FrameGraphTexture, GraphResourceNodeHandle, TextureInfo};
+use crate::frame_graph::{FrameGraph, TransientTexture, GraphResourceNodeHandle, TextureInfo};
 use crate::renderer::WgpuWrapper;
 use crate::{define_atomic_id, frame_graph::ResourceMaterial};
 use bevy_derive::{Deref, DerefMut};
@@ -29,11 +29,11 @@ pub struct Texture {
 }
 
 impl ResourceMaterial for Texture {
-    type ResourceType = FrameGraphTexture;
+    type ResourceType = TransientTexture;
 
-    fn imported(&self, frame_graph: &mut FrameGraph) -> GraphResourceNodeHandle<FrameGraphTexture> {
+    fn imported(&self, frame_graph: &mut FrameGraph) -> GraphResourceNodeHandle<TransientTexture> {
         let key = format!("texture_{:?}", self.id());
-        let texture = Arc::new(FrameGraphTexture {
+        let texture = Arc::new(TransientTexture {
             resource: self.value.deref().clone(),
             desc: self.desc.clone(),
         });

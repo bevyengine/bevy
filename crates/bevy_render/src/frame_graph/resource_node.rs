@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use super::{handle::TypeHandle, AnyFrameGraphResourceDescriptor, ImportedResource, PassNode};
+use super::{handle::TypeHandle, AnyFrameGraphResourceDescriptor, ArcTransientResource, PassNode};
 
 pub trait ResourceView {}
 
@@ -101,7 +101,7 @@ pub struct ResourceRelease {
 #[derive(Clone)]
 pub enum VirtualResource {
     Setuped(AnyFrameGraphResourceDescriptor),
-    Imported(ImportedResource),
+    Imported(ArcTransientResource),
 }
 
 impl ResourceNode {

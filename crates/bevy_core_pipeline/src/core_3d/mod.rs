@@ -74,7 +74,7 @@ use bevy_color::LinearRgba;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     experimental::occlusion_culling::OcclusionCulling,
-    frame_graph::{FrameGraphTexture, ResourceMeta, TextureInfo},
+    frame_graph::{TransientTexture, ResourceMeta, TextureInfo},
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
     render_resource::{Sampler, SamplerDescriptor},
@@ -844,7 +844,7 @@ pub fn prepare_core_3d_depth_textures(
 #[derive(Component)]
 pub struct ViewTransmissionTexture {
     pub sampler: Sampler,
-    pub texture: ResourceMeta<FrameGraphTexture>,
+    pub texture: ResourceMeta<TransientTexture>,
 }
 
 impl ViewTransmissionTexture {

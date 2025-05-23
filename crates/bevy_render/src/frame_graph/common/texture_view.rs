@@ -1,6 +1,6 @@
 use alloc::borrow::Cow;
 
-use crate::frame_graph::{FrameGraphTexture, RenderContext, ResourceRef, ResourceWrite};
+use crate::frame_graph::{TransientTexture, RenderContext, ResourceRef, ResourceWrite};
 
 use super::ResourceBinding;
 
@@ -54,7 +54,7 @@ impl TextureViewInfo {
 
 #[derive(Clone)]
 pub struct TextureView {
-    pub texture: ResourceRef<FrameGraphTexture, ResourceWrite>,
+    pub texture: ResourceRef<TransientTexture, ResourceWrite>,
     pub desc: TextureViewInfo,
 }
 

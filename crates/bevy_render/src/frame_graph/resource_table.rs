@@ -3,24 +3,24 @@ use bevy_platform::collections::HashMap;
 use crate::renderer::RenderDevice;
 
 use super::{
-    AnyFrameGraphResource, FrameGraphResourceCreator, GraphResource, ImportedResource,
+    AnyTransientResource, FrameGraphResourceCreator, TransientResource, ArcTransientResource,
     ResourceNode, ResourceRef, ResourceRelease, ResourceRequese, ResourceView,
     TransientResourceCache, TypeHandle, VirtualResource,
 };
 
 #[derive(Default)]
 pub struct ResourceTable {
-    resources: HashMap<TypeHandle<ResourceNode>, AnyFrameGraphResource>,
+    resources: HashMap<TypeHandle<ResourceNode>, AnyTransientResource>,
 }
 
 impl ResourceTable {
-    pub fn get_resource<ResourceType: GraphResource, ViewType: ResourceView>(
+    pub fn get_resource<ResourceType: TransientResource, ViewType: ResourceView>(
         &self,
         resource_ref: &ResourceRef<ResourceType, ViewType>,
     ) -> Option<&ResourceType> {
         self.resources
             .get(&resource_ref.handle)
-            .map(|res| GraphResource::borrow_resource(res))
+            .map(|res| TransientResource::borrow_resource(res))
     }
 
     pub fn request_resource(
@@ -32,11 +32,11 @@ impl ResourceTable {
         let handle = request.handle;
         let resource = match &request.resource {
             VirtualResource::Imported(resource) => match &resource {
-                ImportedResource::Texture(resource) => {
-                    AnyFrameGraphResource::ImportedTexture(resource.clone())
+                ArcTransientResource::Texture(resource) => {
+                    AnyTransientResource::ImportedTexture(resource.clone())
                 }
-                ImportedResource::Buffer(resource) => {
-                    AnyFrameGraphResource::ImportedBuffer(resource.clone())
+                ArcTransientResource::Buffer(resource) => {
+                    AnyTransientResource::ImportedBuffer(resource.clone())
                 }
             },
             VirtualResource::Setuped(desc) => transient_resource_cache
@@ -54,16 +54,16 @@ impl ResourceTable {
     ) {
         if let Some(resource) = self.resources.remove(&release.handle) {
             match resource {
-                AnyFrameGraphResource::OwnedBuffer(buffer) => {
+                AnyTransientResource::OwnedBuffer(buffer) => {
                     transient_resource_cache.insert_resource(
                         buffer.desc.clone().into(),
-                        AnyFrameGraphResource::OwnedBuffer(buffer),
+                        AnyTransientResource::OwnedBuffer(buffer),
                     );
                 }
-                AnyFrameGraphResource::OwnedTexture(texture) => {
+                AnyTransientResource::OwnedTexture(texture) => {
                     transient_resource_cache.insert_resource(
                         texture.desc.clone().into(),
-                        AnyFrameGraphResource::OwnedTexture(texture),
+                        AnyTransientResource::OwnedTexture(texture),
                     );
                 }
                 _ => {}

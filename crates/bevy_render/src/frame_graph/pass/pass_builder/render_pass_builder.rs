@@ -8,7 +8,7 @@ use crate::{
     camera::Viewport,
     frame_graph::{
         BindGroupBinding, BindGroupHandle, ColorAttachment, ColorAttachmentOwner,
-        DepthStencilAttachment, FrameGraphBuffer, RenderPass, RenderPassCommandBuilder,
+        DepthStencilAttachment, TransientBuffer, RenderPass, RenderPassCommandBuilder,
         ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
     },
     render_resource::{BindGroup, CachedRenderPipelineId},
@@ -175,9 +175,9 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
 
     pub fn multi_draw_indexed_indirect_count(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
-        count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        count_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         count_offset: u64,
         max_count: u32,
     ) -> &mut Self {
@@ -194,7 +194,7 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
 
     pub fn multi_draw_indexed_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
         count: u32,
     ) -> &mut Self {
@@ -206,9 +206,9 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
 
     pub fn multi_draw_indirect_count(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
-        count_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        count_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         count_offset: u64,
         max_count: u32,
     ) -> &mut Self {
@@ -225,7 +225,7 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
 
     pub fn multi_draw_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
         count: u32,
     ) -> &mut Self {
@@ -237,7 +237,7 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
 
     pub fn draw_indexed_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
     ) -> &mut Self {
         self.render_pass
@@ -247,7 +247,7 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
 
     pub fn draw_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
     ) -> &mut Self {
         self.render_pass
@@ -274,7 +274,7 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
 
     pub fn set_index_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         index_format: wgpu::IndexFormat,
         offset: u64,
         size: u64,
@@ -288,7 +288,7 @@ impl<'a, 'b> RenderPassBuilder<'a, 'b> {
     pub fn set_vertex_buffer(
         &mut self,
         slot: u32,
-        buffer_ref: &ResourceRef<FrameGraphBuffer, ResourceRead>,
+        buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
         offset: u64,
         szie: u64,
     ) -> &mut Self {
