@@ -519,7 +519,7 @@ mod tests {
             grid_row: GridPlacement::span(3),
         };
         let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
-        let taffy_style = from_node(&node, &viewport_values, false);
+        let taffy_style = from_node(&node, &viewport_values);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
