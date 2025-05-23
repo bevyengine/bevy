@@ -375,7 +375,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(Pickable::IGNORE)
                 .with_children(|parent| {
-                    for (rotation, flip_y) in [
+                    for (rotation, flip_x) in [
                         (0., false),
                         (FRAC_PI_2, false),
                         (PI, false),
@@ -389,7 +389,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ImageNode {
                                 image: asset_server.load("branding/icon.png"),
                                 rotation,
-                                flip_y,
+                                flip_x,
                                 ..default()
                             },
                             Node {

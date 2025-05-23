@@ -233,7 +233,7 @@ pub struct ExtractedUiTextureSlice {
     pub color: LinearRgba,
     pub image_scale_mode: SpriteImageMode,
     pub rotation: f32,
-    pub flip_y: bool,
+    pub flip_x: bool,
     pub inverse_scale_factor: f32,
     pub main_entity: MainEntity,
     pub render_entity: Entity,
@@ -324,7 +324,7 @@ pub fn extract_ui_texture_slices(
             image_scale_mode,
             atlas_rect,
             rotation: image.rotation,
-            flip_y: image.flip_y,
+            flip_x: image.flip_x,
             inverse_scale_factor: uinode.inverse_scale_factor,
             main_entity: entity.into(),
         });
@@ -609,8 +609,8 @@ pub fn prepare_ui_slices(
                         (batch_image_size, [0., 0., 1., 1.])
                     };
 
-                    if texture_slices.flip_y {
-                        atlas.swap(1, 3);
+                    if texture_slices.flip_x {
+                        atlas.swap(0, 2);
                     }
 
                     let [slices, border, repeat] = compute_texture_slices(

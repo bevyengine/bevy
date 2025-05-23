@@ -27,8 +27,8 @@ pub struct ImageNode {
     pub texture_atlas: Option<TextureAtlas>,
     /// Clockwise rotation of the image in radians
     pub rotation: f32,
-    /// Whether the image should be flipped along its y-axis.
-    pub flip_y: bool,
+    /// Whether the image should be flipped along its x-axis.
+    pub flip_x: bool,
     /// An optional rectangle representing the region of the image to render, instead of rendering
     /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
     ///
@@ -56,7 +56,7 @@ impl Default for ImageNode {
             // This texture needs to be transparent by default, to avoid covering the background color
             image: TRANSPARENT_IMAGE_HANDLE,
             rotation: 0.,
-            flip_y: false,
+            flip_x: false,
             rect: None,
             image_mode: NodeImageMode::Auto,
         }
@@ -81,7 +81,7 @@ impl ImageNode {
             image: Handle::default(),
             color,
             rotation: 0.,
-            flip_y: false,
+            flip_x: false,
             texture_atlas: None,
             rect: None,
             image_mode: NodeImageMode::Auto,
@@ -111,10 +111,10 @@ impl ImageNode {
         self
     }
 
-    /// Flip the image along its y-axis
+    /// Flip the image along its x-axis
     #[must_use]
-    pub const fn with_flip_y(mut self) -> Self {
-        self.flip_y = true;
+    pub const fn with_flip_x(mut self) -> Self {
+        self.flip_x = true;
         self
     }
 

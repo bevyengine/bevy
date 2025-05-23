@@ -99,10 +99,10 @@ fn drop_previous_ui(mut commands: Commands, ui: Single<Entity, With<UiMarker>>) 
 /// Builds the UI on entering [`Mode::Image`]
 fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
     let branding = asset_server.load("branding/icon.png");
-    build_ui(&mut commands, |flip_y| ImageNode {
+    build_ui(&mut commands, |flip_x| ImageNode {
         color: Color::WHITE,
         image: branding.clone(),
-        flip_y,
+        flip_x,
         ..Default::default()
     });
 }
@@ -127,10 +127,10 @@ fn slices_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     };
 
-    build_ui(&mut commands, |flip_y| ImageNode {
+    build_ui(&mut commands, |flip_x| ImageNode {
         color: Color::WHITE,
         image: image.clone(),
-        flip_y,
+        flip_x,
         image_mode: NodeImageMode::Sliced(slicer.clone()),
         ..Default::default()
     });

@@ -412,7 +412,7 @@ pub fn extract_gradients(
                         item: ExtractedUiItem::Node {
                             atlas_scaling: None,
                             rotation: 0.,
-                            flip_y: false,
+                            flip_x: false,
                             border_radius: uinode.border_radius,
                             border: uinode.border,
                             node_type,

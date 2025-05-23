@@ -236,7 +236,7 @@ pub enum ExtractedUiItem {
     Node {
         atlas_scaling: Option<Vec2>,
         rotation: f32,
-        flip_y: bool,
+        flip_x: bool,
         /// Border radius of the UI node.
         /// Ordering: top left, top right, bottom right, bottom left.
         border_radius: ResolvedBorderRadius,
@@ -386,7 +386,7 @@ pub fn extract_uinode_background_colors(
                 atlas_scaling: None,
                 transform: transform.compute_matrix(),
                 rotation: 0.,
-                flip_y: false,
+                flip_x: false,
                 border: uinode.border(),
                 border_radius: uinode.border_radius(),
                 node_type: NodeType::Rect,
@@ -470,7 +470,7 @@ pub fn extract_uinode_images(
                 atlas_scaling,
                 transform: transform.compute_matrix(),
                 rotation: image.rotation,
-                flip_y: image.flip_y,
+                flip_x: image.flip_x,
                 border: uinode.border,
                 border_radius: uinode.border_radius,
                 node_type: NodeType::Rect,
@@ -538,7 +538,7 @@ pub fn extract_uinode_borders(
                         atlas_scaling: None,
                         transform: global_transform.compute_matrix(),
                         rotation: 0.,
-                        flip_y: false,
+                        flip_x: false,
                         border: computed_node.border(),
                         border_radius: computed_node.border_radius(),
                         node_type: NodeType::Border,
@@ -571,7 +571,7 @@ pub fn extract_uinode_borders(
                     transform: global_transform.compute_matrix(),
                     atlas_scaling: None,
                     rotation: 0.,
-                    flip_y: false,
+                    flip_x: false,
                     border: BorderRect::all(computed_node.outline_width()),
                     border_radius: computed_node.outline_radius(),
                     node_type: NodeType::Border,
@@ -761,7 +761,7 @@ pub fn extract_viewport_nodes(
                 atlas_scaling: None,
                 transform: transform.compute_matrix(),
                 rotation: 0.,
-                flip_y: false,
+                flip_x: false,
                 border: uinode.border(),
                 border_radius: uinode.border_radius(),
                 node_type: NodeType::Rect,
@@ -1011,7 +1011,7 @@ pub fn extract_text_background_colors(
                     atlas_scaling: None,
                     transform: transform * Mat4::from_translation(rect.center().extend(0.)),
                     rotation: 0.,
-                    flip_y: false,
+                    flip_x: false,
                     border: uinode.border(),
                     border_radius: uinode.border_radius(),
                     node_type: NodeType::Rect,
@@ -1270,7 +1270,7 @@ pub fn prepare_uinodes(
                         ExtractedUiItem::Node {
                             atlas_scaling,
                             rotation,
-                            flip_y,
+                            flip_x,
                             border_radius,
                             border,
                             node_type,
@@ -1362,12 +1362,12 @@ pub fn prepare_uinodes(
                                 let atlas_extent = atlas_scaling
                                     .map(|scaling| image.size_2d().as_vec2() * scaling)
                                     .unwrap_or(uinode_rect.max);
-                                if *flip_y {
-                                    core::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                                    positions_diff[0].y *= -1.;
-                                    positions_diff[1].y *= -1.;
-                                    positions_diff[2].y *= -1.;
-                                    positions_diff[3].y *= -1.;
+                                if *flip_x {
+                                    core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
+                                    positions_diff[0].x *= -1.;
+                                    positions_diff[1].x *= -1.;
+                                    positions_diff[2].x *= -1.;
+                                    positions_diff[3].x *= -1.;
                                 }
                                 [
                                     Vec2::new(

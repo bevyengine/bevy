@@ -54,7 +54,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|parent| {
             for [columns, rows] in [[3., 3.], [4., 4.], [5., 4.], [4., 5.], [5., 5.]] {
-                for (rotation, flip_y) in [
+                for (rotation, flip_x) in [
                     (0., false),
                     (FRAC_PI_2, false),
                     (PI, false),
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ImageNode {
                             image: image.clone(),
                             rotation,
-                            flip_y,
+                            flip_x,
                             image_mode: NodeImageMode::Sliced(slicer.clone()),
                             ..default()
                         },
