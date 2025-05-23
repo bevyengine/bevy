@@ -25,7 +25,9 @@ pub struct ImageNode {
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the image.
     pub texture_atlas: Option<TextureAtlas>,
-    /// Clockwise rotation of the image in radians
+    /// Clockwise rotation of the image in radians.  
+    /// Rotations done through this field do not update the node's size and might cause clipping or overflow,
+    /// to rotate updating the node's size use [`Transform`](bevy_transform::prelude::Transform).
     pub rotation: f32,
     /// Whether the image should be flipped along its x-axis.
     pub flip_x: bool,
