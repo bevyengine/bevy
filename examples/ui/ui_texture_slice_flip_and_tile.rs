@@ -1,5 +1,7 @@
 //! This example illustrates how to how to flip and tile images with 9-slicing in the UI.
 
+use std::f32::consts::{FRAC_PI_2, PI};
+
 use bevy::{
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
@@ -52,12 +54,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|parent| {
             for [columns, rows] in [[3., 3.], [4., 4.], [5., 4.], [4., 5.], [5., 5.]] {
-                for (flip_x, flip_y) in [(false, false), (false, true), (true, false), (true, true)]
-                {
+                for (rotation, flip_y) in [
+                    (0., false),
+                    (FRAC_PI_2, false),
+                    (PI, false),
+                    (FRAC_PI_2 + PI, false),
+                    (0., true),
+                    (FRAC_PI_2, true),
+                    (PI, true),
+                    (FRAC_PI_2 + PI, true),
+                ] {
                     parent.spawn((
                         ImageNode {
                             image: image.clone(),
-                            flip_x,
+                            rotation,
                             flip_y,
                             image_mode: NodeImageMode::Sliced(slicer.clone()),
                             ..default()

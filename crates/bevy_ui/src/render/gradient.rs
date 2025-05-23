@@ -411,7 +411,7 @@ pub fn extract_gradients(
                         extracted_camera_entity,
                         item: ExtractedUiItem::Node {
                             atlas_scaling: None,
-                            flip_x: false,
+                            rotation: 0.,
                             flip_y: false,
                             border_radius: uinode.border_radius,
                             border: uinode.border,

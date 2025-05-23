@@ -102,7 +102,7 @@ pub fn extract_debug_overlay(
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
                 transform: transform.compute_matrix(),
-                flip_x: false,
+                rotation: 0.,
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
                 border_radius: uinode.border_radius(),

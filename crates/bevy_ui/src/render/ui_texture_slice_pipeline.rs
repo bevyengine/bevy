@@ -232,7 +232,7 @@ pub struct ExtractedUiTextureSlice {
     pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub image_scale_mode: SpriteImageMode,
-    pub flip_x: bool,
+    pub rotation: f32,
     pub flip_y: bool,
     pub inverse_scale_factor: f32,
     pub main_entity: MainEntity,
@@ -323,7 +323,7 @@ pub fn extract_ui_texture_slices(
             extracted_camera_entity,
             image_scale_mode,
             atlas_rect,
-            flip_x: image.flip_x,
+            rotation: image.rotation,
             flip_y: image.flip_y,
             inverse_scale_factor: uinode.inverse_scale_factor,
             main_entity: entity.into(),
@@ -506,8 +506,12 @@ pub fn prepare_ui_slices(
                     let rect_size = uinode_rect.size().extend(1.0);
 
                     // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| (texture_slices.transform * (pos * rect_size).extend(1.)).xyz());
+                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                        (texture_slices.transform
+                            * Mat4::from_rotation_z(texture_slices.rotation)
+                            * (pos * rect_size).extend(1.))
+                        .xyz()
+                    });
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -604,10 +608,6 @@ pub fn prepare_ui_slices(
                     } else {
                         (batch_image_size, [0., 0., 1., 1.])
                     };
-
-                    if texture_slices.flip_x {
-                        atlas.swap(0, 2);
-                    }
 
                     if texture_slices.flip_y {
                         atlas.swap(1, 3);
