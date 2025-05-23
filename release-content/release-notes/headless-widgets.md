@@ -1,7 +1,7 @@
 ---
 title: Headless Widgets
 authors: ["@viridia"]
-pull_requests: [19238]
+pull_requests: [19238, 19349]
 ---
 
 Bevy's `Button` and `Interaction` components have been around for a long time. Unfortunately
