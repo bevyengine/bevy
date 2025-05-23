@@ -6,7 +6,7 @@ pull_requests: [19340]
 
 It is now possible to rotate an `ImageNode`.  
 Rotations using `ImageNode::rotation` do not update
-the `Node`'s computed size and might lead to clipping or overflow, 
+the `Node`'s computed size and might lead to clipping or overflow,
 for rotations that update the `Node`'s computed size use `Transform`.
 
 ```rust
