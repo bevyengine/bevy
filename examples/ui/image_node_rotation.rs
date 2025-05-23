@@ -50,9 +50,12 @@ fn main() {
 struct UiMarker;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, States)]
+/// Selection of modes
 enum Mode {
+    /// Uses [`ImageNode`] with [`NodeImageMode::Auto`]
     #[default]
     Image,
+    /// Uses [`ImageNode`] with [`NodeImageMode::Sliced`]
     Slices,
 }
 
@@ -65,10 +68,12 @@ impl Mode {
     }
 }
 
+/// Spawns a camera
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
+/// Switching between modes on the press of the Q key
 fn switch_modes(
     keys: Res<ButtonInput<KeyCode>>,
     current_state: Res<State<Mode>>,
@@ -79,16 +84,19 @@ fn switch_modes(
     }
 }
 
+/// Rock the images back and forth
 fn rotate_image_nodes(mut image_nodes: Query<&mut ImageNode>, time: Res<Time>) {
     for mut node in image_nodes.iter_mut() {
         node.rotation = ops::sin(time.elapsed_secs());
     }
 }
 
+/// Drops the previous UI before the creation of the new one
 fn drop_previos_ui(mut commands: Commands, ui: Single<Entity, With<UiMarker>>) {
     commands.entity(*ui).despawn();
 }
 
+/// Builds the UI on entering [`Mode::Image`]
 fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
     let branding = asset_server.load("branding/icon.png");
     build_ui(&mut commands, |flip_y| ImageNode {
@@ -99,6 +107,7 @@ fn image_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
+/// Builds the UI on entering [`Mode::Slices`]
 fn slices_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = asset_server.load_with_settings(
         "textures/fantasy_ui_borders/numbered_slices.png",
@@ -127,6 +136,9 @@ fn slices_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
+/// Builds the UI using a methods that generates the [`ImageNode`] with a paramenter for flipping on Y.  
+/// The UI will contain 8 [`ImageNode`] across 2 rows,
+/// the 4 on the bottom row will have their Y flipped.
 fn build_ui(commands: &mut Commands, image_node: impl Fn(bool) -> ImageNode) {
     commands.spawn((
         UiMarker,
