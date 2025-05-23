@@ -1,7 +1,5 @@
 //! Shows usage of `ImageNode::rotation`
 
-#[cfg(feature = "bevy_ui_debug")]
-use bevy::prelude::UiDebugOptions;
 use bevy::{
     app::{App, Startup, Update},
     color::Color,
@@ -35,17 +33,8 @@ use bevy_image::{ImageLoaderSettings, ImageSampler};
 const IMAGE_NODE_SIZE: f32 = 128.;
 
 fn main() {
-    let mut app = App::new();
-
-    #[cfg(feature = "bevy_ui_debug")]
-    app.insert_resource(UiDebugOptions {
-        enabled: true,
-        show_clipped: true,
-        show_hidden: true,
-        line_width: 3.,
-    });
-
-    app.add_plugins(DefaultPlugins)
+    App::new()
+        .add_plugins(DefaultPlugins)
         .init_state::<Mode>()
         .add_systems(Startup, setup)
         .add_systems(Update, (switch_modes, rotate_image_nodes))
@@ -85,7 +74,7 @@ fn switch_modes(
     mut next_state: ResMut<NextState<Mode>>,
 ) {
     if keys.just_pressed(KeyCode::KeyQ) {
-        next_state.set(dbg!(current_state.next()));
+        next_state.set(current_state.next());
     }
 }
 
