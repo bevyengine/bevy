@@ -10,6 +10,7 @@
 //! Spawn UI elements with [`widget::Button`], [`ImageNode`], [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
+pub mod interaction_states;
 pub mod measurement;
 pub mod ui_material;
 pub mod update;
@@ -38,6 +39,7 @@ mod ui_node;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
+pub use interaction_states::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
