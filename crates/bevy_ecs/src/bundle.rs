@@ -1736,7 +1736,8 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.set_spawn_despawn(entity.index(), location, caller, self.change_tick);
+            entities.set(entity.index(), location);
+            entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
             (location, after_effect)
         };
 
