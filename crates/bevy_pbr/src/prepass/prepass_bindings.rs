@@ -1,8 +1,6 @@
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_render::{
-    frame_graph::{
-        FrameGraph, TransientTexture, GraphResourceNodeHandle, ResourceMaterial, TextureViewInfo,
-    },
+    frame_graph::{FrameGraph, Handle, ResourceMaterial, TextureViewInfo, TransientTexture},
     render_resource::{
         binding_types::{
             texture_2d, texture_2d_multisampled, texture_depth_2d, texture_depth_2d_multisampled,
@@ -63,7 +61,7 @@ pub fn get_bind_group_layout_entries(
 pub fn get_bindings(
     prepass_textures: Option<&ViewPrepassTextures>,
     frame_graph: &mut FrameGraph,
-) -> [Option<(GraphResourceNodeHandle<TransientTexture>, TextureViewInfo)>; 4] {
+) -> [Option<(Handle<TransientTexture>, TextureViewInfo)>; 4] {
     let depth_desc = TextureViewInfo {
         label: Some("prepass_depth".into()),
         aspect: TextureAspect::DepthOnly,
@@ -78,8 +76,23 @@ pub fn get_bindings(
 
     [
         depth_view,
-        prepass_textures.and_then(|pt| pt.normal(frame_graph)),
-        prepass_textures.and_then(|pt| pt.motion_vectors(frame_graph)),
-        prepass_textures.and_then(|pt| pt.deferred(frame_graph)),
+        prepass_textures
+            .and_then(|pt| pt.normal.as_ref())
+            .map(|texture| {
+                let texture = texture.texture.imported(frame_graph);
+                (texture, TextureViewInfo::default())
+            }),
+        prepass_textures
+            .and_then(|pt| pt.motion_vectors.as_ref())
+            .map(|texture| {
+                let texture = texture.texture.imported(frame_graph);
+                (texture, TextureViewInfo::default())
+            }),
+        prepass_textures
+            .and_then(|pt| pt.deferred.as_ref())
+            .map(|texture| {
+                let texture = texture.texture.imported(frame_graph);
+                (texture, TextureViewInfo::default())
+            }),
     ]
 }

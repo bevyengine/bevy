@@ -3,23 +3,23 @@ use bevy_platform::collections::HashMap;
 use crate::renderer::RenderDevice;
 
 use super::{
-    AnyTransientResource, FrameGraphResourceCreator, TransientResource, ArcTransientResource,
-    ResourceNode, ResourceRef, ResourceRelease, ResourceRequese, ResourceView,
-    TransientResourceCache, TypeHandle, VirtualResource,
+    AnyTransientResource, TransientResourceCreator, TransientResource, ArcTransientResource,
+    ResourceNode, Ref, ResourceRelease, ResourceRequese, ResourceView,
+    TransientResourceCache, TypeIndex, VirtualResource,
 };
 
 #[derive(Default)]
 pub struct ResourceTable {
-    resources: HashMap<TypeHandle<ResourceNode>, AnyTransientResource>,
+    resources: HashMap<TypeIndex<ResourceNode>, AnyTransientResource>,
 }
 
 impl ResourceTable {
     pub fn get_resource<ResourceType: TransientResource, ViewType: ResourceView>(
         &self,
-        resource_ref: &ResourceRef<ResourceType, ViewType>,
+        resource_ref: &Ref<ResourceType, ViewType>,
     ) -> Option<&ResourceType> {
         self.resources
-            .get(&resource_ref.handle)
+            .get(&resource_ref.index)
             .map(|res| TransientResource::borrow_resource(res))
     }
 

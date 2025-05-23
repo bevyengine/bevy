@@ -16,10 +16,17 @@ pub use resource_meta::*;
 pub use texel_copy_texture_info::*;
 pub use texture_view::*;
 
-use super::RenderContext;
+use super::{FrameGraph, Handle, RenderContext, TransientResource};
 
 pub trait ResourceBinding {
     type Resource;
 
     fn make_resource<'a>(&self, render_context: &RenderContext<'a>) -> Self::Resource;
+}
+
+pub trait ResourceMaterial {
+    type ResourceType: TransientResource;
+
+    fn imported(&self, frame_graph: &mut FrameGraph)
+        -> Handle<Self::ResourceType>;
 }

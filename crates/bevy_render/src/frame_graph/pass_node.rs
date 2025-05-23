@@ -1,17 +1,17 @@
-use super::{GraphRawResourceNodeHandle, Pass, ResourceNode, TypeHandle};
+use super::{GraphRawResourceHandle, Pass, ResourceNode, TypeIndex};
 
 pub struct PassNode {
     pub name: String,
-    pub handle: TypeHandle<PassNode>,
-    pub writes: Vec<GraphRawResourceNodeHandle>,
-    pub reads: Vec<GraphRawResourceNodeHandle>,
-    pub resource_request_array: Vec<TypeHandle<ResourceNode>>,
-    pub resource_release_array: Vec<TypeHandle<ResourceNode>>,
+    pub handle: TypeIndex<PassNode>,
+    pub writes: Vec<GraphRawResourceHandle>,
+    pub reads: Vec<GraphRawResourceHandle>,
+    pub resource_request_array: Vec<TypeIndex<ResourceNode>>,
+    pub resource_release_array: Vec<TypeIndex<ResourceNode>>,
     pub pass: Option<Pass>,
 }
 
 impl PassNode {
-    pub fn new(name: &str, handle: TypeHandle<PassNode>) -> Self {
+    pub fn new(name: &str, handle: TypeIndex<PassNode>) -> Self {
         Self {
             name: name.to_string(),
             handle,

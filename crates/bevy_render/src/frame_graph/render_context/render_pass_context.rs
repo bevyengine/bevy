@@ -8,7 +8,7 @@ use super::{
     EndPipelineStatisticsQueryParameter, TransientBuffer, InsertDebugMarkerParameter,
     MultiDrawIndexedIndirectCountParameter, MultiDrawIndexedIndirectParameter,
     MultiDrawIndirectParameter, PopDebugGroupParameter, PushDebugGroupParameter, RenderContext,
-    ResourceRead, ResourceRef, SetBindGroupParameter, SetBlendConstantParameter,
+    ResourceRead, Ref, SetBindGroupParameter, SetBlendConstantParameter,
     SetIndexBufferParameter, SetPushConstantsParameter, SetRawBindGroupParameter,
     SetRenderPipelineParameter, SetScissorRectParameter, SetStencilReferenceParameter,
     SetVertexBufferParameter, SetViewportParameter, WriteTimestampParameter,
@@ -41,7 +41,7 @@ pub trait RenderPassCommandBuilder {
 
     fn clear_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<TransientBuffer, ResourceWrite>,
+        buffer_ref: &Ref<TransientBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
     ) {
@@ -54,7 +54,7 @@ pub trait RenderPassCommandBuilder {
 
     fn clear_texture(
         &mut self,
-        texture_ref: &ResourceRef<TransientTexture, ResourceWrite>,
+        texture_ref: &Ref<TransientTexture, ResourceWrite>,
         subresource_range: ImageSubresourceRange,
     ) {
         self.add_render_pass_command(RenderPassCommand::new(ClearTextureParameter {
@@ -78,7 +78,7 @@ pub trait RenderPassCommandBuilder {
 
     fn draw_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
     ) {
         self.add_render_pass_command(RenderPassCommand::new(DrawIndirectParameter {
@@ -89,7 +89,7 @@ pub trait RenderPassCommandBuilder {
 
     fn draw_indexed_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
     ) {
         self.add_render_pass_command(RenderPassCommand::new(DrawIndexedIndirectParameter {
@@ -100,7 +100,7 @@ pub trait RenderPassCommandBuilder {
 
     fn multi_draw_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
         count: u32,
     ) {
@@ -113,9 +113,9 @@ pub trait RenderPassCommandBuilder {
 
     fn multi_draw_indirect_count(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
-        count_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        count_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         count_offset: u64,
         max_count: u32,
     ) {
@@ -132,7 +132,7 @@ pub trait RenderPassCommandBuilder {
 
     fn multi_draw_indexed_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
         count: u32,
     ) {
@@ -145,9 +145,9 @@ pub trait RenderPassCommandBuilder {
 
     fn multi_draw_indexed_indirect_count(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
-        count_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        count_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         count_offset: u64,
         max_count: u32,
     ) {
@@ -269,7 +269,7 @@ pub trait RenderPassCommandBuilder {
 
     fn set_index_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         index_format: wgpu::IndexFormat,
         offset: u64,
         size: u64,
@@ -297,7 +297,7 @@ pub trait RenderPassCommandBuilder {
     fn set_vertex_buffer(
         &mut self,
         slot: u32,
-        buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         offset: u64,
         size: u64,
     ) {
@@ -371,7 +371,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
 
     pub fn clear_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<TransientBuffer, ResourceWrite>,
+        buffer_ref: &Ref<TransientBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
     ) {
@@ -383,7 +383,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
 
     pub fn clear_texture(
         &mut self,
-        texture_ref: &ResourceRef<TransientTexture, ResourceWrite>,
+        texture_ref: &Ref<TransientTexture, ResourceWrite>,
         subresource_range: &ImageSubresourceRange,
     ) {
         let texture = self.render_context.get_resource(&texture_ref);
@@ -471,9 +471,9 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
 
     pub fn multi_draw_indexed_indirect_count(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
-        count_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        count_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         count_offset: u64,
         max_count: u32,
     ) {
@@ -491,7 +491,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
 
     pub fn multi_draw_indexed_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
         count: u32,
     ) {
@@ -506,9 +506,9 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
 
     pub fn multi_draw_indirect_count(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
-        count_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        count_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         count_offset: u64,
         max_count: u32,
     ) {
@@ -526,7 +526,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
 
     pub fn multi_draw_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
         count: u32,
     ) {
@@ -538,7 +538,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
 
     pub fn draw_indexed_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
     ) {
         let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
@@ -549,7 +549,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
 
     pub fn draw_indirect(
         &mut self,
-        indirect_buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        indirect_buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         indirect_offset: u64,
     ) {
         let indirect_buffer = self.render_context.get_resource(indirect_buffer_ref);
@@ -597,7 +597,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
     pub fn set_vertex_buffer(
         &mut self,
         slot: u32,
-        buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         offset: u64,
         size: u64,
     ) {
@@ -608,7 +608,7 @@ impl<'a, 'b> RenderPassContext<'a, 'b> {
 
     pub fn set_index_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<TransientBuffer, ResourceRead>,
+        buffer_ref: &Ref<TransientBuffer, ResourceRead>,
         index_format: wgpu::IndexFormat,
         offset: u64,
         size: u64,

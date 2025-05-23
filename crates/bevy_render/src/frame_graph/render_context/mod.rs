@@ -14,7 +14,7 @@ use wgpu::{AdapterInfo, CommandEncoder};
 
 use super::{
     ComputePassInfo, TransientBuffer, TransientResource, RenderPassInfoOwner, ResourceRead,
-    ResourceRef, ResourceTable, ResourceView, TransientResourceCache,
+    Ref, ResourceTable, ResourceView, TransientResourceCache,
 };
 use crate::{
     diagnostic::internal::DiagnosticsRecorder,
@@ -122,7 +122,7 @@ impl<'a> RenderContext<'a> {
 
     pub fn get_resource<ResourceType: TransientResource, View: ResourceView>(
         &self,
-        resource_ref: &ResourceRef<ResourceType, View>,
+        resource_ref: &Ref<ResourceType, View>,
     ) -> &ResourceType {
         self.resource_table
             .get_resource(resource_ref)

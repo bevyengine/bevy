@@ -1,19 +1,13 @@
 mod buffer;
+mod cache;
 mod texture;
 
 pub use buffer::*;
+pub use cache::*;
 pub use texture::*;
 
-use super::{FrameGraph, GraphResourceNodeHandle};
 use crate::renderer::RenderDevice;
 use alloc::sync::Arc;
-
-pub trait ResourceMaterial {
-    type ResourceType: TransientResource;
-
-    fn imported(&self, frame_graph: &mut FrameGraph)
-        -> GraphResourceNodeHandle<Self::ResourceType>;
-}
 
 pub trait IntoArcTransientResource
 where
@@ -30,7 +24,9 @@ pub trait TransientResource: 'static {
     fn get_desc(&self) -> &Self::Descriptor;
 }
 
-pub trait TransientResourceDescriptor: 'static + Clone + Into<AnyFrameGraphResourceDescriptor> {
+pub trait TransientResourceDescriptor:
+    'static + Clone + Into<AnyFrameGraphResourceDescriptor>
+{
     type Resource: TransientResource;
 }
 
@@ -46,7 +42,7 @@ impl<T: Sized> TypeEquals for T {
     }
 }
 
-pub trait FrameGraphResourceCreator {
+pub trait TransientResourceCreator {
     fn create_texture(&self, desc: &TextureInfo) -> TransientTexture;
 
     fn create_buffer(&self, desc: &BufferInfo) -> TransientBuffer;
@@ -65,7 +61,7 @@ pub trait FrameGraphResourceCreator {
     }
 }
 
-impl FrameGraphResourceCreator for RenderDevice {
+impl TransientResourceCreator for RenderDevice {
     fn create_texture(&self, desc: &TextureInfo) -> TransientTexture {
         let resource = self.wgpu_device().create_texture(&desc.get_texture_desc());
         TransientTexture {

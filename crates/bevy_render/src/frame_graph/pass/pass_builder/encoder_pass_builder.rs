@@ -5,7 +5,7 @@ use wgpu::{Extent3d, ImageSubresourceRange};
 
 use crate::frame_graph::{
     EncoderPass, EncoderPassCommandBuilder, TransientBuffer, TransientTexture, ResourceMaterial,
-    ResourceRead, ResourceRef, ResourceWrite, TexelCopyBufferInfo, TexelCopyTextureInfo,
+    ResourceRead, Ref, ResourceWrite, TexelCopyBufferInfo, TexelCopyTextureInfo,
 };
 
 use super::PassBuilder;
@@ -34,14 +34,14 @@ impl<'a, 'b> EncoderPassBuilder<'a, 'b> {
     pub fn read_material<M: ResourceMaterial>(
         &mut self,
         material: &M,
-    ) -> ResourceRef<M::ResourceType, ResourceRead> {
+    ) -> Ref<M::ResourceType, ResourceRead> {
         self.pass_builder.read_material(material)
     }
 
     pub fn write_material<M: ResourceMaterial>(
         &mut self,
         material: &M,
-    ) -> ResourceRef<M::ResourceType, ResourceWrite> {
+    ) -> Ref<M::ResourceType, ResourceWrite> {
         self.pass_builder.write_material(material)
     }
 
@@ -71,7 +71,7 @@ impl<'a, 'b> EncoderPassBuilder<'a, 'b> {
 
     pub fn clear_texture(
         &mut self,
-        texture_ref: &ResourceRef<TransientTexture, ResourceWrite>,
+        texture_ref: &Ref<TransientTexture, ResourceWrite>,
         subresource_range: ImageSubresourceRange,
     ) -> &mut Self {
         self.encoder_pass
@@ -82,7 +82,7 @@ impl<'a, 'b> EncoderPassBuilder<'a, 'b> {
 
     pub fn clear_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<TransientBuffer, ResourceWrite>,
+        buffer_ref: &Ref<TransientBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
     ) -> &mut Self {

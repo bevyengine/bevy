@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{ResourceNode, TypeHandle};
+use super::{ResourceNode, TypeIndex};
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct ResourceBoardKey(String);
@@ -30,15 +30,15 @@ impl From<String> for ResourceBoardKey {
 }
 #[derive(Default)]
 pub struct ResourceBoard {
-    resources: HashMap<ResourceBoardKey, TypeHandle<ResourceNode>>,
+    resources: HashMap<ResourceBoardKey, TypeIndex<ResourceNode>>,
 }
 
 impl ResourceBoard {
-    pub fn put(&mut self, key: ResourceBoardKey, handle: TypeHandle<ResourceNode>) {
+    pub fn put(&mut self, key: ResourceBoardKey, handle: TypeIndex<ResourceNode>) {
         self.resources.insert(key, handle);
     }
 
-    pub fn get(&self, key: &ResourceBoardKey) -> Option<&TypeHandle<ResourceNode>> {
+    pub fn get(&self, key: &ResourceBoardKey) -> Option<&TypeIndex<ResourceNode>> {
         self.resources.get(&key)
     }
 }

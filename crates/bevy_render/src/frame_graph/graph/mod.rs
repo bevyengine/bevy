@@ -11,10 +11,10 @@ use bevy_ecs::resource::Resource;
 use crate::render_resource::BindGroupLayout;
 
 use super::{
-    BindGroupHandleBuilder, DevicePass, FrameGraphError, GraphResourceNodeHandle,
+    BindGroupHandleBuilder, DevicePass, FrameGraphError, Handle,
     IntoArcTransientResource, PassBuilder, PassNode, PassNodeBuilder, RenderContext, ResourceBoard,
-    ResourceBoardKey, ResourceNode, TransientResource, TransientResourceDescriptor, TypeEquals,
-    TypeHandle, VirtualResource,
+    ResourceNode, TransientResource, TransientResourceDescriptor, TypeEquals, TypeIndex,
+    VirtualResource,
 };
 
 pub struct CompiledFrameGraph {
@@ -59,13 +59,13 @@ impl FrameGraph {
 
     pub fn compute_resource_lifetime(&mut self) {
         for pass_node in self.pass_nodes.iter_mut() {
-            for resource_node_handle in pass_node.reads.iter() {
-                let resource_node = &mut self.resource_nodes[resource_node_handle.handle.index];
+            for resource_handle in pass_node.reads.iter() {
+                let resource_node = &mut self.resource_nodes[resource_handle.index.index];
                 resource_node.update_lifetime(pass_node.handle);
             }
 
-            for resource_node_handle in pass_node.writes.iter() {
-                let resource_node = &mut self.resource_nodes[resource_node_handle.handle.index];
+            for resource_handle in pass_node.writes.iter() {
+                let resource_node = &mut self.resource_nodes[resource_handle.index.index];
                 resource_node.update_lifetime(pass_node.handle);
             }
         }
@@ -122,22 +122,22 @@ impl FrameGraph {
 }
 
 impl FrameGraph {
-    pub fn put(&mut self, key: &str, handle: TypeHandle<ResourceNode>) {
+    pub fn put(&mut self, key: &str, handle: TypeIndex<ResourceNode>) {
         let key = key.into();
         self.resource_board.put(key, handle);
     }
 
-    pub fn get<ResourceType: TransientResource, K: Into<ResourceBoardKey>>(
+    pub fn get<ResourceType: TransientResource>(
         &self,
-        key: K,
-    ) -> Result<GraphResourceNodeHandle<ResourceType>, FrameGraphError> {
+        key: &str,
+    ) -> Result<Handle<ResourceType>, FrameGraphError> {
         let key = key.into();
 
         self.resource_board
             .get(&key)
-            .map(|raw| {
-                let version = self.resource_nodes[raw.index].version();
-                GraphResourceNodeHandle::new(raw.clone(), version)
+            .map(|handle| {
+                let version = self.resource_nodes[handle.index].version();
+                Handle::new(*handle, version)
             })
             .ok_or(FrameGraphError::ResourceBoardKey { key })
     }
@@ -159,29 +159,29 @@ impl FrameGraph {
     }
 
     pub fn pass_node(&mut self, name: &str) -> &mut PassNode {
-        let handle = TypeHandle::new(self.pass_nodes.len());
+        let handle = TypeIndex::new(self.pass_nodes.len());
         let pass_node = PassNode::new(name, handle);
         self.pass_nodes.push(pass_node);
 
         self.get_pass_node_mut(&handle)
     }
 
-    pub fn get_pass_node_mut(&mut self, handle: &TypeHandle<PassNode>) -> &mut PassNode {
+    pub fn get_pass_node_mut(&mut self, handle: &TypeIndex<PassNode>) -> &mut PassNode {
         &mut self.pass_nodes[handle.index]
     }
 
-    pub fn get_pass_node(&self, handle: &TypeHandle<PassNode>) -> &PassNode {
+    pub fn get_pass_node(&self, handle: &TypeIndex<PassNode>) -> &PassNode {
         &self.pass_nodes[handle.index]
     }
 
     pub fn get_resource_node_mut(
         &mut self,
-        handle: &TypeHandle<ResourceNode>,
+        handle: &TypeIndex<ResourceNode>,
     ) -> &mut ResourceNode {
         &mut self.resource_nodes[handle.index]
     }
 
-    pub fn get_resource_node(&self, handle: &TypeHandle<ResourceNode>) -> &ResourceNode {
+    pub fn get_resource_node(&self, handle: &TypeIndex<ResourceNode>) -> &ResourceNode {
         &self.resource_nodes[handle.index]
     }
 
@@ -189,17 +189,17 @@ impl FrameGraph {
         &mut self,
         name: &str,
         resource: Arc<ResourceType>,
-    ) -> GraphResourceNodeHandle<ResourceType>
+    ) -> Handle<ResourceType>
     where
         ResourceType: IntoArcTransientResource,
     {
         let key = name.into();
         if let Some(raw_handle) = self.resource_board.get(&key) {
             let version = self.resource_nodes[raw_handle.index].version();
-            return GraphResourceNodeHandle::new(raw_handle.clone(), version);
+            return Handle::new(raw_handle.clone(), version);
         }
 
-        let resource_node_handle = TypeHandle::new(self.resource_nodes.len());
+        let resource_node_handle = TypeIndex::new(self.resource_nodes.len());
         let virtual_resource = VirtualResource::Imported(
             IntoArcTransientResource::into_arc_transient_resource(resource),
         );
@@ -209,13 +209,13 @@ impl FrameGraph {
 
         self.resource_nodes.push(resource_node);
 
-        let handle = GraphResourceNodeHandle::new(resource_node_handle, version);
-        self.put(name, handle.handle);
+        let handle = Handle::new(resource_node_handle, version);
+        self.put(name, handle.raw.index);
 
         handle
     }
 
-    pub fn get_or_create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
+    pub fn get_or_create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> Handle<DescriptorType::Resource>
     where
         DescriptorType: TransientResourceDescriptor
             + TypeEquals<
@@ -226,24 +226,24 @@ impl FrameGraph {
         if let Some(raw_handle) = self.resource_board.get(&key) {
             let version = self.resource_nodes[raw_handle.index].version();
 
-            return GraphResourceNodeHandle::new(raw_handle.clone(), version);
+            return Handle::new(raw_handle.clone(), version);
         }
 
         let handle = self.create(name, desc);
 
-        self.resource_board.put(key, handle.handle);
+        self.resource_board.put(key, handle.raw.index);
 
         handle
     }
 
-    pub fn create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
+    pub fn create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> Handle<DescriptorType::Resource>
     where
         DescriptorType: TransientResourceDescriptor
             + TypeEquals<
                 Other = <<DescriptorType as TransientResourceDescriptor>::Resource as TransientResource>::Descriptor,
             >,
     {
-        let resource_node_handle = TypeHandle::new(self.resource_nodes.len());
+        let resource_node_handle = TypeIndex::new(self.resource_nodes.len());
         let virtual_resource = VirtualResource::Setuped(desc.into());
         let resource_node = ResourceNode::new(name, resource_node_handle, virtual_resource);
 
@@ -251,6 +251,6 @@ impl FrameGraph {
 
         self.resource_nodes.push(resource_node);
 
-        GraphResourceNodeHandle::new(resource_node_handle, version)
+        Handle::new(resource_node_handle, version)
     }
 }

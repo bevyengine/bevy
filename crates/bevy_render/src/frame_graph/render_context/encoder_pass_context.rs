@@ -1,7 +1,7 @@
 use wgpu::{Extent3d, ImageSubresourceRange};
 
 use crate::frame_graph::{
-    TransientBuffer, TransientTexture, ResourceRead, ResourceRef, ResourceWrite,
+    TransientBuffer, TransientTexture, ResourceRead, Ref, ResourceWrite,
     TexelCopyBufferInfo, TexelCopyTextureInfo,
 };
 
@@ -27,7 +27,7 @@ pub trait EncoderPassCommandBuilder {
 
     fn clear_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<TransientBuffer, ResourceWrite>,
+        buffer_ref: &Ref<TransientBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
     ) {
@@ -40,7 +40,7 @@ pub trait EncoderPassCommandBuilder {
 
     fn clear_texture(
         &mut self,
-        texture_ref: &ResourceRef<TransientTexture, ResourceWrite>,
+        texture_ref: &Ref<TransientTexture, ResourceWrite>,
         subresource_range: ImageSubresourceRange,
     ) {
         self.add_encoder_pass_command(EncoderPassCommand::new(ClearTextureParameter {
@@ -111,7 +111,7 @@ impl<'a, 'b> EncoderPassContext<'a, 'b> {
 
     pub fn clear_buffer(
         &mut self,
-        buffer_ref: &ResourceRef<TransientBuffer, ResourceWrite>,
+        buffer_ref: &Ref<TransientBuffer, ResourceWrite>,
         offset: u64,
         size: Option<u64>,
     ) {
@@ -123,7 +123,7 @@ impl<'a, 'b> EncoderPassContext<'a, 'b> {
 
     pub fn clear_texture(
         &mut self,
-        texture_ref: &ResourceRef<TransientTexture, ResourceWrite>,
+        texture_ref: &Ref<TransientTexture, ResourceWrite>,
         subresource_range: &ImageSubresourceRange,
     ) {
         let texture = self.render_context.get_resource(&texture_ref);

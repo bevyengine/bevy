@@ -1,6 +1,6 @@
 use crate::frame_graph::{
     BindGroupResourceHandle, BindGroupResourceHandleHelper, BindingResourceBufferHandle,
-    BufferInfo, FrameGraph, TransientBuffer, GraphResourceNodeHandle, IntoBindGroupResourceHandle,
+    BufferInfo, FrameGraph, TransientBuffer, Handle, IntoBindGroupResourceHandle,
 };
 use crate::renderer::WgpuWrapper;
 use crate::{define_atomic_id, frame_graph::ResourceMaterial};
@@ -30,7 +30,7 @@ impl BindGroupResourceHandleHelper for Buffer {
 impl ResourceMaterial for Buffer {
     type ResourceType = TransientBuffer;
 
-    fn imported(&self, frame_graph: &mut FrameGraph) -> GraphResourceNodeHandle<TransientBuffer> {
+    fn imported(&self, frame_graph: &mut FrameGraph) -> Handle<TransientBuffer> {
         let key = format!("buffer_{:?}", self.id());
         let buffer = Arc::new(TransientBuffer {
             resource: self.value.deref().clone(),

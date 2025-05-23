@@ -10,8 +10,8 @@ use std::{borrow::Cow, mem::take};
 
 use crate::{
     frame_graph::{
-        BindGroupBindingBuilder, EncoderCommand, EncoderCommandBuilder, PassNodeBuilder,
-        ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite,
+        BindGroupBindingBuilder, EncoderCommand, EncoderCommandBuilder, PassNodeBuilder, Ref,
+        ResourceMaterial, ResourceRead, ResourceWrite,
     },
     render_resource::BindGroupLayout,
 };
@@ -55,14 +55,14 @@ impl<'a> PassBuilder<'a> {
     pub fn read_material<M: ResourceMaterial>(
         &mut self,
         material: &M,
-    ) -> ResourceRef<M::ResourceType, ResourceRead> {
+    ) -> Ref<M::ResourceType, ResourceRead> {
         self.pass_node_builder.read_material(material)
     }
 
     pub fn write_material<M: ResourceMaterial>(
         &mut self,
         material: &M,
-    ) -> ResourceRef<M::ResourceType, ResourceWrite> {
+    ) -> Ref<M::ResourceType, ResourceWrite> {
         self.pass_node_builder.write_material(material)
     }
 

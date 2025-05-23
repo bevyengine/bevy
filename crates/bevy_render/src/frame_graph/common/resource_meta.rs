@@ -1,7 +1,7 @@
 use wgpu::{Origin3d, TextureAspect};
 
 use crate::frame_graph::{
-    FrameGraph, TransientBuffer, TransientTexture, TransientResource, GraphResourceNodeHandle,
+    FrameGraph, TransientBuffer, TransientTexture, TransientResource, Handle,
     PassBuilder, PassNodeBuilder, ResourceMaterial, ResourceRead, ResourceWrite,
 };
 
@@ -109,7 +109,7 @@ impl ResourceMaterial for ResourceMeta<TransientTexture> {
     fn imported(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> GraphResourceNodeHandle<Self::ResourceType> {
+    ) -> Handle<Self::ResourceType> {
         frame_graph.get_or_create(&self.key, self.desc.clone())
     }
 }
@@ -120,7 +120,7 @@ impl ResourceMaterial for ResourceMeta<TransientBuffer> {
     fn imported(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> GraphResourceNodeHandle<Self::ResourceType> {
+    ) -> Handle<Self::ResourceType> {
         frame_graph.get_or_create(&self.key, self.desc.clone())
     }
 }

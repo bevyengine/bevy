@@ -1,16 +1,16 @@
 use alloc::sync::Arc;
 
 use super::{
-    FrameGraph, FrameGraphError, GraphRawResourceNodeHandle, TransientResource,
-    TransientResourceDescriptor, GraphResourceNodeHandle, IntoArcTransientResource, Pass, PassBuilder,
-    ResourceBoardKey, ResourceMaterial, ResourceRead, ResourceRef, ResourceWrite, TypeEquals,
+    FrameGraph, GraphRawResourceHandle, Handle, IntoArcTransientResource, Pass, PassBuilder,
+    ResourceMaterial, ResourceRead, Ref, ResourceWrite, TransientResource,
+    TransientResourceDescriptor, TypeEquals,
 };
 
 pub struct PassNodeBuilder<'a> {
     pub(crate) graph: &'a mut FrameGraph,
     pub(crate) name: String,
-    writes: Vec<GraphRawResourceNodeHandle>,
-    reads: Vec<GraphRawResourceNodeHandle>,
+    writes: Vec<GraphRawResourceHandle>,
+    reads: Vec<GraphRawResourceHandle>,
     pass: Option<Pass>,
 }
 
@@ -33,27 +33,8 @@ impl<'a> PassNodeBuilder<'a> {
         PassBuilder::new(self)
     }
 
-    pub fn read_from_board<ResourceType: TransientResource, Key: Into<ResourceBoardKey>>(
-        &mut self,
-        key: Key,
-    ) -> Result<ResourceRef<ResourceType, ResourceRead>, FrameGraphError> {
-        let key: ResourceBoardKey = key.into();
-        let handle = self.graph.get(&key)?;
-        let read = self.read(handle);
-        Ok(read)
-    }
 
-    pub fn write_from_board<ResourceType: TransientResource, Key: Into<ResourceBoardKey>>(
-        &mut self,
-        key: Key,
-    ) -> Result<ResourceRef<ResourceType, ResourceWrite>, FrameGraphError> {
-        let key: ResourceBoardKey = key.into();
-        let handle = self.graph.get(&key)?;
-        let write = self.write(handle);
-        Ok(write)
-    }
-
-    pub fn get_or_create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
+    pub fn get_or_create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> Handle<DescriptorType::Resource>
     where
         DescriptorType: TransientResourceDescriptor
             + TypeEquals<
@@ -66,7 +47,7 @@ impl<'a> PassNodeBuilder<'a> {
     pub fn read_material<M: ResourceMaterial>(
         &mut self,
         material: &M,
-    ) -> ResourceRef<M::ResourceType, ResourceRead> {
+    ) -> Ref<M::ResourceType, ResourceRead> {
         let handle = material.imported(self.graph);
         let read = self.read(handle);
         read
@@ -75,7 +56,7 @@ impl<'a> PassNodeBuilder<'a> {
     pub fn write_material<M: ResourceMaterial>(
         &mut self,
         material: &M,
-    ) -> ResourceRef<M::ResourceType, ResourceWrite> {
+    ) -> Ref<M::ResourceType, ResourceWrite> {
         let handle = material.imported(self.graph);
         let read = self.write(handle);
         read
@@ -85,14 +66,14 @@ impl<'a> PassNodeBuilder<'a> {
         &mut self,
         name: &str,
         resource: Arc<ResourceType>,
-    ) -> GraphResourceNodeHandle<ResourceType>
+    ) -> Handle<ResourceType>
     where
         ResourceType: IntoArcTransientResource,
     {
         self.graph.import(name, resource)
     }
 
-    pub fn create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> GraphResourceNodeHandle<DescriptorType::Resource>
+    pub fn create<DescriptorType>(&mut self, name: &str, desc: DescriptorType) -> Handle<DescriptorType::Resource>
     where
         DescriptorType: TransientResourceDescriptor
             + TypeEquals<
@@ -102,36 +83,38 @@ impl<'a> PassNodeBuilder<'a> {
         self.graph.create(name, desc)
     }
 
-    pub fn read<ResourceType>(
+    pub fn read<ResourceType: TransientResource>(
         &mut self,
-        resource_node_handle: GraphResourceNodeHandle<ResourceType>,
-    ) -> ResourceRef<ResourceType, ResourceRead> {
-        let handle = resource_node_handle.raw();
+        resource_handle: Handle<ResourceType>,
+    ) -> Ref<ResourceType, ResourceRead> {
+        let handle = resource_handle.raw.clone();
 
         if !self.reads.contains(&handle) {
-            self.reads.push(handle);
+            self.reads.push(handle.clone());
         }
 
-        ResourceRef::new(resource_node_handle.handle)
+        Ref::new(handle.index)
     }
 
-    pub fn write<ResourceType>(
+    pub fn write<ResourceType: TransientResource>(
         &mut self,
-        resource_node_handle: GraphResourceNodeHandle<ResourceType>,
-    ) -> ResourceRef<ResourceType, ResourceWrite> {
+        resource_handle: Handle<ResourceType>,
+    ) -> Ref<ResourceType, ResourceWrite> {
+        let index = resource_handle.raw.index.clone();
+
         let resource_node = &mut self
             .graph
-            .get_resource_node_mut(&resource_node_handle.handle);
+            .get_resource_node_mut(&index);
         resource_node.new_version();
 
-        let new_resource_node_handle = GraphRawResourceNodeHandle {
-            handle: resource_node_handle.handle,
+        let new_resource_node_handle = GraphRawResourceHandle {
+            index: index,
             version: resource_node.version(),
         };
 
         self.writes.push(new_resource_node_handle);
 
-        ResourceRef::new(resource_node_handle.handle)
+        Ref::new(index)
     }
 
     pub fn new(name: &str, graph: &'a mut FrameGraph) -> Self {

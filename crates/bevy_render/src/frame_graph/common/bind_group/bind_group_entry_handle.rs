@@ -4,7 +4,7 @@ use variadics_please::all_tuples_with_size;
 
 use crate::{
     frame_graph::{
-        TransientBuffer, TransientTexture, GraphResourceNodeHandle, PassNodeBuilder,
+        TransientBuffer, TransientTexture, Handle, PassNodeBuilder,
         TextureViewInfo,
     },
     render_resource::Sampler,
@@ -44,14 +44,14 @@ pub enum BindGroupResourceHandle {
 
 #[derive(Clone)]
 pub struct BindingResourceBufferHandle {
-    pub buffer: GraphResourceNodeHandle<TransientBuffer>,
+    pub buffer: Handle<TransientBuffer>,
     pub size: Option<NonZero<u64>>,
     pub offset: u64,
 }
 
 #[derive(Clone)]
 pub struct BindingResourceTextureViewHandle {
-    pub texture: GraphResourceNodeHandle<TransientTexture>,
+    pub texture: Handle<TransientTexture>,
     pub texture_view_info: TextureViewInfo,
 }
 
@@ -131,7 +131,7 @@ impl IntoBindGroupResourceHandle for &BindingResourceTextureViewHandle {
     }
 }
 
-impl IntoBindGroupResourceHandle for GraphResourceNodeHandle<TransientBuffer> {
+impl IntoBindGroupResourceHandle for Handle<TransientBuffer> {
     fn into_binding(self) -> BindGroupResourceHandle {
         BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
             buffer: self,
@@ -143,7 +143,7 @@ impl IntoBindGroupResourceHandle for GraphResourceNodeHandle<TransientBuffer> {
 
 impl IntoBindGroupResourceHandle
     for (
-        &GraphResourceNodeHandle<TransientBuffer>,
+        &Handle<TransientBuffer>,
         u64,
         Option<NonZero<u64>>,
     )
@@ -159,7 +159,7 @@ impl IntoBindGroupResourceHandle
 
 impl IntoBindGroupResourceHandle
     for (
-        &GraphResourceNodeHandle<TransientBuffer>,
+        &Handle<TransientBuffer>,
         Option<NonZero<u64>>,
     )
 {
@@ -172,7 +172,7 @@ impl IntoBindGroupResourceHandle
     }
 }
 
-impl IntoBindGroupResourceHandle for &GraphResourceNodeHandle<TransientBuffer> {
+impl IntoBindGroupResourceHandle for &Handle<TransientBuffer> {
     fn into_binding(self) -> BindGroupResourceHandle {
         BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
             buffer: self.clone(),
@@ -200,7 +200,7 @@ impl IntoBindGroupResourceHandle for &Sampler {
     }
 }
 
-impl IntoBindGroupResourceHandle for GraphResourceNodeHandle<TransientTexture> {
+impl IntoBindGroupResourceHandle for Handle<TransientTexture> {
     fn into_binding(self) -> BindGroupResourceHandle {
         BindGroupResourceHandle::TextureView(BindingResourceTextureViewHandle {
             texture: self,
@@ -209,7 +209,7 @@ impl IntoBindGroupResourceHandle for GraphResourceNodeHandle<TransientTexture> {
     }
 }
 
-impl IntoBindGroupResourceHandle for &GraphResourceNodeHandle<TransientTexture> {
+impl IntoBindGroupResourceHandle for &Handle<TransientTexture> {
     fn into_binding(self) -> BindGroupResourceHandle {
         BindGroupResourceHandle::TextureView(BindingResourceTextureViewHandle {
             texture: self.clone(),
@@ -220,7 +220,7 @@ impl IntoBindGroupResourceHandle for &GraphResourceNodeHandle<TransientTexture> 
 
 impl IntoBindGroupResourceHandle
     for (
-        &GraphResourceNodeHandle<TransientTexture>,
+        &Handle<TransientTexture>,
         &TextureViewInfo,
     )
 {

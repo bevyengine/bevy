@@ -1,39 +1,42 @@
 use core::marker::PhantomData;
 
-use super::{handle::TypeHandle, AnyFrameGraphResourceDescriptor, ArcTransientResource, PassNode};
+use super::{
+    index::TypeIndex, AnyFrameGraphResourceDescriptor, ArcTransientResource, PassNode,
+    TransientResource,
+};
 
-pub trait ResourceView {}
-
-pub struct ResourceRef<ResourceType, VieType> {
-    pub handle: TypeHandle<ResourceNode>,
+pub struct Ref<ResourceType, VieType> {
+    pub index: TypeIndex<ResourceNode>,
     _marker: PhantomData<(ResourceType, VieType)>,
 }
 
-impl<ResourceType, VieType> ResourceRef<ResourceType, VieType> {
-    pub fn new(handle: TypeHandle<ResourceNode>) -> Self {
+impl<ResourceType, VieType> Ref<ResourceType, VieType> {
+    pub fn new(index: TypeIndex<ResourceNode>) -> Self {
         Self {
-            handle,
+            index,
             _marker: PhantomData,
         }
     }
 }
 
-impl<ResourceType, VieType> Clone for ResourceRef<ResourceType, VieType> {
+impl<ResourceType, VieType> Clone for Ref<ResourceType, VieType> {
     fn clone(&self) -> Self {
         Self {
-            handle: self.handle,
+            index: self.index,
             _marker: PhantomData,
         }
     }
 }
 
-impl<ResourceType, VieType> PartialEq for ResourceRef<ResourceType, VieType> {
+impl<ResourceType, VieType> PartialEq for Ref<ResourceType, VieType> {
     fn eq(&self, other: &Self) -> bool {
-        self.handle == other.handle
+        self.index == other.index
     }
 }
 
-impl<ResourceType, VieType> Eq for ResourceRef<ResourceType, VieType> {}
+impl<ResourceType, VieType> Eq for Ref<ResourceType, VieType> {}
+
+pub trait ResourceView {}
 
 pub struct ResourceRead;
 pub struct ResourceWrite;
@@ -41,61 +44,51 @@ pub struct ResourceWrite;
 impl ResourceView for ResourceRead {}
 impl ResourceView for ResourceWrite {}
 
-pub struct GraphResourceNodeHandle<ResourceType> {
-    pub handle: TypeHandle<ResourceNode>,
-    pub version: u32,
+pub struct Handle<ResourceType: TransientResource> {
+    pub raw: GraphRawResourceHandle,
     _marker: PhantomData<ResourceType>,
 }
 
-impl<ResourceType> Clone for GraphResourceNodeHandle<ResourceType> {
+impl<ResourceType: TransientResource> Clone for Handle<ResourceType> {
     fn clone(&self) -> Self {
-        GraphResourceNodeHandle {
-            handle: self.handle,
-            version: self.version,
+        Handle {
+            raw: self.raw.clone(),
             _marker: PhantomData,
         }
     }
 }
 
-impl<ResourceType> GraphResourceNodeHandle<ResourceType> {
-    pub fn raw(&self) -> GraphRawResourceNodeHandle {
-        GraphRawResourceNodeHandle {
-            handle: self.handle,
-            version: self.version,
-        }
-    }
-
-    pub fn new(handle: TypeHandle<ResourceNode>, version: u32) -> Self {
+impl<ResourceType: TransientResource> Handle<ResourceType> {
+    pub fn new(index: TypeIndex<ResourceNode>, version: u32) -> Self {
         Self {
-            handle,
-            version,
+            raw: GraphRawResourceHandle { index, version },
             _marker: PhantomData,
         }
     }
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub struct GraphRawResourceNodeHandle {
-    pub handle: TypeHandle<ResourceNode>,
+pub struct GraphRawResourceHandle {
+    pub index: TypeIndex<ResourceNode>,
     pub version: u32,
 }
 
 pub struct ResourceNode {
-    pub handle: TypeHandle<ResourceNode>,
+    pub handle: TypeIndex<ResourceNode>,
     pub name: String,
-    pub first_use_pass: Option<TypeHandle<PassNode>>,
-    pub last_user_pass: Option<TypeHandle<PassNode>>,
+    pub first_use_pass: Option<TypeIndex<PassNode>>,
+    pub last_user_pass: Option<TypeIndex<PassNode>>,
     version: u32,
     pub resource: VirtualResource,
 }
 
 pub struct ResourceRequese {
-    pub handle: TypeHandle<ResourceNode>,
+    pub handle: TypeIndex<ResourceNode>,
     pub resource: VirtualResource,
 }
 
 pub struct ResourceRelease {
-    pub handle: TypeHandle<ResourceNode>,
+    pub handle: TypeIndex<ResourceNode>,
 }
 
 #[derive(Clone)]
@@ -105,7 +98,7 @@ pub enum VirtualResource {
 }
 
 impl ResourceNode {
-    pub fn new(name: &str, handle: TypeHandle<ResourceNode>, resource: VirtualResource) -> Self {
+    pub fn new(name: &str, handle: TypeIndex<ResourceNode>, resource: VirtualResource) -> Self {
         ResourceNode {
             name: name.to_string(),
             handle,
@@ -139,7 +132,7 @@ impl ResourceNode {
         self.version += 1;
     }
 
-    pub fn update_lifetime(&mut self, handle: TypeHandle<PassNode>) {
+    pub fn update_lifetime(&mut self, handle: TypeIndex<PassNode>) {
         if self.first_use_pass.is_none() {
             self.first_use_pass = Some(handle);
         }

@@ -1,5 +1,5 @@
 use super::{
-    FrameGraph, Pass, PassNode, RenderContext, ResourceRelease, ResourceRequese, TypeHandle,
+    FrameGraph, Pass, PassNode, RenderContext, ResourceRelease, ResourceRequese, TypeIndex,
 };
 
 #[derive(Default)]
@@ -38,7 +38,7 @@ impl DevicePass {
         self.release_resources(render_context);
     }
 
-    pub fn extra(&mut self, graph: &mut FrameGraph, handle: TypeHandle<PassNode>) {
+    pub fn extra(&mut self, graph: &mut FrameGraph, handle: TypeIndex<PassNode>) {
         let pass_node = graph.get_pass_node(&handle);
 
         let resource_request_array = pass_node
