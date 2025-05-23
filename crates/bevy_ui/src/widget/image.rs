@@ -25,7 +25,7 @@ pub struct ImageNode {
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the image.
     pub texture_atlas: Option<TextureAtlas>,
-    /// Rotation of the image
+    /// Clockwise rotation of the image in radians
     pub rotation: f32,
     /// Whether the image should be flipped along its y-axis.
     pub flip_y: bool,
