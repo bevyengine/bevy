@@ -1,7 +1,7 @@
 ---
 title: UI Gradients 
 authors: ["@Ickshonpe"]
-pull_requests: [18139]
+pull_requests: [18139, 19330]
 ---
 
 Support for UI node's that display a gradient that transitions smoothly between two or more colors.
@@ -19,7 +19,7 @@ vec![vec![ColorStop::new(RED, Val::Percent(90.), ColorStop::new(Color::GREEN, Va
 
 the colors will be reordered and the gradient will transition from green at 10% to red at 90%.
 
-Colors are interpolated between the stops in SRGB space. The hint is a normalized value that can be used to shift the mid-point where the colors are mixed 50-50 between the stop with the hint and the following stop.
+Colors can be interpolated between the stops in OKLab, OKLCH, and SRGB color spaces. The hint is a normalized value that can be used to shift the mid-point where the colors are mixed 50-50 between the stop with the hint and the following stop.
 
 For sharp stops with no interpolated transition, place two stops at the same point.
 

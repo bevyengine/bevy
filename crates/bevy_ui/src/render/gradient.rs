@@ -142,6 +142,7 @@ pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiGradientPipelineKey {
     anti_alias: bool,
+    color_space: InterpolationColorSpace,
     pub hdr: bool,
 }
 
@@ -182,10 +183,18 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 VertexFormat::Float32,
             ],
         );
+        let color_space = match key.color_space {
+            InterpolationColorSpace::OkLab => "IN_OKLAB",
+            InterpolationColorSpace::OkLch => "IN_OKLCH",
+            InterpolationColorSpace::OkLchLong => "IN_OKLCH_LONG",
+            InterpolationColorSpace::Srgb => "IN_SRGB",
+            InterpolationColorSpace::LinearRgb => "IN_LINEAR_RGB",
+        };
+
         let shader_defs = if key.anti_alias {
-            vec!["ANTI_ALIAS".into()]
+            vec![color_space.into(), "ANTI_ALIAS".into()]
         } else {
-            Vec::new()
+            vec![color_space.into()]
         };
 
         RenderPipelineDescriptor {
@@ -256,6 +265,7 @@ pub struct ExtractedGradient {
     /// Ordering: left, top, right, bottom.
     pub border: BorderRect,
     pub resolved_gradient: ResolvedGradient,
+    pub color_space: InterpolationColorSpace,
 }
 
 #[derive(Resource, Default)]
@@ -424,7 +434,11 @@ pub fn extract_gradients(
                     continue;
                 }
                 match gradient {
-                    Gradient::Linear(LinearGradient { angle, stops }) => {
+                    Gradient::Linear(LinearGradient {
+                        color_space,
+                        angle,
+                        stops,
+                    }) => {
                         let length = compute_gradient_line_length(*angle, uinode.size);
 
                         let range_start = extracted_color_stops.0.len();
@@ -454,9 +468,11 @@ pub fn extract_gradients(
                             border_radius: uinode.border_radius,
                             border: uinode.border,
                             resolved_gradient: ResolvedGradient::Linear { angle: *angle },
+                            color_space: *color_space,
                         });
                     }
                     Gradient::Radial(RadialGradient {
+                        color_space,
                         position: center,
                         shape,
                         stops,
@@ -502,9 +518,11 @@ pub fn extract_gradients(
                             border_radius: uinode.border_radius,
                             border: uinode.border,
                             resolved_gradient: ResolvedGradient::Radial { center: c, size },
+                            color_space: *color_space,
                         });
                     }
                     Gradient::Conic(ConicGradient {
+                        color_space,
                         start,
                         position: center,
                         stops,
@@ -559,6 +577,7 @@ pub fn extract_gradients(
                                 start: *start,
                                 center: g_start,
                             },
+                            color_space: *color_space,
                         });
                     }
                 }
@@ -603,6 +622,7 @@ pub fn queue_gradient(
             &gradients_pipeline,
             UiGradientPipelineKey {
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                color_space: gradient.color_space,
                 hdr: view.hdr,
             },
         );
