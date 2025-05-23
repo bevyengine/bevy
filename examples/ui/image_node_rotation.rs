@@ -40,9 +40,9 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, (switch_modes, rotate_image_nodes))
         .add_systems(OnEnter(Mode::Image), image_mode)
-        .add_systems(OnExit(Mode::Image), drop_previos_ui)
+        .add_systems(OnExit(Mode::Image), drop_previous_ui)
         .add_systems(OnEnter(Mode::Slices), slices_mode)
-        .add_systems(OnExit(Mode::Slices), drop_previos_ui)
+        .add_systems(OnExit(Mode::Slices), drop_previous_ui)
         .run();
 }
 
@@ -92,7 +92,7 @@ fn rotate_image_nodes(mut image_nodes: Query<&mut ImageNode>, time: Res<Time>) {
 }
 
 /// Drops the previous UI before the creation of the new one
-fn drop_previos_ui(mut commands: Commands, ui: Single<Entity, With<UiMarker>>) {
+fn drop_previous_ui(mut commands: Commands, ui: Single<Entity, With<UiMarker>>) {
     commands.entity(*ui).despawn();
 }
 
@@ -136,7 +136,7 @@ fn slices_mode(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-/// Builds the UI using a methods that generates the [`ImageNode`] with a paramenter for flipping on Y.  
+/// Builds the UI using a methods that generates the [`ImageNode`] with a parameter for flipping on Y.  
 /// The UI will contain 8 [`ImageNode`] across 2 rows,
 /// the 4 on the bottom row will have their Y flipped.
 fn build_ui(commands: &mut Commands, image_node: impl Fn(bool) -> ImageNode) {
