@@ -105,6 +105,7 @@ impl TableId {
 pub struct TableRow(NonMaxU32);
 
 impl TableRow {
+    // TODO: Deprecate in favor of options, since `INVALID` is, technically, valid.
     pub(crate) const INVALID: TableRow = TableRow(NonMaxU32::MAX);
 
     /// Creates a [`TableRow`].

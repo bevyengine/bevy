@@ -50,6 +50,7 @@ pub struct ArchetypeRow(NonMaxU32);
 impl ArchetypeRow {
     /// Index indicating an invalid archetype row.
     /// This is meant to be used as a placeholder.
+    // TODO: Deprecate in favor of options, since `INVALID` is, technically, valid.
     pub const INVALID: ArchetypeRow = ArchetypeRow(NonMaxU32::MAX);
 
     /// Creates a `ArchetypeRow`.
