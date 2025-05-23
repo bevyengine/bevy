@@ -93,7 +93,7 @@ fn main() {
 
         cmd!(
             sh,
-            "wasm-bindgen --out-dir examples/wasm/target/{profile} --out-name wasm_example --target web target/wasm32-unknown-unknown/{profile}/examples/{example}.wasm"
+            "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/{profile}/examples/{example}.wasm"
         )
         .run()
         .expect("Error creating wasm binding");
