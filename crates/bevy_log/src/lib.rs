@@ -64,7 +64,7 @@ use tracing_subscriber::{
 #[cfg(feature = "tracing-chrome")]
 use {
     bevy_ecs::resource::Resource,
-    bevy_utils::synccell::SyncCell,
+    bevy_platform::cell::SyncCell,
     tracing_subscriber::fmt::{format::DefaultFields, FormattedFields},
 };
 

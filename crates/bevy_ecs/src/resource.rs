@@ -54,7 +54,7 @@ pub use bevy_ecs_macros::Resource;
 /// ```
 /// # use std::cell::RefCell;
 /// # use bevy_ecs::resource::Resource;
-/// use bevy_utils::synccell::SyncCell;
+/// use bevy_platform::cell::SyncCell;
 ///
 /// #[derive(Resource)]
 /// struct ActuallySync {
@@ -66,7 +66,7 @@ pub use bevy_ecs_macros::Resource;
 /// [`World`]: crate::world::World
 /// [`Res`]: crate::system::Res
 /// [`ResMut`]: crate::system::ResMut
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
+/// [`SyncCell`]: bevy_platform::cell::SyncCell
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Resource`",
     label = "invalid `Resource`",
