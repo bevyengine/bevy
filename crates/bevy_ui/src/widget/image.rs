@@ -7,7 +7,7 @@ use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_sprite::TextureSlicer;
-use taffy::{MaybeMath, MaybeResolve};
+use taffy::Size;
 
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]
@@ -197,55 +197,72 @@ pub struct ImageMeasure {
     pub size: Vec2,
 }
 
+trait TaffySizeMethods {
+    fn ensure_aspect_ratio(self, aspect_ratio: f32) -> Size<Option<f32>>;
+    fn maybe_ensure_aspect_ratio(self, m_aspect_ratio: Option<f32>) -> Size<Option<f32>>;
+}
+
+impl TaffySizeMethods for Size<Option<f32>> {
+    /// Applies aspect-ratio, even if both sizes are present
+    fn ensure_aspect_ratio(self, aspect_ratio: f32) -> Self {
+        match (self.width, self.height) {
+            (None, None) => self,
+            (Some(width), None) => Size::new(width, width / aspect_ratio),
+            (None, Some(height)) => Size::new(height * aspect_ratio, height),
+            (Some(width), Some(_)) => Size::new(width, width / aspect_ratio),
+        }
+    }
+
+    fn maybe_ensure_aspect_ratio(self, m_aspect_ratio: Option<f32>) -> Self {
+        if let Some(aspect_ratio) = m_aspect_ratio {
+            self.ensure_aspect_ratio(aspect_ratio)
+        } else {
+            self
+        }
+    }
+}
+
 impl Measure for ImageMeasure {
     fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
+        // Sizes come with applied aspect-ratio from styles (if set)
         let MeasureArgs {
-            width,
-            height,
             available_width,
             available_height,
             ..
         } = measure_args;
 
-        // Convert available width/height into an option
-        let parent_width = available_width.into_option();
-        let parent_height = available_height.into_option();
+        // For Node{height: Val::Px(100.), ...}
+        // we get Size{width: Some(0.0), ...} from Taffy (which is unexpected).
+        // Hackily setting Some(0.0) vals to None for aspec_ratio adjust to work.
+        // "hackily" as it may falsely work on legit Some(0.0) values.
+        let available_size = Size {
+            width: available_width
+                .into_option()
+                .and_then(|v| if v == 0.0 { None } else { Some(v) }),
+            height: available_height
+                .into_option()
+                .and_then(|v| if v == 0.0 { None } else { Some(v) }),
+        };
 
-        // Resolve styles
-        let s_aspect_ratio = style.aspect_ratio;
-        let s_width = style.size.width.maybe_resolve(parent_width);
-        let s_min_width = style.min_size.width.maybe_resolve(parent_width);
-        let s_max_width = style.max_size.width.maybe_resolve(parent_width);
-        let s_height = style.size.height.maybe_resolve(parent_height);
-        let s_min_height = style.min_size.height.maybe_resolve(parent_height);
-        let s_max_height = style.max_size.height.maybe_resolve(parent_height);
+        let needs_aspect_ratio = style.aspect_ratio.is_none();
+        let image_aspect_ratio = self.size.x / self.size.y;
+        let adjust_aspect_ratio = if needs_aspect_ratio {
+            Some(image_aspect_ratio)
+        } else {
+            None
+        };
 
-        // Determine width and height from styles and known_sizes (if a size is available
-        // from any of these sources)
-        let width = width.or(s_width
-            .or(s_min_width)
-            .maybe_clamp(s_min_width, s_max_width));
-        let height = height.or(s_height
-            .or(s_min_height)
-            .maybe_clamp(s_min_height, s_max_height));
+        let size = available_size
+            .maybe_ensure_aspect_ratio(adjust_aspect_ratio)
+            .or(Size {
+                width: Some(self.size.x),
+                height: Some(self.size.y),
+            }
+            .maybe_apply_aspect_ratio(style.aspect_ratio));
 
-        // Use aspect_ratio from style, fall back to inherent aspect ratio
-        let aspect_ratio = s_aspect_ratio.unwrap_or_else(|| self.size.x / self.size.y);
-
-        // Apply aspect ratio
-        // If only one of width or height was determined at this point, then the other is set beyond this point using the aspect ratio.
-        let taffy_size = taffy::Size { width, height }.maybe_apply_aspect_ratio(Some(aspect_ratio));
-
-        // Use computed sizes or fall back to image's inherent size
         Vec2 {
-            x: taffy_size
-                .width
-                .unwrap_or(self.size.x)
-                .maybe_clamp(s_min_width, s_max_width),
-            y: taffy_size
-                .height
-                .unwrap_or(self.size.y)
-                .maybe_clamp(s_min_height, s_max_height),
+            x: size.width.unwrap(),
+            y: size.height.unwrap(),
         }
     }
 }

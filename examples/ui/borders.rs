@@ -1,12 +1,11 @@
 //! Example demonstrating bordered UI nodes
 
+use bevy::ecs::relationship::{AncestorIter, RelationshipSourceCollection};
 use bevy::{color::palettes::css::*, ecs::spawn::SpawnIter, prelude::*};
-
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
 };
-use bevy_ecs::relationship::{AncestorIter, RelationshipSourceCollection};
 
 fn main() {
     App::new()
