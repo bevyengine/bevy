@@ -2,6 +2,7 @@
 
 use bevy::{
     app::{App, Startup, Update},
+    asset::AssetServer,
     color::Color,
     core_pipeline::core_2d::Camera2d,
     ecs::{
@@ -11,6 +12,7 @@ use bevy::{
         query::With,
         system::{Commands, Query, Res, ResMut, Single},
     },
+    image::{ImageLoaderSettings, ImageSampler},
     input::{keyboard::KeyCode, ButtonInput},
     math::ops,
     prelude::SpawnRelated,
@@ -27,8 +29,6 @@ use bevy::{
     utils::default,
     DefaultPlugins,
 };
-use bevy_asset::AssetServer;
-use bevy_image::{ImageLoaderSettings, ImageSampler};
 
 const IMAGE_NODE_SIZE: f32 = 128.;
 
