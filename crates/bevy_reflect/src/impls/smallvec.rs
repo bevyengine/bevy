@@ -234,5 +234,4 @@ where
     }
 }
 
-#[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromReflect + MaybeTyped + TypePath);
+crate::impls::maybe_impl_functions_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromReflect + MaybeTyped + TypePath);

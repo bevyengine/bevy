@@ -559,8 +559,73 @@
 
 #![no_std]
 
-#[cfg(feature = "std")]
-extern crate std;
+/// Configuration information for this crate.
+pub mod cfg {
+    pub(crate) use bevy_platform::cfg::*;
+
+    pub use bevy_platform::cfg::std;
+
+    define_alias! {
+        #[cfg(feature = "documentation")] => {
+            /// When enabled, allows documentation comments to be accessed via reflection
+            documentation
+        }
+
+        #[cfg(feature = "functions")] => {
+            /// Enables function reflection
+            functions
+        }
+
+        #[cfg(feature = "debug")] => {
+            /// Enables features useful for debugging reflection
+            debug
+        }
+
+        #[cfg(feature = "debug_stack")] => {
+            /// When enabled, keeps track of the current serialization/deserialization context for better error messages
+            debug_stack
+        }
+
+        #[cfg(feature = "glam")] => {
+            /// Adds reflection support to `glam` types.
+            glam
+        }
+
+        #[cfg(feature = "hashbrown")] => {
+            /// Adds reflection support to `hashbrown` types.
+            hashbrown
+        }
+
+        #[cfg(feature = "petgraph")] => {
+            /// Adds reflection support to `petgraph` types.
+            petgraph
+        }
+
+        #[cfg(feature = "smallvec")] => {
+            /// Adds reflection support to `smallvec` types.
+            smallvec
+        }
+
+        #[cfg(feature = "uuid")] => {
+            /// Adds reflection support to `uuid` types.
+            uuid
+        }
+
+        #[cfg(feature = "wgpu-types")] => {
+            /// Adds reflection support to `wgpu-types` types.
+            wgpu_types
+        }
+
+        #[cfg(feature = "smol_str")] => {
+            /// Adds reflection support to `smol_str` types.
+            smol_str
+        }
+    }
+}
+
+cfg::std! {
+    extern crate std;
+}
 
 extern crate alloc;
 
@@ -589,21 +654,42 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    // This simplifies implementations by consolidating conditional compilation.
+    crate::cfg::switch! {
+        crate::cfg::functions => {
+            use crate::func::macros::impl_function_traits as maybe_impl_functions_traits;
+        }
+        _ => {
+            use bevy_platform::cfg::disabled as maybe_impl_functions_traits;
+        }
+    }
+
     mod foldhash;
     mod std;
 
-    #[cfg(feature = "glam")]
-    mod glam;
-    #[cfg(feature = "petgraph")]
-    mod petgraph;
-    #[cfg(feature = "smallvec")]
-    mod smallvec;
-    #[cfg(feature = "smol_str")]
-    mod smol_str;
-    #[cfg(feature = "uuid")]
-    mod uuid;
-    #[cfg(feature = "wgpu-types")]
-    mod wgpu_types;
+    crate::cfg::glam! {
+        mod glam;
+    }
+
+    crate::cfg::petgraph! {
+        mod petgraph;
+    }
+
+    crate::cfg::smallvec! {
+        mod smallvec;
+    }
+
+    crate::cfg::smol_str! {
+        mod smol_str;
+    }
+
+    crate::cfg::uuid! {
+        mod uuid;
+    }
+
+    crate::cfg::wgpu_types! {
+        mod wgpu_types;
+    }
 }
 
 pub mod attributes;
@@ -2138,8 +2224,7 @@ mod tests {
         assert!(info.is::<MyList>());
 
         // List (SmallVec)
-        #[cfg(feature = "smallvec")]
-        {
+        crate::cfg::smallvec! {
             type MySmallVec = smallvec::SmallVec<[String; 2]>;
 
             let info = MySmallVec::type_info().as_list().unwrap();
@@ -2153,7 +2238,7 @@ mod tests {
             let value: &dyn Reflect = &value;
             let info = value.reflect_type_info();
             assert!(info.is::<MySmallVec>());
-        }
+        };
 
         // Array
         type MyArray = [usize; 3];
@@ -2299,10 +2384,7 @@ mod tests {
         dynamic_array.set_represented_type(Some(type_info));
     }
 
-    #[cfg(feature = "documentation")]
-    mod docstrings {
-        use super::*;
-
+    crate::cfg::documentation! {
         #[test]
         fn should_not_contain_docs() {
             // Regular comments do not count as doc comments,
@@ -3359,9 +3441,7 @@ bevy_reflect::tests::Test {
         );
     }
 
-    #[cfg(feature = "glam")]
-    mod glam {
-        use super::*;
+    crate::cfg::glam! {
         use ::glam::{quat, vec3, Quat, Vec3};
 
         #[test]
