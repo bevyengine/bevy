@@ -1213,7 +1213,7 @@ struct EntityMeta {
     pub generation: EntityGeneration,
     /// The current location of the [`EntityRow`].
     pub location: EntityLocation,
-    /// Location of the last spawn, despawn or flush of this entity.
+    /// Location and tick of the last spawn, despawn or flush of this entity.
     spawned_or_despawned: SpawnedOrDespawned,
 }
 
