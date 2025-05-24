@@ -27,8 +27,6 @@ impl Prepare for TestCommand {
             PreparedCommand::new::<Self>(
                 cmd!(
                     sh,
-                    // `--benches` runs each benchmark once in order to verify that they behave
-                    // correctly and do not panic.
                     "cargo test --tests {no_fail_fast} -- --skip check_mesh --skip check_standard_material"
                 ),
                 "Please fix failing tests in output above.",
