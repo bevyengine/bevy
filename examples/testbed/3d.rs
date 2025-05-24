@@ -26,7 +26,6 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
-#[states(scoped_entities)]
 enum Scene {
     #[default]
     Light,
