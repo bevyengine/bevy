@@ -374,8 +374,7 @@ impl From<Vec2> for ScrollPosition {
     Transform,
     Visibility,
     VisibilityClass,
-    ZIndex,
-    ScrollPosition
+    ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
