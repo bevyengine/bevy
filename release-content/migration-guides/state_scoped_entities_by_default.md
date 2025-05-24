@@ -7,4 +7,4 @@ State scoped entities is now enabled by default, and you don't need to call `app
 
 If you were previously adding the `#[states(scoped_entities)]` attribute when deriving the `States` trait, you can remove it.
 
-If you want to keep the previous behaviour, you must add the attribute `#[states(scoped_entities = false)]`.
+If you want to keep the previous behavior, you must add the attribute `#[states(scoped_entities = false)]`.
