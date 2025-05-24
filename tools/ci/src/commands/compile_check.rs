@@ -9,13 +9,10 @@ pub struct CompileCheckCommand {}
 
 impl Prepare for CompileCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
-        let jobs = args
-            .build_jobs
-            .map(|jobs| format!(" --jobs {jobs}"))
-            .unwrap_or_default();
+        let jobs = args.build_jobs.map(|jobs| format!("--jobs={jobs}"));
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo check --workspace{jobs}"),
+            cmd!(sh, "cargo check --workspace {jobs...}"),
             "Please fix compiler errors in output above.",
         )]
     }
