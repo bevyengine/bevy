@@ -410,7 +410,8 @@ pub fn extract_gradients(
                         clip: clip.map(|clip| clip.clip),
                         extracted_camera_entity,
                         item: ExtractedUiItem::Node {
-                            atlas_scaling: None,
+                            atlas_rect: None,
+                            image_rect: None,
                             flip_x: false,
                             flip_y: false,
                             border_radius: uinode.border_radius,

@@ -100,7 +100,8 @@ pub fn extract_debug_overlay(
             image: AssetId::default(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
-                atlas_scaling: None,
+                atlas_rect: None,
+                image_rect: None,
                 transform: transform.compute_matrix(),
                 flip_x: false,
                 flip_y: false,

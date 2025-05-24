@@ -10,8 +10,10 @@ mod gradient;
 
 use crate::widget::{ImageNode, ViewportNode};
 use crate::{
-    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
-    ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
+    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, CalculatedContentClip,
+    ComputedNode, ComputedNodeTarget, Outline, ResolvedBorderRadius, ScrollPosition,
+    ScrollbarColor, TextShadow, UiAntiAlias, SCROLLBAR_THUMB_ROUNDING, SCROLLBAR_THUMB_WIDTH,
+    SCROLLBAR_TRACK_WIDTH,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Assets, Handle};
@@ -114,6 +116,7 @@ pub enum RenderUiSystems {
     ExtractTextBackgrounds,
     ExtractTextShadows,
     ExtractText,
+    ExtractScrollbars,
     ExtractDebug,
     ExtractGradient,
 }
@@ -150,6 +153,7 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystems::ExtractTextBackgrounds,
                 RenderUiSystems::ExtractTextShadows,
                 RenderUiSystems::ExtractText,
+                RenderUiSystems::ExtractScrollbars,
                 RenderUiSystems::ExtractDebug,
             )
                 .chain(),
@@ -165,6 +169,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
                 extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                 extract_text_sections.in_set(RenderUiSystems::ExtractText),
+                extract_scrollbars.in_set(RenderUiSystems::ExtractScrollbars),
                 #[cfg(feature = "bevy_ui_debug")]
                 debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
             ),
@@ -234,7 +239,8 @@ pub enum NodeType {
 
 pub enum ExtractedUiItem {
     Node {
-        atlas_scaling: Option<Vec2>,
+        atlas_rect: Option<Rect>,
+        image_rect: Option<Rect>,
         flip_x: bool,
         flip_y: bool,
         /// Border radius of the UI node.
@@ -347,7 +353,7 @@ pub fn extract_uinode_background_colors(
             &ComputedNode,
             &GlobalTransform,
             &InheritedVisibility,
-            Option<&CalculatedClip>,
+            Option<&CalculatedContentClip>, // TODO perhaps overlay scrollbars atop
             &ComputedNodeTarget,
             &BackgroundColor,
         )>,
@@ -383,7 +389,8 @@ pub fn extract_uinode_background_colors(
             image: AssetId::default(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
-                atlas_scaling: None,
+                atlas_rect: None,
+                image_rect: None,
                 transform: transform.compute_matrix(),
                 flip_x: false,
                 flip_y: false,
@@ -406,7 +413,7 @@ pub fn extract_uinode_images(
             &ComputedNode,
             &GlobalTransform,
             &InheritedVisibility,
-            Option<&CalculatedClip>,
+            Option<&CalculatedContentClip>,
             &ComputedNodeTarget,
             &ImageNode,
         )>,
@@ -429,34 +436,32 @@ pub fn extract_uinode_images(
             continue;
         };
 
+        // `content_size`, which comes from Tuffy, is `measured_size` + `padding`.
+        // We need `measured_size` as `rect` in which image will be rendered.
+        // (sampler will populate that `rect`, producing a scaled image)
+        let rect = Rect {
+            min: Vec2::ZERO,
+            max: uinode.content_size() - uinode.padding.sum_axes(),
+        };
+
+        // These two are needed in order to derive UVs.
         let atlas_rect = image
             .texture_atlas
             .as_ref()
             .and_then(|s| s.texture_rect(&texture_atlases))
             .map(|r| r.as_rect());
 
-        let mut rect = match (atlas_rect, image.rect) {
-            (None, None) => Rect {
-                min: Vec2::ZERO,
-                max: uinode.size,
-            },
-            (None, Some(image_rect)) => image_rect,
-            (Some(atlas_rect), None) => atlas_rect,
-            (Some(atlas_rect), Some(mut image_rect)) => {
-                image_rect.min += atlas_rect.min;
-                image_rect.max += atlas_rect.min;
-                image_rect
-            }
-        };
+        let image_rect = image.rect;
 
-        let atlas_scaling = if atlas_rect.is_some() || image.rect.is_some() {
-            let atlas_scaling = uinode.size() / rect.size();
-            rect.min *= atlas_scaling;
-            rect.max *= atlas_scaling;
-            Some(atlas_scaling)
-        } else {
-            None
-        };
+        let content_inset = uinode.content_inset();
+
+        let tf_content_inset_adjust = bevy_math::Affine3A::from_translation(Vec3::new(
+            (content_inset.left - content_inset.right) / 2.0,
+            (content_inset.top - content_inset.bottom) / 2.0,
+            0.0,
+        ));
+
+        let tf = transform.compute_matrix() * tf_content_inset_adjust; // * tf_scale_adjust;
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -467,11 +472,12 @@ pub fn extract_uinode_images(
             image: image.image.id(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
-                atlas_scaling,
-                transform: transform.compute_matrix(),
+                atlas_rect,
+                image_rect,
+                transform: tf,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
-                border: uinode.border,
+                border: BorderRect::ZERO,
                 border_radius: uinode.border_radius,
                 node_type: NodeType::Rect,
             },
@@ -535,7 +541,8 @@ pub fn extract_uinode_borders(
                     clip: maybe_clip.map(|clip| clip.clip),
                     extracted_camera_entity,
                     item: ExtractedUiItem::Node {
-                        atlas_scaling: None,
+                        atlas_rect: None,
+                        image_rect: None,
                         transform: global_transform.compute_matrix(),
                         flip_x: false,
                         flip_y: false,
@@ -569,7 +576,8 @@ pub fn extract_uinode_borders(
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     transform: global_transform.compute_matrix(),
-                    atlas_scaling: None,
+                    atlas_rect: None,
+                    image_rect: None,
                     flip_x: false,
                     flip_y: false,
                     border: BorderRect::all(computed_node.outline_width()),
@@ -718,7 +726,7 @@ pub fn extract_viewport_nodes(
             &ComputedNode,
             &GlobalTransform,
             &InheritedVisibility,
-            Option<&CalculatedClip>,
+            Option<&CalculatedContentClip>,
             &ComputedNodeTarget,
             &ViewportNode,
         )>,
@@ -758,7 +766,8 @@ pub fn extract_viewport_nodes(
             image: image.id(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
-                atlas_scaling: None,
+                atlas_rect: None,
+                image_rect: None,
                 transform: transform.compute_matrix(),
                 flip_x: false,
                 flip_y: false,
@@ -781,10 +790,11 @@ pub fn extract_text_sections(
             &ComputedNode,
             &GlobalTransform,
             &InheritedVisibility,
-            Option<&CalculatedClip>,
+            Option<&CalculatedContentClip>,
             &ComputedNodeTarget,
             &ComputedTextBlock,
             &TextLayoutInfo,
+            Option<&ScrollPosition>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -803,6 +813,7 @@ pub fn extract_text_sections(
         camera,
         computed_block,
         text_layout_info,
+        maybe_scroll_position,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -814,8 +825,19 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform = global_transform.affine()
-            * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
+        let content_inset = uinode.content_inset();
+
+        let xy_content_inset_adjust = Vec2::new(content_inset.left, content_inset.top);
+        let xy_center_adjust = -0.5 * uinode.size();
+        let mut xy_adjust = xy_content_inset_adjust + xy_center_adjust;
+
+        if let Some(scroll_position) = maybe_scroll_position {
+            xy_adjust.x -= scroll_position.offset_x;
+            xy_adjust.y -= scroll_position.offset_y;
+        }
+
+        let transform =
+            global_transform.affine() * bevy_math::Affine3A::from_translation(xy_adjust.extend(0.));
 
         for (
             i,
@@ -880,9 +902,10 @@ pub fn extract_text_shadows(
             &ComputedNodeTarget,
             &GlobalTransform,
             &InheritedVisibility,
-            Option<&CalculatedClip>,
+            Option<&CalculatedContentClip>,
             &TextLayoutInfo,
             &TextShadow,
+            Option<&ScrollPosition>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -900,6 +923,7 @@ pub fn extract_text_shadows(
         clip,
         text_layout_info,
         shadow,
+        maybe_scroll_position,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -911,10 +935,21 @@ pub fn extract_text_shadows(
             continue;
         };
 
-        let transform = global_transform.affine()
-            * Mat4::from_translation(
-                (-0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor()).extend(0.),
-            );
+        let content_inset = uinode.content_inset();
+
+        let xy_to_top_left_adjust = -uinode.size() / 2.0;
+        let xy_scaled_shadow_adjust = shadow.offset / uinode.inverse_scale_factor();
+        let xy_content_inset_adjust = Vec2::new(content_inset.left, content_inset.top);
+
+        let mut xy_adjust =
+            xy_to_top_left_adjust + xy_scaled_shadow_adjust + xy_content_inset_adjust;
+
+        if let Some(scroll_position) = maybe_scroll_position {
+            xy_adjust.x -= scroll_position.offset_x;
+            xy_adjust.y -= scroll_position.offset_y;
+        }
+
+        let transform = global_transform.affine() * Mat4::from_translation(xy_adjust.extend(0.));
 
         for (
             i,
@@ -967,17 +1002,26 @@ pub fn extract_text_background_colors(
             &ComputedNode,
             &GlobalTransform,
             &InheritedVisibility,
-            Option<&CalculatedClip>,
+            Option<&CalculatedContentClip>,
             &ComputedNodeTarget,
             &TextLayoutInfo,
+            Option<&ScrollPosition>,
         )>,
     >,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, global_transform, inherited_visibility, clip, camera, text_layout_info) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        global_transform,
+        inherited_visibility,
+        clip,
+        camera,
+        text_layout_info,
+        maybe_scroll_position,
+    ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -988,8 +1032,19 @@ pub fn extract_text_background_colors(
             continue;
         };
 
-        let transform = global_transform.affine()
-            * bevy_math::Affine3A::from_translation(-0.5 * uinode.size().extend(0.));
+        let content_inset = uinode.content_inset();
+
+        let xy_to_top_left_adjust = -uinode.size() / 2.0;
+        let xy_content_inset_adjust = Vec2::new(content_inset.left, content_inset.top);
+        let mut xy_adjust = xy_to_top_left_adjust + xy_content_inset_adjust;
+
+        if let Some(scroll_position) = maybe_scroll_position {
+            xy_adjust.x -= scroll_position.offset_x;
+            xy_adjust.y -= scroll_position.offset_y;
+        }
+
+        let transform =
+            global_transform.affine() * bevy_math::Affine3A::from_translation(xy_adjust.extend(0.));
 
         for &(section_entity, rect) in text_layout_info.section_rects.iter() {
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
@@ -1008,12 +1063,246 @@ pub fn extract_text_background_colors(
                 image: AssetId::default(),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
-                    atlas_scaling: None,
+                    atlas_rect: None,
+                    image_rect: None,
                     transform: transform * Mat4::from_translation(rect.center().extend(0.)),
                     flip_x: false,
                     flip_y: false,
-                    border: uinode.border(),
+                    border: BorderRect::ZERO,
                     border_radius: uinode.border_radius(),
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
+        }
+    }
+}
+
+pub fn extract_scrollbars(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &Node,
+            &ComputedNode,
+            &ComputedNodeTarget,
+            Option<&CalculatedClip>,
+            &GlobalTransform,
+            &InheritedVisibility,
+            &ScrollPosition,
+            &ScrollbarColor,
+        )>,
+    >,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut camera_mapper = camera_map.get_mapper();
+    for (
+        entity,
+        node,
+        uinode,
+        camera,
+        clip,
+        global_transform,
+        inherited_visibility,
+        scroll_position,
+        scrollbar_color,
+    ) in &uinode_query
+    {
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        // Note: `tf` is center of ui node
+        //       | -y
+        //       |
+        // -x ---+--- x
+        //       |
+        //       | y
+        // "up" is -y, "down" is +y (!)
+        let tf = global_transform.affine();
+
+        // full size, with padding+scrollbar+border
+        let psb_size = uinode.size;
+        // size with padding+scrollbar, without border size
+        let ps_size = psb_size - uinode.border.sum_axes();
+        // size with padding, without scrollbar and border sizes
+        // this is a kind of viewport of our scroll container
+        let p_size = ps_size - uinode.scrollbar_size;
+
+        let psb_half_size = psb_size / 2.0;
+
+        let track_width = SCROLLBAR_TRACK_WIDTH * camera.scale_factor;
+        let thumb_width = SCROLLBAR_THUMB_WIDTH * camera.scale_factor;
+        let thumb_offset = (track_width - thumb_width) / 2.0;
+
+        // Extract scrollbar track and thumb for Y scroll
+        if node.overflow.y.is_scroll() {
+            let track_x = psb_half_size.x - uinode.border.right - track_width;
+            // Note: ui tn origin is top _left_
+            let track_y = -psb_half_size.y + uinode.border.top;
+            let track_tn = Vec3::new(track_x, track_y, 0.0);
+            let track_tf = tf * bevy_math::Affine3A::from_translation(track_tn);
+
+            // Based on p_size, as basing on ps_size will have scrollbars overlapping
+            let track_rect = Rect {
+                min: Vec2::ZERO,
+                max: Vec2::new(track_width, p_size.y),
+            };
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: scrollbar_color.track_color.into(),
+                rect: track_rect,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                item: ExtractedUiItem::Node {
+                    atlas_rect: None,
+                    image_rect: None,
+                    transform: track_tf * Mat4::from_translation(track_rect.center().extend(0.)),
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::ZERO,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
+
+            // Note: content_size = measured_size + padding.sum_axes()
+            // Viewable size, scrollbar's thumb is sized and relative to it.
+            let view_size_y = uinode.content_size.y.max(p_size.y);
+            let view_size_rel = p_size.y / view_size_y;
+
+            let thumb_height = p_size.y * view_size_rel;
+            let rect = Rect {
+                min: Vec2::ZERO,
+                max: Vec2::new(thumb_width, thumb_height),
+            };
+
+            let offset_y = scroll_position.offset_y * camera.scale_factor;
+            let view_top_rel = offset_y / view_size_y;
+
+            let thumb_tn = Vec3::new(
+                track_x + thumb_offset,
+                track_y + p_size.y * view_top_rel,
+                0.0,
+            );
+            let thumb_tf = tf * bevy_math::Affine3A::from_translation(thumb_tn);
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: scrollbar_color.thumb_color.into(),
+                rect,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                item: ExtractedUiItem::Node {
+                    atlas_rect: None,
+                    image_rect: None,
+                    transform: thumb_tf * Mat4::from_translation(rect.center().extend(0.)),
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::ZERO,
+                    border_radius: ResolvedBorderRadius {
+                        top_left: SCROLLBAR_THUMB_ROUNDING,
+                        top_right: SCROLLBAR_THUMB_ROUNDING,
+                        bottom_left: SCROLLBAR_THUMB_ROUNDING,
+                        bottom_right: SCROLLBAR_THUMB_ROUNDING,
+                    },
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
+        }
+
+        // Extract scrollbar track and thumb for X scroll
+        if node.overflow.x.is_scroll() {
+            // top of track's rect
+            let track_y = psb_half_size.y - uinode.border.bottom - track_width;
+            // left of track's rect
+            let track_x = -psb_half_size.x + uinode.border.left;
+            let track_tn = Vec3::new(track_x, track_y, 0.0);
+            let track_tf = tf * bevy_math::Affine3A::from_translation(track_tn);
+
+            // Based on p_size, as basing on ps_size will have scrollbars overlapping
+            let track_rect = Rect {
+                min: Vec2::ZERO,
+                max: Vec2::new(p_size.x, track_width),
+            };
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: scrollbar_color.track_color.into(),
+                rect: track_rect,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                item: ExtractedUiItem::Node {
+                    atlas_rect: None,
+                    image_rect: None,
+                    transform: track_tf * Mat4::from_translation(track_rect.center().extend(0.)),
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::ZERO,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
+
+            // Note: content_size = measured_size + padding.sum_axes()
+            // Viewable size, scrollbar's thumb is sized and relative to it.
+            let view_size_x = uinode.content_size.x.max(p_size.x);
+            let view_size_rel = p_size.x / view_size_x;
+
+            // "main" axis is parallel to track
+            let thumb_size_main = p_size.x * view_size_rel;
+            let rect = Rect {
+                min: Vec2::ZERO,
+                max: Vec2::new(thumb_size_main, thumb_width),
+            };
+
+            let offset_x = scroll_position.offset_x * camera.scale_factor;
+            let view_left_rel = offset_x / view_size_x;
+
+            let thumb_tn = Vec3::new(
+                track_x + p_size.x * view_left_rel,
+                track_y + thumb_offset,
+                0.0,
+            );
+            let thumb_tf = tf * bevy_math::Affine3A::from_translation(thumb_tn);
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: scrollbar_color.thumb_color.into(),
+                rect,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                item: ExtractedUiItem::Node {
+                    atlas_rect: None,
+                    image_rect: None,
+                    transform: thumb_tf * Mat4::from_translation(rect.center().extend(0.)),
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::ZERO,
+                    border_radius: ResolvedBorderRadius {
+                        top_left: SCROLLBAR_THUMB_ROUNDING,
+                        top_right: SCROLLBAR_THUMB_ROUNDING,
+                        bottom_left: SCROLLBAR_THUMB_ROUNDING,
+                        bottom_right: SCROLLBAR_THUMB_ROUNDING,
+                    },
                     node_type: NodeType::Rect,
                 },
                 main_entity: entity.into(),
@@ -1268,7 +1557,8 @@ pub fn prepare_uinodes(
                     }
                     match &extracted_uinode.item {
                         ExtractedUiItem::Node {
-                            atlas_scaling,
+                            atlas_rect,
+                            image_rect,
                             flip_x,
                             flip_y,
                             border_radius,
@@ -1282,9 +1572,9 @@ pub fn prepare_uinodes(
                                 shader_flags::UNTEXTURED
                             };
 
-                            let mut uinode_rect = extracted_uinode.rect;
+                            let mut rect = extracted_uinode.rect;
 
-                            let rect_size = uinode_rect.size().extend(1.0);
+                            let rect_size = rect.size().extend(1.0);
 
                             // Specify the corners of the node
                             let positions = QUAD_VERTEX_POSITIONS
@@ -1293,7 +1583,7 @@ pub fn prepare_uinodes(
 
                             // Calculate the effect of clipping
                             // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                            let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
+                            let positions_diff = if let Some(clip) = extracted_uinode.clip {
                                 [
                                     Vec2::new(
                                         f32::max(clip.min.x - positions[0].x, 0.),
@@ -1351,46 +1641,56 @@ pub fn prepare_uinodes(
                             let uvs = if flags == shader_flags::UNTEXTURED {
                                 [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                             } else {
-                                let image = gpu_images.get(extracted_uinode.image).expect(
+                                let gpu_image = gpu_images.get(extracted_uinode.image).expect(
                                     "Image was checked during batching and should still exist",
                                 );
-                                // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
-                                let atlas_extent = atlas_scaling
-                                    .map(|scaling| image.size_2d().as_vec2() * scaling)
-                                    .unwrap_or(uinode_rect.max);
+
+                                let (atlas_image_rect, atlas_size) = match (atlas_rect, image_rect)
+                                {
+                                    (Some(atlas_rect), Some(image_rect)) => {
+                                        let mut atlas_image_rect = *image_rect;
+                                        atlas_image_rect.min.x += atlas_rect.min.x;
+                                        atlas_image_rect.min.y += atlas_rect.min.y;
+                                        atlas_image_rect.max.x += atlas_rect.min.x;
+                                        atlas_image_rect.max.y += atlas_rect.min.y;
+                                        (atlas_image_rect, atlas_image_rect.max)
+                                    }
+                                    (Some(atlas_rect), None) => (*atlas_rect, atlas_rect.max),
+                                    (None, Some(image_rect)) => (*image_rect, image_rect.max),
+                                    _ => (
+                                        Rect::new(
+                                            0.,
+                                            0.,
+                                            gpu_image.size.width as f32,
+                                            gpu_image.size.height as f32,
+                                        ),
+                                        Vec2::new(
+                                            gpu_image.size.width as f32,
+                                            gpu_image.size.height as f32,
+                                        ),
+                                    ),
+                                };
+
+                                let scale_rect = atlas_image_rect.size().x / rect.size().x;
+
+                                let mut flipped_points = points;
                                 if *flip_x {
-                                    core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
-                                    positions_diff[0].x *= -1.;
-                                    positions_diff[1].x *= -1.;
-                                    positions_diff[2].x *= -1.;
-                                    positions_diff[3].x *= -1.;
+                                    core::mem::swap(&mut rect.max.x, &mut rect.min.x);
+                                    for fp in &mut flipped_points {
+                                        fp.x *= -1.;
+                                    }
                                 }
                                 if *flip_y {
-                                    core::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                                    positions_diff[0].y *= -1.;
-                                    positions_diff[1].y *= -1.;
-                                    positions_diff[2].y *= -1.;
-                                    positions_diff[3].y *= -1.;
+                                    core::mem::swap(&mut rect.max.y, &mut rect.min.y);
+                                    for fp in &mut flipped_points {
+                                        fp.y *= -1.;
+                                    }
                                 }
-                                [
-                                    Vec2::new(
-                                        uinode_rect.min.x + positions_diff[0].x,
-                                        uinode_rect.min.y + positions_diff[0].y,
-                                    ),
-                                    Vec2::new(
-                                        uinode_rect.max.x + positions_diff[1].x,
-                                        uinode_rect.min.y + positions_diff[1].y,
-                                    ),
-                                    Vec2::new(
-                                        uinode_rect.max.x + positions_diff[2].x,
-                                        uinode_rect.max.y + positions_diff[2].y,
-                                    ),
-                                    Vec2::new(
-                                        uinode_rect.min.x + positions_diff[3].x,
-                                        uinode_rect.max.y + positions_diff[3].y,
-                                    ),
-                                ]
-                                .map(|pos| pos / atlas_extent)
+
+                                // uvs
+                                flipped_points.map(|p| {
+                                    (p * scale_rect + atlas_image_rect.center()) / atlas_size
+                                })
                             };
 
                             let color = extracted_uinode.color.to_f32_array();

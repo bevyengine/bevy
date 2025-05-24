@@ -47,7 +47,6 @@ impl Measure for NodeMeasure {
     fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
         match self {
             NodeMeasure::Fixed(fixed) => fixed.measure(measure_args, style),
-
             NodeMeasure::Text(text) => text.measure(measure_args, style),
             NodeMeasure::Image(image) => image.measure(measure_args, style),
             NodeMeasure::Custom(custom) => custom.measure(measure_args, style),

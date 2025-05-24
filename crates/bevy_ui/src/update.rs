@@ -2,8 +2,8 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
-    UiTargetCamera,
+    CalculatedClip, CalculatedContentClip, ComputedNodeTarget, DefaultUiCamera, Display, Node,
+    OverflowAxis, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -28,6 +28,7 @@ pub fn update_clipping_system(
         &ComputedNode,
         &GlobalTransform,
         Option<&mut CalculatedClip>,
+        Option<&mut CalculatedContentClip>,
     )>,
     ui_children: UiChildren,
 ) {
@@ -50,44 +51,51 @@ fn update_clipping(
         &ComputedNode,
         &GlobalTransform,
         Option<&mut CalculatedClip>,
+        Option<&mut CalculatedContentClip>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
-    let Ok((node, computed_node, global_transform, maybe_calculated_clip)) =
-        node_query.get_mut(entity)
+    let Ok((
+        node,
+        computed_node,
+        global_transform,
+        maybe_calculated_clip,
+        maybe_calculated_content_clip,
+    )) = node_query.get_mut(entity)
     else {
         return;
     };
 
-    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
+    // If `display` is None, clip the entire node and all its descendants
+    // by replacing the inherited clip with a default rect (which is empty)
     if node.display == Display::None {
         maybe_inherited_clip = Some(Rect::default());
     }
 
     // Update this node's CalculatedClip component
-    if let Some(mut calculated_clip) = maybe_calculated_clip {
-        if let Some(inherited_clip) = maybe_inherited_clip {
-            // Replace the previous calculated clip with the inherited clipping rect
+    match (maybe_inherited_clip, maybe_calculated_clip) {
+        (Some(inherited_clip), None) => {
+            commands.entity(entity).try_insert(CalculatedClip {
+                clip: inherited_clip,
+            });
+        }
+        (Some(inherited_clip), Some(mut calculated_clip)) => {
             if calculated_clip.clip != inherited_clip {
                 *calculated_clip = CalculatedClip {
                     clip: inherited_clip,
                 };
             }
-        } else {
-            // No inherited clipping rect, remove the component
+        }
+        (None, Some(_)) => {
             commands.entity(entity).remove::<CalculatedClip>();
         }
-    } else if let Some(inherited_clip) = maybe_inherited_clip {
-        // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
-        commands.entity(entity).try_insert(CalculatedClip {
-            clip: inherited_clip,
-        });
-    }
+        _ => {}
+    };
 
-    // Calculate new clip rectangle for children nodes
-    let children_clip = if node.overflow.is_visible() {
-        // The current node doesn't clip, propagate the optional inherited clipping rect to any children
+    // Calculate new clip rectangle for node's content (e.g., text, children)
+    let content_clip = if node.overflow.is_visible() {
+        // The current node doesn't attenuate inherited clip
         maybe_inherited_clip
     } else {
         // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
@@ -96,37 +104,89 @@ fn update_clipping(
             computed_node.size(),
         );
 
-        // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
-        //
-        // `clip_inset` should always fit inside `node_rect`.
-        // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.
-        let clip_inset = match node.overflow_clip_margin.visual_box {
-            crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
-            crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
-            crate::OverflowClipBox::PaddingBox => computed_node.border(),
-        };
+        if node.overflow.is_any_scroll() {
+            // Clip is set to scrollbars' near edges (or to border near edge, when no scrollbar).
+            clip_rect.max.x -= computed_node.border.right + computed_node.scrollbar_size.x;
+            clip_rect.min.x += computed_node.border.left;
+            // Note: Y grows downward
+            clip_rect.max.y -= computed_node.border.bottom + computed_node.scrollbar_size.y;
+            clip_rect.min.y += computed_node.border.top;
+        } else {
+            // Content may be clipped with `OverflowAxis::Clip`,
+            // In this case, content is not clipped by inner border edges,
+            // but at the edges of the region specified by Node::overflow_clip_margin.
+            //
+            // `clip_inset` should always fit inside `node_rect`.
+            // Even if `clip_inset` were to overflow, we won't return a degenerate result, as `Rect::intersect` will clamp the intersection, leaving it empty.
+            let mut clip_inset = match node.overflow_clip_margin.visual_box {
+                crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
+                crate::OverflowClipBox::PaddingBox => computed_node.border(),
+                crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
+            };
 
-        clip_rect.min.x += clip_inset.left;
-        clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
+            clip_inset.inflate_mut(
+                node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor,
+            );
 
-        clip_rect = clip_rect
-            .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
+            match node.overflow.y {
+                // This option is most likely to be used in practice, hence we match it first
+                OverflowAxis::Clip => {
+                    clip_rect.min.y += clip_inset.bottom;
+                    clip_rect.max.y -= clip_inset.top;
+                }
+                OverflowAxis::Hidden => {
+                    clip_rect.min.y += computed_node.border.bottom;
+                    clip_rect.max.y -= computed_node.border.top;
+                }
+                OverflowAxis::Visible => {
+                    clip_rect.min.y = -f32::INFINITY;
+                    clip_rect.max.y = f32::INFINITY;
+                }
+                _ => {}
+            }
 
-        if node.overflow.x == OverflowAxis::Visible {
-            clip_rect.min.x = -f32::INFINITY;
-            clip_rect.max.x = f32::INFINITY;
+            match node.overflow.x {
+                OverflowAxis::Clip => {
+                    clip_rect.min.x += clip_inset.left;
+                    clip_rect.max.x -= clip_inset.right;
+                }
+                OverflowAxis::Hidden => {
+                    clip_rect.min.x += computed_node.border.left;
+                    clip_rect.max.x -= computed_node.border.right;
+                }
+                OverflowAxis::Visible => {
+                    clip_rect.min.x = -f32::INFINITY;
+                    clip_rect.max.x = f32::INFINITY;
+                }
+                _ => {}
+            }
         }
-        if node.overflow.y == OverflowAxis::Visible {
-            clip_rect.min.y = -f32::INFINITY;
-            clip_rect.max.y = f32::INFINITY;
+
+        maybe_inherited_clip
+            .map(|c| c.intersect(clip_rect))
+            .or(Some(clip_rect))
+    };
+
+    // Update this node's `CalculatedContentClip` component
+    match (content_clip, maybe_calculated_content_clip) {
+        (Some(content_clip), None) => {
+            commands
+                .entity(entity)
+                .try_insert(CalculatedContentClip { clip: content_clip });
         }
-        Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
+        (Some(content_clip), Some(mut calculated_content_clip)) => {
+            if calculated_content_clip.clip != content_clip {
+                *calculated_content_clip = CalculatedContentClip { clip: content_clip };
+            }
+        }
+        (None, Some(_)) => {
+            commands.entity(entity).remove::<CalculatedContentClip>();
+        }
+        _ => {}
     };
 
     for child in ui_children.iter_ui_children(entity) {
-        update_clipping(commands, ui_children, node_query, child, children_clip);
+        update_clipping(commands, ui_children, node_query, child, content_clip);
     }
 }
 

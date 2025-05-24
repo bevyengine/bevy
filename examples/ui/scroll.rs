@@ -22,6 +22,21 @@ fn main() {
 const FONT_SIZE: f32 = 20.;
 const LINE_HEIGHT: f32 = 21.;
 
+fn label(name: &'static str) -> impl Bundle {
+    (
+        Text::new(name),
+        TextFont {
+            font_size: FONT_SIZE,
+            ..default()
+        },
+        Label,
+        Node {
+            margin: UiRect::all(Val::Px(4.)),
+            ..default()
+        },
+    )
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
     commands.spawn((Camera2d, IsDefaultUiCamera));
@@ -31,7 +46,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            justify_content: JustifyContent::SpaceBetween,
+            justify_content: JustifyContent::SpaceAround,
+            align_content: AlignContent::Center,
             flex_direction: FlexDirection::Column,
             ..default()
         })
@@ -46,15 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // header
-                    parent.spawn((
-                        Text::new("Horizontally Scrolling list (Ctrl + MouseWheel)"),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: FONT_SIZE,
-                            ..default()
-                        },
-                        Label,
-                    ));
+                    parent.spawn(label("Horizontally Scrollable list (Ctrl + MouseWheel)"));
 
                     // horizontal scroll container
                     parent
@@ -67,6 +75,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                            Outline {
+                                width: Val::Px(6.),
+                                offset: Val::Px(0.),
+                                color: Color::WHITE,
+                            },
                         ))
                         .with_children(|parent| {
                             for i in 0..100 {
@@ -106,7 +119,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceBetween,
+                    justify_content: JustifyContent::SpaceAround,
                     ..default()
                 })
                 .with_children(|parent| {
@@ -121,16 +134,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             // Title
-                            parent.spawn((
-                                Text::new("Vertically Scrolling List"),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: FONT_SIZE,
-                                    ..default()
-                                },
-                                Label,
-                            ));
-                            // Scrolling list
+                            parent.spawn(label("Vertically Scrollable List"));
+                            // Scrollable list
                             parent
                                 .spawn((
                                     Node {
@@ -141,10 +146,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                                    Outline {
+                                        width: Val::Px(6.),
+                                        offset: Val::Px(0.),
+                                        color: Color::WHITE,
+                                    },
                                 ))
                                 .with_children(|parent| {
                                     // List items
-                                    for i in 0..25 {
+                                    for i in 0..30 {
                                         parent
                                             .spawn(Node {
                                                 min_height: Val::Px(LINE_HEIGHT),
@@ -189,16 +199,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             // Title
-                            parent.spawn((
-                                Text::new("Bidirectionally Scrolling List"),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: FONT_SIZE,
-                                    ..default()
-                                },
-                                Label,
-                            ));
-                            // Scrolling list
+                            parent.spawn(label("Bidirectionally Scrollable List"));
+                            // Scrollable list
                             parent
                                 .spawn((
                                     Node {
@@ -209,10 +211,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                                    Outline {
+                                        width: Val::Px(6.),
+                                        offset: Val::Px(0.),
+                                        color: Color::WHITE,
+                                    },
                                 ))
                                 .with_children(|parent| {
                                     // Rows in each column
-                                    for oi in 0..10 {
+                                    for oi in 0..20 {
                                         parent
                                             .spawn(Node {
                                                 flex_direction: FlexDirection::Row,
@@ -257,15 +264,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             // Title
-                            parent.spawn((
-                                Text::new("Nested Scrolling Lists"),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: FONT_SIZE,
-                                    ..default()
-                                },
-                                Label,
-                            ));
+                            parent.spawn(label("Nested Scrollable Lists"));
                             // Outer, horizontal scrolling container
                             parent
                                 .spawn((
@@ -278,6 +277,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                                    Outline {
+                                        width: Val::Px(6.),
+                                        offset: Val::Px(0.),
+                                        color: Color::WHITE,
+                                    },
                                 ))
                                 .with_children(|parent| {
                                     // Inner, scrolling columns
