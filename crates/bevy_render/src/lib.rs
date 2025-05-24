@@ -89,11 +89,11 @@ use render_asset::{
     extract_render_asset_bytes_per_frame, reset_render_asset_bytes_per_frame,
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
-use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
     despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
 };
+use wgpu::AdapterInfo;
 
 use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
@@ -579,13 +579,12 @@ fn apply_extract_commands(render_world: &mut World) {
 /// If the [`RenderAdapter`] is a Qualcomm Adreno, returns its model number.
 ///
 /// This lets us work around hardware bugs.
-pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
+pub fn get_adreno_model(adapter_info: &AdapterInfo) -> Option<u32> {
     if !cfg!(target_os = "android") {
         return None;
     }
 
-    let adapter_name = adapter.get_info().name;
-    let adreno_model = adapter_name.strip_prefix("Adreno (TM) ")?;
+    let adreno_model = adapter_info.name.strip_prefix("Adreno (TM) ")?;
 
     // Take suffixes into account (like Adreno 642L).
     Some(
@@ -597,16 +596,15 @@ pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
 }
 
 /// Get the Mali driver version if the adapter is a Mali GPU.
-pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
+pub fn get_mali_driver_version(adapter_info: &AdapterInfo) -> Option<u32> {
     if !cfg!(target_os = "android") {
         return None;
     }
 
-    let driver_name = adapter.get_info().name;
-    if !driver_name.contains("Mali") {
+    if !adapter_info.name.contains("Mali") {
         return None;
     }
-    let driver_info = adapter.get_info().driver_info;
+    let driver_info = &adapter_info.driver_info;
     if let Some(start_pos) = driver_info.find("v1.r") {
         if let Some(end_pos) = driver_info[start_pos..].find('p') {
             let start_idx = start_pos + 4; // Skip "v1.r"
