@@ -143,7 +143,9 @@ fn build_ui(
             // Add an entry to our systems list so we can find where to draw
             // the cursor when the stepping cursor is at this system
             // we add plus 1 to account for the empty root span
-            state.systems.push((*label, node_id, text_spans.len() + 1));
+            state
+                .systems
+                .push((*label, NodeId::System(node_id), text_spans.len() + 1));
 
             // Add a text section for displaying the cursor for this system
             text_spans.push((
@@ -162,7 +164,7 @@ fn build_ui(
     }
 
     for (label, node) in always_run.drain(..) {
-        stepping.always_run_node(label, node);
+        stepping.always_run_node(label, NodeId::System(node));
     }
 
     commands.spawn((
