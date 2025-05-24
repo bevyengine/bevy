@@ -1,6 +1,6 @@
 //! This example illustrates the various features of Bevy UI.
 
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use accesskit::{Node as Accessible, Role};
 use bevy::{
@@ -375,14 +375,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(Pickable::IGNORE)
                 .with_children(|parent| {
-                    for (flip_x, flip_y) in
-                        [(false, false), (false, true), (true, true), (true, false)]
-                    {
+                    for (rotation, flip_x) in [
+                        (0., false),
+                        (FRAC_PI_2, false),
+                        (PI, false),
+                        (FRAC_PI_2 + PI, false),
+                        (0., true),
+                        (FRAC_PI_2, true),
+                        (PI, true),
+                        (FRAC_PI_2 + PI, true),
+                    ] {
                         parent.spawn((
                             ImageNode {
                                 image: asset_server.load("branding/icon.png"),
+                                rotation,
                                 flip_x,
-                                flip_y,
                                 ..default()
                             },
                             Node {

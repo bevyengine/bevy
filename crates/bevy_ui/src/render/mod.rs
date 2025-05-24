@@ -235,8 +235,8 @@ pub enum NodeType {
 pub enum ExtractedUiItem {
     Node {
         atlas_scaling: Option<Vec2>,
+        rotation: f32,
         flip_x: bool,
-        flip_y: bool,
         /// Border radius of the UI node.
         /// Ordering: top left, top right, bottom right, bottom left.
         border_radius: ResolvedBorderRadius,
@@ -385,8 +385,8 @@ pub fn extract_uinode_background_colors(
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
                 transform: transform.compute_matrix(),
+                rotation: 0.,
                 flip_x: false,
-                flip_y: false,
                 border: uinode.border(),
                 border_radius: uinode.border_radius(),
                 node_type: NodeType::Rect,
@@ -469,8 +469,8 @@ pub fn extract_uinode_images(
             item: ExtractedUiItem::Node {
                 atlas_scaling,
                 transform: transform.compute_matrix(),
+                rotation: image.rotation,
                 flip_x: image.flip_x,
-                flip_y: image.flip_y,
                 border: uinode.border,
                 border_radius: uinode.border_radius,
                 node_type: NodeType::Rect,
@@ -537,8 +537,8 @@ pub fn extract_uinode_borders(
                     item: ExtractedUiItem::Node {
                         atlas_scaling: None,
                         transform: global_transform.compute_matrix(),
+                        rotation: 0.,
                         flip_x: false,
-                        flip_y: false,
                         border: computed_node.border(),
                         border_radius: computed_node.border_radius(),
                         node_type: NodeType::Border,
@@ -570,8 +570,8 @@ pub fn extract_uinode_borders(
                 item: ExtractedUiItem::Node {
                     transform: global_transform.compute_matrix(),
                     atlas_scaling: None,
+                    rotation: 0.,
                     flip_x: false,
-                    flip_y: false,
                     border: BorderRect::all(computed_node.outline_width()),
                     border_radius: computed_node.outline_radius(),
                     node_type: NodeType::Border,
@@ -760,8 +760,8 @@ pub fn extract_viewport_nodes(
             item: ExtractedUiItem::Node {
                 atlas_scaling: None,
                 transform: transform.compute_matrix(),
+                rotation: 0.,
                 flip_x: false,
-                flip_y: false,
                 border: uinode.border(),
                 border_radius: uinode.border_radius(),
                 node_type: NodeType::Rect,
@@ -1010,8 +1010,8 @@ pub fn extract_text_background_colors(
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform * Mat4::from_translation(rect.center().extend(0.)),
+                    rotation: 0.,
                     flip_x: false,
-                    flip_y: false,
                     border: uinode.border(),
                     border_radius: uinode.border_radius(),
                     node_type: NodeType::Rect,
@@ -1269,8 +1269,8 @@ pub fn prepare_uinodes(
                     match &extracted_uinode.item {
                         ExtractedUiItem::Node {
                             atlas_scaling,
+                            rotation,
                             flip_x,
-                            flip_y,
                             border_radius,
                             border,
                             node_type,
@@ -1287,8 +1287,12 @@ pub fn prepare_uinodes(
                             let rect_size = uinode_rect.size().extend(1.0);
 
                             // Specify the corners of the node
-                            let positions = QUAD_VERTEX_POSITIONS
-                                .map(|pos| (*transform * (pos * rect_size).extend(1.)).xyz());
+                            let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                                (*transform
+                                    * Mat4::from_rotation_z(*rotation)
+                                    * (pos * rect_size).extend(1.))
+                                .xyz()
+                            });
                             let points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
 
                             // Calculate the effect of clipping
@@ -1364,13 +1368,6 @@ pub fn prepare_uinodes(
                                     positions_diff[1].x *= -1.;
                                     positions_diff[2].x *= -1.;
                                     positions_diff[3].x *= -1.;
-                                }
-                                if *flip_y {
-                                    core::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                                    positions_diff[0].y *= -1.;
-                                    positions_diff[1].y *= -1.;
-                                    positions_diff[2].y *= -1.;
-                                    positions_diff[3].y *= -1.;
                                 }
                                 [
                                     Vec2::new(
