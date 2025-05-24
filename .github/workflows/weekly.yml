@@ -50,15 +50,21 @@ jobs:
           sudo add-apt-repository ppa:kisak/turtle -y
           sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - name: Build & run tests
-        if: ${{ runner.os != 'linux' }}
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- test
         env:
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
-      - name: Build & run tests through xvfb
+      - name: Build & run render assets tests through xvfb
         if: ${{ runner.os == 'linux' }}
         # See tools/ci/src/main.rs for the commands this runs
-        run: xvfb-run cargo run -p ci -- test
+        run: xvfb-run cargo run -p ci -- test-render-assets
+        env:
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+      - name: Build & run render assets tests
+        # Windows crashes on this due to headless app
+        if: ${{ runner.os == 'macOS' }}
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- test-render-assets
         env:
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
