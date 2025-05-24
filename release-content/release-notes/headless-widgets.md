@@ -9,7 +9,7 @@ these components have a number of shortcomings, such as the fact that they don't
 `bevy_picking` framework, or the fact that they are really only useful for creating buttons
 and not other kinds of widgets like sliders.
 
-As an art form, games thrive on novelty: the typical game doesn't have boring, standardize controls
+As an art form, games thrive on novelty: the typical game doesn't have boring, standardized controls
 reminiscent of a productivity app, but instead will have beautiful, artistic widgets that are
 in harmony with the game's overall visual theme. But writing new and unique widgets requires
 skill and subtlety, particularly if we want first-class accessibility support. It's not a burden we
