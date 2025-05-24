@@ -199,10 +199,14 @@ where
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn default_state() -> Self::State {
         GizmosFetchState {
-            state: GizmosState::<Config, Clear>::init_state(world, system_meta),
+            state: GizmosState::<Config, Clear>::default_state(),
         }
+    }
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta, state: &mut Self::State) {
+        GizmosState::<Config, Clear>::init_state(world, system_meta, &mut state.state);
     }
 
     unsafe fn new_archetype(

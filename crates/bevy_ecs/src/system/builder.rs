@@ -170,7 +170,9 @@ pub struct ParamBuilder;
 // SAFETY: Calls `SystemParam::init_state`
 unsafe impl<P: SystemParam> SystemParamBuilder<P> for ParamBuilder {
     fn build(self, world: &mut World, meta: &mut SystemMeta) -> P::State {
-        P::init_state(world, meta)
+        let mut state: P::State = P::default_state();
+        P::init_state(world, meta, &mut state);
+        state
     }
 }
 
@@ -212,10 +214,10 @@ impl ParamBuilder {
 unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
     SystemParamBuilder<Query<'w, 's, D, F>> for QueryState<D, F>
 {
-    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
+    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> Option<QueryState<D, F>> {
         self.validate_world(world.id());
         init_query_param(world, system_meta, &self);
-        self
+        Some(self)
     }
 }
 
@@ -291,12 +293,12 @@ unsafe impl<
         T: FnOnce(&mut QueryBuilder<D, F>),
     > SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
 {
-    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
+    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> Option<QueryState<D, F>> {
         let mut builder = QueryBuilder::new(world);
         (self.0)(&mut builder);
         let state = builder.build();
         init_query_param(world, system_meta, &state);
-        state
+        Some(state)
     }
 }
 
@@ -564,7 +566,7 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
         _world: &mut World,
         _meta: &mut SystemMeta,
     ) -> <Local<'s, T> as SystemParam>::State {
-        SyncCell::new(self.0)
+        Some(SyncCell::new(self.0))
     }
 }
 

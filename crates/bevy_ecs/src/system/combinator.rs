@@ -221,6 +221,11 @@ where
             .extend(self.b.component_access_set().clone());
     }
 
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.a.configurate(config);
+        self.b.configurate(config);
+    }
+
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         self.a.update_archetype_component_access(world);
         self.b.update_archetype_component_access(world);
@@ -457,6 +462,11 @@ where
             .extend(self.a.component_access_set().clone());
         self.component_access_set
             .extend(self.b.component_access_set().clone());
+    }
+
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.a.configurate(config);
+        self.b.configurate(config);
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {

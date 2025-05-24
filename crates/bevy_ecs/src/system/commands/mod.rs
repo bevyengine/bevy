@@ -118,18 +118,24 @@ const _: () = {
     unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
         type State = FetchState;
 
+        fn default_state() -> Self::State {
+            FetchState {
+                state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::default_state()
+            }
+        }
+
         type Item<'w, 's> = Commands<'w, 's>;
 
         fn init_state(
             world: &mut World,
             system_meta: &mut bevy_ecs::system::SystemMeta,
-        ) -> Self::State {
-            FetchState {
-                state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
-                    world,
-                    system_meta,
-                ),
-            }
+            state: &mut Self::State,
+        ) {
+            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
+                world,
+                system_meta,
+                &mut state.state,
+            )
         }
 
         unsafe fn new_archetype(

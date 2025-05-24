@@ -57,8 +57,12 @@ unsafe impl SystemParam for SystemName<'_> {
     type State = Cow<'static, str>;
     type Item<'w, 's> = SystemName<'s>;
 
-    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
+    fn default_state() -> Self::State {
+        "Uninitialized system".into()
+    }
+
+    fn init_state(_world: &mut World, system_meta: &mut SystemMeta, state: &mut Self::State) {
+        *state = system_meta.name.clone();
     }
 
     #[inline]
