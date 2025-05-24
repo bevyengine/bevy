@@ -1517,7 +1517,7 @@ impl MaybeLocation {
     /// within a non-tracked function body.
     #[inline]
     #[track_caller]
-    pub fn caller() -> Self {
+    pub const fn caller() -> Self {
         // Note that this cannot use `new_with`, since `FnOnce` invocations cannot be annotated with `#[track_caller]`.
         MaybeLocation {
             #[cfg(feature = "track_location")]
