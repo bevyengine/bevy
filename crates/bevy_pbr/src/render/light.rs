@@ -1942,7 +1942,7 @@ pub fn queue_shadows<M: Material>(
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
-    view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
+    view_lights: Query<(Entity, &ViewLightEntities, Option<&RenderLayers>), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<
@@ -1955,7 +1955,7 @@ pub fn queue_shadows<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
-    for (entity, view_lights) in &view_lights {
+    for (entity, view_lights, camera_layers) in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok((light_entity, extracted_view_light)) =
                 view_light_entities.get(view_light_entity)
@@ -2005,11 +2005,6 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 };
 
-                // Skip the entity if it's cached in a bin and up to date.
-                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
-                    continue;
-                }
-
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
                 else {
                     continue;
@@ -2018,6 +2013,23 @@ pub fn queue_shadows<M: Material>(
                     .flags
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                 {
+                    continue;
+                }
+
+                let mesh_layers = mesh_instance
+                    .shared
+                    .render_layers
+                    .as_ref()
+                    .unwrap_or_default();
+
+                let camera_layers = camera_layers.unwrap_or_default();
+
+                if !camera_layers.intersects(mesh_layers) {
+                    continue;
+                }
+
+                // Skip the entity if it's cached in a bin and up to date.
+                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
                     continue;
                 }
 

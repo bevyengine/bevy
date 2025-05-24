@@ -74,7 +74,9 @@ use bevy_render::camera::TemporalJitter;
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
+use bevy_render::view::RenderLayers;
 use bevy_render::RenderSystems::PrepareAssets;
+
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
@@ -754,6 +756,8 @@ pub struct RenderMeshInstanceShared {
     pub lightmap_slab_index: Option<LightmapSlabIndex>,
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
+    /// Render layers that this mesh instance belongs to.
+    pub render_layers: Option<RenderLayers>,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -845,6 +849,7 @@ impl RenderMeshInstanceShared {
         tag: Option<&MeshTag>,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
+        render_layers: Option<&RenderLayers>,
     ) -> Self {
         Self::for_cpu_building(
             previous_transform,
@@ -882,6 +887,7 @@ impl RenderMeshInstanceShared {
             material_bindings_index,
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
+            render_layers: render_layers.cloned(),
         }
     }
 
@@ -1347,6 +1353,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
             Has<VisibilityRange>,
+            Option<&RenderLayers>,
         )>,
     >,
 ) {
@@ -1366,6 +1373,7 @@ pub fn extract_meshes_for_cpu_building(
             not_shadow_caster,
             no_automatic_batching,
             visibility_range,
+            render_layers,
         )| {
             if !view_visibility.get() {
                 return;
@@ -1398,6 +1406,7 @@ pub fn extract_meshes_for_cpu_building(
                 material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
+                render_layers,
             );
 
             let world_from_local = transform.affine();
@@ -1451,6 +1460,7 @@ type GpuMeshExtractionQuery = (
     Has<NotShadowCaster>,
     Has<NoAutomaticBatching>,
     Has<VisibilityRange>,
+    Option<Read<RenderLayers>>,
 );
 
 /// Extracts meshes from the main world into the render world and queues
@@ -1576,6 +1586,7 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         visibility_range,
+        render_layers,
     ): <GpuMeshExtractionQuery as QueryData>::Item<'_>,
     render_visibility_ranges: &RenderVisibilityRanges,
     render_mesh_instances: &RenderMeshInstancesGpu,
@@ -1606,6 +1617,7 @@ fn extract_mesh_for_gpu_building(
         tag,
         not_shadow_caster,
         no_automatic_batching,
+        render_layers,
     );
 
     let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
