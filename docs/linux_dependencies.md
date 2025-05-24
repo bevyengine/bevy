@@ -91,7 +91,7 @@ Set the `PKG_CONFIG_PATH` env var to `/usr/lib/<target>/pkgconfig/`. For example
 export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
 ```
 
-## Arch / Manjaro
+## [Arch](https://archlinux.org/) / [Manjaro](https://manjaro.org/)
 
 ```bash
 sudo pacman -S libx11 pkgconf alsa-lib
@@ -102,13 +102,86 @@ Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you a
 Depending on your graphics card, you may have to install one of the following:
 `vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
-## Void
+## [Void](https://voidlinux.org/)
 
 ```bash
 sudo xbps-install -S pkgconf alsa-lib-devel libX11-devel eudev-libudev-devel
 ```
 
 ## [Nix](https://nixos.org)
+
+### flake.nix
+
+Add a `flake.nix` file to the root of your GitHub repository containing:
+
+We have confirmed that this flake.nix can be used successfully on NixOS and MacOS with Rust's edition set to 2021.
+
+```nix
+{
+  description = "bevy flake";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    {
+      nixpkgs,
+      rust-overlay,
+      flake-utils,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs {
+          inherit system overlays;
+        };
+      in
+      {
+        devShells.default =
+          with pkgs;
+          mkShell {
+            buildInputs =
+              [
+                # Rust dependencies
+                (rust-bin.stable.latest.default.override { extensions = [ "rust-src" ]; })
+                pkg-config
+              ]
+              ++ lib.optionals (lib.strings.hasInfix "linux" system) [
+                # for Linux
+                # Audio (Linux only)
+                alsa-lib
+                # Cross Platform 3D Graphics API
+                vulkan-loader
+                # For debugging around vulkan
+                vulkan-tools
+                # Other dependencies
+                libudev-zero
+                xorg.libX11
+                xorg.libXcursor
+                xorg.libXi
+                xorg.libXrandr
+                libxkbcommon
+              ];
+            RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+            LD_LIBRARY_PATH = lib.makeLibraryPath [
+              vulkan-loader
+              xorg.libX11
+              xorg.libXi
+              xorg.libXcursor
+              libxkbcommon
+            ];
+          };
+      }
+    );
+}
+```
+
+### shell.nix
 
 Add a `shell.nix` file to the root of the project containing:
 
@@ -161,7 +234,7 @@ is an example of packaging a Bevy program in nix.
    sudo zypper install libudev-devel gcc-c++ alsa-lib-devel
 ```
 
-## Gentoo
+## [Gentoo](https://www.gentoo.org/)
 
 ```bash
    sudo emerge --ask libX11 pkgconf alsa-lib
