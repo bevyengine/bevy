@@ -9,10 +9,7 @@ pub struct IntegrationTestCommand {}
 
 impl Prepare for IntegrationTestCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
-        let no_fail_fast = args
-            .keep_going
-            .then_some("--no-fail-fast")
-            .unwrap_or_default();
+        let no_fail_fast = args.keep_going();
 
         get_integration_tests(sh)
             .into_iter()
@@ -20,7 +17,7 @@ impl Prepare for IntegrationTestCommand {
                 PreparedCommand::new::<Self>(
                     cmd!(
                         sh,
-                        "cargo test --manifest-path {path}/Cargo.toml --tests {no_fail_fast}"
+                        "cargo test --manifest-path {path}/Cargo.toml --tests {no_fail_fast...}"
                     ),
                     "Please fix failing integration tests in output above.",
                 )

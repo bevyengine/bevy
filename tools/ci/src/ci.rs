@@ -13,25 +13,15 @@ pub struct CI {
 
     /// continue running commands even if one fails
     #[argh(switch)]
-    keep_going: bool,
+    pub(crate) keep_going: bool,
 
     /// parallelism of `cargo test`
     #[argh(option)]
-    test_threads: Option<usize>,
+    pub(crate) test_threads: Option<usize>,
 
     /// number of build jobs
     #[argh(option)]
-    build_jobs: Option<usize>,
-}
-
-impl From<&CI> for Args {
-    fn from(value: &CI) -> Self {
-        Args {
-            keep_going: value.keep_going,
-            test_threads: value.test_threads,
-            build_jobs: value.build_jobs,
-        }
-    }
+    pub(crate) build_jobs: Option<usize>,
 }
 
 impl CI {

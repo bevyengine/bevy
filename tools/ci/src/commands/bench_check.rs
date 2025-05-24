@@ -9,7 +9,7 @@ pub struct BenchCheckCommand {}
 
 impl Prepare for BenchCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
-        let jobs = args.build_jobs.map(|jobs| format!("--jobs={jobs}"));
+        let jobs = args.build_jobs();
 
         vec![PreparedCommand::new::<Self>(
             cmd!(
