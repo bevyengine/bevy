@@ -21,7 +21,7 @@ use encase::{internal::WriteInto, ShaderSize};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 use tracing::{error, info};
-use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
+use wgpu::{AdapterInfo, BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
     experimental::occlusion_culling::OcclusionCulling,
@@ -1104,9 +1104,9 @@ impl FromWorld for GpuPreprocessingSupport {
         // - We filter out Adreno 730 and earlier GPUs (except 720, as it's newer
         //   than 730).
         // - We filter out Mali GPUs with driver versions lower than 48.
-        fn is_non_supported_android_device(adapter: &RenderAdapter) -> bool {
-            crate::get_adreno_model(adapter).is_some_and(|model| model != 720 && model <= 730)
-                || crate::get_mali_driver_version(adapter).is_some_and(|version| version < 48)
+        fn is_non_supported_android_device(adapter_info: &AdapterInfo) -> bool {
+            crate::get_adreno_model(adapter_info).is_some_and(|model| model != 720 && model <= 730)
+                || crate::get_mali_driver_version(adapter_info).is_some_and(|version| version < 48)
         }
 
         let culling_feature_support = device.features().contains(
@@ -1127,8 +1127,11 @@ impl FromWorld for GpuPreprocessingSupport {
             .flags
             .contains(DownlevelFlags::COMPUTE_SHADERS);
 
+        let adapter_info = adapter.get_info();
+
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
-            || is_non_supported_android_device(adapter)
+            || is_non_supported_android_device(&adapter_info)
+            || adapter_info.backend == wgpu::Backend::Gl
         {
             info!(
                 "GPU preprocessing is not supported on this device. \
