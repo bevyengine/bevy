@@ -170,21 +170,23 @@ fn setup(
             ZIndex(10),
         ))
         .insert(children![
-            // Shape settings
+            // Shape settings (transparent background)
             spawn_setting_children(
                 "Shape:",
                 SettingsButton::ShapePrev,
                 SettingsButton::ShapeNext,
                 shape.index as f32,
                 &asset_server,
+                BackgroundColor(Color::NONE),
             ),
-            // Shadow settings
+            // Shadow settings (gray background)
             spawn_setting_children(
                 "X Offset:",
                 SettingsButton::XOffsetDec,
                 SettingsButton::XOffsetInc,
                 shadow.x_offset,
                 &asset_server,
+                BackgroundColor(Color::WHITE.with_alpha(0.08)),
             ),
             spawn_setting_children(
                 "Y Offset:",
@@ -192,6 +194,7 @@ fn setup(
                 SettingsButton::YOffsetInc,
                 shadow.y_offset,
                 &asset_server,
+                BackgroundColor(Color::WHITE.with_alpha(0.08)),
             ),
             spawn_setting_children(
                 "Blur:",
@@ -199,6 +202,7 @@ fn setup(
                 SettingsButton::BlurInc,
                 shadow.blur,
                 &asset_server,
+                BackgroundColor(Color::WHITE.with_alpha(0.08)),
             ),
             spawn_setting_children(
                 "Spread:",
@@ -206,6 +210,7 @@ fn setup(
                 SettingsButton::SpreadInc,
                 shadow.spread,
                 &asset_server,
+                BackgroundColor(Color::WHITE.with_alpha(0.08)),
             ),
             spawn_setting_children(
                 "Count:",
@@ -213,6 +218,7 @@ fn setup(
                 SettingsButton::CountInc,
                 shadow.count as f32,
                 &asset_server,
+                BackgroundColor(Color::WHITE.with_alpha(0.08)),
             ),
             // Reset button
             (
@@ -259,6 +265,7 @@ fn spawn_setting_children(
     inc: SettingsButton,
     value: f32,
     asset_server: &Res<AssetServer>,
+    label_bg: BackgroundColor,
 ) -> impl Bundle {
     (
         Node {
@@ -317,7 +324,7 @@ fn spawn_setting_children(
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                BackgroundColor(Color::WHITE.with_alpha(0.08)),
+                label_bg,
                 BorderRadius::all(Val::Px(6.)),
                 children![{
                     if label == "Shape:" {
