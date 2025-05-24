@@ -358,6 +358,9 @@ impl<Param: SystemParam> SystemState<Param> {
     ) -> FunctionSystem<Marker, F> {
         FunctionSystem {
             func,
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
             state: Some(FunctionSystemState {
                 param: self.param_state,
                 world_id: self.world_id,
@@ -595,6 +598,8 @@ where
     F: SystemParamFunction<Marker>,
 {
     func: F,
+    #[cfg(feature = "hotpatching")]
+    current_ptr: subsecond::HotFnPtr,
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
     archetype_generation: ArchetypeGeneration,
@@ -635,6 +640,9 @@ where
     fn clone(&self) -> Self {
         Self {
             func: self.func.clone(),
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
             archetype_generation: ArchetypeGeneration::initial(),
@@ -656,6 +664,9 @@ where
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
             archetype_generation: ArchetypeGeneration::initial(),
@@ -737,10 +748,36 @@ where
         //   will ensure that there are no data access conflicts.
         let params =
             unsafe { F::Param::get_param(param_state, &self.system_meta, world, change_tick) };
+
+        // SAFETY:
+        // - this is not safe
+        // - no way
+        // - nu uh
+        // - not even marked as unsafe, that's how unsafe this is
+        // - enjoy
+        #[cfg(feature = "hotpatching")]
+        let out = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+            .try_call_with_ptr(self.current_ptr, (&mut self.func, input, params))
+            .expect("Error calling hotpatched system. Run a full rebuild");
+        #[cfg(not(feature = "hotpatching"))]
         let out = self.func.run(input, params);
+
         self.system_meta.last_run = change_tick;
         out
     }
+
+    #[inline]
+    #[cfg(feature = "hotpatching")]
+    fn refresh_hotpatch(&mut self) {
+        let new = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run).ptr_address();
+        if new != self.current_ptr {
+            log::debug!("system {} hotpatched", self.name());
+        }
+        self.current_ptr = new;
+    }
+    #[inline]
+    #[cfg(not(feature = "hotpatching"))]
+    fn refresh_hotpatch(&mut self) {}
 
     #[inline]
     fn apply_deferred(&mut self, world: &mut World) {

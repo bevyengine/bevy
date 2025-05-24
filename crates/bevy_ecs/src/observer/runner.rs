@@ -366,12 +366,17 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     };
 
     // SAFETY:
-    // - `update_archetype_component_access` is called first
+    // - `update_archetype_component_access` is called before any world access
     // - there are no outstanding references to world except a private component
     // - system is an `ObserverSystem` so won't mutate world beyond the access of a `DeferredWorld`
     //   and is never exclusive
     // - system is the same type erased system from above
     unsafe {
+        // Always refresh hotpatch pointers
+        // There's no guarantee that the `HotPatched` event would still be there once the observer is triggered.
+        #[cfg(feature = "hotpatching")]
+        (*system).refresh_hotpatch();
+
         (*system).update_archetype_component_access(world);
         match (*system).validate_param_unsafe(world) {
             Ok(()) => {
