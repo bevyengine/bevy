@@ -63,7 +63,7 @@ use crate::{
 #[reflect(Component, Debug, Clone)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
     /// The original target of this picking event, before bubbling
-    pub target: Entity,
+    pub original_target: Entity,
     /// The pointer that triggered this event
     pub pointer_id: PointerId,
     /// The location of the pointer during this event
@@ -136,7 +136,7 @@ impl<E: Debug + Clone + Reflect> Pointer<E> {
     /// Construct a new `Pointer<E>` event.
     pub fn new(id: PointerId, location: Location, target: Entity, event: E) -> Self {
         Self {
-            target,
+            original_target: target,
             pointer_id: id,
             pointer_location: location,
             event,
