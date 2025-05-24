@@ -74,10 +74,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Tonemapping::TonyMcMapface,
         Bloom::NATURAL,
     ));

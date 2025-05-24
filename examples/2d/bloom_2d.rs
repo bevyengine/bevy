@@ -25,7 +25,6 @@ fn setup(
     commands.spawn((
         Camera2d,
         Camera {
-            hdr: true, // 1. HDR is required for bloom
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
