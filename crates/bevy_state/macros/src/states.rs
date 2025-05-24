@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Pat, Path, Result};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, LitBool, Pat, Path, Result};
 
 use crate::bevy_state_path;
 
@@ -13,14 +13,16 @@ struct StatesAttrs {
 
 fn parse_states_attr(ast: &DeriveInput) -> Result<StatesAttrs> {
     let mut attrs = StatesAttrs {
-        scoped_entities_enabled: false,
+        scoped_entities_enabled: true,
     };
 
     for attr in ast.attrs.iter() {
         if attr.path().is_ident(STATES) {
             attr.parse_nested_meta(|nested| {
                 if nested.path.is_ident(SCOPED_ENTITIES) {
-                    attrs.scoped_entities_enabled = true;
+                    if let Ok(value) = nested.value() {
+                        attrs.scoped_entities_enabled = value.parse::<LitBool>()?.value();
+                    }
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))

@@ -25,7 +25,6 @@ fn main() {
             TimerMode::Repeating,
         )))
         .init_state::<GameState>()
-        .enable_state_scoped_entities::<GameState>()
         .add_systems(Startup, setup_cameras)
         .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(

@@ -10,7 +10,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<GameState>()
-        .enable_state_scoped_entities::<GameState>()
         .add_systems(Startup, setup_camera)
         .add_systems(OnEnter(GameState::A), on_a_enter)
         .add_systems(OnEnter(GameState::B), on_b_enter)
