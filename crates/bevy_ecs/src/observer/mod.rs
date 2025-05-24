@@ -536,6 +536,8 @@ impl World {
     /// Spawns a "global" [`Observer`] which will watch for the given event.
     /// Returns its [`Entity`] as a [`EntityWorldMut`].
     ///
+    /// `system` can be any system whose first parameter is a [`Trigger`].
+    ///
     /// **Calling [`observe`](EntityWorldMut::observe) on the returned
     /// [`EntityWorldMut`] will observe the observer itself, which you very
     /// likely do not want.**
