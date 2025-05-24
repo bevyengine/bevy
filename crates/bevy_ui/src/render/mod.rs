@@ -1676,22 +1676,21 @@ pub fn prepare_uinodes(
                                 let mut flipped_points = points;
                                 if *flip_x {
                                     core::mem::swap(&mut rect.max.x, &mut rect.min.x);
-                                    for i in 0..4 {
-                                        flipped_points[i].x *= -1.;
+                                    for fp in &mut flipped_points {
+                                        fp.x *= -1.;
                                     }
                                 }
                                 if *flip_y {
                                     core::mem::swap(&mut rect.max.y, &mut rect.min.y);
-                                    for i in 0..4 {
-                                        flipped_points[i].y *= -1.;
+                                    for fp in &mut flipped_points {
+                                        fp.y *= -1.;
                                     }
                                 }
 
-                                let uvs = flipped_points.map(|p| {
+                                // uvs
+                                flipped_points.map(|p| {
                                     (p * scale_rect + atlas_image_rect.center()) / atlas_size
-                                });
-
-                                uvs
+                                })
                             };
 
                             let color = extracted_uinode.color.to_f32_array();
