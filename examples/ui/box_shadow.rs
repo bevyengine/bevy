@@ -37,6 +37,11 @@ const SHAPES: &[(&str, fn(&mut Node, &mut BorderRadius))] = &[
         node.height = Val::Px(80.);
         *radius = BorderRadius::all(Val::Px(32.));
     }),
+        ("5", |node, radius| {
+        node.width = Val::Px(80.);
+        node.height = Val::Px(240.);
+        *radius = BorderRadius::all(Val::Px(32.));
+    }),
 ];
 
 #[derive(Resource, Default)]
