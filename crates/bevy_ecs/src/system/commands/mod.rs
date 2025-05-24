@@ -1231,15 +1231,32 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Level(u32);
     ///
+    ///
+    /// #[derive(Component, Default)]
+    /// struct Mana {
+    ///     max: u32,
+    ///     current: u32,
+    /// }
+    ///
     /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     // If a component already exists then modify it, otherwise insert a default value
     ///     commands
     ///         .entity(player.entity)
     ///         .entry::<Level>()
-    ///         // Modify the component if it exists.
     ///         .and_modify(|mut lvl| lvl.0 += 1)
-    ///         // Otherwise, insert a default value.
     ///         .or_insert(Level(0));
+    ///
+    ///     // Add a default value if none exists, and then modify the existing or new value
+    ///     commands
+    ///         .entity(player.entity)
+    ///         .entry::<Mana>()
+    ///         .or_default()
+    ///         .and_modify(|mut mana| {
+    ///             mana.max += 10;
+    ///             mana.current = mana.max;
+    ///     });
     /// }
+    ///
     /// # bevy_ecs::system::assert_is_system(level_up_system);
     /// ```
     pub fn entry<T: Component>(&mut self) -> EntityEntryCommands<T> {
