@@ -7,7 +7,6 @@
 )]
 
 pub mod auto_exposure;
-pub mod blit;
 pub mod bloom;
 pub mod core_2d;
 pub mod core_3d;
@@ -35,7 +34,6 @@ pub mod prelude {
 }
 
 use crate::{
-    blit::BlitPlugin,
     bloom::BloomPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
@@ -73,7 +71,6 @@ impl Plugin for CorePipelinePlugin {
             .register_type::<DeferredPrepass>()
             .add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
             .add_plugins((
-                BlitPlugin,
                 MsaaWritebackPlugin,
                 TonemappingPlugin,
                 UpscalingPlugin,
