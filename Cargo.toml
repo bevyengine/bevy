@@ -4390,3 +4390,14 @@ name = "Extended Bindless Material"
 description = "Demonstrates bindless `ExtendedMaterial`"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "flappy_bird"
+path = "examples/games/flappy_bird.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.flappy_bird]
+name = "Flappy Bird"
+description = "An implementation of the game \"Flappy Bird\"."
+category = "Games"
+wasm = true
