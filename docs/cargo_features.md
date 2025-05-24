@@ -93,6 +93,8 @@ The default feature set enables most of the expected features of a game engine, 
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
+|pbr_clustered_decals|Enable support for Clustered Decals|
+|pbr_light_textures|Enable support for Light Textures|
 |pbr_multi_layer_material_textures|Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_specular_textures|Enable support for specular textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|

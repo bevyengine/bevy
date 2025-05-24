@@ -45,6 +45,7 @@ use bevy_render::{
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
 use core::{hash::Hash, marker::PhantomData, ops::Range};
+use decal::clustered::RenderClusteredDecals;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 use tracing::{error, warn};
@@ -122,6 +123,7 @@ pub struct GpuDirectionalLight {
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
     skip: u32,
+    decal_index: u32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -778,7 +780,10 @@ pub fn prepare_lights(
     directional_lights: Query<(Entity, &MainEntity, &ExtractedDirectionalLight)>,
     mut light_view_entities: Query<&mut LightViewEntities>,
     sorted_cameras: Res<SortedCameras>,
-    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    (gpu_preprocessing_support, decals): (
+        Res<GpuPreprocessingSupport>,
+        Option<Res<RenderClusteredDecals>>,
+    ),
 ) {
     let views_iter = views.iter();
     let views_count = views_iter.len();
@@ -998,8 +1003,12 @@ pub fn prepare_lights(
             shadow_normal_bias: light.shadow_normal_bias,
             shadow_map_near_z: light.shadow_map_near_z,
             spot_light_tan_angle,
-            pad_a: 0.0,
-            pad_b: 0.0,
+            decal_index: decals
+                .as_ref()
+                .and_then(|decals| decals.get(entity))
+                .and_then(|index| index.try_into().ok())
+                .unwrap_or(u32::MAX),
+            pad: 0.0,
             soft_shadow_size: if light.soft_shadows_enabled {
                 light.radius
             } else {
@@ -1011,7 +1020,7 @@ pub fn prepare_lights(
 
     let mut gpu_directional_lights = [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS];
     let mut num_directional_cascades_enabled = 0usize;
-    for (index, (_light_entity, _, light)) in directional_lights
+    for (index, (light_entity, _, light)) in directional_lights
         .iter()
         .enumerate()
         .take(MAX_DIRECTIONAL_LIGHTS)
@@ -1039,6 +1048,7 @@ pub fn prepare_lights(
             .bounds
             .len()
             .min(MAX_CASCADES_PER_LIGHT);
+
         gpu_directional_lights[index] = GpuDirectionalLight {
             // Set to true later when necessary.
             skip: 0u32,
@@ -1056,6 +1066,11 @@ pub fn prepare_lights(
             num_cascades: num_cascades as u32,
             cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
             depth_texture_base_index: num_directional_cascades_enabled as u32,
+            decal_index: decals
+                .as_ref()
+                .and_then(|decals| decals.get(*light_entity))
+                .and_then(|index| index.try_into().ok())
+                .unwrap_or(u32::MAX),
         };
         if index < directional_shadow_enabled_count {
             num_directional_cascades_enabled += num_cascades;
