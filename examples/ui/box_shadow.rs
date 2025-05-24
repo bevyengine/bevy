@@ -1,5 +1,6 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
+use bevy::time::Time;
 use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
@@ -61,7 +62,7 @@ struct ShadowSettings {
 #[derive(Component)]
 struct ShadowNode;
 
-#[derive(Component)]
+#[derive(Component, PartialEq, Clone, Copy)]
 enum SettingsButton {
     XOffsetInc,
     XOffsetDec,
@@ -81,12 +82,20 @@ enum SettingsButton {
 #[derive(Component)]
 struct ValueLabel(String);
 
+#[derive(Resource, Default)]
+struct HeldButton {
+    button: Option<SettingsButton>,
+    pressed_at: Option<f64>,
+    last_repeat: Option<f64>,
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(WinitSettings::desktop_app())
+        .insert_resource(WinitSettings::default())
         .insert_resource(SHADOW_DEFAULT_SETTINGS)
         .insert_resource(SHAPE_DEFAULT_SETTINGS)
+        .insert_resource(HeldButton::default())
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -95,6 +104,7 @@ fn main() {
                 button_color_system,
                 update_shape,
                 update_shadow,
+                button_repeat_system,
             ),
         )
         .run();
@@ -501,43 +511,87 @@ fn button_system(
     >,
     mut shadow: ResMut<ShadowSettings>,
     mut shape: ResMut<ShapeSettings>,
+    mut held: ResMut<HeldButton>,
+    time: Res<Time>,
 ) {
+    let now = time.elapsed_secs_f64();
     for (interaction, btn) in &mut interaction_query {
-        if *interaction == Interaction::Pressed {
-            match btn {
-                SettingsButton::XOffsetInc => shadow.x_offset += 1.0,
-                SettingsButton::XOffsetDec => shadow.x_offset -= 1.0,
-                SettingsButton::YOffsetInc => shadow.y_offset += 1.0,
-                SettingsButton::YOffsetDec => shadow.y_offset -= 1.0,
-                SettingsButton::BlurInc => shadow.blur = (shadow.blur + 1.0).max(0.0),
-                SettingsButton::BlurDec => shadow.blur = (shadow.blur - 1.0).max(0.0),
-                SettingsButton::SpreadInc => shadow.spread += 1.0,
-                SettingsButton::SpreadDec => shadow.spread -= 1.0,
-                SettingsButton::CountInc => {
-                    if shadow.count < 3 {
-                        shadow.count += 1;
-                    }
-                }
-                SettingsButton::CountDec => {
-                    if shadow.count > 1 {
-                        shadow.count -= 1;
-                    }
-                }
-                SettingsButton::ShapePrev => {
-                    if shape.index == 0 {
-                        shape.index = SHAPES.len() - 1;
-                    } else {
-                        shape.index -= 1;
-                    }
-                }
-                SettingsButton::ShapeNext => {
-                    shape.index = (shape.index + 1) % SHAPES.len();
-                }
-                SettingsButton::Reset => {
-                    *shape = SHAPE_DEFAULT_SETTINGS;
-                    *shadow = SHADOW_DEFAULT_SETTINGS;
+        match *interaction {
+            Interaction::Pressed => {
+                trigger_button_action(btn, &mut shadow, &mut shape);
+                held.button = Some(*btn);
+                held.pressed_at = Some(now);
+                held.last_repeat = Some(now);
+            }
+            Interaction::None | Interaction::Hovered => {
+                if held.button == Some(*btn) {
+                    held.button = None;
+                    held.pressed_at = None;
+                    held.last_repeat = None;
                 }
             }
+        }
+    }
+}
+
+fn trigger_button_action(
+    btn: &SettingsButton,
+    shadow: &mut ShadowSettings,
+    shape: &mut ShapeSettings,
+) {
+    match btn {
+        SettingsButton::XOffsetInc => shadow.x_offset += 1.0,
+        SettingsButton::XOffsetDec => shadow.x_offset -= 1.0,
+        SettingsButton::YOffsetInc => shadow.y_offset += 1.0,
+        SettingsButton::YOffsetDec => shadow.y_offset -= 1.0,
+        SettingsButton::BlurInc => shadow.blur = (shadow.blur + 1.0).max(0.0),
+        SettingsButton::BlurDec => shadow.blur = (shadow.blur - 1.0).max(0.0),
+        SettingsButton::SpreadInc => shadow.spread += 1.0,
+        SettingsButton::SpreadDec => shadow.spread -= 1.0,
+        SettingsButton::CountInc => {
+            if shadow.count < 3 {
+                shadow.count += 1;
+            }
+        }
+        SettingsButton::CountDec => {
+            if shadow.count > 1 {
+                shadow.count -= 1;
+            }
+        }
+        SettingsButton::ShapePrev => {
+            if shape.index == 0 {
+                shape.index = SHAPES.len() - 1;
+            } else {
+                shape.index -= 1;
+            }
+        }
+        SettingsButton::ShapeNext => {
+            shape.index = (shape.index + 1) % SHAPES.len();
+        }
+        SettingsButton::Reset => {
+            *shape = SHAPE_DEFAULT_SETTINGS;
+            *shadow = SHADOW_DEFAULT_SETTINGS;
+        }
+    }
+}
+
+// System to repeat button action while held
+fn button_repeat_system(
+    time: Res<Time>,
+    mut held: ResMut<HeldButton>,
+    mut shadow: ResMut<ShadowSettings>,
+    mut shape: ResMut<ShapeSettings>,
+) {
+    const INITIAL_DELAY: f64 = 0.15;
+    const REPEAT_RATE: f64 = 0.08;
+    if let (Some(btn), Some(pressed_at)) = (held.button, held.pressed_at) {
+        let now = time.elapsed_secs_f64();
+        let since_pressed = now - pressed_at;
+        let last_repeat = held.last_repeat.unwrap_or(pressed_at);
+        let since_last = now - last_repeat;
+        if since_pressed > INITIAL_DELAY && since_last > REPEAT_RATE {
+            trigger_button_action(&btn, &mut shadow, &mut shape);
+            held.last_repeat = Some(now);
         }
     }
 }
