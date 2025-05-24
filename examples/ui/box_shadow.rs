@@ -37,7 +37,7 @@ const SHAPES: &[(&str, fn(&mut Node, &mut BorderRadius))] = &[
         node.height = Val::Px(80.);
         *radius = BorderRadius::all(Val::Px(32.));
     }),
-        ("5", |node, radius| {
+    ("5", |node, radius| {
         node.width = Val::Px(80.);
         node.height = Val::Px(240.);
         *radius = BorderRadius::all(Val::Px(32.));
@@ -120,7 +120,7 @@ fn setup(
             },
             BackgroundColor(GRAY.into()),
         ))
-        .with_children(|parent| {
+        .insert(children![{
             let mut node = Node {
                 width: Val::Px(164.),
                 height: Val::Px(164.),
@@ -132,7 +132,7 @@ fn setup(
             let mut radius = BorderRadius::ZERO;
             SHAPES[shape.index % SHAPES.len()].1(&mut node, &mut radius);
 
-            parent.spawn((
+            (
                 node,
                 BorderColor(WHITE.into()),
                 radius,
@@ -145,8 +145,8 @@ fn setup(
                     blur_radius: Val::Px(shadow.blur),
                 }]),
                 ShadowNode,
-            ));
-        });
+            )
+        }]);
 
     // Settings Panel
     commands
@@ -169,129 +169,123 @@ fn setup(
             BorderRadius::all(Val::Px(12.0)),
             ZIndex(10),
         ))
-        .with_children(|parent| {
+        .insert(children![
             // Shape settings
-            spawn_setting(
-                parent,
+            spawn_setting_children(
                 "Shape:",
                 SettingsButton::ShapePrev,
                 SettingsButton::ShapeNext,
                 shape.index as f32,
                 &asset_server,
-            );
+            ),
             // Shadow settings
-            for (label, dec, inc, value) in [
-                (
-                    "X Offset:",
-                    SettingsButton::XOffsetDec,
-                    SettingsButton::XOffsetInc,
-                    shadow.x_offset,
-                ),
-                (
-                    "Y Offset:",
-                    SettingsButton::YOffsetDec,
-                    SettingsButton::YOffsetInc,
-                    shadow.y_offset,
-                ),
-                (
-                    "Blur:",
-                    SettingsButton::BlurDec,
-                    SettingsButton::BlurInc,
-                    shadow.blur,
-                ),
-                (
-                    "Spread:",
-                    SettingsButton::SpreadDec,
-                    SettingsButton::SpreadInc,
-                    shadow.spread,
-                ),
-                (
-                    "Count:",
-                    SettingsButton::CountDec,
-                    SettingsButton::CountInc,
-                    shadow.count as f32,
-                ),
-            ] {
-                spawn_setting(parent, label, dec, inc, value, &asset_server);
-            }
-
+            spawn_setting_children(
+                "X Offset:",
+                SettingsButton::XOffsetDec,
+                SettingsButton::XOffsetInc,
+                shadow.x_offset,
+                &asset_server,
+            ),
+            spawn_setting_children(
+                "Y Offset:",
+                SettingsButton::YOffsetDec,
+                SettingsButton::YOffsetInc,
+                shadow.y_offset,
+                &asset_server,
+            ),
+            spawn_setting_children(
+                "Blur:",
+                SettingsButton::BlurDec,
+                SettingsButton::BlurInc,
+                shadow.blur,
+                &asset_server,
+            ),
+            spawn_setting_children(
+                "Spread:",
+                SettingsButton::SpreadDec,
+                SettingsButton::SpreadInc,
+                shadow.spread,
+                &asset_server,
+            ),
+            spawn_setting_children(
+                "Count:",
+                SettingsButton::CountDec,
+                SettingsButton::CountInc,
+                shadow.count as f32,
+                &asset_server,
+            ),
             // Reset button
-            parent
-                .spawn(Node {
+            (
+                Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     height: Val::Px(36.0),
                     margin: UiRect::top(Val::Px(12.0)),
                     justify_content: JustifyContent::Center,
                     ..default()
-                })
-                .with_children(|row| {
-                    row.spawn((
-                        Button,
-                        Node {
-                            width: Val::Px(90.),
-                            height: Val::Px(32.),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        BackgroundColor(Color::WHITE),
-                        BorderRadius::all(Val::Px(8.)),
-                        SettingsButton::Reset,
-                    ))
-                    .with_children(|btn| {
-                        btn.spawn((
-                            Text::new("Reset"),
-                            TextFont {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 16.0,
-                                ..default()
-                            },
-                            TextColor(Color::WHITE),
-                        ));
-                    });
-                });
-        });
-}
-
-// --- UI Helper Functions ---
-
-// Shadow settings (now also used for shape selector)
-fn spawn_setting(
-    parent: &mut ChildSpawnerCommands,
-    label: &str,
-    dec: SettingsButton,
-    inc: SettingsButton,
-    value: f32,
-    asset_server: &Res<AssetServer>,
-) {
-    parent
-        .spawn(Node {
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            height: Val::Px(32.0),
-            ..default()
-        })
-        .with_children(|row| {
-            row.spawn((Node {
-                width: Val::Px(80.0),
-                justify_content: JustifyContent::FlexEnd,
-                align_items: AlignItems::Center,
-                ..default()
-            },))
-                .with_children(|label_node| {
-                    label_node.spawn((
-                        Text::new(label),
+                },
+                children![(
+                    Button,
+                    Node {
+                        width: Val::Px(90.),
+                        height: Val::Px(32.),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(Color::WHITE),
+                    BorderRadius::all(Val::Px(8.)),
+                    SettingsButton::Reset,
+                    children![(
+                        Text::new("Reset"),
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 16.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),
-                    ));
-                });
-            // Decrement button
-            row.spawn((
+                    )],
+                )],
+            ),
+        ]);
+}
+
+// --- UI Helper Functions ---
+
+// Helper to return children! macro output for a setting row
+fn spawn_setting_children(
+    label: &str,
+    dec: SettingsButton,
+    inc: SettingsButton,
+    value: f32,
+    asset_server: &Res<AssetServer>,
+) -> impl Bundle {
+    (
+        Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            height: Val::Px(32.0),
+            ..default()
+        },
+        children![
+            (
+                Node {
+                    width: Val::Px(80.0),
+                    justify_content: JustifyContent::FlexEnd,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                children![(
+                    Text::new(label),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 16.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                )],
+            ),
+            (
                 Button,
                 Node {
                     width: Val::Px(28.),
@@ -304,9 +298,7 @@ fn spawn_setting(
                 BackgroundColor(Color::WHITE),
                 BorderRadius::all(Val::Px(6.)),
                 dec,
-            ))
-            .with_children(|btn| {
-                btn.spawn((
+                children![(
                     Text::new(if label == "Shape:" { "<" } else { "-" }),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -314,10 +306,9 @@ fn spawn_setting(
                         ..default()
                     },
                     TextColor(Color::WHITE),
-                ));
-            });
-            // Value display
-            row.spawn((
+                )],
+            ),
+            (
                 Node {
                     width: Val::Px(48.),
                     height: Val::Px(28.),
@@ -328,39 +319,37 @@ fn spawn_setting(
                 },
                 BackgroundColor(Color::WHITE.with_alpha(0.08)),
                 BorderRadius::all(Val::Px(6.)),
-            ))
-            .with_children(|val_node| {
-                // For shape selector, show the shape label, else show the value
-                if label == "Shape:" {
-                    val_node.spawn((
-                        Text::new(SHAPES[value as usize % SHAPES.len()].0),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                        ValueLabel(label.to_string()),
-                    ));
-                } else {
-                    val_node.spawn((
-                        Text::new(if label == "Count:" {
-                            format!("{}", value as usize)
-                        } else {
-                            format!("{:.1}", value)
-                        }),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                        ValueLabel(label.to_string()),
-                    ));
-                }
-            });
-            // Increment button
-            row.spawn((
+                children![{
+                    if label == "Shape:" {
+                        (
+                            Text::new(SHAPES[value as usize % SHAPES.len()].0),
+                            TextFont {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 16.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                            ValueLabel(label.to_string()),
+                        )
+                    } else {
+                        (
+                            Text::new(if label == "Count:" {
+                                format!("{}", value as usize)
+                            } else {
+                                format!("{:.1}", value)
+                            }),
+                            TextFont {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 16.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                            ValueLabel(label.to_string()),
+                        )
+                    }
+                }],
+            ),
+            (
                 Button,
                 Node {
                     width: Val::Px(28.),
@@ -372,9 +361,7 @@ fn spawn_setting(
                 BackgroundColor(Color::WHITE),
                 BorderRadius::all(Val::Px(6.)),
                 inc,
-            ))
-            .with_children(|btn| {
-                btn.spawn((
+                children![(
                     Text::new(if label == "Shape:" { ">" } else { "+" }),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -382,9 +369,10 @@ fn spawn_setting(
                         ..default()
                     },
                     TextColor(Color::WHITE),
-                ));
-            });
-        });
+                )],
+            ),
+        ],
+    )
 }
 
 // --- SYSTEMS ---
