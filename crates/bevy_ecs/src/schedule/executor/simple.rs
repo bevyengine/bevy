@@ -60,7 +60,8 @@ impl SystemExecutor for SimpleExecutor {
             self.completed_systems |= skipped_systems;
         }
 
-        for system_index in 0..schedule.systems.len() {
+        let mut system_index: usize = 0;
+        while system_index < schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
             #[cfg(feature = "trace")]
@@ -124,10 +125,12 @@ impl SystemExecutor for SimpleExecutor {
             self.completed_systems.insert(system_index);
 
             if !should_run {
+                system_index += 1;
                 continue;
             }
 
             if is_apply_deferred(system) {
+                system_index += 1;
                 continue;
             }
 
@@ -155,6 +158,12 @@ impl SystemExecutor for SimpleExecutor {
             #[cfg(not(feature = "std"))]
             {
                 (f)();
+            }
+
+            if system.yielded() {
+                self.completed_systems.remove(system_index);
+            } else {
+                system_index += 1;
             }
         }
 

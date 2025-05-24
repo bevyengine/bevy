@@ -60,7 +60,8 @@ impl SystemExecutor for SingleThreadedExecutor {
             self.completed_systems |= skipped_systems;
         }
 
-        for system_index in 0..schedule.systems.len() {
+        let mut system_index: usize = 0;
+        while system_index < schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
             #[cfg(feature = "trace")]
@@ -125,11 +126,13 @@ impl SystemExecutor for SingleThreadedExecutor {
             self.completed_systems.insert(system_index);
 
             if !should_run {
+                system_index += 1;
                 continue;
             }
 
             if is_apply_deferred(system) {
                 self.apply_deferred(schedule, world);
+                system_index += 1;
                 continue;
             }
 
@@ -161,7 +164,12 @@ impl SystemExecutor for SingleThreadedExecutor {
                 (f)();
             }
 
-            self.unapplied_systems.insert(system_index);
+            if system.yielded() {
+                self.completed_systems.remove(system_index);
+            } else {
+                self.unapplied_systems.insert(system_index);
+                system_index += 1;
+            }
         }
 
         if self.apply_final_deferred {
