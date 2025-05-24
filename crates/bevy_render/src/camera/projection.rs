@@ -1,6 +1,9 @@
 use core::fmt::Debug;
 
-use crate::{primitives::Frustum, view::VisibilitySystems};
+use crate::{
+    primitives::{Frustum, SubRect},
+    view::VisibilitySystems,
+};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::AssetEventSystems;
 use bevy_derive::{Deref, DerefMut};
@@ -70,7 +73,7 @@ pub trait CameraProjection {
     fn get_clip_from_view(&self) -> Mat4;
 
     /// Generate the projection matrix for a [`SubCameraView`](super::SubCameraView).
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4;
+    fn get_clip_from_view_for_sub(&self, sub_rect: &SubRect) -> Mat4;
 
     /// When the area this camera renders to changes dimensions, this method will be automatically
     /// called. Use this to update any projection properties that depend on the aspect ratio or
@@ -261,7 +264,7 @@ impl CameraProjection for Projection {
         }
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+    fn get_clip_from_view_for_sub(&self, sub_view: &SubRect) -> Mat4 {
         match self {
             Projection::Perspective(projection) => projection.get_clip_from_view_for_sub(sub_view),
             Projection::Orthographic(projection) => projection.get_clip_from_view_for_sub(sub_view),
@@ -337,14 +340,14 @@ impl CameraProjection for PerspectiveProjection {
         Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near)
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
-        let full_width = sub_view.full_size.x as f32;
-        let full_height = sub_view.full_size.y as f32;
-        let sub_width = sub_view.size.x as f32;
-        let sub_height = sub_view.size.y as f32;
-        let offset_x = sub_view.offset.x;
+    fn get_clip_from_view_for_sub(&self, sub_rect: &SubRect) -> Mat4 {
+        let full_width = sub_rect.full_size.x as f32;
+        let full_height = sub_rect.full_size.y as f32;
+        let sub_width = sub_rect.size.x as f32;
+        let sub_height = sub_rect.size.y as f32;
+        let offset_x = sub_rect.offset.x;
         // Y-axis increases from top to bottom
-        let offset_y = full_height - (sub_view.offset.y + sub_height);
+        let offset_y = full_height - (sub_rect.offset.y + sub_height);
 
         let full_aspect = full_width / full_height;
 
@@ -565,13 +568,13 @@ impl CameraProjection for OrthographicProjection {
         )
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
-        let full_width = sub_view.full_size.x as f32;
-        let full_height = sub_view.full_size.y as f32;
-        let offset_x = sub_view.offset.x;
-        let offset_y = sub_view.offset.y;
-        let sub_width = sub_view.size.x as f32;
-        let sub_height = sub_view.size.y as f32;
+    fn get_clip_from_view_for_sub(&self, sub_rect: &SubRect) -> Mat4 {
+        let full_width = sub_rect.full_size.x as f32;
+        let full_height = sub_rect.full_size.y as f32;
+        let offset_x = sub_rect.offset.x;
+        let offset_y = sub_rect.offset.y;
+        let sub_width = sub_rect.size.x as f32;
+        let sub_height = sub_rect.size.y as f32;
 
         let full_aspect = full_width / full_height;
 
