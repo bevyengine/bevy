@@ -7,7 +7,7 @@
 //! - We can also toggle "Turbo Mode" with the `T` key - where the movement and color changes are all faster. This
 //!   is retained between pauses, but not if we exit to the main menu.
 //!
-//! In addition, we want to enable a "tutorial" mode, which will involve it's own state that is toggled in the main menu.
+//! In addition, we want to enable a "tutorial" mode, which will involve its own state that is toggled in the main menu.
 //! This will display instructions about movement and turbo mode when in game and unpaused, and instructions on how to unpause when paused.
 //!
 //! To implement this, we will create 2 root-level states: [`AppState`] and [`TutorialState`].

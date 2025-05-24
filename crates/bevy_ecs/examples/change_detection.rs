@@ -84,7 +84,7 @@ fn print_changed_entities(
     entity_with_mutated_component: Query<(Entity, &Age), Changed<Age>>,
 ) {
     for entity in &entity_with_added_component {
-        println!("    {entity} has it's first birthday!");
+        println!("    {entity} has its first birthday!");
     }
     for (entity, value) in &entity_with_mutated_component {
         println!("    {entity} is now {value:?} frames old");
