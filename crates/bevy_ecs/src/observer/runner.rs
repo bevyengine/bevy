@@ -2,7 +2,7 @@ use alloc::{boxed::Box, vec};
 use core::any::Any;
 
 use crate::{
-    component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
+    component::{ComponentHook, ComponentId, HookContext, Mutable, NoKey, StorageType},
     error::{ErrorContext, ErrorHandler},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
@@ -301,6 +301,7 @@ impl Observer {
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
+    type Key = NoKey<Self>;
     fn on_add() -> Option<ComponentHook> {
         Some(|world, context| {
             let Some(observe) = world.get::<Self>(context.entity) else {
