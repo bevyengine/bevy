@@ -1,39 +1,29 @@
+use crate::Volume;
 use bevy_ecs::component::Component;
 use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
+use core::time::Duration;
+pub use rodio::source::SeekError;
 use rodio::{Sink, SpatialSink};
 
 /// Common interactions with an audio sink.
 pub trait AudioSinkPlayback {
-    /// Gets the volume of the sound.
-    ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value
-    /// other than `1.0` will multiply each sample by this value.
+    /// Gets the volume of the sound as a [`Volume`].
     ///
     /// If the sink is muted, this returns the managed volume rather than the
-    /// sink's actual volume. This allows you to use the volume as if the sink
-    /// were not muted, because a muted sink has a volume of 0.
-    fn volume(&self) -> f32;
+    /// sink's actual volume. This allows you to use the returned volume as if
+    /// the sink were not muted, because a muted sink has a physical volume of
+    /// 0.
+    fn volume(&self) -> Volume;
 
-    /// Changes the volume of the sound.
-    ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
-    /// will multiply each sample by this value.
+    /// Changes the volume of the sound to the given [`Volume`].
     ///
     /// If the sink is muted, changing the volume won't unmute it, i.e. the
-    /// sink's volume will remain at `0.0`. However, the sink will remember the
-    /// volume change and it will be used when [`unmute`](Self::unmute) is
-    /// called. This allows you to control the volume even when the sink is
-    /// muted.
-    ///
-    /// # Note on Audio Volume
-    ///
-    /// An increase of 10 decibels (dB) roughly corresponds to the perceived volume doubling in intensity.
-    /// As this function scales not the volume but the amplitude, a conversion might be necessary.
-    /// For example, to halve the perceived volume you need to decrease the volume by 10 dB.
-    /// This corresponds to 20log(x) = -10dB, solving x = 10^(-10/20) = 0.316.
-    /// Multiply the current volume by 0.316 to halve the perceived volume.
-    fn set_volume(&mut self, volume: f32);
+    /// sink's volume will remain "off" / "muted". However, the sink will
+    /// remember the volume change and it will be used when
+    /// [`unmute`](Self::unmute) is called. This allows you to control the
+    /// volume even when the sink is muted.
+    fn set_volume(&mut self, volume: Volume);
 
     /// Gets the speed of the sound.
     ///
@@ -51,6 +41,26 @@ pub trait AudioSinkPlayback {
     ///
     /// No effect if not paused.
     fn play(&self);
+
+    /// Attempts to seek to a given position in the current source.
+    ///
+    /// This blocks between 0 and ~5 milliseconds.
+    ///
+    /// As long as the duration of the source is known, seek is guaranteed to saturate
+    /// at the end of the source. For example given a source that reports a total duration
+    /// of 42 seconds calling `try_seek()` with 60 seconds as argument will seek to
+    /// 42 seconds.
+    ///
+    /// # Errors
+    /// This function will return [`SeekError::NotSupported`] if one of the underlying
+    /// sources does not support seeking.
+    ///
+    /// It will return an error if an implementation ran
+    /// into one during the seek.
+    ///
+    /// When seeking beyond the end of a source, this
+    /// function might return an error if the duration of the source is not known.
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError>;
 
     /// Pauses playback of this sink.
     ///
@@ -132,7 +142,7 @@ pub struct AudioSink {
     /// If the sink is muted, this is `Some(volume)` where `volume` is the
     /// user's intended volume setting, even if the underlying sink's volume is
     /// 0.
-    pub(crate) managed_volume: Option<f32>,
+    pub(crate) managed_volume: Option<Volume>,
 }
 
 impl AudioSink {
@@ -146,15 +156,16 @@ impl AudioSink {
 }
 
 impl AudioSinkPlayback for AudioSink {
-    fn volume(&self) -> f32 {
-        self.managed_volume.unwrap_or_else(|| self.sink.volume())
+    fn volume(&self) -> Volume {
+        self.managed_volume
+            .unwrap_or_else(|| Volume::Linear(self.sink.volume()))
     }
 
-    fn set_volume(&mut self, volume: f32) {
+    fn set_volume(&mut self, volume: Volume) {
         if self.is_muted() {
             self.managed_volume = Some(volume);
         } else {
-            self.sink.set_volume(volume);
+            self.sink.set_volume(volume.to_linear());
         }
     }
 
@@ -168,6 +179,10 @@ impl AudioSinkPlayback for AudioSink {
 
     fn play(&self) {
         self.sink.play();
+    }
+
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
+        self.sink.try_seek(pos)
     }
 
     fn pause(&self) {
@@ -197,7 +212,7 @@ impl AudioSinkPlayback for AudioSink {
 
     fn unmute(&mut self) {
         if let Some(volume) = self.managed_volume.take() {
-            self.sink.set_volume(volume);
+            self.sink.set_volume(volume.to_linear());
         }
     }
 }
@@ -227,7 +242,7 @@ pub struct SpatialAudioSink {
     /// If the sink is muted, this is `Some(volume)` where `volume` is the
     /// user's intended volume setting, even if the underlying sink's volume is
     /// 0.
-    pub(crate) managed_volume: Option<f32>,
+    pub(crate) managed_volume: Option<Volume>,
 }
 
 impl SpatialAudioSink {
@@ -241,15 +256,16 @@ impl SpatialAudioSink {
 }
 
 impl AudioSinkPlayback for SpatialAudioSink {
-    fn volume(&self) -> f32 {
-        self.managed_volume.unwrap_or_else(|| self.sink.volume())
+    fn volume(&self) -> Volume {
+        self.managed_volume
+            .unwrap_or_else(|| Volume::Linear(self.sink.volume()))
     }
 
-    fn set_volume(&mut self, volume: f32) {
+    fn set_volume(&mut self, volume: Volume) {
         if self.is_muted() {
             self.managed_volume = Some(volume);
         } else {
-            self.sink.set_volume(volume);
+            self.sink.set_volume(volume.to_linear());
         }
     }
 
@@ -263,6 +279,10 @@ impl AudioSinkPlayback for SpatialAudioSink {
 
     fn play(&self) {
         self.sink.play();
+    }
+
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
+        self.sink.try_seek(pos)
     }
 
     fn pause(&self) {
@@ -292,7 +312,7 @@ impl AudioSinkPlayback for SpatialAudioSink {
 
     fn unmute(&mut self) {
         if let Some(volume) = self.managed_volume.take() {
-            self.sink.set_volume(volume);
+            self.sink.set_volume(volume.to_linear());
         }
     }
 }
@@ -326,11 +346,11 @@ mod tests {
 
     fn test_audio_sink_playback<T: AudioSinkPlayback>(mut audio_sink: T) {
         // Test volume
-        assert_eq!(audio_sink.volume(), 1.0); // default volume
-        audio_sink.set_volume(0.5);
-        assert_eq!(audio_sink.volume(), 0.5);
-        audio_sink.set_volume(1.0);
-        assert_eq!(audio_sink.volume(), 1.0);
+        assert_eq!(audio_sink.volume(), Volume::Linear(1.0)); // default volume
+        audio_sink.set_volume(Volume::Linear(0.5));
+        assert_eq!(audio_sink.volume(), Volume::Linear(0.5));
+        audio_sink.set_volume(Volume::Linear(1.0));
+        assert_eq!(audio_sink.volume(), Volume::Linear(1.0));
 
         // Test speed
         assert_eq!(audio_sink.speed(), 1.0); // default speed
@@ -361,11 +381,11 @@ mod tests {
         assert!(!audio_sink.is_muted());
 
         // Test volume with mute
-        audio_sink.set_volume(0.5);
+        audio_sink.set_volume(Volume::Linear(0.5));
         audio_sink.mute();
-        assert_eq!(audio_sink.volume(), 0.5); // returns managed volume even though sink volume is 0
+        assert_eq!(audio_sink.volume(), Volume::Linear(0.5)); // returns managed volume even though sink volume is 0
         audio_sink.unmute();
-        assert_eq!(audio_sink.volume(), 0.5); // managed volume is restored
+        assert_eq!(audio_sink.volume(), Volume::Linear(0.5)); // managed volume is restored
 
         // Test toggle mute
         audio_sink.toggle_mute();

@@ -2,6 +2,9 @@ use core::fmt::Display;
 use serde::de::Error;
 
 #[cfg(feature = "debug_stack")]
+use std::thread_local;
+
+#[cfg(feature = "debug_stack")]
 thread_local! {
     /// The thread-local [`TypeInfoStack`] used for debugging.
     ///

@@ -8,9 +8,6 @@
 //! It also provides `no_std` compatible alternatives to certain floating-point
 //! operations which are not provided in the [`core`] library.
 
-#![allow(dead_code)]
-#![allow(clippy::disallowed_methods)]
-
 // Note: There are some Rust methods with unspecified precision without a `libm`
 // equivalent:
 // - `f32::powi` (integer powers)
@@ -22,7 +19,11 @@
 // - `f32::gamma`
 // - `f32::ln_gamma`
 
-#[cfg(not(feature = "libm"))]
+#[cfg(all(not(feature = "libm"), feature = "std"))]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Many of the disallowed methods are disallowed to force code to use the feature-conditional re-exports from this module, but this module itself is exempt from that rule."
+)]
 mod std_ops {
 
     /// Raises a number to a floating point power.
@@ -232,7 +233,7 @@ mod std_ops {
     }
 }
 
-#[cfg(feature = "libm")]
+#[cfg(any(feature = "libm", all(feature = "nostd-libm", not(feature = "std"))))]
 mod libm_ops {
 
     /// Raises a number to a floating point power.
@@ -447,7 +448,7 @@ mod libm_ops {
     }
 }
 
-#[cfg(all(feature = "libm", not(feature = "std")))]
+#[cfg(all(any(feature = "libm", feature = "nostd-libm"), not(feature = "std")))]
 mod libm_ops_for_no_std {
     //! Provides standardized names for [`f32`] operations which may not be
     //! supported on `no_std` platforms.
@@ -509,6 +510,14 @@ mod libm_ops_for_no_std {
         libm::floorf(x)
     }
 
+    /// Returns the smallest integer greater than or equal to `x`.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn ceil(x: f32) -> f32 {
+        libm::ceilf(x)
+    }
+
     /// Returns the fractional part of `x`.
     ///
     /// This function always returns the precise result.
@@ -519,6 +528,10 @@ mod libm_ops_for_no_std {
 }
 
 #[cfg(feature = "std")]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Many of the disallowed methods are disallowed to force code to use the feature-conditional re-exports from this module, but this module itself is exempt from that rule."
+)]
 mod std_ops_for_no_std {
     //! Provides standardized names for [`f32`] operations which may not be
     //! supported on `no_std` platforms.
@@ -576,6 +589,14 @@ mod std_ops_for_no_std {
         f32::floor(x)
     }
 
+    /// Returns the smallest integer greater than or equal to `x`.
+    ///
+    /// This function always returns the precise result.
+    #[inline(always)]
+    pub fn ceil(x: f32) -> f32 {
+        f32::ceil(x)
+    }
+
     /// Returns the fractional part of `x`.
     ///
     /// This function always returns the precise result.
@@ -585,20 +606,24 @@ mod std_ops_for_no_std {
     }
 }
 
-#[cfg(feature = "libm")]
+#[cfg(any(feature = "libm", all(feature = "nostd-libm", not(feature = "std"))))]
 pub use libm_ops::*;
 
-#[cfg(not(feature = "libm"))]
+#[cfg(all(not(feature = "libm"), feature = "std"))]
 pub use std_ops::*;
 
 #[cfg(feature = "std")]
 pub use std_ops_for_no_std::*;
 
-#[cfg(all(feature = "libm", not(feature = "std")))]
+#[cfg(all(any(feature = "libm", feature = "nostd-libm"), not(feature = "std")))]
 pub use libm_ops_for_no_std::*;
 
-#[cfg(all(not(feature = "libm"), not(feature = "std")))]
-compile_error!("Either the `libm` feature or the `std` feature must be enabled.");
+#[cfg(all(
+    not(feature = "libm"),
+    not(feature = "std"),
+    not(feature = "nostd-libm")
+))]
+compile_error!("Either the `libm`, `std`, or `nostd-libm` feature must be enabled.");
 
 /// This extension trait covers shortfall in determinacy from the lack of a `libm` counterpart
 /// to `f32::powi`. Use this for the common small exponents.

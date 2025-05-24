@@ -6,6 +6,7 @@ use async_fs::{read_dir, File};
 use futures_io::AsyncSeek;
 use futures_lite::StreamExt;
 
+use alloc::{borrow::ToOwned, boxed::Box};
 use core::{pin::Pin, task, task::Poll};
 use std::path::Path;
 
@@ -72,6 +73,15 @@ impl AssetReader for FileAssetReader {
                             if ext.eq_ignore_ascii_case("meta") {
                                 return None;
                             }
+                        }
+                        // filter out hidden files. they are not listed by default but are directly targetable
+                        if path
+                            .file_name()
+                            .and_then(|file_name| file_name.to_str())
+                            .map(|file_name| file_name.starts_with('.'))
+                            .unwrap_or_default()
+                        {
+                            return None;
                         }
                         let relative_path = path.strip_prefix(&root_path).unwrap();
                         Some(relative_path.to_owned())

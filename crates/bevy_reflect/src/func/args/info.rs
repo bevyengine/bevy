@@ -6,9 +6,6 @@ use crate::{
     Type, TypePath,
 };
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 /// Type information for an [`Arg`] used in a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`Arg`]: crate::func::args::Arg

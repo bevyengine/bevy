@@ -1,10 +1,10 @@
 use alloc::ffi::CString;
-use bevy_utils::tracing::{
+use core::fmt::{Debug, Write};
+use tracing::{
     field::Field,
     span::{Attributes, Record},
     Event, Id, Level, Subscriber,
 };
-use core::fmt::{Debug, Write};
 use tracing_subscriber::{field::Visit, layer::Context, registry::LookupSpan, Layer};
 
 #[derive(Default)]

@@ -1,11 +1,11 @@
 use bevy_ecs::prelude::*;
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
     render_resource::{StorageBuffer, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::{Entry, HashMap};
 
 use super::{pipeline::AutoExposureUniform, AutoExposure};
 

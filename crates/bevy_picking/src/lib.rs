@@ -7,7 +7,7 @@
 //! allows you to express more complex interactions, like detecting when a touch input drags a UI
 //! element and drops it on a 3d mesh rendered to a different camera.
 //!
-//! Pointer events bubble up the entity hieararchy and can be used with observers, allowing you to
+//! Pointer events bubble up the entity hierarchy and can be used with observers, allowing you to
 //! succinctly express rich interaction behaviors by attaching pointer callbacks to entities:
 //!
 //! ```rust
@@ -64,7 +64,7 @@
 //!             commands.entity(trigger.target()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
-//!             events.send(Greeting);
+//!             events.write(Greeting);
 //!         });
 //! }
 //! ```
@@ -142,7 +142,7 @@
 //! just because a pointer is over an entity, it is not necessarily *hovering* that entity. Although
 //! multiple backends may be reporting that a pointer is hitting an entity, the hover system needs
 //! to determine which entities are actually being hovered by this pointer based on the pick depth,
-//! order of the backend, and the optional [`PickingBehavior`] component of the entity. In other
+//! order of the backend, and the optional [`Pickable`] component of the entity. In other
 //! words, if one entity is in front of another, usually only the topmost one will be hovered.
 //!
 //! #### Events ([`events`])
@@ -179,21 +179,24 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
-        MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
+        MeshPickingCamera, MeshPickingPlugin, MeshPickingSettings,
     };
     #[doc(hidden)]
     pub use crate::{
         events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
-        InteractionPlugin, PickingBehavior, PickingPlugin,
+        InteractionPlugin, Pickable, PickingPlugin,
     };
 }
 
-/// An optional component that overrides default picking behavior for an entity, allowing you to
-/// make an entity non-hoverable, or allow items below it to be hovered. See the documentation on
-/// the fields for more details.
+/// An optional component that marks an entity as usable by a backend, and overrides default
+/// picking behavior for an entity.
+///
+/// This allows you to make an entity non-hoverable, or allow items below it to be hovered.
+///
+/// See the documentation on the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
-pub struct PickingBehavior {
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct Pickable {
     /// Should this entity block entities below it from being picked?
     ///
     /// This is useful if you want picking to continue hitting entities below this one. Normally,
@@ -213,7 +216,7 @@ pub struct PickingBehavior {
     /// element will be marked as hovered. However, if this field is set to `false`, both the UI
     /// element *and* the mesh will be marked as hovered.
     ///
-    /// Entities without the [`PickingBehavior`] component will block by default.
+    /// Entities without the [`Pickable`] component will block by default.
     pub should_block_lower: bool,
 
     /// If this is set to `false` and `should_block_lower` is set to true, this entity will block
@@ -228,11 +231,11 @@ pub struct PickingBehavior {
     /// components mark it as hovered. This can be combined with the other field
     /// [`Self::should_block_lower`], which is orthogonal to this one.
     ///
-    /// Entities without the [`PickingBehavior`] component are hoverable by default.
+    /// Entities without the [`Pickable`] component are hoverable by default.
     pub is_hoverable: bool,
 }
 
-impl PickingBehavior {
+impl Pickable {
     /// This entity will not block entities beneath it, nor will it emit events.
     ///
     /// If a backend reports this entity as being hit, the picking plugin will completely ignore it.
@@ -242,7 +245,7 @@ impl PickingBehavior {
     };
 }
 
-impl Default for PickingBehavior {
+impl Default for Pickable {
     fn default() -> Self {
         Self {
             should_block_lower: true,
@@ -253,7 +256,7 @@ impl Default for PickingBehavior {
 
 /// Groups the stages of the picking process under shared labels.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum PickSet {
+pub enum PickingSystems {
     /// Produces pointer input events. In the [`First`] schedule.
     Input,
     /// Runs after input events are generated but before commands are flushed. In the [`First`]
@@ -266,12 +269,16 @@ pub enum PickSet {
     /// Reads [`backend::PointerHits`]s, and updates the hovermap, selection, and highlighting states. In
     /// the [`PreUpdate`] schedule.
     Hover,
-    /// Runs after all the [`PickSet::Hover`] systems are done, before event listeners are triggered. In the
+    /// Runs after all the [`PickingSystems::Hover`] systems are done, before event listeners are triggered. In the
     /// [`PreUpdate`] schedule.
     PostHover,
     /// Runs after all other picking sets. In the [`PreUpdate`] schedule.
     Last,
 }
+
+/// Deprecated alias for [`PickingSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `PickingSystems`.")]
+pub type PickSet = PickingSystems;
 
 /// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
 /// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
@@ -297,7 +304,7 @@ impl PluginGroup for DefaultPickingPlugins {
 /// This plugin contains several settings, and is added to the world as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
-#[reflect(Resource, Default, Debug)]
+#[reflect(Resource, Default, Debug, Clone)]
 pub struct PickingPlugin {
     /// Enables and disables all picking features.
     pub is_enabled: bool,
@@ -356,34 +363,35 @@ impl Plugin for PickingPlugin {
                     pointer::PointerInput::receive,
                     backend::ray::RayMap::repopulate.after(pointer::PointerInput::receive),
                 )
-                    .in_set(PickSet::ProcessInput),
+                    .in_set(PickingSystems::ProcessInput),
             )
             .add_systems(
                 PreUpdate,
                 window::update_window_hits
                     .run_if(Self::window_picking_should_run)
-                    .in_set(PickSet::Backend),
+                    .in_set(PickingSystems::Backend),
             )
             .configure_sets(
                 First,
-                (PickSet::Input, PickSet::PostInput)
-                    .after(bevy_time::TimeSystem)
-                    .after(bevy_ecs::event::EventUpdates)
+                (PickingSystems::Input, PickingSystems::PostInput)
+                    .after(bevy_time::TimeSystems)
+                    .after(bevy_ecs::event::EventUpdateSystems)
                     .chain(),
             )
             .configure_sets(
                 PreUpdate,
                 (
-                    PickSet::ProcessInput.run_if(Self::input_should_run),
-                    PickSet::Backend,
-                    PickSet::Hover.run_if(Self::hover_should_run),
-                    PickSet::PostHover,
-                    PickSet::Last,
+                    PickingSystems::ProcessInput.run_if(Self::input_should_run),
+                    PickingSystems::Backend,
+                    PickingSystems::Hover.run_if(Self::hover_should_run),
+                    PickingSystems::PostHover,
+                    PickingSystems::Last,
                 )
                     .chain(),
             )
             .register_type::<Self>()
-            .register_type::<PickingBehavior>()
+            .register_type::<Pickable>()
+            .register_type::<hover::PickingInteraction>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
@@ -418,11 +426,12 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Out>>()
             .add_event::<Pointer<Over>>()
             .add_event::<Pointer<Released>>()
+            .add_event::<Pointer<Scroll>>()
             .add_systems(
                 PreUpdate,
                 (generate_hovermap, update_interactions, pointer_events)
                     .chain()
-                    .in_set(PickSet::Hover),
+                    .in_set(PickingSystems::Hover),
             );
     }
 }

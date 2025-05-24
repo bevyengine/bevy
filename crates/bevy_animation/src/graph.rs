@@ -14,10 +14,11 @@ use bevy_ecs::{
     component::Component,
     event::EventReader,
     reflect::ReflectComponent,
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut},
 };
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};
-use bevy_utils::HashMap;
 use derive_more::derive::From;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -107,7 +108,7 @@ use crate::{AnimationClip, AnimationTargetId};
 ///
 /// [RFC 51]: https://github.com/bevyengine/rfcs/blob/main/rfcs/51-animation-composition.md
 #[derive(Asset, Reflect, Clone, Debug, Serialize)]
-#[reflect(Serialize, Debug)]
+#[reflect(Serialize, Debug, Clone)]
 #[serde(into = "SerializedAnimationGraph")]
 pub struct AnimationGraph {
     /// The `petgraph` data structure that defines the animation graph.
@@ -130,7 +131,7 @@ pub struct AnimationGraph {
 
 /// A [`Handle`] to the [`AnimationGraph`] to be used by the [`AnimationPlayer`](crate::AnimationPlayer) on the same entity.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct AnimationGraphHandle(pub Handle<AnimationGraph>);
 
 impl From<AnimationGraphHandle> for AssetId<AnimationGraph> {
@@ -163,6 +164,7 @@ pub type AnimationNodeIndex = NodeIndex<u32>;
 /// of the graph, contain animation clips to play. Blend and add nodes describe
 /// how to combine their children to produce a final animation.
 #[derive(Clone, Reflect, Debug)]
+#[reflect(Clone)]
 pub struct AnimationGraphNode {
     /// Animation node data specific to the type of node (clip, blend, or add).
     ///
@@ -204,6 +206,7 @@ pub struct AnimationGraphNode {
 /// In the case of clip nodes, this contains the actual animation clip
 /// associated with the node.
 #[derive(Clone, Default, Reflect, Debug)]
+#[reflect(Clone)]
 pub enum AnimationNodeType {
     /// A *clip node*, which plays an animation clip.
     ///
@@ -883,10 +886,10 @@ impl ThreadedAnimationGraph {
 
         self.sorted_edge_ranges.clear();
         self.sorted_edge_ranges
-            .extend(iter::repeat(0..0).take(node_count));
+            .extend(iter::repeat_n(0..0, node_count));
 
         self.computed_masks.clear();
-        self.computed_masks.extend(iter::repeat(0).take(node_count));
+        self.computed_masks.extend(iter::repeat_n(0, node_count));
     }
 
     /// Recursively constructs the [`ThreadedAnimationGraph`] for the subtree

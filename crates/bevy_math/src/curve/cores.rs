@@ -147,7 +147,7 @@ pub enum EvenCoreError {
     },
 
     /// Unbounded domains are not compatible with `EvenCore`.
-    #[error("Cannot create a EvenCore over an unbounded domain")]
+    #[error("Cannot create an EvenCore over an unbounded domain")]
     UnboundedDomain,
 }
 
@@ -697,6 +697,7 @@ pub fn uneven_interp(times: &[f32], t: f32) -> InterpolationDatum<usize> {
 mod tests {
     use super::{ChunkedUnevenCore, EvenCore, UnevenCore};
     use crate::curve::{cores::InterpolationDatum, interval};
+    use alloc::vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
 
     fn approx_between<T>(datum: InterpolationDatum<T>, start: T, end: T, p: f32) -> bool

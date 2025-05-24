@@ -1,9 +1,7 @@
 //! Screen space reflections implemented via raymarching.
 
-#![expect(deprecated)]
-
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},
@@ -14,13 +12,13 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    bundle::Bundle,
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs as _,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    schedule::IntoScheduleConfigs as _,
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -39,9 +37,10 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
-use bevy_utils::{info_once, prelude::default};
+use bevy_utils::{once, prelude::default};
+use tracing::info;
 
 use crate::{
     binding_arrays_are_usable, graph::NodePbr, prelude::EnvironmentMapLight,
@@ -50,29 +49,13 @@ use crate::{
     ViewLightsUniformOffset,
 };
 
-const SSR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10438925299917978850);
-const RAYMARCH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8517409683450840946);
+const SSR_SHADER_HANDLE: Handle<Shader> = weak_handle!("0b559df2-0d61-4f53-bf62-aea16cf32787");
+const RAYMARCH_SHADER_HANDLE: Handle<Shader> = weak_handle!("798cc6fc-6072-4b6c-ab4f-83905fa4a19e");
 
 /// Enables screen-space reflections for a camera.
 ///
 /// Screen-space reflections are currently only supported with deferred rendering.
 pub struct ScreenSpaceReflectionsPlugin;
-
-/// A convenient bundle to add screen space reflections to a camera, along with
-/// the depth and deferred prepasses required to enable them.
-#[derive(Bundle, Default)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `ScreenSpaceReflections` components instead. Inserting it will now also insert the other components required by it automatically."
-)]
-pub struct ScreenSpaceReflectionsBundle {
-    /// The component that enables SSR.
-    pub settings: ScreenSpaceReflections,
-    /// The depth prepass, needed for SSR.
-    pub depth_prepass: DepthPrepass,
-    /// The deferred prepass, needed for SSR.
-    pub deferred_prepass: DeferredPrepass,
-}
 
 /// Add this component to a camera to enable *screen-space reflections* (SSR).
 ///
@@ -98,7 +81,7 @@ pub struct ScreenSpaceReflectionsBundle {
 /// bug whereby Naga doesn't generate correct GLSL when sampling depth buffers,
 /// which is required for screen-space raymarching.
 #[derive(Clone, Copy, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[require(DepthPrepass, DeferredPrepass)]
 #[doc(alias = "Ssr")]
 pub struct ScreenSpaceReflections {
@@ -141,9 +124,6 @@ pub struct ScreenSpaceReflections {
     /// gradient.
     pub use_secant: bool,
 }
-
-#[deprecated(since = "0.15.0", note = "Renamed to `ScreenSpaceReflections`")]
-pub type ScreenSpaceReflectionsSettings = ScreenSpaceReflections;
 
 /// A version of [`ScreenSpaceReflections`] for upload to the GPU.
 ///
@@ -216,10 +196,10 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
 
         render_app
             .init_resource::<ScreenSpaceReflectionsBuffer>()
-            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSet::Prepare))
+            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
                 Render,
-                prepare_ssr_settings.in_set(RenderSet::PrepareResources),
+                prepare_ssr_settings.in_set(RenderSystems::PrepareResources),
             )
             .add_render_graph_node::<ViewNodeRunner<ScreenSpaceReflectionsNode>>(
                 Core3d,
@@ -524,10 +504,10 @@ impl ExtractComponent for ScreenSpaceReflections {
 
     fn extract_component(settings: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
-            info_once!(
+            once!(info!(
                 "Disabling screen-space reflections on this platform because depth textures \
                 aren't supported correctly"
-            );
+            ));
             return None;
         }
 

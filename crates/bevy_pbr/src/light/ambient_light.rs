@@ -4,6 +4,8 @@ use super::*;
 ///
 /// This resource is inserted by the [`PbrPlugin`] and by default it is set to a low ambient light.
 ///
+/// It can also be added to a camera to override the resource (or default) ambient for that camera only.
+///
 /// # Examples
 ///
 /// Make ambient light slightly brighter:
@@ -15,8 +17,9 @@ use super::*;
 ///    ambient_light.brightness = 100.0;
 /// }
 /// ```
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[derive(Resource, Component, Clone, Debug, ExtractResource, ExtractComponent, Reflect)]
+#[reflect(Resource, Component, Debug, Default, Clone)]
+#[require(Camera)]
 pub struct AmbientLight {
     pub color: Color,
 

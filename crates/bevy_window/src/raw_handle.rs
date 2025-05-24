@@ -1,18 +1,16 @@
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "This module acts as a wrapper around the `raw_window_handle` crate, which exposes many unsafe interfaces; thus, we have to use unsafe code here."
+)]
 
 use alloc::sync::Arc;
 use bevy_ecs::prelude::Component;
+use bevy_platform::sync::Mutex;
 use core::{any::Any, marker::PhantomData, ops::Deref};
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WindowHandle,
 };
-
-#[cfg(feature = "std")]
-use std::sync::Mutex;
-
-#[cfg(not(feature = "std"))]
-use spin::mutex::Mutex;
 
 /// A wrapper over a window.
 ///
@@ -52,6 +50,10 @@ impl<W: 'static> Deref for WindowWrapper<W> {
 /// thread-safe.
 #[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapper {
+    /// A shared reference to the window.
+    /// This allows us to extend the lifetime of the window,
+    /// so it doesn’t get eagerly dropped while a pipelined
+    /// renderer still has frames in flight that need to draw to it.
     _window: Arc<dyn Any + Send + Sync>,
     /// Raw handle to a window.
     window_handle: RawWindowHandle,

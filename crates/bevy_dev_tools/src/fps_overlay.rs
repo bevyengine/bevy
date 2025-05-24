@@ -8,18 +8,20 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
+    prelude::Local,
     query::With,
-    schedule::{common_conditions::resource_changed, IntoSystemConfigs},
-    system::{Commands, Query, Res, Resource},
+    resource::Resource,
+    schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
+    system::{Commands, Query, Res},
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
+use bevy_time::Time;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
     GlobalZIndex, Node, PositionType,
 };
-use bevy_utils::default;
+use core::time::Duration;
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
@@ -43,7 +45,7 @@ impl Plugin for FpsOverlayPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
-            app.add_plugins(FrameTimeDiagnosticsPlugin);
+            app.add_plugins(FrameTimeDiagnosticsPlugin::default());
         }
         app.insert_resource(self.config.clone())
             .add_systems(Startup, setup)
@@ -66,6 +68,10 @@ pub struct FpsOverlayConfig {
     pub text_color: Color,
     /// Displays the FPS overlay if true.
     pub enabled: bool,
+    /// The period after which the FPS overlay re-renders.
+    ///
+    /// Defaults to once every 100 ms.
+    pub refresh_interval: Duration,
 }
 
 impl Default for FpsOverlayConfig {
@@ -74,10 +80,11 @@ impl Default for FpsOverlayConfig {
             text_config: TextFont {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,
-                ..default()
+                ..Default::default()
             },
             text_color: Color::WHITE,
             enabled: true,
+            refresh_interval: Duration::from_millis(100),
         }
     }
 }
@@ -91,7 +98,7 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
             Node {
                 // We need to make sure the overlay doesn't affect the position of other UI nodes
                 position_type: PositionType::Absolute,
-                ..default()
+                ..Default::default()
             },
             // Render overlay on top of everything
             GlobalZIndex(FPS_OVERLAY_ZINDEX),
@@ -111,11 +118,18 @@ fn update_text(
     diagnostic: Res<DiagnosticsStore>,
     query: Query<Entity, With<FpsText>>,
     mut writer: TextUiWriter,
+    time: Res<Time>,
+    config: Res<FpsOverlayConfig>,
+    mut time_since_rerender: Local<Duration>,
 ) {
-    for entity in &query {
-        if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                *writer.text(entity, 1) = format!("{value:.2}");
+    *time_since_rerender += time.delta();
+    if *time_since_rerender >= config.refresh_interval {
+        *time_since_rerender = Duration::ZERO;
+        for entity in &query {
+            if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
+                if let Some(value) = fps.smoothed() {
+                    *writer.text(entity, 1) = format!("{value:.2}");
+                }
             }
         }
     }

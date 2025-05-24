@@ -1,12 +1,11 @@
 use bevy_asset::{Assets, Handle};
-use bevy_image::{Image, ImageSampler};
+use bevy_image::{prelude::*, ImageSampler};
 use bevy_math::{IVec2, UVec2};
+use bevy_platform::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlasLayout};
-use bevy_utils::HashMap;
 
 use crate::{FontSmoothing, GlyphAtlasLocation, TextError};
 
@@ -21,7 +20,7 @@ use crate::{FontSmoothing, GlyphAtlasLocation, TextError};
 /// providing a trade-off between visual quality and performance.
 ///
 /// A [`CacheKey`](cosmic_text::CacheKey) encodes all of the information of a subpixel-offset glyph and is used to
-/// find that glyphs raster in a [`TextureAtlas`](bevy_sprite::TextureAtlas) through its corresponding [`GlyphAtlasLocation`].
+/// find that glyphs raster in a [`TextureAtlas`] through its corresponding [`GlyphAtlasLocation`].
 pub struct FontAtlas {
     /// Used to update the [`TextureAtlasLayout`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
@@ -98,7 +97,7 @@ impl FontAtlas {
         let atlas_layout = atlas_layouts.get_mut(&self.texture_atlas).unwrap();
         let atlas_texture = textures.get_mut(&self.texture).unwrap();
 
-        if let Some(glyph_index) =
+        if let Ok(glyph_index) =
             self.dynamic_texture_atlas_builder
                 .add_texture(atlas_layout, texture, atlas_texture)
         {

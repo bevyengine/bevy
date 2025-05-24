@@ -5,10 +5,10 @@
 
 use bevy::{
     prelude::*,
-    utils::Duration,
     window::{PresentMode, RequestRedraw, WindowPlugin},
     winit::{EventLoopProxyWrapper, WakeUp, WinitSettings},
 };
+use core::time::Duration;
 
 fn main() {
     App::new()
@@ -87,14 +87,14 @@ fn update_winit(
             // when there are no inputs, so you send redraw requests while the animation is playing.
             // Note that in this example the RequestRedraw winit event will make the app run in the same
             // way as continuous
-            redraw_request_events.send(RequestRedraw);
+            redraw_request_events.write(RequestRedraw);
             WinitSettings::desktop_app()
         }
         ApplicationWithWakeUp => {
             // Sending a `WakeUp` event is useful when you want the app to update the next
             // frame regardless of any user input. This can be used from outside Bevy, see example
             // `window/custom_user_event.rs` for an example usage from outside.
-            // Note that in this example the Wakeup winit event will make the app run in the same
+            // Note that in this example the `WakeUp` winit event will make the app run in the same
             // way as continuous
             let _ = event_loop_proxy.send_event(WakeUp);
             WinitSettings::desktop_app()
@@ -112,7 +112,7 @@ pub(crate) mod test_setup {
         window::RequestRedraw,
     };
 
-    /// Switch between update modes when the mouse is clicked.
+    /// Switch between update modes when the spacebar is pressed.
     pub(crate) fn cycle_modes(
         mut mode: ResMut<ExampleMode>,
         button_input: Res<ButtonInput<KeyCode>>,
@@ -184,7 +184,7 @@ pub(crate) mod test_setup {
             Camera3d::default(),
             Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
-        event.send(RequestRedraw);
+        event.write(RequestRedraw);
         commands
             .spawn((
                 Text::default(),

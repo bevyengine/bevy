@@ -21,11 +21,17 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect,
         serde::{ReflectSerializer, ReflectSerializerProcessor},
         PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };
-    use bevy_utils::{HashMap, HashSet};
+    #[cfg(feature = "functions")]
+    use alloc::boxed::Box;
+    use alloc::{
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
+    use bevy_platform::collections::{HashMap, HashSet};
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
     use ron::{extensions::Extensions, ser::PrettyConfig};
     use serde::{Serialize, Serializer};
@@ -343,7 +349,8 @@ mod tests {
         let registry = get_registry();
 
         let serializer = ReflectSerializer::new(&input, &registry);
-        let bytes = bincode::serialize(&serializer).unwrap();
+        let config = bincode::config::standard().with_fixed_int_encoding();
+        let bytes = bincode::serde::encode_to_vec(&serializer, config).unwrap();
 
         let expected: Vec<u8> = vec![
             1, 0, 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 114, 101, 102,
@@ -401,7 +408,7 @@ mod tests {
             some: Some(SomeStruct { foo: 999999999 }),
             none: None,
         };
-        let dynamic = value.clone_dynamic();
+        let dynamic = value.to_dynamic_struct();
         let reflect = dynamic.as_partial_reflect();
 
         let registry = get_registry();
@@ -647,6 +654,7 @@ mod tests {
     mod functions {
         use super::*;
         use crate::func::{DynamicFunction, IntoFunction};
+        use alloc::string::ToString;
 
         #[test]
         fn should_not_serialize_function() {

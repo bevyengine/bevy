@@ -6,6 +6,7 @@ use crate::io::{
     PathStream, Reader, Writer,
 };
 
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},
@@ -144,6 +145,16 @@ impl AssetReader for FileAssetReader {
                                 return None;
                             }
                         }
+                        // filter out hidden files. they are not listed by default but are directly targetable
+                        if path
+                            .file_name()
+                            .and_then(|file_name| file_name.to_str())
+                            .map(|file_name| file_name.starts_with('.'))
+                            .unwrap_or_default()
+                        {
+                            return None;
+                        }
+
                         let relative_path = path.strip_prefix(&root_path).unwrap();
                         Some(relative_path.to_owned())
                     })

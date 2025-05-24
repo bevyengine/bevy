@@ -1,7 +1,7 @@
-// FIXME(11590): remove this once the lint is fixed
-#![allow(unsafe_op_in_unsafe_fn)]
-// TODO: remove once Edition 2024 is released
-#![allow(dependency_on_unit_never_type_fallback)]
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
@@ -11,17 +11,23 @@
     )
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
-#![allow(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
 extern crate alloc;
+
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_ecs;
 
 pub mod archetype;
 pub mod batching;
@@ -29,18 +35,23 @@ pub mod bundle;
 pub mod change_detection;
 pub mod component;
 pub mod entity;
+pub mod entity_disabling;
+pub mod error;
 pub mod event;
-pub mod identifier;
+pub mod hierarchy;
 pub mod intern;
 pub mod label;
 pub mod name;
+pub mod never;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod relationship;
 pub mod removal_detection;
-pub mod result;
+pub mod resource;
 pub mod schedule;
+pub mod spawn;
 pub mod storage;
 pub mod system;
 pub mod traversal;
@@ -52,31 +63,36 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
-        component::{require, Component},
-        entity::{Entity, EntityBorrow, EntityMapper},
+        children,
+        component::Component,
+        entity::{ContainsEntity, Entity, EntityMapper},
+        error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
+        hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
-        observer::{CloneEntityWithObserversExt, Observer, Trigger},
-        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        observer::{Observer, Trigger},
+        query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        related,
+        relationship::RelationshipTarget,
         removal_detection::RemovedComponents,
-        result::{Error, Result},
+        resource::Resource,
         schedule::{
-            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
-            IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
+            common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
+            Schedules, SystemCondition, SystemSet,
         },
+        spawn::{Spawn, SpawnRelated},
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
-            NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem, Res, ResMut, Resource,
-            Single, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
-            WithParamWarnPolicy,
+            Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
+            IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
+            Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction, When,
         },
         world::{
-            Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
+            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
             FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
@@ -109,25 +125,28 @@ pub mod __macro_exports {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
-        entity::Entity,
+        component::{Component, ComponentId, RequiredComponents, RequiredComponentsError},
+        entity::{Entity, EntityMapper},
+        entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
-        system::Resource,
+        resource::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
-    use alloc::{sync::Arc, vec};
-    use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
+    use alloc::{
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
+    use bevy_platform::collections::HashSet;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
-    use bevy_utils::HashSet;
     use core::{
         any::TypeId,
         marker::PhantomData,
-        num::NonZero,
         sync::atomic::{AtomicUsize, Ordering},
     };
     use std::sync::Mutex;
@@ -139,9 +158,8 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
-    #[allow(dead_code)]
     #[derive(Default)]
-    struct NonSendA(usize, PhantomData<*mut ()>);
+    struct NonSendA(PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -158,8 +176,10 @@ mod tests {
         }
     }
 
-    // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used to test how `Drop` behavior works in regards to SparseSet storage, and as such is solely a wrapper around `DropCk` to make it use the SparseSet storage. Because of this, the inner field is intentionally never read."
+    )]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]
     struct DropCkSparse(DropCk);
@@ -203,13 +223,9 @@ mod tests {
             y: SparseStored,
         }
         let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(
             ids,
@@ -257,13 +273,9 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(
             ids,
@@ -314,8 +326,7 @@ mod tests {
 
         let mut ids = Vec::new();
         <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
+            &mut world.components_registrator(),
             &mut |id| {
                 ids.push(id);
             },
@@ -472,10 +483,9 @@ mod tests {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
@@ -493,10 +503,9 @@ mod tests {
             .par_iter(&world)
             .for_each(|(e, &SparseStored(i))| results.lock().unwrap().push((e, i)));
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
@@ -1200,7 +1209,7 @@ mod tests {
 
     #[test]
     fn resource() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
 
         #[derive(Resource, PartialEq, Debug)]
         struct Num(i32);
@@ -1505,6 +1514,8 @@ mod tests {
     #[test]
     fn filtered_query_access() {
         let mut world = World::new();
+        // We remove entity disabling so it doesn't affect our query filters
+        world.remove_resource::<DefaultQueryFilters>();
         let query = world.query_filtered::<&mut A, Changed<B>>();
 
         let mut expected = FilteredAccess::<ComponentId>::default();
@@ -1524,8 +1535,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        let _ = query.get(&world_a, Entity::from_raw(0));
-        let _ = query.get(&world_b, Entity::from_raw(0));
+        let _ = query.get(&world_a, Entity::from_raw_u32(0).unwrap());
+        let _ = query.get(&world_b, Entity::from_raw_u32(0).unwrap());
     }
 
     #[test]
@@ -1679,89 +1690,6 @@ mod tests {
     }
 
     #[test]
-    fn insert_or_spawn_batch() {
-        let mut world = World::default();
-        let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
-
-        let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
-
-        world.insert_or_spawn_batch(values).unwrap();
-
-        assert_eq!(
-            world.get::<A>(e0),
-            Some(&A(0)),
-            "existing component was preserved"
-        );
-        assert_eq!(
-            world.get::<B>(e0),
-            Some(&B(0)),
-            "pre-existing entity received correct B component"
-        );
-        assert_eq!(
-            world.get::<B>(e1),
-            Some(&B(1)),
-            "new entity was spawned and received correct B component"
-        );
-        assert_eq!(
-            world.get::<C>(e0),
-            Some(&C),
-            "pre-existing entity received C component"
-        );
-        assert_eq!(
-            world.get::<C>(e1),
-            Some(&C),
-            "new entity was spawned and received C component"
-        );
-    }
-
-    #[test]
-    fn insert_or_spawn_batch_invalid() {
-        let mut world = World::default();
-        let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
-        let e2 = world.spawn_empty().id();
-        let invalid_e2 =
-            Entity::from_raw_and_generation(e2.index(), NonZero::<u32>::new(2).unwrap());
-
-        let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
-
-        let result = world.insert_or_spawn_batch(values);
-
-        assert_eq!(
-            result,
-            Err(vec![invalid_e2]),
-            "e2 failed to be spawned or inserted into"
-        );
-
-        assert_eq!(
-            world.get::<A>(e0),
-            Some(&A(0)),
-            "existing component was preserved"
-        );
-        assert_eq!(
-            world.get::<B>(e0),
-            Some(&B(0)),
-            "pre-existing entity received correct B component"
-        );
-        assert_eq!(
-            world.get::<B>(e1),
-            Some(&B(1)),
-            "new entity was spawned and received correct B component"
-        );
-        assert_eq!(
-            world.get::<C>(e0),
-            Some(&C),
-            "pre-existing entity received C component"
-        );
-        assert_eq!(
-            world.get::<C>(e1),
-            Some(&C),
-            "new entity was spawned and received C component"
-        );
-    }
-
-    #[test]
     fn insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
@@ -1849,11 +1777,13 @@ mod tests {
     fn try_insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch(values);
+        let error = world.try_insert_batch(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -1871,11 +1801,13 @@ mod tests {
     fn try_insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch_if_new(values);
+        let error = world.try_insert_batch_if_new(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -1896,7 +1828,7 @@ mod tests {
         struct X;
 
         #[derive(Component)]
-        #[require(Z(new_z))]
+        #[require(Z = new_z())]
         struct Y {
             value: String,
         }
@@ -2001,8 +1933,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn(X).contains::<Y>());
@@ -2031,8 +1963,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn_empty().insert(X).contains::<Y>());
@@ -2616,6 +2548,37 @@ mod tests {
     }
 
     #[test]
+    fn required_components_inheritance_depth_bias() {
+        #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
+        struct MyRequired(bool);
+
+        #[derive(Component, Default)]
+        #[require(MyRequired(false))]
+        struct MiddleMan;
+
+        #[derive(Component, Default)]
+        #[require(MiddleMan)]
+        struct ConflictingRequire;
+
+        #[derive(Component, Default)]
+        #[require(MyRequired(true))]
+        struct MyComponent;
+
+        let mut world = World::new();
+        let order_a = world
+            .spawn((ConflictingRequire, MyComponent))
+            .get::<MyRequired>()
+            .cloned();
+        let order_b = world
+            .spawn((MyComponent, ConflictingRequire))
+            .get::<MyRequired>()
+            .cloned();
+
+        assert_eq!(order_a, Some(MyRequired(true)));
+        assert_eq!(order_b, Some(MyRequired(true)));
+    }
+
+    #[test]
     #[should_panic = "Recursive required components detected: A → B → C → B\nhelp: If this is intentional, consider merging the components."]
     fn required_components_recursion_errors() {
         #[derive(Component, Default)]
@@ -2633,42 +2596,175 @@ mod tests {
         World::new().register_component::<A>();
     }
 
-    // These structs are primarily compilation tests to test the derive macros. Because they are
-    // never constructed, we have to manually silence the `dead_code` lint.
-    #[allow(dead_code)]
+    #[test]
+    #[should_panic = "Recursive required components detected: A → A\nhelp: Remove require(A)."]
+    fn required_components_self_errors() {
+        #[derive(Component, Default)]
+        #[require(A)]
+        struct A;
+
+        World::new().register_component::<A>();
+    }
+
+    #[derive(Default)]
+    struct CaptureMapper(Vec<Entity>);
+    impl EntityMapper for CaptureMapper {
+        fn get_mapped(&mut self, source: Entity) -> Entity {
+            self.0.push(source);
+            source
+        }
+
+        fn set_mapped(&mut self, _source: Entity, _target: Entity) {}
+    }
+
+    #[test]
+    fn map_struct_entities() {
+        #[derive(Component)]
+        #[expect(
+            unused,
+            reason = "extra fields are used to ensure the derive works properly"
+        )]
+        struct Foo(usize, #[entities] Entity);
+
+        #[derive(Component)]
+        #[expect(
+            unused,
+            reason = "extra fields are used to ensure the derive works properly"
+        )]
+        struct Bar {
+            #[entities]
+            a: Entity,
+            b: usize,
+            #[entities]
+            c: Vec<Entity>,
+        }
+
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        let e3 = world.spawn_empty().id();
+
+        let mut foo = Foo(1, e1);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut foo, &mut mapper);
+        assert_eq!(&mapper.0, &[e1]);
+
+        let mut bar = Bar {
+            a: e1,
+            b: 1,
+            c: vec![e2, e3],
+        };
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut bar, &mut mapper);
+        assert_eq!(&mapper.0, &[e1, e2, e3]);
+    }
+
+    #[test]
+    fn map_enum_entities() {
+        #[derive(Component)]
+        #[expect(
+            unused,
+            reason = "extra fields are used to ensure the derive works properly"
+        )]
+        enum Foo {
+            Bar(usize, #[entities] Entity),
+            Baz {
+                #[entities]
+                a: Entity,
+                b: usize,
+                #[entities]
+                c: Vec<Entity>,
+            },
+        }
+
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        let e3 = world.spawn_empty().id();
+
+        let mut foo = Foo::Bar(1, e1);
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut foo, &mut mapper);
+        assert_eq!(&mapper.0, &[e1]);
+
+        let mut foo = Foo::Baz {
+            a: e1,
+            b: 1,
+            c: vec![e2, e3],
+        };
+        let mut mapper = CaptureMapper::default();
+        Component::map_entities(&mut foo, &mut mapper);
+        assert_eq!(&mapper.0, &[e1, e2, e3]);
+    }
+
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct ComponentA(u32);
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct ComponentB(u32);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,
         field1: ComponentB,
     }
 
-    #[allow(dead_code)]
-    #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    #[derive(Component)]
     struct MyEntities {
+        #[entities]
         entities: Vec<Entity>,
+        #[entities]
         another_one: Entity,
+        #[entities]
         maybe_entity: Option<Entity>,
-        #[visit_entities(ignore)]
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         something_else: String,
     }
 
-    #[allow(dead_code)]
-    #[derive(Component, VisitEntities, VisitEntitiesMut)]
-    struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
+    #[derive(Component)]
+    struct MyEntitiesTuple(#[entities] Vec<Entity>, #[entities] Entity, usize);
+
+    #[test]
+    fn clone_entities() {
+        use crate::entity::{ComponentCloneCtx, SourceComponent};
+
+        #[derive(Component)]
+        #[component(clone_behavior = Ignore)]
+        struct IgnoreClone;
+
+        #[derive(Component)]
+        #[component(clone_behavior = Default)]
+        struct DefaultClone;
+
+        #[derive(Component)]
+        #[component(clone_behavior = Custom(custom_clone))]
+        struct CustomClone;
+
+        #[derive(Component, Clone)]
+        #[component(clone_behavior = clone::<Self>())]
+        struct CloneFunction;
+
+        fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
+    }
 }

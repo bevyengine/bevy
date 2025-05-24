@@ -1,21 +1,22 @@
+# If your IDE needs additional project specific files, configure git to ignore them:
+# https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files#configuring-ignored-files-for-all-repositories-on-your-computer
+
 # Rust build artifacts
 target
 crates/**/target
 benches/**/target
 tools/**/target
 **/*.rs.bk
+rustc-ice-*.txt
+
+# DX12 wgpu backend
+dxcompiler.dll
+dxil.dll
 
 # Cargo
 Cargo.lock
 .cargo/config
 .cargo/config.toml
-
-# IDE files
-.idea
-.vscode
-.zed
-dxcompiler.dll
-dxil.dll
 
 # Bevy Assets
 assets/**/*.meta

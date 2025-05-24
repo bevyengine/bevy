@@ -1,7 +1,7 @@
 //! This module contains the systems that update the stored UI nodes stack
 
 use bevy_ecs::prelude::*;
-use bevy_utils::HashSet;
+use bevy_platform::collections::HashSet;
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
@@ -38,7 +38,6 @@ impl ChildBufferCache {
 /// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
-#[allow(clippy::too_many_arguments)]
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
@@ -133,7 +132,6 @@ mod tests {
         system::Commands,
         world::{CommandQueue, World},
     };
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     use crate::{GlobalZIndex, Node, UiStack, ZIndex};
 

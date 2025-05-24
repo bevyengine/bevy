@@ -29,8 +29,6 @@
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
 
-#![allow(clippy::type_complexity)]
-
 extern crate alloc;
 
 mod bounds;
@@ -62,24 +60,21 @@ pub use text_access::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[allow(deprecated)]
-    pub use crate::Text2dBundle;
-    #[doc(hidden)]
     pub use crate::{
         Font, JustifyText, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
         TextFont, TextLayout, TextSpan,
     };
 }
 
-use bevy_app::{prelude::*, Animation};
-use bevy_asset::AssetApp;
+use bevy_app::{prelude::*, AnimationSystems};
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
+use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
+    camera::CameraUpdateSystems, view::VisibilitySystems, ExtractSchedule, RenderApp,
 };
-use bevy_sprite::SpriteSystem;
+use bevy_sprite::SpriteSystems;
 
 /// The raw data for the default font used by `bevy_text`
 #[cfg(feature = "default_font")]
@@ -92,28 +87,22 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 #[derive(Default)]
 pub struct TextPlugin;
 
-/// Text is rendered for two different view projections;
-/// 2-dimensional text ([`Text2d`]) is rendered in "world space" with a `BottomToTop` Y-axis,
-/// while UI is rendered with a `TopToBottom` Y-axis.
-/// This matters for text because the glyph positioning is different in either layout.
-/// For `TopToBottom`, 0 is the top of the text, while for `BottomToTop` 0 is the bottom.
-pub enum YAxisOrientation {
-    /// Top to bottom Y-axis orientation, for UI
-    TopToBottom,
-    /// Bottom to top Y-axis orientation, for 2d world space
-    BottomToTop,
-}
-
 /// System set in [`PostUpdate`] where all 2d text update systems are executed.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct Update2dText;
+pub struct Text2dUpdateSystems;
+
+/// Deprecated alias for [`Text2dUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
+pub type Update2dText = Text2dUpdateSystems;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .register_type::<Text2d>()
             .register_type::<TextFont>()
+            .register_type::<LineHeight>()
             .register_type::<TextColor>()
+            .register_type::<TextBackgroundColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
             .register_type::<TextLayout>()
@@ -128,26 +117,26 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    remove_dropped_font_atlas_sets,
+                    remove_dropped_font_atlas_sets.before(AssetEventSystems),
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout
                         // Potential conflict: `Assets<Image>`
                         // In practice, they run independently since `bevy_render::camera_update_system`
                         // will only ever observe its own render target, and `update_text2d_layout`
                         // will never modify a pre-existing `Image` asset.
-                        .ambiguous_with(CameraUpdateSystem),
+                        .ambiguous_with(CameraUpdateSystems),
                     calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
                 )
                     .chain()
-                    .in_set(Update2dText)
-                    .after(Animation),
+                    .in_set(Text2dUpdateSystems)
+                    .after(AnimationSystems),
             )
             .add_systems(Last, trim_cosmic_cache);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 ExtractSchedule,
-                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+                extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
             );
         }
 

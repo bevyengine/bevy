@@ -10,7 +10,10 @@ use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath};
+use {
+    alloc::format,
+    bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath},
+};
 
 #[cfg(feature = "bevy_reflect")]
 mod paths {
@@ -88,7 +91,7 @@ pub struct FunctionCurve<T, F> {
     pub(crate) domain: Interval,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(crate) f: F,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -189,7 +192,7 @@ pub struct MapCurve<S, T, C, F> {
     pub(crate) preimage: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(crate) f: F,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<(fn() -> S, fn(S) -> T)>,
 }
 
@@ -286,7 +289,7 @@ pub struct ReparamCurve<T, C, F> {
     pub(crate) base: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(crate) f: F,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -380,7 +383,7 @@ pub struct LinearReparamCurve<T, C> {
     pub(crate) base: C,
     /// Invariants: This interval must always be bounded.
     pub(crate) new_domain: Interval,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -413,7 +416,7 @@ where
 pub struct CurveReparamCurve<T, C, D> {
     pub(crate) base: C,
     pub(crate) reparam_curve: D,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -445,7 +448,7 @@ where
 )]
 pub struct GraphCurve<T, C> {
     pub(crate) base: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -477,7 +480,7 @@ pub struct ZipCurve<S, T, C, D> {
     pub(crate) domain: Interval,
     pub(crate) first: C,
     pub(crate) second: D,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> (S, T)>,
 }
 
@@ -517,7 +520,7 @@ where
 pub struct ChainCurve<T, C, D> {
     pub(crate) first: C,
     pub(crate) second: D,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -566,7 +569,7 @@ where
 )]
 pub struct ReverseCurve<T, C> {
     pub(crate) curve: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -608,7 +611,7 @@ where
 pub struct RepeatCurve<T, C> {
     pub(crate) domain: Interval,
     pub(crate) curve: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -666,7 +669,7 @@ where
 )]
 pub struct ForeverCurve<T, C> {
     pub(crate) curve: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -720,7 +723,7 @@ where
 )]
 pub struct PingPongCurve<T, C> {
     pub(crate) curve: C,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
@@ -777,7 +780,7 @@ pub struct ContinuationCurve<T, C, D> {
     pub(crate) second: D,
     // cache the offset in the curve directly to prevent triple sampling for every sample we make
     pub(crate) offset: T,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 

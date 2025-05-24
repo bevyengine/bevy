@@ -259,8 +259,18 @@ macro_rules! impl_system_input_tuple {
             type Param<'i> = ($($name::Param<'i>,)*);
             type Inner<'i> = ($($name::Inner<'i>,)*);
 
-            #[allow(non_snake_case)]
-            #[allow(clippy::unused_unit)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is in a macro; as such, the below lints may not always apply."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Certain variable names are provided by the caller, not by us."
+            )]
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples won't have anything to wrap."
+            )]
             fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
                 let ($($name,)*) = this;
                 ($($name::wrap($name),)*)

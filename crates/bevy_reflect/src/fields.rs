@@ -3,7 +3,9 @@ use crate::{
     type_info::impl_type_methods,
     MaybeTyped, PartialReflect, Type, TypeInfo, TypePath,
 };
-use alloc::sync::Arc;
+use alloc::borrow::Cow;
+use bevy_platform::sync::Arc;
+use core::fmt::{Display, Formatter};
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
@@ -128,4 +130,20 @@ impl UnnamedField {
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "field");
+}
+
+/// A representation of a field's accessor.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FieldId {
+    Named(Cow<'static, str>),
+    Unnamed(usize),
+}
+
+impl Display for FieldId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Named(name) => Display::fmt(name, f),
+            Self::Unnamed(index) => Display::fmt(index, f),
+        }
+    }
 }

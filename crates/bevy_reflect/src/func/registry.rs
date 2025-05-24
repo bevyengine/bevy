@@ -1,11 +1,9 @@
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::borrow::Cow;
+use bevy_platform::{
+    collections::HashMap,
+    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 use core::fmt::Debug;
-use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
-use bevy_utils::HashMap;
 
 use crate::func::{
     ArgList, DynamicFunction, FunctionRegistrationError, FunctionResult, IntoFunction,
@@ -359,6 +357,7 @@ impl FunctionRegistryArc {
 mod tests {
     use super::*;
     use crate::func::{ArgList, IntoFunction};
+    use alloc::format;
 
     #[test]
     fn should_register_function() {
@@ -489,7 +488,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register(add).unwrap();
 
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let result = registry
             .call(core::any::type_name_of_val(&add), args)
             .unwrap();

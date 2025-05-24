@@ -4,8 +4,9 @@ use crate::{
     type_info::impl_type_methods,
     DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
 };
-use alloc::{boxed::Box, format, string::String, sync::Arc};
-use bevy_utils::HashMap;
+use alloc::{boxed::Box, format, string::String};
+use bevy_platform::collections::HashMap;
+use bevy_platform::sync::Arc;
 use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].
@@ -123,8 +124,10 @@ pub trait Enum: PartialReflect {
     fn variant_index(&self) -> usize;
     /// The type of the current variant.
     fn variant_type(&self) -> VariantType;
-    // Clones the enum into a [`DynamicEnum`].
-    fn clone_dynamic(&self) -> DynamicEnum;
+    /// Creates a new [`DynamicEnum`] from this enum.
+    fn to_dynamic_enum(&self) -> DynamicEnum {
+        DynamicEnum::from_ref(self)
+    }
     /// Returns true if the current variant's type matches the given one.
     fn is_variant(&self, variant_type: VariantType) -> bool {
         self.variant_type() == variant_type
@@ -316,7 +319,6 @@ impl<'a> VariantField<'a> {
 // Tests that need access to internal fields have to go here rather than in mod.rs
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
 
     #[derive(Reflect, Debug, PartialEq)]

@@ -4,22 +4,20 @@ use bevy_asset::{AssetId, Assets};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    reflect::ReflectComponent,
-    system::{ResMut, Resource},
+    component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
+    system::ResMut,
 };
-use bevy_image::Image;
-use bevy_math::{UVec2, Vec2};
+use bevy_image::prelude::*;
+use bevy_log::{once, warn};
+use bevy_math::{Rect, UVec2, Vec2};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_sprite::TextureAtlasLayout;
-use bevy_utils::HashMap;
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout, YAxisOrientation,
+    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -81,7 +79,6 @@ impl TextPipeline {
     /// Utilizes [`cosmic_text::Buffer`] to shape and layout text
     ///
     /// Negative or 0.0 font sizes will not be laid out.
-    #[allow(clippy::too_many_arguments)]
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
@@ -98,6 +95,7 @@ impl TextPipeline {
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
         let mut font_size: f32 = 0.;
+        let mut line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
@@ -130,6 +128,7 @@ impl TextPipeline {
 
             // Get max font size for use in cosmic Metrics.
             font_size = font_size.max(text_font.font_size);
+            line_height = line_height.max(text_font.line_height.eval(text_font.font_size));
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
@@ -141,12 +140,15 @@ impl TextPipeline {
 
             // Save spans that aren't zero-sized.
             if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
+                once!(warn!(
+                    "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
+                ));
+
                 continue;
             }
             spans.push((span_index, span, text_font, face_info, color));
         }
 
-        let line_height = font_size * 1.2;
         let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
         // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
         // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
@@ -171,8 +173,7 @@ impl TextPipeline {
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
-        buffer.set_metrics(font_system, metrics);
-        buffer.set_size(font_system, bounds.width, bounds.height);
+        buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
 
         buffer.set_wrap(
             font_system,
@@ -184,14 +185,23 @@ impl TextPipeline {
             },
         );
 
-        buffer.set_rich_text(font_system, spans_iter, Attrs::new(), Shaping::Advanced);
+        buffer.set_rich_text(
+            font_system,
+            spans_iter,
+            &Attrs::new(),
+            Shaping::Advanced,
+            Some(justify.into()),
+        );
 
-        // PERF: https://github.com/pop-os/cosmic-text/issues/166:
-        // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
-        for buffer_line in buffer.lines.iter_mut() {
-            buffer_line.set_align(Some(justify.into()));
-        }
         buffer.shape_until_scroll(font_system, false);
+
+        // Workaround for alignment not working for unbounded text.
+        // See https://github.com/pop-os/cosmic-text/issues/343
+        if bounds.width.is_none() && justify != JustifyText::Left {
+            let dimensions = buffer_dimensions(buffer);
+            // `set_size` causes a re-layout to occur.
+            buffer.set_size(font_system, Some(dimensions.x), bounds.height);
+        }
 
         // Recover the spans buffer.
         spans.clear();
@@ -207,7 +217,6 @@ impl TextPipeline {
     ///
     /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
     /// which contain information for rendering the text.
-    #[allow(clippy::too_many_arguments)]
     pub fn queue_text<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
@@ -219,12 +228,12 @@ impl TextPipeline {
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
-        y_axis_orientation: YAxisOrientation,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
+        layout_info.section_rects.clear();
         layout_info.size = Default::default();
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
@@ -255,77 +264,113 @@ impl TextPipeline {
         let buffer = &mut computed.buffer;
         let box_size = buffer_dimensions(buffer);
 
-        let result = buffer
-            .layout_runs()
-            .flat_map(|run| {
-                run.glyphs
-                    .iter()
-                    .map(move |layout_glyph| (layout_glyph, run.line_y))
-            })
-            .try_for_each(|(layout_glyph, line_y)| {
-                let mut temp_glyph;
-                let span_index = layout_glyph.metadata;
-                let font_id = glyph_info[span_index].0;
-                let font_smoothing = glyph_info[span_index].1;
+        let result = buffer.layout_runs().try_for_each(|run| {
+            let mut current_section: Option<usize> = None;
+            let mut start = 0.;
+            let mut end = 0.;
+            let result = run
+                .glyphs
+                .iter()
+                .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
+                .try_for_each(|(layout_glyph, line_y, line_i)| {
+                    match current_section {
+                        Some(section) => {
+                            if section != layout_glyph.metadata {
+                                layout_info.section_rects.push((
+                                    computed.entities[section].entity,
+                                    Rect::new(
+                                        start,
+                                        run.line_top,
+                                        end,
+                                        run.line_top + run.line_height,
+                                    ),
+                                ));
+                                start = end.max(layout_glyph.x);
+                                current_section = Some(layout_glyph.metadata);
+                            }
+                            end = layout_glyph.x + layout_glyph.w;
+                        }
+                        None => {
+                            current_section = Some(layout_glyph.metadata);
+                            start = layout_glyph.x;
+                            end = start + layout_glyph.w;
+                        }
+                    }
 
-                let layout_glyph = if font_smoothing == FontSmoothing::None {
-                    // If font smoothing is disabled, round the glyph positions and sizes,
-                    // effectively discarding all subpixel layout.
-                    temp_glyph = layout_glyph.clone();
-                    temp_glyph.x = temp_glyph.x.round();
-                    temp_glyph.y = temp_glyph.y.round();
-                    temp_glyph.w = temp_glyph.w.round();
-                    temp_glyph.x_offset = temp_glyph.x_offset.round();
-                    temp_glyph.y_offset = temp_glyph.y_offset.round();
-                    temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
+                    let mut temp_glyph;
+                    let span_index = layout_glyph.metadata;
+                    let font_id = glyph_info[span_index].0;
+                    let font_smoothing = glyph_info[span_index].1;
 
-                    &temp_glyph
-                } else {
-                    layout_glyph
-                };
+                    let layout_glyph = if font_smoothing == FontSmoothing::None {
+                        // If font smoothing is disabled, round the glyph positions and sizes,
+                        // effectively discarding all subpixel layout.
+                        temp_glyph = layout_glyph.clone();
+                        temp_glyph.x = temp_glyph.x.round();
+                        temp_glyph.y = temp_glyph.y.round();
+                        temp_glyph.w = temp_glyph.w.round();
+                        temp_glyph.x_offset = temp_glyph.x_offset.round();
+                        temp_glyph.y_offset = temp_glyph.y_offset.round();
+                        temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
 
-                let font_atlas_set = font_atlas_sets.sets.entry(font_id).or_default();
+                        &temp_glyph
+                    } else {
+                        layout_glyph
+                    };
 
-                let physical_glyph = layout_glyph.physical((0., 0.), 1.);
+                    let font_atlas_set = font_atlas_sets.sets.entry(font_id).or_default();
 
-                let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
-                    .map(Ok)
-                    .unwrap_or_else(|| {
-                        font_atlas_set.add_glyph_to_atlas(
-                            texture_atlases,
-                            textures,
-                            &mut font_system.0,
-                            &mut swash_cache.0,
-                            layout_glyph,
-                            font_smoothing,
-                        )
-                    })?;
+                    let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-                let location = atlas_info.location;
-                let glyph_rect = texture_atlas.textures[location.glyph_index];
-                let left = location.offset.x as f32;
-                let top = location.offset.y as f32;
-                let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
+                    let atlas_info = font_atlas_set
+                        .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+                        .map(Ok)
+                        .unwrap_or_else(|| {
+                            font_atlas_set.add_glyph_to_atlas(
+                                texture_atlases,
+                                textures,
+                                &mut font_system.0,
+                                &mut swash_cache.0,
+                                layout_glyph,
+                                font_smoothing,
+                            )
+                        })?;
 
-                // offset by half the size because the origin is center
-                let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
-                let y = line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
-                let y = match y_axis_orientation {
-                    YAxisOrientation::TopToBottom => y,
-                    YAxisOrientation::BottomToTop => box_size.y - y,
-                };
+                    let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                    let location = atlas_info.location;
+                    let glyph_rect = texture_atlas.textures[location.glyph_index];
+                    let left = location.offset.x as f32;
+                    let top = location.offset.y as f32;
+                    let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
 
-                let position = Vec2::new(x, y);
+                    // offset by half the size because the origin is center
+                    let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
+                    let y =
+                        line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
 
-                // TODO: recreate the byte index, that keeps track of where a cursor is,
-                // when glyphs are not limited to single byte representation, relevant for #1319
-                let pos_glyph =
-                    PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info, span_index);
-                layout_info.glyphs.push(pos_glyph);
-                Ok(())
-            });
+                    let position = Vec2::new(x, y);
+
+                    let pos_glyph = PositionedGlyph {
+                        position,
+                        size: glyph_size.as_vec2(),
+                        atlas_info,
+                        span_index,
+                        byte_index: layout_glyph.start,
+                        byte_length: layout_glyph.end - layout_glyph.start,
+                        line_index: line_i,
+                    };
+                    layout_info.glyphs.push(pos_glyph);
+                    Ok(())
+                });
+            if let Some(section) = current_section {
+                layout_info.section_rects.push((
+                    computed.entities[section].entity,
+                    Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                ));
+            }
+
+            result
+        });
 
         // Return the scratch vec.
         self.glyph_info = glyph_info;
@@ -341,7 +386,6 @@ impl TextPipeline {
     ///
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
     /// to measure the text area on demand.
-    #[allow(clippy::too_many_arguments)]
     pub fn create_text_measure<'a>(
         &mut self,
         entity: Entity,
@@ -399,10 +443,13 @@ impl TextPipeline {
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
 /// [`TextLayout`] and [`ComputedTextBlock`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
+    /// Rects bounding the text block's text sections.
+    /// A text section spanning more than one line will have multiple bounding rects.
+    pub section_rects: Vec<(Entity, Rect)>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
@@ -480,15 +527,20 @@ fn get_attrs<'a>(
     face_info: &'a FontFaceInfo,
     scale_factor: f64,
 ) -> Attrs<'a> {
-    let attrs = Attrs::new()
+    Attrs::new()
         .metadata(span_index)
         .family(Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
         .style(face_info.style)
         .weight(face_info.weight)
-        .metrics(Metrics::relative(text_font.font_size, 1.2).scale(scale_factor as f32))
-        .color(cosmic_text::Color(color.to_linear().as_u32()));
-    attrs
+        .metrics(
+            Metrics {
+                font_size: text_font.font_size,
+                line_height: text_font.line_height.eval(text_font.font_size),
+            }
+            .scale(scale_factor as f32),
+        )
+        .color(cosmic_text::Color(color.to_linear().as_u32()))
 }
 
 /// Calculate the size of the text area for the given buffer.

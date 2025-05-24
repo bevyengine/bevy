@@ -1,8 +1,8 @@
 //! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
+    platform::collections::{HashMap, HashSet},
     prelude::*,
-    utils::{HashMap, HashSet},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -52,10 +52,10 @@ impl Mine {
     fn random(rand: &mut ChaCha8Rng) -> Self {
         Mine {
             pos: Vec2::new(
-                (rand.gen::<f32>() - 0.5) * 1200.0,
-                (rand.gen::<f32>() - 0.5) * 600.0,
+                (rand.r#gen::<f32>() - 0.5) * 1200.0,
+                (rand.r#gen::<f32>() - 0.5) * 600.0,
             ),
-            size: 4.0 + rand.gen::<f32>() * 16.0,
+            size: 4.0 + rand.r#gen::<f32>() * 16.0,
         }
     }
 }
@@ -142,9 +142,9 @@ fn on_remove_mine(
 }
 
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
-    // If a triggered event is targeting a specific entity you can access it with `.entity()`
+    // If a triggered event is targeting a specific entity you can access it with `.target()`
     let id = trigger.target();
-    let Some(mut entity) = commands.get_entity(id) else {
+    let Ok(mut entity) = commands.get_entity(id) else {
         return;
     };
     info!("Boom! {} exploded.", id.index());
@@ -172,9 +172,13 @@ fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
 fn handle_click(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     camera: Single<(&Camera, &GlobalTransform)>,
-    windows: Single<&Window>,
+    windows: Query<&Window>,
     mut commands: Commands,
 ) {
+    let Ok(windows) = windows.single() else {
+        return;
+    };
+
     let (camera, camera_transform) = *camera;
     if let Some(pos) = windows
         .cursor_position()

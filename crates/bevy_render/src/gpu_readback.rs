@@ -1,18 +1,21 @@
 use crate::{
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
-    render_resource::{Buffer, BufferUsages, Extent3d, ImageDataLayout, Texture, TextureFormat},
+    render_resource::{
+        Buffer, BufferUsages, CommandEncoder, Extent3d, TexelCopyBufferLayout, Texture,
+        TextureFormat,
+    },
     renderer::{render_system, RenderDevice},
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     sync_world::MainEntity,
     texture::GpuImage,
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
@@ -21,13 +24,13 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
-use bevy_utils::{tracing::warn, HashMap};
 use encase::internal::ReadFrom;
 use encase::private::Reader;
 use encase::ShaderType;
-use wgpu::CommandEncoder;
+use tracing::warn;
 
 /// A plugin that enables reading back gpu buffers and textures to the cpu.
 pub struct GpuReadbackPlugin {
@@ -57,8 +60,10 @@ impl Plugin for GpuReadbackPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_buffers.in_set(RenderSet::PrepareResources),
-                        map_buffers.after(render_system).in_set(RenderSet::Render),
+                        prepare_buffers.in_set(RenderSystems::PrepareResources),
+                        map_buffers
+                            .after(render_system)
+                            .in_set(RenderSystems::Render),
                     ),
                 );
         }
@@ -184,7 +189,7 @@ impl GpuReadbackBufferPool {
 enum ReadbackSource {
     Texture {
         texture: Texture,
-        layout: ImageDataLayout,
+        layout: TexelCopyBufferLayout,
         size: Extent3d,
     },
     Buffer {
@@ -239,16 +244,11 @@ fn prepare_buffers(
         match readback {
             Readback::Texture(image) => {
                 if let Some(gpu_image) = gpu_images.get(image) {
-                    let layout = layout_data(
-                        gpu_image.size.width,
-                        gpu_image.size.height,
-                        gpu_image.texture_format,
-                    );
+                    let layout = layout_data(gpu_image.size, gpu_image.texture_format);
                     let buffer = buffer_pool.get(
                         &render_device,
                         get_aligned_size(
-                            gpu_image.size.width,
-                            gpu_image.size.height,
+                            gpu_image.size,
                             gpu_image.texture_format.pixel_size() as u32,
                         ) as u64,
                     );
@@ -299,7 +299,7 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
             } => {
                 command_encoder.copy_texture_to_buffer(
                     texture.as_image_copy(),
-                    wgpu::ImageCopyBuffer {
+                    wgpu::TexelCopyBufferInfo {
                         buffer: &readback.buffer,
                         layout: *layout,
                     },
@@ -354,20 +354,32 @@ pub(crate) const fn align_byte_size(value: u32) -> u32 {
 }
 
 /// Get the size of a image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
-pub(crate) const fn get_aligned_size(width: u32, height: u32, pixel_size: u32) -> u32 {
-    height * align_byte_size(width * pixel_size)
+pub(crate) const fn get_aligned_size(extent: Extent3d, pixel_size: u32) -> u32 {
+    extent.height * align_byte_size(extent.width * pixel_size) * extent.depth_or_array_layers
 }
 
-/// Get a [`ImageDataLayout`] aligned such that the image can be copied into a buffer.
-pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> ImageDataLayout {
-    ImageDataLayout {
-        bytes_per_row: if height > 1 {
+/// Get a [`TexelCopyBufferLayout`] aligned such that the image can be copied into a buffer.
+pub(crate) fn layout_data(extent: Extent3d, format: TextureFormat) -> TexelCopyBufferLayout {
+    TexelCopyBufferLayout {
+        bytes_per_row: if extent.height > 1 || extent.depth_or_array_layers > 1 {
             // 1 = 1 row
-            Some(get_aligned_size(width, 1, format.pixel_size() as u32))
+            Some(get_aligned_size(
+                Extent3d {
+                    width: extent.width,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                format.pixel_size() as u32,
+            ))
         } else {
             None
         },
-        rows_per_image: None,
-        ..Default::default()
+        rows_per_image: if extent.depth_or_array_layers > 1 {
+            let (_, block_dimension_y) = format.block_dimensions();
+            Some(extent.height / block_dimension_y)
+        } else {
+            None
+        },
+        offset: 0,
     }
 }

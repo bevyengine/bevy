@@ -5,8 +5,8 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::{define_label, intern::Interned, prelude::World, system::Resource};
-use bevy_utils::HashMap;
+use bevy_ecs::{define_label, intern::Interned, prelude::World, resource::Resource};
+use bevy_platform::collections::HashMap;
 use core::fmt::Debug;
 
 use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
@@ -14,6 +14,9 @@ use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
 pub use bevy_render_macros::RenderSubGraph;
 
 define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(RenderSubGraph)]`"
+    )]
     /// A strongly-typed class of labels used to identify a [`SubGraph`] in a render graph.
     RenderSubGraph,
     RENDER_SUB_GRAPH_INTERNER
@@ -677,7 +680,7 @@ mod tests {
         renderer::RenderContext,
     };
     use bevy_ecs::world::{FromWorld, World};
-    use bevy_utils::HashSet;
+    use bevy_platform::collections::HashSet;
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     enum TestLabel {

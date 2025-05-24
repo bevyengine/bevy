@@ -8,10 +8,12 @@ use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     query::{With, Without},
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
 use bevy_math::{uvec4, AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
@@ -23,7 +25,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::{tracing::warn, HashSet};
+use tracing::warn;
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 use crate::MeshPipeline;
@@ -64,6 +66,7 @@ const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
 #[derive(Debug, Copy, Clone, Reflect)]
+#[reflect(Clone)]
 pub enum ClusterFarZMode {
     /// Calculate the required maximum z-depth based on currently visible
     /// clusterable objects.  Makes better use of available clusters, speeding
@@ -76,7 +79,7 @@ pub enum ClusterFarZMode {
 
 /// Configure the depth-slicing strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Reflect)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
     pub first_slice_depth: f32,
@@ -86,7 +89,7 @@ pub struct ClusterZConfig {
 
 /// Configuration of the clustering strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub enum ClusterConfig {
     /// Disable cluster calculations for this view
     None,
@@ -202,6 +205,8 @@ struct ClusterableObjectCounts {
     reflection_probes: u32,
     /// The number of irradiance volumes in the cluster.
     irradiance_volumes: u32,
+    /// The number of decals in the cluster.
+    decals: u32,
 }
 
 enum ExtractedClusterableObjectElement {
@@ -671,7 +676,7 @@ impl ViewClusterBindings {
                         counts.spot_lights,
                         counts.reflection_probes,
                     ),
-                    uvec4(counts.irradiance_volumes, 0, 0, 0),
+                    uvec4(counts.irradiance_volumes, counts.decals, 0, 0),
                 ]);
             }
         }

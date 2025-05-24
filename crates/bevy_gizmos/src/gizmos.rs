@@ -10,11 +10,15 @@ use core::{
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
-    system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
+    resource::Resource,
+    system::{
+        Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
+        SystemParamValidationError,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -130,7 +134,7 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 ///            .add_systems(EndOfMyContext, end_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
 ///            .add_systems(
 ///                Last,
-///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(UpdateGizmoMeshes),
+///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(GizmoMeshSystems),
 ///            );
 ///     }
 /// }
@@ -182,7 +186,10 @@ where
     state: <GizmosState<Config, Clear> as SystemParam>::State,
 }
 
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "We cannot implement SystemParam without using unsafe code."
+)]
 // SAFETY: All methods are delegated to existing `SystemParam` implementations
 unsafe impl<Config, Clear> SystemParam for Gizmos<'_, '_, Config, Clear>
 where
@@ -218,7 +225,7 @@ where
         state: &Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
     }
@@ -254,7 +261,10 @@ where
     }
 }
 
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "We cannot implement ReadOnlySystemParam without using unsafe code."
+)]
 // Safety: Each field is `ReadOnlySystemParam`, and Gizmos SystemParam does not mutate world
 unsafe impl<'w, 's, Config, Clear> ReadOnlySystemParam for Gizmos<'w, 's, Config, Clear>
 where
@@ -267,6 +277,7 @@ where
 
 /// Buffer for gizmo vertex data.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default)]
 pub struct GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -277,7 +288,7 @@ where
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }
 
@@ -813,8 +824,7 @@ where
         let polymorphic_color: Color = color.into();
         let linear_color = LinearRgba::from(polymorphic_color);
 
-        self.list_colors
-            .extend(iter::repeat(linear_color).take(count));
+        self.list_colors.extend(iter::repeat_n(linear_color, count));
     }
 
     #[inline]

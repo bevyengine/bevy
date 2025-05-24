@@ -14,6 +14,8 @@ use core::{
 ///
 /// This type can be treated as a `ManuallyDrop<Box<[T]>>` without a built in length. To avoid
 /// memory leaks, [`drop`](Self::drop) must be called when no longer in use.
+///
+/// [`Vec<T>`]: alloc::vec::Vec
 pub struct ThinArrayPtr<T> {
     data: NonNull<T>,
     #[cfg(debug_assertions)]
@@ -85,7 +87,7 @@ impl<T> ThinArrayPtr<T> {
     /// - The caller should update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         #[cfg(debug_assertions)]
-        assert_eq!(self.capacity, current_capacity.into());
+        assert_eq!(self.capacity, current_capacity.get());
         self.set_capacity(new_capacity.get());
         if size_of::<T>() != 0 {
             let new_layout =

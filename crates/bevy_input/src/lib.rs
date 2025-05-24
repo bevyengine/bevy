@@ -4,13 +4,16 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! Input functionality for the [Bevy game engine](https://bevyengine.org/).
 //!
 //! # Supported input devices
 //!
 //! `bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 
@@ -73,7 +76,11 @@ pub struct InputPlugin;
 
 /// Label for systems that update the input data.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-pub struct InputSystem;
+pub struct InputSystems;
+
+/// Deprecated alias for [`InputSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `InputSystems`.")]
+pub type InputSystem = InputSystems;
 
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
@@ -82,7 +89,7 @@ impl Plugin for InputPlugin {
             .add_event::<KeyboardInput>()
             .add_event::<KeyboardFocusLost>()
             .init_resource::<ButtonInput<KeyCode>>()
-            .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystem))
+            .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystems))
             // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
@@ -95,7 +102,7 @@ impl Plugin for InputPlugin {
                     accumulate_mouse_motion_system,
                     accumulate_mouse_scroll_system,
                 )
-                    .in_set(InputSystem),
+                    .in_set(InputSystems),
             )
             .add_event::<PinchGesture>()
             .add_event::<RotationGesture>()
@@ -119,12 +126,12 @@ impl Plugin for InputPlugin {
                     gamepad_connection_system,
                     gamepad_event_processing_system.after(gamepad_connection_system),
                 )
-                    .in_set(InputSystem),
+                    .in_set(InputSystems),
             )
             // touch
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
-            .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystem));
+            .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystems));
 
         #[cfg(feature = "bevy_reflect")]
         {
@@ -161,7 +168,7 @@ impl Plugin for InputPlugin {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

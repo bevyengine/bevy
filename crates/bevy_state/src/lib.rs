@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! In Bevy, states are app-wide interdependent, finite state machines that are generally used to model the large scale structure of your program: whether a game is paused, if the player is in combat, if assets are loaded and so on.
 //!
@@ -6,7 +6,7 @@
 //!
 //! - Standard [`States`](state::States) can only be changed by manually setting the [`NextState<S>`](state::NextState) resource.
 //!   These states are the baseline on which the other state types are built, and can be used on
-//!   their own for many simple patterns. See the [state example](https://github.com/bevyengine/bevy/blob/latest/examples/state/state.rs)
+//!   their own for many simple patterns. See the [states example](https://github.com/bevyengine/bevy/blob/latest/examples/state/states.rs)
 //!   for a simple use case.
 //! - [`SubStates`](state::SubStates) are children of other states - they can be changed manually using [`NextState<S>`](state::NextState),
 //!   but are removed from the [`World`](bevy_ecs::prelude::World) if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/state/sub_states.rs)
@@ -28,6 +28,9 @@
 //! - A [`StateTransitionEvent<S>`](crate::state::StateTransitionEvent) that gets fired when a given state changes.
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
+//!
+//! Bevy also provides ("state-scoped entities")[`crate::state_scoped`] functionality for managing the lifetime of entities in the context of game states.
+//! This, especially in combination with system scheduling, enables a flexible and expressive way to manage spawning and despawning entities.
 
 #![cfg_attr(
     any(docsrs, docsrs_dep),
@@ -38,7 +41,13 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 
+#[cfg(feature = "std")]
+extern crate std;
+
 extern crate alloc;
+
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_state;
 
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods
@@ -50,8 +59,7 @@ pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
 
-/// Provides [`StateScoped`](crate::state_scoped::StateScoped) and
-/// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
+/// Provides tools for managing the lifetime of entities based on state transitions.
 pub mod state_scoped;
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with methods for registering
@@ -83,6 +91,6 @@ pub mod prelude {
             OnExit, OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States,
             SubStates, TransitionSchedules,
         },
-        state_scoped::StateScoped,
+        state_scoped::{DespawnOnEnterState, DespawnOnExitState},
     };
 }

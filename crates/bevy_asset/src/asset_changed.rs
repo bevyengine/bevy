@@ -9,23 +9,23 @@ use bevy_ecs::{
     archetype::Archetype,
     component::{ComponentId, Tick},
     prelude::{Entity, Resource, World},
-    query::{FilteredAccess, QueryFilter, QueryItem, ReadFetch, WorldQuery},
+    query::{FilteredAccess, QueryData, QueryFilter, ReadFetch, WorldQuery},
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_utils::tracing::error;
-use bevy_utils::HashMap;
+use bevy_platform::collections::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
+use tracing::error;
 
 /// A resource that stores the last tick an asset was changed. This is used by
 /// the [`AssetChanged`] filter to determine if an asset has changed since the last time
 /// a query ran.
 ///
-/// This resource is automatically managed by the [`AssetEvents`](crate::AssetEvents) schedule and
-/// should not be exposed to the user in order to maintain safety guarantees. Any additional uses of
-/// this resource should be carefully audited to ensure that they do not introduce any safety
-/// issues.
+/// This resource is automatically managed by the [`AssetEventSystems`](crate::AssetEventSystems)
+/// system set and should not be exposed to the user in order to maintain safety guarantees.
+/// Any additional uses of this resource should be carefully audited to ensure that they do not
+/// introduce any safety issues.
 #[derive(Resource)]
 pub(crate) struct AssetChanges<A: Asset> {
     change_ticks: HashMap<AssetId<A>, Tick>,
@@ -86,7 +86,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
     }
 }
 
-/// Filter that selects entities with a `A` for an asset that changed
+/// Filter that selects entities with an `A` for an asset that changed
 /// after the system last ran, where `A` is a component that implements
 /// [`AsAssetId`].
 ///
@@ -102,25 +102,24 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 ///
 /// # Quirks
 ///
-/// - Asset changes are registered in the [`AssetEvents`] schedule.
+/// - Asset changes are registered in the [`AssetEventSystems`] system set.
 /// - Removed assets are not detected.
 ///
-/// The list of changed assets only gets updated in the
-/// [`AssetEvents`] schedule which runs in `Last`. Therefore, `AssetChanged`
-/// will only pick up asset changes in schedules following `AssetEvents` or the
-/// next frame. Consider adding the system in the `Last` schedule after [`AssetEvents`] if you need
-/// to react without frame delay to asset changes.
+/// The list of changed assets only gets updated in the [`AssetEventSystems`] system set,
+/// which runs in `Last`. Therefore, `AssetChanged` will only pick up asset changes in schedules
+/// following [`AssetEventSystems`] or the next frame. Consider adding the system in the `Last` schedule
+/// after [`AssetEventSystems`] if you need to react without frame delay to asset changes.
 ///
 /// # Performance
 ///
 /// When at least one `A` is updated, this will
-/// read a hashmap once per entity with a `A` component. The
-/// runtime of the query is proportional to how many entities with a `A`
+/// read a hashmap once per entity with an `A` component. The
+/// runtime of the query is proportional to how many entities with an `A`
 /// it matches.
 ///
 /// If no `A` asset updated since the last time the system ran, then no lookups occur.
 ///
-/// [`AssetEvents`]: crate::AssetEvents
+/// [`AssetEventSystems`]: crate::AssetEventSystems
 /// [`Assets<Mesh>::get_mut`]: crate::Assets::get_mut
 pub struct AssetChanged<A: AsAssetId>(PhantomData<A>);
 
@@ -148,15 +147,12 @@ pub struct AssetChangedState<A: AsAssetId> {
     _asset: PhantomData<fn(A)>,
 }
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "WorldQuery is an unsafe trait.")]
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
-    type Item<'w> = ();
     type Fetch<'w> = AssetChangedFetch<'w, A>;
 
     type State = AssetChangedState<A>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(_: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {}
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -169,7 +165,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         // SAFETY:
-        // - `AssetChanges` is private and only accessed mutably in the `AssetEvents` schedule
+        // - `AssetChanges` is private and only accessed mutably in the `AssetEventSystems` system set.
         // - `resource_id` was obtained from the type ID of `AssetChanges<A::Asset>`.
         let Some(changes) = (unsafe {
             world
@@ -228,16 +224,9 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         }
     }
 
-    unsafe fn fetch<'w>(_: &mut Self::Fetch<'w>, _: Entity, _: TableRow) -> Self::Item<'w> {}
-
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         <&A>::update_component_access(&state.asset_id, access);
-        assert!(
-            !access.access().has_resource_write(state.resource_id),
-            "AssetChanged<{ty}> requires read-only access to AssetChanges<{ty}>",
-            ty = ShortName::of::<A>()
-        );
         access.add_resource_read(state.resource_id);
     }
 
@@ -269,7 +258,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 }
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]
 /// SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
@@ -291,17 +280,21 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use crate::{self as bevy_asset, AssetEvents, AssetPlugin, Handle};
+    use crate::{AssetEventSystems, AssetPlugin, Handle};
+    use alloc::{vec, vec::Vec};
     use core::num::NonZero;
+    use std::println;
 
     use crate::{AssetApp, Assets};
-    use bevy_app::{App, AppExit, Last, Startup, TaskPoolPlugin, Update};
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_app::{App, AppExit, PostUpdate, Startup, TaskPoolPlugin, Update};
+    use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
         event::EventWriter,
-        system::{Commands, IntoSystem, Local, Query, Res, ResMut, Resource},
+        resource::Resource,
+        system::{Commands, IntoSystem, Local, Query, Res, ResMut},
     };
     use bevy_reflect::TypePath;
 
@@ -337,7 +330,7 @@ mod tests {
             _query: Query<&mut MyComponent, AssetChanged<MyComponent>>,
             mut exit: EventWriter<AppExit>,
         ) {
-            exit.send(AppExit::Error(NonZero::<u8>::MIN));
+            exit.write(AppExit::Error(NonZero::<u8>::MIN));
         }
         run_app(compatible_filter);
     }
@@ -412,7 +405,7 @@ mod tests {
             .init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0, 0, 0]))
             .add_systems(Update, add_some)
-            .add_systems(Last, count_update.after(AssetEvents));
+            .add_systems(PostUpdate, count_update.after(AssetEventSystems));
 
         // First run of the app, `add_systems(Startup…)` runs.
         app.update(); // run_count == 0
@@ -447,7 +440,7 @@ mod tests {
                 },
             )
             .add_systems(Update, update_some)
-            .add_systems(Last, count_update.after(AssetEvents));
+            .add_systems(PostUpdate, count_update.after(AssetEventSystems));
 
         // First run of the app, `add_systems(Startup…)` runs.
         app.update(); // run_count == 0

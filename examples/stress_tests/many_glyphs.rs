@@ -48,7 +48,7 @@ fn main() {
             }),
             ..default()
         }),
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings {
@@ -101,7 +101,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
             Text2d::new(text_string),
             text_font.clone(),
             TextColor(RED.into()),
-            bevy::sprite::Anchor::Center,
+            bevy::sprite::Anchor::CENTER,
             TextBounds::new_horizontal(1000.),
             text_block,
         ));

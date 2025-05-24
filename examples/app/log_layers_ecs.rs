@@ -15,11 +15,11 @@ use std::sync::mpsc;
 
 use bevy::{
     log::{
+        tracing::{self, Subscriber},
         tracing_subscriber::{self, Layer},
         BoxedLayer, Level,
     },
     prelude::*,
-    utils::tracing::{self, Subscriber},
 };
 
 fn main() {
@@ -30,6 +30,7 @@ fn main() {
             level: Level::TRACE,
             filter: "warn,log_layers_ecs=trace".to_string(),
             custom_layer,
+            ..default()
         }))
         .add_systems(Startup, (log_system, setup))
         .add_systems(Update, print_logs)
@@ -54,7 +55,7 @@ fn transfer_log_events(
     mut log_events: EventWriter<LogEvent>,
 ) {
     // Make sure to use `try_iter()` and not `iter()` to prevent blocking.
-    log_events.send_batch(receiver.try_iter());
+    log_events.write_batch(receiver.try_iter());
 }
 
 /// This is the [`Layer`] that we will use to capture log events and then send them to Bevy's

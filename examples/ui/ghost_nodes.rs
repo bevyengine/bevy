@@ -7,8 +7,7 @@
 //! This is an experimental feature, and should be used with caution,
 //! especially in concert with 3rd party plugins or systems that may not be aware of ghost nodes.
 //!
-//! To add [`GhostNode`] components to entities, you must enable the `ghost_nodes` feature flag,
-//! as they are otherwise unconstructable even though the type is defined.
+//! In order to use [`GhostNode`]s you must enable the `ghost_nodes` feature flag.
 
 use bevy::{prelude::*, ui::experimental::GhostNode, winit::WinitSettings};
 
@@ -30,14 +29,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     // Ghost UI root
-    commands
-        .spawn(GhostNode::new())
-        .with_children(|ghost_root| {
-            ghost_root.spawn(Node::default()).with_child(create_label(
-                "This text node is rendered under a ghost root",
-                font_handle.clone(),
-            ));
-        });
+    commands.spawn(GhostNode).with_children(|ghost_root| {
+        ghost_root.spawn(Node::default()).with_child(create_label(
+            "This text node is rendered under a ghost root",
+            font_handle.clone(),
+        ));
+    });
 
     // Normal UI root
     commands
@@ -53,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn((Node::default(), Counter(0)))
                 .with_children(|layout_parent| {
                     layout_parent
-                        .spawn((GhostNode::new(), Counter(0)))
+                        .spawn((GhostNode, Counter(0)))
                         .with_children(|ghost_parent| {
                             // Ghost children using a separate counter state
                             // These buttons are being treated as children of layout_parent in the context of UI
@@ -105,22 +102,22 @@ fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
 }
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &Parent), (Changed<Interaction>, With<Button>)>,
-    labels_query: Query<(&Children, &Parent), With<Button>>,
+    mut interaction_query: Query<(&Interaction, &ChildOf), (Changed<Interaction>, With<Button>)>,
+    labels_query: Query<(&Children, &ChildOf), With<Button>>,
     mut text_query: Query<&mut Text>,
     mut counter_query: Query<&mut Counter>,
 ) {
     // Update parent counter on click
-    for (interaction, parent) in &mut interaction_query {
+    for (interaction, child_of) in &mut interaction_query {
         if matches!(interaction, Interaction::Pressed) {
-            let mut counter = counter_query.get_mut(parent.get()).unwrap();
+            let mut counter = counter_query.get_mut(child_of.parent()).unwrap();
             counter.0 += 1;
         }
     }
 
     // Update button labels to match their parent counter
-    for (children, parent) in &labels_query {
-        let counter = counter_query.get(parent.get()).unwrap();
+    for (children, child_of) in &labels_query {
+        let counter = counter_query.get(child_of.parent()).unwrap();
         let mut text = text_query.get_mut(children[0]).unwrap();
 
         **text = counter.0.to_string();

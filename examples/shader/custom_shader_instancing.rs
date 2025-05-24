@@ -31,7 +31,7 @@ use bevy::{
         renderer::RenderDevice,
         sync_world::MainEntity,
         view::{ExtractedView, NoFrustumCulling, NoIndirectDrawing},
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderSystems,
     },
 };
 use bytemuck::{Pod, Zeroable};
@@ -104,8 +104,8 @@ impl Plugin for CustomMaterialPlugin {
             .add_systems(
                 Render,
                 (
-                    queue_custom.in_set(RenderSet::QueueMeshes),
-                    prepare_instance_buffers.in_set(RenderSet::PrepareResources),
+                    queue_custom.in_set(RenderSystems::QueueMeshes),
+                    prepare_instance_buffers.in_set(RenderSystems::PrepareResources),
                 ),
             );
     }
@@ -123,7 +123,6 @@ struct InstanceData {
     color: [f32; 4],
 }
 
-#[allow(clippy::too_many_arguments)]
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     custom_pipeline: Res<CustomPipeline>,
@@ -133,12 +132,13 @@ fn queue_custom(
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(Entity, &ExtractedView, &Msaa)>,
+    views: Query<(&ExtractedView, &Msaa)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    for (view_entity, view, msaa) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, msaa) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -166,6 +166,7 @@ fn queue_custom(
                 distance: rangefinder.distance_translation(&mesh_instance.translation),
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }

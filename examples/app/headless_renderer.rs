@@ -3,7 +3,7 @@
 //! It follows this steps:
 //! 1. Render from camera to gpu-image render target
 //! 2. Copy from gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
-//! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSet::Render`
+//! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSystems::Render`
 //! 4. Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
 //! 5. Exit if `single_image` setting is set
 
@@ -17,12 +17,12 @@ use bevy::{
         render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
-            ImageCopyBuffer, ImageDataLayout, Maintain, MapMode, TextureDimension, TextureFormat,
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
+            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        Extract, Render, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSystems,
     },
     winit::WinitPlugin,
 };
@@ -217,7 +217,10 @@ impl Plugin for ImageCopyPlugin {
             .add_systems(ExtractSchedule, image_copy_extract)
             // Receives image data from buffer to channel
             // so we need to run it after the render graph is done
-            .add_systems(Render, receive_image_from_buffer.after(RenderSet::Render));
+            .add_systems(
+                Render,
+                receive_image_from_buffer.after(RenderSystems::Render),
+            );
     }
 }
 
@@ -372,9 +375,9 @@ impl render_graph::Node for ImageCopyDriver {
 
             encoder.copy_texture_to_buffer(
                 src_image.texture.as_image_copy(),
-                ImageCopyBuffer {
+                TexelCopyBufferInfo {
                     buffer: &image_copier.buffer,
-                    layout: ImageDataLayout {
+                    layout: TexelCopyBufferLayout {
                         offset: 0,
                         bytes_per_row: Some(
                             std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
@@ -499,15 +502,17 @@ fn update(
                         * img_bytes.texture_descriptor.format.pixel_size();
                     let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
                     if row_bytes == aligned_row_bytes {
-                        img_bytes.data.clone_from(&image_data);
+                        img_bytes.data.as_mut().unwrap().clone_from(&image_data);
                     } else {
                         // shrink data to original image size
-                        img_bytes.data = image_data
-                            .chunks(aligned_row_bytes)
-                            .take(img_bytes.height() as usize)
-                            .flat_map(|row| &row[..row_bytes.min(row.len())])
-                            .cloned()
-                            .collect();
+                        img_bytes.data = Some(
+                            image_data
+                                .chunks(aligned_row_bytes)
+                                .take(img_bytes.height() as usize)
+                                .flat_map(|row| &row[..row_bytes.min(row.len())])
+                                .cloned()
+                                .collect(),
+                        );
                     }
 
                     // Create RGBA Image Buffer
@@ -533,7 +538,7 @@ fn update(
                     };
                 }
                 if scene_controller.single_image {
-                    app_exit_writer.send(AppExit::Success);
+                    app_exit_writer.write(AppExit::Success);
                 }
             }
         } else {

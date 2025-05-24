@@ -6,16 +6,15 @@ use crate::{
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
+use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use bevy_utils::HashMap;
 pub use column::*;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{
     alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
+    panic::Location,
 };
 mod column;
 
@@ -85,11 +84,11 @@ impl TableId {
     }
 }
 
-/// A opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
+/// An opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
 ///
 /// Values of this type are retrievable from [`Archetype::entity_table_row`] and can be
 /// used alongside [`Archetype::table_id`] to fetch the exact table and row where an
-/// [`Entity`]'s
+/// [`Entity`]'s components are stored.
 ///
 /// Values of this type are only valid so long as entities have not moved around.
 /// Adding and removing components from an entity, or despawning it will invalidate
@@ -183,7 +182,7 @@ impl TableBuilder {
 /// A column-oriented [structure-of-arrays] based storage for [`Component`]s of entities
 /// in a [`World`].
 ///
-/// Conceptually, a `Table` can be thought of as an `HashMap<ComponentId, Column>`, where
+/// Conceptually, a `Table` can be thought of as a `HashMap<ComponentId, Column>`, where
 /// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
@@ -390,14 +389,15 @@ impl Table {
     }
 
     /// Fetches the calling locations that last changed the each component
-    #[cfg(feature = "track_location")]
     pub fn get_changed_by_slice_for(
         &self,
         component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<&'static Location<'static>>]> {
-        self.get_column(component_id)
-            // SAFETY: `self.len()` is guaranteed to be the len of the locations array
-            .map(|col| unsafe { col.get_changed_by_slice(self.entity_count()) })
+    ) -> MaybeLocation<Option<&[UnsafeCell<&'static Location<'static>>]>> {
+        MaybeLocation::new_with_flattened(|| {
+            self.get_column(component_id)
+                // SAFETY: `self.len()` is guaranteed to be the len of the locations array
+                .map(|col| unsafe { col.get_changed_by_slice(self.entity_count()) })
+        })
     }
 
     /// Get the specific [`change tick`](Tick) of the component matching `component_id` in `row`.
@@ -433,20 +433,22 @@ impl Table {
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
-    #[cfg(feature = "track_location")]
     pub fn get_changed_by(
         &self,
         component_id: ComponentId,
         row: TableRow,
-    ) -> Option<&UnsafeCell<&'static Location<'static>>> {
-        (row.as_usize() < self.entity_count()).then_some(
-            // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .changed_by
-                    .get_unchecked(row.as_usize())
-            },
-        )
+    ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
+        MaybeLocation::new_with_flattened(|| {
+            (row.as_usize() < self.entity_count()).then_some(
+                // SAFETY: `row.as_usize()` < `len`
+                unsafe {
+                    self.get_column(component_id)?
+                        .changed_by
+                        .as_ref()
+                        .map(|changed_by| changed_by.get_unchecked(row.as_usize()))
+                },
+            )
+        })
     }
 
     /// Get the [`ComponentTicks`] of the component matching `component_id` in `row`.
@@ -571,9 +573,12 @@ impl Table {
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             col.changed_ticks
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            #[cfg(feature = "track_location")]
             col.changed_by
-                .initialize_unchecked(len, UnsafeCell::new(Location::caller()));
+                .as_mut()
+                .zip(MaybeLocation::caller())
+                .map(|(changed_by, caller)| {
+                    changed_by.initialize_unchecked(len, UnsafeCell::new(caller));
+                });
         }
         TableRow::from_usize(len)
     }
@@ -815,15 +820,15 @@ impl Drop for Table {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
-        component::{Component, Components, Tick},
-        entity::Entity,
+        change_detection::MaybeLocation,
+        component::{Component, ComponentIds, Components, ComponentsRegistrator, Tick},
+        entity::{Entity, EntityRow},
         ptr::OwningPtr,
-        storage::{Storages, TableBuilder, TableId, TableRow, Tables},
+        storage::{TableBuilder, TableId, TableRow, Tables},
     };
-    #[cfg(feature = "track_location")]
-    use core::panic::Location;
+    use alloc::vec::Vec;
+    use nonmax::NonMaxU32;
 
     #[derive(Component)]
     struct W<T>(T);
@@ -843,13 +848,18 @@ mod tests {
     #[test]
     fn table() {
         let mut components = Components::default();
-        let mut storages = Storages::default();
-        let component_id = components.register_component::<W<TableRow>>(&mut storages);
+        let mut componentids = ComponentIds::default();
+        // SAFETY: They are both new.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut components, &mut componentids) };
+        let component_id = registrator.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
             .add_column(components.get_info(component_id).unwrap())
             .build();
-        let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
+        let entities = (0..200)
+            .map(|index| Entity::from_raw(EntityRow::new(NonMaxU32::new(index).unwrap())))
+            .collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards
             unsafe {
@@ -860,8 +870,7 @@ mod tests {
                         row,
                         value_ptr,
                         Tick::new(0),
-                        #[cfg(feature = "track_location")]
-                        Location::caller(),
+                        MaybeLocation::caller(),
                     );
                 });
             };

@@ -20,7 +20,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, infotext_system)
         .add_systems(Update, change_text_system)
@@ -175,7 +175,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                     ));
                     p.spawn((
-                        TextSpan::new(" this text has zero fontsize"),
+                        TextSpan::new(" this text has zero font size"),
                         TextFont {
                             font: font.clone(),
                             font_size: 0.0,
@@ -229,7 +229,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextColor(BLUE.into()),
                     ));
                     p.spawn((
-                        TextSpan::new(" this text has negative fontsize"),
+                        TextSpan::new(" this text has negative font size"),
                         TextFont {
                             font: font.clone(),
                             font_size: -42.0,

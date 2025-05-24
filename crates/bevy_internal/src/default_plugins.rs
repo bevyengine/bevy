@@ -4,12 +4,12 @@ plugin_group! {
     /// This plugin group will add all the default plugins for a *Bevy* application:
     pub struct DefaultPlugins {
         bevy_app:::PanicHandlerPlugin,
+        #[cfg(feature = "bevy_log")]
         bevy_log:::LogPlugin,
         bevy_app:::TaskPoolPlugin,
         bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_transform:::TransformPlugin,
-        bevy_hierarchy:::HierarchyPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
@@ -18,7 +18,8 @@ plugin_group! {
         bevy_window:::WindowPlugin,
         #[cfg(feature = "bevy_window")]
         bevy_a11y:::AccessibilityPlugin,
-        #[custom(cfg(not(target_arch = "wasm32")))]
+        #[cfg(feature = "std")]
+        #[custom(cfg(any(unix, windows)))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,
@@ -37,6 +38,8 @@ plugin_group! {
         bevy_render::pipelined_rendering:::PipelinedRenderingPlugin,
         #[cfg(feature = "bevy_core_pipeline")]
         bevy_core_pipeline:::CorePipelinePlugin,
+        #[cfg(feature = "bevy_anti_aliasing")]
+        bevy_anti_aliasing:::AntiAliasingPlugin,
         #[cfg(feature = "bevy_sprite")]
         bevy_sprite:::SpritePlugin,
         #[cfg(feature = "bevy_text")]
@@ -82,7 +85,14 @@ plugin_group! {
 struct IgnoreAmbiguitiesPlugin;
 
 impl Plugin for IgnoreAmbiguitiesPlugin {
-    #[allow(unused_variables)] // Variables are used depending on enabled features
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "The `app` parameter is used only if a combination of crates that contain ambiguities with each other are enabled."
+    )]
     fn build(&self, app: &mut bevy_app::App) {
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
@@ -119,4 +129,17 @@ plugin_group! {
     /// It includes a [schedule runner (`ScheduleRunnerPlugin`)](crate::app::ScheduleRunnerPlugin)
     /// to provide functionality that would otherwise be driven by a windowed application's
     /// *event loop* or *message loop*.
+    ///
+    /// By default, this loop will run as fast as possible, which can result in high CPU usage.
+    /// You can add a delay using [`run_loop`](crate::app::ScheduleRunnerPlugin::run_loop),
+    /// or remove the loop using [`run_once`](crate::app::ScheduleRunnerPlugin::run_once).
+    /// # Example:
+    /// ```rust, no_run
+    /// # use std::time::Duration;
+    /// # use bevy_app::{App, PluginGroup, ScheduleRunnerPlugin};
+    /// # use bevy_internal::MinimalPlugins;
+    /// App::new().add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
+    ///     // Run 60 times per second.
+    ///     Duration::from_secs_f64(1.0 / 60.0),
+    /// ))).run();
 }

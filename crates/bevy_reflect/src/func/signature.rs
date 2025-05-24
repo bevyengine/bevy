@@ -14,7 +14,8 @@
 use crate::func::args::ArgInfo;
 use crate::func::{ArgList, SignatureInfo};
 use crate::Type;
-use bevy_utils::hashbrown::Equivalent;
+use alloc::boxed::Box;
+use bevy_platform::collections::Equivalent;
 use core::borrow::Borrow;
 use core::fmt::{Debug, Formatter};
 use core::hash::{Hash, Hasher};
@@ -203,6 +204,7 @@ impl From<&ArgList<'_>> for ArgumentSignature {
 mod tests {
     use super::*;
     use crate::func::TypedFunction;
+    use alloc::{format, string::String, vec};
 
     #[test]
     fn should_generate_signature_from_function_info() {

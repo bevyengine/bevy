@@ -1,7 +1,7 @@
 use core::ops::Range;
 
-use super::{ImageNodeBindGroups, UiBatch, UiMeta};
-use crate::DefaultCameraView;
+use super::{ImageNodeBindGroups, UiBatch, UiMeta, UiViewTarget};
+use crate::UiCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -16,18 +16,20 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
-    default_camera_view_query: QueryState<&'static DefaultCameraView>,
+    ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,
+    ui_view_target_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera)>,
+    ui_camera_view_query: QueryState<&'static UiCameraView>,
 }
 
 impl UiPassNode {
     pub fn new(world: &mut World) -> Self {
         Self {
             ui_view_query: world.query_filtered(),
-            default_camera_view_query: world.query(),
+            ui_view_target_query: world.query(),
+            ui_camera_view_query: world.query(),
         }
     }
 }
@@ -35,7 +37,8 @@ impl UiPassNode {
 impl Node for UiPassNode {
     fn update(&mut self, world: &mut World) {
         self.ui_view_query.update_archetypes(world);
-        self.default_camera_view_query.update_archetypes(world);
+        self.ui_view_target_query.update_archetypes(world);
+        self.ui_camera_view_query.update_archetypes(world);
     }
 
     fn run(
@@ -44,6 +47,7 @@ impl Node for UiPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        // Extract the UI view.
         let input_view_entity = graph.view_entity();
 
         let Some(transparent_render_phases) =
@@ -52,23 +56,34 @@ impl Node for UiPassNode {
             return Ok(());
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get(&input_view_entity) else {
+        // Query the UI view components.
+        let Ok((view, ui_view_target)) = self.ui_view_query.get_manual(world, input_view_entity)
+        else {
             return Ok(());
         };
 
-        let Ok((target, camera)) = self.ui_view_query.get_manual(world, input_view_entity) else {
+        let Ok((target, camera)) = self
+            .ui_view_target_query
+            .get_manual(world, ui_view_target.0)
+        else {
             return Ok(());
         };
+
+        let Some(transparent_phase) = transparent_render_phases.get(&view.retained_view_entity)
+        else {
+            return Ok(());
+        };
+
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
 
-        // use the "default" view entity if it is defined
-        let view_entity = if let Ok(default_view) = self
-            .default_camera_view_query
+        // use the UI view entity if it is defined
+        let view_entity = if let Ok(ui_camera_view) = self
+            .ui_camera_view_query
             .get_manual(world, input_view_entity)
         {
-            default_view.0
+            ui_camera_view.0
         } else {
             input_view_entity
         };
@@ -91,12 +106,14 @@ impl Node for UiPassNode {
 }
 
 pub struct TransparentUi {
-    pub sort_key: (FloatOrd, u32),
+    pub sort_key: FloatOrd,
     pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    pub index: usize,
+    pub indexed: bool,
 }
 
 impl PhaseItem for TransparentUi {
@@ -136,7 +153,7 @@ impl PhaseItem for TransparentUi {
 }
 
 impl SortedPhaseItem for TransparentUi {
-    type SortKey = (FloatOrd, u32);
+    type SortKey = FloatOrd;
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
@@ -146,6 +163,11 @@ impl SortedPhaseItem for TransparentUi {
     #[inline]
     fn sort(items: &mut [Self]) {
         items.sort_by_key(SortedPhaseItem::sort_key);
+    }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
     }
 }
 

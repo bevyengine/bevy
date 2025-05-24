@@ -75,7 +75,7 @@ fn setup(
                 ..default()
             },
             BackgroundColor(GOLD.into()),
-            TargetCamera(texture_camera),
+            UiTargetCamera(texture_camera),
         ))
         .with_children(|parent| {
             parent.spawn((

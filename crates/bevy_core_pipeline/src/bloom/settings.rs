@@ -1,6 +1,6 @@
 use super::downsampling_pipeline::BloomUniforms;
 use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
-use bevy_math::{AspectRatio, URect, UVec4, Vec4};
+use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
@@ -25,7 +25,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Bloom {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///
@@ -113,17 +113,14 @@ pub struct Bloom {
     /// Only tweak if you are seeing visual artifacts.
     pub max_mip_dimension: u32,
 
-    /// UV offset for bloom shader. Ideally close to 2.0 / `max_mip_dimension`.
-    /// Only tweak if you are seeing visual artifacts.
-    pub uv_offset: f32,
+    /// Amount to stretch the bloom on each axis. Artistic control, can be used to emulate
+    /// anamorphic blur by using a large x-value. For large values, you may need to increase
+    /// [`Bloom::max_mip_dimension`] to reduce sampling artifacts.
+    pub scale: Vec2,
 }
-
-#[deprecated(since = "0.15.0", note = "Renamed to `Bloom`")]
-pub type BloomSettings = Bloom;
 
 impl Bloom {
     const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
-    const DEFAULT_UV_OFFSET: f32 = 0.004;
 
     /// The default bloom preset.
     ///
@@ -139,7 +136,15 @@ impl Bloom {
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
-        uv_offset: Self::DEFAULT_UV_OFFSET,
+        scale: Vec2::ONE,
+    };
+
+    /// Emulates the look of stylized anamorphic bloom, stretched horizontally.
+    pub const ANAMORPHIC: Self = Self {
+        // The larger scale necessitates a larger resolution to reduce artifacts:
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION * 2,
+        scale: Vec2::new(4.0, 1.0),
+        ..Self::NATURAL
     };
 
     /// A preset that's similar to how older games did bloom.
@@ -154,7 +159,7 @@ impl Bloom {
         },
         composite_mode: BloomCompositeMode::Additive,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
-        uv_offset: Self::DEFAULT_UV_OFFSET,
+        scale: Vec2::ONE,
     };
 
     /// A preset that applies a very strong bloom, and blurs the whole screen.
@@ -169,7 +174,7 @@ impl Bloom {
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
-        uv_offset: Self::DEFAULT_UV_OFFSET,
+        scale: Vec2::ONE,
     };
 }
 
@@ -188,6 +193,7 @@ impl Default for Bloom {
 /// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
+#[reflect(Clone, Default)]
 pub struct BloomPrefilter {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///
@@ -203,10 +209,8 @@ pub struct BloomPrefilter {
     pub threshold_softness: f32,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `BloomPrefilter`")]
-pub type BloomPrefilterSettings = BloomPrefilter;
-
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
+#[reflect(Clone, Hash, PartialEq)]
 pub enum BloomCompositeMode {
     EnergyConserving,
     Additive,
@@ -246,7 +250,7 @@ impl ExtractComponent for Bloom {
                     aspect: AspectRatio::try_from_pixels(size.x, size.y)
                         .expect("Valid screen size values for Bloom settings")
                         .ratio(),
-                    uv_offset: bloom.uv_offset,
+                    scale: bloom.scale,
                 };
 
                 Some((bloom.clone(), uniform))

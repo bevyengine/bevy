@@ -167,16 +167,13 @@ fn rasterize_cluster(
 }
 
 fn write_visibility_buffer_pixel(x: f32, y: f32, z: f32, packed_ids: u32) {
-    let frag_coord_1d = u32(y * view.viewport.z + x);
-
+    let depth = bitcast<u32>(z);
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-    let depth = bitcast<u32>(z);
     let visibility = (u64(depth) << 32u) | u64(packed_ids);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
 #else
-    let depth = bitcast<u32>(z);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
+    let visibility = depth;
 #endif
+    textureAtomicMax(meshlet_visibility_buffer, vec2(u32(x), u32(y)), visibility);
 }
 
 fn edge_function(a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {

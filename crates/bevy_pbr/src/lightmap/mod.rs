@@ -32,7 +32,7 @@
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -40,12 +40,14 @@ use bevy_ecs::{
     query::{Changed, Or},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
-    schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -57,15 +59,16 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_utils::{default, tracing::error, HashSet};
+use bevy_utils::default;
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
+use tracing::error;
 
-use crate::{binding_arrays_are_usable, ExtractMeshesSet};
+use crate::{binding_arrays_are_usable, MeshExtractionSystems};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(285484768317531991932943596447919767152);
+    weak_handle!("fc28203f-f258-47f3-973c-ce7d1dd70e59");
 
 /// The number of lightmaps that we store in a single slab, if bindless textures
 /// are in use.
@@ -85,7 +88,7 @@ pub struct LightmapPlugin;
 /// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct Lightmap {
     /// The lightmap texture.
     pub image: Handle<Image>,
@@ -99,6 +102,13 @@ pub struct Lightmap {
     /// This field allows lightmaps for a variety of meshes to be packed into a
     /// single atlas.
     pub uv_rect: Rect,
+
+    /// Whether bicubic sampling should be used for sampling this lightmap.
+    ///
+    /// Bicubic sampling is higher quality, but slower, and may lead to light leaks.
+    ///
+    /// If true, the lightmap texture's sampler must be set to [`bevy_image::ImageSampler::linear`].
+    pub bicubic_sampling: bool,
 }
 
 /// Lightmap data stored in the render world.
@@ -106,9 +116,6 @@ pub struct Lightmap {
 /// There is one of these per visible lightmapped mesh instance.
 #[derive(Debug)]
 pub(crate) struct RenderLightmap {
-    /// The ID of the lightmap texture.
-    pub(crate) image: AssetId<Image>,
-
     /// The rectangle within the lightmap texture that the UVs are relative to.
     ///
     /// The top left coordinate is the `min` part of the rect, and the bottom
@@ -125,6 +132,9 @@ pub(crate) struct RenderLightmap {
     ///
     /// If bindless lightmaps aren't in use, this will be 0.
     pub(crate) slot_index: LightmapSlotIndex,
+
+    // Whether or not bicubic sampling should be used for this lightmap.
+    pub(crate) bicubic_sampling: bool,
 }
 
 /// Stores data for all lightmaps in the render world.
@@ -191,9 +201,10 @@ impl Plugin for LightmapPlugin {
             return;
         };
 
-        render_app
-            .init_resource::<RenderLightmaps>()
-            .add_systems(ExtractSchedule, extract_lightmaps.after(ExtractMeshesSet));
+        render_app.init_resource::<RenderLightmaps>().add_systems(
+            ExtractSchedule,
+            extract_lightmaps.after(MeshExtractionSystems),
+        );
     }
 }
 
@@ -232,10 +243,10 @@ fn extract_lightmaps(
         render_lightmaps.render_lightmaps.insert(
             entity.into(),
             RenderLightmap::new(
-                lightmap.image.id(),
                 lightmap.uv_rect,
                 slab_index,
                 slot_index,
+                lightmap.bicubic_sampling,
             ),
         );
 
@@ -291,16 +302,16 @@ impl RenderLightmap {
     /// Creates a new lightmap from a texture, a UV rect, and a slab and slot
     /// index pair.
     fn new(
-        image: AssetId<Image>,
         uv_rect: Rect,
         slab_index: LightmapSlabIndex,
         slot_index: LightmapSlotIndex,
+        bicubic_sampling: bool,
     ) -> Self {
         Self {
-            image,
             uv_rect,
             slab_index,
             slot_index,
+            bicubic_sampling,
         }
     }
 }
@@ -326,6 +337,7 @@ impl Default for Lightmap {
         Self {
             image: Default::default(),
             uv_rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+            bicubic_sampling: false,
         }
     }
 }

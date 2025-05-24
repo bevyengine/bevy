@@ -16,7 +16,7 @@ impl Prepare for TestCheckCommand {
 
         vec![PreparedCommand::new::<Self>(
             cmd!(sh, "cargo check --workspace --tests{jobs}"),
-            "Please fix compiler examples for tests in output above.",
+            "Please fix compiler errors for tests in output above.",
         )]
     }
 }

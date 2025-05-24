@@ -1,6 +1,6 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use alloc::sync::Arc;
-use bevy_utils::HashMap;
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
+use bevy_platform::collections::HashMap;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
 use futures_lite::{ready, Stream};
@@ -60,8 +60,7 @@ impl Dir {
             dir = self.get_or_insert_dir(parent);
         }
         let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
-        let data = dir.0.write().assets.remove(&key);
-        data
+        dir.0.write().assets.remove(&key)
     }
 
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {

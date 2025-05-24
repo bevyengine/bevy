@@ -1,8 +1,5 @@
 use crate::func::args::{Arg, ArgError};
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 /// A trait for types that can be created from an [`Arg`].
 ///
 /// This trait exists so that types can be automatically converted into an [`Arg`]

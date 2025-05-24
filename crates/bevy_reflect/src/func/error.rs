@@ -4,11 +4,8 @@ use crate::func::{
     Return,
 };
 use alloc::borrow::Cow;
-use bevy_utils::HashSet;
+use bevy_platform::collections::HashSet;
 use thiserror::Error;
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
 
 /// An error that occurs when calling a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///

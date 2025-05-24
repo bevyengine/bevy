@@ -23,34 +23,52 @@
 //! you can use the [`TabNavigation`] system parameter directly instead.
 //! This object can be injected into your systems, and provides a [`navigate`](`TabNavigation::navigate`) method which can be
 //! used to navigate between focusable entities.
+
+use alloc::vec::Vec;
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    hierarchy::{ChildOf, Children},
     observer::Trigger,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
-use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
-use bevy_utils::tracing::warn;
 use bevy_window::PrimaryWindow;
+use log::warn;
 use thiserror::Error;
 
 use crate::{FocusedInput, InputFocus, InputFocusVisible};
+
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::prelude::ReflectComponent,
+    bevy_reflect::{prelude::*, Reflect},
+};
 
 /// A component which indicates that an entity wants to participate in tab navigation.
 ///
 /// Note that you must also add the [`TabGroup`] component to the entity's ancestor in order
 /// for this component to have any effect.
 #[derive(Debug, Default, Component, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Component, PartialEq, Clone)
+)]
 pub struct TabIndex(pub i32);
 
 /// A component used to mark a tree of entities as containing tabbable elements.
 #[derive(Debug, Default, Component, Copy, Clone)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Component, Clone)
+)]
 pub struct TabGroup {
     /// The order of the tab group relative to other tab groups.
     pub order: i32,
@@ -132,7 +150,6 @@ pub enum TabNavigationError {
 /// An injectable helper object that provides tab navigation functionality.
 #[doc(hidden)]
 #[derive(SystemParam)]
-#[allow(clippy::type_complexity)]
 pub struct TabNavigation<'w, 's> {
     // Query for tab groups.
     tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static Children)>,
@@ -144,7 +161,7 @@ pub struct TabNavigation<'w, 's> {
         Without<TabGroup>,
     >,
     // Query for parents.
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
 }
 
 impl TabNavigation<'_, '_> {
@@ -287,6 +304,9 @@ pub struct TabNavigationPlugin;
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
+
+        #[cfg(feature = "bevy_reflect")]
+        app.register_type::<TabIndex>().register_type::<TabGroup>();
     }
 }
 
@@ -346,7 +366,6 @@ pub fn handle_tab_navigation(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildChildren;
 
     use super::*;
 
@@ -355,10 +374,9 @@ mod tests {
         let mut app = App::new();
         let world = app.world_mut();
 
-        let tab_entity_1 = world.spawn(TabIndex(0)).id();
-        let tab_entity_2 = world.spawn(TabIndex(1)).id();
-        let mut tab_group_entity = world.spawn(TabGroup::new(0));
-        tab_group_entity.replace_children(&[tab_entity_1, tab_entity_2]);
+        let tab_group_entity = world.spawn(TabGroup::new(0)).id();
+        let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_entity))).id();
+        let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);

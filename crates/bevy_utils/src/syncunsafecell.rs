@@ -1,3 +1,5 @@
+#![expect(unsafe_code, reason = "SyncUnsafeCell requires unsafe code.")]
+
 //! A reimplementation of the currently unstable [`std::cell::SyncUnsafeCell`]
 //!
 //! [`std::cell::SyncUnsafeCell`]: https://doc.rust-lang.org/nightly/std/cell/struct.SyncUnsafeCell.html
@@ -113,7 +115,7 @@ impl<T> SyncUnsafeCell<[T]> {
 }
 
 impl<T: Default> Default for SyncUnsafeCell<T> {
-    /// Creates an `SyncUnsafeCell`, with the `Default` value for T.
+    /// Creates a new `SyncUnsafeCell` with the `Default` value for T.
     fn default() -> SyncUnsafeCell<T> {
         SyncUnsafeCell::new(Default::default())
     }

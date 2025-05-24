@@ -94,6 +94,7 @@ mod tests {
         system::{IntoSystem, RunSystemOnce, SystemName},
         world::World,
     };
+    use alloc::{borrow::ToOwned, string::String};
 
     #[test]
     fn test_system_name_regular_param() {

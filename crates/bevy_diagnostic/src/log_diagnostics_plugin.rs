@@ -1,11 +1,11 @@
 use super::{Diagnostic, DiagnosticPath, DiagnosticsStore};
+
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_platform::collections::HashSet;
 use bevy_time::{Real, Time, Timer, TimerMode};
-use bevy_utils::{
-    tracing::{debug, info},
-    Duration,
-};
+use core::time::Duration;
+use log::{debug, info};
 
 /// An App Plugin that logs diagnostics to the console.
 ///
@@ -17,14 +17,68 @@ use bevy_utils::{
 pub struct LogDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,
-    pub filter: Option<Vec<DiagnosticPath>>,
+    pub filter: Option<HashSet<DiagnosticPath>>,
 }
 
 /// State used by the [`LogDiagnosticsPlugin`]
 #[derive(Resource)]
-struct LogDiagnosticsState {
+pub struct LogDiagnosticsState {
     timer: Timer,
-    filter: Option<Vec<DiagnosticPath>>,
+    filter: Option<HashSet<DiagnosticPath>>,
+}
+
+impl LogDiagnosticsState {
+    /// Sets a new duration for the log timer
+    pub fn set_timer_duration(&mut self, duration: Duration) {
+        self.timer.set_duration(duration);
+        self.timer.set_elapsed(Duration::ZERO);
+    }
+
+    /// Add a filter to the log state, returning `true` if the [`DiagnosticPath`]
+    /// was not present
+    pub fn add_filter(&mut self, diagnostic_path: DiagnosticPath) -> bool {
+        if let Some(filter) = &mut self.filter {
+            filter.insert(diagnostic_path)
+        } else {
+            self.filter = Some(HashSet::from_iter([diagnostic_path]));
+            true
+        }
+    }
+
+    /// Extends the filter of the log state with multiple [`DiagnosticPaths`](DiagnosticPath)
+    pub fn extend_filter(&mut self, iter: impl IntoIterator<Item = DiagnosticPath>) {
+        if let Some(filter) = &mut self.filter {
+            filter.extend(iter);
+        } else {
+            self.filter = Some(HashSet::from_iter(iter));
+        }
+    }
+
+    /// Removes a filter from the log state, returning `true` if it was present
+    pub fn remove_filter(&mut self, diagnostic_path: &DiagnosticPath) -> bool {
+        if let Some(filter) = &mut self.filter {
+            filter.remove(diagnostic_path)
+        } else {
+            false
+        }
+    }
+
+    /// Clears the filters of the log state
+    pub fn clear_filter(&mut self) {
+        if let Some(filter) = &mut self.filter {
+            filter.clear();
+        }
+    }
+
+    /// Enables filtering with empty filters
+    pub fn enable_filtering(&mut self) {
+        self.filter = Some(HashSet::new());
+    }
+
+    /// Disables filtering
+    pub fn disable_filtering(&mut self) {
+        self.filter = None;
+    }
 }
 
 impl Default for LogDiagnosticsPlugin {
@@ -53,7 +107,7 @@ impl Plugin for LogDiagnosticsPlugin {
 }
 
 impl LogDiagnosticsPlugin {
-    pub fn filtered(filter: Vec<DiagnosticPath>) -> Self {
+    pub fn filtered(filter: HashSet<DiagnosticPath>) -> Self {
         LogDiagnosticsPlugin {
             filter: Some(filter),
             ..Default::default()
@@ -66,7 +120,7 @@ impl LogDiagnosticsPlugin {
         mut callback: impl FnMut(&Diagnostic),
     ) {
         if let Some(filter) = &state.filter {
-            for path in filter {
+            for path in filter.iter() {
                 if let Some(diagnostic) = diagnostics.get(path) {
                     if diagnostic.is_enabled {
                         callback(diagnostic);
@@ -93,7 +147,7 @@ impl LogDiagnosticsPlugin {
             };
 
             info!(
-                target: "bevy diagnostic",
+                target: "bevy_diagnostic",
                 // Suffix is only used for 's' or 'ms' currently,
                 // so we reserve two columns for it; however,
                 // Do not reserve columns for the suffix in the average
@@ -104,7 +158,7 @@ impl LogDiagnosticsPlugin {
             );
         } else {
             info!(
-                target: "bevy diagnostic",
+                target: "bevy_diagnostic",
                 "{path:<path_width$}: {value:>.6}{suffix:}",
                 path = diagnostic.path(),
                 suffix = diagnostic.suffix,

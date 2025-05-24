@@ -5,10 +5,14 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
 //! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevyengine.org/).
 //! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
 //! their ability to monitor and optimize their game's.
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 
@@ -25,7 +29,7 @@ pub use diagnostic::*;
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
 pub use frame_count_diagnostics_plugin::{update_frame_count, FrameCount, FrameCountPlugin};
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
-pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
+pub use log_diagnostics_plugin::{LogDiagnosticsPlugin, LogDiagnosticsState};
 #[cfg(feature = "sysinfo_plugin")]
 pub use system_information_diagnostics_plugin::{SystemInfo, SystemInformationDiagnosticsPlugin};
 

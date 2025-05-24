@@ -1,8 +1,6 @@
-use core::mem::size_of;
-
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -10,48 +8,52 @@ use bevy_core_pipeline::{
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::*,
-    query::ROQueryItem,
+    query::{QueryData, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
-            self, GpuPreprocessingSupport, IndirectParameters, IndirectParametersBuffer,
-            InstanceInputUniformBuffer,
+            self, GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
+            IndirectParametersCpuMetadata, IndirectParametersIndexed, IndirectParametersNonIndexed,
+            InstanceInputUniformBuffer, UntypedPhaseIndirectParametersBuffers,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
     camera::Camera,
-    mesh::*,
+    mesh::{skinning::SkinnedMesh, *},
     primitives::Aabb,
     render_asset::RenderAssets,
     render_phase::{
-        BinnedRenderPhasePlugin, PhaseItem, PhaseItemExtraIndex, RenderCommand,
+        BinnedRenderPhasePlugin, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, RenderCommand,
         RenderCommandResult, SortedRenderPhasePlugin, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    texture::DefaultImageSampler,
+    sync_world::MainEntityHashSet,
+    texture::{DefaultImageSampler, GpuImage},
     view::{
-        NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
-        ViewVisibility, VisibilityRange,
+        self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
+        ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
     },
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{
-    default,
-    hashbrown::hash_map::Entry,
-    tracing::{error, warn},
-    HashMap, Parallel,
-};
+use bevy_utils::{default, Parallel, TypeIdMap};
+use core::any::TypeId;
+use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
-use render::skin::{self, SkinIndex};
+use tracing::{error, warn};
 
+use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
+use crate::environment_map::EnvironmentMapLight;
+use crate::irradiance_volume::IrradianceVolume;
 use crate::{
     render::{
         morph::{
@@ -62,33 +64,58 @@ use crate::{
     },
     *,
 };
+use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
+use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
+use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
+use bevy_ecs::component::Tick;
+use bevy_ecs::system::SystemChangeTick;
+use bevy_render::camera::TemporalJitter;
+use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::view::ExtractedView;
+use bevy_render::RenderSystems::PrepareAssets;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
 use static_assertions::const_assert_eq;
 
-use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-
 /// Provides support for rendering 3D meshes.
-#[derive(Default)]
 pub struct MeshRenderPlugin {
     /// Whether we're building [`MeshUniform`]s on GPU.
     ///
     /// This requires compute shader support and so will be forcibly disabled if
     /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
 }
 
-pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
-pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
-pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
-pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
-pub const MESH_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16831548636314682308);
-pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6300874327833745635);
-pub const MESH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3252377289100772450);
-pub const SKINNING_HANDLE: Handle<Shader> = Handle::weak_from_u128(13215291596265391738);
-pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(970982813587607345);
+impl MeshRenderPlugin {
+    /// Creates a new [`MeshRenderPlugin`] with the given debug flags.
+    pub fn new(debug_flags: RenderDebugFlags) -> MeshRenderPlugin {
+        MeshRenderPlugin {
+            use_gpu_instance_buffer_builder: false,
+            debug_flags,
+        }
+    }
+}
+
+pub const FORWARD_IO_HANDLE: Handle<Shader> = weak_handle!("38111de1-6e35-4dbb-877b-7b6f9334baf6");
+pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> =
+    weak_handle!("979493db-4ae1-4003-b5c6-fcbb88b152a2");
+pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("c6fe674b-4c21-4d4b-867a-352848da5337");
+pub const MESH_TYPES_HANDLE: Handle<Shader> = weak_handle!("a4a3fc2e-a57e-4083-a8ab-2840176927f2");
+pub const MESH_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("84e7f9e6-e566-4a61-914e-c568f5dabf49");
+pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> =
+    weak_handle!("c46aa0f0-6c0c-4b3a-80bf-d8213c771f12");
+pub const MESH_SHADER_HANDLE: Handle<Shader> = weak_handle!("1a7bbae8-4b4f-48a7-b53b-e6822e56f321");
+pub const SKINNING_HANDLE: Handle<Shader> = weak_handle!("7474e812-2506-4cbf-9de3-fe07e5c6ff24");
+pub const MORPH_HANDLE: Handle<Shader> = weak_handle!("da30aac7-34cc-431d-a07f-15b1a783008c");
+pub const OCCLUSION_CULLING_HANDLE: Handle<Shader> =
+    weak_handle!("eaea07d9-7516-482c-aa42-6f8e9927e1f0");
 
 /// How many textures are allowed in the view bind group layout (`@group(0)`) before
 /// broader compatibility with WebGL and WebGPU is at risk, due to the minimum guaranteed
@@ -136,6 +163,12 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            OCCLUSION_CULLING_HANDLE,
+            "occlusion_culling.wgsl",
+            Shader::from_wgsl
+        );
 
         if app.get_sub_app(RenderApp).is_none() {
             return;
@@ -146,45 +179,49 @@ impl Plugin for MeshRenderPlugin {
             (no_automatic_skin_batching, no_automatic_morph_batching),
         )
         .add_plugins((
-            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
-            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
-            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::new(self.debug_flags),
+            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::new(self.debug_flags),
+            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::new(self.debug_flags),
         ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<MeshBindGroups>()
-                .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniforms>()
                 .init_resource::<MorphIndices>()
                 .init_resource::<MeshCullingDataBuffer>()
-                .init_resource::<RenderMeshMaterialIds>()
+                .init_resource::<RenderMaterialInstances>()
+                .configure_sets(
+                    ExtractSchedule,
+                    MeshExtractionSystems
+                        .after(view::extract_visibility_ranges)
+                        .after(late_sweep_material_instances),
+                )
                 .add_systems(
                     ExtractSchedule,
                     (
                         extract_skins,
                         extract_morphs,
                         gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
-                            .before(ExtractMeshesSet),
+                            .before(MeshExtractionSystems),
                     ),
                 )
                 .add_systems(
                     Render,
                     (
-                        set_mesh_motion_vector_flags.in_set(RenderSet::PrepareAssets),
-                        prepare_skins.in_set(RenderSet::PrepareResources),
-                        prepare_morphs.in_set(RenderSet::PrepareResources),
-                        prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
+                        set_mesh_motion_vector_flags.in_set(RenderSystems::PrepareMeshes),
+                        prepare_skins.in_set(RenderSystems::PrepareResources),
+                        prepare_morphs.in_set(RenderSystems::PrepareResources),
+                        prepare_mesh_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         prepare_mesh_view_bind_groups
-                            .in_set(RenderSet::PrepareBindGroups)
+                            .in_set(RenderSystems::PrepareBindGroups)
                             .after(prepare_oit_buffers),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
-                            .in_set(RenderSet::Cleanup)
-                            .after(RenderSet::Render),
+                            .in_set(RenderSystems::Cleanup)
+                            .after(RenderSystems::Render),
                     ),
                 );
         }
@@ -195,8 +232,14 @@ impl Plugin for MeshRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<ViewKeyCache>()
+                .init_resource::<ViewSpecializationTicks>()
                 .init_resource::<GpuPreprocessingSupport>()
-                .init_resource::<SkinUniforms>();
+                .init_resource::<SkinUniforms>()
+                .add_systems(
+                    Render,
+                    check_views_need_specialization.in_set(PrepareAssets),
+                );
 
             let gpu_preprocessing_support =
                 render_app.world().resource::<GpuPreprocessingSupport>();
@@ -208,24 +251,25 @@ impl Plugin for MeshRenderPlugin {
 
             if use_gpu_instance_buffer_builder {
                 render_app
-                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
+                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<
+                        MeshUniform,
+                        MeshInputUniform
+                    >>()
                     .init_resource::<RenderMeshInstanceGpuQueues>()
+                    .init_resource::<MeshesToReextractNextFrame>()
                     .add_systems(
                         ExtractSchedule,
-                        extract_meshes_for_gpu_building
-                            .in_set(ExtractMeshesSet),
+                        extract_meshes_for_gpu_building.in_set(MeshExtractionSystems),
                     )
                     .add_systems(
                         Render,
                         (
                             gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                                .in_set(RenderSet::PrepareResourcesFlush),
+                                .in_set(RenderSystems::PrepareResourcesFlush),
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
-                                .in_set(RenderSet::PrepareResources),
+                                .in_set(RenderSystems::PrepareResources),
                             collect_meshes_for_gpu_building
-                                .in_set(RenderSet::PrepareAssets)
-                                .after(allocator::allocate_and_free_meshes)
-                                .after(extract_skins)
+                                .in_set(RenderSystems::PrepareMeshes)
                                 // This must be before
                                 // `set_mesh_motion_vector_flags` so it doesn't
                                 // overwrite those flags.
@@ -240,12 +284,12 @@ impl Plugin for MeshRenderPlugin {
                     .insert_resource(cpu_batched_instance_buffer)
                     .add_systems(
                         ExtractSchedule,
-                        extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
+                        extract_meshes_for_cpu_building.in_set(MeshExtractionSystems),
                     )
                     .add_systems(
                         Render,
                         no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
+                            .in_set(RenderSystems::PrepareResourcesFlush),
                     );
             };
 
@@ -273,6 +317,141 @@ impl Plugin for MeshRenderPlugin {
             Shader::from_wgsl_with_defs,
             mesh_bindings_shader_defs
         );
+    }
+}
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
+
+pub fn check_views_need_specialization(
+    mut view_key_cache: ResMut<ViewKeyCache>,
+    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
+    mut views: Query<(
+        &ExtractedView,
+        &Msaa,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        Option<&ShadowFilteringMethod>,
+        Has<ScreenSpaceAmbientOcclusion>,
+        (
+            Has<NormalPrepass>,
+            Has<DepthPrepass>,
+            Has<MotionVectorPrepass>,
+            Has<DeferredPrepass>,
+        ),
+        Option<&Camera3d>,
+        Has<TemporalJitter>,
+        Option<&Projection>,
+        Has<DistanceFog>,
+        (
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<RenderViewLightProbes<IrradianceVolume>>,
+        ),
+        Has<OrderIndependentTransparencySettings>,
+    )>,
+    ticks: SystemChangeTick,
+) {
+    for (
+        view,
+        msaa,
+        tonemapping,
+        dither,
+        shadow_filter_method,
+        ssao,
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        camera_3d,
+        temporal_jitter,
+        projection,
+        distance_fog,
+        (has_environment_maps, has_irradiance_volumes),
+        has_oit,
+    ) in views.iter_mut()
+    {
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_hdr(view.hdr);
+
+        if normal_prepass {
+            view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if depth_prepass {
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+        }
+
+        if motion_vector_prepass {
+            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        if deferred_prepass {
+            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if temporal_jitter {
+            view_key |= MeshPipelineKey::TEMPORAL_JITTER;
+        }
+
+        if has_environment_maps {
+            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if has_oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
+        }
+
+        if let Some(projection) = projection {
+            view_key |= match projection {
+                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+                Projection::Custom(_) => MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD,
+            };
+        }
+
+        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
+            ShadowFilteringMethod::Hardware2x2 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
+            }
+            ShadowFilteringMethod::Gaussian => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
+            }
+            ShadowFilteringMethod::Temporal => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
+            }
+        }
+
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= tonemapping_pipeline_key(*tonemapping);
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= MeshPipelineKey::DEBAND_DITHER;
+            }
+        }
+        if ssao {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
+        }
+        if let Some(camera_3d) = camera_3d {
+            view_key |= screen_space_specular_transmission_pipeline_key(
+                camera_3d.screen_space_specular_transmission_quality,
+            );
+        }
+        if !view_key_cache
+            .get_mut(&view.retained_view_entity)
+            .is_some_and(|current_key| *current_key == view_key)
+        {
+            view_key_cache.insert(view.retained_view_entity, view_key);
+            view_specialization_ticks.insert(view.retained_view_entity, ticks.this_run());
+        }
     }
 }
 
@@ -313,13 +492,15 @@ pub struct MeshUniform {
     pub first_vertex_index: u32,
     /// The current skin index, or `u32::MAX` if there's no skin.
     pub current_skin_index: u32,
-    /// The previous skin index, or `u32::MAX` if there's no previous skin.
-    pub previous_skin_index: u32,
     /// The material and lightmap indices, packed into 32 bits.
     ///
     /// Low 16 bits: index of the material inside the bind group data.
     /// High 16 bits: index of the lightmap in the binding array.
     pub material_and_lightmap_bind_group_slot: u32,
+    /// User supplied tag to identify this mesh instance.
+    pub tag: u32,
+    /// Padding.
+    pub pad: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -356,15 +537,36 @@ pub struct MeshInputUniform {
     /// [`MeshAllocator`]). This value stores the offset of the first vertex in
     /// this mesh in that buffer.
     pub first_vertex_index: u32,
+    /// The index of this mesh's first index in the index buffer, if any.
+    ///
+    /// Multiple meshes can be packed into a single index buffer (see
+    /// [`MeshAllocator`]). This value stores the offset of the first index in
+    /// this mesh in that buffer.
+    ///
+    /// If this mesh isn't indexed, this value is ignored.
+    pub first_index_index: u32,
+    /// For an indexed mesh, the number of indices that make it up; for a
+    /// non-indexed mesh, the number of vertices in it.
+    pub index_count: u32,
     /// The current skin index, or `u32::MAX` if there's no skin.
     pub current_skin_index: u32,
-    /// The previous skin index, or `u32::MAX` if there's no previous skin.
-    pub previous_skin_index: u32,
     /// The material and lightmap indices, packed into 32 bits.
     ///
     /// Low 16 bits: index of the material inside the bind group data.
     /// High 16 bits: index of the lightmap in the binding array.
     pub material_and_lightmap_bind_group_slot: u32,
+    /// The number of the frame on which this [`MeshInputUniform`] was built.
+    ///
+    /// This is used to validate the previous transform and skin. If this
+    /// [`MeshInputUniform`] wasn't updated on this frame, then we know that
+    /// neither this mesh's transform nor that of its joints have been updated
+    /// on this frame, and therefore the transforms of both this mesh and its
+    /// joints must be identical to those for the previous frame.
+    pub timestamp: u32,
+    /// User supplied tag to identify this mesh instance.
+    pub tag: u32,
+    /// Padding.
+    pub pad: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -397,7 +599,7 @@ impl MeshUniform {
         material_bind_group_slot: MaterialBindGroupSlot,
         maybe_lightmap: Option<(LightmapSlotIndex, Rect)>,
         current_skin_index: Option<u32>,
-        previous_skin_index: Option<u32>,
+        tag: Option<u32>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
@@ -415,9 +617,10 @@ impl MeshUniform {
             flags: mesh_transforms.flags,
             first_vertex_index,
             current_skin_index: current_skin_index.unwrap_or(u32::MAX),
-            previous_skin_index: previous_skin_index.unwrap_or(u32::MAX),
             material_and_lightmap_bind_group_slot: u32::from(material_bind_group_slot)
                 | ((lightmap_bind_group_slot as u32) << 16),
+            tag: tag.unwrap_or(0),
+            pad: 0,
         }
     }
 }
@@ -546,6 +749,11 @@ pub struct RenderMeshInstanceShared {
     pub material_bindings_index: MaterialBindingId,
     /// Various flags.
     pub flags: RenderMeshInstanceFlags,
+    /// Index of the slab that the lightmap resides in, if a lightmap is
+    /// present.
+    pub lightmap_slab_index: Option<LightmapSlabIndex>,
+    /// User supplied tag to identify this mesh instance.
+    pub tag: u32,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -621,10 +829,39 @@ pub enum RenderMeshInstanceGpuQueue {
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 
+/// Holds a list of meshes that couldn't be extracted this frame because their
+/// materials weren't prepared yet.
+///
+/// On subsequent frames, we try to reextract those meshes.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct MeshesToReextractNextFrame(MainEntityHashSet);
+
 impl RenderMeshInstanceShared {
-    fn from_components(
+    /// A gpu builder will provide the mesh instance id
+    /// during [`RenderMeshInstanceGpuBuilder::update`].
+    fn for_gpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
+        tag: Option<&MeshTag>,
+        not_shadow_caster: bool,
+        no_automatic_batching: bool,
+    ) -> Self {
+        Self::for_cpu_building(
+            previous_transform,
+            mesh,
+            tag,
+            default(),
+            not_shadow_caster,
+            no_automatic_batching,
+        )
+    }
+
+    /// The cpu builder does not have an equivalent [`RenderMeshInstanceGpuBuilder::update`].
+    fn for_cpu_building(
+        previous_transform: Option<&PreviousGlobalTransform>,
+        mesh: &Mesh3d,
+        tag: Option<&MeshTag>,
+        material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
     ) -> Self {
@@ -642,8 +879,9 @@ impl RenderMeshInstanceShared {
         RenderMeshInstanceShared {
             mesh_asset_id: mesh.id(),
             flags: mesh_instance_flags,
-            // This gets filled in later, during `RenderMeshGpuBuilder::update`.
-            material_bindings_index: default(),
+            material_bindings_index,
+            lightmap_slab_index: None,
+            tag: tag.map_or(0, |i| **i),
         }
     }
 
@@ -679,36 +917,6 @@ pub struct RenderMeshInstancesCpu(MainEntityHashMap<RenderMeshInstanceCpu>);
 #[derive(Default, Deref, DerefMut)]
 pub struct RenderMeshInstancesGpu(MainEntityHashMap<RenderMeshInstanceGpu>);
 
-/// Maps each mesh instance to the material ID, and allocated binding ID,
-/// associated with that mesh instance.
-#[derive(Resource, Default)]
-pub struct RenderMeshMaterialIds {
-    /// Maps the mesh instance to the material ID.
-    pub(crate) mesh_to_material: MainEntityHashMap<UntypedAssetId>,
-    /// Maps the material ID to the binding ID, which describes the location of
-    /// that material bind group data in memory.
-    pub(crate) material_to_binding: HashMap<UntypedAssetId, MaterialBindingId>,
-}
-
-impl RenderMeshMaterialIds {
-    /// Returns the mesh material ID for the entity with the given mesh, or a
-    /// dummy mesh material ID if the mesh has no material ID.
-    ///
-    /// Meshes almost always have materials, but in very specific circumstances
-    /// involving custom pipelines they won't. (See the
-    /// `specialized_mesh_pipelines` example.)
-    fn mesh_material_binding_id(&self, entity: MainEntity) -> MaterialBindingId {
-        self.mesh_to_material
-            .get(&entity)
-            .and_then(|mesh_material_asset_id| {
-                self.material_to_binding
-                    .get(mesh_material_asset_id)
-                    .cloned()
-            })
-            .unwrap_or_default()
-    }
-}
-
 impl RenderMeshInstances {
     /// Creates a new [`RenderMeshInstances`] instance.
     fn new(use_gpu_instance_buffer_builder: bool) -> RenderMeshInstances {
@@ -720,7 +928,7 @@ impl RenderMeshInstances {
     }
 
     /// Returns the ID of the mesh asset attached to the given entity, if any.
-    pub(crate) fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
+    pub fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
             RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
@@ -765,6 +973,7 @@ impl RenderMeshInstancesCpu {
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 translation: render_mesh_instance.transforms.world_from_local.translation,
+                current_uniform_index: InputUniformIndex::default(),
             })
     }
 
@@ -788,6 +997,9 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 translation: render_mesh_instance.translation,
+                current_uniform_index: InputUniformIndex(
+                    render_mesh_instance.current_uniform_index.into(),
+                ),
             })
     }
 
@@ -900,7 +1112,6 @@ impl RenderMeshInstanceGpuQueue {
 impl RenderMeshInstanceGpuBuilder {
     /// Flushes this mesh instance to the [`RenderMeshInstanceGpu`] and
     /// [`MeshInputUniform`] tables, replacing the existing entry if applicable.
-    #[allow(clippy::too_many_arguments)]
     fn update(
         mut self,
         entity: MainEntity,
@@ -908,33 +1119,63 @@ impl RenderMeshInstanceGpuBuilder {
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
-        mesh_material_ids: &RenderMeshMaterialIds,
+        mesh_material_ids: &RenderMaterialInstances,
+        render_material_bindings: &RenderMaterialBindings,
         render_lightmaps: &RenderLightmaps,
-        skin_indices: &SkinIndices,
-    ) -> u32 {
-        let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id)
-        {
-            Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-            None => 0,
-        };
-
-        let current_skin_index = match skin_indices.current.get(&entity) {
-            Some(skin_indices) => skin_indices.index(),
+        skin_uniforms: &SkinUniforms,
+        timestamp: FrameCount,
+        meshes_to_reextract_next_frame: &mut MeshesToReextractNextFrame,
+    ) -> Option<u32> {
+        let (first_vertex_index, vertex_count) =
+            match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id) {
+                Some(mesh_vertex_slice) => (
+                    mesh_vertex_slice.range.start,
+                    mesh_vertex_slice.range.end - mesh_vertex_slice.range.start,
+                ),
+                None => (0, 0),
+            };
+        let (mesh_is_indexed, first_index_index, index_count) =
+            match mesh_allocator.mesh_index_slice(&self.shared.mesh_asset_id) {
+                Some(mesh_index_slice) => (
+                    true,
+                    mesh_index_slice.range.start,
+                    mesh_index_slice.range.end - mesh_index_slice.range.start,
+                ),
+                None => (false, 0, 0),
+            };
+        let current_skin_index = match skin_uniforms.skin_byte_offset(entity) {
+            Some(skin_index) => skin_index.index(),
             None => u32::MAX,
         };
-        let previous_skin_index = match skin_indices.prev.get(&entity) {
-            Some(skin_indices) => skin_indices.index(),
-            None => u32::MAX,
-        };
 
-        // Look up the material index.
-        let mesh_material_binding_id = mesh_material_ids.mesh_material_binding_id(entity);
+        // Look up the material index. If we couldn't fetch the material index,
+        // then the material hasn't been prepared yet, perhaps because it hasn't
+        // yet loaded. In that case, add the mesh to
+        // `meshes_to_reextract_next_frame` and bail.
+        let mesh_material = mesh_material_ids.mesh_material(entity);
+        let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
+            match render_material_bindings.get(&mesh_material) {
+                Some(binding_id) => *binding_id,
+                None => {
+                    meshes_to_reextract_next_frame.insert(entity);
+                    return None;
+                }
+            }
+        } else {
+            // Use a dummy material binding ID.
+            MaterialBindingId::default()
+        };
         self.shared.material_bindings_index = mesh_material_binding_id;
 
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
             Some(render_lightmap) => u16::from(*render_lightmap.slot_index),
             None => u16::MAX,
         };
+        let lightmap_slab_index = render_lightmaps
+            .render_lightmaps
+            .get(&entity)
+            .map(|lightmap| lightmap.slab_index);
+        self.shared.lightmap_slab_index = lightmap_slab_index;
 
         // Create the mesh input uniform.
         let mut mesh_input_uniform = MeshInputUniform {
@@ -942,12 +1183,20 @@ impl RenderMeshInstanceGpuBuilder {
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
             previous_input_index: u32::MAX,
+            timestamp: timestamp.0,
             first_vertex_index,
+            first_index_index,
+            index_count: if mesh_is_indexed {
+                index_count
+            } else {
+                vertex_count
+            },
             current_skin_index,
-            previous_skin_index,
             material_and_lightmap_bind_group_slot: u32::from(
                 self.shared.material_bindings_index.slot,
             ) | ((lightmap_slot as u32) << 16),
+            tag: self.shared.tag,
+            pad: 0,
         };
 
         // Did the last frame contain this entity as well?
@@ -961,7 +1210,8 @@ impl RenderMeshInstanceGpuBuilder {
 
                 // Save the old mesh input uniform. The mesh preprocessing
                 // shader will need it to compute motion vectors.
-                let previous_mesh_input_uniform = current_input_buffer.get(current_uniform_index);
+                let previous_mesh_input_uniform =
+                    current_input_buffer.get_unchecked(current_uniform_index);
                 let previous_input_index = previous_input_buffer.add(previous_mesh_input_uniform);
                 mesh_input_uniform.previous_input_index = previous_input_index;
 
@@ -991,7 +1241,7 @@ impl RenderMeshInstanceGpuBuilder {
             }
         }
 
-        current_uniform_index
+        Some(current_uniform_index)
     }
 }
 
@@ -1058,12 +1308,19 @@ pub struct RenderMeshQueueData<'a> {
     pub shared: &'a RenderMeshInstanceShared,
     /// The translation of the mesh instance.
     pub translation: Vec3,
+    /// The index of the [`MeshInputUniform`] in the GPU buffer for this mesh
+    /// instance.
+    pub current_uniform_index: InputUniformIndex,
 }
 
 /// A [`SystemSet`] that encompasses both [`extract_meshes_for_cpu_building`]
 /// and [`extract_meshes_for_gpu_building`].
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ExtractMeshesSet;
+pub struct MeshExtractionSystems;
+
+/// Deprecated alias for [`MeshExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `MeshExtractionSystems`.")]
+pub type ExtractMeshesSet = MeshExtractionSystems;
 
 /// Extracts meshes from the main world into the render world, populating the
 /// [`RenderMeshInstances`].
@@ -1072,6 +1329,8 @@ pub struct ExtractMeshesSet;
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mesh_material_ids: Res<RenderMaterialInstances>,
+    render_material_bindings: Res<RenderMaterialBindings>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
     meshes_query: Extract<
@@ -1081,6 +1340,7 @@ pub fn extract_meshes_for_cpu_building(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Mesh3d,
+            Option<&MeshTag>,
             Has<NoFrustumCulling>,
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
@@ -1099,6 +1359,7 @@ pub fn extract_meshes_for_cpu_building(
             transform,
             previous_transform,
             mesh,
+            tag,
             no_frustum_culling,
             not_shadow_receiver,
             transmitted_receiver,
@@ -1123,9 +1384,18 @@ pub fn extract_meshes_for_cpu_building(
                 transmitted_receiver,
             );
 
-            let shared = RenderMeshInstanceShared::from_components(
+            let mesh_material = mesh_material_ids.mesh_material(MainEntity::from(entity));
+
+            let material_bindings_index = render_material_bindings
+                .get(&mesh_material)
+                .copied()
+                .unwrap_or_default();
+
+            let shared = RenderMeshInstanceShared::for_cpu_building(
                 previous_transform,
                 mesh,
+                tag,
+                material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -1165,6 +1435,24 @@ pub fn extract_meshes_for_cpu_building(
     }
 }
 
+/// All the data that we need from a mesh in the main world.
+type GpuMeshExtractionQuery = (
+    Entity,
+    Read<ViewVisibility>,
+    Read<GlobalTransform>,
+    Option<Read<PreviousGlobalTransform>>,
+    Option<Read<Lightmap>>,
+    Option<Read<Aabb>>,
+    Read<Mesh3d>,
+    Option<Read<MeshTag>>,
+    Has<NoFrustumCulling>,
+    Has<NotShadowReceiver>,
+    Has<TransmittedShadowReceiver>,
+    Has<NotShadowCaster>,
+    Has<NoAutomaticBatching>,
+    Has<VisibilityRange>,
+);
+
 /// Extracts meshes from the main world into the render world and queues
 /// [`MeshInputUniform`]s to be uploaded to the GPU.
 ///
@@ -1173,28 +1461,13 @@ pub fn extract_meshes_for_cpu_building(
 ///
 /// This is the variant of the system that runs when we're using GPU
 /// [`MeshUniform`] building.
-#[allow(clippy::too_many_arguments)]
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     changed_meshes_query: Extract<
         Query<
-            (
-                Entity,
-                &ViewVisibility,
-                &GlobalTransform,
-                Option<&PreviousGlobalTransform>,
-                Option<&Lightmap>,
-                Option<&Aabb>,
-                &Mesh3d,
-                Has<NoFrustumCulling>,
-                Has<NotShadowReceiver>,
-                Has<TransmittedShadowReceiver>,
-                Has<NotShadowCaster>,
-                Has<NoAutomaticBatching>,
-                Has<VisibilityRange>,
-            ),
+            GpuMeshExtractionQuery,
             Or<(
                 Changed<ViewVisibility>,
                 Changed<GlobalTransform>,
@@ -1208,15 +1481,19 @@ pub fn extract_meshes_for_gpu_building(
                 Changed<NotShadowCaster>,
                 Changed<NoAutomaticBatching>,
                 Changed<VisibilityRange>,
+                Changed<SkinnedMesh>,
             )>,
         >,
     >,
+    all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
     mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
-    cameras_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
+    gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
+    meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
 ) {
-    let any_gpu_culling = !cameras_query.is_empty();
+    let any_gpu_culling = !gpu_culling_query.is_empty();
+
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
         render_mesh_instance_queue.init(any_gpu_culling);
     }
@@ -1235,80 +1512,37 @@ pub fn extract_meshes_for_gpu_building(
     // construct the `MeshInputUniform` for them.
     changed_meshes_query.par_iter().for_each_init(
         || render_mesh_instance_queues.borrow_local_mut(),
-        |queue,
-         (
-            entity,
-            view_visibility,
-            transform,
-            previous_transform,
-            lightmap,
-            aabb,
-            mesh,
-            no_frustum_culling,
-            not_shadow_receiver,
-            transmitted_receiver,
-            not_shadow_caster,
-            no_automatic_batching,
-            visibility_range,
-        )| {
-            if !view_visibility.get() {
-                queue.remove(entity.into(), any_gpu_culling);
-                return;
-            }
-
-            let mut lod_index = None;
-            if visibility_range {
-                lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
-            }
-
-            let mesh_flags = MeshFlags::from_components(
-                transform,
-                lod_index,
-                no_frustum_culling,
-                not_shadow_receiver,
-                transmitted_receiver,
-            );
-
-            let shared = RenderMeshInstanceShared::from_components(
-                previous_transform,
-                mesh,
-                not_shadow_caster,
-                no_automatic_batching,
-            );
-
-            let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
-
-            let gpu_mesh_culling_data = any_gpu_culling.then(|| MeshCullingData::new(aabb));
-
-            let previous_input_index = if shared
-                .flags
-                .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM)
-            {
-                render_mesh_instances
-                    .get(&MainEntity::from(entity))
-                    .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
-            } else {
-                None
-            };
-
-            let gpu_mesh_instance_builder = RenderMeshInstanceGpuBuilder {
-                shared,
-                world_from_local: (&transform.affine()).into(),
-                lightmap_uv_rect,
-                mesh_flags,
-                previous_input_index,
-            };
-
-            queue.push(
-                entity.into(),
-                gpu_mesh_instance_builder,
-                gpu_mesh_culling_data,
+        |queue, query_row| {
+            extract_mesh_for_gpu_building(
+                query_row,
+                &render_visibility_ranges,
+                render_mesh_instances,
+                queue,
+                any_gpu_culling,
             );
         },
     );
 
-    // Also record info about each mesh that became invisible.
+    // Process materials that `collect_meshes_for_gpu_building` marked as
+    // needing to be reextracted. This will happen when we extracted a mesh on
+    // some previous frame, but its material hadn't been prepared yet, perhaps
+    // because the material hadn't yet been loaded. We reextract such materials
+    // on subsequent frames so that `collect_meshes_for_gpu_building` will check
+    // to see if their materials have been prepared.
     let mut queue = render_mesh_instance_queues.borrow_local_mut();
+    for &mesh_entity in &**meshes_to_reextract_next_frame {
+        if let Ok(query_row) = all_meshes_query.get(*mesh_entity) {
+            extract_mesh_for_gpu_building(
+                query_row,
+                &render_visibility_ranges,
+                render_mesh_instances,
+                &mut queue,
+                any_gpu_culling,
+            );
+        }
+    }
+
+    // Also record info about each mesh that became invisible.
     for entity in removed_visibilities_query
         .read()
         .chain(removed_global_transforms_query.read())
@@ -1317,10 +1551,91 @@ pub fn extract_meshes_for_gpu_building(
         // Only queue a mesh for removal if we didn't pick it up above.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
-        if !changed_meshes_query.contains(entity) {
-            queue.remove(entity.into(), any_gpu_culling);
+        let entity = MainEntity::from(entity);
+        if !changed_meshes_query.contains(*entity)
+            && !meshes_to_reextract_next_frame.contains(&entity)
+        {
+            queue.remove(entity, any_gpu_culling);
         }
     }
+}
+
+fn extract_mesh_for_gpu_building(
+    (
+        entity,
+        view_visibility,
+        transform,
+        previous_transform,
+        lightmap,
+        aabb,
+        mesh,
+        tag,
+        no_frustum_culling,
+        not_shadow_receiver,
+        transmitted_receiver,
+        not_shadow_caster,
+        no_automatic_batching,
+        visibility_range,
+    ): <GpuMeshExtractionQuery as QueryData>::Item<'_>,
+    render_visibility_ranges: &RenderVisibilityRanges,
+    render_mesh_instances: &RenderMeshInstancesGpu,
+    queue: &mut RenderMeshInstanceGpuQueue,
+    any_gpu_culling: bool,
+) {
+    if !view_visibility.get() {
+        queue.remove(entity.into(), any_gpu_culling);
+        return;
+    }
+
+    let mut lod_index = None;
+    if visibility_range {
+        lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
+    }
+
+    let mesh_flags = MeshFlags::from_components(
+        transform,
+        lod_index,
+        no_frustum_culling,
+        not_shadow_receiver,
+        transmitted_receiver,
+    );
+
+    let shared = RenderMeshInstanceShared::for_gpu_building(
+        previous_transform,
+        mesh,
+        tag,
+        not_shadow_caster,
+        no_automatic_batching,
+    );
+
+    let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
+
+    let gpu_mesh_culling_data = any_gpu_culling.then(|| MeshCullingData::new(aabb));
+
+    let previous_input_index = if shared
+        .flags
+        .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM)
+    {
+        render_mesh_instances
+            .get(&MainEntity::from(entity))
+            .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
+    } else {
+        None
+    };
+
+    let gpu_mesh_instance_builder = RenderMeshInstanceGpuBuilder {
+        shared,
+        world_from_local: (&transform.affine()).into(),
+        lightmap_uv_rect,
+        mesh_flags,
+        previous_input_index,
+    };
+
+    queue.push(
+        entity.into(),
+        gpu_mesh_instance_builder,
+        gpu_mesh_culling_data,
+    );
 }
 
 /// A system that sets the [`RenderMeshInstanceFlags`] for each mesh based on
@@ -1337,12 +1652,12 @@ pub fn extract_meshes_for_gpu_building(
 /// [`crate::material::queue_material_meshes`] check the skin and morph target
 /// tables for each mesh, but that would be too slow in the hot mesh queuing
 /// loop.
-fn set_mesh_motion_vector_flags(
+pub(crate) fn set_mesh_motion_vector_flags(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    skin_indices: Res<SkinIndices>,
+    skin_uniforms: Res<SkinUniforms>,
     morph_indices: Res<MorphIndices>,
 ) {
-    for &entity in skin_indices.prev.keys() {
+    for &entity in skin_uniforms.all_skins() {
         render_mesh_instances
             .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN);
     }
@@ -1354,7 +1669,6 @@ fn set_mesh_motion_vector_flags(
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
 /// mesh uniforms are built.
-#[allow(clippy::too_many_arguments)]
 pub fn collect_meshes_for_gpu_building(
     render_mesh_instances: ResMut<RenderMeshInstances>,
     batched_instance_buffers: ResMut<
@@ -1363,20 +1677,26 @@ pub fn collect_meshes_for_gpu_building(
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     mesh_allocator: Res<MeshAllocator>,
-    mesh_material_ids: Res<RenderMeshMaterialIds>,
+    mesh_material_ids: Res<RenderMaterialInstances>,
+    render_material_bindings: Res<RenderMaterialBindings>,
     render_lightmaps: Res<RenderLightmaps>,
-    skin_indices: Res<SkinIndices>,
+    skin_uniforms: Res<SkinUniforms>,
+    frame_count: Res<FrameCount>,
+    mut meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
 ) {
-    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
+    let RenderMeshInstances::GpuBuilding(render_mesh_instances) =
         render_mesh_instances.into_inner()
     else {
         return;
     };
 
+    // We're going to rebuild `meshes_to_reextract_next_frame`.
+    meshes_to_reextract_next_frame.clear();
+
     // Collect render mesh instances. Build up the uniform buffer.
     let gpu_preprocessing::BatchedInstanceBuffers {
-        ref mut current_input_buffer,
-        ref mut previous_input_buffer,
+        current_input_buffer,
+        previous_input_buffer,
         ..
     } = batched_instance_buffers.into_inner();
 
@@ -1402,8 +1722,11 @@ pub fn collect_meshes_for_gpu_building(
                         previous_input_buffer,
                         &mesh_allocator,
                         &mesh_material_ids,
+                        &render_material_bindings,
                         &render_lightmaps,
-                        &skin_indices,
+                        &skin_uniforms,
+                        *frame_count,
+                        &mut meshes_to_reextract_next_frame,
                     );
                 }
 
@@ -1421,16 +1744,21 @@ pub fn collect_meshes_for_gpu_building(
                 ref mut removed,
             } => {
                 for (entity, mesh_instance_builder, mesh_culling_builder) in changed.drain(..) {
-                    let instance_data_index = mesh_instance_builder.update(
+                    let Some(instance_data_index) = mesh_instance_builder.update(
                         entity,
                         &mut *render_mesh_instances,
                         current_input_buffer,
                         previous_input_buffer,
                         &mesh_allocator,
                         &mesh_material_ids,
+                        &render_material_bindings,
                         &render_lightmaps,
-                        &skin_indices,
-                    );
+                        &skin_uniforms,
+                        *frame_count,
+                        &mut meshes_to_reextract_next_frame,
+                    ) else {
+                        continue;
+                    };
                     mesh_culling_builder
                         .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
                 }
@@ -1478,6 +1806,9 @@ pub struct MeshPipeline {
     /// This affects whether reflection probes can be used.
     pub binding_arrays_are_usable: bool,
 
+    /// Whether clustered decals are usable on the current render device.
+    pub clustered_decals_are_usable: bool,
+
     /// Whether skins will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
     pub skins_use_uniform_buffers: bool,
@@ -1512,8 +1843,8 @@ impl FromWorld for MeshPipeline {
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
                 texture.as_image_copy(),
-                &image.data,
-                ImageDataLayout {
+                image.data.as_ref().expect("Image was created without data"),
+                TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
@@ -1539,7 +1870,11 @@ impl FromWorld for MeshPipeline {
             mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
-            skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
+            clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
+                &render_device,
+                &render_adapter,
+            ),
+            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device),
         }
     }
 }
@@ -1572,20 +1907,22 @@ impl GetBatchData for MeshPipeline {
         SRes<RenderLightmaps>,
         SRes<RenderAssets<RenderMesh>>,
         SRes<MeshAllocator>,
-        SRes<SkinIndices>,
+        SRes<SkinUniforms>,
     );
     // The material bind group ID, the mesh ID, and the lightmap ID,
     // respectively.
     type CompareData = (
         MaterialBindGroupIndex,
         AssetId<Mesh>,
-        Option<AssetId<Image>>,
+        Option<LightmapSlabIndex>,
     );
 
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_indices): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms): &SystemParamItem<
+            Self::Param,
+        >,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1603,9 +1940,7 @@ impl GetBatchData for MeshPipeline {
             };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
-        let current_skin_index = skin_indices.current.get(&main_entity).map(SkinIndex::index);
-        let previous_skin_index = skin_indices.prev.get(&main_entity).map(SkinIndex::index);
-
+        let current_skin_index = skin_uniforms.skin_index(main_entity);
         let material_bind_group_index = mesh_instance.material_bindings_index;
 
         Some((
@@ -1615,12 +1950,12 @@ impl GetBatchData for MeshPipeline {
                 material_bind_group_index.slot,
                 maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
                 current_skin_index,
-                previous_skin_index,
+                Some(mesh_instance.tag),
             ),
             mesh_instance.should_batch().then_some((
                 material_bind_group_index.group,
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.image),
+                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
@@ -1650,13 +1985,15 @@ impl GetFullBatchData for MeshPipeline {
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bindings_index.group,
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.image),
+                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_indices): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms): &SystemParamItem<
+            Self::Param,
+        >,
         main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1673,8 +2010,7 @@ impl GetFullBatchData for MeshPipeline {
             };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
-        let current_skin_index = skin_indices.current.get(&main_entity).map(SkinIndex::index);
-        let previous_skin_index = skin_indices.prev.get(&main_entity).map(SkinIndex::index);
+        let current_skin_index = skin_uniforms.skin_index(main_entity);
 
         Some(MeshUniform::new(
             &mesh_instance.transforms,
@@ -1682,7 +2018,7 @@ impl GetFullBatchData for MeshPipeline {
             mesh_instance.material_bindings_index.slot,
             maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
             current_skin_index,
-            previous_skin_index,
+            Some(mesh_instance.tag),
         ))
     }
 
@@ -1704,86 +2040,31 @@ impl GetFullBatchData for MeshPipeline {
             .map(|entity| entity.current_uniform_index)
     }
 
-    fn write_batch_indirect_parameters(
-        (mesh_instances, _, meshes, mesh_allocator, _): &SystemParamItem<Self::Param>,
-        indirect_parameters_buffer: &mut IndirectParametersBuffer,
+    fn write_batch_indirect_parameters_metadata(
+        indexed: bool,
+        base_output_index: u32,
+        batch_set_index: Option<NonMaxU32>,
+        phase_indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
-        main_entity: MainEntity,
     ) {
-        write_batch_indirect_parameters(
-            mesh_instances,
-            meshes,
-            mesh_allocator,
-            indirect_parameters_buffer,
-            indirect_parameters_offset,
-            main_entity,
-        );
-    }
-}
+        let indirect_parameters = IndirectParametersCpuMetadata {
+            base_output_index,
+            batch_set_index: match batch_set_index {
+                Some(batch_set_index) => u32::from(batch_set_index),
+                None => !0,
+            },
+        };
 
-/// Pushes a set of [`IndirectParameters`] onto the [`IndirectParametersBuffer`]
-/// for the given mesh instance, and returns the index of those indirect
-/// parameters.
-fn write_batch_indirect_parameters(
-    mesh_instances: &RenderMeshInstances,
-    meshes: &RenderAssets<RenderMesh>,
-    mesh_allocator: &MeshAllocator,
-    indirect_parameters_buffer: &mut IndirectParametersBuffer,
-    indirect_parameters_offset: u32,
-    main_entity: MainEntity,
-) {
-    // This should only be called during GPU building.
-    let RenderMeshInstances::GpuBuilding(ref mesh_instances) = *mesh_instances else {
-        error!(
-            "`write_batch_indirect_parameters_index` should never be called in CPU mesh uniform \
-                building mode"
-        );
-        return;
-    };
-
-    let Some(mesh_instance) = mesh_instances.get(&main_entity) else {
-        return;
-    };
-    let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
-        return;
-    };
-    let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)
-    else {
-        return;
-    };
-
-    // Note that `IndirectParameters` covers both of these structures, even
-    // though they actually have distinct layouts. See the comment above that
-    // type for more information.
-    let indirect_parameters = match mesh.buffer_info {
-        RenderMeshBufferInfo::Indexed {
-            count: index_count, ..
-        } => {
-            let Some(index_buffer_slice) =
-                mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)
-            else {
-                return;
-            };
-            IndirectParameters {
-                vertex_or_index_count: index_count,
-                instance_count: 0,
-                first_vertex_or_first_index: index_buffer_slice.range.start,
-                base_vertex_or_first_instance: vertex_buffer_slice.range.start,
-                first_instance: 0,
-            }
+        if indexed {
+            phase_indirect_parameters_buffers
+                .indexed
+                .set(indirect_parameters_offset, indirect_parameters);
+        } else {
+            phase_indirect_parameters_buffers
+                .non_indexed
+                .set(indirect_parameters_offset, indirect_parameters);
         }
-        RenderMeshBufferInfo::NonIndexed => IndirectParameters {
-            vertex_or_index_count: mesh.vertex_count,
-            instance_count: 0,
-            first_vertex_or_first_index: vertex_buffer_slice.range.start,
-            base_vertex_or_first_instance: 0,
-            // Use `0xffffffff` as a placeholder to tell the mesh preprocessing
-            // shader that this is a non-indexed mesh.
-            first_instance: !0,
-        },
-    };
-
-    indirect_parameters_buffer.set(indirect_parameters_offset, indirect_parameters);
+    }
 }
 
 bitflags::bitflags! {
@@ -1816,13 +2097,15 @@ bitflags::bitflags! {
         const TEMPORAL_JITTER                   = 1 << 11;
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
         const LIGHTMAPPED                       = 1 << 13;
-        const IRRADIANCE_VOLUME                 = 1 << 14;
-        const VISIBILITY_RANGE_DITHER           = 1 << 15;
-        const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
-        const HAS_PREVIOUS_SKIN                 = 1 << 17;
-        const HAS_PREVIOUS_MORPH                = 1 << 18;
-        const OIT_ENABLED                       = 1 << 19;
-        const LAST_FLAG                         = Self::OIT_ENABLED.bits();
+        const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 14;
+        const IRRADIANCE_VOLUME                 = 1 << 15;
+        const VISIBILITY_RANGE_DITHER           = 1 << 16;
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 17;
+        const HAS_PREVIOUS_SKIN                 = 1 << 18;
+        const HAS_PREVIOUS_MORPH                = 1 << 19;
+        const OIT_ENABLED                       = 1 << 20;
+        const DISTANCE_FOG                      = 1 << 21;
+        const LAST_FLAG                         = Self::DISTANCE_FOG.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -2065,6 +2348,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "pbr_anisotropy_texture") {
             shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
         }
+        if cfg!(feature = "pbr_specular_textures") {
+            shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
+        }
 
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
 
@@ -2245,6 +2531,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if key.contains(MeshPipelineKey::LIGHTMAPPED) {
             shader_defs.push("LIGHTMAP".into());
         }
+        if key.contains(MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING) {
+            shader_defs.push("LIGHTMAP_BICUBIC_SAMPLING".into());
+        }
 
         if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
             shader_defs.push("TEMPORAL_JITTER".into());
@@ -2278,6 +2567,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VISIBILITY_RANGE_DITHER".into());
         }
 
+        if key.contains(MeshPipelineKey::DISTANCE_FOG) {
+            shader_defs.push("DISTANCE_FOG".into());
+        }
+
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
             shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
@@ -2285,6 +2578,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if IRRADIANCE_VOLUMES_ARE_USABLE {
             shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
+        }
+
+        if self.clustered_decals_are_usable {
+            shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -2358,9 +2655,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
     }
 }
 
-/// Bind groups for meshes currently loaded.
-#[derive(Resource, Default)]
-pub struct MeshBindGroups {
+/// The bind groups for meshes currently loaded.
+///
+/// If GPU mesh preprocessing isn't in use, these are global to the scene. If
+/// GPU mesh preprocessing is in use, these are specific to a single phase.
+#[derive(Default)]
+pub struct MeshPhaseBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<MeshBindGroupPair>,
     morph_targets: HashMap<AssetId<Mesh>, MeshBindGroupPair>,
@@ -2372,7 +2672,18 @@ pub struct MeshBindGroupPair {
     no_motion_vectors: BindGroup,
 }
 
-impl MeshBindGroups {
+/// All bind groups for meshes currently loaded.
+#[derive(Resource)]
+pub enum MeshBindGroups {
+    /// The bind groups for the meshes for the entire scene, if GPU mesh
+    /// preprocessing isn't in use.
+    CpuPreprocessing(MeshPhaseBindGroups),
+    /// A mapping from the type ID of a phase (e.g. [`Opaque3d`]) to the mesh
+    /// bind groups for that phase.
+    GpuPreprocessing(TypeIdMap<MeshPhaseBindGroups>),
+}
+
+impl MeshPhaseBindGroups {
     pub fn reset(&mut self) {
         self.model_only = None;
         self.skinned = None;
@@ -2414,10 +2725,10 @@ impl MeshBindGroupPair {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_mesh_bind_group(
+/// Creates the per-mesh bind groups for each type of mesh and each phase.
+pub fn prepare_mesh_bind_groups(
+    mut commands: Commands,
     meshes: Res<RenderAssets<RenderMesh>>,
-    mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     cpu_batched_instance_buffer: Option<
@@ -2430,36 +2741,88 @@ pub fn prepare_mesh_bind_group(
     weights_uniform: Res<MorphUniforms>,
     mut render_lightmaps: ResMut<RenderLightmaps>,
 ) {
-    groups.reset();
+    // CPU mesh preprocessing path.
+    if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
+        if let Some(instance_data_binding) = cpu_batched_instance_buffer
+            .into_inner()
+            .instance_data_binding()
+        {
+            // In this path, we only have a single set of bind groups for all phases.
+            let cpu_preprocessing_mesh_bind_groups = prepare_mesh_bind_groups_for_phase(
+                instance_data_binding,
+                &meshes,
+                &mesh_pipeline,
+                &render_device,
+                &skins_uniform,
+                &weights_uniform,
+                &mut render_lightmaps,
+            );
 
+            commands.insert_resource(MeshBindGroups::CpuPreprocessing(
+                cpu_preprocessing_mesh_bind_groups,
+            ));
+            return;
+        }
+    }
+
+    // GPU mesh preprocessing path.
+    if let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
+        let mut gpu_preprocessing_mesh_bind_groups = TypeIdMap::default();
+
+        // Loop over each phase.
+        for (phase_type_id, batched_phase_instance_buffers) in
+            &gpu_batched_instance_buffers.phase_instance_buffers
+        {
+            let Some(instance_data_binding) =
+                batched_phase_instance_buffers.instance_data_binding()
+            else {
+                continue;
+            };
+
+            let mesh_phase_bind_groups = prepare_mesh_bind_groups_for_phase(
+                instance_data_binding,
+                &meshes,
+                &mesh_pipeline,
+                &render_device,
+                &skins_uniform,
+                &weights_uniform,
+                &mut render_lightmaps,
+            );
+
+            gpu_preprocessing_mesh_bind_groups.insert(*phase_type_id, mesh_phase_bind_groups);
+        }
+
+        commands.insert_resource(MeshBindGroups::GpuPreprocessing(
+            gpu_preprocessing_mesh_bind_groups,
+        ));
+    }
+}
+
+/// Creates the per-mesh bind groups for each type of mesh, for a single phase.
+fn prepare_mesh_bind_groups_for_phase(
+    model: BindingResource,
+    meshes: &RenderAssets<RenderMesh>,
+    mesh_pipeline: &MeshPipeline,
+    render_device: &RenderDevice,
+    skins_uniform: &SkinUniforms,
+    weights_uniform: &MorphUniforms,
+    render_lightmaps: &mut RenderLightmaps,
+) -> MeshPhaseBindGroups {
     let layouts = &mesh_pipeline.mesh_layouts;
 
-    let model = if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
-        cpu_batched_instance_buffer
-            .into_inner()
-            .instance_data_binding()
-    } else if let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
-        gpu_batched_instance_buffers
-            .into_inner()
-            .instance_data_binding()
-    } else {
-        return;
+    // TODO: Reuse allocations.
+    let mut groups = MeshPhaseBindGroups {
+        model_only: Some(layouts.model_only(render_device, &model)),
+        ..default()
     };
-    let Some(model) = model else { return };
-
-    groups.model_only = Some(layouts.model_only(&render_device, &model));
 
     // Create the skinned mesh bind group with the current and previous buffers
-    // (the latter being for motion vector computation). If there's no previous
-    // buffer, just use the current one as the shader will ignore it.
-    let skin = skins_uniform.current_buffer.buffer();
-    if let Some(skin) = skin {
-        let prev_skin = skins_uniform.prev_buffer.buffer().unwrap_or(skin);
-        groups.skinned = Some(MeshBindGroupPair {
-            motion_vectors: layouts.skinned_motion(&render_device, &model, skin, prev_skin),
-            no_motion_vectors: layouts.skinned(&render_device, &model, skin),
-        });
-    }
+    // (the latter being for motion vector computation).
+    let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
+    groups.skinned = Some(MeshBindGroupPair {
+        motion_vectors: layouts.skinned_motion(render_device, &model, skin, prev_skin),
+        no_motion_vectors: layouts.skinned(render_device, &model, skin),
+    });
 
     // Create the morphed bind groups just like we did for the skinned bind
     // group.
@@ -2467,43 +2830,37 @@ pub fn prepare_mesh_bind_group(
         let prev_weights = weights_uniform.prev_buffer.buffer().unwrap_or(weights);
         for (id, gpu_mesh) in meshes.iter() {
             if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
-                let bind_group_pair = match skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
-                    Some(skin) => {
-                        let prev_skin = skins_uniform.prev_buffer.buffer().unwrap_or(skin);
-                        MeshBindGroupPair {
-                            motion_vectors: layouts.morphed_skinned_motion(
-                                &render_device,
-                                &model,
-                                skin,
-                                weights,
-                                targets,
-                                prev_skin,
-                                prev_weights,
-                            ),
-                            no_motion_vectors: layouts.morphed_skinned(
-                                &render_device,
-                                &model,
-                                skin,
-                                weights,
-                                targets,
-                            ),
-                        }
+                let bind_group_pair = if is_skinned(&gpu_mesh.layout) {
+                    let prev_skin = &skins_uniform.prev_buffer;
+                    MeshBindGroupPair {
+                        motion_vectors: layouts.morphed_skinned_motion(
+                            render_device,
+                            &model,
+                            skin,
+                            weights,
+                            targets,
+                            prev_skin,
+                            prev_weights,
+                        ),
+                        no_motion_vectors: layouts.morphed_skinned(
+                            render_device,
+                            &model,
+                            skin,
+                            weights,
+                            targets,
+                        ),
                     }
-                    None => MeshBindGroupPair {
+                } else {
+                    MeshBindGroupPair {
                         motion_vectors: layouts.morphed_motion(
-                            &render_device,
+                            render_device,
                             &model,
                             weights,
                             targets,
                             prev_weights,
                         ),
-                        no_motion_vectors: layouts.morphed(
-                            &render_device,
-                            &model,
-                            weights,
-                            targets,
-                        ),
-                    },
+                        no_motion_vectors: layouts.morphed(render_device, &model, weights, targets),
+                    }
                 };
                 groups.morph_targets.insert(id, bind_group_pair);
             }
@@ -2515,9 +2872,11 @@ pub fn prepare_mesh_bind_group(
     for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
         groups.lightmaps.insert(
             LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
-            layouts.lightmapped(&render_device, &model, lightmap_slab, bindless_supported),
+            layouts.lightmapped(render_device, &model, lightmap_slab, bindless_supported),
         );
     }
+
+    groups
 }
 
 pub struct SetMeshViewBindGroup<const I: usize>;
@@ -2575,7 +2934,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<RenderDevice>,
         SRes<MeshBindGroups>,
         SRes<RenderMeshInstances>,
-        SRes<SkinIndices>,
+        SRes<SkinUniforms>,
         SRes<MorphIndices>,
         SRes<RenderLightmaps>,
     );
@@ -2591,7 +2950,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             render_device,
             bind_groups,
             mesh_instances,
-            skin_indices,
+            skin_uniforms,
             morph_indices,
             lightmaps,
         ): SystemParamItem<'w, '_, Self::Param>,
@@ -2599,7 +2958,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     ) -> RenderCommandResult {
         let bind_groups = bind_groups.into_inner();
         let mesh_instances = mesh_instances.into_inner();
-        let skin_indices = skin_indices.into_inner();
+        let skin_uniforms = skin_uniforms.into_inner();
         let morph_indices = morph_indices.into_inner();
 
         let entity = &item.main_entity();
@@ -2608,12 +2967,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             return RenderCommandResult::Success;
         };
 
-        let current_skin_index = skin_indices.current.get(entity);
-        let prev_skin_index = skin_indices.prev.get(entity);
+        let current_skin_byte_offset = skin_uniforms.skin_byte_offset(*entity);
         let current_morph_index = morph_indices.current.get(entity);
         let prev_morph_index = morph_indices.prev.get(entity);
 
-        let is_skinned = current_skin_index.is_some();
+        let is_skinned = current_skin_byte_offset.is_some();
         let is_morphed = current_morph_index.is_some();
 
         let lightmap_slab_index = lightmaps
@@ -2621,7 +2979,20 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             .get(entity)
             .map(|render_lightmap| render_lightmap.slab_index);
 
-        let Some(bind_group) = bind_groups.get(
+        let Some(mesh_phase_bind_groups) = (match *bind_groups {
+            MeshBindGroups::CpuPreprocessing(ref mesh_phase_bind_groups) => {
+                Some(mesh_phase_bind_groups)
+            }
+            MeshBindGroups::GpuPreprocessing(ref mesh_phase_bind_groups) => {
+                mesh_phase_bind_groups.get(&TypeId::of::<P>())
+            }
+        }) else {
+            // This is harmless if e.g. we're rendering the `Shadow` phase and
+            // there weren't any shadows.
+            return RenderCommandResult::Success;
+        };
+
+        let Some(bind_group) = mesh_phase_bind_groups.get(
             mesh_asset_id,
             lightmap_slab_index,
             is_skinned,
@@ -2641,8 +3012,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             dynamic_offsets[offset_count] = dynamic_offset;
             offset_count += 1;
         }
-        if let Some(current_skin_index) = current_skin_index {
-            if skin::skins_use_uniform_buffers(&render_device) {
+        if let Some(current_skin_index) = current_skin_byte_offset {
+            if skins_use_uniform_buffers(&render_device) {
                 dynamic_offsets[offset_count] = current_skin_index.byte_offset;
                 offset_count += 1;
             }
@@ -2654,16 +3025,12 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
-            // Attach the previous skin index for motion vector computation. If
-            // there isn't one, just use zero as the shader will ignore it.
-            if current_skin_index.is_some() && skin::skins_use_uniform_buffers(&render_device) {
-                match prev_skin_index {
-                    Some(prev_skin_index) => {
-                        dynamic_offsets[offset_count] = prev_skin_index.byte_offset;
-                    }
-                    None => dynamic_offsets[offset_count] = 0,
+            // Attach the previous skin index for motion vector computation.
+            if skins_use_uniform_buffers(&render_device) {
+                if let Some(current_skin_byte_offset) = current_skin_byte_offset {
+                    dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
+                    offset_count += 1;
                 }
-                offset_count += 1;
             }
 
             // Attach the previous morph index for motion vector computation. If
@@ -2690,12 +3057,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = (
         SRes<RenderAssets<RenderMesh>>,
         SRes<RenderMeshInstances>,
-        SRes<IndirectParametersBuffer>,
+        SRes<IndirectParametersBuffers>,
         SRes<PipelineCache>,
         SRes<MeshAllocator>,
         Option<SRes<PreprocessPipelines>>,
+        SRes<GpuPreprocessingSupport>,
     );
-    type ViewQuery = Has<PreprocessBindGroup>;
+    type ViewQuery = Has<PreprocessBindGroups>;
     type ItemQuery = ();
     #[inline]
     fn render<'w>(
@@ -2709,6 +3077,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             pipeline_cache,
             mesh_allocator,
             preprocess_pipelines,
+            preprocessing_support,
         ): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -2717,7 +3086,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         // it's compiled. Otherwise, our mesh instance data won't be present.
         if let Some(preprocess_pipelines) = preprocess_pipelines {
             if !has_preprocess_bind_group
-                || !preprocess_pipelines.pipelines_are_loaded(&pipeline_cache)
+                || !preprocess_pipelines
+                    .pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
             {
                 return RenderCommandResult::Skip;
             }
@@ -2736,26 +3106,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         };
         let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_asset_id) else {
             return RenderCommandResult::Skip;
-        };
-
-        // Calculate the indirect offset, and look up the buffer.
-        let indirect_parameters = match item.extra_index() {
-            PhaseItemExtraIndex::None | PhaseItemExtraIndex::DynamicOffset(_) => None,
-            PhaseItemExtraIndex::IndirectParametersIndex(indices) => {
-                match indirect_parameters_buffer.buffer() {
-                    None => {
-                        warn!(
-                            "Not rendering mesh because indirect parameters buffer wasn't present"
-                        );
-                        return RenderCommandResult::Skip;
-                    }
-                    Some(buffer) => Some((
-                        indices.start as u64 * size_of::<IndirectParameters>() as u64,
-                        indices.end - indices.start,
-                        buffer,
-                    )),
-                }
-            }
         };
 
         pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
@@ -2777,8 +3127,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
 
                 pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
 
-                match indirect_parameters {
-                    None => {
+                match item.extra_index() {
+                    PhaseItemExtraIndex::None | PhaseItemExtraIndex::DynamicOffset(_) => {
                         pass.draw_indexed(
                             index_buffer_slice.range.start
                                 ..(index_buffer_slice.range.start + *count),
@@ -2786,33 +3136,134 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                             batch_range.clone(),
                         );
                     }
-                    Some((
-                        indirect_parameters_offset,
-                        indirect_parameters_count,
-                        indirect_parameters_buffer,
-                    )) => {
-                        pass.multi_draw_indexed_indirect(
-                            indirect_parameters_buffer,
-                            indirect_parameters_offset,
-                            indirect_parameters_count,
-                        );
+                    PhaseItemExtraIndex::IndirectParametersIndex {
+                        range: indirect_parameters_range,
+                        batch_set_index,
+                    } => {
+                        // Look up the indirect parameters buffer, as well as
+                        // the buffer we're going to use for
+                        // `multi_draw_indexed_indirect_count` (if available).
+                        let Some(phase_indirect_parameters_buffers) =
+                            indirect_parameters_buffer.get(&TypeId::of::<P>())
+                        else {
+                            warn!(
+                                "Not rendering mesh because indexed indirect parameters buffer \
+                                 wasn't present for this phase",
+                            );
+                            return RenderCommandResult::Skip;
+                        };
+                        let (Some(indirect_parameters_buffer), Some(batch_sets_buffer)) = (
+                            phase_indirect_parameters_buffers.indexed.data_buffer(),
+                            phase_indirect_parameters_buffers
+                                .indexed
+                                .batch_sets_buffer(),
+                        ) else {
+                            warn!(
+                                "Not rendering mesh because indexed indirect parameters buffer \
+                                 wasn't present",
+                            );
+                            return RenderCommandResult::Skip;
+                        };
+
+                        // Calculate the location of the indirect parameters
+                        // within the buffer.
+                        let indirect_parameters_offset = indirect_parameters_range.start as u64
+                            * size_of::<IndirectParametersIndexed>() as u64;
+                        let indirect_parameters_count =
+                            indirect_parameters_range.end - indirect_parameters_range.start;
+
+                        // If we're using `multi_draw_indirect_count`, take the
+                        // number of batches from the appropriate position in
+                        // the batch sets buffer. Otherwise, supply the size of
+                        // the batch set.
+                        match batch_set_index {
+                            Some(batch_set_index) => {
+                                let count_offset = u32::from(batch_set_index)
+                                    * (size_of::<IndirectBatchSet>() as u32);
+                                pass.multi_draw_indexed_indirect_count(
+                                    indirect_parameters_buffer,
+                                    indirect_parameters_offset,
+                                    batch_sets_buffer,
+                                    count_offset as u64,
+                                    indirect_parameters_count,
+                                );
+                            }
+                            None => {
+                                pass.multi_draw_indexed_indirect(
+                                    indirect_parameters_buffer,
+                                    indirect_parameters_offset,
+                                    indirect_parameters_count,
+                                );
+                            }
+                        }
                     }
                 }
             }
-            RenderMeshBufferInfo::NonIndexed => match indirect_parameters {
-                None => {
+
+            RenderMeshBufferInfo::NonIndexed => match item.extra_index() {
+                PhaseItemExtraIndex::None | PhaseItemExtraIndex::DynamicOffset(_) => {
                     pass.draw(vertex_buffer_slice.range, batch_range.clone());
                 }
-                Some((
-                    indirect_parameters_offset,
-                    indirect_parameters_count,
-                    indirect_parameters_buffer,
-                )) => {
-                    pass.multi_draw_indirect(
-                        indirect_parameters_buffer,
-                        indirect_parameters_offset,
-                        indirect_parameters_count,
-                    );
+                PhaseItemExtraIndex::IndirectParametersIndex {
+                    range: indirect_parameters_range,
+                    batch_set_index,
+                } => {
+                    // Look up the indirect parameters buffer, as well as the
+                    // buffer we're going to use for
+                    // `multi_draw_indirect_count` (if available).
+                    let Some(phase_indirect_parameters_buffers) =
+                        indirect_parameters_buffer.get(&TypeId::of::<P>())
+                    else {
+                        warn!(
+                            "Not rendering mesh because non-indexed indirect parameters buffer \
+                                 wasn't present for this phase",
+                        );
+                        return RenderCommandResult::Skip;
+                    };
+                    let (Some(indirect_parameters_buffer), Some(batch_sets_buffer)) = (
+                        phase_indirect_parameters_buffers.non_indexed.data_buffer(),
+                        phase_indirect_parameters_buffers
+                            .non_indexed
+                            .batch_sets_buffer(),
+                    ) else {
+                        warn!(
+                            "Not rendering mesh because non-indexed indirect parameters buffer \
+                             wasn't present"
+                        );
+                        return RenderCommandResult::Skip;
+                    };
+
+                    // Calculate the location of the indirect parameters within
+                    // the buffer.
+                    let indirect_parameters_offset = indirect_parameters_range.start as u64
+                        * size_of::<IndirectParametersNonIndexed>() as u64;
+                    let indirect_parameters_count =
+                        indirect_parameters_range.end - indirect_parameters_range.start;
+
+                    // If we're using `multi_draw_indirect_count`, take the
+                    // number of batches from the appropriate position in the
+                    // batch sets buffer. Otherwise, supply the size of the
+                    // batch set.
+                    match batch_set_index {
+                        Some(batch_set_index) => {
+                            let count_offset =
+                                u32::from(batch_set_index) * (size_of::<IndirectBatchSet>() as u32);
+                            pass.multi_draw_indirect_count(
+                                indirect_parameters_buffer,
+                                indirect_parameters_offset,
+                                batch_sets_buffer,
+                                count_offset as u64,
+                                indirect_parameters_count,
+                            );
+                        }
+                        None => {
+                            pass.multi_draw_indirect(
+                                indirect_parameters_buffer,
+                                indirect_parameters_offset,
+                                indirect_parameters_count,
+                            );
+                        }
+                    }
                 }
             },
         }

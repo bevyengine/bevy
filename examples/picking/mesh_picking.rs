@@ -16,8 +16,8 @@
 //!
 //! By default, the mesh picking plugin will raycast against all entities, which is especially
 //! useful for debugging. If you want mesh picking to be opt-in, you can set
-//! [`MeshPickingSettings::require_markers`] to `true` and add a [`RayCastPickable`] component to
-//! the desired camera and target entities.
+//! [`MeshPickingSettings::require_markers`] to `true` and add a [`Pickable`] component to the
+//! desired camera and target entities.
 
 use std::f32::consts::PI;
 
@@ -123,7 +123,7 @@ fn setup_scene(
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
         MeshMaterial3d(ground_matl.clone()),
-        PickingBehavior::IGNORE, // Disable picking for the ground plane.
+        Pickable::IGNORE, // Disable picking for the ground plane.
     ));
 
     // Light

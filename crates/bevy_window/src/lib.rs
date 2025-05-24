@@ -3,7 +3,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
@@ -12,15 +12,14 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
+#[cfg(feature = "std")]
+extern crate std;
+
 extern crate alloc;
 
 use alloc::sync::Arc;
 
-#[cfg(feature = "std")]
-use std::sync::Mutex;
-
-#[cfg(not(feature = "std"))]
-use spin::mutex::Mutex;
+use bevy_platform::sync::Mutex;
 
 mod event;
 mod monitor;
@@ -46,8 +45,9 @@ pub use window::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection, Window,
-        WindowMoved, WindowPlugin, WindowPosition, WindowResizeConstraints,
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
+        VideoModeSelection, Window, WindowMoved, WindowPlugin, WindowPosition,
+        WindowResizeConstraints,
     };
 }
 
@@ -177,11 +177,11 @@ impl Plugin for WindowPlugin {
 pub enum ExitCondition {
     /// Close application when the primary window is closed
     ///
-    /// The plugin will add [`exit_on_primary_closed`] to [`Update`].
+    /// The plugin will add [`exit_on_primary_closed`] to [`PostUpdate`].
     OnPrimaryClosed,
     /// Close application when all windows are closed
     ///
-    /// The plugin will add [`exit_on_all_closed`] to [`Update`].
+    /// The plugin will add [`exit_on_all_closed`] to [`PostUpdate`].
     OnAllClosed,
     /// Keep application running headless even after closing all windows
     ///

@@ -14,20 +14,18 @@ use core::{
 };
 use derive_more::{Deref, DerefMut};
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async_executor")] {
+        type ExecutorInner<'a> = async_executor::Executor<'a>;
+        type LocalExecutorInner<'a> = async_executor::LocalExecutor<'a>;
+    } else {
+        type ExecutorInner<'a> = crate::edge_executor::Executor<'a, 64>;
+        type LocalExecutorInner<'a> = crate::edge_executor::LocalExecutor<'a, 64>;
+    }
+}
+
 #[cfg(all(feature = "multi_threaded", not(target_arch = "wasm32")))]
 pub use async_task::FallibleTask;
-
-#[cfg(feature = "async_executor")]
-type ExecutorInner<'a> = async_executor::Executor<'a>;
-
-#[cfg(feature = "async_executor")]
-type LocalExecutorInner<'a> = async_executor::LocalExecutor<'a>;
-
-#[cfg(all(not(feature = "async_executor"), feature = "edge_executor"))]
-type ExecutorInner<'a> = edge_executor::Executor<'a, 64>;
-
-#[cfg(all(not(feature = "async_executor"), feature = "edge_executor"))]
-type LocalExecutorInner<'a> = edge_executor::LocalExecutor<'a, 64>;
 
 /// Wrapper around a multi-threading-aware async executor.
 /// Spawning will generally require tasks to be `Send` and `Sync` to allow multiple
@@ -50,6 +48,7 @@ pub struct LocalExecutor<'a>(LocalExecutorInner<'a>);
 
 impl Executor<'_> {
     /// Construct a new [`Executor`]
+    #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
     #[allow(dead_code, reason = "not all feature flags require this function")]
     pub const fn new() -> Self {
         Self(ExecutorInner::new())
@@ -58,6 +57,7 @@ impl Executor<'_> {
 
 impl LocalExecutor<'_> {
     /// Construct a new [`LocalExecutor`]
+    #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
     #[allow(dead_code, reason = "not all feature flags require this function")]
     pub const fn new() -> Self {
         Self(LocalExecutorInner::new())

@@ -5,8 +5,10 @@ use variadics_please::all_tuples;
 use crate::{
     prelude::QueryBuilder,
     query::{QueryData, QueryFilter, QueryState},
+    resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
+        SystemParamValidationError, When,
     },
     world::{
         FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
@@ -15,7 +17,7 @@ use crate::{
 };
 use core::fmt::Debug;
 
-use super::{init_query_param, Res, ResMut, Resource, SystemState};
+use super::{init_query_param, Res, ResMut, SystemState};
 
 /// A builder that can create a [`SystemParam`].
 ///
@@ -162,7 +164,7 @@ pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
 ///     .build_state(&mut world)
 ///     .build_system(my_system);
 /// ```
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct ParamBuilder;
 
 // SAFETY: Calls `SystemParam::init_state`
@@ -240,7 +242,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 ///     .build_state(&mut world)
 ///     .build_system(|query: Query<()>| {
 ///         for _ in &query {
-///             // This only includes entities with an `Player` component.
+///             // This only includes entities with a `Player` component.
 ///         }
 ///     });
 ///
@@ -257,6 +259,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 ///     .build_state(&mut world)
 ///     .build_system(|query: Vec<Query<()>>| {});
 /// ```
+#[derive(Clone)]
 pub struct QueryParamBuilder<T>(T);
 
 impl<T> QueryParamBuilder<T> {
@@ -299,14 +302,28 @@ unsafe impl<
 
 macro_rules! impl_system_param_builder_tuple {
     ($(#[$meta:meta])* $(($param: ident, $builder: ident)),*) => {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is in a macro; as such, the below lints may not always apply."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The variable names are provided by the macro caller, not by us."
+        )]
         $(#[$meta])*
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
-            fn build(self, _world: &mut World, _meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
-                #[allow(non_snake_case)]
+            fn build(self, world: &mut World, meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
                 let ($($builder,)*) = self;
-                #[allow(clippy::unused_unit)]
-                ($($builder.build(_world, _meta),)*)
+                #[allow(
+                    clippy::unused_unit,
+                    reason = "Zero-length tuples won't generate any calls to the system parameter builders."
+                )]
+                ($($builder.build(world, meta),)*)
             }
         }
     };
@@ -401,14 +418,26 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 ///     set.for_each(|mut query| for mut health in query.iter_mut() {});
 /// }
 /// ```
+#[derive(Debug, Default, Clone)]
 pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
     ($(($param: ident, $builder: ident, $meta: ident)),*) => {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is in a macro; as such, the below lints may not always apply."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The variable names are provided by the macro caller, not by us."
+        )]
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<'w, 's, $($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<ParamSet<'w, 's, ($($param,)*)>> for ParamSetBuilder<($($builder,)*)> {
-            #[allow(non_snake_case)]
-            fn build(self, _world: &mut World, _system_meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
+            fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
                 let ParamSetBuilder(($($builder,)*)) = self;
                 // Note that this is slightly different from `init_state`, which calls `init_state` on each param twice.
                 // One call populates an empty `SystemMeta` with the new access, while the other runs against a cloned `SystemMeta` to check for conflicts.
@@ -416,22 +445,25 @@ macro_rules! impl_param_set_builder_tuple {
                 // That means that any `filtered_accesses` in the `component_access_set` will get copied to every `$meta`
                 // and will appear multiple times in the final `SystemMeta`.
                 $(
-                    let mut $meta = _system_meta.clone();
-                    let $param = $builder.build(_world, &mut $meta);
+                    let mut $meta = system_meta.clone();
+                    let $param = $builder.build(world, &mut $meta);
                 )*
                 // Make the ParamSet non-send if any of its parameters are non-send.
                 if false $(|| !$meta.is_send())* {
-                    _system_meta.set_non_send();
+                    system_meta.set_non_send();
                 }
                 $(
-                    _system_meta
+                    system_meta
                         .component_access_set
                         .extend($meta.component_access_set);
-                    _system_meta
+                    system_meta
                         .archetype_component_access
                         .extend(&$meta.archetype_component_access);
                 )*
-                #[allow(clippy::unused_unit)]
+                #[allow(
+                    clippy::unused_unit,
+                    reason = "Zero-length tuples won't generate any calls to the system parameter builders."
+                )]
                 ($($param,)*)
             }
         }
@@ -520,6 +552,7 @@ unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamB
 ///     });
 /// # world.run_system_once(system);
 /// ```
+#[derive(Default, Debug, Clone)]
 pub struct LocalBuilder<T>(pub T);
 
 // SAFETY: `Local` performs no world access.
@@ -537,6 +570,7 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 
 /// A [`SystemParamBuilder`] for a [`FilteredResources`].
 /// See the [`FilteredResources`] docs for examples.
+#[derive(Clone)]
 pub struct FilteredResourcesParamBuilder<T>(T);
 
 impl<T> FilteredResourcesParamBuilder<T> {
@@ -600,6 +634,7 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
 
 /// A [`SystemParamBuilder`] for a [`FilteredResourcesMut`].
 /// See the [`FilteredResourcesMut`] docs for examples.
+#[derive(Clone)]
 pub struct FilteredResourcesMutParamBuilder<T>(T);
 
 impl<T> FilteredResourcesMutParamBuilder<T> {
@@ -676,14 +711,59 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
     }
 }
 
+/// A [`SystemParamBuilder`] for an [`Option`].
+#[derive(Clone)]
+pub struct OptionBuilder<T>(T);
+
+// SAFETY: `OptionBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Option<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Option<P>>
+    for OptionBuilder<B>
+{
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <Option<P> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`Result`] of [`SystemParamValidationError`].
+#[derive(Clone)]
+pub struct ResultBuilder<T>(T);
+
+// SAFETY: `ResultBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Result<P, SystemParamValidationError>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>>
+    SystemParamBuilder<Result<P, SystemParamValidationError>> for ResultBuilder<B>
+{
+    fn build(
+        self,
+        world: &mut World,
+        meta: &mut SystemMeta,
+    ) -> <Result<P, SystemParamValidationError> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`When`].
+#[derive(Clone)]
+pub struct WhenBuilder<T>(T);
+
+// SAFETY: `WhenBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `When<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<When<P>>
+    for WhenBuilder<B>
+{
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <When<P> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         entity::Entities,
         prelude::{Component, Query},
+        reflect::ReflectResource,
         system::{Local, RunSystemOnce},
     };
+    use alloc::vec;
+    use bevy_reflect::{FromType, Reflect, ReflectRef};
 
     use super::*;
 
@@ -696,8 +776,11 @@ mod tests {
     #[derive(Component)]
     struct C;
 
-    #[derive(Resource, Default)]
-    struct R;
+    #[derive(Resource, Default, Reflect)]
+    #[reflect(Resource)]
+    struct R {
+        foo: usize,
+    }
 
     fn local_system(local: Local<u64>) -> u64 {
         *local
@@ -1036,5 +1119,32 @@ mod tests {
         )
             .build_state(&mut world)
             .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
+    }
+
+    #[test]
+    fn filtered_resource_reflect() {
+        let mut world = World::new();
+        world.insert_resource(R { foo: 7 });
+
+        let system = (FilteredResourcesParamBuilder::new(|builder| {
+            builder.add_read::<R>();
+        }),)
+            .build_state(&mut world)
+            .build_system(|res: FilteredResources| {
+                let reflect_resource = <ReflectResource as FromType<R>>::from_type();
+                let ReflectRef::Struct(reflect_struct) =
+                    reflect_resource.reflect(res).unwrap().reflect_ref()
+                else {
+                    panic!()
+                };
+                *reflect_struct
+                    .field("foo")
+                    .unwrap()
+                    .try_downcast_ref::<usize>()
+                    .unwrap()
+            });
+
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 7);
     }
 }

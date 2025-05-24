@@ -1,13 +1,14 @@
 use alloc::{string::String, vec::Vec};
+use bevy_platform::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
+#[cfg(feature = "std")]
+use std::thread_local;
 
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
+#[cfg(not(feature = "std"))]
+use bevy_platform::sync::{Mutex, PoisonError};
 
 #[cfg(feature = "std")]
 use crate::executor::LocalExecutor;
@@ -27,7 +28,7 @@ static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
 type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
 
 #[cfg(not(feature = "std"))]
-type ScopeResult<T> = Arc<spin::Mutex<Option<T>>>;
+type ScopeResult<T> = Arc<Mutex<Option<T>>>;
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -178,7 +179,7 @@ impl TaskPool {
 
                 #[cfg(not(feature = "std"))]
                 {
-                    let mut lock = result.lock();
+                    let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
                     lock.take().unwrap()
                 }
             })
@@ -198,26 +199,27 @@ impl TaskPool {
     where
         T: 'static + MaybeSend + MaybeSync,
     {
-        #[cfg(target_arch = "wasm32")]
-        return Task::wrap_future(future);
+        cfg_if::cfg_if! {
+            if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+                Task::wrap_future(future)
+            } else if #[cfg(feature = "std")] {
+                LOCAL_EXECUTOR.with(|executor| {
+                    let task = executor.spawn(future);
+                    // Loop until all tasks are done
+                    while executor.try_tick() {}
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
-        return LOCAL_EXECUTOR.with(|executor| {
-            let task = executor.spawn(future);
-            // Loop until all tasks are done
-            while executor.try_tick() {}
+                    Task::new(task)
+                })
+            } else {
+                {
+                    let task = LOCAL_EXECUTOR.spawn(future);
+                    // Loop until all tasks are done
+                    while LOCAL_EXECUTOR.try_tick() {}
 
-            Task::new(task)
-        });
-
-        #[cfg(all(not(target_arch = "wasm32"), not(feature = "std")))]
-        return {
-            let task = LOCAL_EXECUTOR.spawn(future);
-            // Loop until all tasks are done
-            while LOCAL_EXECUTOR.try_tick() {}
-
-            Task::new(task)
-        };
+                    Task::new(task)
+                }
+            }
+        }
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
@@ -307,7 +309,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
 
             #[cfg(not(feature = "std"))]
             {
-                let mut lock = result.lock();
+                let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
                 *lock = Some(temp_result);
             }
         };

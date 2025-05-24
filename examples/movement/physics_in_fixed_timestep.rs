@@ -59,16 +59,16 @@
 //! - The player's previous position in the physics simulation is stored in a `PreviousPhysicalTranslation` component.
 //! - The player's visual representation is stored in Bevy's regular `Transform` component.
 //! - Every frame, we go through the following steps:
-//!    - Accumulate the player's input and set the current speed in the `handle_input` system.
-//!        This is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::BeforeFixedMainLoop`,
-//!        which runs before the fixed timestep loop. This is run every frame.
-//!    - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
-//!        Accumulated input is consumed here.
-//!        This is run in the `FixedUpdate` schedule, which runs zero or multiple times per frame.
-//!    - Update the player's visual representation in the `interpolate_rendered_transform` system.
-//!        This interpolates between the player's previous and current position in the physics simulation.
-//!        It is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::AfterFixedMainLoop`,
-//!        which runs after the fixed timestep loop. This is run every frame.
+//!   - Accumulate the player's input and set the current speed in the `handle_input` system.
+//!     This is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystems::BeforeFixedMainLoop`,
+//!     which runs before the fixed timestep loop. This is run every frame.
+//!   - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
+//!     Accumulated input is consumed here.
+//!     This is run in the `FixedUpdate` schedule, which runs zero or multiple times per frame.
+//!   - Update the player's visual representation in the `interpolate_rendered_transform` system.
+//!     This interpolates between the player's previous and current position in the physics simulation.
+//!     It is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystems::AfterFixedMainLoop`,
+//!     which runs after the fixed timestep loop. This is run every frame.
 //!
 //!
 //! ## Controls
@@ -95,11 +95,11 @@ fn main() {
                 // The physics simulation needs to know the player's input, so we run this before the fixed timestep loop.
                 // Note that if we ran it in `Update`, it would be too late, as the physics simulation would already have been advanced.
                 // If we ran this in `FixedUpdate`, it would sometimes not register player input, as that schedule may run zero times per frame.
-                handle_input.in_set(RunFixedMainLoopSystem::BeforeFixedMainLoop),
+                handle_input.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
                 // The player's visual representation needs to be updated after the physics simulation has been advanced.
                 // This could be run in `Update`, but if we run it here instead, the systems in `Update`
                 // will be working with the `Transform` that will actually be shown on screen.
-                interpolate_rendered_transform.in_set(RunFixedMainLoopSystem::AfterFixedMainLoop),
+                interpolate_rendered_transform.in_set(RunFixedMainLoopSystems::AfterFixedMainLoop),
             ),
         )
         .run();

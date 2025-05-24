@@ -1,20 +1,22 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
+    DrawLineJointGizmo, GizmoRenderSystems, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
     SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
+    oit::OrderIndependentTransparencySettings,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
 
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
-    system::{Query, Res, ResMut, Resource},
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -28,9 +30,9 @@ use bevy_render::{
     },
     render_resource::*,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
@@ -47,14 +49,14 @@ impl Plugin for LineGizmo3dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos3d
-                    .in_set(RenderSet::Queue)
+                GizmoRenderSystems::QueueLineGizmos3d
+                    .in_set(RenderSystems::Queue)
                     .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
             )
             .add_systems(
                 Render,
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
-                    .in_set(GizmoRenderSystem::QueueLineGizmos3d)
+                    .in_set(GizmoRenderSystems::QueueLineGizmos3d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
     }
@@ -283,7 +285,6 @@ type DrawLineJointGizmo3d = (
     DrawLineJointGizmo,
 );
 
-#[allow(clippy::too_many_arguments)]
 fn queue_line_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
     pipeline: Res<LineGizmoPipeline>,
@@ -292,8 +293,7 @@ fn queue_line_gizmos_3d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
+    views: Query<(
         &ExtractedView,
         &Msaa,
         Option<&RenderLayers>,
@@ -302,6 +302,7 @@ fn queue_line_gizmos_3d(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<OrderIndependentTransparencySettings>,
         ),
     )>,
 ) {
@@ -312,14 +313,14 @@ fn queue_line_gizmos_3d(
         .unwrap();
 
     for (
-        view_entity,
         view,
         msaa,
         render_layers,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &mut views
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, oit),
+    ) in &views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -342,6 +343,10 @@ fn queue_line_gizmos_3d(
 
         if deferred_prepass {
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
         for (entity, main_entity, config) in &line_gizmos {
@@ -371,6 +376,7 @@ fn queue_line_gizmos_3d(
                     distance: 0.,
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
                 });
             }
 
@@ -392,13 +398,13 @@ fn queue_line_gizmos_3d(
                     distance: 0.,
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
                 });
             }
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn queue_line_joint_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
     pipeline: Res<LineJointGizmoPipeline>,
@@ -407,8 +413,7 @@ fn queue_line_joint_gizmos_3d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
+    views: Query<(
         &ExtractedView,
         &Msaa,
         Option<&RenderLayers>,
@@ -426,14 +431,14 @@ fn queue_line_joint_gizmos_3d(
         .unwrap();
 
     for (
-        view_entity,
         view,
         msaa,
         render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &mut views
+    ) in &views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -488,6 +493,7 @@ fn queue_line_joint_gizmos_3d(
                 distance: 0.,
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }

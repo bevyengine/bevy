@@ -24,16 +24,19 @@ mod tuples;
 
 #[cfg(test)]
 mod tests {
-    use bincode::Options;
+    use alloc::{
+        boxed::Box,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
+    use serde::{de::DeserializeSeed, Deserialize};
     use serde::{de::IgnoredAny, Deserializer};
 
-    use serde::{de::DeserializeSeed, Deserialize};
-
-    use bevy_utils::{HashMap, HashSet};
+    use bevy_platform::collections::{HashMap, HashSet};
 
     use crate::{
-        self as bevy_reflect,
         serde::{
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
             TypedReflectDeserializer,
@@ -466,10 +469,9 @@ mod tests {
 
         let deserializer = ReflectDeserializer::new(&registry);
 
-        let dynamic_output = bincode::DefaultOptions::new()
-            .with_fixint_encoding()
-            .deserialize_seed(deserializer, &input)
-            .unwrap();
+        let config = bincode::config::standard().with_fixed_int_encoding();
+        let (dynamic_output, _read_bytes) =
+            bincode::serde::seed_decode_from_slice(deserializer, &input, config).unwrap();
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
         assert_eq!(expected, output);

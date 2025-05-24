@@ -2,6 +2,7 @@
     pbr_types,
     pbr_functions::alpha_discard,
     pbr_fragment::pbr_input_from_standard_material,
+    decal::clustered::apply_decal_base_color,
 }
 
 #ifdef PREPASS_PIPELINE
@@ -26,19 +27,25 @@
 #import bevy_core_pipeline::oit::oit_draw
 #endif // OIT_ENABLED
 
+#ifdef FORWARD_DECAL
+#import bevy_pbr::decal::forward::get_forward_decal_info
+#endif
+
 @fragment
 fn fragment(
 #ifdef MESHLET_MESH_MATERIAL_PASS
     @builtin(position) frag_coord: vec4<f32>,
 #else
-    in: VertexOutput,
+    vertex_output: VertexOutput,
     @builtin(front_facing) is_front: bool,
 #endif
 ) -> FragmentOutput {
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    let in = resolve_vertex_output(frag_coord);
+    let vertex_output = resolve_vertex_output(frag_coord);
     let is_front = true;
 #endif
+
+    var in = vertex_output;
 
     // If we're in the crossfade section of a visibility range, conditionally
     // discard the fragment according to the visibility pattern.
@@ -46,11 +53,24 @@ fn fragment(
     pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
 #endif
 
+#ifdef FORWARD_DECAL
+    let forward_decal_info = get_forward_decal_info(in);
+    in.world_position = forward_decal_info.world_position;
+    in.uv = forward_decal_info.uv;
+#endif
+
     // generate a PbrInput struct from the StandardMaterial bindings
     var pbr_input = pbr_input_from_standard_material(in, is_front);
 
     // alpha discard
     pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
+
+    // clustered decals
+    pbr_input.material.base_color = apply_decal_base_color(
+        in.world_position.xyz,
+        in.position.xy,
+        pbr_input.material.base_color
+    );
 
 #ifdef PREPASS_PIPELINE
     // write the gbuffer, lighting pass id, and optionally normal and motion_vector textures
@@ -79,5 +99,9 @@ fn fragment(
     }
 #endif // OIT_ENABLED
 
-    return out;
+#ifdef FORWARD_DECAL
+        out.color.a = min(forward_decal_info.alpha, out.color.a);
+#endif
+
+        return out;
 }

@@ -1,7 +1,7 @@
 use crate::io::{get_meta_path, AssetReader, AssetReaderError, PathStream, Reader, VecReader};
-use bevy_utils::tracing::error;
+use alloc::{borrow::ToOwned, boxed::Box, ffi::CString, vec::Vec};
 use futures_lite::stream;
-use std::{ffi::CString, path::Path};
+use std::path::Path;
 
 /// [`AssetReader`] implementation for Android devices, built on top of Android's [`AssetManager`].
 ///
@@ -72,10 +72,7 @@ impl AssetReader for AndroidAssetReader {
         Ok(read_dir)
     }
 
-    async fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> std::result::Result<bool, AssetReaderError> {
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
         let asset_manager = bevy_window::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")

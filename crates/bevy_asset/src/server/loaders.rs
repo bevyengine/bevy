@@ -2,16 +2,21 @@ use crate::{
     loader::{AssetLoader, ErasedAssetLoader},
     path::AssetPath,
 };
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
-#[cfg(feature = "trace")]
-use bevy_tasks::ConditionalSendFuture;
+use bevy_platform::collections::HashMap;
 use bevy_tasks::IoTaskPool;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, instrument::Instrument};
-use bevy_utils::{tracing::warn, HashMap, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use thiserror::Error;
+use tracing::warn;
+
+#[cfg(feature = "trace")]
+use {
+    alloc::string::ToString,
+    bevy_tasks::ConditionalSendFuture,
+    tracing::{info_span, instrument::Instrument},
+};
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
@@ -46,6 +51,7 @@ impl AssetLoaders {
             };
 
         if is_new {
+            let existing_loaders_for_type_id = self.type_id_to_loaders.get(&loader_asset_type);
             let mut duplicate_extensions = Vec::new();
             for extension in AssetLoader::extensions(&*loader) {
                 let list = self
@@ -54,26 +60,29 @@ impl AssetLoaders {
                     .or_default();
 
                 if !list.is_empty() {
-                    duplicate_extensions.push(extension);
+                    if let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id {
+                        if list
+                            .iter()
+                            .any(|index| existing_loaders_for_type_id.contains(index))
+                        {
+                            duplicate_extensions.push(extension);
+                        }
+                    }
                 }
 
                 list.push(loader_index);
             }
-
-            self.type_name_to_loader.insert(type_name, loader_index);
-
-            let list = self
-                .type_id_to_loaders
-                .entry(loader_asset_type)
-                .or_default();
-
-            let duplicate_asset_registration = !list.is_empty();
-            if !duplicate_extensions.is_empty() && duplicate_asset_registration {
+            if !duplicate_extensions.is_empty() {
                 warn!("Duplicate AssetLoader registered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
                 Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
             }
 
-            list.push(loader_index);
+            self.type_name_to_loader.insert(type_name, loader_index);
+
+            self.type_id_to_loaders
+                .entry(loader_asset_type)
+                .or_default()
+                .push(loader_index);
 
             self.loaders.push(MaybeAssetLoader::Ready(loader));
         } else {
@@ -107,6 +116,8 @@ impl AssetLoaders {
 
         self.preregistered_loaders.insert(type_name, loader_index);
         self.type_name_to_loader.insert(type_name, loader_index);
+
+        let existing_loaders_for_type_id = self.type_id_to_loaders.get(&loader_asset_type);
         let mut duplicate_extensions = Vec::new();
         for extension in extensions {
             let list = self
@@ -115,24 +126,27 @@ impl AssetLoaders {
                 .or_default();
 
             if !list.is_empty() {
-                duplicate_extensions.push(extension);
+                if let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id {
+                    if list
+                        .iter()
+                        .any(|index| existing_loaders_for_type_id.contains(index))
+                    {
+                        duplicate_extensions.push(extension);
+                    }
+                }
             }
 
             list.push(loader_index);
         }
-
-        let list = self
-            .type_id_to_loaders
-            .entry(loader_asset_type)
-            .or_default();
-
-        let duplicate_asset_registration = !list.is_empty();
-        if !duplicate_extensions.is_empty() && duplicate_asset_registration {
+        if !duplicate_extensions.is_empty() {
             warn!("Duplicate AssetLoader preregistered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
             Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
         }
 
-        list.push(loader_index);
+        self.type_id_to_loaders
+            .entry(loader_asset_type)
+            .or_default()
+            .push(loader_index);
 
         let (mut sender, receiver) = async_broadcast::broadcast(1);
         sender.set_overflow(true);
@@ -328,6 +342,7 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{format, string::String};
     use core::marker::PhantomData;
     use std::{
         path::Path,
@@ -337,22 +352,18 @@ mod tests {
     use bevy_reflect::TypePath;
     use bevy_tasks::block_on;
 
-    use crate::{self as bevy_asset, Asset};
+    use crate::Asset;
 
     use super::*;
 
-    // The compiler notices these fields are never read and raises a dead_code lint which kill CI.
-    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
-    struct A(usize);
+    struct A;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
-    struct B(usize);
+    struct B;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
-    struct C(usize);
+    struct C;
 
     struct Loader<A: Asset, const N: usize, const E: usize> {
         sender: Sender<()>,

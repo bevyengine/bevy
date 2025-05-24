@@ -17,23 +17,28 @@ use bevy::{
         DiagnosticPath, DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
     },
     ecs::{
-        component::{ComponentDescriptor, ComponentId, StorageType},
+        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentId, StorageType},
         system::QueryParamBuilder,
         world::FilteredEntityMut,
     },
     log::LogPlugin,
+    platform::collections::HashSet,
     prelude::{App, In, IntoSystem, Query, Schedule, SystemParamBuilder, Update},
-    ptr::OwningPtr,
+    ptr::{OwningPtr, PtrMut},
     MinimalPlugins,
 };
 
 use rand::prelude::{Rng, SeedableRng, SliceRandom};
 use rand_chacha::ChaCha8Rng;
-use std::{alloc::Layout, num::Wrapping};
+use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 
+#[expect(unsafe_code, reason = "Reading dynamic components requires unsafe")]
 // A simple system that matches against several components and does some menial calculation to create
 // some non-trivial load.
 fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<FilteredEntityMut>) {
+    #[cfg(feature = "trace")]
+    let _span = tracing::info_span!("base_system", components = ?access_components.0, count = query.iter().len()).entered();
+
     for mut filtered_entity in &mut query {
         // We calculate Faulhaber's formula mod 256 with n = value and p = exponent.
         // See https://en.wikipedia.org/wiki/Faulhaber%27s_formula
@@ -45,7 +50,6 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
             // find the value of the component
             let ptr = filtered_entity.get_by_id(*component_id).unwrap();
 
-            #[expect(unsafe_code)]
             // SAFETY: All components have a u8 layout
             let value: u8 = unsafe { *ptr.deref::<u8>() };
 
@@ -62,7 +66,6 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
         // we assign this value to all the components we can write to
         for component_id in &access_components.0 {
             if let Some(ptr) = filtered_entity.get_mut_by_id(*component_id) {
-                #[expect(unsafe_code)]
                 // SAFETY: All components have a u8 layout
                 unsafe {
                     let mut value = ptr.with_type::<u8>();
@@ -73,6 +76,7 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
     }
 }
 
+#[expect(unsafe_code, reason = "Using dynamic components requires unsafe")]
 fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let mut app = App::default();
@@ -82,10 +86,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     let component_ids: Vec<ComponentId> = (1..=num_components)
         .map(|i| {
             world.register_component_with_descriptor(
-                #[allow(unsafe_code)]
                 // SAFETY:
-                // we don't implement a drop function
-                // u8 is Sync and Send
+                // * We don't implement a drop function
+                // * u8 is Sync and Send
                 unsafe {
                     ComponentDescriptor::new_with_layout(
                         format!("Component{}", i).to_string(),
@@ -93,6 +96,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                         Layout::new::<u8>(),
                         None,
                         true, // is mutable
+                        ComponentCloneBehavior::Default,
                     )
                 },
             )
@@ -124,37 +128,54 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     // spawn a bunch of entities
     for _ in 1..=num_entities {
         let num_components = rng.gen_range(1..10);
-        let components = component_ids.choose_multiple(&mut rng, num_components);
+        let components: Vec<ComponentId> = component_ids
+            .choose_multiple(&mut rng, num_components)
+            .copied()
+            .collect();
 
         let mut entity = world.spawn_empty();
-        for &component_id in components {
-            let value: u8 = rng.gen_range(0..255);
-            OwningPtr::make(value, |ptr| {
-                #[allow(unsafe_code)]
+        // We use `ManuallyDrop` here as we need to avoid dropping the u8's when `values` is dropped
+        // since ownership of the values is passed to the world in `insert_by_ids`.
+        // But we do want to deallocate the memory when values is dropped.
+        let mut values: Vec<ManuallyDrop<u8>> = components
+            .iter()
+            .map(|_id| ManuallyDrop::new(rng.gen_range(0..255)))
+            .collect();
+        let ptrs: Vec<OwningPtr> = values
+            .iter_mut()
+            .map(|value| {
                 // SAFETY:
-                // component_id is from the same world
-                // value is u8, so ptr is a valid reference for component_id
-                unsafe {
-                    entity.insert_by_id(component_id, ptr);
-                }
-            });
+                // * We don't read/write `values` binding after this and values are `ManuallyDrop`,
+                // so we have the right to drop/move the values
+                unsafe { PtrMut::from(value).promote() }
+            })
+            .collect();
+        // SAFETY:
+        // * component_id's are from the same world
+        // * `values` was initialized above, so references are valid
+        unsafe {
+            entity.insert_by_ids(&components, ptrs.into_iter());
         }
     }
+
+    println!(
+        "Number of Archetype-Components: {}",
+        world.archetypes().archetype_components_len()
+    );
 
     // overwrite Update schedule in the app
     app.add_schedule(schedule);
     app.add_plugins(MinimalPlugins)
         .add_plugins(DiagnosticsPlugin)
         .add_plugins(LogPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_plugins(LogDiagnosticsPlugin::filtered(vec![DiagnosticPath::new(
-            "fps",
-        )]));
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(LogDiagnosticsPlugin::filtered(HashSet::from_iter([
+            DiagnosticPath::new("fps"),
+        ])));
     app.run();
 }
 
-#[expect(missing_docs)]
-pub fn main() {
+fn main() {
     const DEFAULT_NUM_ENTITIES: u32 = 50000;
     const DEFAULT_NUM_COMPONENTS: u32 = 1000;
     const DEFAULT_NUM_SYSTEMS: u32 = 800;

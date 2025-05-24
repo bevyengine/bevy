@@ -1,7 +1,7 @@
 //! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
 use crate::{
-    bounding::{Bounded2d, BoundingCircle},
+    bounding::{Bounded2d, BoundingCircle, BoundingVolume},
     ops,
     primitives::{
         Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
@@ -76,18 +76,13 @@ impl Bounded3d for Line3d {
 
 impl Bounded3d for Segment3d {
     fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
-        let isometry = isometry.into();
-
-        // Rotate the segment by `rotation`
-        let direction = isometry.rotation * *self.direction;
-        let half_size = (self.half_length * direction).abs();
-
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_point_cloud(isometry, [self.point1(), self.point2()].iter().copied())
     }
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
         let isometry = isometry.into();
-        BoundingSphere::new(isometry.translation, self.half_length)
+        let local_sphere = BoundingSphere::new(self.center(), self.length() / 2.);
+        local_sphere.transformed_by(isometry.translation, isometry.rotation)
     }
 }
 
@@ -462,10 +457,8 @@ mod tests {
 
     #[test]
     fn segment() {
+        let segment = Segment3d::new(Vec3::new(-1.0, -0.5, 0.0), Vec3::new(1.0, 0.5, 0.0));
         let translation = Vec3::new(2.0, 1.0, 0.0);
-
-        let segment =
-            Segment3d::from_points(Vec3::new(-1.0, -0.5, 0.0), Vec3::new(1.0, 0.5, 0.0)).0;
 
         let aabb = segment.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(1.0, 0.5, 0.0));

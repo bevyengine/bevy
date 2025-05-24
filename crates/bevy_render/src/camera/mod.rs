@@ -1,4 +1,3 @@
-#[allow(clippy::module_inception)]
 mod camera;
 mod camera_driver_node;
 mod clear_color;
@@ -13,10 +12,10 @@ pub use projection::*;
 
 use crate::{
     extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin,
-    render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
+    render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -43,7 +42,7 @@ impl Plugin for CameraPlugin {
             render_app
                 .init_resource::<SortedCameras>()
                 .add_systems(ExtractSchedule, extract_cameras)
-                .add_systems(Render, sort_cameras.in_set(RenderSet::ManageViews));
+                .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
             let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
             let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
             render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);

@@ -1,4 +1,8 @@
 use crate::io::AssetSourceId;
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+};
 use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
@@ -14,10 +18,10 @@ use thiserror::Error;
 ///
 /// Asset paths consist of three main parts:
 /// * [`AssetPath::source`]: The name of the [`AssetSource`](crate::io::AssetSource) to load the asset from.
-///     This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
+///   This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
 /// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
 /// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
-///     allowed to load "sub assets" of any type, which are identified by a named "label".
+///   allowed to load "sub assets" of any type, which are identified by a named "label".
 ///
 /// Asset paths are generally constructed (and visualized) as strings:
 ///
@@ -49,7 +53,7 @@ use thiserror::Error;
 /// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
 #[derive(Eq, PartialEq, Hash, Clone, Default, Reflect)]
 #[reflect(opaque)]
-#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
+#[reflect(Debug, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
@@ -219,6 +223,16 @@ impl<'a> AssetPath<'a> {
         Ok((source, path, label))
     }
 
+    /// Creates a new [`AssetPath`] from a [`PathBuf`].
+    #[inline]
+    pub fn from_path_buf(path_buf: PathBuf) -> AssetPath<'a> {
+        AssetPath {
+            path: CowArc::Owned(path_buf.into()),
+            source: AssetSourceId::Default,
+            label: None,
+        }
+    }
+
     /// Creates a new [`AssetPath`] from a [`Path`].
     #[inline]
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
@@ -316,7 +330,7 @@ impl<'a> AssetPath<'a> {
     /// If internally a value is a static reference, the static reference will be used unchanged.
     /// If internally a value is an "owned [`Arc`]", it will remain unchanged.
     ///
-    /// [`Arc`]: std::sync::Arc
+    /// [`Arc`]: alloc::sync::Arc
     pub fn into_owned(self) -> AssetPath<'static> {
         AssetPath {
             source: self.source.into_owned(),
@@ -329,7 +343,7 @@ impl<'a> AssetPath<'a> {
     /// If internally a value is a static reference, the static reference will be used unchanged.
     /// If internally a value is an "owned [`Arc`]", the [`Arc`] will be cloned.
     ///
-    /// [`Arc`]: std::sync::Arc
+    /// [`Arc`]: alloc::sync::Arc
     #[inline]
     pub fn clone_owned(&self) -> AssetPath<'static> {
         self.clone().into_owned()
@@ -473,6 +487,51 @@ impl<'a> AssetPath<'a> {
                 None
             }
         })
+    }
+
+    /// Returns `true` if this [`AssetPath`] points to a file that is
+    /// outside of it's [`AssetSource`](crate::io::AssetSource) folder.
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_asset::AssetPath;
+    /// // Inside the default AssetSource.
+    /// let path = AssetPath::parse("thingy.png");
+    /// assert!( ! path.is_unapproved());
+    /// let path = AssetPath::parse("gui/thingy.png");
+    /// assert!( ! path.is_unapproved());
+    ///
+    /// // Inside a different AssetSource.
+    /// let path = AssetPath::parse("embedded://thingy.png");
+    /// assert!( ! path.is_unapproved());
+    ///
+    /// // Exits the `AssetSource`s directory.
+    /// let path = AssetPath::parse("../thingy.png");
+    /// assert!(path.is_unapproved());
+    /// let path = AssetPath::parse("folder/../../thingy.png");
+    /// assert!(path.is_unapproved());
+    ///
+    /// // This references the linux root directory.
+    /// let path = AssetPath::parse("/home/thingy.png");
+    /// assert!(path.is_unapproved());
+    /// ```
+    pub fn is_unapproved(&self) -> bool {
+        use std::path::Component;
+        let mut simplified = PathBuf::new();
+        for component in self.path.components() {
+            match component {
+                Component::Prefix(_) | Component::RootDir => return true,
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    if !simplified.pop() {
+                        return true;
+                    }
+                }
+                Component::Normal(os_str) => simplified.push(os_str),
+            }
+        }
+
+        false
     }
 }
 
@@ -629,6 +688,7 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use crate::AssetPath;
+    use alloc::string::ToString;
     use std::path::Path;
 
     #[test]

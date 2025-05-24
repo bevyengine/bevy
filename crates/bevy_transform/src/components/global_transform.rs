@@ -8,7 +8,7 @@ use derive_more::derive::From;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 #[cfg(feature = "bevy-support")]
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, hierarchy::validate_parent_has_component};
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -23,22 +23,22 @@ use {
 ///
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   * ~You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
-///     [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
-///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
+///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to world space coordinates,
-/// if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
 /// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform`] of each ancestor
-/// entity which has a Transform. This is done automatically by Bevy-internal systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+/// entity which has a Transform. This is done automatically by Bevy-internal systems in the [`TransformSystems::Propagate`]
+/// system set.
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
+///
+/// [`TransformSystems::Propagate`]: crate::TransformSystems::Propagate
 ///
 /// # Examples
 ///
@@ -47,11 +47,15 @@ use {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy-support", derive(Component))]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component),
+    component(on_insert = validate_parent_has_component::<GlobalTransform>)
+)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, PartialEq, Debug)
+    reflect(Component, Default, PartialEq, Debug, Clone)
 )]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
@@ -157,8 +161,7 @@ impl GlobalTransform {
     ///
     /// ```
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
-    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
-    /// # use bevy_hierarchy::{prelude::Parent, BuildChildren};
+    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands, ChildOf};
     /// #[derive(Component)]
     /// struct ToReparent {
     ///     new_parent: Entity,
@@ -173,7 +176,7 @@ impl GlobalTransform {
     ///             *transform = initial.reparented_to(parent_transform);
     ///             commands.entity(entity)
     ///                 .remove::<ToReparent>()
-    ///                 .set_parent(to_reparent.new_parent);
+    ///                 .insert(ChildOf(to_reparent.new_parent));
     ///         }
     ///     }
     /// }

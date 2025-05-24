@@ -8,9 +8,6 @@ use crate::{
 use alloc::borrow::Cow;
 use core::fmt::Debug;
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 /// A trait used to power [function-like] operations via [reflection].
 ///
 /// This trait allows types to be called like regular functions
@@ -28,7 +25,7 @@ use alloc::{boxed::Box, format, vec};
 /// }
 ///
 /// let func: Box<dyn Function> = Box::new(add.into_function());
-/// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+/// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
 /// let value = func.reflect_call(args).unwrap().unwrap_owned();
 /// assert_eq!(value.try_take::<i32>().unwrap(), 100);
 /// ```
@@ -66,14 +63,15 @@ pub trait Function: PartialReflect + Debug {
     /// Call this function with the given arguments.
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a>;
 
-    /// Clone this function into a [`DynamicFunction`].
-    fn clone_dynamic(&self) -> DynamicFunction<'static>;
+    /// Creates a new [`DynamicFunction`] from this function.
+    fn to_dynamic_function(&self) -> DynamicFunction<'static>;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::func::IntoFunction;
+    use alloc::boxed::Box;
 
     #[test]
     fn should_call_dyn_function() {
@@ -82,7 +80,7 @@ mod tests {
         }
 
         let func: Box<dyn Function> = Box::new(add.into_function());
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let value = func.reflect_call(args).unwrap().unwrap_owned();
         assert_eq!(value.try_take::<i32>().unwrap(), 100);
     }
