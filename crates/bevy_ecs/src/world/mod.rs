@@ -1093,7 +1093,6 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
-        self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
         unsafe { self.spawn_at_empty_internal(entity, MaybeLocation::caller()) }
@@ -1169,7 +1168,6 @@ impl World {
         bundle: B,
         caller: MaybeLocation,
     ) -> EntityWorldMut {
-        self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
@@ -1329,6 +1327,7 @@ impl World {
 
         let result = world.modify_component(entity, f)?;
 
+        // Handles queued commands from hooks, etc.
         self.flush();
         Ok(result)
     }
@@ -1358,6 +1357,7 @@ impl World {
 
         let result = world.modify_component_by_id(entity, component_id, f)?;
 
+        // Handles queued commands from hooks, etc.
         self.flush();
         Ok(result)
     }
@@ -1420,6 +1420,7 @@ impl World {
         entity: Entity,
         caller: MaybeLocation,
     ) -> Result<(), EntityDespawnError> {
+        // If any command depended on this entity, run those before we despawn.
         self.flush();
         let entity = self.get_entity_mut(entity)?;
         entity.despawn_with_caller(caller);
@@ -2294,7 +2295,6 @@ impl World {
             archetype_id: ArchetypeId,
         }
 
-        self.flush();
         let change_tick = self.change_tick();
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
@@ -2439,7 +2439,6 @@ impl World {
             archetype_id: ArchetypeId,
         }
 
-        self.flush();
         let change_tick = self.change_tick();
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
@@ -2749,6 +2748,19 @@ impl World {
                 *location = empty_archetype.allocate(entity, table.allocate(entity));
             });
         }
+    }
+
+    /// If this entity is not in any [`Archetype`](crate::archetype::Archetype), this will flush it to the empty archetype.
+    /// Returns `Some` with the new [`EntityLocation`] if the entity is now valid in the empty archetype.
+    pub fn flush_entity(&mut self, entity: Entity) -> Option<EntityLocation> {
+        if !self.entities.contains(entity) || self.entities.get(entity).is_some() {
+            return None;
+        }
+        let empty_archetype = self.archetypes.empty_mut();
+        let table = &mut self.storages.tables[empty_archetype.table_id()];
+        // SAFETY: It's empty so no values need to be written
+        let new_location = unsafe { empty_archetype.allocate(entity, table.allocate(entity)) };
+        Some(new_location)
     }
 
     /// Applies any commands in the world's internal [`CommandQueue`].
