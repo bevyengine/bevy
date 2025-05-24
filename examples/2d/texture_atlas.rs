@@ -62,7 +62,7 @@ fn setup(
     let (texture_atlas_linear, linear_sources, linear_texture) = create_texture_atlas(
         loaded_folder,
         None,
-        Some(ImageSampler::linear()),
+        Some(ImageSampler::bilinear()),
         &mut textures,
     );
     let atlas_linear_handle = texture_atlases.add(texture_atlas_linear);
@@ -79,7 +79,7 @@ fn setup(
         create_texture_atlas(
             loaded_folder,
             Some(UVec2::new(6, 6)),
-            Some(ImageSampler::linear()),
+            Some(ImageSampler::bilinear()),
             &mut textures,
         );
     let atlas_linear_padded_handle = texture_atlases.add(texture_atlas_linear_padded.clone());
