@@ -29,7 +29,7 @@ impl Default for CompileCheckNoStdCommand {
 impl Prepare for CompileCheckNoStdCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
         let jobs = args
-            .jobs
+            .build_jobs
             .map(|jobs| format!(" --jobs {jobs}"))
             .unwrap_or_default();
 

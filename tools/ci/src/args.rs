@@ -3,5 +3,5 @@
 pub struct Args {
     pub keep_going: bool,
     pub test_threads: Option<usize>,
-    pub jobs: Option<i32>,
+    pub build_jobs: Option<usize>,
 }

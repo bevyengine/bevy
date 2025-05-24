@@ -21,7 +21,7 @@ pub struct CI {
 
     /// number of build jobs
     #[argh(option)]
-    jobs: Option<i32>,
+    build_jobs: Option<usize>,
 }
 
 impl From<&CI> for Args {
@@ -29,7 +29,7 @@ impl From<&CI> for Args {
         Args {
             keep_going: value.keep_going,
             test_threads: value.test_threads,
-            jobs: value.jobs,
+            build_jobs: value.build_jobs,
         }
     }
 }

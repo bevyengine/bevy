@@ -15,7 +15,7 @@ impl Prepare for DocTestCommand {
             .unwrap_or_default();
 
         let jobs = args
-            .jobs
+            .build_jobs
             .map(|jobs| format!(" --jobs {jobs}"))
             .unwrap_or_default();
 
