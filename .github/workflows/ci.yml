@@ -222,6 +222,8 @@ jobs:
         with:
           target: wasm32-unknown-unknown
       - name: Check wasm
+        env:
+          RUSTFLAGS: --cfg getrandom_backend="wasm_js"
         run: cargo check --target wasm32-unknown-unknown
 
   build-wasm-atomics:
@@ -247,7 +249,7 @@ jobs:
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
-          RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory -D warnings"
+          RUSTFLAGS: '-C target-feature=+atomics,+bulk-memory -D warnings --cfg getrandom_backend="wasm_js"'
 
   markdownlint:
     runs-on: ubuntu-latest
