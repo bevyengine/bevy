@@ -1,6 +1,6 @@
 //! Utilities for hotpatching code.
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use bevy_ecs::{event::EventWriter, HotPatched};
 #[cfg(not(target_family = "wasm"))]
@@ -25,7 +25,7 @@ impl Plugin for HotPatchPlugin {
         #[cfg(not(target_family = "wasm"))]
         connect_subsecond();
         subsecond::register_handler(Arc::new(move || {
-            _ = sender.send(HotPatched).unwrap();
+            sender.send(HotPatched).unwrap();
         }));
 
         // Adds a system that will read the channel for new `HotPatched`, and forward them as event to the ECS
