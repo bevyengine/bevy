@@ -39,10 +39,11 @@ fn on_remove_disabled(mut world: DeferredWorld, context: HookContext) {
     }
 }
 
-/// Component that indicates whether a button is currently pressed.
+/// Component that indicates whether a button or widget is currently in a pressed or "held down"
+/// state.
 #[derive(Component, Default, Debug)]
 #[component(immutable)]
-pub struct ButtonPressed(pub bool);
+pub struct Depressed(pub bool);
 
 /// Component that indicates whether a checkbox or radio button is in a checked state.
 #[derive(Component, Default, Debug)]
