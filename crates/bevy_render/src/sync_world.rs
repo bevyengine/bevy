@@ -155,7 +155,7 @@ unsafe impl EntityEquivalent for RenderEntity {}
 /// Component added on the render world entities to keep track of the corresponding main world entity.
 ///
 /// Can also be used as a newtype wrapper for main world entities.
-#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Reflect)]
 #[reflect(Component, Clone)]
 pub struct MainEntity(Entity);
 impl MainEntity {
