@@ -6,7 +6,6 @@ use std::time::Duration;
 use bevy::{
     app::{App, PluginGroup, Startup, Update},
     asset::{Asset, Assets, Handle},
-    audio::AudioPlugin,
     color::Color,
     diagnostic::{DiagnosticsStore, LogDiagnosticsPlugin},
     ecs::{
@@ -21,7 +20,7 @@ use bevy::{
         diagnostic::{MeshAllocatorDiagnosticPlugin, RenderAssetDiagnosticPlugin},
         mesh::{Mesh, Meshable, RenderMesh},
     },
-    window::WindowPlugin,
+    window::{ExitCondition, WindowPlugin},
     winit::WinitPlugin,
     DefaultPlugins,
 };
@@ -32,9 +31,12 @@ fn check_mesh_leak() {
     app.add_plugins((
         DefaultPlugins
             .build()
-            .disable::<AudioPlugin>()
-            .disable::<WinitPlugin>()
-            .disable::<WindowPlugin>(),
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                ..Default::default()
+            })
+            .disable::<WinitPlugin>(),
         LogDiagnosticsPlugin {
             wait_duration: Duration::ZERO,
             ..Default::default()
@@ -63,9 +65,12 @@ fn check_standard_material_leak() {
     app.add_plugins((
         DefaultPlugins
             .build()
-            .disable::<AudioPlugin>()
-            .disable::<WinitPlugin>()
-            .disable::<WindowPlugin>(),
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                ..Default::default()
+            })
+            .disable::<WinitPlugin>(),
         LogDiagnosticsPlugin {
             wait_duration: Duration::ZERO,
             ..Default::default()
@@ -96,9 +101,12 @@ fn check_mesh_churn_leak() {
     app.add_plugins((
         DefaultPlugins
             .build()
-            .disable::<AudioPlugin>()
-            .disable::<WinitPlugin>()
-            .disable::<WindowPlugin>(),
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                ..Default::default()
+            })
+            .disable::<WinitPlugin>(),
         LogDiagnosticsPlugin {
             wait_duration: Duration::ZERO,
             ..Default::default()
@@ -124,9 +132,12 @@ fn check_standard_material_churn_leak() {
     app.add_plugins((
         DefaultPlugins
             .build()
-            .disable::<AudioPlugin>()
-            .disable::<WinitPlugin>()
-            .disable::<WindowPlugin>(),
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                ..Default::default()
+            })
+            .disable::<WinitPlugin>(),
         LogDiagnosticsPlugin {
             wait_duration: Duration::ZERO,
             ..Default::default()
@@ -158,9 +169,12 @@ fn check_mesh_churn_insert_leak() {
     app.add_plugins((
         DefaultPlugins
             .build()
-            .disable::<AudioPlugin>()
-            .disable::<WinitPlugin>()
-            .disable::<WindowPlugin>(),
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                ..Default::default()
+            })
+            .disable::<WinitPlugin>(),
         LogDiagnosticsPlugin {
             wait_duration: Duration::ZERO,
             ..Default::default()
@@ -189,9 +203,12 @@ fn check_standard_material_churn_insert_leak() {
     app.add_plugins((
         DefaultPlugins
             .build()
-            .disable::<AudioPlugin>()
-            .disable::<WinitPlugin>()
-            .disable::<WindowPlugin>(),
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                ..Default::default()
+            })
+            .disable::<WinitPlugin>(),
         LogDiagnosticsPlugin {
             wait_duration: Duration::ZERO,
             ..Default::default()
