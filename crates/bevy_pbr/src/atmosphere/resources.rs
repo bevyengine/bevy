@@ -1,3 +1,4 @@
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::Camera3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
@@ -21,7 +22,7 @@ use bevy_render::{
 
 use crate::{GpuLights, LightMeta};
 
-use super::{shaders, Atmosphere, AtmosphereSettings};
+use super::{Atmosphere, AtmosphereSettings};
 
 #[derive(Resource)]
 pub(crate) struct AtmosphereBindGroupLayouts {
@@ -35,6 +36,7 @@ pub(crate) struct AtmosphereBindGroupLayouts {
 pub(crate) struct RenderSkyBindGroupLayouts {
     pub render_sky: BindGroupLayout,
     pub render_sky_msaa: BindGroupLayout,
+    pub shader: Handle<Shader>,
 }
 
 impl FromWorld for AtmosphereBindGroupLayouts {
@@ -203,6 +205,7 @@ impl FromWorld for RenderSkyBindGroupLayouts {
         Self {
             render_sky,
             render_sky_msaa,
+            shader: load_embedded_asset!(world, "render_sky.wgsl"),
         }
     }
 }
@@ -273,7 +276,7 @@ impl FromWorld for AtmosphereLutPipelines {
             label: Some("transmittance_lut_pipeline".into()),
             layout: vec![layouts.transmittance_lut.clone()],
             push_constant_ranges: vec![],
-            shader: shaders::TRANSMITTANCE_LUT,
+            shader: load_embedded_asset!(world, "transmittance_lut.wgsl"),
             shader_defs: vec![],
             entry_point: "main".into(),
             zero_initialize_workgroup_memory: false,
@@ -284,7 +287,7 @@ impl FromWorld for AtmosphereLutPipelines {
                 label: Some("multi_scattering_lut_pipeline".into()),
                 layout: vec![layouts.multiscattering_lut.clone()],
                 push_constant_ranges: vec![],
-                shader: shaders::MULTISCATTERING_LUT,
+                shader: load_embedded_asset!(world, "multiscattering_lut.wgsl"),
                 shader_defs: vec![],
                 entry_point: "main".into(),
                 zero_initialize_workgroup_memory: false,
@@ -294,7 +297,7 @@ impl FromWorld for AtmosphereLutPipelines {
             label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
             push_constant_ranges: vec![],
-            shader: shaders::SKY_VIEW_LUT,
+            shader: load_embedded_asset!(world, "sky_view_lut.wgsl"),
             shader_defs: vec![],
             entry_point: "main".into(),
             zero_initialize_workgroup_memory: false,
@@ -304,7 +307,7 @@ impl FromWorld for AtmosphereLutPipelines {
             label: Some("aerial_view_lut_pipeline".into()),
             layout: vec![layouts.aerial_view_lut.clone()],
             push_constant_ranges: vec![],
-            shader: shaders::AERIAL_VIEW_LUT,
+            shader: load_embedded_asset!(world, "aerial_view_lut.wgsl"),
             shader_defs: vec![],
             entry_point: "main".into(),
             zero_initialize_workgroup_memory: false,
@@ -369,7 +372,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             },
             zero_initialize_workgroup_memory: false,
             fragment: Some(FragmentState {
-                shader: shaders::RENDER_SKY.clone(),
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "main".into(),
                 targets: vec![Some(ColorTargetState {
