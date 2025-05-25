@@ -25,8 +25,7 @@ use bevy::{
     DefaultPlugins,
 };
 
-#[test]
-fn check_mesh_leak() {
+fn base_app() -> App {
     let mut app = App::new();
     app.add_plugins((
         DefaultPlugins
@@ -41,6 +40,14 @@ fn check_mesh_leak() {
             wait_duration: Duration::ZERO,
             ..Default::default()
         },
+    ));
+    app
+}
+
+#[test]
+fn check_mesh_leak() {
+    let mut app = base_app();
+    app.add_plugins((
         RenderAssetDiagnosticPlugin::<RenderMesh>::new(" meshes"),
         MeshAllocatorDiagnosticPlugin,
     ))
@@ -61,20 +68,8 @@ fn check_mesh_leak() {
 #[ignore = "FIXME Failing test"]
 #[test]
 fn check_standard_material_leak() {
-    let mut app = App::new();
+    let mut app = base_app();
     app.add_plugins((
-        DefaultPlugins
-            .build()
-            .set(WindowPlugin {
-                primary_window: None,
-                exit_condition: ExitCondition::DontExit,
-                ..Default::default()
-            })
-            .disable::<WinitPlugin>(),
-        LogDiagnosticsPlugin {
-            wait_duration: Duration::ZERO,
-            ..Default::default()
-        },
         RenderAssetDiagnosticPlugin::<PreparedMaterial<StandardMaterial>>::new(" materials"),
         MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::new(" standard materials"),
     ))
@@ -97,20 +92,8 @@ fn check_standard_material_leak() {
 
 #[test]
 fn check_mesh_churn_leak() {
-    let mut app = App::new();
+    let mut app = base_app();
     app.add_plugins((
-        DefaultPlugins
-            .build()
-            .set(WindowPlugin {
-                primary_window: None,
-                exit_condition: ExitCondition::DontExit,
-                ..Default::default()
-            })
-            .disable::<WinitPlugin>(),
-        LogDiagnosticsPlugin {
-            wait_duration: Duration::ZERO,
-            ..Default::default()
-        },
         RenderAssetDiagnosticPlugin::<RenderMesh>::new(" meshes"),
         MeshAllocatorDiagnosticPlugin,
     ))
@@ -128,20 +111,8 @@ fn check_mesh_churn_leak() {
 #[ignore = "FIXME Failing test"]
 #[test]
 fn check_standard_material_churn_leak() {
-    let mut app = App::new();
+    let mut app = base_app();
     app.add_plugins((
-        DefaultPlugins
-            .build()
-            .set(WindowPlugin {
-                primary_window: None,
-                exit_condition: ExitCondition::DontExit,
-                ..Default::default()
-            })
-            .disable::<WinitPlugin>(),
-        LogDiagnosticsPlugin {
-            wait_duration: Duration::ZERO,
-            ..Default::default()
-        },
         RenderAssetDiagnosticPlugin::<PreparedMaterial<StandardMaterial>>::new(" materials"),
         MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::new(" standard materials"),
     ))
@@ -165,20 +136,8 @@ fn check_standard_material_churn_leak() {
 #[ignore = "FIXME Failing test"]
 #[test]
 fn check_mesh_churn_insert_leak() {
-    let mut app = App::new();
+    let mut app = base_app();
     app.add_plugins((
-        DefaultPlugins
-            .build()
-            .set(WindowPlugin {
-                primary_window: None,
-                exit_condition: ExitCondition::DontExit,
-                ..Default::default()
-            })
-            .disable::<WinitPlugin>(),
-        LogDiagnosticsPlugin {
-            wait_duration: Duration::ZERO,
-            ..Default::default()
-        },
         RenderAssetDiagnosticPlugin::<RenderMesh>::new(" meshes"),
         MeshAllocatorDiagnosticPlugin,
     ))
@@ -199,20 +158,8 @@ fn check_mesh_churn_insert_leak() {
 #[ignore = "FIXME Failing test"]
 #[test]
 fn check_standard_material_churn_insert_leak() {
-    let mut app = App::new();
+    let mut app = base_app();
     app.add_plugins((
-        DefaultPlugins
-            .build()
-            .set(WindowPlugin {
-                primary_window: None,
-                exit_condition: ExitCondition::DontExit,
-                ..Default::default()
-            })
-            .disable::<WinitPlugin>(),
-        LogDiagnosticsPlugin {
-            wait_duration: Duration::ZERO,
-            ..Default::default()
-        },
         RenderAssetDiagnosticPlugin::<PreparedMaterial<StandardMaterial>>::new(" materials"),
         MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::new(" standard materials"),
     ))
