@@ -134,6 +134,7 @@ where
         })
     }
 
+    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         // TODO: support exclusive systems

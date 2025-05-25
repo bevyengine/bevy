@@ -77,6 +77,7 @@ pub trait System: Send + Sync + 'static {
         -> Self::Out;
 
     /// Refresh the inner pointer based on the latest hot patch jump table
+    #[cfg(feature = "hotpatching")]
     fn refresh_hotpatch(&mut self);
 
     /// Runs the system with the given input in the world.

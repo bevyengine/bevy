@@ -68,6 +68,7 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
         Ok(())
     }
 
+    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.0.refresh_hotpatch();
@@ -191,6 +192,7 @@ where
         self.system.run_unsafe(&mut self.value, world)
     }
 
+    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();
@@ -303,6 +305,7 @@ where
         self.system.run_unsafe(value, world)
     }
 
+    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();

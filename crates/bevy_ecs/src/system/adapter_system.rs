@@ -161,6 +161,7 @@ where
         })
     }
 
+    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();

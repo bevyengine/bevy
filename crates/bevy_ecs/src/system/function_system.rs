@@ -682,8 +682,8 @@ where
         out
     }
 
-    #[inline]
     #[cfg(feature = "hotpatching")]
+    #[inline]
     fn refresh_hotpatch(&mut self) {
         let new = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run).ptr_address();
         if new != self.current_ptr {
@@ -691,9 +691,6 @@ where
         }
         self.current_ptr = new;
     }
-    #[inline]
-    #[cfg(not(feature = "hotpatching"))]
-    fn refresh_hotpatch(&mut self) {}
 
     #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
