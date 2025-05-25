@@ -1,12 +1,9 @@
-use super::{
-    instance_manager::InstanceManager, resource_manager::ResourceManager,
-    MESHLET_MESH_MATERIAL_SHADER_HANDLE,
-};
+use super::{instance_manager::InstanceManager, resource_manager::ResourceManager};
 use crate::{
     environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume,
     material_bind_groups::MaterialBindGroupAllocator, *,
 };
-use bevy_asset::AssetServer;
+use bevy_asset::{load_embedded_asset, AssetServer};
 use bevy_core_pipeline::{
     core_3d::Camera3d,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
@@ -195,7 +192,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 ],
                 push_constant_ranges: vec![],
                 vertex: VertexState {
-                    shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                    shader: load_embedded_asset!(
+                        asset_server.as_ref(),
+                        "meshlet_mesh_material.wgsl"
+                    ),
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
                     buffers: Vec::new(),
@@ -211,7 +211,12 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: match M::meshlet_mesh_fragment_shader() {
-                        ShaderRef::Default => MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                        ShaderRef::Default => {
+                            load_embedded_asset!(
+                                asset_server.as_ref(),
+                                "meshlet_mesh_material.wgsl"
+                            )
+                        }
                         ShaderRef::Handle(handle) => handle,
                         ShaderRef::Path(path) => asset_server.load(path),
                     },
@@ -374,7 +379,10 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 ],
                 push_constant_ranges: vec![],
                 vertex: VertexState {
-                    shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                    shader: load_embedded_asset!(
+                        asset_server.as_ref(),
+                        "meshlet_mesh_material.wgsl"
+                    ),
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
                     buffers: Vec::new(),
@@ -390,7 +398,12 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: match fragment_shader {
-                        ShaderRef::Default => MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+                        ShaderRef::Default => {
+                            load_embedded_asset!(
+                                asset_server.as_ref(),
+                                "meshlet_mesh_material.wgsl"
+                            )
+                        }
                         ShaderRef::Handle(handle) => handle,
                         ShaderRef::Path(path) => asset_server.load(path),
                     },
