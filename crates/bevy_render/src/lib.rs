@@ -92,8 +92,8 @@ use render_asset::{
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
-    despawn_temporary_render_entities, entity_sync_system, MainEntity, PendingSyncEntity,
-    RenderEntity, SyncToRenderWorld, SyncWorldPlugin, TemporaryRenderEntity,
+    despawn_temporary_render_entities, entity_sync_system, MainEntity, RenderEntity,
+    SyncToRenderWorld, SyncWorldPlugin, TemporaryRenderEntity,
 };
 
 use crate::gpu_readback::GpuReadbackPlugin;
@@ -453,7 +453,6 @@ impl Plugin for RenderPlugin {
             .register_type::<RenderEntity>()
             .register_type::<TemporaryRenderEntity>()
             .register_type::<MainEntity>()
-            .register_type::<PendingSyncEntity>()
             .register_type::<SyncToRenderWorld>();
     }
 

@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::{ContainsEntity, Entity, EntityEquivalent},
     observer::Trigger,
     query::With,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Local, Query, ResMut, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
@@ -206,8 +206,7 @@ pub(crate) enum EntityRecord {
 }
 
 // Entity Record in MainWorld pending to Sync
-#[derive(Resource, Default, Deref, DerefMut, Reflect)]
-#[reflect(Resource, Default)]
+#[derive(Resource, Default, Deref, DerefMut)]
 pub(crate) struct PendingSyncEntity {
     records: Vec<EntityRecord>,
 }
