@@ -381,9 +381,35 @@ impl<'w, 's> Commands<'w, 's> {
     ///   with the same combination of components.
     #[track_caller]
     pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
-        let mut entity = self.spawn_empty();
-        entity.insert(bundle);
-        entity
+        let entity = self.entities.reserve_entity();
+        let mut entity_commands = EntityCommands {
+            entity,
+            commands: self.reborrow(),
+        };
+        let caller = MaybeLocation::caller();
+
+        entity_commands.queue(move |mut entity: EntityWorldMut| {
+            // Store metadata about the spawn operation.
+            // This is the same as in `spawn_empty`, but merged into
+            // the same command for better performance.
+            let index = entity.id().index();
+            entity.world_scope(|world| {
+                let tick = world.change_tick();
+                // SAFETY: Entity has been flushed
+                unsafe {
+                    world.entities_mut().mark_spawn_despawn(index, caller, tick);
+                }
+            });
+
+            entity.insert_with_caller(
+                bundle,
+                InsertMode::Replace,
+                caller,
+                crate::relationship::RelationshipHookMode::Run,
+            );
+        });
+        // entity_command::insert(bundle, InsertMode::Replace)
+        entity_commands
     }
 
     /// Returns the [`EntityCommands`] for the given [`Entity`].
