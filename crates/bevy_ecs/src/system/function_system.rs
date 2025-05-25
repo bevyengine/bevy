@@ -1023,6 +1023,7 @@ macro_rules! impl_system_function {
             fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
+                    _: PhantomData<In>,
                     mut f: impl FnMut(In::Param<'_>, $($param,)*)->Out,
                     input: In::Inner<'_>,
                     $($param: $param,)*
@@ -1030,7 +1031,7 @@ macro_rules! impl_system_function {
                     f(In::wrap(input), $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, input, $($param),*)
+                call_inner(PhantomData::<In>, self, input, $($param),*)
             }
         }
     };
