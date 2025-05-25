@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::{ContainsEntity, Entity, EntityEquivalent},
     observer::Trigger,
     query::With,
-    reflect::{ReflectComponent, ReflectResource},
+    reflect::ReflectComponent,
     resource::Resource,
     system::{Local, Query, ResMut, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
