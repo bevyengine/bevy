@@ -60,7 +60,7 @@ pub trait AppExtStates {
     /// Enable state-scoped entity clearing for state `S`.
     ///
     /// This is enabled by default. If you don't want this behavior, add the `#[states(scoped_entities = false)]`
-    /// when deriving the [`States`] trait
+    /// attribute when deriving the [`States`] trait.
     ///
     /// For more information refer to [`crate::state_scoped`].
     #[doc(hidden)]
