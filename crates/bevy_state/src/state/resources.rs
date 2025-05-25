@@ -127,12 +127,29 @@ pub enum NextState<S: FreelyMutableState> {
     Unchanged,
     /// There is a pending transition for state `S`
     Pending(S),
+    /// There is a pending transition for state `S`
+    ///
+    /// This will trigger state transitions schedules even if the target state is the same as the current one.
+    ForcedPending(S),
 }
 
 impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a pending state transition to `Some(state)`.
+    ///
+    /// This will *not* trigger state transition [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit) schedules.
+    ///
+    /// If [`set_forced`](Self::set_forced) has already been called in the same frame with the same state, its behavior is kept.
     pub fn set(&mut self, state: S) {
-        *self = Self::Pending(state);
+        if !matches!(self, Self::ForcedPending(s) if s == &state) {
+            *self = Self::Pending(state);
+        }
+    }
+
+    /// Tentatively set a pending state transition to `Some(state)`.
+    ///
+    /// This will trigger state transition [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit) schedules.
+    pub fn set_forced(&mut self, state: S) {
+        *self = Self::ForcedPending(state);
     }
 
     /// Remove any pending changes to [`State<S>`]
@@ -143,13 +160,17 @@ impl<S: FreelyMutableState> NextState<S> {
 
 pub(crate) fn take_next_state<S: FreelyMutableState>(
     next_state: Option<ResMut<NextState<S>>>,
-) -> Option<S> {
+) -> Option<(S, bool)> {
     let mut next_state = next_state?;
 
     match core::mem::take(next_state.bypass_change_detection()) {
         NextState::Pending(x) => {
             next_state.set_changed();
-            Some(x)
+            Some((x, false))
+        }
+        NextState::ForcedPending(x) => {
+            next_state.set_changed();
+            Some((x, true))
         }
         NextState::Unchanged => None,
     }

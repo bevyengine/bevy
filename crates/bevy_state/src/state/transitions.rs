@@ -67,6 +67,8 @@ pub struct StateTransitionEvent<S: States> {
     pub exited: Option<S>,
     /// The state being entered.
     pub entered: Option<S>,
+    /// Enforce this transition even if `exited` and `entered` are the same
+    pub same_state_enforced: bool,
 }
 
 /// Applies state transitions and runs transitions schedules in order.
@@ -139,6 +141,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
     mut commands: Commands,
     current_state: Option<ResMut<State<S>>>,
     new_state: Option<S>,
+    same_state_enforced: bool,
 ) {
     match new_state {
         Some(entered) => {
@@ -157,6 +160,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     event.write(StateTransitionEvent {
                         exited: Some(exited.clone()),
                         entered: Some(entered.clone()),
+                        same_state_enforced,
                     });
                 }
                 None => {
@@ -166,6 +170,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     event.write(StateTransitionEvent {
                         exited: None,
                         entered: Some(entered.clone()),
+                        same_state_enforced,
                     });
                 }
             };
@@ -178,6 +183,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                 event.write(StateTransitionEvent {
                     exited: Some(resource.get().clone()),
                     entered: None,
+                    same_state_enforced,
                 });
             }
         }
@@ -221,7 +227,7 @@ pub(crate) fn run_enter<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.same_state_enforced {
         return;
     }
     let Some(entered) = transition.entered else {
@@ -238,7 +244,7 @@ pub(crate) fn run_exit<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
-    if transition.entered == transition.exited {
+    if transition.entered == transition.exited && !transition.same_state_enforced {
         return;
     }
     let Some(exited) = transition.exited else {
