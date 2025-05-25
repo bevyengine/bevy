@@ -4390,3 +4390,14 @@ name = "Extended Bindless Material"
 description = "Demonstrates bindless `ExtendedMaterial`"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "headless_widgets"
+path = "examples/ui/headless_widgets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_widgets]
+name = "Headless Widgets"
+description = "Demonstrates use of headless widgets in Bevy UI"
+category = "UI (User Interface)"
+wasm = true
