@@ -21,7 +21,7 @@ use encase::{internal::WriteInto, ShaderSize};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 use tracing::{error, info};
-use wgpu::{AdapterInfo, BindingResource, BufferUsages, DownlevelFlags, Features};
+use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
     experimental::occlusion_culling::OcclusionCulling,
@@ -33,7 +33,7 @@ use crate::{
         ViewSortedRenderPhases,
     },
     render_resource::{Buffer, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
-    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
     Render, RenderApp, RenderDebugFlags, RenderSystems,
@@ -1101,7 +1101,7 @@ impl FromWorld for GpuPreprocessingSupport {
         // - We filter out Adreno 730 and earlier GPUs (except 720, as it's newer
         //   than 730).
         // - We filter out Mali GPUs with driver versions lower than 48.
-        fn is_non_supported_android_device(adapter_info: &AdapterInfo) -> bool {
+        fn is_non_supported_android_device(adapter_info: &RenderAdapterInfo) -> bool {
             crate::get_adreno_model(adapter_info).is_some_and(|model| model != 720 && model <= 730)
                 || crate::get_mali_driver_version(adapter_info).is_some_and(|version| version < 48)
         }
@@ -1124,7 +1124,7 @@ impl FromWorld for GpuPreprocessingSupport {
             DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW
         );
 
-        let adapter_info = adapter.get_info();
+        let adapter_info = RenderAdapterInfo(WgpuWrapper::new(adapter.get_info()));
 
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
             || is_non_supported_android_device(&adapter_info)

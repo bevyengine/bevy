@@ -22,7 +22,7 @@ use bevy_render::{
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
-    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
@@ -792,8 +792,10 @@ pub(crate) fn binding_arrays_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> bool {
+    let adapter_info = RenderAdapterInfo(WgpuWrapper::new(render_adapter.get_info()));
+
     !cfg!(feature = "shader_format_glsl")
-        && bevy_render::get_adreno_model(&render_adapter.get_info()).is_none_or(|model| model > 610)
+        && bevy_render::get_adreno_model(&adapter_info).is_none_or(|model| model > 610)
         && render_device.limits().max_storage_textures_per_shader_stage
             >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
                 as u32
