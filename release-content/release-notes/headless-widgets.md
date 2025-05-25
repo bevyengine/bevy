@@ -27,6 +27,14 @@ which can be added to any UI Node to get widget-like behavior. The core widget s
 sliders, scrollbars, checkboxes, radio buttons, and more. This set will likely be expanded in
 future releases.
 
+## Core Widgets
+
+The `bevy_core_widgets` crate provides implementations of unstyled widgets, such as buttons,
+sliders, checkboxes and radio buttons.
+
+- `CoreButton` is a push button. It emits an activation event when clicked.
+- (More to be added in subsequent PRs)
+
 ## Widget Interaction States
 
 Many of the core widgets will define supplementary ECS components that are used to store the widget's
@@ -47,3 +55,35 @@ on a button and then, while holding the mouse down, move the pointer out of the 
 It also provides additional flexibility in cases where a widget has multiple hoverable parts,
 or cases where a widget is hoverable but doesn't have a pressed state (such as a tree-view expansion
 toggle).
+
+## Widget Notifications
+
+Applications need a way to be notified when the user interacts with a widget. One way to do this
+is using Bevy observers. This approach is useful in cases where you want the widget notifications
+to bubble up the hierarchy.
+
+However, in UI work it's often desirable to connect widget interactions in ways that cut across the
+hierarchy. For these kinds of situations, the core widgets offer an an alternate approach: one-shot
+systems. You can register a function as a one-shot system and get the resulting `SystemId`. This can
+then be passed as a parameter to the widget when it is constructed, so when the button subsequently
+gets clicked or the slider is dragged, the system gets run. Because it's an ECS system, it can
+inject any additional parameters it needs to update the Bevy world in response to the interaction.
+
+Most of the core widgets use "external state management" - something that is referred to in the
+React.js world as "controlled" widgets. This means that for widgets that edit a parameter value
+(such as checkboxes and sliders), the widget doesn't automatically update its own internal value,
+but only sends a notification to the app telling it that the value needs to change. It's the
+responsibility of the app to handle this notification and update the widget accordingly, and at the
+same time update any other game state that is dependent on that parameter.
+
+There are multiple reasons for this, but the main one is this: typical game user interfaces aren't
+just passive forms of fields to fill in, but more often represent a dynamic view of live data. As a
+consequence, the displayed value of a widget may change even when the user is not directly
+interacting with that widget. This aligns well with the classic "Model / View / Controller" (MVC)
+pattern, where each editable parameter has a single source of truth maintained beneath the user
+interface layer.
+
+There are two exceptions to this rule about external state management. First, widgets which don't
+edit a value, but which merely trigger an event (such as buttons), don't fall under this rule.
+Second, widgets which have complex states that are too large and heavyweight to fit within a
+notification event (such as a text editor) can choose to manage their state internally.

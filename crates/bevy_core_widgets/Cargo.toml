@@ -1,5 +1,5 @@
 [package]
-name = "bevy_headless"
+name = "bevy_core_widgets"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Unstyled common widgets for B Bevy Engine"
@@ -22,8 +22,7 @@ bevy_ui = { path = "../bevy_ui", version = "0.16.0-dev" }
 accesskit = "0.18"
 
 [features]
-default = ["bevy_input_focus"]
-bevy_input_focus = []
+default = []
 
 [lints]
 workspace = true

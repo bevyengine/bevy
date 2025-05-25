@@ -1,4 +1,8 @@
-//! Headless widgets for Bevy UI.
+//! This crate provides a set of core widgets for Bevy UI, such as buttons, checkboxes, and sliders.
+//! These widgets have no inherent styling, it's the responsibility of the user to add styling
+//! appropriate for their game or application.
+//!
+//! # State Management
 
 mod core_button;
 mod events;
