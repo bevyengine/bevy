@@ -126,8 +126,9 @@ pub struct SyncToRenderWorld;
 /// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
 ///
 /// Can also be used as a newtype wrapper for render world entities.
-#[derive(Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, Component)]
+#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, Reflect)]
 #[component(clone_behavior = Ignore)]
+#[reflect(Component, Clone)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     #[inline]
@@ -155,6 +156,7 @@ unsafe impl EntityEquivalent for RenderEntity {}
 ///
 /// Can also be used as a newtype wrapper for main world entities.
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+#[reflect(Component, Clone)]
 pub struct MainEntity(Entity);
 impl MainEntity {
     #[inline]
@@ -204,7 +206,8 @@ pub(crate) enum EntityRecord {
 }
 
 // Entity Record in MainWorld pending to Sync
-#[derive(Resource, Default, Deref, DerefMut)]
+#[derive(Resource, Default, Deref, DerefMut, Reflect)]
+#[reflect(Resource, Default)]
 pub(crate) struct PendingSyncEntity {
     records: Vec<EntityRecord>,
 }
