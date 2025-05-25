@@ -924,15 +924,6 @@ impl Entities {
         meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
     }
 
-    /// # Safety
-    ///  - `index` must be a valid entity index.
-    #[inline]
-    pub(crate) unsafe fn mark_spawn_despawn(&mut self, index: u32, by: MaybeLocation, at: Tick) {
-        // SAFETY: Caller guarantees that `index` a valid entity index
-        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
-        meta.spawned_or_despawned = MaybeUninit::new(SpawnedOrDespawned { by, at });
-    }
-
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
     /// `index` will count `generation` starting from the prior `generation` + the specified
     /// value + 1.

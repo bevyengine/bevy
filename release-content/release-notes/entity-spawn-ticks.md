@@ -44,7 +44,7 @@ Because of this, these systems have roughly the same performance:
 
 ```rs
 fn system1(query: Query<Entity, Spawned>) {
-    for entity in &q { /* entity spawned */ }
+    for entity in &query { /* entity spawned */ }
 }
 
 fn system2(query: Query<(Entity, SpawnDetails)>) {
