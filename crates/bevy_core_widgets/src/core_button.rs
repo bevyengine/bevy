@@ -1,7 +1,6 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
-#[cfg(feature = "bevy_input_focus")]
 use bevy_ecs::system::ResMut;
 use bevy_ecs::{
     component::Component,
@@ -10,12 +9,10 @@ use bevy_ecs::{
     query::{Has, With},
     system::{Commands, Query, SystemId},
 };
-#[cfg(feature = "bevy_input_focus")]
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
-#[cfg(feature = "bevy_input_focus")]
 use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Pressed, Released};
-use bevy_ui::{ButtonPressed, InteractionDisabled};
+use bevy_ui::{Depressed, InteractionDisabled};
 
 use crate::events::ButtonClicked;
 
@@ -24,7 +21,7 @@ use crate::events::ButtonClicked;
 /// event when the button is un-pressed.
 #[derive(Component, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
-#[require(ButtonPressed)]
+#[require(Depressed)]
 pub struct CoreButton {
     /// Optional system to run when the button is clicked, or when the Enter or Space key
     /// is pressed while the button is focused. If this field is `None`, the button will
@@ -32,7 +29,6 @@ pub struct CoreButton {
     pub on_click: Option<SystemId>,
 }
 
-#[cfg(feature = "bevy_input_focus")]
 fn button_on_key_event(
     mut trigger: Trigger<FocusedInput<KeyboardInput>>,
     q_state: Query<(&CoreButton, Has<InteractionDisabled>)>,
@@ -57,7 +53,7 @@ fn button_on_key_event(
 
 fn button_on_pointer_click(
     mut trigger: Trigger<Pointer<Click>>,
-    mut q_state: Query<(&CoreButton, &ButtonPressed, Has<InteractionDisabled>)>,
+    mut q_state: Query<(&CoreButton, &Depressed, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
     if let Ok((bstate, pressed, disabled)) = q_state.get_mut(trigger.target()) {
@@ -75,20 +71,22 @@ fn button_on_pointer_click(
 fn button_on_pointer_down(
     mut trigger: Trigger<Pointer<Pressed>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>), With<CoreButton>>,
-    #[cfg(feature = "bevy_input_focus")] mut focus: ResMut<InputFocus>,
-    #[cfg(feature = "bevy_input_focus")] mut focus_visible: ResMut<InputFocusVisible>,
+    focus: Option<ResMut<InputFocus>>,
+    focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
     if let Ok((button, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
         if !disabled {
-            commands.entity(button).insert(ButtonPressed(true));
+            commands.entity(button).insert(Depressed(true));
             // Clicking on a button makes it the focused input,
             // and hides the focus ring if it was visible.
-            // #[cfg(feature = "bevy_input_focus")]
-            focus.0 = Some(trigger.target());
-            // #[cfg(feature = "bevy_input_focus")]
-            focus_visible.0 = false;
+            if let Some(mut focus) = focus {
+                focus.0 = Some(trigger.target());
+            }
+            if let Some(mut focus_visible) = focus_visible {
+                focus_visible.0 = false;
+            }
         }
     }
 }
@@ -101,7 +99,7 @@ fn button_on_pointer_up(
     if let Ok((button, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
         if !disabled {
-            commands.entity(button).insert(ButtonPressed(false));
+            commands.entity(button).insert(Depressed(false));
         }
     }
 }
@@ -114,7 +112,7 @@ fn button_on_pointer_drag_end(
     if let Ok((button, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
         if !disabled {
-            commands.entity(button).insert(ButtonPressed(false));
+            commands.entity(button).insert(Depressed(false));
         }
     }
 }
@@ -127,7 +125,7 @@ fn button_on_pointer_cancel(
     if let Ok((button, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
         if !disabled {
-            commands.entity(button).insert(ButtonPressed(false));
+            commands.entity(button).insert(Depressed(false));
         }
     }
 }
@@ -137,9 +135,8 @@ pub struct CoreButtonPlugin;
 
 impl Plugin for CoreButtonPlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(feature = "bevy_input_focus")]
-        app.add_observer(button_on_key_event);
-        app.add_observer(button_on_pointer_down)
+        app.add_observer(button_on_key_event)
+            .add_observer(button_on_pointer_down)
             .add_observer(button_on_pointer_up)
             .add_observer(button_on_pointer_click)
             .add_observer(button_on_pointer_drag_end)

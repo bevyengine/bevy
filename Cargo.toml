@@ -133,6 +133,7 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_core_widgets",
   "bevy_anti_aliasing",
   "bevy_gilrs",
   "bevy_gizmos",
@@ -290,6 +291,9 @@ bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
+
+# Headless widget collection for Bevy UI.
+bevy_core_widgets = ["bevy_internal/bevy_core_widgets"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -4392,12 +4396,12 @@ category = "Shaders"
 wasm = false
 
 [[example]]
-name = "headless_widgets"
-path = "examples/ui/headless_widgets.rs"
+name = "core_widgets"
+path = "examples/ui/core_widgets.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.headless_widgets]
-name = "Headless Widgets"
-description = "Demonstrates use of headless widgets in Bevy UI"
+[package.metadata.example.core_widgets]
+name = "Core Widgets"
+description = "Demonstrates use of core (headless) widgets in Bevy UI"
 category = "UI (User Interface)"
 wasm = true
