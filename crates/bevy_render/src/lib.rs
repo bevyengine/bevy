@@ -78,7 +78,6 @@ pub mod prelude {
 }
 
 pub use extract_param::Extract;
-use wgpu::AdapterInfo;
 
 use crate::{
     camera::CameraPlugin,
@@ -86,7 +85,7 @@ use crate::{
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{init_empty_bind_group_layout, PipelineCache},
-    renderer::{render_system, RenderInstance},
+    renderer::{render_system, RenderAdapterInfo, RenderInstance},
     settings::RenderCreation,
     storage::StoragePlugin,
     texture::TexturePlugin,
@@ -589,10 +588,10 @@ fn apply_extract_commands(render_world: &mut World) {
     });
 }
 
-/// If the [`RenderAdapter`](crate::renderer::RenderAdapter) is a Qualcomm Adreno, returns its model number.
+/// If the [`RenderAdapterInfo`] is a Qualcomm Adreno, returns its model number.
 ///
 /// This lets us work around hardware bugs.
-pub fn get_adreno_model(adapter_info: &AdapterInfo) -> Option<u32> {
+pub fn get_adreno_model(adapter_info: &RenderAdapterInfo) -> Option<u32> {
     if !cfg!(target_os = "android") {
         return None;
     }
@@ -609,7 +608,7 @@ pub fn get_adreno_model(adapter_info: &AdapterInfo) -> Option<u32> {
 }
 
 /// Get the Mali driver version if the adapter is a Mali GPU.
-pub fn get_mali_driver_version(adapter_info: &AdapterInfo) -> Option<u32> {
+pub fn get_mali_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u32> {
     if !cfg!(target_os = "android") {
         return None;
     }
