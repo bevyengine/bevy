@@ -4438,3 +4438,25 @@ name = "Hotpatching Systems"
 description = "Demonstrates how to hotpatch systems"
 category = "ECS (Entity Component System)"
 wasm = false
+
+[[example]]
+name = "core_widgets"
+path = "examples/ui/core_widgets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.core_widgets]
+name = "Core Widgets"
+description = "Demonstrates use of core (headless) widgets in Bevy UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "core_widgets_observers"
+path = "examples/ui/core_widgets_observers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.core_widgets_observers]
+name = "Core Widgets (w/Observers)"
+description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
+category = "UI (User Interface)"
+wasm = true
