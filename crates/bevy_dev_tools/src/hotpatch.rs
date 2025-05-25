@@ -1,7 +1,9 @@
 //! Utilities for hotpatching code.
 
+use std::sync::Arc;
+
 use bevy_ecs::{event::EventWriter, HotPatched};
-use dioxus_devtools::{connect, subsecond::apply_patch, DevserverMsg};
+use dioxus_devtools::{connect_subsecond, subsecond};
 
 pub use dioxus_devtools::subsecond::{call, HotFunction};
 
@@ -16,18 +18,12 @@ impl Plugin for HotPatchPlugin {
         let (sender, receiver) = crossbeam_channel::bounded::<HotPatched>(1);
 
         // Connects to the dioxus CLI that will handle rebuilds
-        // On a successful rebuild the CLI sends a `HotReload` message with the new jump table
-        // When receiving that message, update the table and send a `HotPatched` message through the channel
-        connect(move |msg| {
-            if let DevserverMsg::HotReload(hot_reload_msg) = msg {
-                if let Some(jumptable) = hot_reload_msg.jump_table {
-                    // SAFETY: This is not unsafe, but anything using the updated jump table is.
-                    // The table must be built carefully
-                    unsafe { apply_patch(jumptable).unwrap() };
-                    sender.send(HotPatched).unwrap();
-                }
-            }
-        });
+        // This will open a connection to the dioxus CLI to receive updated jump tables
+        // Sends a `HotPatched` message through the channel when the jump table is updated
+        connect_subsecond();
+        subsecond::register_handler(Arc::new(move || {
+            _ = sender.send(HotPatched).unwrap();
+        }));
 
         // Adds a system that will read the channel for new `HotPatched`, and forward them as event to the ECS
         app.add_event::<HotPatched>().add_systems(
