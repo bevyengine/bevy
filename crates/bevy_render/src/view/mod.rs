@@ -1,7 +1,6 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
@@ -13,7 +12,7 @@ use crate::{
     },
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
-    prelude::Shader,
+    load_shader_library,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
@@ -45,8 +44,6 @@ use wgpu::{
     BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
-
-pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
 
 /// The matrix that converts from the RGB to the LMS color space.
 ///
@@ -101,7 +98,7 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
+        load_shader_library!(app, "view.wgsl");
 
         app.register_type::<InheritedVisibility>()
             .register_type::<ViewVisibility>()
