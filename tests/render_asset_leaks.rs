@@ -65,7 +65,7 @@ fn check_mesh_leak() {
     }
 }
 
-#[ignore = "FIXME Failing test"]
+#[ignore = "FIXME Issue #18882, #19035"]
 #[test]
 fn check_standard_material_leak() {
     let mut app = base_app();
@@ -108,7 +108,7 @@ fn check_mesh_churn_leak() {
     }
 }
 
-#[ignore = "FIXME Failing test"]
+#[ignore = "FIXME Issue #18882, #19035"]
 #[test]
 fn check_standard_material_churn_leak() {
     let mut app = base_app();
@@ -133,7 +133,7 @@ fn check_standard_material_churn_leak() {
     }
 }
 
-#[ignore = "FIXME Failing test"]
+#[ignore = "FIXME Issue #18808"]
 #[test]
 fn check_mesh_churn_insert_leak() {
     let mut app = base_app();
@@ -155,7 +155,7 @@ fn check_mesh_churn_insert_leak() {
     }
 }
 
-#[ignore = "FIXME Failing test"]
+#[ignore = "FIXME Issue #18882, #19035"]
 #[test]
 fn check_standard_material_churn_insert_leak() {
     let mut app = base_app();
