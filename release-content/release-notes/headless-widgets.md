@@ -39,7 +39,7 @@ These components include:
 - `Hovering` is a simple boolean component that allows detection of whether the widget is being
   hovered using regular Bevy change detection.
 - `Checked` is a boolean component that stores the checked state of a checkbox or radio button.
-- `ButtonPressed` is used for a button-like widget, and will be true while the button is held down.
+- `Depressed` is used for a button-like widget, and will be true while the button is held down.
 
 The combination of `Hovering` and `ButtonPressed` fulfills the same purpose as the old `Interaction`
 component, except that now we can also represent "roll-off" behavior (the state where you click
