@@ -20,25 +20,13 @@ default = ["std", "bevy_reflect", "async_executor", "backtrace"]
 multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
 
 ## Adds serialization support through `serde`.
-serialize = [
-  "dep:serde",
-  "bevy_utils/serde",
-  "bevy_platform/serialize",
-  "indexmap/serde",
-]
+serialize = ["dep:serde", "bevy_platform/serialize", "indexmap/serde"]
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = ["dep:bevy_reflect"]
 
 ## Extends reflection support to functions.
 reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
-
-## Use the configurable global error handler as the default error handler.
-##
-## This is typically used to turn panics from the ECS into loggable errors.
-## This may be useful for production builds,
-## but can result in a measurable performance impact, especially for commands.
-configurable_error_handler = []
 
 ## Enables automatic backtrace capturing in BevyError
 backtrace = ["std"]
@@ -74,7 +62,7 @@ async_executor = ["std", "bevy_tasks/async_executor"]
 std = [
   "bevy_reflect?/std",
   "bevy_tasks/std",
-  "bevy_utils/std",
+  "bevy_utils/parallel",
   "bitflags/std",
   "concurrent-queue/std",
   "disqualified/alloc",
@@ -101,9 +89,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "smallvec",
 ], default-features = false, optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
-  "alloc",
-] }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_ecs_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
