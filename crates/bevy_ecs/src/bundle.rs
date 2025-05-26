@@ -2237,6 +2237,28 @@ mod tests {
         assert_eq!(entity.get(), Some(&V("one")));
     }
 
+    #[derive(Component, Debug, Eq, PartialEq)]
+    #[component(storage = "SparseSet")]
+    pub struct SparseV(&'static str);
+
+    #[derive(Component, Debug, Eq, PartialEq)]
+    #[component(storage = "SparseSet")]
+    pub struct SparseA;
+
+    #[test]
+    fn sparse_set_insert_if_new() {
+        let mut world = World::new();
+        let id = world.spawn(SparseV("one")).id();
+        let mut entity = world.entity_mut(id);
+        entity.insert_if_new(SparseV("two"));
+        entity.insert_if_new((SparseA, SparseV("three")));
+        entity.flush();
+        // should still contain "one"
+        let entity = world.entity(id);
+        assert!(entity.contains::<SparseA>());
+        assert_eq!(entity.get(), Some(&SparseV("one")));
+    }
+
     #[test]
     fn sorted_remove() {
         let mut a = vec![1, 2, 3, 4, 5, 6, 7];
