@@ -110,8 +110,9 @@ struct WinitAppRunnerState<T: Event> {
 
 impl<T: Event> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
+        app.add_event::<T>();
         #[cfg(feature = "custom_cursor")]
-        app.add_event::<T>().init_resource::<CustomCursorCache>();
+        app.init_resource::<CustomCursorCache>();
 
         let event_writer_system_state: SystemState<(
             EventWriter<WindowResized>,
