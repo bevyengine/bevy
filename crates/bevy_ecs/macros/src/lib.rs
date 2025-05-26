@@ -34,7 +34,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match get_struct_fields(&ast.data) {
+    let named_fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
         Ok(fields) => fields,
         Err(e) => return e.into_compile_error().into(),
     };
@@ -191,12 +191,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
+
     let map_entities_impl = map_entities(
         &ast.data,
         Ident::new("self", Span::call_site()),
         false,
         false,
     );
+
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     TokenStream::from(quote! {
