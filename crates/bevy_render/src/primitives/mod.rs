@@ -6,8 +6,6 @@ use bevy_math::{
 };
 use bevy_reflect::prelude::*;
 
-use crate::camera::Viewport;
-
 /// An axis-aligned bounding box, defined by:
 /// - a center,
 /// - the distances from the center to each faces along the axis,
