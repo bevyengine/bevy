@@ -31,7 +31,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0", default-feature
 anyhow = "1"
 hyper = { version = "1", features = ["server", "http1"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1" }
+serde_json = "1.0.140"
 http-body-util = "0.1"
 async-channel = "2"
 
