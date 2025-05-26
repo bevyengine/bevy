@@ -490,7 +490,7 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Returns `true` if this [`AssetPath`] points to a file that is
-    /// outside of it's [`AssetSource`](crate::io::AssetSource) folder.
+    /// outside of its [`AssetSource`](crate::io::AssetSource) folder.
     ///
     /// ## Example
     /// ```
