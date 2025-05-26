@@ -1,4 +1,5 @@
 //! Utilities for hotpatching code.
+extern crate alloc;
 
 use alloc::sync::Arc;
 
