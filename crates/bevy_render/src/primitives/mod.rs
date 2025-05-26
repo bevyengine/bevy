@@ -142,7 +142,7 @@ impl Sphere {
 
 /// A proportionally-sized "sub-rectangle".
 ///
-/// When [`Camera::crop`] is `Some`, only the sub-section of the
+/// When [`Camera::crop`](crate::camera::Camera::crop) is `Some`, only the sub-section of the
 /// image defined by `size` and `offset` (relative to the `full_size` of the
 /// whole image) is projected to the cameras viewport.
 ///

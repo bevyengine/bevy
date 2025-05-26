@@ -72,7 +72,7 @@ pub trait CameraProjection {
     /// Generate the projection matrix.
     fn get_clip_from_view(&self) -> Mat4;
 
-    /// Generate the projection matrix for a [`SubCameraView`](super::SubCameraView).
+    /// Generate the projection matrix for a cropped camera view. See [`Camera::crop`](super::Camera::crop).
     fn get_clip_from_view_for_sub(&self, sub_rect: &SubRect) -> Mat4;
 
     /// When the area this camera renders to changes dimensions, this method will be automatically
