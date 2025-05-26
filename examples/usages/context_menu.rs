@@ -96,7 +96,7 @@ fn on_trigger_menu(trigger: Trigger<OpenContextMenu>, mut commands: Commands) {
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
             BorderRadius::all(Val::Px(4.)),
             BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
             children![
@@ -169,7 +169,7 @@ fn background_and_button() -> impl Bundle + use<> {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderColor(Color::BLACK),
+                    BorderColor::all(Color::BLACK),
                     BorderRadius::MAX,
                     BackgroundColor(Color::BLACK),
                     children![(
