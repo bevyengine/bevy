@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
-    Outline, OverflowAxis, ScrollPosition,
+    BorderRadius, CalculatedClip, ComputedNode, ComputedNodeTarget, ContentSize, Display,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},

@@ -231,7 +231,6 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(ui_layout_system)
                     .ambiguous_with(widget::update_viewport_render_target_size)
                     .in_set(AmbiguousWithText),
-                update_clipping_system.after(TransformSystems::Propagate),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
