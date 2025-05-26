@@ -851,7 +851,8 @@ impl Image {
 
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
     /// Does not properly scale the contents of the image.
-    /// This method does nothing when self.data is None.
+    /// This method returns an error when `self.data` is `None` indicating it
+    /// was not able to be resized.
     pub fn resize(&mut self, size: Extent3d) -> Result<(), ResizeError> {
         if let Some(ref mut data) = self.data {
             self.texture_descriptor.size = size;

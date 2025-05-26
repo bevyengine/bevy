@@ -173,6 +173,7 @@ pub fn update_viewport_render_target_size(
         };
         let image = images.get_mut(image_handle).unwrap();
         if image.data.is_some() {
+            // Safe to ignore the Result here, because we know image has data.
             let _ = image.resize(size);
         } else {
             image.texture_descriptor.size = size;
