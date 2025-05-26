@@ -12,6 +12,7 @@ use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::Shader,
     renderer::RenderDevice,
+    view::Hdr,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use extract::extract_pathtracer;
@@ -65,6 +66,7 @@ impl Plugin for PathtracingPlugin {
 
 #[derive(Component, Reflect, Default, Clone)]
 #[reflect(Component, Default, Clone)]
+#[require(Hdr)]
 pub struct Pathtracer {
     pub reset: bool,
 }
