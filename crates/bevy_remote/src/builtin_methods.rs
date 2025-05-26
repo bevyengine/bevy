@@ -31,53 +31,53 @@ use crate::{
 #[cfg(all(feature = "http", not(target_family = "wasm")))]
 use {crate::schemas::open_rpc::ServerObject, bevy_utils::default};
 
-/// The method path for a `bevy/get` request.
-pub const BRP_GET_METHOD: &str = "bevy/get";
+/// The method path for a `bevy/world/components/get` request.
+pub const BRP_GET_METHOD: &str = "bevy/world/components/get";
 
-/// The method path for a `bevy/query` request.
-pub const BRP_QUERY_METHOD: &str = "bevy/query";
+/// The method path for a `bevy/world/query` request.
+pub const BRP_QUERY_METHOD: &str = "bevy/world/query";
 
-/// The method path for a `bevy/spawn` request.
-pub const BRP_SPAWN_METHOD: &str = "bevy/spawn";
+/// The method path for a `bevy/world/spawn` request.
+pub const BRP_SPAWN_METHOD: &str = "bevy/world/spawn";
 
-/// The method path for a `bevy/insert` request.
-pub const BRP_INSERT_METHOD: &str = "bevy/insert";
+/// The method path for a `bevy/world/components/insert` request.
+pub const BRP_INSERT_METHOD: &str = "bevy/world/components/insert";
 
-/// The method path for a `bevy/remove` request.
-pub const BRP_REMOVE_METHOD: &str = "bevy/remove";
+/// The method path for a `bevy/world/components/remove` request.
+pub const BRP_REMOVE_METHOD: &str = "bevy/world/components/remove";
 
-/// The method path for a `bevy/destroy` request.
-pub const BRP_DESTROY_METHOD: &str = "bevy/destroy";
+/// The method path for a `bevy/world/despawn` request.
+pub const BRP_DESPAWN_METHOD: &str = "bevy/world/despawn";
 
-/// The method path for a `bevy/reparent` request.
-pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
+/// The method path for a `bevy/world/reparent` request.
+pub const BRP_REPARENT_METHOD: &str = "bevy/world/reparent";
 
-/// The method path for a `bevy/list` request.
-pub const BRP_LIST_METHOD: &str = "bevy/list";
+/// The method path for a `bevy/world/components/list` request.
+pub const BRP_LIST_METHOD: &str = "bevy/world/components/list";
 
-/// The method path for a `bevy/mutate_component` request.
-pub const BRP_MUTATE_COMPONENT_METHOD: &str = "bevy/mutate_component";
+/// The method path for a `bevy/world/components/mutate` request.
+pub const BRP_MUTATE_COMPONENT_METHOD: &str = "bevy/world/components/mutate";
 
-/// The method path for a `bevy/get+watch` request.
-pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
+/// The method path for a `bevy/world/components/get+watch` request.
+pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/world/components/get+watch";
 
-/// The method path for a `bevy/list+watch` request.
-pub const BRP_LIST_AND_WATCH_METHOD: &str = "bevy/list+watch";
+/// The method path for a `bevy/world/components/list+watch` request.
+pub const BRP_LIST_AND_WATCH_METHOD: &str = "bevy/world/components/list+watch";
 
-/// The method path for a `bevy/get_resource` request.
-pub const BRP_GET_RESOURCE_METHOD: &str = "bevy/get_resource";
+/// The method path for a `bevy/world/resources/get` request.
+pub const BRP_GET_RESOURCE_METHOD: &str = "bevy/world/resources/get";
 
-/// The method path for a `bevy/insert_resource` request.
-pub const BRP_INSERT_RESOURCE_METHOD: &str = "bevy/insert_resource";
+/// The method path for a `bevy/world/resources/insert` request.
+pub const BRP_INSERT_RESOURCE_METHOD: &str = "bevy/world/resources/insert";
 
-/// The method path for a `bevy/remove_resource` request.
-pub const BRP_REMOVE_RESOURCE_METHOD: &str = "bevy/remove_resource";
+/// The method path for a `bevy/world/resources/remove` request.
+pub const BRP_REMOVE_RESOURCE_METHOD: &str = "bevy/world/resources/remove";
 
-/// The method path for a `bevy/mutate_resource` request.
-pub const BRP_MUTATE_RESOURCE_METHOD: &str = "bevy/mutate_resource";
+/// The method path for a `bevy/world/resources/mutate` request.
+pub const BRP_MUTATE_RESOURCE_METHOD: &str = "bevy/world/resources/mutate";
 
-/// The method path for a `bevy/list_resources` request.
-pub const BRP_LIST_RESOURCES_METHOD: &str = "bevy/list_resources";
+/// The method path for a `bevy/world/resources/list` request.
+pub const BRP_LIST_RESOURCES_METHOD: &str = "bevy/world/resources/list";
 
 /// The method path for a `bevy/registry/schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "bevy/registry/schema";
@@ -85,7 +85,7 @@ pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "bevy/registry/schema";
 /// The method path for a `rpc.discover` request.
 pub const RPC_DISCOVER_METHOD: &str = "rpc.discover";
 
-/// `bevy/get`: Retrieves one or more components from the entity with the given
+/// `bevy/world/components/get`: Retrieves one or more components from the entity with the given
 /// ID.
 ///
 /// The server responds with a [`BrpGetResponse`].
@@ -110,7 +110,7 @@ pub struct BrpGetParams {
     pub strict: bool,
 }
 
-/// `bevy/get_resource`: Retrieves the value of a given resource.
+/// `bevy/world/resources/get`: Retrieves the value of a given resource.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpGetResourceParams {
     /// The [full path] of the resource type being requested.
@@ -119,7 +119,7 @@ pub struct BrpGetResourceParams {
     pub resource: String,
 }
 
-/// `bevy/query`: Performs a query over components in the ECS, returning entities
+/// `bevy/world/query`: Performs a query over components in the ECS, returning entities
 /// and component values that match.
 ///
 /// The server responds with a [`BrpQueryResponse`].
@@ -139,7 +139,7 @@ pub struct BrpQueryParams {
     pub strict: bool,
 }
 
-/// `bevy/spawn`: Creates a new entity with the given components and responds
+/// `bevy/world/spawn`: Creates a new entity with the given components and responds
 /// with its ID.
 ///
 /// The server responds with a [`BrpSpawnResponse`].
@@ -157,7 +157,7 @@ pub struct BrpSpawnParams {
     pub components: HashMap<String, Value>,
 }
 
-/// `bevy/destroy`: Given an ID, despawns the entity with that ID.
+/// `bevy/world/despawn`: Given an ID, despawns the entity with that ID.
 ///
 /// The server responds with an okay.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -166,7 +166,7 @@ pub struct BrpDestroyParams {
     pub entity: Entity,
 }
 
-/// `bevy/remove`: Deletes one or more components from an entity.
+/// `bevy/world/components/remove`: Deletes one or more components from an entity.
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -185,7 +185,7 @@ pub struct BrpRemoveParams {
     pub components: Vec<String>,
 }
 
-/// `bevy/remove_resource`: Removes the given resource from the world.
+/// `bevy/world/resources/remove`: Removes the given resource from the world.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpRemoveResourceParams {
     /// The [full path] of the resource type to remove.
@@ -194,7 +194,7 @@ pub struct BrpRemoveResourceParams {
     pub resource: String,
 }
 
-/// `bevy/insert`: Adds one or more components to an entity.
+/// `bevy/world/components/insert`: Adds one or more components to an entity.
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -214,7 +214,7 @@ pub struct BrpInsertParams {
     pub components: HashMap<String, Value>,
 }
 
-/// `bevy/insert_resource`: Inserts a resource into the world with a given
+/// `bevy/world/resources/insert`: Inserts a resource into the world with a given
 /// value.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpInsertResourceParams {
@@ -227,7 +227,7 @@ pub struct BrpInsertResourceParams {
     pub value: Value,
 }
 
-/// `bevy/reparent`: Assign a new parent to one or more entities.
+/// `bevy/world/reparent`: Assign a new parent to one or more entities.
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -244,7 +244,7 @@ pub struct BrpReparentParams {
     pub parent: Option<Entity>,
 }
 
-/// `bevy/list`: Returns a list of all type names of registered components in the
+/// `bevy/world/components/list`: Returns a list of all type names of registered components in the
 /// system (no params provided), or those on an entity (params provided).
 ///
 /// The server responds with a [`BrpListResponse`]
@@ -254,7 +254,7 @@ pub struct BrpListParams {
     pub entity: Entity,
 }
 
-/// `bevy/mutate_component`:
+/// `bevy/world/components/mutate`:
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -276,7 +276,7 @@ pub struct BrpMutateComponentParams {
     pub value: Value,
 }
 
-/// `bevy/mutate_resource`:
+/// `bevy/world/resources/mutate`:
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -373,14 +373,14 @@ pub struct JsonSchemaTypeLimit {
 
 /// A response from the world to the client that specifies a single entity.
 ///
-/// This is sent in response to `bevy/spawn`.
+/// This is sent in response to `bevy/world/spawn`.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpSpawnResponse {
     /// The ID of the entity in question.
     pub entity: Entity,
 }
 
-/// The response to a `bevy/get` request.
+/// The response to a `bevy/world/components/get` request.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum BrpGetResponse {
@@ -396,14 +396,14 @@ pub enum BrpGetResponse {
     Strict(HashMap<String, Value>),
 }
 
-/// The response to a `bevy/get_resource` request.
+/// The response to a `bevy/world/resources/get` request.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpGetResourceResponse {
     /// The value of the requested resource.
     pub value: Value,
 }
 
-/// A single response from a `bevy/get+watch` request.
+/// A single response from a `bevy/world/components/get+watch` request.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum BrpGetWatchingResponse {
@@ -428,20 +428,20 @@ pub enum BrpGetWatchingResponse {
     },
 }
 
-/// The response to a `bevy/list` request.
+/// The response to a `bevy/world/components/list` request.
 pub type BrpListResponse = Vec<String>;
 
-/// The response to a `bevy/list_resources` request.
+/// The response to a `bevy/world/resources/list` request.
 pub type BrpListResourcesResponse = Vec<String>;
 
-/// A single response from a `bevy/list+watch` request.
+/// A single response from a `bevy/world/components/list+watch` request.
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpListWatchingResponse {
     added: Vec<String>,
     removed: Vec<String>,
 }
 
-/// The response to a `bevy/query` request.
+/// The response to a `bevy/world/query` request.
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
 
 /// One query match result: a single entity paired with the requested components.
@@ -479,7 +479,7 @@ fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, B
     }
 }
 
-/// Handles a `bevy/get` request coming from a client.
+/// Handles a `bevy/world/components/get` request coming from a client.
 pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let BrpGetParams {
         entity,
@@ -496,7 +496,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-/// Handles a `bevy/get_resource` request coming from a client.
+/// Handles a `bevy/world/resources/get` request coming from a client.
 pub fn process_remote_get_resource_request(
     In(params): In<Option<Value>>,
     world: &World,
@@ -535,7 +535,7 @@ pub fn process_remote_get_resource_request(
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-/// Handles a `bevy/get+watch` request coming from a client.
+/// Handles a `bevy/world/components/get+watch` request coming from a client.
 pub fn process_remote_get_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
@@ -703,7 +703,7 @@ fn reflect_component(
     Ok(serialized_object)
 }
 
-/// Handles a `bevy/query` request coming from a client.
+/// Handles a `bevy/world/query` request coming from a client.
 pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
     let BrpQueryParams {
         data: BrpQuery {
@@ -806,7 +806,7 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-/// Handles a `bevy/spawn` request coming from a client.
+/// Handles a `bevy/world/spawn` request coming from a client.
 pub fn process_remote_spawn_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
     let BrpSpawnParams { components } = parse_some(params)?;
 
@@ -863,7 +863,7 @@ pub fn process_remote_list_methods_request(
     serde_json::to_value(doc).map_err(BrpError::internal)
 }
 
-/// Handles a `bevy/insert` request (insert components) coming from a client.
+/// Handles a `bevy/world/components/insert` request (insert components) coming from a client.
 pub fn process_remote_insert_request(
     In(params): In<Option<Value>>,
     world: &mut World,
@@ -886,7 +886,7 @@ pub fn process_remote_insert_request(
     Ok(Value::Null)
 }
 
-/// Handles a `bevy/insert_resource` request coming from a client.
+/// Handles a `bevy/world/resources/insert` request coming from a client.
 pub fn process_remote_insert_resource_request(
     In(params): In<Option<Value>>,
     world: &mut World,
@@ -909,7 +909,7 @@ pub fn process_remote_insert_resource_request(
     Ok(Value::Null)
 }
 
-/// Handles a `bevy/mutate_component` request coming from a client.
+/// Handles a `bevy/world/components/mutate` request coming from a client.
 ///
 /// This method allows you to mutate a single field inside an Entity's
 /// component.
@@ -973,7 +973,7 @@ pub fn process_remote_mutate_component_request(
     Ok(Value::Null)
 }
 
-/// Handles a `bevy/mutate_resource` request coming from a client.
+/// Handles a `bevy/world/resources/mutate` request coming from a client.
 pub fn process_remote_mutate_resource_request(
     In(params): In<Option<Value>>,
     world: &mut World,
@@ -1024,7 +1024,7 @@ pub fn process_remote_mutate_resource_request(
     Ok(Value::Null)
 }
 
-/// Handles a `bevy/remove` request (remove components) coming from a client.
+/// Handles a `bevy/world/components/remove` request (remove components) coming from a client.
 pub fn process_remote_remove_request(
     In(params): In<Option<Value>>,
     world: &mut World,
@@ -1053,7 +1053,7 @@ pub fn process_remote_remove_request(
     Ok(Value::Null)
 }
 
-/// Handles a `bevy/remove_resource` request coming from a client.
+/// Handles a `bevy/world/resources/remove` request coming from a client.
 pub fn process_remote_remove_resource_request(
     In(params): In<Option<Value>>,
     world: &mut World,
@@ -1072,8 +1072,8 @@ pub fn process_remote_remove_resource_request(
     Ok(Value::Null)
 }
 
-/// Handles a `bevy/destroy` (despawn entity) request coming from a client.
-pub fn process_remote_destroy_request(
+/// Handles a `bevy/world/despawn` (despawn entity) request coming from a client.
+pub fn process_remote_despawn_request(
     In(params): In<Option<Value>>,
     world: &mut World,
 ) -> BrpResult {
@@ -1084,7 +1084,7 @@ pub fn process_remote_destroy_request(
     Ok(Value::Null)
 }
 
-/// Handles a `bevy/reparent` request coming from a client.
+/// Handles a `bevy/world/reparent` request coming from a client.
 pub fn process_remote_reparent_request(
     In(params): In<Option<Value>>,
     world: &mut World,
@@ -1115,7 +1115,7 @@ pub fn process_remote_reparent_request(
     Ok(Value::Null)
 }
 
-/// Handles a `bevy/list` request (list all components) coming from a client.
+/// Handles a `bevy/world/components/list` request (list all components) coming from a client.
 pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
@@ -1148,7 +1148,7 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-/// Handles a `bevy/list_resources` request coming from a client.
+/// Handles a `bevy/world/resources/list` request coming from a client.
 pub fn process_remote_list_resources_request(
     In(_params): In<Option<Value>>,
     world: &World,
@@ -1169,7 +1169,7 @@ pub fn process_remote_list_resources_request(
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-/// Handles a `bevy/list+watch` request coming from a client.
+/// Handles a `bevy/world/components/list+watch` request coming from a client.
 pub fn process_remote_list_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
