@@ -8,6 +8,7 @@
 
 #![expect(
     clippy::std_instead_of_core,
+    clippy::print_stdout,
     reason = "Examples should not follow this lint"
 )]
 
@@ -28,11 +29,11 @@ fn main() {
     // Add systems to the Schedule to execute our app logic
     // We can label our systems to force a specific run-order between some of them
     schedule.add_systems((
-        spawn_entities.in_set(SimulationSet::Spawn),
-        print_counter_when_changed.after(SimulationSet::Spawn),
-        age_all_entities.in_set(SimulationSet::Age),
-        remove_old_entities.after(SimulationSet::Age),
-        print_changed_entities.after(SimulationSet::Age),
+        spawn_entities.in_set(SimulationSystems::Spawn),
+        print_counter_when_changed.after(SimulationSystems::Spawn),
+        age_all_entities.in_set(SimulationSystems::Age),
+        remove_old_entities.after(SimulationSystems::Age),
+        print_changed_entities.after(SimulationSystems::Age),
     ));
 
     // Simulate 10 frames in our world
@@ -56,7 +57,7 @@ struct Age {
 
 // System sets can be used to group systems and configured to control relative ordering
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-enum SimulationSet {
+enum SimulationSystems {
     Spawn,
     Age,
 }

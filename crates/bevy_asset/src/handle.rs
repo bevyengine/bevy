@@ -11,7 +11,6 @@ use core::{
 use crossbeam_channel::{Receiver, Sender};
 use disqualified::ShortName;
 use thiserror::Error;
-use uuid::Uuid;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
 /// This should _only_ be used for one specific asset type.
@@ -113,16 +112,23 @@ impl core::fmt::Debug for StrongHandle {
     }
 }
 
-/// A strong or weak handle to a specific [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
+/// A handle to a specific [`Asset`] of type `A`. Handles act as abstract "references" to
+/// assets, whose data are stored in the [`Assets<A>`](crate::prelude::Assets) resource,
+/// avoiding the need to store multiple copies of the same data.
+///
+/// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
 /// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
 /// nor will it keep assets alive.
+///
+/// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
+/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all handles referencing it.
 ///
 /// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
 /// of the [`Handle`] are dropped.
 ///
-/// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
+/// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Reflect)]
-#[reflect(Default, Debug, Hash, PartialEq)]
+#[reflect(Default, Debug, Hash, PartialEq, Clone)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -142,14 +148,6 @@ impl<T: Asset> Clone for Handle<T> {
 }
 
 impl<A: Asset> Handle<A> {
-    /// Create a new [`Handle::Weak`] with the given [`u128`] encoding of a [`Uuid`].
-    #[deprecated = "use the `weak_handle!` macro with a UUID string instead"]
-    pub const fn weak_from_u128(value: u128) -> Self {
-        Handle::Weak(AssetId::Uuid {
-            uuid: Uuid::from_u128(value),
-        })
-    }
-
     /// Returns the [`AssetId`] of this [`Asset`].
     #[inline]
     pub fn id(&self) -> AssetId<A> {
@@ -282,9 +280,11 @@ impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
 /// to be stored together and compared.
 ///
 /// See [`Handle`] for more information.
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
 pub enum UntypedHandle {
+    /// A strong handle, which will keep the referenced [`Asset`] alive until all strong handles are dropped.
     Strong(Arc<StrongHandle>),
+    /// A weak handle, which does not keep the referenced [`Asset`] alive.
     Weak(UntypedAssetId),
 }
 
@@ -528,15 +528,21 @@ pub enum UntypedAssetConversionError {
     #[error(
         "This UntypedHandle is for {found:?} and cannot be converted into a Handle<{expected:?}>"
     )]
-    TypeIdMismatch { expected: TypeId, found: TypeId },
+    TypeIdMismatch {
+        /// The expected [`TypeId`] of the [`Handle`] being converted to.
+        expected: TypeId,
+        /// The [`TypeId`] of the [`UntypedHandle`] being converted from.
+        found: TypeId,
+    },
 }
 
 #[cfg(test)]
 mod tests {
     use alloc::boxed::Box;
-    use bevy_platform_support::hash::FixedHasher;
+    use bevy_platform::hash::FixedHasher;
     use bevy_reflect::PartialReflect;
     use core::hash::BuildHasher;
+    use uuid::Uuid;
 
     use super::*;
 
@@ -644,7 +650,7 @@ mod tests {
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);
     }
 
-    /// `Reflect::clone_value` should increase the strong count of a strong handle
+    /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
         use crate::{AssetApp, AssetPlugin, Assets, VisitAssetDependencies};
@@ -675,7 +681,7 @@ mod tests {
                 );
 
                 let reflected: &dyn Reflect = &handle;
-                let cloned_handle: Box<dyn PartialReflect> = reflected.clone_value();
+                let _cloned_handle: Box<dyn Reflect> = reflected.reflect_clone().unwrap();
 
                 assert_eq!(
                     Arc::strong_count(strong),
@@ -683,10 +689,18 @@ mod tests {
                     "Cloning the handle with reflect should increase the strong count to 2"
                 );
 
-                let from_reflect_handle: Handle<MyAsset> =
-                    FromReflect::from_reflect(&*cloned_handle).unwrap();
+                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic();
 
-                assert_eq!(Arc::strong_count(strong), 3, "Converting the reflected value back to a handle should increase the strong count to 3");
+                assert_eq!(
+                    Arc::strong_count(strong),
+                    3,
+                    "Converting the handle to a dynamic should increase the strong count to 3"
+                );
+
+                let from_reflect_handle: Handle<MyAsset> =
+                    FromReflect::from_reflect(&*dynamic_handle).unwrap();
+
+                assert_eq!(Arc::strong_count(strong), 4, "Converting the reflected value back to a handle should increase the strong count to 4");
                 assert!(
                     from_reflect_handle.is_strong(),
                     "The cloned handle should still be strong"

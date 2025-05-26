@@ -34,7 +34,7 @@ fn skin_model(
         + weights.z * joint_matrices.data[indexes.z]
         + weights.w * joint_matrices.data[indexes.w];
 #else   // SKINS_USE_UNIFORM_BUFFERS
-    let skin_index = mesh[instance_index].current_skin_index;
+    var skin_index = mesh[instance_index].current_skin_index;
     return weights.x * joint_matrices[skin_index + indexes.x]
         + weights.y * joint_matrices[skin_index + indexes.y]
         + weights.z * joint_matrices[skin_index + indexes.z]
@@ -57,7 +57,7 @@ fn skin_prev_model(
         + weights.z * prev_joint_matrices.data[indexes.z]
         + weights.w * prev_joint_matrices.data[indexes.w];
 #else   // SKINS_USE_UNIFORM_BUFFERS
-    let skin_index = mesh[instance_index].previous_skin_index;
+    let skin_index = mesh[instance_index].current_skin_index;
     return weights.x * prev_joint_matrices[skin_index + indexes.x]
         + weights.y * prev_joint_matrices[skin_index + indexes.y]
         + weights.z * prev_joint_matrices[skin_index + indexes.z]

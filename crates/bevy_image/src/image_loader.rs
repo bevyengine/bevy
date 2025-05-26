@@ -81,7 +81,7 @@ impl ImageLoader {
     }
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub enum ImageFormatSetting {
     #[default]
     FromExtension,
@@ -89,7 +89,7 @@ pub enum ImageFormatSetting {
     Guess,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageLoaderSettings {
     pub format: ImageFormatSetting,
     pub is_srgb: bool,
@@ -150,8 +150,6 @@ impl AssetLoader for ImageLoader {
             }
         };
         Ok(Image::from_buffer(
-            #[cfg(all(debug_assertions, feature = "dds"))]
-            load_context.path().display().to_string(),
             &bytes,
             image_type,
             self.supported_compressed_formats,

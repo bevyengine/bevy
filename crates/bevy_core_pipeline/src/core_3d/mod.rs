@@ -19,7 +19,8 @@ pub mod graph {
         EarlyPrepass,
         EarlyDownsampleDepth,
         LatePrepass,
-        DeferredPrepass,
+        EarlyDeferredPrepass,
+        LateDeferredPrepass,
         CopyDeferredLightingId,
         EndPrepasses,
         StartMainPass,
@@ -27,6 +28,7 @@ pub mod graph {
         MainTransmissivePass,
         MainTransparentPass,
         EndMainPass,
+        Wireframe,
         LateDownsampleDepth,
         Taa,
         MotionBlur,
@@ -85,7 +87,7 @@ use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -104,7 +106,7 @@ use bevy_render::{
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
 use tracing::warn;
@@ -112,7 +114,8 @@ use tracing::warn;
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
     deferred::{
-        copy_lighting_id::CopyDeferredLightingIdNode, node::DeferredGBufferPrepassNode,
+        copy_lighting_id::CopyDeferredLightingIdNode,
+        node::{EarlyDeferredGBufferPrepassNode, LateDeferredGBufferPrepassNode},
         AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
         DEFERRED_PREPASS_FORMAT,
     },
@@ -164,14 +167,14 @@ impl Plugin for Core3dPlugin {
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Transmissive3d>.in_set(RenderSet::PhaseSort),
-                    sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
+                    sort_phase_system::<Transmissive3d>.in_set(RenderSystems::PhaseSort),
+                    sort_phase_system::<Transparent3d>.in_set(RenderSystems::PhaseSort),
                     configure_occlusion_culling_view_targets
                         .after(prepare_view_targets)
-                        .in_set(RenderSet::ManageViews),
-                    prepare_core_3d_depth_textures.in_set(RenderSet::PrepareResources),
-                    prepare_core_3d_transmission_textures.in_set(RenderSet::PrepareResources),
-                    prepare_prepass_textures.in_set(RenderSet::PrepareResources),
+                        .in_set(RenderSystems::ManageViews),
+                    prepare_core_3d_depth_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_core_3d_transmission_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_prepass_textures.in_set(RenderSystems::PrepareResources),
                 ),
             );
 
@@ -179,9 +182,13 @@ impl Plugin for Core3dPlugin {
             .add_render_sub_graph(Core3d)
             .add_render_graph_node::<ViewNodeRunner<EarlyPrepassNode>>(Core3d, Node3d::EarlyPrepass)
             .add_render_graph_node::<ViewNodeRunner<LatePrepassNode>>(Core3d, Node3d::LatePrepass)
-            .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
+            .add_render_graph_node::<ViewNodeRunner<EarlyDeferredGBufferPrepassNode>>(
                 Core3d,
-                Node3d::DeferredPrepass,
+                Node3d::EarlyDeferredPrepass,
+            )
+            .add_render_graph_node::<ViewNodeRunner<LateDeferredGBufferPrepassNode>>(
+                Core3d,
+                Node3d::LateDeferredPrepass,
             )
             .add_render_graph_node::<ViewNodeRunner<CopyDeferredLightingIdNode>>(
                 Core3d,
@@ -210,8 +217,9 @@ impl Plugin for Core3dPlugin {
                 Core3d,
                 (
                     Node3d::EarlyPrepass,
+                    Node3d::EarlyDeferredPrepass,
                     Node3d::LatePrepass,
-                    Node3d::DeferredPrepass,
+                    Node3d::LateDeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
@@ -718,13 +726,35 @@ pub fn extract_camera_prepass_phase(
         }
         live_entities.insert(retained_view_entity);
 
-        commands
+        // Add or remove prepasses as appropriate.
+
+        let mut camera_commands = commands
             .get_entity(entity)
-            .expect("Camera entity wasn't synced.")
-            .insert_if(DepthPrepass, || depth_prepass)
-            .insert_if(NormalPrepass, || normal_prepass)
-            .insert_if(MotionVectorPrepass, || motion_vector_prepass)
-            .insert_if(DeferredPrepass, || deferred_prepass);
+            .expect("Camera entity wasn't synced.");
+
+        if depth_prepass {
+            camera_commands.insert(DepthPrepass);
+        } else {
+            camera_commands.remove::<DepthPrepass>();
+        }
+
+        if normal_prepass {
+            camera_commands.insert(NormalPrepass);
+        } else {
+            camera_commands.remove::<NormalPrepass>();
+        }
+
+        if motion_vector_prepass {
+            camera_commands.insert(MotionVectorPrepass);
+        } else {
+            camera_commands.remove::<MotionVectorPrepass>();
+        }
+
+        if deferred_prepass {
+            camera_commands.insert(DeferredPrepass);
+        } else {
+            camera_commands.remove::<DeferredPrepass>();
+        }
     }
 
     opaque_3d_prepass_phases.retain(|view_entity, _| live_entities.contains(view_entity));
@@ -921,7 +951,6 @@ fn configure_occlusion_culling_view_targets(
             With<OcclusionCulling>,
             Without<NoIndirectDrawing>,
             With<DepthPrepass>,
-            Without<DeferredPrepass>,
         ),
     >,
 ) {
@@ -986,6 +1015,7 @@ pub fn prepare_prepass_textures(
             && !opaque_3d_deferred_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_3d_deferred_phases.contains_key(&view.retained_view_entity)
         {
+            commands.entity(entity).remove::<ViewPrepassTextures>();
             continue;
         };
 

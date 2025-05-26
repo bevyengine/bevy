@@ -18,6 +18,9 @@
 //! - `bevy_ui` can render on any camera with a flag, it is special, and is not tied to a particular
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
+//! - The `position` reported in `HitData` is normalized relative to the node, with `(0.,0.,0.)` at
+//!   the top left and `(1., 1., 0.)` in the bottom right. Coordinates are relative to the entire
+//!   node, not just the visible region. This backend does not provide a `normal`.
 
 #![deny(missing_docs)]
 
@@ -25,19 +28,60 @@ use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
 
+/// An optional component that marks cameras that should be used in the [`UiPickingPlugin`].
+///
+/// Only needed if [`UiPickingSettings::require_markers`] is set to `true`, and ignored
+/// otherwise.
+#[derive(Debug, Clone, Default, Component, Reflect)]
+#[reflect(Debug, Default, Component)]
+pub struct UiPickingCamera;
+
+/// Runtime settings for the [`UiPickingPlugin`].
+#[derive(Resource, Reflect)]
+#[reflect(Resource, Default)]
+pub struct UiPickingSettings {
+    /// When set to `true` UI picking will only consider cameras marked with
+    /// [`UiPickingCamera`] and entities marked with [`Pickable`]. `false` by default.
+    ///
+    /// This setting is provided to give you fine-grained control over which cameras and entities
+    /// should be used by the UI picking backend at runtime.
+    pub require_markers: bool,
+}
+
+#[expect(
+    clippy::allow_attributes,
+    reason = "clippy::derivable_impls is not always linted"
+)]
+#[allow(
+    clippy::derivable_impls,
+    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
+)]
+impl Default for UiPickingSettings {
+    fn default() -> Self {
+        Self {
+            require_markers: false,
+        }
+    }
+}
+
 /// A plugin that adds picking support for UI nodes.
+///
+/// This is included by default in [`UiPlugin`](crate::UiPlugin).
 #[derive(Clone)]
 pub struct UiPickingPlugin;
 impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
+        app.init_resource::<UiPickingSettings>()
+            .register_type::<(UiPickingCamera, UiPickingSettings)>()
+            .add_systems(PreUpdate, ui_picking.in_set(PickingSystems::Backend));
     }
 }
 
@@ -60,8 +104,9 @@ pub struct NodeQuery {
 /// we need for determining picking.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
+    camera_query: Query<(Entity, &Camera, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
+    settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
@@ -78,10 +123,11 @@ pub fn ui_picking(
         // cameras. We want to ensure we return all cameras with a matching target.
         for camera in camera_query
             .iter()
+            .filter(|(_, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
             .map(|(entity, camera, _)| {
                 (
                     entity,
-                    camera.target.normalize(primary_window.get_single().ok()),
+                    camera.target.normalize(primary_window.single().ok()),
                 )
             })
             .filter_map(|(entity, target)| Some(entity).zip(target))
@@ -104,7 +150,7 @@ pub fn ui_picking(
     }
 
     // The list of node entities hovered for each (camera, pointer) combo
-    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<Entity>>::default();
+    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<(Entity, Vec2)>>::default();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -118,6 +164,10 @@ pub fn ui_picking(
         let Ok(node) = node_query.get(*node_entity) else {
             continue;
         };
+
+        if settings.require_markers && node.pickable.is_none() {
+            continue;
+        }
 
         // Nodes that are not rendered should not be interactable
         if node
@@ -167,23 +217,28 @@ pub fn ui_picking(
                 hit_nodes
                     .entry((camera_entity, *pointer_id))
                     .or_default()
-                    .push(*node_entity);
+                    .push((*node_entity, relative_cursor_position));
             }
         }
     }
 
-    for ((camera, pointer), hovered_nodes) in hit_nodes.iter() {
+    for ((camera, pointer), hovered) in hit_nodes.iter() {
         // As soon as a node with a `Block` focus policy is detected, the iteration will stop on it
         // because it "captures" the interaction.
         let mut picks = Vec::new();
         let mut depth = 0.0;
 
-        for node in node_query.iter_many(hovered_nodes) {
+        for (hovered_node, position) in hovered {
+            let node = node_query.get(*hovered_node).unwrap();
+
             let Some(camera_entity) = node.target_camera.camera() else {
                 continue;
             };
 
-            picks.push((node.entity, HitData::new(camera_entity, depth, None, None)));
+            picks.push((
+                node.entity,
+                HitData::new(camera_entity, depth, Some(position.extend(0.0)), None),
+            ));
 
             if let Some(pickable) = node.pickable {
                 // If an entity has a `Pickable` component, we will use that as the source of truth.
@@ -204,6 +259,6 @@ pub fn ui_picking(
             .unwrap_or_default() as f32
             + 0.5; // bevy ui can run on any camera, it's a special case
 
-        output.send(PointerHits::new(*pointer, picks, order));
+        output.write(PointerHits::new(*pointer, picks, order));
     }
 }

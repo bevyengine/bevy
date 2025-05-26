@@ -7,11 +7,11 @@ use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{require, Component, Entity},
+    prelude::{Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -33,7 +33,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_utils::prelude::default;
 use core::mem;
@@ -111,9 +111,9 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_ssao_pipelines.in_set(RenderSet::Prepare),
-                    prepare_ssao_textures.in_set(RenderSet::PrepareResources),
-                    prepare_ssao_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_ssao_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_ssao_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_ssao_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
@@ -146,12 +146,12 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 /// Requires that you add [`ScreenSpaceAmbientOcclusionPlugin`] to your app.
 ///
 /// It strongly recommended that you use SSAO in conjunction with
-/// TAA ([`bevy_core_pipeline::experimental::taa::TemporalAntiAliasing`]).
+/// TAA (`TemporalAntiAliasing`).
 /// Doing so greatly reduces SSAO noise.
 ///
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU`.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Clone, Debug)]
-#[reflect(Component, Debug, Default, PartialEq)]
+#[reflect(Component, Debug, Default, PartialEq, Clone)]
 #[require(DepthPrepass, NormalPrepass)]
 #[doc(alias = "Ssao")]
 pub struct ScreenSpaceAmbientOcclusion {
@@ -174,6 +174,7 @@ impl Default for ScreenSpaceAmbientOcclusion {
 }
 
 #[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
+#[reflect(PartialEq, Hash, Clone, Default)]
 pub enum ScreenSpaceAmbientOcclusionQualityLevel {
     Low,
     Medium,

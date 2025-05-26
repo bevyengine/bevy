@@ -82,7 +82,7 @@
 //! # System return type
 //!
 //! Systems added to a schedule through [`add_systems`](crate::schedule::Schedule) may either return
-//! empty `()` or a [`Result`](crate::result::Result). Other contexts (like one shot systems) allow
+//! empty `()` or a [`Result`](crate::error::Result). Other contexts (like one shot systems) allow
 //! systems to return arbitrary values.
 //!
 //! # System parameter list
@@ -153,7 +153,7 @@ pub use system_name::*;
 pub use system_param::*;
 pub use system_registry::*;
 
-use crate::world::World;
+use crate::world::{FromWorld, World};
 
 /// Conversion trait to turn something into a [`System`].
 ///
@@ -226,6 +226,77 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
         F: Send + Sync + 'static + FnMut(Out) -> T,
     {
         IntoAdapterSystem::new(f, self)
+    }
+
+    /// Passes a mutable reference to `value` as input to the system each run,
+    /// turning it into a system that takes no input.
+    ///
+    /// `Self` can have any [`SystemInput`] type that takes a mutable reference
+    /// to `T`, such as [`InMut`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// fn my_system(InMut(value): InMut<usize>) {
+    ///     *value += 1;
+    ///     if *value > 10 {
+    ///        println!("Value is greater than 10!");
+    ///     }
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_systems(my_system.with_input(0));
+    /// # bevy_ecs::system::assert_is_system(my_system.with_input(0));
+    /// ```
+    fn with_input<T>(self, value: T) -> WithInputWrapper<Self::System, T>
+    where
+        for<'i> In: SystemInput<Inner<'i> = &'i mut T>,
+        T: Send + Sync + 'static,
+    {
+        WithInputWrapper::new(self, value)
+    }
+
+    /// Passes a mutable reference to a value of type `T` created via
+    /// [`FromWorld`] as input to the system each run, turning it into a system
+    /// that takes no input.
+    ///
+    /// `Self` can have any [`SystemInput`] type that takes a mutable reference
+    /// to `T`, such as [`InMut`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct MyData {
+    ///     value: usize,
+    /// }
+    ///
+    /// impl FromWorld for MyData {
+    ///     fn from_world(world: &mut World) -> Self {
+    ///         // Fetch from the world the data needed to create `MyData`
+    /// #       MyData { value: 0 }
+    ///     }
+    /// }
+    ///
+    /// fn my_system(InMut(data): InMut<MyData>) {
+    ///     data.value += 1;
+    ///     if data.value > 10 {
+    ///         println!("Value is greater than 10!");
+    ///     }
+    /// }
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_systems(my_system.with_input_from::<MyData>());
+    /// # bevy_ecs::system::assert_is_system(my_system.with_input_from::<MyData>());
+    /// ```
+    fn with_input_from<T>(self) -> WithInputFromWrapper<Self::System, T>
+    where
+        for<'i> In: SystemInput<Inner<'i> = &'i mut T>,
+        T: FromWorld + Send + Sync + 'static,
+    {
+        WithInputFromWrapper::new(self)
     }
 
     /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
@@ -323,6 +394,7 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 }
 
 #[cfg(test)]
+#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use alloc::{vec, vec::Vec};
     use bevy_utils::default;
@@ -335,21 +407,24 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
-        prelude::{AnyOf, EntityRef},
-        query::{Added, Changed, Or, With, Without},
+        error::Result,
+        name::Name,
+        prelude::{AnyOf, EntityRef, Trigger},
+        query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
         removal_detection::RemovedComponents,
         resource::Resource,
-        result::Result,
         schedule::{
-            common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
-            Schedule,
+            common_conditions::resource_exists, ApplyDeferred, IntoScheduleConfigs, Schedule,
+            SystemCondition,
         },
         system::{
-            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Single, StaticSystemParam, System, SystemState,
+            Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
+            ResMut, Single, StaticSystemParam, System, SystemState,
         },
-        world::{DeferredWorld, EntityMut, FromWorld, World},
+        world::{DeferredWorld, EntityMut, FromWorld, OnAdd, World},
     };
+
+    use super::ScheduleSystem;
 
     #[derive(Resource, PartialEq, Debug)]
     enum SystemRan {
@@ -389,7 +464,10 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Marker, S: IntoSystemConfigs<Marker>>(world: &mut World, system: S) {
+    fn run_system<Marker, S: IntoScheduleConfigs<ScheduleSystem, Marker>>(
+        world: &mut World,
+        system: S,
+    ) {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         schedule.run(world);
@@ -1249,6 +1327,25 @@ mod tests {
     }
 
     #[test]
+    fn system_state_spawned() {
+        let mut world = World::default();
+        world.spawn_empty();
+        let spawn_tick = world.change_tick();
+
+        let mut system_state: SystemState<Option<Single<SpawnDetails, Spawned>>> =
+            SystemState::new(&mut world);
+        {
+            let query = system_state.get(&world);
+            assert_eq!(query.unwrap().spawned_at(), spawn_tick);
+        }
+
+        {
+            let query = system_state.get(&world);
+            assert!(query.is_none());
+        }
+    }
+
+    #[test]
     #[should_panic]
     fn system_state_invalid_world() {
         let mut world = World::default();
@@ -1473,6 +1570,21 @@ mod tests {
             let mut sys = IntoSystem::into_system(mutable_query);
             sys.initialize(&mut world);
         }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B, SpawnDetails), Spawned>) {
+                for _ in &mut query {}
+
+                immutable_query(query.as_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B, SpawnDetails), Spawned>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
     }
 
     #[test]
@@ -1648,7 +1760,10 @@ mod tests {
     #[should_panic]
     fn panic_inside_system() {
         let mut world = World::new();
-        run_system(&mut world, || panic!("this system panics"));
+        let system: fn() = || {
+            panic!("this system panics");
+        };
+        run_system(&mut world, system);
     }
 
     #[test]
@@ -1813,5 +1928,96 @@ mod tests {
 
         let mut world = World::new();
         run_system(&mut world, sys);
+    }
+
+    // Regression test for
+    // https://github.com/bevyengine/bevy/issues/18778
+    //
+    // Dear rustc team, please reach out if you encounter this
+    // in a crater run and we can work something out!
+    //
+    // These todo! macro calls should never be removed;
+    // they're intended to demonstrate real-world usage
+    // in a way that's clearer than simply calling `panic!`
+    //
+    // Because type inference behaves differently for functions and closures,
+    // we need to test both, in addition to explicitly annotating the return type
+    // to ensure that there are no upstream regressions there.
+    #[test]
+    fn nondiverging_never_trait_impls() {
+        // This test is a compilation test:
+        // no meaningful logic is ever actually evaluated.
+        // It is simply intended to check that the correct traits are implemented
+        // when todo! or similar nondiverging panics are used.
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+
+        fn sys(_query: Query<&Name>) {
+            todo!()
+        }
+
+        schedule.add_systems(sys);
+        schedule.add_systems(|_query: Query<&Name>| {});
+        schedule.add_systems(|_query: Query<&Name>| todo!());
+        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
+        schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
+
+        fn obs(_trigger: Trigger<OnAdd, Name>) {
+            todo!()
+        }
+
+        world.add_observer(obs);
+        world.add_observer(|_trigger: Trigger<OnAdd, Name>| {});
+        world.add_observer(|_trigger: Trigger<OnAdd, Name>| todo!());
+        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
+        world.add_observer(|_trigger: Trigger<OnAdd, Name>| -> () { todo!() });
+
+        fn my_command(_world: &mut World) {
+            todo!()
+        }
+
+        world.commands().queue(my_command);
+        world.commands().queue(|_world: &mut World| {});
+        world.commands().queue(|_world: &mut World| todo!());
+        #[expect(clippy::unused_unit, reason = "this forces the () return type")]
+        world
+            .commands()
+            .queue(|_world: &mut World| -> () { todo!() });
+    }
+
+    #[test]
+    fn with_input() {
+        fn sys(InMut(v): InMut<usize>) {
+            *v += 1;
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_input(42));
+        system.initialize(&mut world);
+        system.run((), &mut world);
+        assert_eq!(*system.value(), 43);
+    }
+
+    #[test]
+    fn with_input_from() {
+        struct TestData(usize);
+
+        impl FromWorld for TestData {
+            fn from_world(_world: &mut World) -> Self {
+                Self(5)
+            }
+        }
+
+        fn sys(InMut(v): InMut<TestData>) {
+            v.0 += 1;
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_input_from::<TestData>());
+        assert!(system.value().is_none());
+        system.initialize(&mut world);
+        assert!(system.value().is_some());
+        system.run((), &mut world);
+        assert_eq!(system.value().unwrap().0, 6);
     }
 }
