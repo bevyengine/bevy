@@ -7,7 +7,7 @@ use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_sprite::TextureSlicer;
-use taffy::{MaybeMath, MaybeResolve};
+use taffy::{MaybeMath, MaybeResolve, Size};
 
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]
@@ -197,11 +197,44 @@ pub struct ImageMeasure {
     pub size: Vec2,
 }
 
+trait TaffySizeMethods {
+    fn ensure_aspect_ratio(self, aspect_ratio: f32) -> Size<Option<f32>>;
+    fn maybe_ensure_aspect_ratio(self, m_aspect_ratio: Option<f32>) -> Size<Option<f32>>;
+}
+
+impl TaffySizeMethods for Size<Option<f32>> {
+    /// Applies aspect-ratio, even if both sizes are present,
+    /// size is shrunk to fit in this case
+    fn ensure_aspect_ratio(self, aspect_ratio: f32) -> Self {
+        match (self.width, self.height) {
+            (None, None) => self,
+            (Some(width), None) => Size::new(width, width / aspect_ratio),
+            (None, Some(height)) => Size::new(height * aspect_ratio, height),
+            (Some(width), Some(height)) => {
+                if width / height < aspect_ratio {
+                    // too tall, shrinking height based on width
+                    Size::new(width, width / aspect_ratio)
+                } else {
+                    // too wide, shrinking width based on height
+                    Size::new(height * aspect_ratio, height)
+                }
+            }
+        }
+    }
+
+    fn maybe_ensure_aspect_ratio(self, m_aspect_ratio: Option<f32>) -> Self {
+        if let Some(aspect_ratio) = m_aspect_ratio {
+            self.ensure_aspect_ratio(aspect_ratio)
+        } else {
+            self
+        }
+    }
+}
+
 impl Measure for ImageMeasure {
     fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
+        // Sizes come with applied aspect-ratio from styles (if set)
         let MeasureArgs {
-            width,
-            height,
             available_width,
             available_height,
             ..
@@ -220,32 +253,39 @@ impl Measure for ImageMeasure {
         let s_min_height = style.min_size.height.maybe_resolve(parent_height);
         let s_max_height = style.max_size.height.maybe_resolve(parent_height);
 
-        // Determine width and height from styles and known_sizes (if a size is available
-        // from any of these sources)
-        let width = width.or(s_width
-            .or(s_min_width)
-            .maybe_clamp(s_min_width, s_max_width));
-        let height = height.or(s_height
-            .or(s_min_height)
-            .maybe_clamp(s_min_height, s_max_height));
+        let should_fit = s_width.is_some()
+            || s_min_width.is_some()
+            || s_max_width.is_some()
+            || s_height.is_some()
+            || s_min_height.is_some()
+            || s_max_height.is_some();
 
         // Use aspect_ratio from style, fall back to inherent aspect ratio
         let aspect_ratio = s_aspect_ratio.unwrap_or_else(|| self.size.x / self.size.y);
+        let m_aspect_ratio = style.aspect_ratio.is_none().then_some(aspect_ratio);
 
-        // Apply aspect ratio
-        // If only one of width or height was determined at this point, then the other is set beyond this point using the aspect ratio.
-        let taffy_size = taffy::Size { width, height }.maybe_apply_aspect_ratio(Some(aspect_ratio));
+        let available_size = Size {
+            width: available_width.into_option(),
+            height: available_height.into_option(),
+        };
 
-        // Use computed sizes or fall back to image's inherent size
+        let taffy_size = if should_fit {
+            available_size.maybe_ensure_aspect_ratio(m_aspect_ratio)
+        } else {
+            let image_size = Size {
+                width: Some(self.size.x),
+                height: Some(self.size.y),
+            };
+
+            image_size
+                .maybe_ensure_aspect_ratio(s_aspect_ratio)
+                .maybe_min(available_size)
+                .ensure_aspect_ratio(aspect_ratio)
+        };
+
         Vec2 {
-            x: taffy_size
-                .width
-                .unwrap_or(self.size.x)
-                .maybe_clamp(s_min_width, s_max_width),
-            y: taffy_size
-                .height
-                .unwrap_or(self.size.y)
-                .maybe_clamp(s_min_height, s_max_height),
+            x: taffy_size.width.unwrap(),
+            y: taffy_size.height.unwrap(),
         }
     }
 }

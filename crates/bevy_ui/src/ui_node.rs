@@ -56,6 +56,14 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub unrounded_size: Vec2,
+    /// The size of scrollbar areas in physical pixels.
+    /// `x` represents the width of scrollbar on `y` axis (right side).
+    /// `y` represents the height of scrollbar on `x` axis (bottom side).
+    /// 0.0 if scrollbar is absent on that axis.
+    /// Scrollbar size updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scrollbar_size: Vec2,
     /// Resolved border values in physical pixels.
     /// Border updates bypass change detection.
     ///
@@ -240,6 +248,7 @@ impl ComputedNode {
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
+        scrollbar_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
@@ -253,12 +262,46 @@ impl Default for ComputedNode {
     }
 }
 
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct ScrollbarColor {
+    pub track_color: Color,
+    pub thumb_color: Color,
+}
+
+impl Default for ScrollbarColor {
+    fn default() -> Self {
+        Self {
+            track_color: Color::WHITE,
+            thumb_color: Color::BLACK,
+        }
+    }
+}
+
+/// Scrollbar's track size (in px).
+/// This is the size of axis perpendicular to main axis of scrollbar.
+/// I.e., will be width for scrollbar y, height for scrollbar x.
+// Named SCROLLBAR_TRACK_WIDTH rather than SCROLLBAL_WIDTH,
+// as scrollbar_width has different meaning in CSS:
+// <https://developer.mozilla.org/en-US/docs/Web/CSS/scrollbar-width>
+pub const SCROLLBAR_TRACK_WIDTH: f32 = 12.0; // px
+pub const SCROLLBAR_THUMB_WIDTH: f32 = SCROLLBAR_TRACK_WIDTH - 4.0; // px
+pub const SCROLLBAR_THUMB_ROUNDING: f32 = 10.0; // px
+
 /// The scroll position of the node.
+/// Corresponds to CSS's scrollTop:
+/// <https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollTop>
 ///
 /// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
 /// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
+///
+/// Node that position items in reverse, e.g., via `FlexDirection::ColumnReverse`
+/// with scroll overflow enabled on that axis
+/// will display the end of the list, scrollable in reverse by providing negative scroll value.
+/// E.g., for a scrollable reversed column -y value will scroll the list upward.
 #[derive(Component, Debug, Clone, Reflect)]
+#[require(ScrollbarColor)]
 #[reflect(Component, Default, Clone)]
 pub struct ScrollPosition {
     /// How far across the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to right)
@@ -328,7 +371,6 @@ impl From<Vec2> for ScrollPosition {
     BorderColor,
     BorderRadius,
     FocusPolicy,
-    ScrollPosition,
     Transform,
     Visibility,
     VisibilityClass,
@@ -951,6 +993,10 @@ pub enum Display {
 }
 
 impl Display {
+    // Flex as default (and not Block, as in CSS) is historical,
+    // as originally we only had two `Display` options: Flex and None.
+    // So it's been a sensible default.
+    // https://github.com/bevyengine/bevy/blob/3d5e7e54f3cb5cfa607c94ba571d2727a757f74e/crates/bevy_ui/src/node.rs#L160
     pub const DEFAULT: Self = Self::Flex;
 }
 
@@ -1096,6 +1142,12 @@ impl Overflow {
         self.x.is_visible() && self.y.is_visible()
     }
 
+    /// Overflow is scrollable on at least 1 axis
+    pub const fn is_any_scroll(&self) -> bool {
+        // y is most commonly used for scroll, so it's first, to short-circuit
+        self.y.is_scroll() || self.x.is_scroll()
+    }
+
     pub const fn scroll() -> Self {
         Self {
             x: OverflowAxis::Scroll,
@@ -1151,6 +1203,11 @@ impl OverflowAxis {
     /// Overflow is visible on this axis
     pub const fn is_visible(&self) -> bool {
         matches!(self, Self::Visible)
+    }
+
+    /// Overflow is scroll on this axis
+    pub const fn is_scroll(&self) -> bool {
+        matches!(self, Self::Scroll)
     }
 }
 
@@ -2140,6 +2197,14 @@ impl Outline {
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct CalculatedClip {
+    /// The rect of the clip
+    pub clip: Rect,
+}
+
+/// The calculated clip of content of the node
+#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct CalculatedContentClip {
     /// The rect of the clip
     pub clip: Rect,
 }
