@@ -7,7 +7,7 @@ If you don't see your distro present in the list, feel free to add the instructi
 ## [Ubuntu](https://ubuntu.com/)
 
 ```bash
-sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
+sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
 ```
 
 if using Wayland, you will also need to install
@@ -122,7 +122,7 @@ mkShell rec {
     pkg-config
   ];
   buildInputs = [
-    udev alsa-lib vulkan-loader
+    udev alsa-lib-with-plugins vulkan-loader
     xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr # To use the x11 feature
     libxkbcommon wayland # To use the wayland feature
   ];
@@ -134,17 +134,25 @@ And enter it by just running `nix-shell`.
 You should be able compile Bevy programs using `cargo run` within this nix-shell.
 You can do this in one line with `nix-shell --run "cargo run"`.
 
+If running nix on a non NixOS system (such as ubuntu, arch etc.), [NixGL](https://github.com/nix-community/nixGL) is additionally required,
+to link graphics drivers into the context of software installed by nix:
+
+1. Install a system specific nixGL wrapper ([docs](https://github.com/nix-community/nixGL)).
+   * If you're running a nvidia GPU choose `nixVulkanNvidia`.
+   * Otherwise, choose another wrapper appropriate for your system.
+2. Run `nixVulkanNvidia-xxx.xxx.xx cargo run` to compile a bevy program, where `xxx-xxx-xx` denotes the graphics driver version `nixVulkanNvidia` was compiled with.
+
 This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
 Instead of creating `shell.nix`, you just need to add the derivation (`mkShell`)
-to your `devShells` in `flake.nix`. Run `nix develop` to enter the shell and
-`nix develop -c cargo run` to run the program. See
+to your `devShells` in `flake.nix`. Run `nix develop` to enter the shell or
+`nix develop -c cargo run` to just run the program. See
 [Nix's documentation](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-develop.html)
 for more information about `devShells`.
 
 Note that this template does not add Rust to the environment because there are many ways to do it.
 For example, to use stable Rust from nixpkgs, you can add `cargo` and `rustc` to `nativeBuildInputs`.
 
-[Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/games/jumpy/default.nix)
+[Here]([https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ju/jumpy/package.nix](https://github.com/NixOS/nixpkgs/blob/0da3c44a9460a26d2025ec3ed2ec60a895eb1114/pkgs/games/jumpy/default.nix))
 is an example of packaging a Bevy program in nix.
 
 ## [OpenSUSE](https://www.opensuse.org/)
@@ -189,4 +197,27 @@ If you have issues with `winit` such as `Failed to initialize backend!` or simil
 ```toml
 [build]
 rustflags = ["-C", "target-feature=-crt-static"]
+```
+
+## [Solus](https://getsol.us)
+
+```sh
+sudo eopkg it -c system.devel
+sudo eopkg it g++ libx11-devel alsa-lib-devel
+```
+
+If using Wayland, you may also need to install
+
+```sh
+sudo eopkg it wayland-devel libxkbcommon-devel
+```
+
+Compiling with clang is also possible - replace the `g++` package with `llvm-clang`
+
+## [FreeBSD](https://www.freebsd.org/)
+
+It is necessary to have the hgame module loaded in order to satisfy gli-rs. It will still throw an error, but the program should run successfully. You can make sure the kernel module is loaded on start up by adding the following line to /boot/loader.conf:
+
+```sh
+hgame_load="YES"
 ```

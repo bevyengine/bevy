@@ -32,7 +32,7 @@ impl<const SIZE: usize> Benchmark<SIZE> {
     pub fn run(&mut self) {
         for _ in 0..self.count {
             self.events
-                .send(std::hint::black_box(BenchEvent([0u8; SIZE])));
+                .send(core::hint::black_box(BenchEvent([0u8; SIZE])));
         }
         self.events.update();
     }

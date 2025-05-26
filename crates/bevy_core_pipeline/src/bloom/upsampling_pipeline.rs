@@ -1,14 +1,22 @@
 use super::{
-    downsampling_pipeline::BloomUniforms, BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE,
+    downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_SHADER_HANDLE,
     BLOOM_TEXTURE_FORMAT,
 };
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_render::{render_resource::*, renderer::RenderDevice, view::ViewTarget};
+use bevy_render::{
+    render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        *,
+    },
+    renderer::RenderDevice,
+    view::ViewTarget,
+};
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -31,41 +39,20 @@ impl FromWorld for BloomUpsamplingPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("bloom_upsampling_bind_group_layout"),
-                entries: &[
+        let bind_group_layout = render_device.create_bind_group_layout(
+            "bloom_upsampling_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
                     // Input texture
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
+                    texture_2d(TextureSampleType::Float { filterable: true }),
                     // Sampler
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
+                    sampler(SamplerBindingType::Filtering),
                     // BloomUniforms
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(BloomUniforms::min_size()),
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                ],
-            });
+                    uniform_buffer::<BloomUniforms>(true),
+                ),
+            ),
+        );
 
         BloomUpsamplingPipeline { bind_group_layout }
     }
@@ -138,6 +125,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -147,14 +135,14 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &BloomSettings)>,
+    views: Query<(Entity, &Bloom)>,
 ) {
-    for (entity, settings) in &views {
+    for (entity, bloom) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
-                composite_mode: settings.composite_mode,
+                composite_mode: bloom.composite_mode,
                 final_pipeline: false,
             },
         );
@@ -163,7 +151,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
-                composite_mode: settings.composite_mode,
+                composite_mode: bloom.composite_mode,
                 final_pipeline: true,
             },
         );

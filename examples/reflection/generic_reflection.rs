@@ -12,8 +12,10 @@ fn main() {
         .run();
 }
 
+/// The `#[derive(Reflect)]` macro will automatically add any required bounds to `T`,
+/// such as `Reflect` and `GetTypeRegistration`.
 #[derive(Reflect)]
-struct MyType<T: Reflect> {
+struct MyType<T> {
     value: T,
 }
 

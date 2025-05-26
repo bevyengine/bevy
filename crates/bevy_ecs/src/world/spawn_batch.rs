@@ -1,9 +1,10 @@
 use crate::{
-    bundle::{Bundle, BundleSpawner},
-    entity::Entity,
+    bundle::{Bundle, BundleSpawner, NoBundleEffect},
+    change_detection::MaybeLocation,
+    entity::{Entity, EntitySetIterator},
     world::World,
 };
-use std::iter::FusedIterator;
+use core::iter::FusedIterator;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -15,16 +16,18 @@ where
     I::Item: Bundle,
 {
     inner: I,
-    spawner: BundleSpawner<'w, 'w>,
+    spawner: BundleSpawner<'w>,
+    caller: MaybeLocation,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     #[inline]
-    pub(crate) fn new(world: &'w mut World, iter: I) -> Self {
+    #[track_caller]
+    pub(crate) fn new(world: &'w mut World, iter: I, caller: MaybeLocation) -> Self {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary
         world.flush();
@@ -33,23 +36,15 @@ where
 
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
-
-        let bundle_info = world
-            .bundles
-            .init_info::<I::Item>(&mut world.components, &mut world.storages);
         world.entities.reserve(length as u32);
-        let mut spawner = bundle_info.get_bundle_spawner(
-            &mut world.entities,
-            &mut world.archetypes,
-            &world.components,
-            &mut world.storages,
-            change_tick,
-        );
+
+        let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
         spawner.reserve_storage(length);
 
         Self {
             inner: iter,
             spawner,
+            caller,
         }
     }
 }
@@ -60,7 +55,11 @@ where
     I::Item: Bundle,
 {
     fn drop(&mut self) {
-        for _ in self {}
+        // Iterate through self in order to spawn remaining bundles.
+        for _ in &mut *self {}
+        // Apply any commands from those operations.
+        // SAFETY: `self.spawner` will be dropped immediately after this call.
+        unsafe { self.spawner.flush_commands() };
     }
 }
 
@@ -74,7 +73,7 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle)) }
+        unsafe { Some(self.spawner.spawn(bundle, self.caller).0) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -93,6 +92,14 @@ where
 }
 
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle,
+{
+}
+
+// SAFETY: Newly spawned entities are unique.
+unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
     T: Bundle,

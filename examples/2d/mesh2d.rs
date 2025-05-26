@@ -1,6 +1,6 @@
-//! Shows how to render a polygonal [`Mesh`], generated from a [`Quad`] primitive, in a 2D scene.
+//! Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D scene.
 
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+use bevy::{color::palettes::basic::PURPLE, prelude::*};
 
 fn main() {
     App::new()
@@ -14,11 +14,11 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-        transform: Transform::default().with_scale(Vec3::splat(128.)),
-        material: materials.add(ColorMaterial::from(Color::PURPLE)),
-        ..default()
-    });
+    commands.spawn(Camera2d);
+
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::default())),
+        MeshMaterial2d(materials.add(Color::from(PURPLE))),
+        Transform::default().with_scale(Vec3::splat(128.)),
+    ));
 }

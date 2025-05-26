@@ -1,0 +1,10 @@
+warning: function `correct_borrowing` is never used
+ --> tests/example_tests/pass_test.rs:4:4
+  |
+4 | fn correct_borrowing() {
+  |    ^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: 1 warning emitted
+

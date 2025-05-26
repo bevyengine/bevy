@@ -9,6 +9,7 @@
 struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
+    scale: vec2<f32>,
     aspect: f32,
 };
 
@@ -50,6 +51,14 @@ fn karis_average(color: vec3<f32>) -> f32 {
 
 // [COD] slide 153
 fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
+#ifdef UNIFORM_SCALE
+    // This is the fast path. When the bloom scale is uniform, the 13 tap sampling kernel can be
+    // expressed with constant offsets.
+    //
+    // It's possible that this isn't meaningfully faster than the "slow" path. However, because it
+    // is hard to test performance on all platforms, and uniform bloom is the most common case, this
+    // path was retained when adding non-uniform (anamorphic) bloom. This adds a small, but nonzero,
+    // cost to maintainability, but it does help me sleep at night.
     let a = textureSample(input_texture, s, uv, vec2<i32>(-2, 2)).rgb;
     let b = textureSample(input_texture, s, uv, vec2<i32>(0, 2)).rgb;
     let c = textureSample(input_texture, s, uv, vec2<i32>(2, 2)).rgb;
@@ -63,6 +72,35 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     let k = textureSample(input_texture, s, uv, vec2<i32>(1, 1)).rgb;
     let l = textureSample(input_texture, s, uv, vec2<i32>(-1, -1)).rgb;
     let m = textureSample(input_texture, s, uv, vec2<i32>(1, -1)).rgb;
+#else
+    // This is the flexible, but potentially slower, path for non-uniform sampling. Because the
+    // sample is not a constant, and it can fall outside of the limits imposed on constant sample
+    // offsets (-8..8), we have to compute the pixel offset in uv coordinates using the size of the
+    // texture.
+    //
+    // It isn't clear if this is meaningfully slower than using the offset syntax, the spec doesn't
+    // mention it anywhere: https://www.w3.org/TR/WGSL/#texturesample, but the fact that the offset
+    // syntax uses a const-expr implies that it allows some compiler optimizations - maybe more
+    // impactful on mobile?
+    let scale = uniforms.scale;
+    let ps = scale / vec2<f32>(textureDimensions(input_texture));
+    let pl = 2.0 * ps;
+    let ns = -1.0 * ps;
+    let nl = -2.0 * ps;
+    let a = textureSample(input_texture, s, uv + vec2<f32>(nl.x, pl.y)).rgb;
+    let b = textureSample(input_texture, s, uv + vec2<f32>(0.00, pl.y)).rgb;
+    let c = textureSample(input_texture, s, uv + vec2<f32>(pl.x, pl.y)).rgb;
+    let d = textureSample(input_texture, s, uv + vec2<f32>(nl.x, 0.00)).rgb;
+    let e = textureSample(input_texture, s, uv).rgb;
+    let f = textureSample(input_texture, s, uv + vec2<f32>(pl.x, 0.00)).rgb;
+    let g = textureSample(input_texture, s, uv + vec2<f32>(nl.x, nl.y)).rgb;
+    let h = textureSample(input_texture, s, uv + vec2<f32>(0.00, nl.y)).rgb;
+    let i = textureSample(input_texture, s, uv + vec2<f32>(pl.x, nl.y)).rgb;
+    let j = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ps.y)).rgb;
+    let k = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ps.y)).rgb;
+    let l = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ns.y)).rgb;
+    let m = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ns.y)).rgb;
+#endif
 
 #ifdef FIRST_DOWNSAMPLE
     // [COD] slide 168
@@ -94,9 +132,11 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 
 // [COD] slide 162
 fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
-    // Radius. Empirically chosen by and tweaked from the LearnOpenGL article.
-    let x = 0.004 / uniforms.aspect;
-    let y = 0.004;
+    // While this is probably technically incorrect, it makes nonuniform bloom smoother, without
+    // having any impact on uniform bloom, which simply evaluates to 1.0 here.
+    let frag_size = uniforms.scale / vec2<f32>(textureDimensions(input_texture));
+    let x = frag_size.x;
+    let y = frag_size.y;
 
     let a = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y + y)).rgb;
     let b = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y + y)).rgb;

@@ -1,7 +1,11 @@
-use bevy::prelude::*;
+//! An example that illustrates how Time is handled in ECS.
 
-use std::io::{self, BufRead};
-use std::time::Duration;
+use bevy::{app::AppExit, prelude::*};
+
+use std::{
+    io::{self, BufRead},
+    time::Duration,
+};
 
 fn banner() {
     println!("This example is meant to intuitively demonstrate how Time works in Bevy.");
@@ -28,13 +32,13 @@ fn help() {
     println!("  u: Unpause");
 }
 
-fn runner(mut app: App) {
+fn runner(mut app: App) -> AppExit {
     banner();
     help();
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         if let Err(err) = line {
-            println!("read err: {:#}", err);
+            println!("read err: {err:#}");
             break;
         }
         match line.unwrap().as_str() {
@@ -43,29 +47,29 @@ fn runner(mut app: App) {
             }
             "f" => {
                 println!("FAST: setting relative speed to 2x");
-                app.world
+                app.world_mut()
                     .resource_mut::<Time<Virtual>>()
                     .set_relative_speed(2.0);
             }
             "n" => {
                 println!("NORMAL: setting relative speed to 1x");
-                app.world
+                app.world_mut()
                     .resource_mut::<Time<Virtual>>()
                     .set_relative_speed(1.0);
             }
             "s" => {
                 println!("SLOW: setting relative speed to 0.5x");
-                app.world
+                app.world_mut()
                     .resource_mut::<Time<Virtual>>()
                     .set_relative_speed(0.5);
             }
             "p" => {
                 println!("PAUSE: pausing virtual clock");
-                app.world.resource_mut::<Time<Virtual>>().pause();
+                app.world_mut().resource_mut::<Time<Virtual>>().pause();
             }
             "u" => {
                 println!("UNPAUSE: resuming virtual clock");
-                app.world.resource_mut::<Time<Virtual>>().unpause();
+                app.world_mut().resource_mut::<Time<Virtual>>().unpause();
             }
             "q" => {
                 println!("QUITTING!");
@@ -76,6 +80,8 @@ fn runner(mut app: App) {
             }
         }
     }
+
+    AppExit::Success
 }
 
 fn print_real_time(time: Res<Time<Real>>) {

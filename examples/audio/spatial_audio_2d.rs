@@ -1,8 +1,9 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
 use bevy::{
     audio::{AudioPlugin, SpatialScale},
+    color::palettes::css::*,
     prelude::*,
-    sprite::MaterialMesh2dBundle,
+    time::Stopwatch,
 };
 
 /// Spatial audio uses the distance to attenuate the sound volume. In 2D with the default camera,
@@ -13,7 +14,7 @@ const AUDIO_SCALE: f32 = 1. / 100.0;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(AudioPlugin {
-            spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
+            default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
             ..default()
         }))
         .add_systems(Startup, setup)
@@ -33,107 +34,92 @@ fn setup(
 
     // sound emitter
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::new(15.0).into()).into(),
-            material: materials.add(ColorMaterial::from(Color::BLUE)),
-            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
-            ..default()
-        },
+        Mesh2d(meshes.add(Circle::new(15.0))),
+        MeshMaterial2d(materials.add(Color::from(BLUE))),
+        Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
         Emitter::default(),
-        AudioBundle {
-            source: asset_server.load("sounds/Windless Slopes.ogg"),
-            settings: PlaybackSettings::LOOP.with_spatial(true),
-        },
+        AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
+        PlaybackSettings::LOOP.with_spatial(true),
     ));
 
     let listener = SpatialListener::new(gap);
-    commands
-        .spawn((SpatialBundle::default(), listener.clone()))
-        .with_children(|parent| {
+    commands.spawn((
+        Transform::default(),
+        Visibility::default(),
+        listener.clone(),
+        children![
             // left ear
-            parent.spawn(SpriteBundle {
-                sprite: Sprite {
-                    color: Color::RED,
-                    custom_size: Some(Vec2::splat(20.0)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
-                ..default()
-            });
-
+            (
+                Sprite::from_color(RED, Vec2::splat(20.0)),
+                Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
+            ),
             // right ear
-            parent.spawn(SpriteBundle {
-                sprite: Sprite {
-                    color: Color::GREEN,
-                    custom_size: Some(Vec2::splat(20.0)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(gap / 2.0, 0.0, 0.0),
-                ..default()
-            });
-        });
+            (
+                Sprite::from_color(LIME, Vec2::splat(20.0)),
+                Transform::from_xyz(gap / 2.0, 0.0, 0.0),
+            )
+        ],
+    ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section(
-            "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement"),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 #[derive(Component, Default)]
 struct Emitter {
-    stopped: bool,
+    stopwatch: Stopwatch,
 }
 
 fn update_emitters(
     time: Res<Time>,
     mut emitters: Query<(&mut Transform, &mut Emitter), With<Emitter>>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
-            emitter.stopped = !emitter.stopped;
+            if emitter.stopwatch.is_paused() {
+                emitter.stopwatch.unpause();
+            } else {
+                emitter.stopwatch.pause();
+            }
         }
 
-        if !emitter.stopped {
-            emitter_transform.translation.x = time.elapsed_seconds().sin() * 500.0;
+        emitter.stopwatch.tick(time.delta());
+
+        if !emitter.stopwatch.is_paused() {
+            emitter_transform.translation.x = ops::sin(emitter.stopwatch.elapsed_secs()) * 500.0;
         }
     }
 }
 
 fn update_listener(
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut listeners: Query<&mut Transform, With<SpatialListener>>,
+    mut listener: Single<&mut Transform, With<SpatialListener>>,
 ) {
-    let mut transform = listeners.single_mut();
-
     let speed = 200.;
 
-    if keyboard.pressed(KeyCode::Right) {
-        transform.translation.x += speed * time.delta_seconds();
+    if keyboard.pressed(KeyCode::ArrowRight) {
+        listener.translation.x += speed * time.delta_secs();
     }
-    if keyboard.pressed(KeyCode::Left) {
-        transform.translation.x -= speed * time.delta_seconds();
+    if keyboard.pressed(KeyCode::ArrowLeft) {
+        listener.translation.x -= speed * time.delta_secs();
     }
-    if keyboard.pressed(KeyCode::Up) {
-        transform.translation.y += speed * time.delta_seconds();
+    if keyboard.pressed(KeyCode::ArrowUp) {
+        listener.translation.y += speed * time.delta_secs();
     }
-    if keyboard.pressed(KeyCode::Down) {
-        transform.translation.y -= speed * time.delta_seconds();
+    if keyboard.pressed(KeyCode::ArrowDown) {
+        listener.translation.y -= speed * time.delta_secs();
     }
 }

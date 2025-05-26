@@ -1,12 +1,19 @@
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
-use std::panic::AssertUnwindSafe;
+
+#[cfg(feature = "trace")]
+use tracing::info_span;
+
+#[cfg(feature = "std")]
+use std::eprintln;
 
 use crate::{
+    error::{ErrorContext, ErrorHandler},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
+
+use super::__rust_begin_short_backtrace;
 
 /// Runs the schedule using a single thread.
 ///
@@ -29,10 +36,6 @@ impl SystemExecutor for SingleThreadedExecutor {
         ExecutorKind::SingleThreaded
     }
 
-    fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) {
-        self.apply_final_deferred = apply_final_deferred;
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
@@ -42,7 +45,21 @@ impl SystemExecutor for SingleThreadedExecutor {
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
     }
 
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
+        error_handler: ErrorHandler,
+    ) {
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        #[cfg(feature = "bevy_debug_stepping")]
+        if let Some(skipped_systems) = _skip_systems {
+            // mark skipped systems as completed
+            self.completed_systems |= skipped_systems;
+        }
+
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
@@ -56,8 +73,11 @@ impl SystemExecutor for SingleThreadedExecutor {
                 }
 
                 // evaluate system set's conditions
-                let set_conditions_met =
-                    evaluate_and_fold_conditions(&mut schedule.set_conditions[set_idx], world);
+                let set_conditions_met = evaluate_and_fold_conditions(
+                    &mut schedule.set_conditions[set_idx],
+                    world,
+                    error_handler,
+                );
 
                 if !set_conditions_met {
                     self.completed_systems
@@ -69,10 +89,34 @@ impl SystemExecutor for SingleThreadedExecutor {
             }
 
             // evaluate system's conditions
-            let system_conditions_met =
-                evaluate_and_fold_conditions(&mut schedule.system_conditions[system_index], world);
+            let system_conditions_met = evaluate_and_fold_conditions(
+                &mut schedule.system_conditions[system_index],
+                world,
+                error_handler,
+            );
 
             should_run &= system_conditions_met;
+
+            let system = &mut schedule.systems[system_index];
+            if should_run {
+                let valid_params = match system.validate_param(world) {
+                    Ok(()) => true,
+                    Err(e) => {
+                        if !e.skipped {
+                            error_handler(
+                                e.into(),
+                                ErrorContext::System {
+                                    name: system.name(),
+                                    last_run: system.get_last_run(),
+                                },
+                            );
+                        }
+                        false
+                    }
+                };
+
+                should_run &= valid_params;
+            }
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
@@ -84,19 +128,40 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
                 self.apply_deferred(schedule, world);
-            } else {
-                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    system.run((), world);
-                }));
-                if let Err(payload) = res {
+                continue;
+            }
+
+            let f = AssertUnwindSafe(|| {
+                if let Err(err) =
+                    __rust_begin_short_backtrace::run_without_applying_deferred(system, world)
+                {
+                    error_handler(
+                        err,
+                        ErrorContext::System {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
+                    );
+                }
+            });
+
+            #[cfg(feature = "std")]
+            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+            {
+                if let Err(payload) = std::panic::catch_unwind(f) {
                     eprintln!("Encountered a panic in system `{}`!", &*system.name());
                     std::panic::resume_unwind(payload);
                 }
-                self.unapplied_systems.insert(system_index);
             }
+
+            #[cfg(not(feature = "std"))]
+            {
+                (f)();
+            }
+
+            self.unapplied_systems.insert(system_index);
         }
 
         if self.apply_final_deferred {
@@ -104,6 +169,10 @@ impl SystemExecutor for SingleThreadedExecutor {
         }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
+    }
+
+    fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) {
+        self.apply_final_deferred = apply_final_deferred;
     }
 }
 
@@ -130,11 +199,34 @@ impl SingleThreadedExecutor {
     }
 }
 
-fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+fn evaluate_and_fold_conditions(
+    conditions: &mut [BoxedCondition],
+    world: &mut World,
+    error_handler: ErrorHandler,
+) -> bool {
+    #[expect(
+        clippy::unnecessary_fold,
+        reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
+    )]
     conditions
         .iter_mut()
-        .map(|condition| condition.run((), world))
+        .map(|condition| {
+            match condition.validate_param(world) {
+                Ok(()) => (),
+                Err(e) => {
+                    if !e.skipped {
+                        error_handler(
+                            e.into(),
+                            ErrorContext::System {
+                                name: condition.name(),
+                                last_run: condition.get_last_run(),
+                            },
+                        );
+                    }
+                    return false;
+                }
+            }
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
+        })
         .fold(true, |acc, res| acc && res)
 }

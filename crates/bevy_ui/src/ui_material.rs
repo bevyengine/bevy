@@ -1,9 +1,16 @@
-use std::hash::Hash;
+use crate::Node;
+use bevy_asset::{Asset, AssetId, Handle};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::{
+    extract_component::ExtractComponent,
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+};
+use core::hash::Hash;
+use derive_more::derive::From;
 
-use bevy_asset::Asset;
-use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
-
-/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPipeline) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
+/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
 /// way to render `Node` entities with custom shader logic.
 ///
@@ -23,8 +30,10 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// ```
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_render::render_resource::{AsBindGroup, ShaderRef};
+/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
 /// #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
@@ -32,7 +41,7 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
 ///     // add the sampler attribute with a different binding index.
 ///     #[texture(1)]
@@ -50,24 +59,24 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 ///
 /// // Spawn an entity using `CustomMaterial`.
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn(MaterialNodeBundle {
-///         style: Style {
+///     commands.spawn((
+///         MaterialNode(materials.add(CustomMaterial {
+///             color: LinearRgba::RED,
+///             color_texture: asset_server.load("some_image.png"),
+///         })),
+///         Node {
 ///             width: Val::Percent(100.0),
 ///             ..Default::default()
 ///         },
-///         material: materials.add(CustomMaterial {
-///             color: Color::RED,
-///             color_texture: asset_server.load("some_image.png"),
-///         }),
-///         ..Default::default()
-///     });
+///     ));
 /// }
 /// ```
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// If you only use the fragment shader make sure to import `UiVertexOutput` from
 /// `bevy_ui::ui_vertex_output` in your wgsl shader.
-/// Also note that bind group 0 is always bound to the [`View Uniform`](bevy_render::view::ViewUniform).
+/// Also note that bind group 0 is always bound to the [`View Uniform`](bevy_render::view::ViewUniform)
+/// and the [`Globals Uniform`](bevy_render::globals::GlobalsUniform).
 ///
 /// ```wgsl
 /// #import bevy_ui::ui_vertex_output UiVertexOutput
@@ -101,7 +110,10 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     #[inline]
     fn specialize(descriptor: &mut RenderPipelineDescriptor, key: UiMaterialKey<Self>) {}
 }
@@ -138,8 +150,33 @@ impl<M: UiMaterial> Hash for UiMaterialKey<M>
 where
     M::Data: Hash,
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.hdr.hash(state);
         self.bind_group_data.hash(state);
+    }
+}
+
+#[derive(
+    Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, ExtractComponent, From,
+)]
+#[reflect(Component, Default)]
+#[require(Node)]
+pub struct MaterialNode<M: UiMaterial>(pub Handle<M>);
+
+impl<M: UiMaterial> Default for MaterialNode<M> {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
+
+impl<M: UiMaterial> From<MaterialNode<M>> for AssetId<M> {
+    fn from(material: MaterialNode<M>) -> Self {
+        material.id()
+    }
+}
+
+impl<M: UiMaterial> From<&MaterialNode<M>> for AssetId<M> {
+    fn from(material: &MaterialNode<M>) -> Self {
+        material.id()
     }
 }

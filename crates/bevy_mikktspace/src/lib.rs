@@ -1,5 +1,27 @@
-#![allow(clippy::type_complexity)]
-#![allow(clippy::all)]
+#![allow(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "Much of the code here is still code that's been transpiled from C; we want to save 'fixing' this crate until after it's ported to safe rust."
+)]
+#![allow(
+    unsafe_op_in_unsafe_fn,
+    clippy::all,
+    clippy::undocumented_unsafe_blocks,
+    clippy::ptr_cast_constness,
+    // FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+    missing_docs
+)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
 
 use glam::{Vec2, Vec3};
 
@@ -56,6 +78,7 @@ pub trait Geometry {
 ///
 /// Returns `false` if the geometry is unsuitable for tangent generation including,
 /// but not limited to, lack of vertices.
+#[allow(unsafe_code)]
 pub fn generate_tangents<I: Geometry>(geometry: &mut I) -> bool {
     unsafe { generated::genTangSpace(geometry, 180.0) }
 }

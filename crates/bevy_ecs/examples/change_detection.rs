@@ -1,14 +1,21 @@
+//! In this example we will simulate a population of entities. In every tick we will:
+//! 1. spawn a new entity with a certain possibility
+//! 2. age all entities
+//! 3. despawn entities with age > 2
+//!
+//! To demonstrate change detection, there are some console outputs based on changes in
+//! the `EntityCounter` resource and updated Age components
+
+#![expect(
+    clippy::std_instead_of_core,
+    clippy::print_stdout,
+    reason = "Examples should not follow this lint"
+)]
+
 use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;
 
-// In this example we will simulate a population of entities. In every tick we will:
-// 1. spawn a new entity with a certain possibility
-// 2. age all entities
-// 3. despawn entities with age > 2
-//
-// To demonstrate change detection, there are some console outputs based on changes in
-// the EntityCounter resource and updated Age components
 fn main() {
     // Create a new empty World to hold our Entities, Components and Resources
     let mut world = World::new();
@@ -22,11 +29,11 @@ fn main() {
     // Add systems to the Schedule to execute our app logic
     // We can label our systems to force a specific run-order between some of them
     schedule.add_systems((
-        spawn_entities.in_set(SimulationSet::Spawn),
-        print_counter_when_changed.after(SimulationSet::Spawn),
-        age_all_entities.in_set(SimulationSet::Age),
-        remove_old_entities.after(SimulationSet::Age),
-        print_changed_entities.after(SimulationSet::Age),
+        spawn_entities.in_set(SimulationSystems::Spawn),
+        print_counter_when_changed.after(SimulationSystems::Spawn),
+        age_all_entities.in_set(SimulationSystems::Age),
+        remove_old_entities.after(SimulationSystems::Age),
+        print_changed_entities.after(SimulationSystems::Age),
     ));
 
     // Simulate 10 frames in our world
@@ -50,7 +57,7 @@ struct Age {
 
 // System sets can be used to group systems and configured to control relative ordering
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-enum SimulationSet {
+enum SimulationSystems {
     Spawn,
     Age,
 }
@@ -77,10 +84,10 @@ fn print_changed_entities(
     entity_with_mutated_component: Query<(Entity, &Age), Changed<Age>>,
 ) {
     for entity in &entity_with_added_component {
-        println!("    {entity:?} has it's first birthday!");
+        println!("    {entity} has it's first birthday!");
     }
     for (entity, value) in &entity_with_mutated_component {
-        println!("    {entity:?} is now {value:?} frames old");
+        println!("    {entity} is now {value:?} frames old");
     }
 }
 
@@ -95,7 +102,7 @@ fn age_all_entities(mut entities: Query<&mut Age>) {
 fn remove_old_entities(mut commands: Commands, entities: Query<(Entity, &Age)>) {
     for (entity, age) in &entities {
         if age.frames > 2 {
-            println!("    despawning {entity:?} due to age > 2");
+            println!("    despawning {entity} due to age > 2");
             commands.entity(entity).despawn();
         }
     }

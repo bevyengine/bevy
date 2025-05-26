@@ -1,8 +1,9 @@
-use std::{cmp::Ordering, fs::File};
+use core::cmp::Ordering;
+use std::fs::File;
 
 use serde::Serialize;
 use tera::{Context, Tera};
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 
 use crate::Command;
 
@@ -27,7 +28,7 @@ impl PartialOrd for Feature {
 
 fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
     let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
 
     let features = manifest["features"].as_table().unwrap();
     let default: Vec<_> = features
@@ -37,7 +38,7 @@ fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
         .unwrap()
         .iter()
         .flat_map(|v| {
-            std::iter::once(v.as_str().unwrap().to_string()).chain(
+            core::iter::once(v.as_str().unwrap().to_string()).chain(
                 features
                     .get(v.as_str().unwrap())
                     .unwrap()
@@ -65,7 +66,7 @@ fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
                     .as_str()
                     .unwrap()
                     .to_string();
-                if let Some(description) = key.decor().prefix() {
+                if let Some(description) = key.leaf_decor().prefix() {
                     let description = description.as_str().unwrap().to_string();
                     if !description.starts_with("\n# ") || !description.ends_with('\n') {
                         panic!("Missing description for feature {name}");
