@@ -30,8 +30,8 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
         self.0.name()
     }
 
-    fn type_id(&self) -> core::any::TypeId {
-        self.0.type_id()
+    fn system_type(&self) -> core::any::TypeId {
+        self.0.system_type()
     }
 
     #[inline]
