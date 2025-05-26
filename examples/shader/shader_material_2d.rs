@@ -37,7 +37,7 @@ fn setup(
             color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
         })),
-        Transform::default().with_scale(Vec3::splat(128.)),
+        Transform3d::default().with_scale(Vec3::splat(128.)),
     ));
 }
 

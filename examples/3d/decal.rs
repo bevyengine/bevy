@@ -39,7 +39,7 @@ fn setup(
                 depth_fade_factor: 1.0,
             },
         })),
-        Transform::from_scale(Vec3::splat(4.0)),
+        Transform3d::from_scale(Vec3::splat(4.0)),
     ));
 
     commands.spawn((
@@ -47,7 +47,7 @@ fn setup(
         Camera3d::default(),
         CameraController::default(),
         DepthPrepass, // Must enable the depth prepass to render forward decals
-        Transform::from_xyz(2.0, 9.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(2.0, 9.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     let white_material = standard_materials.add(Color::WHITE);
@@ -56,7 +56,7 @@ fn setup(
         Name::new("Floor"),
         Mesh3d(meshes.add(Rectangle::from_length(10.0))),
         MeshMaterial3d(white_material.clone()),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        Transform3d::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 
     // Spawn a few cube with random rotations to showcase how the decals behave with non-flat geometry
@@ -67,7 +67,7 @@ fn setup(
             let rotation_axis: [f32; 3] = rng.r#gen();
             let rotation_vec: Vec3 = rotation_axis.into();
             let rotation: u32 = rng.gen_range(0..360);
-            let transform = Transform::from_xyz(
+            let transform = Transform3d::from_xyz(
                 (-num_obs + 1) as f32 / 2.0 + i as f32,
                 -0.2,
                 (-num_obs + 1) as f32 / 2.0 + j as f32,
@@ -91,6 +91,6 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
     ));
 }

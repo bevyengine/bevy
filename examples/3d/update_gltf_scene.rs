@@ -17,7 +17,7 @@ struct MovedScene;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         DirectionalLight {
             shadows_enabled: true,
             ..default()
@@ -25,7 +25,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-0.5, 0.9, 1.5).looking_at(Vec3::new(-0.5, 0.3, 0.0), Vec3::Y),
+        Transform3d::from_xyz(-0.5, 0.9, 1.5).looking_at(Vec3::new(-0.5, 0.3, 0.0), Vec3::Y),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn the scene as a child of this entity at the given transform
     commands.spawn((
-        Transform::from_xyz(-1.0, 0.0, 0.0),
+        Transform3d::from_xyz(-1.0, 0.0, 0.0),
         SceneRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
@@ -58,7 +58,7 @@ fn move_scene_entities(
     time: Res<Time>,
     moved_scene: Query<Entity, With<MovedScene>>,
     children: Query<&Children>,
-    mut transforms: Query<&mut Transform>,
+    mut transforms: Query<&mut Transform3d>,
 ) {
     for moved_scene_entity in &moved_scene {
         let mut offset = 0.;

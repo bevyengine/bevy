@@ -77,7 +77,7 @@ fn setup(
     commands.spawn((
         Mesh3d(cube_mesh.clone()),
         MeshMaterial3d(materials.add(StandardMaterial::default())),
-        Transform::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
+        Transform3d::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             1.4,
             3.7,
@@ -94,7 +94,7 @@ fn setup(
     commands.spawn((
         Mesh3d(cube_mesh),
         MeshMaterial3d(materials.add(StandardMaterial::default())),
-        Transform::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
+        Transform3d::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             0.4,
             2.3,
@@ -117,7 +117,7 @@ fn setup(
             thickness: 0.2,
             ..default()
         })),
-        Transform::from_xyz(-1.0, 0.0, 0.0),
+        Transform3d::from_xyz(-1.0, 0.0, 0.0),
         ExampleControls {
             color: true,
             specular_transmission: false,
@@ -142,7 +142,7 @@ fn setup(
             diffuse_transmission: 1.0,
             ..default()
         })),
-        Transform::from_xyz(-1.0, 1.15, 0.0).with_scale(Vec3::new(0.1, 0.2, 0.1)),
+        Transform3d::from_xyz(-1.0, 1.15, 0.0).with_scale(Vec3::new(0.1, 0.2, 0.1)),
         Flicker,
         NotShadowCaster,
     ));
@@ -159,7 +159,7 @@ fn setup(
             perceptual_roughness: 0.12,
             ..default()
         })),
-        Transform::from_xyz(1.0, 0.0, 0.0),
+        Transform3d::from_xyz(1.0, 0.0, 0.0),
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -179,7 +179,7 @@ fn setup(
             perceptual_roughness: 0.12,
             ..default()
         })),
-        Transform::from_xyz(1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
+        Transform3d::from_xyz(1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -199,7 +199,7 @@ fn setup(
             perceptual_roughness: 0.12,
             ..default()
         })),
-        Transform::from_xyz(0.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
+        Transform3d::from_xyz(0.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -219,7 +219,7 @@ fn setup(
             perceptual_roughness: 0.12,
             ..default()
         })),
-        Transform::from_xyz(-1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
+        Transform3d::from_xyz(-1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
         ExampleControls {
             color: true,
             specular_transmission: true,
@@ -251,7 +251,7 @@ fn setup(
                 } else {
                     white_material.clone()
                 }),
-                Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
+                Transform3d::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
                 ExampleControls {
                     color: true,
                     specular_transmission: false,
@@ -273,7 +273,7 @@ fn setup(
             cull_mode: None,
             ..default()
         })),
-        Transform::from_xyz(0.0, 0.5, -3.0)
+        Transform3d::from_xyz(0.0, 0.5, -3.0)
             .with_scale(Vec3::new(2.0, 1.0, 1.0))
             .with_rotation(Quat::from_euler(EulerRot::XYZ, PI / 2.0, 0.0, 0.0)),
         TransmittedShadowReceiver,
@@ -286,7 +286,7 @@ fn setup(
 
     // Candle Light
     commands.spawn((
-        Transform::from_xyz(-1.0, 1.7, 0.0),
+        Transform3d::from_xyz(-1.0, 1.7, 0.0),
         PointLight {
             color: Color::from(
                 LinearRgba::from(ANTIQUE_WHITE).mix(&LinearRgba::from(ORANGE_RED), 0.2),
@@ -303,7 +303,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
         ColorGrading {
             global: ColorGradingGlobal {
                 post_saturation: 1.2,
@@ -384,7 +384,7 @@ fn example_control_system(
         (
             Entity,
             &mut Camera3d,
-            &mut Transform,
+            &mut Transform3d,
             Option<&DepthPrepass>,
             Option<&TemporalJitter>,
             Has<Hdr>,
@@ -592,8 +592,8 @@ fn example_control_system(
 }
 
 fn flicker_system(
-    mut flame: Single<&mut Transform, (With<Flicker>, With<Mesh3d>)>,
-    light: Single<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
+    mut flame: Single<&mut Transform3d, (With<Flicker>, With<Mesh3d>)>,
+    light: Single<(&mut PointLight, &mut Transform3d), (With<Flicker>, Without<Mesh3d>)>,
     time: Res<Time>,
 ) {
     let s = time.elapsed_secs();

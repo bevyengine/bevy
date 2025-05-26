@@ -83,7 +83,7 @@ fn setup(
         commands.spawn((
             Mesh3d(shape),
             MeshMaterial3d(debug_material.clone()),
-            Transform::from_xyz(
+            Transform3d::from_xyz(
                 -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
                 2.0,
                 Z_EXTENT / 2.,
@@ -99,7 +99,7 @@ fn setup(
         commands.spawn((
             Mesh3d(shape),
             MeshMaterial3d(debug_material.clone()),
-            Transform::from_xyz(
+            Transform3d::from_xyz(
                 -EXTRUSION_X_EXTENT / 2.
                     + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
                 2.0,
@@ -118,7 +118,7 @@ fn setup(
             shadow_depth_bias: 0.2,
             ..default()
         },
-        Transform::from_xyz(8.0, 16.0, 8.0),
+        Transform3d::from_xyz(8.0, 16.0, 8.0),
     ));
 
     // ground plane
@@ -129,7 +129,7 @@ fn setup(
 
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        Transform3d::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
     ));
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -144,7 +144,7 @@ fn setup(
     ));
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
+fn rotate(mut query: Query<&mut Transform3d, With<Shape>>, time: Res<Time>) {
     for mut transform in &mut query {
         transform.rotate_y(time.delta_secs() / 2.);
     }

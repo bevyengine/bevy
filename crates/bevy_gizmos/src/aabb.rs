@@ -13,7 +13,7 @@ use bevy_ecs::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::primitives::Aabb;
 use bevy_transform::{
-    components::{GlobalTransform, Transform},
+    components::{GlobalTransform, Transform3d},
     TransformSystems,
 };
 
@@ -104,7 +104,7 @@ fn color_from_entity(entity: Entity) -> Color {
 fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
     transform
         * GlobalTransform::from(
-            Transform::from_translation(aabb.center.into())
+            Transform3d::from_translation(aabb.center.into())
                 .with_scale((aabb.half_extents * 2.).into()),
         )
 }

@@ -85,7 +85,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     commands.spawn((

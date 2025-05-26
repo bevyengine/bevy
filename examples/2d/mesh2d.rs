@@ -19,6 +19,6 @@ fn setup(
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::default())),
         MeshMaterial2d(materials.add(Color::from(PURPLE))),
-        Transform::default().with_scale(Vec3::splat(128.)),
+        Transform3d::default().with_scale(Vec3::splat(128.)),
     ));
 }

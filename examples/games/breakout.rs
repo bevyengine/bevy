@@ -9,7 +9,7 @@ use bevy::{
 
 mod stepping;
 
-// These constants are defined in `Transform` units.
+// These constants are defined in `Transform3d` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
 const PADDLE_SIZE: Vec2 = Vec2::new(120.0, 20.0);
 const GAP_BETWEEN_PADDLE_AND_FLOOR: f32 = 60.0;
@@ -104,7 +104,7 @@ struct Collider;
 
 // This is a collection of the components that define a "Wall" in our game
 #[derive(Component)]
-#[require(Sprite, Transform, Collider)]
+#[require(Sprite, Transform3d, Collider)]
 struct Wall;
 
 /// Which side of the arena is this wall located on?
@@ -149,11 +149,11 @@ impl Wall {
     // This "builder method" allows us to reuse logic across our wall entities,
     // making our code easier to read and less prone to bugs when we change the logic
     // Notice the use of Sprite and Transform alongside Wall, overwriting the default values defined for the required components
-    fn new(location: WallLocation) -> (Wall, Sprite, Transform) {
+    fn new(location: WallLocation) -> (Wall, Sprite, Transform3d) {
         (
             Wall,
             Sprite::from_color(WALL_COLOR, Vec2::ONE),
-            Transform {
+            Transform3d {
                 // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
                 // This is used to determine the order of our sprites
                 translation: location.position().extend(0.0),
@@ -193,7 +193,7 @@ fn setup(
 
     commands.spawn((
         Sprite::from_color(PADDLE_COLOR, Vec2::ONE),
-        Transform {
+        Transform3d {
             translation: Vec3::new(0.0, paddle_y, 0.0),
             scale: PADDLE_SIZE.extend(1.0),
             ..default()
@@ -206,7 +206,7 @@ fn setup(
     commands.spawn((
         Mesh2d(meshes.add(Circle::default())),
         MeshMaterial2d(materials.add(BALL_COLOR)),
-        Transform::from_translation(BALL_STARTING_POSITION)
+        Transform3d::from_translation(BALL_STARTING_POSITION)
             .with_scale(Vec2::splat(BALL_DIAMETER).extend(1.)),
         Ball,
         Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED),
@@ -283,7 +283,7 @@ fn setup(
                     color: BRICK_COLOR,
                     ..default()
                 },
-                Transform {
+                Transform3d {
                     translation: brick_position.extend(0.0),
                     scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
                     ..default()
@@ -297,7 +297,7 @@ fn setup(
 
 fn move_paddle(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut paddle_transform: Single<&mut Transform, With<Paddle>>,
+    mut paddle_transform: Single<&mut Transform3d, With<Paddle>>,
     time: Res<Time>,
 ) {
     let mut direction = 0.0;
@@ -322,7 +322,7 @@ fn move_paddle(
     paddle_transform.translation.x = new_paddle_position.clamp(left_bound, right_bound);
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
+fn apply_velocity(mut query: Query<(&mut Transform3d, &Velocity)>, time: Res<Time>) {
     for (mut transform, velocity) in &mut query {
         transform.translation.x += velocity.x * time.delta_secs();
         transform.translation.y += velocity.y * time.delta_secs();
@@ -340,8 +340,8 @@ fn update_scoreboard(
 fn check_for_collisions(
     mut commands: Commands,
     mut score: ResMut<Score>,
-    ball_query: Single<(&mut Velocity, &Transform), With<Ball>>,
-    collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
+    ball_query: Single<(&mut Velocity, &Transform3d), With<Ball>>,
+    collider_query: Query<(Entity, &Transform3d, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.into_inner();

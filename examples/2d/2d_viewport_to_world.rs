@@ -53,7 +53,7 @@ fn draw_cursor(
 }
 
 fn controls(
-    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>,
+    mut camera_query: Query<(&mut Camera, &mut Transform3d, &mut Projection)>,
     window: Query<&Window>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time<Fixed>>,
@@ -183,6 +183,6 @@ fn setup(
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(50000.0, 50000.0))),
         MeshMaterial2d(materials.add(Color::linear_rgb(0.01, 0.01, 0.01))),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -200.0)),
+        Transform3d::from_translation(Vec3::new(0.0, 0.0, -200.0)),
     ));
 }

@@ -43,27 +43,27 @@ fn setup(
             },
             extension: MyExtension { quantize_steps: 3 },
         })),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
     ));
 
     // light
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         Rotate,
     ));
 
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
 #[derive(Component)]
 struct Rotate;
 
-fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
+fn rotate_things(mut q: Query<&mut Transform3d, With<Rotate>>, time: Res<Time>) {
     for mut t in &mut q {
         t.rotate_y(time.delta_secs());
     }

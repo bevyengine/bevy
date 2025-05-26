@@ -156,7 +156,7 @@ fn setup(
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
             .spawn((
-                Transform::default(),
+                Transform3d::default(),
                 Visibility::default(),
                 ring_direction,
                 Ring { radius },
@@ -175,7 +175,7 @@ fn setup(
             commands.entity(ring_parent).with_children(|builder| {
                 builder.spawn((
                     SceneRoot(fox_handle.clone()),
-                    Transform::from_xyz(x, 0.0, z)
+                    Transform3d::from_xyz(x, 0.0, z)
                         .with_scale(Vec3::splat(0.01))
                         .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
                 ));
@@ -196,7 +196,7 @@ fn setup(
     );
     commands.spawn((
         Camera3d::default(),
-        Transform::from_translation(translation)
+        Transform3d::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
     ));
 
@@ -208,7 +208,7 @@ fn setup(
 
     // Light
     commands.spawn((
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
             shadows_enabled: true,
             ..default()
@@ -255,7 +255,7 @@ fn setup_scene_once_loaded(
 fn update_fox_rings(
     time: Res<Time>,
     foxes: Res<Foxes>,
-    mut rings: Query<(&Ring, &RotationDirection, &mut Transform)>,
+    mut rings: Query<(&Ring, &RotationDirection, &mut Transform3d)>,
 ) {
     if !foxes.moving {
         return;

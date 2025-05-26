@@ -54,10 +54,10 @@ fn setup(
             texture: Some(image_with_default_sampler.clone()),
             ..default()
         })),
-        Transform::from_translation(Vec3::ZERO),
+        Transform3d::from_translation(Vec3::ZERO),
         children![(
             Text2d::new("Control"),
-            Transform::from_xyz(0., LABEL_OFFSET, 0.),
+            Transform3d::from_xyz(0., LABEL_OFFSET, 0.),
         )],
     ));
 
@@ -71,10 +71,10 @@ fn setup(
             uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
             ..default()
         })),
-        Transform::from_xyz(-RECTANGLE_OFFSET, 0.0, 0.0),
+        Transform3d::from_xyz(-RECTANGLE_OFFSET, 0.0, 0.0),
         children![(
             Text2d::new("Repeat On"),
-            Transform::from_xyz(0., LABEL_OFFSET, 0.),
+            Transform3d::from_xyz(0., LABEL_OFFSET, 0.),
         )],
     ));
 
@@ -92,16 +92,16 @@ fn setup(
             uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
             ..default()
         })),
-        Transform::from_xyz(RECTANGLE_OFFSET, 0.0, 0.0),
+        Transform3d::from_xyz(RECTANGLE_OFFSET, 0.0, 0.0),
         children![(
             Text2d::new("Repeat Off"),
-            Transform::from_xyz(0., LABEL_OFFSET, 0.),
+            Transform3d::from_xyz(0., LABEL_OFFSET, 0.),
         )],
     ));
 
     // camera
     commands.spawn((
         Camera2d,
-        Transform::default().looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::default().looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }

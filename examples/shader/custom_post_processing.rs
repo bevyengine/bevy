@@ -315,7 +315,8 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
+        Transform3d::from_translation(Vec3::new(0.0, 0.0, 5.0))
+            .looking_at(Vec3::default(), Vec3::Y),
         Camera {
             clear_color: Color::WHITE.into(),
             ..default()
@@ -332,7 +333,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
         Rotates,
     ));
     // light
@@ -346,7 +347,7 @@ fn setup(
 struct Rotates;
 
 /// Rotates any entity around the x and y axis
-fn rotate(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
+fn rotate(time: Res<Time>, mut query: Query<&mut Transform3d, With<Rotates>>) {
     for mut transform in &mut query {
         transform.rotate_x(0.55 * time.delta_secs());
         transform.rotate_z(0.15 * time.delta_secs());

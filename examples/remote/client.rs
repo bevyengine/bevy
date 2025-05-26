@@ -20,7 +20,7 @@ use bevy::remote::{
 /// and `port` can be left as their defaults.
 ///
 /// For example, to connect to port 1337 on the default IP address and query for entities
-/// with `Transform` components:
+/// with `Transform3d` components:
 /// ```text
 /// cargo run --example client -- --port 1337 bevy_transform::components::transform::Transform
 /// ```

@@ -44,7 +44,7 @@ fn setup(
     });
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
-    let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
+    let light_transform = Transform3d::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
     commands
         .spawn((light_transform, Visibility::default(), Lights))
         .with_children(|builder| {
@@ -64,7 +64,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-1.0, 1.0, 1.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
+        Transform3d::from_xyz(-1.0, 1.0, 1.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
         CameraController::default(),
         ShadowFilteringMethod::Hardware2x2,
     ));
@@ -73,7 +73,7 @@ fn setup(
         commands.spawn((
             Mesh3d(sphere_handle.clone()),
             MeshMaterial3d(white_handle.clone()),
-            Transform::from_xyz(
+            Transform3d::from_xyz(
                 0.0,
                 if z_i32 % 4 == 0 {
                     spawn_height
@@ -170,7 +170,7 @@ fn toggle_light(
 
 fn adjust_light_position(
     input: Res<ButtonInput<KeyCode>>,
-    mut lights: Query<&mut Transform, With<Lights>>,
+    mut lights: Query<&mut Transform3d, With<Lights>>,
     example_text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
 ) {

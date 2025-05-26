@@ -18,13 +18,13 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // light
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     let first_window_camera = commands
         .spawn((
             Camera3d::default(),
-            Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform3d::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         ))
         .id();
 
@@ -39,7 +39,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     let second_window_camera = commands
         .spawn((
             Camera3d::default(),
-            Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform3d::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             Camera {
                 target: RenderTarget::Window(WindowRef::Entity(second_window)),
                 ..default()

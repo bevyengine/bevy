@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
                     },
                     ..default()
                 },
-                Transform {
+                Transform3d {
                     translation,
                     rotation,
                     scale,
@@ -104,10 +104,10 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
 }
 
 // System for rotating and translating the camera
-fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform3d, With<Camera>>) {
     camera_transform.rotate_z(time.delta_secs() * 0.5);
     **camera_transform = **camera_transform
-        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
+        * Transform3d::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
 }
 
 #[derive(Deref, DerefMut)]

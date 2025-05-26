@@ -175,7 +175,7 @@ fn save_scene_system(world: &mut World) {
     scene_world.spawn((
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
-        Transform::IDENTITY,
+        Transform3d::IDENTITY,
         Name::new("joe"),
     ));
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });

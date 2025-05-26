@@ -105,7 +105,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
     ));
 }
@@ -142,7 +142,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
             ..default()
         },
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
-        Transform::from_scale(Vec3::splat(2.0)),
+        Transform3d::from_scale(Vec3::splat(2.0)),
     ));
 }
 
@@ -292,7 +292,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
 // Rotates the camera a bit every frame.
 fn rotate_camera(
     time: Res<Time>,
-    mut camera_query: Query<&mut Transform, With<Camera3d>>,
+    mut camera_query: Query<&mut Transform3d, With<Camera3d>>,
     app_status: Res<AppStatus>,
 ) {
     if !app_status.rotating {

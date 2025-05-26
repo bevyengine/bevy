@@ -8,22 +8,22 @@ use bevy_ecs::{
 };
 use thiserror::Error;
 
-use crate::components::{GlobalTransform, Transform};
+use crate::components::{GlobalTransform, Transform3d};
 
 /// System parameter for computing up-to-date [`GlobalTransform`]s.
 ///
 /// Computing an entity's [`GlobalTransform`] can be expensive so it is recommended
 /// you use the [`GlobalTransform`] component stored on the entity, unless you need
-/// a [`GlobalTransform`] that reflects the changes made to any [`Transform`]s since
+/// a [`GlobalTransform`] that reflects the changes made to any [`Transform3d`]s since
 /// the last time the transform propagation systems ran.
 #[derive(SystemParam)]
 pub struct TransformHelper<'w, 's> {
     parent_query: Query<'w, 's, &'static ChildOf>,
-    transform_query: Query<'w, 's, &'static Transform>,
+    transform_query: Query<'w, 's, &'static Transform3d>,
 }
 
 impl<'w, 's> TransformHelper<'w, 's> {
-    /// Computes the [`GlobalTransform`] of the given entity from the [`Transform`] component on it and its ancestors.
+    /// Computes the [`GlobalTransform`] of the given entity from the [`Transform3d`] component on it and its ancestors.
     pub fn compute_global_transform(
         &self,
         entity: Entity,
@@ -66,8 +66,8 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
 /// Error returned by [`TransformHelper::compute_global_transform`].
 #[derive(Debug, Error)]
 pub enum ComputeGlobalTransformError {
-    /// The entity or one of its ancestors is missing the [`Transform`] component.
-    #[error("The entity {0:?} or one of its ancestors is missing the `Transform` component")]
+    /// The entity or one of its ancestors is missing the [`Transform3d`] component.
+    #[error("The entity {0:?} or one of its ancestors is missing the `Transform3d` component")]
     MissingTransform(Entity),
     /// The entity does not exist.
     #[error("The entity {0:?} does not exist")]
@@ -88,7 +88,7 @@ mod tests {
     use bevy_math::{Quat, Vec3};
 
     use crate::{
-        components::{GlobalTransform, Transform},
+        components::{GlobalTransform, Transform3d},
         helper::TransformHelper,
         plugins::TransformPlugin,
     };
@@ -96,25 +96,25 @@ mod tests {
     #[test]
     fn match_transform_propagation_systems() {
         // Single transform
-        match_transform_propagation_systems_inner(vec![Transform::from_translation(Vec3::X)
+        match_transform_propagation_systems_inner(vec![Transform3d::from_translation(Vec3::X)
             .with_rotation(Quat::from_rotation_y(TAU / 4.))
             .with_scale(Vec3::splat(2.))]);
 
         // Transform hierarchy
         match_transform_propagation_systems_inner(vec![
-            Transform::from_translation(Vec3::X)
+            Transform3d::from_translation(Vec3::X)
                 .with_rotation(Quat::from_rotation_y(TAU / 4.))
                 .with_scale(Vec3::splat(2.)),
-            Transform::from_translation(Vec3::Y)
+            Transform3d::from_translation(Vec3::Y)
                 .with_rotation(Quat::from_rotation_z(TAU / 3.))
                 .with_scale(Vec3::splat(1.5)),
-            Transform::from_translation(Vec3::Z)
+            Transform3d::from_translation(Vec3::Z)
                 .with_rotation(Quat::from_rotation_x(TAU / 2.))
                 .with_scale(Vec3::splat(0.3)),
         ]);
     }
 
-    fn match_transform_propagation_systems_inner(transforms: Vec<Transform>) {
+    fn match_transform_propagation_systems_inner(transforms: Vec<Transform3d>) {
         let mut app = App::new();
         app.add_plugins(TransformPlugin);
 

@@ -115,7 +115,7 @@ fn setup(
     commands.spawn((
         Text2d::new("Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit."),
             text_style.clone(),
-            Transform::from_xyz(0.0, -300.0, 100.0),
+            Transform3d::from_xyz(0.0, -300.0, 100.0),
         InstructionsText,
     ));
 
@@ -143,24 +143,24 @@ fn setup(
                 commands.spawn((
                     Mesh2d(circle.clone()),
                     MeshMaterial2d(outline_material.clone()),
-                    Transform::from_xyz(x, y - 1.0, 1.0)
+                    Transform3d::from_xyz(x, y - 1.0, 1.0)
                         .with_scale(Vec2::splat(radius + 2.0).extend(1.0)),
                 ));
 
                 // sclera
                 commands.spawn((
-                    Transform::from_xyz(x, y, 2.0),
+                    Transform3d::from_xyz(x, y, 2.0),
                     Visibility::default(),
                     children![
                         // sclera
                         (
                             Mesh2d(circle.clone()),
                             MeshMaterial2d(sclera_material.clone()),
-                            Transform::from_scale(Vec3::new(radius, radius, 0.0)),
+                            Transform3d::from_scale(Vec3::new(radius, radius, 0.0)),
                         ),
                         // pupil
                         (
-                            Transform::from_xyz(0.0, 0.0, 1.0),
+                            Transform3d::from_xyz(0.0, 0.0, 1.0),
                             Visibility::default(),
                             Pupil {
                                 eye_radius: radius,
@@ -172,7 +172,7 @@ fn setup(
                                 (
                                     Mesh2d(circle.clone()),
                                     MeshMaterial2d(pupil_material.clone()),
-                                    Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(
+                                    Transform3d::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(
                                         pupil_radius,
                                         pupil_radius,
                                         1.0,
@@ -182,7 +182,7 @@ fn setup(
                                 (
                                     Mesh2d(circle.clone()),
                                     MeshMaterial2d(pupil_highlight_material.clone()),
-                                    Transform::from_xyz(
+                                    Transform3d::from_xyz(
                                         -pupil_highlight_offset,
                                         pupil_highlight_offset,
                                         1.0,
@@ -220,7 +220,7 @@ fn get_cursor_world_pos(
 fn update_cursor_hit_test(
     cursor_world_pos: Res<CursorWorldPos>,
     mut primary_window: Single<&mut Window, With<PrimaryWindow>>,
-    bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
+    bevy_logo_transform: Single<&Transform3d, With<BevyLogo>>,
 ) {
     // If the window has decorations (e.g. a border) then it should be clickable
     if primary_window.decorations {
@@ -245,7 +245,7 @@ fn update_cursor_hit_test(
 fn start_drag(
     mut commands: Commands,
     cursor_world_pos: Res<CursorWorldPos>,
-    bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
+    bevy_logo_transform: Single<&Transform3d, With<BevyLogo>>,
 ) {
     // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
@@ -271,7 +271,7 @@ fn drag(
     drag_offset: Res<DragOperation>,
     cursor_world_pos: Res<CursorWorldPos>,
     time: Res<Time>,
-    mut bevy_transform: Single<&mut Transform, With<BevyLogo>>,
+    mut bevy_transform: Single<&mut Transform3d, With<BevyLogo>>,
     mut q_pupils: Query<&mut Pupil>,
 ) {
     // If the cursor is not within the primary window skip this system
@@ -301,7 +301,7 @@ fn drag(
 fn quit(
     cursor_world_pos: Res<CursorWorldPos>,
     mut app_exit: EventWriter<AppExit>,
-    bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
+    bevy_logo_transform: Single<&Transform3d, With<BevyLogo>>,
 ) {
     // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
@@ -356,7 +356,7 @@ fn toggle_transparency(
 }
 
 /// Move the pupils and bounce them around
-fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)>) {
+fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform3d)>) {
     for (mut pupil, mut transform) in &mut q_pupils {
         // The wiggle radius is how much the pupil can move within the eye
         let wiggle_radius = pupil.eye_radius - pupil.pupil_radius;

@@ -37,7 +37,7 @@ fn setup(
             alpha_mode: AlphaMode::Mask(0.5),
             ..default()
         })),
-        Transform::from_xyz(1.0, 0.5, -1.5),
+        Transform3d::from_xyz(1.0, 0.5, -1.5),
     ));
 
     // Transparent unlit sphere, uses `alpha_mode: Mask(f32)`
@@ -49,7 +49,7 @@ fn setup(
             unlit: true,
             ..default()
         })),
-        Transform::from_xyz(-1.0, 0.5, -1.5),
+        Transform3d::from_xyz(-1.0, 0.5, -1.5),
     ));
 
     // Transparent cube, uses `alpha_mode: Blend`
@@ -59,7 +59,7 @@ fn setup(
         // When converting a color to a material using `into()`, the alpha mode is
         // automatically set to `Blend` if the alpha channel is anything lower than 1.0.
         MeshMaterial3d(materials.add(Color::srgba(0.5, 0.5, 1.0, 0.0))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
     ));
 
     // Transparent cube, uses `alpha_mode: AlphaToCoverage`
@@ -70,14 +70,14 @@ fn setup(
             alpha_mode: AlphaMode::AlphaToCoverage,
             ..default()
         })),
-        Transform::from_xyz(-1.5, 0.5, 0.0),
+        Transform3d::from_xyz(-1.5, 0.5, 0.0),
     ));
 
     // Opaque sphere
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
         MeshMaterial3d(materials.add(Color::srgb(0.7, 0.2, 0.1))),
-        Transform::from_xyz(0.0, 0.5, -1.5),
+        Transform3d::from_xyz(0.0, 0.5, -1.5),
     ));
 
     // Light
@@ -86,13 +86,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
     ));
 
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 

@@ -207,7 +207,7 @@ Example | Description
 [Animated Mesh](../examples/animation/animated_mesh.rs) | Plays an animation on a skinned glTF model of a fox
 [Animated Mesh Control](../examples/animation/animated_mesh_control.rs) | Plays an animation from a skinned glTF with keyboard controls
 [Animated Mesh Events](../examples/animation/animated_mesh_events.rs) | Plays an animation from a skinned glTF with events
-[Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
+[Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform3d` component
 [Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
 [Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events
 [Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph

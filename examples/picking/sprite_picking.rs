@@ -14,7 +14,7 @@ fn main() {
 
 fn move_sprite(
     time: Res<Time>,
-    mut sprite: Query<&mut Transform, (Without<Sprite>, With<Children>)>,
+    mut sprite: Query<&mut Transform3d, (Without<Sprite>, With<Children>)>,
 ) {
     let t = time.elapsed_secs() * 0.1;
     for mut transform in &mut sprite {
@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let sprite_size = Vec2::splat(len / 2.0);
 
     commands
-        .spawn((Transform::default(), Visibility::default()))
+        .spawn((Transform3d::default(), Visibility::default()))
         .with_children(|commands| {
             for (anchor_index, anchor) in [
                 Anchor::TOP_LEFT,
@@ -58,7 +58,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 commands
                     .spawn((
                         Sprite::from_color(Color::BLACK, sprite_size),
-                        Transform::from_xyz(i * len - len, j * len - len, -1.0),
+                        Transform3d::from_xyz(i * len - len, j * len - len, -1.0),
                         Pickable::default(),
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                         anchor.to_owned(),
                         // 3x3 grid of anchor examples by changing transform
-                        Transform::from_xyz(i * len - len, j * len - len, 0.0)
+                        Transform3d::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
                             .with_rotation(Quat::from_rotation_z((j - 1.0) * 0.2)),
                         Pickable::default(),
@@ -138,7 +138,7 @@ fn setup_atlas(
                     index: animation_indices.first,
                 },
             ),
-            Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
+            Transform3d::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
             Pickable::default(),

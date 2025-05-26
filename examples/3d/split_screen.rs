@@ -33,7 +33,7 @@ fn setup(
 
     // Light
     commands.spawn((
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
             shadows_enabled: true,
             ..default()
@@ -69,7 +69,7 @@ fn setup(
         let camera = commands
             .spawn((
                 Camera3d::default(),
-                Transform::from_translation(*camera_pos).looking_at(Vec3::ZERO, Vec3::Y),
+                Transform3d::from_translation(*camera_pos).looking_at(Vec3::ZERO, Vec3::Y),
                 Camera {
                     // Renders cameras with different priorities to prevent ambiguities
                     order: index as isize,
@@ -186,7 +186,7 @@ fn button_system(
         (&Interaction, &ComputedNodeTarget, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
-    mut camera_query: Query<&mut Transform, With<Camera>>,
+    mut camera_query: Query<&mut Transform3d, With<Camera>>,
 ) {
     for (interaction, computed_target, RotateCamera(direction)) in &interaction_query {
         if let Interaction::Pressed = *interaction {

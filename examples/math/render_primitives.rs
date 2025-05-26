@@ -304,7 +304,7 @@ fn setup_cameras(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         make_camera(!start_in_2d),
-        Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
+        Transform3d::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
     ));
 }
 
@@ -318,7 +318,7 @@ fn setup_lights(mut commands: Commands) {
             intensity: 5000.0,
             ..default()
         },
-        Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
+        Transform3d::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
             .looking_at(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0), Vec3::Y),
     ));
 }
@@ -526,7 +526,7 @@ fn spawn_primitive_2d(
                 },
                 Mesh2d(meshes.add(mesh)),
                 MeshMaterial2d(material.clone()),
-                Transform::from_translation(POSITION),
+                Transform3d::from_translation(POSITION),
             ));
         }
     });
@@ -570,7 +570,7 @@ fn spawn_primitive_3d(
                 },
                 Mesh3d(meshes.add(mesh)),
                 MeshMaterial3d(material.clone()),
-                Transform::from_translation(POSITION),
+                Transform3d::from_translation(POSITION),
             ));
         }
     });
@@ -594,7 +594,7 @@ fn update_primitive_meshes(
 
 fn rotate_primitive_2d_meshes(
     mut primitives_2d: Query<
-        (&mut Transform, &ViewVisibility),
+        (&mut Transform3d, &ViewVisibility),
         (With<PrimitiveData>, With<MeshDim2>),
     >,
     time: Res<Time>,
@@ -610,7 +610,7 @@ fn rotate_primitive_2d_meshes(
 
 fn rotate_primitive_3d_meshes(
     mut primitives_3d: Query<
-        (&mut Transform, &ViewVisibility),
+        (&mut Transform3d, &ViewVisibility),
         (With<PrimitiveData>, With<MeshDim3>),
     >,
     time: Res<Time>,

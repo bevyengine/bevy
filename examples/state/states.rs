@@ -121,7 +121,7 @@ const SPEED: f32 = 100.0;
 fn movement(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<Sprite>>,
+    mut query: Query<&mut Transform3d, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;

@@ -37,23 +37,23 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
 ///
-/// * To place or move an entity, you should set its [`Transform`].
+/// * To place or move an entity, you should set its [`Transform3d`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
-/// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
+/// * To be displayed, an entity must have both a [`Transform3d`] and a [`GlobalTransform`].
+///   [`GlobalTransform`] is automatically inserted whenever [`Transform3d`] is inserted.
 ///
-/// ## [`Transform`] and [`GlobalTransform`]
+/// ## [`Transform3d`] and [`GlobalTransform`]
 ///
-/// [`Transform`] is the position of an entity relative to its parent position, or the reference
+/// [`Transform3d`] is the position of an entity relative to its parent position, or the reference
 /// frame if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] in the [`TransformSystems::Propagate`]
+/// [`GlobalTransform`] is updated from [`Transform3d`] in the [`TransformSystems::Propagate`]
 /// system set.
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
-/// update the [`Transform`] of an entity during this set or after, you will notice a 1 frame lag
+/// update the [`Transform3d`] of an entity during this set or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
 /// [`TransformSystems::Propagate`]: crate::TransformSystems::Propagate
@@ -79,7 +79,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Transform {
+pub struct Transform3d {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
     /// See the [`translations`] example for usage.
@@ -100,15 +100,15 @@ pub struct Transform {
     pub scale: Vec3,
 }
 
-impl Transform {
-    /// An identity [`Transform`] with no translation, rotation, and a scale of 1 on all axes.
-    pub const IDENTITY: Self = Transform {
+impl Transform3d {
+    /// An identity [`Transform3d`] with no translation, rotation, and a scale of 1 on all axes.
+    pub const IDENTITY: Self = Transform3d {
         translation: Vec3::ZERO,
         rotation: Quat::IDENTITY,
         scale: Vec3::ONE,
     };
 
-    /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
+    /// Creates a new [`Transform3d`] at the position `(x, y, z)`. In 2d, the `z` component
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
     #[inline]
@@ -122,56 +122,56 @@ impl Transform {
     pub fn from_matrix(world_from_local: Mat4) -> Self {
         let (scale, rotation, translation) = world_from_local.to_scale_rotation_translation();
 
-        Transform {
+        Transform3d {
             translation,
             rotation,
             scale,
         }
     }
 
-    /// Creates a new [`Transform`], with `translation`. Rotation will be 0 and scale 1 on
+    /// Creates a new [`Transform3d`], with `translation`. Rotation will be 0 and scale 1 on
     /// all axes.
     #[inline]
     pub const fn from_translation(translation: Vec3) -> Self {
-        Transform {
+        Transform3d {
             translation,
             ..Self::IDENTITY
         }
     }
 
-    /// Creates a new [`Transform`], with `rotation`. Translation will be 0 and scale 1 on
+    /// Creates a new [`Transform3d`], with `rotation`. Translation will be 0 and scale 1 on
     /// all axes.
     #[inline]
     pub const fn from_rotation(rotation: Quat) -> Self {
-        Transform {
+        Transform3d {
             rotation,
             ..Self::IDENTITY
         }
     }
 
-    /// Creates a new [`Transform`], with `scale`. Translation will be 0 and rotation 0 on
+    /// Creates a new [`Transform3d`], with `scale`. Translation will be 0 and rotation 0 on
     /// all axes.
     #[inline]
     pub const fn from_scale(scale: Vec3) -> Self {
-        Transform {
+        Transform3d {
             scale,
             ..Self::IDENTITY
         }
     }
 
-    /// Creates a new [`Transform`] that is equivalent to the given [isometry].
+    /// Creates a new [`Transform3d`] that is equivalent to the given [isometry].
     ///
     /// [isometry]: Isometry3d
     #[inline]
     pub fn from_isometry(iso: Isometry3d) -> Self {
-        Transform {
+        Transform3d {
             translation: iso.translation.into(),
             rotation: iso.rotation,
             ..Self::IDENTITY
         }
     }
 
-    /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
+    /// Returns this [`Transform3d`] with a new rotation so that [`Transform::forward`]
     /// points towards the `target` position and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
@@ -185,7 +185,7 @@ impl Transform {
         self
     }
 
-    /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
+    /// Returns this [`Transform3d`] with a new rotation so that [`Transform::forward`]
     /// points in the given `direction` and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
@@ -199,7 +199,7 @@ impl Transform {
         self
     }
 
-    /// Rotates this [`Transform`] so that the `main_axis` vector, reinterpreted in local coordinates, points
+    /// Rotates this [`Transform3d`] so that the `main_axis` vector, reinterpreted in local coordinates, points
     /// in the given `main_direction`, while `secondary_axis` points towards `secondary_direction`.
     /// For example, if a spaceship model has its nose pointing in the X-direction in its own local coordinates
     /// and its dorsal fin pointing in the Y-direction, then `align(Dir3::X, v, Dir3::Y, w)` will make the spaceship's
@@ -232,7 +232,7 @@ impl Transform {
         self
     }
 
-    /// Returns this [`Transform`] with a new translation.
+    /// Returns this [`Transform3d`] with a new translation.
     #[inline]
     #[must_use]
     pub const fn with_translation(mut self, translation: Vec3) -> Self {
@@ -240,7 +240,7 @@ impl Transform {
         self
     }
 
-    /// Returns this [`Transform`] with a new rotation.
+    /// Returns this [`Transform3d`] with a new rotation.
     #[inline]
     #[must_use]
     pub const fn with_rotation(mut self, rotation: Quat) -> Self {
@@ -248,7 +248,7 @@ impl Transform {
         self
     }
 
-    /// Returns this [`Transform`] with a new scale.
+    /// Returns this [`Transform3d`] with a new scale.
     #[inline]
     #[must_use]
     pub const fn with_scale(mut self, scale: Vec3) -> Self {
@@ -327,9 +327,9 @@ impl Transform {
         self.local_z()
     }
 
-    /// Rotates this [`Transform`] by the given rotation.
+    /// Rotates this [`Transform3d`] by the given rotation.
     ///
-    /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
+    /// If this [`Transform3d`] has a parent, the `rotation` is relative to the rotation of the parent.
     ///
     /// # Examples
     ///
@@ -341,9 +341,9 @@ impl Transform {
         self.rotation = rotation * self.rotation;
     }
 
-    /// Rotates this [`Transform`] around the given `axis` by `angle` (in radians).
+    /// Rotates this [`Transform3d`] around the given `axis` by `angle` (in radians).
     ///
-    /// If this [`Transform`] has a parent, the `axis` is relative to the rotation of the parent.
+    /// If this [`Transform3d`] has a parent, the `axis` is relative to the rotation of the parent.
     ///
     /// # Warning
     ///
@@ -362,39 +362,39 @@ impl Transform {
         self.rotate(Quat::from_axis_angle(axis.into(), angle));
     }
 
-    /// Rotates this [`Transform`] around the `X` axis by `angle` (in radians).
+    /// Rotates this [`Transform3d`] around the `X` axis by `angle` (in radians).
     ///
-    /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
+    /// If this [`Transform3d`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_x(&mut self, angle: f32) {
         self.rotate(Quat::from_rotation_x(angle));
     }
 
-    /// Rotates this [`Transform`] around the `Y` axis by `angle` (in radians).
+    /// Rotates this [`Transform3d`] around the `Y` axis by `angle` (in radians).
     ///
-    /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
+    /// If this [`Transform3d`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_y(&mut self, angle: f32) {
         self.rotate(Quat::from_rotation_y(angle));
     }
 
-    /// Rotates this [`Transform`] around the `Z` axis by `angle` (in radians).
+    /// Rotates this [`Transform3d`] around the `Z` axis by `angle` (in radians).
     ///
-    /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
+    /// If this [`Transform3d`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_z(&mut self, angle: f32) {
         self.rotate(Quat::from_rotation_z(angle));
     }
 
-    /// Rotates this [`Transform`] by the given `rotation`.
+    /// Rotates this [`Transform3d`] by the given `rotation`.
     ///
-    /// The `rotation` is relative to this [`Transform`]'s current rotation.
+    /// The `rotation` is relative to this [`Transform3d`]'s current rotation.
     #[inline]
     pub fn rotate_local(&mut self, rotation: Quat) {
         self.rotation *= rotation;
     }
 
-    /// Rotates this [`Transform`] around its local `axis` by `angle` (in radians).
+    /// Rotates this [`Transform3d`] around its local `axis` by `angle` (in radians).
     ///
     /// # Warning
     ///
@@ -413,42 +413,42 @@ impl Transform {
         self.rotate_local(Quat::from_axis_angle(axis.into(), angle));
     }
 
-    /// Rotates this [`Transform`] around its local `X` axis by `angle` (in radians).
+    /// Rotates this [`Transform3d`] around its local `X` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_x(&mut self, angle: f32) {
         self.rotate_local(Quat::from_rotation_x(angle));
     }
 
-    /// Rotates this [`Transform`] around its local `Y` axis by `angle` (in radians).
+    /// Rotates this [`Transform3d`] around its local `Y` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_y(&mut self, angle: f32) {
         self.rotate_local(Quat::from_rotation_y(angle));
     }
 
-    /// Rotates this [`Transform`] around its local `Z` axis by `angle` (in radians).
+    /// Rotates this [`Transform3d`] around its local `Z` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_z(&mut self, angle: f32) {
         self.rotate_local(Quat::from_rotation_z(angle));
     }
 
-    /// Translates this [`Transform`] around a `point` in space.
+    /// Translates this [`Transform3d`] around a `point` in space.
     ///
-    /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the parent.
+    /// If this [`Transform3d`] has a parent, the `point` is relative to the [`Transform3d`] of the parent.
     #[inline]
     pub fn translate_around(&mut self, point: Vec3, rotation: Quat) {
         self.translation = point + rotation * (self.translation - point);
     }
 
-    /// Rotates this [`Transform`] around a `point` in space.
+    /// Rotates this [`Transform3d`] around a `point` in space.
     ///
-    /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the parent.
+    /// If this [`Transform3d`] has a parent, the `point` is relative to the [`Transform3d`] of the parent.
     #[inline]
     pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
         self.translate_around(point, rotation);
         self.rotate(rotation);
     }
 
-    /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the `target` position,
+    /// Rotates this [`Transform3d`] so that [`Transform::forward`] points towards the `target` position,
     /// and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
@@ -460,7 +460,7 @@ impl Transform {
         self.look_to(target - self.translation, up);
     }
 
-    /// Rotates this [`Transform`] so that [`Transform::forward`] points in the given `direction`
+    /// Rotates this [`Transform3d`] so that [`Transform::forward`] points in the given `direction`
     /// and [`Transform::up`] points towards `up`.
     ///
     /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
@@ -479,7 +479,7 @@ impl Transform {
         self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back.into()));
     }
 
-    /// Rotates this [`Transform`] so that the `main_axis` vector, reinterpreted in local coordinates, points
+    /// Rotates this [`Transform3d`] so that the `main_axis` vector, reinterpreted in local coordinates, points
     /// in the given `main_direction`, while `secondary_axis` points towards `secondary_direction`.
     ///
     /// For example, if a spaceship model has its nose pointing in the X-direction in its own local coordinates
@@ -561,14 +561,14 @@ impl Transform {
     }
 
     /// Multiplies `self` with `transform` component by component, returning the
-    /// resulting [`Transform`]
+    /// resulting [`Transform3d`]
     #[inline]
     #[must_use]
-    pub fn mul_transform(&self, transform: Transform) -> Self {
+    pub fn mul_transform(&self, transform: Transform3d) -> Self {
         let translation = self.transform_point(transform.translation);
         let rotation = self.rotation * transform.rotation;
         let scale = self.scale * transform.scale;
-        Transform {
+        Transform3d {
             translation,
             rotation,
             scale,
@@ -577,11 +577,11 @@ impl Transform {
 
     /// Transforms the given `point`, applying scale, rotation and translation.
     ///
-    /// If this [`Transform`] has an ancestor entity with a [`Transform`] component,
+    /// If this [`Transform3d`] has an ancestor entity with a [`Transform3d`] component,
     /// [`Transform::transform_point`] will transform a point in local space into its
     /// parent transform's space.
     ///
-    /// If this [`Transform`] does not have a parent, [`Transform::transform_point`] will
+    /// If this [`Transform3d`] does not have a parent, [`Transform::transform_point`] will
     /// transform a point in local space into worldspace coordinates.
     ///
     /// If you always want to transform a point in local space to worldspace, or if you need
@@ -612,7 +612,7 @@ impl Transform {
     }
 }
 
-impl Default for Transform {
+impl Default for Transform3d {
     fn default() -> Self {
         Self::IDENTITY
     }
@@ -620,21 +620,21 @@ impl Default for Transform {
 
 /// The transform is expected to be non-degenerate and without shearing, or the output
 /// will be invalid.
-impl From<GlobalTransform> for Transform {
+impl From<GlobalTransform> for Transform3d {
     fn from(transform: GlobalTransform) -> Self {
         transform.compute_transform()
     }
 }
 
-impl Mul<Transform> for Transform {
-    type Output = Transform;
+impl Mul<Transform3d> for Transform3d {
+    type Output = Transform3d;
 
-    fn mul(self, transform: Transform) -> Self::Output {
+    fn mul(self, transform: Transform3d) -> Self::Output {
         self.mul_transform(transform)
     }
 }
 
-impl Mul<GlobalTransform> for Transform {
+impl Mul<GlobalTransform> for Transform3d {
     type Output = GlobalTransform;
 
     #[inline]
@@ -643,7 +643,7 @@ impl Mul<GlobalTransform> for Transform {
     }
 }
 
-impl Mul<Vec3> for Transform {
+impl Mul<Vec3> for Transform3d {
     type Output = Vec3;
 
     fn mul(self, value: Vec3) -> Self::Output {
@@ -653,7 +653,7 @@ impl Mul<Vec3> for Transform {
 
 /// An optimization for transform propagation. This ZST marker component uses change detection to
 /// mark all entities of the hierarchy as "dirty" if any of their descendants have a changed
-/// `Transform`. If this component is *not* marked `is_changed()`, propagation will halt.
+/// `Transform3d`. If this component is *not* marked `is_changed()`, propagation will halt.
 #[derive(Clone, Copy, Default, PartialEq, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy-support", derive(Component))]

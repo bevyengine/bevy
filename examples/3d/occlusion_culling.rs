@@ -303,7 +303,7 @@ fn spawn_small_cubes(
     // Create the entity that the small cubes will be parented to. This is the
     // entity that we rotate.
     let sphere_parent = commands
-        .spawn(Transform::from_translation(Vec3::ZERO))
+        .spawn(Transform3d::from_translation(Vec3::ZERO))
         .insert(Visibility::default())
         .insert(SphereParent)
         .id();
@@ -327,7 +327,7 @@ fn spawn_small_cubes(
         let small_cube = commands
             .spawn(Mesh3d(small_cube.clone()))
             .insert(MeshMaterial3d(small_cube_material.clone()))
-            .insert(Transform::from_translation(sphere_position))
+            .insert(Transform3d::from_translation(sphere_position))
             .id();
         commands.entity(sphere_parent).add_child(small_cube);
     }
@@ -353,7 +353,7 @@ fn spawn_large_cube(
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
         })))
-        .insert(Transform::IDENTITY)
+        .insert(Transform3d::IDENTITY)
         .insert(LargeCube);
 }
 
@@ -361,7 +361,7 @@ fn spawn_large_cube(
 //
 // This ensures that the set of cubes that are hidden and shown varies over
 // time.
-fn spin_small_cubes(mut sphere_parents: Query<&mut Transform, With<SphereParent>>) {
+fn spin_small_cubes(mut sphere_parents: Query<&mut Transform3d, With<SphereParent>>) {
     for mut sphere_parent_transform in &mut sphere_parents {
         sphere_parent_transform.rotate_y(ROTATION_SPEED);
     }
@@ -371,7 +371,7 @@ fn spin_small_cubes(mut sphere_parents: Query<&mut Transform, With<SphereParent>
 ///
 /// The chaotic rotation adds a bit of randomness to the scene to better
 /// demonstrate the dynamicity of the occlusion culling.
-fn spin_large_cube(mut large_cubes: Query<&mut Transform, With<LargeCube>>) {
+fn spin_large_cube(mut large_cubes: Query<&mut Transform3d, With<LargeCube>>) {
     for mut transform in &mut large_cubes {
         transform.rotate(Quat::from_euler(
             EulerRot::XYZ,
@@ -386,7 +386,7 @@ fn spin_large_cube(mut large_cubes: Query<&mut Transform, With<LargeCube>>) {
 fn spawn_light(commands: &mut Commands) {
     commands
         .spawn(DirectionalLight::default())
-        .insert(Transform::from_rotation(Quat::from_euler(
+        .insert(Transform3d::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
             0.0,
             PI * -0.15,
@@ -398,7 +398,7 @@ fn spawn_light(commands: &mut Commands) {
 fn spawn_camera(commands: &mut Commands) {
     commands
         .spawn(Camera3d::default())
-        .insert(Transform::from_xyz(0.0, 0.0, 9.0).looking_at(Vec3::ZERO, Vec3::Y))
+        .insert(Transform3d::from_xyz(0.0, 0.0, 9.0).looking_at(Vec3::ZERO, Vec3::Y))
         .insert(DepthPrepass)
         .insert(OcclusionCulling);
 }

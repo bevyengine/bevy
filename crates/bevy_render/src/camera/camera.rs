@@ -37,7 +37,7 @@ use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::{GlobalTransform, Transform3d};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
@@ -338,7 +338,7 @@ pub enum ViewportConversionError {
     Frustum,
     CameraMainTextureUsages,
     VisibleEntities,
-    Transform,
+    Transform3d,
     Visibility,
     Msaa,
     SyncToRenderWorld

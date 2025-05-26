@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 #[derive(Component)]
-#[require(Visibility, Transform)]
+#[require(Visibility, Transform3d)]
 struct EaseFunctionPlot(EaseFunction, Color);
 
 fn main() {
@@ -87,7 +87,7 @@ fn setup(mut commands: Commands) {
             commands
                 .spawn((
                     EaseFunctionPlot(*function, color),
-                    Transform::from_xyz(
+                    Transform3d::from_xyz(
                         -half_extent.x + EXTENT.x / (COLS - 1) as f32 * col as f32,
                         half_extent.y - EXTENT.y / (max_rows - 1) as f32 * row as f32,
                         0.0,
@@ -97,12 +97,12 @@ fn setup(mut commands: Commands) {
                     // Marks the y value on the right side of the plot
                     p.spawn((
                         Sprite::from_color(color, Vec2::splat(5.0)),
-                        Transform::from_xyz(half_size.x + 5.0, -half_size.y, 0.0),
+                        Transform3d::from_xyz(half_size.x + 5.0, -half_size.y, 0.0),
                     ));
                     // Marks the x and y value inside the plot
                     p.spawn((
                         Sprite::from_color(color, Vec2::splat(4.0)),
-                        Transform::from_xyz(-half_size.x, -half_size.y, 0.0),
+                        Transform3d::from_xyz(-half_size.x, -half_size.y, 0.0),
                     ));
 
                     // Label
@@ -110,7 +110,7 @@ fn setup(mut commands: Commands) {
                         Text2d(format!("{:?}", function)),
                         text_font.clone(),
                         TextColor(color),
-                        Transform::from_xyz(0.0, -half_size.y - 15.0, 0.0),
+                        Transform3d::from_xyz(0.0, -half_size.y - 15.0, 0.0),
                     ));
                 });
         }
@@ -128,8 +128,8 @@ fn setup(mut commands: Commands) {
 
 fn display_curves(
     mut gizmos: Gizmos,
-    ease_functions: Query<(&EaseFunctionPlot, &Transform, &Children)>,
-    mut transforms: Query<&mut Transform, Without<EaseFunctionPlot>>,
+    ease_functions: Query<(&EaseFunctionPlot, &Transform3d, &Children)>,
+    mut transforms: Query<&mut Transform3d, Without<EaseFunctionPlot>>,
     mut ui_text: Single<&mut Text>,
     time: Res<Time>,
 ) {

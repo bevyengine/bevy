@@ -45,7 +45,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
+        Transform3d::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
     ));
 
     // Cubes.
@@ -56,7 +56,7 @@ fn setup(
             commands.spawn((
                 Mesh3d(mesh.clone()),
                 MeshMaterial3d(material.clone()),
-                Transform::from_xyz(x, 0.5, 0.0),
+                Transform3d::from_xyz(x, 0.5, 0.0),
             ));
         }
     }
@@ -70,7 +70,7 @@ fn setup(
                 color: DARK_CYAN.into(),
                 ..default()
             },
-            Transform::from_xyz(0.0, 1.5, 0.0),
+            Transform3d::from_xyz(0.0, 1.5, 0.0),
         ));
         commands.spawn((
             SpotLight {
@@ -81,7 +81,7 @@ fn setup(
                 inner_angle: PI / 4.0 * 0.8,
                 ..default()
             },
-            Transform::from_xyz(4.0, 2.0, 0.0).looking_at(Vec3::X * 1.5, Vec3::Y),
+            Transform3d::from_xyz(4.0, 2.0, 0.0).looking_at(Vec3::X * 1.5, Vec3::Y),
         ));
         commands.spawn((
             DirectionalLight {
@@ -90,14 +90,14 @@ fn setup(
                 shadows_enabled: true,
                 ..default()
             },
-            Transform::from_xyz(-4.0, 2.0, 0.0).looking_at(Vec3::NEG_X * 1.5, Vec3::Y),
+            Transform3d::from_xyz(-4.0, 2.0, 0.0).looking_at(Vec3::NEG_X * 1.5, Vec3::Y),
         ));
     }
 
     // Camera.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Example instructions and gizmo config.
@@ -136,7 +136,7 @@ fn setup(
     }
 }
 
-fn rotate_camera(mut transform: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
+fn rotate_camera(mut transform: Single<&mut Transform3d, With<Camera>>, time: Res<Time>) {
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_secs() / 2.));
 }
 

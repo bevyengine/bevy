@@ -32,7 +32,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a fog volume with a voxelized version of the Stanford bunny.
     commands.spawn((
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
         FogVolume {
             density_texture: Some(asset_server.load("volumes/bunny.ktx2")),
             density_factor: 1.0,
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn a bright directional light that illuminates the fog well.
     commands.spawn((
-        Transform::from_xyz(1.0, 1.0, -0.3).looking_at(vec3(0.0, 0.5, 0.0), Vec3::Y),
+        Transform3d::from_xyz(1.0, 1.0, -0.3).looking_at(vec3(0.0, 0.5, 0.0), Vec3::Y),
         DirectionalLight {
             shadows_enabled: true,
             illuminance: 32000.0,
@@ -58,7 +58,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a camera.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-0.75, 1.0, 2.0).looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
+        Transform3d::from_xyz(-0.75, 1.0, 2.0).looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
         Hdr,
         VolumetricFog {
             // Make this relatively high in order to increase the fog quality.
@@ -71,10 +71,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// Rotates the camera a bit every frame.
-fn rotate_camera(mut cameras: Query<&mut Transform, With<Camera3d>>) {
+fn rotate_camera(mut cameras: Query<&mut Transform3d, With<Camera3d>>) {
     for mut camera_transform in cameras.iter_mut() {
-        *camera_transform =
-            Transform::from_translation(Quat::from_rotation_y(0.01) * camera_transform.translation)
-                .looking_at(vec3(0.0, 0.5, 0.0), Vec3::Y);
+        *camera_transform = Transform3d::from_translation(
+            Quat::from_rotation_y(0.01) * camera_transform.translation,
+        )
+        .looking_at(vec3(0.0, 0.5, 0.0), Vec3::Y);
     }
 }

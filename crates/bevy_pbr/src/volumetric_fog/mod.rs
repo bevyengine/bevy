@@ -53,7 +53,7 @@ use bevy_render::{
     view::Visibility,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 use render::{
     VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
     VOLUMETRIC_FOG_HANDLE,
@@ -117,7 +117,7 @@ pub struct VolumetricFog {
 
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(Transform, Visibility)]
+#[require(Transform3d, Visibility)]
 pub struct FogVolume {
     /// The color of the fog.
     ///

@@ -43,14 +43,14 @@ fn setup(
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(Color::from(RED))),
-        Transform::from_xyz(-1.0, spawn_height, 0.0),
+        Transform3d::from_xyz(-1.0, spawn_height, 0.0),
     ));
 
     // sphere - initially not a caster
     commands.spawn((
         Mesh3d(sphere_handle),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
-        Transform::from_xyz(1.0, spawn_height, 0.0),
+        Transform3d::from_xyz(1.0, spawn_height, 0.0),
         NotShadowCaster,
     ));
 
@@ -58,7 +58,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
         MeshMaterial3d(materials.add(Color::from(LIME))),
-        Transform::from_xyz(0.0, 1.0, -10.0),
+        Transform3d::from_xyz(0.0, 1.0, -10.0),
         NotShadowCaster,
         NotShadowReceiver,
     ));
@@ -79,7 +79,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(5.0, 5.0, 0.0),
+        Transform3d::from_xyz(5.0, 5.0, 0.0),
     ));
 
     commands.spawn((
@@ -88,7 +88,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
         CascadeShadowConfigBuilder {
             first_cascade_far_bound: 7.0,
             maximum_distance: 25.0,
@@ -100,7 +100,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-5.0, 5.0, 5.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
+        Transform3d::from_xyz(-5.0, 5.0, 5.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
     ));
 }
 

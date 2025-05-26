@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
             ..default()
         },
-        Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
+        Transform3d::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
     ));
     commands.spawn(Camera2d);
 

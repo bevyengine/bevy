@@ -21,7 +21,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.2, 1.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.2, 1.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // plane
@@ -54,7 +54,7 @@ fn setup(
                     unlit: true,
                     ..default()
                 })),
-                Transform::from_xyz(position_range.start + percent * pos_len, 0.3, 0.0)
+                Transform3d::from_xyz(position_range.start + percent * pos_len, 0.3, 0.0)
                     .with_scale(Vec3::splat(radius)),
             ))
             .with_child(PointLight {

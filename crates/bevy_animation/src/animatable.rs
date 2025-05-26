@@ -4,7 +4,7 @@ use crate::util;
 use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_math::*;
 use bevy_reflect::Reflect;
-use bevy_transform::prelude::Transform;
+use bevy_transform::prelude::Transform3d;
 
 /// An individual input for [`Animatable::blend`].
 pub struct BlendInput<T> {
@@ -130,7 +130,7 @@ impl Animatable for bool {
     }
 }
 
-impl Animatable for Transform {
+impl Animatable for Transform3d {
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
         Self {
             translation: Vec3::interpolate(&a.translation, &b.translation, t),

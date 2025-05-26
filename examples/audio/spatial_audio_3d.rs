@@ -28,7 +28,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(0.2).mesh().uv(32, 18))),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Transform3d::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),
         AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP.with_spatial(true),
@@ -36,7 +36,7 @@ fn setup(
 
     let listener = SpatialListener::new(gap);
     commands.spawn((
-        Transform::default(),
+        Transform3d::default(),
         Visibility::default(),
         listener.clone(),
         children![
@@ -44,13 +44,13 @@ fn setup(
             (
                 Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
                 MeshMaterial3d(materials.add(Color::from(RED))),
-                Transform::from_translation(listener.left_ear_offset),
+                Transform3d::from_translation(listener.left_ear_offset),
             ),
             // right ear indicator
             (
                 Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
                 MeshMaterial3d(materials.add(Color::from(LIME))),
-                Transform::from_translation(listener.right_ear_offset),
+                Transform3d::from_translation(listener.right_ear_offset),
             )
         ],
     ));
@@ -58,7 +58,7 @@ fn setup(
     // light
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // example instructions
@@ -77,7 +77,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -88,7 +88,7 @@ struct Emitter {
 
 fn update_positions(
     time: Res<Time>,
-    mut emitters: Query<(&mut Transform, &mut Emitter), With<Emitter>>,
+    mut emitters: Query<(&mut Transform3d, &mut Emitter), With<Emitter>>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
@@ -112,7 +112,7 @@ fn update_positions(
 fn update_listener(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut listeners: Single<&mut Transform, With<SpatialListener>>,
+    mut listeners: Single<&mut Transform3d, With<SpatialListener>>,
 ) {
     let speed = 2.;
 

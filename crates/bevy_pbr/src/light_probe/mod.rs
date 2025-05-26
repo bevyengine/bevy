@@ -29,7 +29,7 @@ use bevy_render::{
     view::{ExtractedView, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_transform::{components::Transform, prelude::GlobalTransform};
+use bevy_transform::{components::Transform3d, prelude::GlobalTransform};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
@@ -74,7 +74,7 @@ pub struct LightProbePlugin;
 /// [`IrradianceVolume`].
 ///
 /// The light probe range is conceptually a unit cube (1×1×1) centered on the
-/// origin. The [`Transform`] applied to this entity can scale, rotate, or translate
+/// origin. The [`Transform3d`] applied to this entity can scale, rotate, or translate
 /// that cube so that it contains all fragments that should take this light probe into account.
 ///
 /// When multiple sources of indirect illumination can be applied to a fragment,
@@ -107,7 +107,7 @@ pub struct LightProbePlugin;
 /// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(Transform, Visibility)]
+#[require(Transform3d, Visibility)]
 pub struct LightProbe;
 
 /// A GPU type that stores information about a light probe.
@@ -399,7 +399,7 @@ fn gather_environment_map_uniform(
     for (view_entity, environment_map_light) in view_query.iter() {
         let environment_map_uniform = if let Some(environment_map_light) = environment_map_light {
             EnvironmentMapUniform {
-                transform: Transform::from_rotation(environment_map_light.rotation)
+                transform: Transform3d::from_rotation(environment_map_light.rotation)
                     .compute_matrix()
                     .inverse(),
             }

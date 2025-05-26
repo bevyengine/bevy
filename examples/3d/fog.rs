@@ -62,7 +62,7 @@ fn setup_pyramid_scene(
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(1.0, 3.0, 1.0))),
             MeshMaterial3d(stone.clone()),
-            Transform::from_xyz(*x, 1.5, *z),
+            Transform3d::from_xyz(*x, 1.5, *z),
         ));
     }
 
@@ -77,7 +77,7 @@ fn setup_pyramid_scene(
             alpha_mode: AlphaMode::Blend,
             ..default()
         })),
-        Transform::from_scale(Vec3::splat(1.75)).with_translation(Vec3::new(0.0, 4.0, 0.0)),
+        Transform3d::from_scale(Vec3::splat(1.75)).with_translation(Vec3::new(0.0, 4.0, 0.0)),
         NotShadowCaster,
         NotShadowReceiver,
     ));
@@ -89,7 +89,7 @@ fn setup_pyramid_scene(
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(2.0 * half_size, 0.5, 2.0 * half_size))),
             MeshMaterial3d(stone.clone()),
-            Transform::from_xyz(0.0, y + 0.25, 0.0),
+            Transform3d::from_xyz(0.0, y + 0.25, 0.0),
         ));
     }
 
@@ -102,7 +102,7 @@ fn setup_pyramid_scene(
             cull_mode: None,
             ..default()
         })),
-        Transform::from_scale(Vec3::splat(1_000_000.0)),
+        Transform3d::from_scale(Vec3::splat(1_000_000.0)),
     ));
 
     // light
@@ -111,7 +111,7 @@ fn setup_pyramid_scene(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(0.0, 1.0, 0.0),
+        Transform3d::from_xyz(0.0, 1.0, 0.0),
     ));
 }
 
@@ -128,7 +128,7 @@ fn setup_instructions(mut commands: Commands) {
 }
 
 fn update_system(
-    camera: Single<(&mut DistanceFog, &mut Transform)>,
+    camera: Single<(&mut DistanceFog, &mut Transform3d)>,
     mut text: Single<&mut Text>,
     time: Res<Time>,
     keycode: Res<ButtonInput<KeyCode>>,
@@ -140,7 +140,7 @@ fn update_system(
 
     // Orbit camera around pyramid
     let orbit_scale = 8.0 + ops::sin(now / 10.0) * 7.0;
-    *transform = Transform::from_xyz(
+    *transform = Transform3d::from_xyz(
         ops::cos(now / 5.0) * orbit_scale,
         12.0 - orbit_scale / 2.0,
         ops::sin(now / 5.0) * orbit_scale,

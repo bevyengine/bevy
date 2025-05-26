@@ -91,7 +91,7 @@ impl GltfMesh {
 }
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
-/// [`Transform`](bevy_transform::prelude::Transform), its optional [`GltfSkin`]
+/// [`Transform3d`](bevy_transform::prelude::Transform), its optional [`GltfSkin`]
 /// and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
@@ -108,7 +108,7 @@ pub struct GltfNode {
     /// Skin of the node.
     pub skin: Option<Handle<GltfSkin>>,
     /// Local transform.
-    pub transform: bevy_transform::prelude::Transform,
+    pub transform: bevy_transform::prelude::Transform3d,
     /// Is this node used as an animation root
     #[cfg(feature = "bevy_animation")]
     pub is_animation_root: bool,
@@ -122,7 +122,7 @@ impl GltfNode {
         node: &gltf::Node,
         children: Vec<Handle<GltfNode>>,
         mesh: Option<Handle<GltfMesh>>,
-        transform: bevy_transform::prelude::Transform,
+        transform: bevy_transform::prelude::Transform3d,
         skin: Option<Handle<GltfSkin>>,
         extras: Option<GltfExtras>,
     ) -> Self {

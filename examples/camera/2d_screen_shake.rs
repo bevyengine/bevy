@@ -45,19 +45,19 @@ fn setup_scene(
         Player,
         Mesh2d(meshes.add(Rectangle::new(50.0, 100.0))), // Rectangle size (width, height)
         MeshMaterial2d(materials.add(Color::srgb(0.25, 0.94, 0.91))), // RGB values must be in range 0.0 to 1.0
-        Transform::from_xyz(0., 0., 2.),
+        Transform3d::from_xyz(0., 0., 2.),
     ));
 
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(50.0, 50.0))), // Rectangle size (width, height)
         MeshMaterial2d(materials.add(Color::srgb(0.85, 0.0, 0.2))), // RGB values must be in range 0.0 to 1.0
-        Transform::from_xyz(-450.0, 200.0, 2.),
+        Transform3d::from_xyz(-450.0, 200.0, 2.),
     ));
 
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(70.0, 50.0))), // Rectangle size (width, height)
         MeshMaterial2d(materials.add(Color::srgb(0.5, 0.8, 0.2))), // RGB values must be in range 0.0 to 1.0
-        Transform::from_xyz(450.0, -150.0, 2.),
+        Transform3d::from_xyz(450.0, -150.0, 2.),
     ));
     commands.init_resource::<ScreenShake>();
 }
@@ -136,7 +136,7 @@ fn trigger_shake_on_space(
 fn screen_shake(
     time: Res<Time>,
     mut screen_shake: ResMut<ScreenShake>,
-    mut query: Query<(&mut Camera, &mut Transform)>,
+    mut query: Query<(&mut Camera, &mut Transform3d)>,
 ) {
     let mut rng = ChaCha8Rng::from_entropy();
     let shake = screen_shake.trauma * screen_shake.trauma;

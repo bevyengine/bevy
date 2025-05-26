@@ -29,7 +29,7 @@ use bevy_render::{
 use bevy_sprite::{
     Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
 };
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
@@ -92,7 +92,7 @@ use bevy_window::{PrimaryWindow, Window};
     Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    Transform3d
 )]
 #[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);

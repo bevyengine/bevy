@@ -90,12 +90,12 @@ fn spawn_sprites(
                 image_mode: scale_mode,
                 ..default()
             },
-            Transform::from_translation(position),
+            Transform3d::from_translation(position),
             children![(
                 Text2d::new(label),
                 text_style,
                 TextLayout::new_with_justify(JustifyText::Center),
-                Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
+                Transform3d::from_xyz(0., -0.5 * size.y - 10., 0.0),
                 bevy::sprite::Anchor::TOP_CENTER,
             )],
         ));

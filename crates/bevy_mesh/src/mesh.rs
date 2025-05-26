@@ -1,4 +1,4 @@
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
@@ -863,18 +863,18 @@ impl Mesh {
         Ok(())
     }
 
-    /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform3d`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
-    pub fn transformed_by(mut self, transform: Transform) -> Self {
+    pub fn transformed_by(mut self, transform: Transform3d) -> Self {
         self.transform_by(transform);
         self
     }
 
-    /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
+    /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform3d`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
-    pub fn transform_by(&mut self, transform: Transform) {
+    pub fn transform_by(&mut self, transform: Transform3d) {
         // Needed when transforming normals and tangents
         let scale_recip = 1. / transform.scale;
         debug_assert!(
@@ -1228,7 +1228,7 @@ impl Mesh {
     }
 }
 
-impl core::ops::Mul<Mesh> for Transform {
+impl core::ops::Mul<Mesh> for Transform3d {
     type Output = Mesh;
 
     fn mul(self, rhs: Mesh) -> Self::Output {
@@ -1252,7 +1252,7 @@ mod tests {
     use bevy_asset::RenderAssetUsages;
     use bevy_math::primitives::Triangle3d;
     use bevy_math::Vec3;
-    use bevy_transform::components::Transform;
+    use bevy_transform::components::Transform3d;
 
     #[test]
     #[should_panic]
@@ -1285,7 +1285,7 @@ mod tests {
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0., 0.], [1., 0.], [0.5, 1.]]);
 
         let mesh = mesh.transformed_by(
-            Transform::from_translation(Vec3::splat(-2.)).with_scale(Vec3::new(2., 0., -1.)),
+            Transform3d::from_translation(Vec3::splat(-2.)).with_scale(Vec3::new(2., 0., -1.)),
         );
 
         if let Some(VertexAttributeValues::Float32x3(positions)) =

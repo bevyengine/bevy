@@ -290,7 +290,7 @@ fn setup(
             metallic: 0.0,
             ..default()
         })),
-        Transform::from_xyz(0.0, -2.5, 0.0),
+        Transform3d::from_xyz(0.0, -2.5, 0.0),
     ));
 
     let shape_material = materials.add(StandardMaterial {
@@ -307,7 +307,7 @@ fn setup(
         commands.spawn((
             Mesh3d(meshes.add(shape.mesh())),
             MeshMaterial3d(shape_material.clone()),
-            Transform::from_translation(*translation),
+            Transform3d::from_translation(*translation),
         ));
 
         // Lights which work as the bulk lighting of the fireflies:
@@ -320,7 +320,7 @@ fn setup(
                 color: Color::LinearRgba(INSIDE_POINT_COLOR),
                 ..default()
             },
-            Transform::from_translation(*translation),
+            Transform3d::from_translation(*translation),
             FireflyLights,
         ));
     }
@@ -333,7 +333,7 @@ fn setup(
             shadows_enabled: false,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
     ));
 
     // A camera:
@@ -344,7 +344,7 @@ fn setup(
             ..default()
         },
         Tonemapping::TonyMcMapface,
-        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Bloom::NATURAL,
         CameraRig {
             yaw: 0.56,
@@ -589,7 +589,7 @@ fn spawn_points(
                 SamplingMode::Interior => sample_material.interior.clone(),
                 SamplingMode::Boundary => sample_material.boundary.clone(),
             }),
-            Transform::from_translation(sample).with_scale(Vec3::ZERO),
+            Transform3d::from_translation(sample).with_scale(Vec3::ZERO),
             SamplePoint,
             SpawningPoint { progress: 0.0 },
         ));
@@ -633,7 +633,7 @@ fn despawn_points(
 fn animate_spawning(
     mut commands: Commands,
     time: Res<Time>,
-    mut samples: Query<(Entity, &mut Transform, &mut SpawningPoint)>,
+    mut samples: Query<(Entity, &mut Transform3d, &mut SpawningPoint)>,
 ) {
     let dt = time.delta_secs();
 
@@ -649,7 +649,7 @@ fn animate_spawning(
 fn animate_despawning(
     mut commands: Commands,
     time: Res<Time>,
-    mut samples: Query<(Entity, &mut Transform, &mut DespawningPoint)>,
+    mut samples: Query<(Entity, &mut Transform3d, &mut DespawningPoint)>,
 ) {
     let dt = time.delta_secs();
 
@@ -664,7 +664,7 @@ fn animate_despawning(
     }
 }
 
-fn update_camera(mut camera: Query<(&mut Transform, &CameraRig), Changed<CameraRig>>) {
+fn update_camera(mut camera: Query<(&mut Transform3d, &CameraRig), Changed<CameraRig>>) {
     for (mut transform, rig) in camera.iter_mut() {
         let looking_direction =
             Quat::from_rotation_y(-rig.yaw) * Quat::from_rotation_x(rig.pitch) * Vec3::Z;

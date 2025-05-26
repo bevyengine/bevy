@@ -144,7 +144,7 @@ fn scene_load_check(
 fn update_lights(
     key_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut DirectionalLight)>,
+    mut query: Query<(&mut Transform3d, &mut DirectionalLight)>,
     mut animate_directional_light: Local<bool>,
 ) {
     for (_, mut light) in &mut query {

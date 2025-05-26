@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2d::new("scale"),
         text_font,
         TextLayout::new_with_justify(text_justification),
-        Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
+        Transform3d::from_translation(Vec3::new(400.0, 0.0, 0.0)),
         AnimateScale,
     ));
     // Demonstrate text wrapping
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let box_position = Vec2::new(0.0, -250.0);
     commands.spawn((
         Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), box_size),
-        Transform::from_translation(box_position.extend(0.0)),
+        Transform3d::from_translation(box_position.extend(0.0)),
         children![(
             Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
             slightly_smaller_text_font.clone(),
@@ -82,7 +82,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Wrap text in the rectangle
             TextBounds::from(box_size),
             // Ensure the text is drawn on top of the box
-            Transform::from_translation(Vec3::Z),
+            Transform3d::from_translation(Vec3::Z),
         )],
     ));
 
@@ -90,7 +90,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let other_box_position = Vec2::new(320.0, -250.0);
     commands.spawn((
         Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), other_box_size),
-        Transform::from_translation(other_box_position.extend(0.0)),
+        Transform3d::from_translation(other_box_position.extend(0.0)),
         children![(
             Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
             slightly_smaller_text_font.clone(),
@@ -98,7 +98,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Wrap text in the rectangle
             TextBounds::from(other_box_size),
             // Ensure the text is drawn on top of the box
-            Transform::from_translation(Vec3::Z),
+            Transform3d::from_translation(Vec3::Z),
         )],
     ));
 
@@ -109,7 +109,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .clone()
             .with_font_smoothing(FontSmoothing::None),
         TextLayout::new_with_justify(JustifyText::Center),
-        Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
+        Transform3d::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
     ));
 
     commands
@@ -119,7 +119,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 custom_size: Some(Vec2::new(10., 10.)),
                 ..Default::default()
             },
-            Transform::from_translation(250. * Vec3::Y),
+            Transform3d::from_translation(250. * Vec3::Y),
         ))
         .with_children(|commands| {
             for (text_anchor, color) in [
@@ -150,7 +150,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn animate_translation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateTranslation>)>,
+    mut query: Query<&mut Transform3d, (With<Text2d>, With<AnimateTranslation>)>,
 ) {
     for mut transform in &mut query {
         transform.translation.x = 100.0 * ops::sin(time.elapsed_secs()) - 400.0;
@@ -160,7 +160,7 @@ fn animate_translation(
 
 fn animate_rotation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateRotation>)>,
+    mut query: Query<&mut Transform3d, (With<Text2d>, With<AnimateRotation>)>,
 ) {
     for mut transform in &mut query {
         transform.rotation = Quat::from_rotation_z(ops::cos(time.elapsed_secs()));
@@ -169,7 +169,7 @@ fn animate_rotation(
 
 fn animate_scale(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateScale>)>,
+    mut query: Query<&mut Transform3d, (With<Text2d>, With<AnimateScale>)>,
 ) {
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
     // rendered quad, resulting in a pixellated look.

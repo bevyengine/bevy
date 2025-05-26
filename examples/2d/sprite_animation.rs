@@ -120,7 +120,7 @@ fn setup(
             }),
             ..default()
         },
-        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(-70.0, 0.0, 0.0)),
+        Transform3d::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(-70.0, 0.0, 0.0)),
         LeftSprite,
         animation_config_1,
     ));
@@ -138,7 +138,7 @@ fn setup(
             }),
             ..Default::default()
         },
-        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(70.0, 0.0, 0.0)),
+        Transform3d::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(70.0, 0.0, 0.0)),
         RightSprite,
         animation_config_2,
     ));

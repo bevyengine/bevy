@@ -64,7 +64,7 @@ fn setup(
             (
                 Mesh3d(cube_mesh.clone()),
                 MeshMaterial3d(blue.clone()),
-                Transform::from_xyz(x, y, z),
+                Transform3d::from_xyz(x, y, z),
                 Movable,
             )
         })
@@ -99,7 +99,7 @@ fn setup(
                         outer_angle: PI / 4.0,
                         ..default()
                     },
-                    Transform::from_xyz(1.0 + x, 2.0, z)
+                    Transform3d::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                 ))
                 .with_children(|builder| {
@@ -110,7 +110,7 @@ fn setup(
                     builder.spawn((
                         Mesh3d(sphere_mesh_direction.clone()),
                         MeshMaterial3d(maroon_emissive.clone()),
-                        Transform::from_translation(Vec3::Z * -0.1),
+                        Transform3d::from_translation(Vec3::Z * -0.1),
                         NotShadowCaster,
                     ));
                 });
@@ -121,7 +121,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Hdr,
-        Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     commands.spawn((
@@ -135,7 +135,7 @@ fn setup(
     ));
 }
 
-fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
+fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform3d, &mut SpotLight)>) {
     for (mut transform, mut angles) in query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
@@ -152,7 +152,7 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)
 fn movement(
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<&mut Transform, With<Movable>>,
+    mut query: Query<&mut Transform3d, With<Movable>>,
 ) {
     // Calculate translation to move the cubes and ground plane
     let mut translation = Vec3::ZERO;
@@ -187,7 +187,7 @@ fn movement(
 }
 
 fn rotation(
-    mut transform: Single<&mut Transform, With<Camera>>,
+    mut transform: Single<&mut Transform3d, With<Camera>>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {

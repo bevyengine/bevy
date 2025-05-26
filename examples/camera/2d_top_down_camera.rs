@@ -44,7 +44,7 @@ fn setup_scene(
         Player,
         Mesh2d(meshes.add(Circle::new(25.))),
         MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))), // RGB values exceed 1 to achieve a bright color for the bloom effect
-        Transform::from_xyz(0., 0., 2.),
+        Transform3d::from_xyz(0., 0., 2.),
     ));
 }
 
@@ -66,8 +66,8 @@ fn setup_camera(mut commands: Commands) {
 
 /// Update the camera position by tracking the player.
 fn update_camera(
-    mut camera: Single<&mut Transform, (With<Camera2d>, Without<Player>)>,
-    player: Single<&Transform, (With<Player>, Without<Camera2d>)>,
+    mut camera: Single<&mut Transform3d, (With<Camera2d>, Without<Player>)>,
+    player: Single<&Transform3d, (With<Player>, Without<Camera2d>)>,
     time: Res<Time>,
 ) {
     let Vec3 { x, y, .. } = player.translation;
@@ -86,7 +86,7 @@ fn update_camera(
 ///
 /// A more robust solution for player movement can be found in `examples/movement/physics_in_fixed_timestep.rs`.
 fn move_player(
-    mut player: Single<&mut Transform, With<Player>>,
+    mut player: Single<&mut Transform3d, With<Player>>,
     time: Res<Time>,
     kb_input: Res<ButtonInput<KeyCode>>,
 ) {

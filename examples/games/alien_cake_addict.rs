@@ -94,7 +94,7 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     game.camera_is_focus = game.camera_should_focus;
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(
+        Transform3d::from_xyz(
             -(BOARD_SIZE_I as f32 / 2.0),
             2.0 * BOARD_SIZE_J as f32 / 3.0,
             BOARD_SIZE_J as f32 / 2.0 - 0.5,
@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             range: 30.0,
             ..default()
         },
-        Transform::from_xyz(4.0, 10.0, 4.0),
+        Transform3d::from_xyz(4.0, 10.0, 4.0),
     ));
 
     // spawn the game board
@@ -140,7 +140,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     let height = rng.gen_range(-0.1..0.1);
                     commands.spawn((
                         DespawnOnExitState(GameState::Playing),
-                        Transform::from_xyz(i as f32, height - 0.2, j as f32),
+                        Transform3d::from_xyz(i as f32, height - 0.2, j as f32),
                         SceneRoot(cell_scene.clone()),
                     ));
                     Cell { height }
@@ -154,7 +154,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         commands
             .spawn((
                 DespawnOnExitState(GameState::Playing),
-                Transform {
+                Transform3d {
                     translation: Vec3::new(
                         game.player.i as f32,
                         game.board[game.player.j][game.player.i].height,
@@ -200,7 +200,7 @@ fn move_player(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut game: ResMut<Game>,
-    mut transforms: Query<&mut Transform>,
+    mut transforms: Query<&mut Transform3d>,
     time: Res<Time>,
 ) {
     if game.player.move_cooldown.tick(time.delta()).finished() {
@@ -239,7 +239,7 @@ fn move_player(
         // move on the board
         if moved {
             game.player.move_cooldown.reset();
-            *transforms.get_mut(game.player.entity.unwrap()).unwrap() = Transform {
+            *transforms.get_mut(game.player.entity.unwrap()).unwrap() = Transform3d {
                 translation: Vec3::new(
                     game.player.i as f32,
                     game.board[game.player.j][game.player.i].height,
@@ -266,7 +266,7 @@ fn move_player(
 fn focus_camera(
     time: Res<Time>,
     mut game: ResMut<Game>,
-    mut transforms: ParamSet<(Query<&mut Transform, With<Camera3d>>, Query<&Transform>)>,
+    mut transforms: ParamSet<(Query<&mut Transform3d, With<Camera3d>>, Query<&Transform3d>)>,
 ) {
     const SPEED: f32 = 2.0;
     // if there is both a player and a bonus, target the mid-point of them
@@ -340,7 +340,7 @@ fn spawn_bonus(
         commands
             .spawn((
                 DespawnOnExitState(GameState::Playing),
-                Transform::from_xyz(
+                Transform3d::from_xyz(
                     game.bonus.i as f32,
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
                     game.bonus.j as f32,
@@ -353,7 +353,7 @@ fn spawn_bonus(
                         range: 10.0,
                         ..default()
                     },
-                    Transform::from_xyz(0.0, 2.0, 0.0),
+                    Transform3d::from_xyz(0.0, 2.0, 0.0),
                 )],
             ))
             .id(),
@@ -361,7 +361,7 @@ fn spawn_bonus(
 }
 
 // let the cake turn on itself
-fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform>) {
+fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform3d>) {
     if let Some(entity) = game.bonus.entity {
         if let Ok(mut cake_transform) = transforms.get_mut(entity) {
             cake_transform.rotate_y(time.delta_secs());

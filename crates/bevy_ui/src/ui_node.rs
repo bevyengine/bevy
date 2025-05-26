@@ -10,7 +10,7 @@ use bevy_render::{
     view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
@@ -329,7 +329,7 @@ impl From<Vec2> for ScrollPosition {
     BorderRadius,
     FocusPolicy,
     ScrollPosition,
-    Transform,
+    Transform3d,
     Visibility,
     VisibilityClass,
     ZIndex

@@ -30,7 +30,7 @@ use super::*;
 #[require(
     CubemapFrusta,
     CubemapVisibleEntities,
-    Transform,
+    Transform3d,
     Visibility,
     VisibilityClass
 )]

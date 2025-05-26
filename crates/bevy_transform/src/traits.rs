@@ -1,6 +1,6 @@
 use bevy_math::{Affine3A, Isometry3d, Mat4, Vec3};
 
-use crate::prelude::{GlobalTransform, Transform};
+use crate::prelude::{GlobalTransform, Transform3d};
 
 /// A trait for point transformation methods.
 pub trait TransformPoint {
@@ -8,7 +8,7 @@ pub trait TransformPoint {
     fn transform_point(&self, point: impl Into<Vec3>) -> Vec3;
 }
 
-impl TransformPoint for Transform {
+impl TransformPoint for Transform3d {
     #[inline]
     fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
         self.transform_point(point.into())

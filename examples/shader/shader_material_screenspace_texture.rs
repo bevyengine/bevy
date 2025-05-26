@@ -31,7 +31,7 @@ fn setup(
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
         MeshMaterial3d(standard_materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
-    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 8.0, 4.0)));
+    commands.spawn((PointLight::default(), Transform3d::from_xyz(4.0, 8.0, 4.0)));
 
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
@@ -40,18 +40,18 @@ fn setup(
                 "models/FlightHelmet/FlightHelmet_Materials_LensesMat_OcclusionRoughMetal.png",
             ),
         })),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
     ));
 
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(4.0, 2.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(4.0, 2.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         MainCamera,
     ));
 }
 
-fn rotate_camera(mut cam_transform: Single<&mut Transform, With<MainCamera>>, time: Res<Time>) {
+fn rotate_camera(mut cam_transform: Single<&mut Transform3d, With<MainCamera>>, time: Res<Time>) {
     cam_transform.rotate_around(
         Vec3::ZERO,
         Quat::from_axis_angle(Vec3::Y, 45f32.to_radians() * time.delta_secs()),

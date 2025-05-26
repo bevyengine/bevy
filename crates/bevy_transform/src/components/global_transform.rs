@@ -1,6 +1,6 @@
 use core::ops::Mul;
 
-use super::Transform;
+use super::Transform3d;
 use bevy_math::{ops, Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
 use derive_more::derive::From;
 
@@ -19,23 +19,23 @@ use {
 /// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace coordinates.
 ///
 /// You cannot directly mutate [`GlobalTransform`]; instead, you change an entity's transform by manipulating
-/// its [`Transform`], which indirectly causes Bevy to update its [`GlobalTransform`].
+/// its [`Transform3d`], which indirectly causes Bevy to update its [`GlobalTransform`].
 ///
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
-/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
+/// * For transform hierarchies to work correctly, you must have both a [`Transform3d`] and a [`GlobalTransform`].
+///   [`GlobalTransform`] is automatically inserted whenever [`Transform3d`] is inserted.
 ///
-/// ## [`Transform`] and [`GlobalTransform`]
+/// ## [`Transform3d`] and [`GlobalTransform`]
 ///
-/// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to world space coordinates,
+/// [`Transform3d`] transforms an entity relative to its parent's reference frame, or relative to world space coordinates,
 /// if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
-/// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform`] of each ancestor
+/// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform3d`] of each ancestor
 /// entity which has a Transform. This is done automatically by Bevy-internal systems in the [`TransformSystems::Propagate`]
 /// system set.
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
-/// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
+/// update the [`Transform3d`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
 /// [`TransformSystems::Propagate`]: crate::TransformSystems::Propagate
@@ -125,14 +125,14 @@ impl GlobalTransform {
         self.0
     }
 
-    /// Returns the transformation as a [`Transform`].
+    /// Returns the transformation as a [`Transform3d`].
     ///
     /// The transform is expected to be non-degenerate and without shearing, or the output
     /// will be invalid.
     #[inline]
-    pub fn compute_transform(&self) -> Transform {
+    pub fn compute_transform(&self) -> Transform3d {
         let (scale, rotation, translation) = self.0.to_scale_rotation_translation();
-        Transform {
+        Transform3d {
             translation,
             rotation,
             scale,
@@ -152,7 +152,7 @@ impl GlobalTransform {
         Isometry3d::new(translation, rotation)
     }
 
-    /// Returns the [`Transform`] `self` would have if it was a child of an entity
+    /// Returns the [`Transform3d`] `self` would have if it was a child of an entity
     /// with the `parent` [`GlobalTransform`].
     ///
     /// This is useful if you want to "reparent" an [`Entity`](bevy_ecs::entity::Entity).
@@ -185,10 +185,10 @@ impl GlobalTransform {
     /// The transform is expected to be non-degenerate and without shearing, or the output
     /// will be invalid.
     #[inline]
-    pub fn reparented_to(&self, parent: &GlobalTransform) -> Transform {
+    pub fn reparented_to(&self, parent: &GlobalTransform) -> Transform3d {
         let relative_affine = parent.affine().inverse() * self.affine();
         let (scale, rotation, translation) = relative_affine.to_scale_rotation_translation();
-        Transform {
+        Transform3d {
             translation,
             rotation,
             scale,
@@ -297,7 +297,7 @@ impl GlobalTransform {
     /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`GlobalTransform`]
     #[inline]
-    pub fn mul_transform(&self, transform: Transform) -> Self {
+    pub fn mul_transform(&self, transform: Transform3d) -> Self {
         Self(self.0 * transform.compute_affine())
     }
 }
@@ -308,8 +308,8 @@ impl Default for GlobalTransform {
     }
 }
 
-impl From<Transform> for GlobalTransform {
-    fn from(transform: Transform) -> Self {
+impl From<Transform3d> for GlobalTransform {
+    fn from(transform: Transform3d) -> Self {
         Self(transform.compute_affine())
     }
 }
@@ -329,11 +329,11 @@ impl Mul<GlobalTransform> for GlobalTransform {
     }
 }
 
-impl Mul<Transform> for GlobalTransform {
+impl Mul<Transform3d> for GlobalTransform {
     type Output = GlobalTransform;
 
     #[inline]
-    fn mul(self, transform: Transform) -> Self::Output {
+    fn mul(self, transform: Transform3d) -> Self::Output {
         self.mul_transform(transform)
     }
 }
@@ -353,21 +353,21 @@ mod test {
 
     use bevy_math::EulerRot::XYZ;
 
-    fn transform_equal(left: GlobalTransform, right: Transform) -> bool {
+    fn transform_equal(left: GlobalTransform, right: Transform3d) -> bool {
         left.0.abs_diff_eq(right.compute_affine(), 0.01)
     }
 
     #[test]
     fn reparented_to_transform_identity() {
-        fn reparent_to_same(t1: GlobalTransform, t2: GlobalTransform) -> Transform {
+        fn reparent_to_same(t1: GlobalTransform, t2: GlobalTransform) -> Transform3d {
             t2.mul_transform(t1.into()).reparented_to(&t2)
         }
-        let t1 = GlobalTransform::from(Transform {
+        let t1 = GlobalTransform::from(Transform3d {
             translation: Vec3::new(1034.0, 34.0, -1324.34),
             rotation: Quat::from_euler(XYZ, 1.0, 0.9, 2.1),
             scale: Vec3::new(1.0, 1.0, 1.0),
         });
-        let t2 = GlobalTransform::from(Transform {
+        let t2 = GlobalTransform::from(Transform3d {
             translation: Vec3::new(0.0, -54.493, 324.34),
             rotation: Quat::from_euler(XYZ, 1.9, 0.3, 3.0),
             scale: Vec3::new(1.345, 1.345, 1.345),
@@ -382,12 +382,12 @@ mod test {
     }
     #[test]
     fn reparented_usecase() {
-        let t1 = GlobalTransform::from(Transform {
+        let t1 = GlobalTransform::from(Transform3d {
             translation: Vec3::new(1034.0, 34.0, -1324.34),
             rotation: Quat::from_euler(XYZ, 0.8, 1.9, 2.1),
             scale: Vec3::new(10.9, 10.9, 10.9),
         });
-        let t2 = GlobalTransform::from(Transform {
+        let t2 = GlobalTransform::from(Transform3d {
             translation: Vec3::new(28.0, -54.493, 324.34),
             rotation: Quat::from_euler(XYZ, 0.0, 3.1, 0.1),
             scale: Vec3::new(0.9, 0.9, 0.9),

@@ -27,7 +27,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         // Add this component to this camera to render transparent meshes using OIT
         OrderIndependentTransparencySettings::default(),
         RenderLayers::layer(1),
@@ -41,7 +41,7 @@ fn setup(
             shadows_enabled: false,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
         RenderLayers::layer(1),
     ));
 
@@ -144,7 +144,7 @@ fn spawn_spheres(
             alpha_mode: AlphaMode::Blend,
             ..default()
         })),
-        Transform::from_translation(pos_a + offset),
+        Transform3d::from_translation(pos_a + offset),
         render_layers.clone(),
     ));
     commands.spawn((
@@ -154,7 +154,7 @@ fn spawn_spheres(
             alpha_mode: AlphaMode::Blend,
             ..default()
         })),
-        Transform::from_translation(pos_b + offset),
+        Transform3d::from_translation(pos_b + offset),
         render_layers.clone(),
     ));
     commands.spawn((
@@ -164,7 +164,7 @@ fn spawn_spheres(
             alpha_mode: AlphaMode::Blend,
             ..default()
         })),
-        Transform::from_translation(pos_c + offset),
+        Transform3d::from_translation(pos_c + offset),
         render_layers.clone(),
     ));
 }
@@ -188,7 +188,7 @@ fn spawn_occlusion_test(
     commands.spawn((
         Mesh3d(cube_handle.clone()),
         MeshMaterial3d(cube_material.clone()),
-        Transform::from_xyz(x, 0.0, 2.0),
+        Transform3d::from_xyz(x, 0.0, 2.0),
         render_layers.clone(),
     ));
     commands.spawn((
@@ -198,7 +198,7 @@ fn spawn_occlusion_test(
             alpha_mode: AlphaMode::Blend,
             ..default()
         })),
-        Transform::from_xyz(x, 0., 0.),
+        Transform3d::from_xyz(x, 0., 0.),
         render_layers.clone(),
     ));
 
@@ -206,7 +206,7 @@ fn spawn_occlusion_test(
     commands.spawn((
         Mesh3d(cube_handle.clone()),
         MeshMaterial3d(cube_material.clone()),
-        Transform::from_xyz(x, 0.0, 1.0),
+        Transform3d::from_xyz(x, 0.0, 1.0),
         render_layers.clone(),
     ));
     commands.spawn((
@@ -216,7 +216,7 @@ fn spawn_occlusion_test(
             alpha_mode: AlphaMode::Blend,
             ..default()
         })),
-        Transform::from_xyz(0., 0., 0.),
+        Transform3d::from_xyz(0., 0., 0.),
         render_layers.clone(),
     ));
 
@@ -225,7 +225,7 @@ fn spawn_occlusion_test(
     commands.spawn((
         Mesh3d(cube_handle.clone()),
         MeshMaterial3d(cube_material.clone()),
-        Transform::from_xyz(x, 0.0, -2.0),
+        Transform3d::from_xyz(x, 0.0, -2.0),
         render_layers.clone(),
     ));
     commands.spawn((
@@ -235,7 +235,7 @@ fn spawn_occlusion_test(
             alpha_mode: AlphaMode::Blend,
             ..default()
         })),
-        Transform::from_xyz(x, 0., 0.),
+        Transform3d::from_xyz(x, 0., 0.),
         render_layers.clone(),
     ));
 }

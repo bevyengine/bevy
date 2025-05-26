@@ -184,7 +184,7 @@ fn spawn_cube(
     materials: &mut Assets<ExtendedMaterial<StandardMaterial, CustomDecalExtension>>,
 ) {
     // Rotate the cube a bit just to make it more interesting.
-    let mut transform = Transform::IDENTITY;
+    let mut transform = Transform3d::IDENTITY;
     transform.rotate_y(FRAC_PI_3);
 
     commands.spawn((
@@ -204,7 +204,7 @@ fn spawn_cube(
 fn spawn_light(commands: &mut Commands) {
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -212,7 +212,7 @@ fn spawn_light(commands: &mut Commands) {
 fn spawn_camera(commands: &mut Commands) {
     commands
         .spawn(Camera3d::default())
-        .insert(Transform::from_xyz(0.0, 2.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y))
+        .insert(Transform3d::from_xyz(0.0, 2.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y))
         // Tag the camera with `Selection::Camera`.
         .insert(Selection::Camera);
 }
@@ -343,16 +343,16 @@ fn draw_gizmos(
 }
 
 /// Calculates the initial transform of the clustered decal.
-fn calculate_initial_decal_transform(start: Vec3, looking_at: Vec3, size: Vec2) -> Transform {
+fn calculate_initial_decal_transform(start: Vec3, looking_at: Vec3, size: Vec2) -> Transform3d {
     let direction = looking_at - start;
     let center = start + direction * 0.5;
-    Transform::from_translation(center)
+    Transform3d::from_translation(center)
         .with_scale((size * 0.5).extend(direction.length()))
         .looking_to(direction, Vec3::Y)
 }
 
 /// Rotates the cube a bit every frame.
-fn rotate_cube(mut meshes: Query<&mut Transform, With<Mesh3d>>) {
+fn rotate_cube(mut meshes: Query<&mut Transform3d, With<Mesh3d>>) {
     for mut transform in &mut meshes {
         transform.rotate_y(CUBE_ROTATION_SPEED);
     }
@@ -392,7 +392,7 @@ fn handle_selection_change(
 
 /// Process a drag event that moves the selected object.
 fn process_move_input(
-    mut selections: Query<(&mut Transform, &Selection)>,
+    mut selections: Query<(&mut Transform3d, &Selection)>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     app_status: Res<AppStatus>,
@@ -442,7 +442,7 @@ fn process_move_input(
 
 /// Processes a drag event that scales the selected target.
 fn process_scale_input(
-    mut selections: Query<(&mut Transform, &Selection)>,
+    mut selections: Query<(&mut Transform3d, &Selection)>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     app_status: Res<AppStatus>,
@@ -462,7 +462,7 @@ fn process_scale_input(
 /// Processes a drag event that rotates the selected target along its local Z
 /// axis.
 fn process_roll_input(
-    mut selections: Query<(&mut Transform, &Selection)>,
+    mut selections: Query<(&mut Transform3d, &Selection)>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     app_status: Res<AppStatus>,

@@ -48,7 +48,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.15, 0.3))),
-        Transform::from_xyz(0.0, -2.5, 0.0),
+        Transform3d::from_xyz(0.0, -2.5, 0.0),
     ));
 
     // The target sphere:
@@ -62,7 +62,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(0.3))),
         MeshMaterial3d(materials.add(Color::srgb(0.9, 0.3, 0.3))),
-        Transform::from_translation(vec3(0.0, -2.0, 0.0)),
+        Transform3d::from_translation(vec3(0.0, -2.0, 0.0)),
         FollowingSphere,
     ));
 
@@ -73,13 +73,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
     ));
 
     // A camera:
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Set starting values for resources used by the systems:
@@ -90,7 +90,7 @@ fn setup(
 }
 
 fn move_target(
-    mut target: Single<&mut Transform, With<TargetSphere>>,
+    mut target: Single<&mut Transform3d, With<TargetSphere>>,
     target_speed: Res<TargetSphereSpeed>,
     mut target_pos: ResMut<TargetPosition>,
     time: Res<Time>,
@@ -117,8 +117,8 @@ fn move_target(
 }
 
 fn move_follower(
-    mut following: Single<&mut Transform, With<FollowingSphere>>,
-    target: Single<&Transform, (With<TargetSphere>, Without<FollowingSphere>)>,
+    mut following: Single<&mut Transform3d, With<FollowingSphere>>,
+    target: Single<&Transform3d, (With<TargetSphere>, Without<FollowingSphere>)>,
     decay_rate: Res<DecayRate>,
     time: Res<Time>,
 ) {

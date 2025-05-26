@@ -25,7 +25,7 @@ fn setup(
             },
             ..OrthographicProjection::default_3d()
         }),
-        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // plane
@@ -37,23 +37,23 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(1.5, 0.5, 1.5),
+        Transform3d::from_xyz(1.5, 0.5, 1.5),
     ));
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(1.5, 0.5, -1.5),
+        Transform3d::from_xyz(1.5, 0.5, -1.5),
     ));
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(-1.5, 0.5, 1.5),
+        Transform3d::from_xyz(-1.5, 0.5, 1.5),
     ));
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(-1.5, 0.5, -1.5),
+        Transform3d::from_xyz(-1.5, 0.5, -1.5),
     ));
     // light
-    commands.spawn((PointLight::default(), Transform::from_xyz(3.0, 8.0, 5.0)));
+    commands.spawn((PointLight::default(), Transform3d::from_xyz(3.0, 8.0, 5.0)));
 }

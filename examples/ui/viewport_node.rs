@@ -63,7 +63,7 @@ fn test(
         .spawn((
             Mesh3d(meshes.add(Cuboid::new(5.0, 5.0, 5.0))),
             MeshMaterial3d(materials.add(Color::WHITE)),
-            Transform::from_xyz(0.0, 0.0, -10.0),
+            Transform3d::from_xyz(0.0, 0.0, -10.0),
             Shape,
         ))
         // We can observe pointer events on our objects as normal, the
@@ -100,7 +100,7 @@ fn on_drag_viewport(drag: Trigger<Pointer<Drag>>, mut node_query: Query<&mut Nod
     }
 }
 
-fn on_drag_cuboid(drag: Trigger<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
+fn on_drag_cuboid(drag: Trigger<Pointer<Drag>>, mut transform_query: Query<&mut Transform3d>) {
     if matches!(drag.button, PointerButton::Primary) {
         let mut transform = transform_query.get_mut(drag.target()).unwrap();
         transform.rotate_y(drag.delta.x * 0.02);

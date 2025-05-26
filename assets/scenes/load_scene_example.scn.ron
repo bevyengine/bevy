@@ -9,7 +9,7 @@
       components: {
         "bevy_ecs::name::Name": "joe",
         "bevy_transform::components::global_transform::GlobalTransform": ((1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)),
-        "bevy_transform::components::transform::Transform": (
+        "bevy_transform::components::transform::Transform3d": (
           translation: (0.0, 0.0, 0.0),
           rotation: (0.0, 0.0, 0.0, 1.0),
           scale: (1.0, 1.0, 1.0),

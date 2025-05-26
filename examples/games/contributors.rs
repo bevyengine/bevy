@@ -95,7 +95,7 @@ fn setup_contributor_selection(
     };
 
     for (name, num_commits) in contribs {
-        let transform = Transform::from_xyz(
+        let transform = Transform3d::from_xyz(
             rng.gen_range(-400.0..400.0),
             rng.gen_range(0.0..400.0),
             rng.r#gen(),
@@ -170,7 +170,7 @@ fn selection(
     mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
     contributor_root: Single<Entity, (With<ContributorDisplay>, With<Text>)>,
-    mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
+    mut query: Query<(&Contributor, &mut Sprite, &mut Transform3d)>,
     mut writer: TextUiWriter,
     time: Res<Time>,
 ) {
@@ -212,7 +212,7 @@ fn selection(
 fn select(
     sprite: &mut Sprite,
     contributor: &Contributor,
-    transform: &mut Transform,
+    transform: &mut Transform3d,
     entity: Entity,
     writer: &mut TextUiWriter,
 ) {
@@ -231,7 +231,7 @@ fn select(
 
 /// Change the tint color to the "deselected" color and push
 /// the object to the back.
-fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
+fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform3d) {
     sprite.color = DESELECTED.with_hue(contributor.hue).into();
 
     transform.translation.z -= SELECTED_Z_OFFSET;
@@ -253,7 +253,7 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// force.
 fn collisions(
     window: Query<&Window>,
-    mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
+    mut query: Query<(&mut Velocity, &mut Transform3d), With<Contributor>>,
     mut rng: ResMut<SharedRng>,
 ) {
     let Ok(window) = window.single() else {
@@ -302,7 +302,7 @@ fn collisions(
 }
 
 /// Apply velocity to positions and rotations.
-fn movement(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
+fn movement(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform3d)>) {
     let delta = time.delta_secs();
 
     for (velocity, mut transform) in &mut query {

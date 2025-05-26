@@ -27,7 +27,7 @@ const EXTRUSION: Extrusion<Heart> = Extrusion {
 };
 
 // The transform of the camera in 2D
-const TRANSFORM_2D: Transform = Transform {
+const TRANSFORM_2D: Transform3d = Transform3d {
     translation: Vec3::ZERO,
     rotation: Quat::IDENTITY,
     scale: Vec3::ONE,
@@ -49,7 +49,7 @@ const PROJECTION_2D: Projection = Projection::Orthographic(OrthographicProjectio
 });
 
 // The transform of the camera in 3D
-const TRANSFORM_3D: Transform = Transform {
+const TRANSFORM_3D: Transform3d = Transform3d {
     translation: Vec3::ZERO,
     // The camera is pointing at the 3D shape
     rotation: Quat::from_xyzw(-0.14521316, -0.0, -0.0, 0.98940045),
@@ -128,7 +128,7 @@ fn setup(
             base_color: RED.into(),
             ..Default::default()
         })),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Transform3d::from_xyz(0.0, 0.0, 0.0),
         Shape2d,
     ));
 
@@ -140,7 +140,7 @@ fn setup(
             base_color: RED.into(),
             ..Default::default()
         })),
-        Transform::from_xyz(0., -3., -10.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
+        Transform3d::from_xyz(0., -3., -10.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
         Shape3d,
     ));
 
@@ -153,7 +153,7 @@ fn setup(
             shadow_depth_bias: 0.2,
             ..default()
         },
-        Transform::from_xyz(8.0, 12.0, 1.0),
+        Transform3d::from_xyz(8.0, 12.0, 1.0),
     ));
 
     // Example instructions
@@ -170,7 +170,7 @@ fn setup(
 }
 
 // Rotate the 2D shapes.
-fn rotate_2d_shapes(mut shapes: Query<&mut Transform, With<Shape2d>>, time: Res<Time>) {
+fn rotate_2d_shapes(mut shapes: Query<&mut Transform3d, With<Shape2d>>, time: Res<Time>) {
     let elapsed_seconds = time.elapsed_secs();
 
     for mut transform in shapes.iter_mut() {
@@ -180,7 +180,7 @@ fn rotate_2d_shapes(mut shapes: Query<&mut Transform, With<Shape2d>>, time: Res<
 
 // Draw bounding boxes or circles for the 2D shapes.
 fn bounding_shapes_2d(
-    shapes: Query<&Transform, With<Shape2d>>,
+    shapes: Query<&Transform3d, With<Shape2d>>,
     mut gizmos: Gizmos,
     bounding_shape: Res<State<BoundingShape>>,
 ) {
@@ -209,7 +209,7 @@ fn bounding_shapes_2d(
 }
 
 // Rotate the 3D shapes.
-fn rotate_3d_shapes(mut shapes: Query<&mut Transform, With<Shape3d>>, time: Res<Time>) {
+fn rotate_3d_shapes(mut shapes: Query<&mut Transform3d, With<Shape3d>>, time: Res<Time>) {
     let delta_seconds = time.delta_secs();
 
     for mut transform in shapes.iter_mut() {
@@ -219,7 +219,7 @@ fn rotate_3d_shapes(mut shapes: Query<&mut Transform, With<Shape3d>>, time: Res<
 
 // Draw the AABBs or bounding spheres for the 3D shapes.
 fn bounding_shapes_3d(
-    shapes: Query<&Transform, With<Shape3d>>,
+    shapes: Query<&Transform3d, With<Shape3d>>,
     mut gizmos: Gizmos,
     bounding_shape: Res<State<BoundingShape>>,
 ) {
@@ -262,7 +262,7 @@ fn update_bounding_shape(
 fn switch_cameras(
     current: Res<State<CameraActive>>,
     mut next: ResMut<NextState<CameraActive>>,
-    camera: Single<(&mut Transform, &mut Projection)>,
+    camera: Single<(&mut Transform3d, &mut Projection)>,
 ) {
     let next_state = match current.get() {
         CameraActive::Dim2 => CameraActive::Dim3,

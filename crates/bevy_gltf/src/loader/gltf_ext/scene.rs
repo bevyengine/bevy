@@ -1,6 +1,6 @@
 use bevy_ecs::name::Name;
 use bevy_math::{Mat4, Vec3};
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 
 use gltf::scene::Node;
 
@@ -26,16 +26,16 @@ pub(crate) fn node_name(node: &Node) -> Name {
 /// on [`Node::transform()`](gltf::Node::transform) directly because it uses optimized glam types and
 /// if `libm` feature of `bevy_math` crate is enabled also handles cross
 /// platform determinism properly.
-pub(crate) fn node_transform(node: &Node) -> Transform {
+pub(crate) fn node_transform(node: &Node) -> Transform3d {
     match node.transform() {
         gltf::scene::Transform::Matrix { matrix } => {
-            Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
+            Transform3d::from_matrix(Mat4::from_cols_array_2d(&matrix))
         }
         gltf::scene::Transform::Decomposed {
             translation,
             rotation,
             scale,
-        } => Transform {
+        } => Transform3d {
             translation: Vec3::from(translation),
             rotation: bevy_math::Quat::from_array(rotation),
             scale: Vec3::from(scale),

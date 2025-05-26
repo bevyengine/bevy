@@ -53,7 +53,7 @@
 //! fn setup(mut commands: Commands) {
 //!     commands.spawn(Transform::default())
 //!         // Spawn your entity here, e.g. a Mesh.
-//!         // When dragged, mutate the `Transform` component on the dragged target entity:
+//!         // When dragged, mutate the `Transform3d` component on the dragged target entity:
 //!         .observe(|trigger: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
 //!             let mut transform = transforms.get_mut(trigger.target()).unwrap();
 //!             let drag = trigger.event();

@@ -75,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Without query filters.
         Left,
         Sprite::from_image(texture_left),
-        Transform::from_xyz(-200.0, 0.0, 0.0),
+        Transform3d::from_xyz(-200.0, 0.0, 0.0),
         bird_left,
     ));
 
@@ -83,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Name::new("Bird Right"),
         // In contrast to the above, here we rely on the default `RenderAssetUsages` loader setting
         Sprite::from_image(asset_server.load(bird_right.get_texture_path())),
-        Transform::from_xyz(200.0, 0.0, 0.0),
+        Transform3d::from_xyz(200.0, 0.0, 0.0),
         bird_right,
     ));
 }

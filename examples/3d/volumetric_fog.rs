@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     commands
         .spawn((
             Camera3d::default(),
-            Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
+            Transform3d::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
             Tonemapping::TonyMcMapface,
             Bloom::default(),
         ))
@@ -82,7 +82,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
     // Add the point light
     commands.spawn((
-        Transform::from_xyz(-0.4, 1.9, 1.0),
+        Transform3d::from_xyz(-0.4, 1.9, 1.0),
         PointLight {
             shadows_enabled: true,
             range: 150.0,
@@ -100,7 +100,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
     // Add the spot light
     commands.spawn((
-        Transform::from_xyz(-1.8, 3.9, -2.7).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-1.8, 3.9, -2.7).looking_at(Vec3::ZERO, Vec3::Y),
         SpotLight {
             intensity: 5000.0, // lumens
             color: Color::WHITE,
@@ -115,7 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     // Add the fog volume.
     commands.spawn((
         FogVolume::default(),
-        Transform::from_scale(Vec3::splat(35.0)),
+        Transform3d::from_scale(Vec3::splat(35.0)),
     ));
 
     // Add the help text.
@@ -164,7 +164,7 @@ fn tweak_scene(
 /// Processes user requests to move the directional light.
 fn move_directional_light(
     input: Res<ButtonInput<KeyCode>>,
-    mut directional_lights: Query<&mut Transform, With<DirectionalLight>>,
+    mut directional_lights: Query<&mut Transform3d, With<DirectionalLight>>,
 ) {
     let mut delta_theta = Vec2::ZERO;
     if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
@@ -193,7 +193,7 @@ fn move_directional_light(
 // Toggle point light movement between left and right.
 fn move_point_light(
     timer: Res<Time>,
-    mut objects: Query<(&mut Transform, &mut MoveBackAndForthHorizontally)>,
+    mut objects: Query<(&mut Transform3d, &mut MoveBackAndForthHorizontally)>,
 ) {
     for (mut transform, mut move_data) in objects.iter_mut() {
         let mut translation = transform.translation;

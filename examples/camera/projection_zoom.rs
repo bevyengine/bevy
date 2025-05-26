@@ -61,7 +61,7 @@ fn setup(
             scale: 1.,
             ..OrthographicProjection::default_3d()
         }),
-        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     commands.spawn((
@@ -82,13 +82,13 @@ fn setup(
         ),
         // Note: the scale adjustment is purely an accident of our fox model, which renders
         // HUGE unless mitigated!
-        Transform::from_translation(Vec3::splat(0.0)).with_scale(Vec3::splat(0.025)),
+        Transform3d::from_translation(Vec3::splat(0.0)).with_scale(Vec3::splat(0.025)),
     ));
 
     commands.spawn((
         Name::new("Light"),
         PointLight::default(),
-        Transform::from_xyz(3.0, 8.0, 5.0),
+        Transform3d::from_xyz(3.0, 8.0, 5.0),
     ));
 }
 

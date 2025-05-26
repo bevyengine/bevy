@@ -64,14 +64,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             illuminance: 32000.0,
             ..default()
         },
-        Transform::from_xyz(0.0, 2.0, 0.0).with_rotation(Quat::from_rotation_x(-PI / 4.)),
+        Transform3d::from_xyz(0.0, 2.0, 0.0).with_rotation(Quat::from_rotation_x(-PI / 4.)),
     ));
 
     let skybox_handle = asset_server.load(CUBEMAPS[0].0);
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController::default(),
         Skybox {
             image: skybox_handle.clone(),
@@ -169,7 +169,7 @@ fn asset_loaded(
 
 fn animate_light_direction(
     time: Res<Time>,
-    mut query: Query<&mut Transform, With<DirectionalLight>>,
+    mut query: Query<&mut Transform3d, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
         transform.rotate_y(time.delta_secs() * 0.5);

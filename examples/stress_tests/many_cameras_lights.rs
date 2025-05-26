@@ -31,14 +31,14 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        Transform3d::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 
     // cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
     ));
 
     // lights
@@ -51,7 +51,7 @@ fn setup(
                 shadows_enabled: true,
                 ..default()
             },
-            Transform::from_xyz(sin(angle) * 4.0, 2.0, cos(angle) * 4.0),
+            Transform3d::from_xyz(sin(angle) * 4.0, 2.0, cos(angle) * 4.0),
         ));
     }
 
@@ -77,7 +77,7 @@ fn setup(
                     order: i,
                     ..default()
                 },
-                Transform::from_xyz(sin(angle) * 4.0, 2.5, cos(angle) * 4.0)
+                Transform3d::from_xyz(sin(angle) * 4.0, 2.5, cos(angle) * 4.0)
                     .looking_at(Vec3::ZERO, Vec3::Y),
             ));
             i += 1;
@@ -86,7 +86,7 @@ fn setup(
     Ok(())
 }
 
-fn rotate_cameras(time: Res<Time>, mut query: Query<&mut Transform, With<Camera>>) {
+fn rotate_cameras(time: Res<Time>, mut query: Query<&mut Transform3d, With<Camera>>) {
     for mut transform in query.iter_mut() {
         transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_secs()));
     }

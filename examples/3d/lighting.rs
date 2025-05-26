@@ -49,7 +49,7 @@ fn setup(
     ));
 
     // left wall
-    let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
+    let mut transform = Transform3d::from_xyz(2.5, 2.5, 0.0);
     transform.rotate_z(PI / 2.);
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(5.0, 0.15, 5.0))),
@@ -61,7 +61,7 @@ fn setup(
         transform,
     ));
     // back (right) wall
-    let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
+    let mut transform = Transform3d::from_xyz(0.0, 2.5, -2.5);
     transform.rotate_x(PI / 2.);
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(5.0, 0.15, 5.0))),
@@ -74,7 +74,7 @@ fn setup(
     ));
 
     // Bevy logo to demonstrate alpha mask shadows
-    let mut transform = Transform::from_xyz(-2.2, 0.5, 1.0);
+    let mut transform = Transform3d::from_xyz(-2.2, 0.5, 1.0);
     transform.rotate_y(PI / 8.);
     commands.spawn((
         Mesh3d(meshes.add(Rectangle::new(2.0, 0.5))),
@@ -96,7 +96,7 @@ fn setup(
             base_color: DEEP_PINK.into(),
             ..default()
         })),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
         Movable,
     ));
     // sphere
@@ -106,7 +106,7 @@ fn setup(
             base_color: LIMEGREEN.into(),
             ..default()
         })),
-        Transform::from_xyz(1.5, 1.0, 1.5),
+        Transform3d::from_xyz(1.5, 1.0, 1.5),
         Movable,
     ));
 
@@ -125,7 +125,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(1.0, 2.0, 0.0),
+        Transform3d::from_xyz(1.0, 2.0, 0.0),
         children![(
             Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
             MeshMaterial3d(materials.add(StandardMaterial {
@@ -146,7 +146,7 @@ fn setup(
             outer_angle: 0.8,
             ..default()
         },
-        Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+        Transform3d::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
         children![(
             Mesh3d(meshes.add(Capsule3d::new(0.1, 0.125))),
             MeshMaterial3d(materials.add(StandardMaterial {
@@ -154,7 +154,7 @@ fn setup(
                 emissive: LinearRgba::new(0.0, 4.0, 0.0, 0.0),
                 ..default()
             })),
-            Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
+            Transform3d::from_rotation(Quat::from_rotation_x(PI / 2.0)),
         )],
     ));
 
@@ -166,7 +166,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(0.0, 4.0, 0.0),
+        Transform3d::from_xyz(0.0, 4.0, 0.0),
         children![(
             Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
             MeshMaterial3d(materials.add(StandardMaterial {
@@ -184,7 +184,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform {
+        Transform3d {
             translation: Vec3::new(0.0, 2.0, 0.0),
             rotation: Quat::from_rotation_x(-PI / 4.),
             ..default()
@@ -234,7 +234,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Exposure::from_physical_camera(**parameters),
     ));
 }
@@ -279,7 +279,7 @@ fn update_exposure(
 
 fn animate_light_direction(
     time: Res<Time>,
-    mut query: Query<&mut Transform, With<DirectionalLight>>,
+    mut query: Query<&mut Transform3d, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
         transform.rotate_y(time.delta_secs() * 0.5);
@@ -289,7 +289,7 @@ fn animate_light_direction(
 fn movement(
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<&mut Transform, With<Movable>>,
+    mut query: Query<&mut Transform3d, With<Movable>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;

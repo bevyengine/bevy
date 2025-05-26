@@ -28,7 +28,7 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
         Msaa::Off,
         ScreenSpaceAmbientOcclusion::default(),
@@ -44,17 +44,17 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(material.clone()),
-        Transform::from_xyz(0.0, 0.0, 1.0),
+        Transform3d::from_xyz(0.0, 0.0, 1.0),
     ));
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(material.clone()),
-        Transform::from_xyz(0.0, -1.0, 0.0),
+        Transform3d::from_xyz(0.0, -1.0, 0.0),
     ));
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(material),
-        Transform::from_xyz(1.0, 0.0, 0.0),
+        Transform3d::from_xyz(1.0, 0.0, 0.0),
     ));
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(0.4).mesh().uv(72, 36))),
@@ -72,7 +72,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
     ));
 
     commands.spawn((
@@ -96,7 +96,7 @@ fn update(
         With<Camera>,
     >,
     mut text: Single<&mut Text>,
-    mut sphere: Single<&mut Transform, With<SphereMarker>>,
+    mut sphere: Single<&mut Transform3d, With<SphereMarker>>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,

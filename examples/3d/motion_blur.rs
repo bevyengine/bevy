@@ -69,7 +69,7 @@ fn setup_scene(
             shadows_enabled: true,
             ..default()
         },
-        Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
+        Transform3d::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
     ));
     // Sky
     commands.spawn((
@@ -79,7 +79,7 @@ fn setup_scene(
             base_color: Color::linear_rgb(0.1, 0.6, 1.0),
             ..default()
         })),
-        Transform::default().with_scale(Vec3::splat(-4000.0)),
+        Transform3d::default().with_scale(Vec3::splat(-4000.0)),
     ));
     // Ground
     let mut plane: Mesh = Plane3d::default().into();
@@ -94,7 +94,7 @@ fn setup_scene(
             base_color_texture: Some(images.add(uv_debug_texture())),
             ..default()
         })),
-        Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
+        Transform3d::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
     ));
 
     spawn_cars(&asset_server, &mut meshes, &mut materials, &mut commands);
@@ -142,7 +142,7 @@ fn spawn_cars(
             .spawn((
                 Mesh3d(box_mesh.clone()),
                 MeshMaterial3d(color.clone()),
-                Transform::from_scale(Vec3::splat(0.5)),
+                Transform3d::from_scale(Vec3::splat(0.5)),
                 Moves(i as f32 * 2.0),
             ))
             .insert_if(CameraTracked, || i == 0)
@@ -150,13 +150,13 @@ fn spawn_cars(
                 parent.spawn((
                     Mesh3d(box_mesh.clone()),
                     MeshMaterial3d(color),
-                    Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
+                    Transform3d::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
                 ));
                 let mut spawn_wheel = |x: f32, z: f32| {
                     parent.spawn((
                         Mesh3d(cylinder.clone()),
                         MeshMaterial3d(wheel_matl.clone()),
-                        Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
+                        Transform3d::from_xyz(0.14 * x, -0.045, 0.15 * z)
                             .with_scale(Vec3::new(0.15, 0.04, 0.15))
                             .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
                         Rotates,
@@ -191,7 +191,7 @@ fn spawn_barriers(
             commands.spawn((
                 Mesh3d(capsule.clone()),
                 MeshMaterial3d(matl.clone()),
-                Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
+                Transform3d::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
             ));
         }
     };
@@ -220,12 +220,12 @@ fn spawn_trees(
             commands.spawn((
                 Mesh3d(sphere.clone()),
                 MeshMaterial3d(leaves.clone()),
-                Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
+                Transform3d::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
             ));
             commands.spawn((
                 Mesh3d(capsule.clone()),
                 MeshMaterial3d(trunk.clone()),
-                Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
+                Transform3d::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
             ));
         }
     };
@@ -299,8 +299,8 @@ fn race_track_pos(offset: f32, t: f32) -> Vec2 {
 
 fn move_cars(
     time: Res<Time>,
-    mut movables: Query<(&mut Transform, &Moves, &Children)>,
-    mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
+    mut movables: Query<(&mut Transform3d, &Moves, &Children)>,
+    mut spins: Query<&mut Transform3d, (Without<Moves>, With<Rotates>)>,
 ) {
     for (mut transform, moves, children) in &mut movables {
         let time = time.elapsed_secs() * 0.25;
@@ -328,8 +328,8 @@ fn move_cars(
 }
 
 fn move_camera(
-    camera: Single<(&mut Transform, &mut Projection), Without<CameraTracked>>,
-    tracked: Single<&Transform, With<CameraTracked>>,
+    camera: Single<(&mut Transform3d, &mut Projection), Without<CameraTracked>>,
+    tracked: Single<&Transform3d, With<CameraTracked>>,
     mode: Res<CameraMode>,
 ) {
     let (mut transform, mut projection) = camera.into_inner();

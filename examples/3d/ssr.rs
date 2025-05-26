@@ -157,7 +157,7 @@ fn spawn_cube(
                 base_color_texture: Some(asset_server.load("branding/icon.png")),
                 ..default()
             })),
-            Transform::from_xyz(0.0, 0.5, 0.0),
+            Transform3d::from_xyz(0.0, 0.5, 0.0),
         ))
         .insert(CubeModel);
 }
@@ -169,7 +169,7 @@ fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
-        Transform::from_scale(Vec3::splat(2.5)),
+        Transform3d::from_scale(Vec3::splat(2.5)),
         FlightHelmetModel,
         Visibility::Hidden,
     ));
@@ -216,7 +216,7 @@ fn spawn_water(
                 },
             },
         })),
-        Transform::from_scale(Vec3::splat(100.0)),
+        Transform3d::from_scale(Vec3::splat(100.0)),
     ));
 }
 
@@ -229,7 +229,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn((
             Camera3d::default(),
-            Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform3d::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
             Hdr,
             Msaa::Off,
         ))
@@ -287,7 +287,7 @@ impl MaterialExtension for Water {
 
 /// Rotates the model on the Y axis a bit every frame.
 fn rotate_model(
-    mut query: Query<&mut Transform, Or<(With<CubeModel>, With<FlightHelmetModel>)>>,
+    mut query: Query<&mut Transform3d, Or<(With<CubeModel>, With<FlightHelmetModel>)>>,
     time: Res<Time>,
 ) {
     for mut transform in query.iter_mut() {
@@ -299,7 +299,7 @@ fn rotate_model(
 fn move_camera(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut mouse_wheel_input: EventReader<MouseWheel>,
-    mut cameras: Query<&mut Transform, With<Camera>>,
+    mut cameras: Query<&mut Transform3d, With<Camera>>,
 ) {
     let (mut distance_delta, mut theta_delta) = (0.0, 0.0);
 
