@@ -4,6 +4,7 @@
     get_aabb_error,
     constants,
     view,
+    meshlet_instance_uniforms,
     meshlet_cull_data,
     meshlet_software_raster_indirect_args,
     meshlet_hardware_raster_indirect_args,
@@ -15,10 +16,13 @@
     meshlet_meshlet_cull_queue,
 }
 #import bevy_pbr::meshlet_cull_shared::{
+    ScreenAabb,
+    project_aabb,
     lod_error_is_imperceptible,
     aabb_in_frustum,
     should_occlusion_cull_aabb,
 }
+#import bevy_render::maths::affine3_to_square
 
 @compute
 @workgroup_size(128, 1, 1) // 1 cluster per thread
@@ -58,18 +62,24 @@ fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
 
     // If we pass, rasterize the meshlet
     // Check how big the cluster is in screen space
-    // let culling_bounding_sphere_center_view_space = (view.view_from_world * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
-    // aabb = project_view_space_sphere_to_screen_space_aabb(culling_bounding_sphere_center_view_space, culling_bounding_sphere_radius);
-    // let aabb_width_pixels = (aabb.z - aabb.x) * view.viewport.z;
-    // let aabb_height_pixels = (aabb.w - aabb.y) * view.viewport.w;
-    // let cluster_is_small = all(vec2(aabb_width_pixels, aabb_height_pixels) < vec2(64.0));
-    //
-    // // Let the hardware rasterizer handle near-plane clipping
-    // let not_intersects_near_plane = dot(view.frustum[4u], culling_bounding_sphere_center) > culling_bounding_sphere_radius;
+    let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
+    let clip_from_local  = view.clip_from_world * world_from_local;
+    let projection = view.clip_from_world;
+    var near: f32;
+    if projection[3][3] == 1.0 {
+        near = projection[3][2] / projection[2][2];
+    } else {
+        near = projection[3][2];
+    }
+    var screen_aabb = ScreenAabb(vec3<f32>(0.0), vec3<f32>(0.0));
+    var sw_raster = project_aabb(clip_from_local, near, aabb, &screen_aabb);
+    if sw_raster {
+        let aabb_size = (screen_aabb.max.xy - screen_aabb.min.xy) * view.viewport.zw;
+        sw_raster = all(aabb_size <= vec2<f32>(64.0));
+    }
 
     var buffer_slot: u32;
-    // if cluster_is_small && not_intersects_near_plane {
-    if false {
+    if sw_raster {
         // Append this cluster to the list for software rasterization
         buffer_slot = atomicAdd(&meshlet_software_raster_indirect_args.x, 1u);
         buffer_slot += meshlet_previous_raster_counts[0];

@@ -408,17 +408,32 @@ impl ResourceManager {
                     ),
                 ),
             ),
-            fill_counts_bind_group_layout: render_device.create_bind_group_layout(
-                "meshlet_fill_counts_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::COMPUTE,
-                    (
-                        storage_buffer_sized(false, None),
-                        storage_buffer_sized(false, None),
-                        storage_buffer_sized(false, None),
+            fill_counts_bind_group_layout: if needs_dispatch_remap {
+                render_device.create_bind_group_layout(
+                    "meshlet_fill_counts_bind_group_layout",
+                    &BindGroupLayoutEntries::sequential(
+                        ShaderStages::COMPUTE,
+                        (
+                            storage_buffer_sized(false, None),
+                            storage_buffer_sized(false, None),
+                            storage_buffer_sized(false, None),
+                            storage_buffer_sized(false, None),
+                        ),
                     ),
-                ),
-            ),
+                )
+            } else {
+                render_device.create_bind_group_layout(
+                    "meshlet_fill_counts_bind_group_layout",
+                    &BindGroupLayoutEntries::sequential(
+                        ShaderStages::COMPUTE,
+                        (
+                            storage_buffer_sized(false, None),
+                            storage_buffer_sized(false, None),
+                            storage_buffer_sized(false, None),
+                        ),
+                    ),
+                )
+            },
             remap_1d_to_2d_dispatch_bind_group_layout: needs_dispatch_remap.then(|| {
                 render_device.create_bind_group_layout(
                     "meshlet_remap_1d_to_2d_dispatch_bind_group_layout",
@@ -1157,21 +1172,45 @@ pub fn prepare_meshlet_view_bind_groups(
                 )
             });
 
-        let fill_counts = render_device.create_bind_group(
-            "meshlet_fill_counts_bind_group",
-            &resource_manager.fill_counts_bind_group_layout,
-            &BindGroupEntries::sequential((
-                view_resources
-                    .visibility_buffer_software_raster_indirect_args
-                    .as_entire_binding(),
-                view_resources
-                    .visibility_buffer_hardware_raster_indirect_args
-                    .as_entire_binding(),
-                resource_manager
-                    .visibility_buffer_raster_cluster_prev_counts
-                    .as_entire_binding(),
-            )),
-        );
+        let fill_counts = if resource_manager
+            .remap_1d_to_2d_dispatch_bind_group_layout
+            .is_some()
+        {
+            render_device.create_bind_group(
+                "meshlet_fill_counts_bind_group",
+                &resource_manager.fill_counts_bind_group_layout,
+                &BindGroupEntries::sequential((
+                    view_resources
+                        .visibility_buffer_software_raster_indirect_args
+                        .as_entire_binding(),
+                    view_resources
+                        .visibility_buffer_hardware_raster_indirect_args
+                        .as_entire_binding(),
+                    resource_manager
+                        .visibility_buffer_raster_cluster_prev_counts
+                        .as_entire_binding(),
+                    resource_manager
+                        .software_raster_cluster_count
+                        .as_entire_binding(),
+                )),
+            )
+        } else {
+            render_device.create_bind_group(
+                "meshlet_fill_counts_bind_group",
+                &resource_manager.fill_counts_bind_group_layout,
+                &BindGroupEntries::sequential((
+                    view_resources
+                        .visibility_buffer_software_raster_indirect_args
+                        .as_entire_binding(),
+                    view_resources
+                        .visibility_buffer_hardware_raster_indirect_args
+                        .as_entire_binding(),
+                    resource_manager
+                        .visibility_buffer_raster_cluster_prev_counts
+                        .as_entire_binding(),
+                )),
+            )
+        };
 
         commands.entity(view_entity).insert(MeshletViewBindGroups {
             clear_visibility_buffer,

@@ -537,6 +537,21 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
+            fill_counts: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("meshlet_fill_counts_pipeline".into()),
+                layout: vec![fill_counts_layout],
+                push_constant_ranges: vec![],
+                shader: fill_counts,
+                shader_defs: vec![if remap_1d_to_2d_dispatch_layout.is_some() {
+                    "MESHLET_2D_DISPATCH"
+                } else {
+                    ""
+                }
+                .into()],
+                entry_point: "fill_counts".into(),
+                zero_initialize_workgroup_memory: false,
+            }),
+
             remap_1d_to_2d_dispatch: remap_1d_to_2d_dispatch_layout.map(|layout| {
                 pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                     label: Some("meshlet_remap_1d_to_2d_dispatch_pipeline".into()),
@@ -550,16 +565,6 @@ impl FromWorld for MeshletPipelines {
                     entry_point: "remap_dispatch".into(),
                     zero_initialize_workgroup_memory: false,
                 })
-            }),
-
-            fill_counts: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                label: Some("meshlet_fill_counts_pipeline".into()),
-                layout: vec![fill_counts_layout],
-                push_constant_ranges: vec![],
-                shader: fill_counts,
-                shader_defs: vec![],
-                entry_point: "fill_counts".into(),
-                zero_initialize_workgroup_memory: false,
             }),
 
             meshlet_mesh_material,
