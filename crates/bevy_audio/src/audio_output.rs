@@ -157,9 +157,24 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             };
 
             match settings.mode {
-                PlaybackMode::Loop => sink.append(audio_source.decoder().repeat_infinite()),
+                PlaybackMode::Loop => {
+                    if let Some(start_position) = settings.start_position {
+                        sink.append(
+                            audio_source
+                                .decoder()
+                                .skip_duration(start_position)
+                                .repeat_infinite(),
+                        );
+                    } else {
+                        sink.append(audio_source.decoder().repeat_infinite());
+                    }
+                }
                 PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
-                    sink.append(audio_source.decoder());
+                    if let Some(start_position) = settings.start_position {
+                        sink.append(audio_source.decoder().skip_duration(start_position));
+                    } else {
+                        sink.append(audio_source.decoder());
+                    }
                 }
             };
 
@@ -197,9 +212,24 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             };
 
             match settings.mode {
-                PlaybackMode::Loop => sink.append(audio_source.decoder().repeat_infinite()),
+                PlaybackMode::Loop => {
+                    if let Some(start_position) = settings.start_position {
+                        sink.append(
+                            audio_source
+                                .decoder()
+                                .skip_duration(start_position)
+                                .repeat_infinite(),
+                        );
+                    } else {
+                        sink.append(audio_source.decoder().repeat_infinite());
+                    }
+                }
                 PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
-                    sink.append(audio_source.decoder());
+                    if let Some(start_position) = settings.start_position {
+                        sink.append(audio_source.decoder().skip_duration(start_position));
+                    } else {
+                        sink.append(audio_source.decoder());
+                    }
                 }
             };
 
