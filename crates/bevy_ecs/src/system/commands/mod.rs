@@ -16,7 +16,7 @@ use core::marker::PhantomData;
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode, NoBundleEffect},
-    change_detection::Mut,
+    change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
@@ -317,12 +317,24 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`spawn`](Self::spawn) to spawn an entity with components.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities
     ///   with the same combination of components.
+    #[track_caller]
     pub fn spawn_empty(&mut self) -> EntityCommands {
         let entity = self.entities.reserve_entity();
-        EntityCommands {
+        let mut entity_commands = EntityCommands {
             entity,
             commands: self.reborrow(),
-        }
+        };
+        let caller = MaybeLocation::caller();
+        entity_commands.queue(move |entity: EntityWorldMut| {
+            let index = entity.id().index();
+            let world = entity.into_world_mut();
+            let tick = world.change_tick();
+            // SAFETY: Entity has been flushed
+            unsafe {
+                world.entities_mut().mark_spawn_despawn(index, caller, tick);
+            }
+        });
+        entity_commands
     }
 
     /// Spawns a new [`Entity`] with the given components
@@ -369,9 +381,35 @@ impl<'w, 's> Commands<'w, 's> {
     ///   with the same combination of components.
     #[track_caller]
     pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
-        let mut entity = self.spawn_empty();
-        entity.insert(bundle);
-        entity
+        let entity = self.entities.reserve_entity();
+        let mut entity_commands = EntityCommands {
+            entity,
+            commands: self.reborrow(),
+        };
+        let caller = MaybeLocation::caller();
+
+        entity_commands.queue(move |mut entity: EntityWorldMut| {
+            // Store metadata about the spawn operation.
+            // This is the same as in `spawn_empty`, but merged into
+            // the same command for better performance.
+            let index = entity.id().index();
+            entity.world_scope(|world| {
+                let tick = world.change_tick();
+                // SAFETY: Entity has been flushed
+                unsafe {
+                    world.entities_mut().mark_spawn_despawn(index, caller, tick);
+                }
+            });
+
+            entity.insert_with_caller(
+                bundle,
+                InsertMode::Replace,
+                caller,
+                crate::relationship::RelationshipHookMode::Run,
+            );
+        });
+        // entity_command::insert(bundle, InsertMode::Replace)
+        entity_commands
     }
 
     /// Returns the [`EntityCommands`] for the given [`Entity`].
@@ -2576,5 +2614,18 @@ mod tests {
         queue_1.apply(&mut world);
         assert!(world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn track_spawn_ticks() {
+        let mut world = World::default();
+        world.increment_change_tick();
+        let expected = world.change_tick();
+        let id = world.commands().spawn_empty().id();
+        world.flush();
+        assert_eq!(
+            Some(expected),
+            world.entities().entity_get_spawned_or_despawned_at(id)
+        );
     }
 }
