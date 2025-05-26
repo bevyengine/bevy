@@ -108,7 +108,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     };
 
     // Fill image.data with zeroes
-    canvas.resize(canvas_size);
+    let _ = canvas.resize(canvas_size);
 
     let image_handle = images.add(canvas);
 
