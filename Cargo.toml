@@ -3419,6 +3419,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "image_node_rotation"
+path = "examples/ui/image_node_rotation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.image_node_rotation]
+name = "Image Node Rotation"
+description = "Show the use of `ImageNode::rotation`"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "gradients"
 path = "examples/ui/gradients.rs"
 doc-scrape-examples = true
