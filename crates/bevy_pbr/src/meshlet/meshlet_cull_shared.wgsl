@@ -19,8 +19,13 @@ fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, 
 
     let projection = view.clip_from_view;
     if projection[3][3] == 1.0 {
-        let world_sphere_radius = lod_sphere.w * world_scale;
-        let norm_error = simplification_error / world_sphere_radius * 0.25;
+        // let world_sphere_radius = lod_sphere.w * world_scale;
+        // let norm_error = simplification_error / world_sphere_radius * 0.25;
+        // return norm_error * view.viewport.w < 1.0;
+        let world_error = simplification_error * world_scale;
+        let proj = projection[1][1];
+        let height = 2.0 / proj;
+        let norm_error = world_error / height;
         return norm_error * view.viewport.w < 1.0;
     } else {
         var near = projection[3][2];
