@@ -25,7 +25,7 @@ pub trait AppExtStates {
     /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).
+    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`SystemCondition`](bevy_ecs::prelude::SystemCondition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
@@ -41,7 +41,7 @@ pub trait AppExtStates {
     /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).
+    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`SystemCondition`](bevy_ecs::prelude::SystemCondition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.

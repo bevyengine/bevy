@@ -174,7 +174,7 @@ with UI components as a child of an entity without UI components, your UI layout
             ui_root_entity,
             &mut ui_surface,
             true,
-            None,
+            computed_target.physical_size().as_vec2(),
             &mut node_transform_query,
             &ui_children,
             computed_target.scale_factor.recip(),
@@ -189,7 +189,7 @@ with UI components as a child of an entity without UI components, your UI layout
         entity: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
-        root_size: Option<Vec2>,
+        target_size: Vec2,
         node_transform_query: &mut Query<(
             &mut ComputedNode,
             &mut Transform,
@@ -253,14 +253,12 @@ with UI components as a child of an entity without UI components, your UI layout
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
-            let viewport_size = root_size.unwrap_or(node.size);
-
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
                 node.bypass_change_detection().border_radius = border_radius.resolve(
-                    node.size,
-                    viewport_size,
                     inverse_target_scale_factor.recip(),
+                    node.size,
+                    target_size,
                 );
             }
 
@@ -273,7 +271,7 @@ with UI components as a child of an entity without UI components, your UI layout
                         .resolve(
                             inverse_target_scale_factor.recip(),
                             node.size().x,
-                            viewport_size,
+                            target_size,
                         )
                         .unwrap_or(0.)
                         .max(0.)
@@ -286,7 +284,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     .resolve(
                         inverse_target_scale_factor.recip(),
                         node.size().x,
-                        viewport_size,
+                        target_size,
                     )
                     .unwrap_or(0.)
                     .max(0.);
@@ -334,7 +332,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     child_uinode,
                     ui_surface,
                     use_rounding,
-                    Some(viewport_size),
+                    target_size,
                     node_transform_query,
                     ui_children,
                     inverse_target_scale_factor,

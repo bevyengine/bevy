@@ -169,9 +169,9 @@ pub fn calculate_bounds_2d(
     atlases: Res<Assets<TextureAtlasLayout>>,
     meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
-        (Entity, &Sprite),
+        (Entity, &Sprite, &Anchor),
         (
-            Or<(Without<Aabb>, Changed<Sprite>)>,
+            Or<(Without<Aabb>, Changed<Sprite>, Changed<Anchor>)>,
             Without<NoFrustumCulling>,
         ),
     >,
@@ -183,7 +183,7 @@ pub fn calculate_bounds_2d(
             }
         }
     }
-    for (entity, sprite) in &sprites_to_recalculate_aabb {
+    for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {
         if let Some(size) = sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))
@@ -197,7 +197,7 @@ pub fn calculate_bounds_2d(
             })
         {
             let aabb = Aabb {
-                center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
+                center: (-anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
             commands.entity(entity).try_insert(aabb);
@@ -334,12 +334,14 @@ mod test {
         // Add entities
         let entity = app
             .world_mut()
-            .spawn(Sprite {
-                rect: Some(Rect::new(0., 0., 0.5, 1.)),
-                anchor: Anchor::TOP_RIGHT,
-                image: image_handle,
-                ..default()
-            })
+            .spawn((
+                Sprite {
+                    rect: Some(Rect::new(0., 0., 0.5, 1.)),
+                    image: image_handle,
+                    ..default()
+                },
+                Anchor::TOP_RIGHT,
+            ))
             .id();
 
         // Create AABB

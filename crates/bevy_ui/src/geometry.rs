@@ -1,5 +1,6 @@
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
 
@@ -255,23 +256,23 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `parent_size`,
-    /// and `viewport_size`.
+    /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `physical_base_value`,
+    /// and `physical_target_size` context values.
     ///
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
     pub fn resolve(
         self,
         scale_factor: f32,
-        parent_size: f32,
-        viewport_size: Vec2,
+        physical_base_value: f32,
+        physical_target_size: Vec2,
     ) -> Result<f32, ValArithmeticError> {
         match self {
-            Val::Percent(value) => Ok(parent_size * value / 100.0),
+            Val::Percent(value) => Ok(physical_base_value * value / 100.0),
             Val::Px(value) => Ok(value * scale_factor),
-            Val::Vw(value) => Ok(viewport_size.x * value / 100.0),
-            Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
-            Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
-            Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
+            Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
+            Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
+            Val::VMin(value) => Ok(physical_target_size.min_element() * value / 100.0),
+            Val::VMax(value) => Ok(physical_target_size.max_element() * value / 100.0),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
         }
     }
@@ -679,6 +680,179 @@ impl UiRect {
 impl Default for UiRect {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Default, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// Responsive position relative to a UI node.
+pub struct Position {
+    /// Normalized anchor point
+    pub anchor: Vec2,
+    /// Responsive horizontal position relative to the anchor point
+    pub x: Val,
+    /// Responsive vertical position relative to the anchor point
+    pub y: Val,
+}
+
+impl Default for Position {
+    fn default() -> Self {
+        Self::CENTER
+    }
+}
+
+impl Position {
+    /// Position at the given normalized anchor point
+    pub const fn anchor(anchor: Vec2) -> Self {
+        Self {
+            anchor,
+            x: Val::ZERO,
+            y: Val::ZERO,
+        }
+    }
+
+    /// Position at the top-left corner
+    pub const TOP_LEFT: Self = Self::anchor(Vec2::new(-0.5, -0.5));
+
+    /// Position at the center of the left edge
+    pub const LEFT: Self = Self::anchor(Vec2::new(-0.5, 0.0));
+
+    /// Position at the bottom-left corner
+    pub const BOTTOM_LEFT: Self = Self::anchor(Vec2::new(-0.5, 0.5));
+
+    /// Position at the center of the top edge
+    pub const TOP: Self = Self::anchor(Vec2::new(0.0, -0.5));
+
+    /// Position at the center of the element
+    pub const CENTER: Self = Self::anchor(Vec2::new(0.0, 0.0));
+
+    /// Position at the center of the bottom edge
+    pub const BOTTOM: Self = Self::anchor(Vec2::new(0.0, 0.5));
+
+    /// Position at the top-right corner
+    pub const TOP_RIGHT: Self = Self::anchor(Vec2::new(0.5, -0.5));
+
+    /// Position at the center of the right edge
+    pub const RIGHT: Self = Self::anchor(Vec2::new(0.5, 0.0));
+
+    /// Position at the bottom-right corner
+    pub const BOTTOM_RIGHT: Self = Self::anchor(Vec2::new(0.5, 0.5));
+
+    /// Create a new position
+    pub const fn new(anchor: Vec2, x: Val, y: Val) -> Self {
+        Self { anchor, x, y }
+    }
+
+    /// Creates a position from self with the given `x` and `y` coordinates
+    pub const fn at(self, x: Val, y: Val) -> Self {
+        Self { x, y, ..self }
+    }
+
+    /// Creates a position from self with the given `x` coordinate
+    pub const fn at_x(self, x: Val) -> Self {
+        Self { x, ..self }
+    }
+
+    /// Creates a position from self with the given `y` coordinate
+    pub const fn at_y(self, y: Val) -> Self {
+        Self { y, ..self }
+    }
+
+    /// Creates a position in logical pixels from self with the given `x` and `y` coordinates
+    pub const fn at_px(self, x: f32, y: f32) -> Self {
+        self.at(Val::Px(x), Val::Px(y))
+    }
+
+    /// Creates a percentage position from self with the given `x` and `y` coordinates
+    pub const fn at_percent(self, x: f32, y: f32) -> Self {
+        self.at(Val::Percent(x), Val::Percent(y))
+    }
+
+    /// Creates a position from self with the given `anchor` point
+    pub const fn with_anchor(self, anchor: Vec2) -> Self {
+        Self { anchor, ..self }
+    }
+
+    /// Position relative to the top-left corner
+    pub const fn top_left(x: Val, y: Val) -> Self {
+        Self::TOP_LEFT.at(x, y)
+    }
+
+    /// Position relative to the left edge
+    pub const fn left(x: Val, y: Val) -> Self {
+        Self::LEFT.at(x, y)
+    }
+
+    /// Position relative to the bottom-left corner
+    pub const fn bottom_left(x: Val, y: Val) -> Self {
+        Self::BOTTOM_LEFT.at(x, y)
+    }
+
+    /// Position relative to the top edge
+    pub const fn top(x: Val, y: Val) -> Self {
+        Self::TOP.at(x, y)
+    }
+
+    /// Position relative to the center
+    pub const fn center(x: Val, y: Val) -> Self {
+        Self::CENTER.at(x, y)
+    }
+
+    /// Position relative to the bottom edge
+    pub const fn bottom(x: Val, y: Val) -> Self {
+        Self::BOTTOM.at(x, y)
+    }
+
+    /// Position relative to the top-right corner
+    pub const fn top_right(x: Val, y: Val) -> Self {
+        Self::TOP_RIGHT.at(x, y)
+    }
+
+    /// Position relative to the right edge
+    pub const fn right(x: Val, y: Val) -> Self {
+        Self::RIGHT.at(x, y)
+    }
+
+    /// Position relative to the bottom-right corner
+    pub const fn bottom_right(x: Val, y: Val) -> Self {
+        Self::BOTTOM_RIGHT.at(x, y)
+    }
+
+    /// Resolves the `Position` into physical coordinates.
+    pub fn resolve(
+        self,
+        scale_factor: f32,
+        physical_size: Vec2,
+        physical_target_size: Vec2,
+    ) -> Vec2 {
+        let d = self.anchor.map(|p| if 0. < p { -1. } else { 1. });
+
+        physical_size * self.anchor
+            + d * Vec2::new(
+                self.x
+                    .resolve(scale_factor, physical_size.x, physical_target_size)
+                    .unwrap_or(0.),
+                self.y
+                    .resolve(scale_factor, physical_size.y, physical_target_size)
+                    .unwrap_or(0.),
+            )
+    }
+}
+
+impl From<Val> for Position {
+    fn from(x: Val) -> Self {
+        Self { x, ..default() }
+    }
+}
+
+impl From<(Val, Val)> for Position {
+    fn from((x, y): (Val, Val)) -> Self {
+        Self { x, y, ..default() }
     }
 }
 
