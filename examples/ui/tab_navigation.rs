@@ -127,7 +127,7 @@ fn setup(mut commands: Commands) {
                                         align_items: AlignItems::Center,
                                         ..default()
                                     },
-                                    BorderColor(Color::BLACK),
+                                    BorderColor::all(Color::BLACK),
                                     BackgroundColor(NORMAL_BUTTON),
                                     TabIndex(i),
                                     children![(
