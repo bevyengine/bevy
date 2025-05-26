@@ -718,16 +718,26 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let components = get_component_ids(&type_registry, world, components, strict)
+    let (components, unregistered_in_components) =
+        get_component_ids(&type_registry, world, components, strict)
+            .map_err(BrpError::component_error)?;
+    let (option, _) = get_component_ids(&type_registry, world, option, strict)
         .map_err(BrpError::component_error)?;
-    let option = get_component_ids(&type_registry, world, option, strict)
-        .map_err(BrpError::component_error)?;
-    let has =
+    let (has, unregistered_in_has) =
         get_component_ids(&type_registry, world, has, strict).map_err(BrpError::component_error)?;
-    let without = get_component_ids(&type_registry, world, without, strict)
+    let (without, _) = get_component_ids(&type_registry, world, without, strict)
         .map_err(BrpError::component_error)?;
-    let with = get_component_ids(&type_registry, world, with, strict)
+    let (with, unregistered_in_with) = get_component_ids(&type_registry, world, with, strict)
         .map_err(BrpError::component_error)?;
+
+    // When "strict" is false:
+    // - Unregistered components in "option" and "without" are ignored.
+    // - Unregistered components in "has" are considered absent from the entity.
+    // - Unregistered components in "components" and "with" result in an empty
+    // response since they specify hard requirements.
+    if !unregistered_in_components.is_empty() || !unregistered_in_with.is_empty() {
+        return serde_json::to_value(BrpQueryResponse::default()).map_err(BrpError::internal);
+    }
 
     let mut query = QueryBuilder::<FilteredEntityRef>::new(world);
     for (_, component) in &components {
@@ -784,6 +794,7 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         let has_map = build_has_map(
             row.clone(),
             has_paths_and_reflect_components.iter().copied(),
+            &unregistered_in_has,
         );
         response.push(BrpQueryRow {
             entity: row.id(),
@@ -1024,12 +1035,19 @@ pub fn process_remote_remove_request(
     let type_registry = app_type_registry.read();
 
     let component_ids = get_component_ids(&type_registry, world, components, true)
+        .and_then(|(registered, unregistered)| {
+            if unregistered.is_empty() {
+                Ok(registered)
+            } else {
+                Err(anyhow!("Unregistered component types: {:?}", unregistered))
+            }
+        })
         .map_err(BrpError::component_error)?;
 
     // Remove the components.
     let mut entity_world_mut = get_entity_mut(world, entity)?;
-    for (_, component_id) in component_ids {
-        entity_world_mut.remove_by_id(component_id);
+    for (_, component_id) in component_ids.iter() {
+        entity_world_mut.remove_by_id(*component_id);
     }
 
     Ok(Value::Null)
@@ -1264,8 +1282,9 @@ fn get_entity_mut(world: &mut World, entity: Entity) -> Result<EntityWorldMut<'_
         .map_err(|_| BrpError::entity_not_found(entity))
 }
 
-/// Returns the [`TypeId`] and [`ComponentId`] of the components with the given
-/// full path names.
+/// Given components full path, returns a tuple that contains
+/// - A list of corresponding [`TypeId`] and [`ComponentId`] for registered components.
+/// - A list of unregistered component paths.
 ///
 /// Note that the supplied path names must be *full* path names: e.g.
 /// `bevy_transform::components::transform::Transform` instead of `Transform`.
@@ -1274,25 +1293,33 @@ fn get_component_ids(
     world: &World,
     component_paths: Vec<String>,
     strict: bool,
-) -> AnyhowResult<Vec<(TypeId, ComponentId)>> {
+) -> AnyhowResult<(Vec<(TypeId, ComponentId)>, Vec<String>)> {
     let mut component_ids = vec![];
+    let mut unregistered_components = vec![];
 
     for component_path in component_paths {
-        let type_id = get_component_type_registration(type_registry, &component_path)?.type_id();
-        let Some(component_id) = world.components().get_id(type_id) else {
-            if strict {
-                return Err(anyhow!(
-                    "Component `{}` isn't used in the world",
-                    component_path
-                ));
-            }
-            continue;
-        };
-
-        component_ids.push((type_id, component_id));
+        let maybe_component_tuple = get_component_type_registration(type_registry, &component_path)
+            .ok()
+            .and_then(|type_registration| {
+                let type_id = type_registration.type_id();
+                world
+                    .components()
+                    .get_id(type_id)
+                    .map(|component_id| (type_id, component_id))
+            });
+        if let Some((type_id, component_id)) = maybe_component_tuple {
+            component_ids.push((type_id, component_id));
+        } else if strict {
+            return Err(anyhow!(
+                "Component `{}` isn't registered or used in the world",
+                component_path
+            ));
+        } else {
+            unregistered_components.push(component_path);
+        }
     }
 
-    Ok(component_ids)
+    Ok((component_ids, unregistered_components))
 }
 
 /// Given an entity (`entity_ref`) and a list of reflected component information
@@ -1325,12 +1352,16 @@ fn build_components_map<'a>(
     Ok(serialized_components_map)
 }
 
-/// Given an entity (`entity_ref`) and list of reflected component information
-/// (`paths_and_reflect_components`), return a map which associates each component to
-/// a boolean value indicating whether or not that component is present on the entity.
+/// Given an entity (`entity_ref`),
+/// a list of reflected component information (`paths_and_reflect_components`)
+/// and a list of unregistered components,
+/// return a map which associates each component to a boolean value indicating
+/// whether or not that component is present on the entity.
+/// Unregistered components are considered absent from the entity.
 fn build_has_map<'a>(
     entity_ref: FilteredEntityRef,
     paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
+    unregistered_components: &[String],
 ) -> HashMap<String, Value> {
     let mut has_map = <HashMap<_, _>>::default();
 
@@ -1338,6 +1369,9 @@ fn build_has_map<'a>(
         let has = reflect_component.contains(entity_ref.clone());
         has_map.insert(type_path.to_owned(), Value::Bool(has));
     }
+    unregistered_components.iter().for_each(|component| {
+        has_map.insert(component.to_owned(), Value::Bool(false));
+    });
 
     has_map
 }
@@ -1490,13 +1524,14 @@ mod tests {
             "Deserialized value does not match original"
         );
     }
+
     use super::*;
 
     #[test]
     fn serialization_tests() {
         test_serialize_deserialize(BrpQueryRow {
             components: Default::default(),
-            entity: Entity::from_raw(0),
+            entity: Entity::from_raw_u32(0).unwrap(),
             has: Default::default(),
         });
         test_serialize_deserialize(BrpListWatchingResponse::default());
@@ -1510,7 +1545,7 @@ mod tests {
             ..Default::default()
         });
         test_serialize_deserialize(BrpListParams {
-            entity: Entity::from_raw(0),
+            entity: Entity::from_raw_u32(0).unwrap(),
         });
     }
 }

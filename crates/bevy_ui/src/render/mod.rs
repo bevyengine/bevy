@@ -6,6 +6,7 @@ pub mod ui_texture_slice_pipeline;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
+mod gradient;
 
 use crate::widget::{ImageNode, ViewportNode};
 use crate::{
@@ -36,7 +37,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderSet,
+    Extract, RenderApp, RenderSystems,
 };
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
@@ -48,6 +49,7 @@ use bevy_render::{
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
+use gradient::GradientPlugin;
 
 use crate::{Display, Node};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -94,13 +96,14 @@ pub mod stack_z_offsets {
     pub const BOX_SHADOW: f32 = -0.1;
     pub const TEXTURE_SLICE: f32 = 0.0;
     pub const NODE: f32 = 0.0;
+    pub const GRADIENT: f32 = 0.1;
     pub const MATERIAL: f32 = 0.18267;
 }
 
 pub const UI_SHADER_HANDLE: Handle<Shader> = weak_handle!("7d190d05-545b-42f5-bd85-22a0da85b0f6");
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RenderUiSystem {
+pub enum RenderUiSystems {
     ExtractCameraViews,
     ExtractBoxShadows,
     ExtractBackgrounds,
@@ -112,7 +115,12 @@ pub enum RenderUiSystem {
     ExtractTextShadows,
     ExtractText,
     ExtractDebug,
+    ExtractGradient,
 }
+
+/// Deprecated alias for [`RenderUiSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RenderUiSystems`.")]
+pub type RenderUiSystem = RenderUiSystems;
 
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
@@ -133,40 +141,40 @@ pub fn build_ui_render(app: &mut App) {
         .configure_sets(
             ExtractSchedule,
             (
-                RenderUiSystem::ExtractCameraViews,
-                RenderUiSystem::ExtractBoxShadows,
-                RenderUiSystem::ExtractBackgrounds,
-                RenderUiSystem::ExtractImages,
-                RenderUiSystem::ExtractTextureSlice,
-                RenderUiSystem::ExtractBorders,
-                RenderUiSystem::ExtractTextBackgrounds,
-                RenderUiSystem::ExtractTextShadows,
-                RenderUiSystem::ExtractText,
-                RenderUiSystem::ExtractDebug,
+                RenderUiSystems::ExtractCameraViews,
+                RenderUiSystems::ExtractBoxShadows,
+                RenderUiSystems::ExtractBackgrounds,
+                RenderUiSystems::ExtractImages,
+                RenderUiSystems::ExtractTextureSlice,
+                RenderUiSystems::ExtractBorders,
+                RenderUiSystems::ExtractTextBackgrounds,
+                RenderUiSystems::ExtractTextShadows,
+                RenderUiSystems::ExtractText,
+                RenderUiSystems::ExtractDebug,
             )
                 .chain(),
         )
         .add_systems(
             ExtractSchedule,
             (
-                extract_ui_camera_view.in_set(RenderUiSystem::ExtractCameraViews),
-                extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
-                extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
-                extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
-                extract_viewport_nodes.in_set(RenderUiSystem::ExtractViewportNodes),
-                extract_text_background_colors.in_set(RenderUiSystem::ExtractTextBackgrounds),
-                extract_text_shadows.in_set(RenderUiSystem::ExtractTextShadows),
-                extract_text_sections.in_set(RenderUiSystem::ExtractText),
+                extract_ui_camera_view.in_set(RenderUiSystems::ExtractCameraViews),
+                extract_uinode_background_colors.in_set(RenderUiSystems::ExtractBackgrounds),
+                extract_uinode_images.in_set(RenderUiSystems::ExtractImages),
+                extract_uinode_borders.in_set(RenderUiSystems::ExtractBorders),
+                extract_viewport_nodes.in_set(RenderUiSystems::ExtractViewportNodes),
+                extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
+                extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
+                extract_text_sections.in_set(RenderUiSystems::ExtractText),
                 #[cfg(feature = "bevy_ui_debug")]
-                debug_overlay::extract_debug_overlay.in_set(RenderUiSystem::ExtractDebug),
+                debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
             ),
         )
         .add_systems(
             Render,
             (
-                queue_uinodes.in_set(RenderSet::Queue),
-                sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
-                prepare_uinodes.in_set(RenderSet::PrepareBindGroups),
+                queue_uinodes.in_set(RenderSystems::Queue),
+                sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
+                prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
             ),
         );
 
@@ -192,6 +200,7 @@ pub fn build_ui_render(app: &mut App) {
     }
 
     app.add_plugins(UiTextureSlicerPlugin);
+    app.add_plugins(GradientPlugin);
     app.add_plugins(BoxShadowPlugin);
 }
 
@@ -1073,6 +1082,10 @@ pub mod shader_flags {
     /// Ordering: top left, top right, bottom right, bottom left.
     pub const CORNERS: [u32; 4] = [0, 2, 2 | 4, 4];
     pub const BORDER: u32 = 8;
+    pub const RADIAL: u32 = 16;
+    pub const FILL_START: u32 = 32;
+    pub const FILL_END: u32 = 64;
+    pub const CONIC: u32 = 128;
 }
 
 pub fn queue_uinodes(

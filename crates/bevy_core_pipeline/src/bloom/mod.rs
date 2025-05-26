@@ -24,7 +24,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
@@ -63,10 +63,10 @@ impl Plugin for BloomPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
-                    prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
-                    prepare_bloom_textures.in_set(RenderSet::PrepareResources),
-                    prepare_bloom_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_downsampling_pipeline.in_set(RenderSystems::Prepare),
+                    prepare_upsampling_pipeline.in_set(RenderSystems::Prepare),
+                    prepare_bloom_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_bloom_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             // Add bloom to the 3d render graph

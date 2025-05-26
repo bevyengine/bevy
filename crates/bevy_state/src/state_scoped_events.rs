@@ -93,7 +93,7 @@ pub trait StateScopedEventsAppExt {
     /// and [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity
     /// cleanup and the [`OnExit`] schedule for the target state. All of these (state scoped
     /// entities and events cleanup, and `OnExit`) occur within schedule [`StateTransition`](crate::prelude::StateTransition)
-    /// and system set `StateTransitionSteps::ExitSchedules`.
+    /// and system set `StateTransitionSystems::ExitSchedules`.
     fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self;
 }
 

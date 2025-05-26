@@ -1,6 +1,6 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -74,7 +74,7 @@ use bevy_render::camera::TemporalJitter;
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
-use bevy_render::RenderSet::PrepareAssets;
+use bevy_render::RenderSystems::PrepareAssets;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
@@ -196,7 +196,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
                     ExtractSchedule,
-                    ExtractMeshesSet
+                    MeshExtractionSystems
                         .after(view::extract_visibility_ranges)
                         .after(late_sweep_material_instances),
                 )
@@ -206,22 +206,22 @@ impl Plugin for MeshRenderPlugin {
                         extract_skins,
                         extract_morphs,
                         gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
-                            .before(ExtractMeshesSet),
+                            .before(MeshExtractionSystems),
                     ),
                 )
                 .add_systems(
                     Render,
                     (
-                        set_mesh_motion_vector_flags.in_set(RenderSet::PrepareMeshes),
-                        prepare_skins.in_set(RenderSet::PrepareResources),
-                        prepare_morphs.in_set(RenderSet::PrepareResources),
-                        prepare_mesh_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        set_mesh_motion_vector_flags.in_set(RenderSystems::PrepareMeshes),
+                        prepare_skins.in_set(RenderSystems::PrepareResources),
+                        prepare_morphs.in_set(RenderSystems::PrepareResources),
+                        prepare_mesh_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         prepare_mesh_view_bind_groups
-                            .in_set(RenderSet::PrepareBindGroups)
+                            .in_set(RenderSystems::PrepareBindGroups)
                             .after(prepare_oit_buffers),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
-                            .in_set(RenderSet::Cleanup)
-                            .after(RenderSet::Render),
+                            .in_set(RenderSystems::Cleanup)
+                            .after(RenderSystems::Render),
                     ),
                 );
         }
@@ -259,17 +259,17 @@ impl Plugin for MeshRenderPlugin {
                     .init_resource::<MeshesToReextractNextFrame>()
                     .add_systems(
                         ExtractSchedule,
-                        extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
+                        extract_meshes_for_gpu_building.in_set(MeshExtractionSystems),
                     )
                     .add_systems(
                         Render,
                         (
                             gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                                .in_set(RenderSet::PrepareResourcesFlush),
+                                .in_set(RenderSystems::PrepareResourcesFlush),
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
-                                .in_set(RenderSet::PrepareResources),
+                                .in_set(RenderSystems::PrepareResources),
                             collect_meshes_for_gpu_building
-                                .in_set(RenderSet::PrepareMeshes)
+                                .in_set(RenderSystems::PrepareMeshes)
                                 // This must be before
                                 // `set_mesh_motion_vector_flags` so it doesn't
                                 // overwrite those flags.
@@ -284,12 +284,12 @@ impl Plugin for MeshRenderPlugin {
                     .insert_resource(cpu_batched_instance_buffer)
                     .add_systems(
                         ExtractSchedule,
-                        extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
+                        extract_meshes_for_cpu_building.in_set(MeshExtractionSystems),
                     )
                     .add_systems(
                         Render,
                         no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
+                            .in_set(RenderSystems::PrepareResourcesFlush),
                     );
             };
 
@@ -837,10 +837,31 @@ pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 pub struct MeshesToReextractNextFrame(MainEntityHashSet);
 
 impl RenderMeshInstanceShared {
-    fn from_components(
+    /// A gpu builder will provide the mesh instance id
+    /// during [`RenderMeshInstanceGpuBuilder::update`].
+    fn for_gpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
         tag: Option<&MeshTag>,
+        not_shadow_caster: bool,
+        no_automatic_batching: bool,
+    ) -> Self {
+        Self::for_cpu_building(
+            previous_transform,
+            mesh,
+            tag,
+            default(),
+            not_shadow_caster,
+            no_automatic_batching,
+        )
+    }
+
+    /// The cpu builder does not have an equivalent [`RenderMeshInstanceGpuBuilder::update`].
+    fn for_cpu_building(
+        previous_transform: Option<&PreviousGlobalTransform>,
+        mesh: &Mesh3d,
+        tag: Option<&MeshTag>,
+        material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
     ) -> Self {
@@ -858,8 +879,7 @@ impl RenderMeshInstanceShared {
         RenderMeshInstanceShared {
             mesh_asset_id: mesh.id(),
             flags: mesh_instance_flags,
-            // This gets filled in later, during `RenderMeshGpuBuilder::update`.
-            material_bindings_index: default(),
+            material_bindings_index,
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
         }
@@ -1296,7 +1316,11 @@ pub struct RenderMeshQueueData<'a> {
 /// A [`SystemSet`] that encompasses both [`extract_meshes_for_cpu_building`]
 /// and [`extract_meshes_for_gpu_building`].
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ExtractMeshesSet;
+pub struct MeshExtractionSystems;
+
+/// Deprecated alias for [`MeshExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `MeshExtractionSystems`.")]
+pub type ExtractMeshesSet = MeshExtractionSystems;
 
 /// Extracts meshes from the main world into the render world, populating the
 /// [`RenderMeshInstances`].
@@ -1305,6 +1329,8 @@ pub struct ExtractMeshesSet;
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mesh_material_ids: Res<RenderMaterialInstances>,
+    render_material_bindings: Res<RenderMaterialBindings>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
     meshes_query: Extract<
@@ -1358,10 +1384,18 @@ pub fn extract_meshes_for_cpu_building(
                 transmitted_receiver,
             );
 
-            let shared = RenderMeshInstanceShared::from_components(
+            let mesh_material = mesh_material_ids.mesh_material(MainEntity::from(entity));
+
+            let material_bindings_index = render_material_bindings
+                .get(&mesh_material)
+                .copied()
+                .unwrap_or_default();
+
+            let shared = RenderMeshInstanceShared::for_cpu_building(
                 previous_transform,
                 mesh,
                 tag,
+                material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -1566,7 +1600,7 @@ fn extract_mesh_for_gpu_building(
         transmitted_receiver,
     );
 
-    let shared = RenderMeshInstanceShared::from_components(
+    let shared = RenderMeshInstanceShared::for_gpu_building(
         previous_transform,
         mesh,
         tag,

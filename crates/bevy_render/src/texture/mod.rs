@@ -15,7 +15,7 @@ pub use texture_attachment::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
+    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{weak_handle, AssetApp, Assets, Handle};
@@ -100,7 +100,7 @@ impl Plugin for ImagePlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<TextureCache>().add_systems(
                 Render,
-                update_texture_cache_system.in_set(RenderSet::Cleanup),
+                update_texture_cache_system.in_set(RenderSystems::Cleanup),
             );
         }
 

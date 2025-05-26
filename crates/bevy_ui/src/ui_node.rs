@@ -13,7 +13,7 @@ use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::num::NonZero;
+use core::{f32, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -31,7 +31,7 @@ pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated in [`super::UiSystem::Stack`].
+    /// Automatically calculated in [`super::UiSystems::Stack`].
     pub stack_index: u32,
     /// The size of the node as width and height in physical pixels.
     ///
@@ -2432,54 +2432,49 @@ impl BorderRadius {
     /// Returns the radius of the corner in physical pixels.
     pub fn resolve_single_corner(
         radius: Val,
-        node_size: Vec2,
-        viewport_size: Vec2,
         scale_factor: f32,
+        min_length: f32,
+        viewport_size: Vec2,
     ) -> f32 {
-        match radius {
-            Val::Auto => 0.,
-            Val::Px(px) => px * scale_factor,
-            Val::Percent(percent) => node_size.min_element() * percent / 100.,
-            Val::Vw(percent) => viewport_size.x * percent / 100.,
-            Val::Vh(percent) => viewport_size.y * percent / 100.,
-            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
-            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
-        }
-        .clamp(0., 0.5 * node_size.min_element())
+        radius
+            .resolve(scale_factor, min_length, viewport_size)
+            .unwrap_or(0.)
+            .clamp(0., 0.5 * min_length)
     }
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
     pub fn resolve(
         &self,
+        scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
-        scale_factor: f32,
     ) -> ResolvedBorderRadius {
+        let length = node_size.min_element();
         ResolvedBorderRadius {
             top_left: Self::resolve_single_corner(
                 self.top_left,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             top_right: Self::resolve_single_corner(
                 self.top_right,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             bottom_left: Self::resolve_single_corner(
                 self.bottom_left,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
             bottom_right: Self::resolve_single_corner(
                 self.bottom_right,
-                node_size,
-                viewport_size,
                 scale_factor,
+                length,
+                viewport_size,
             ),
         }
     }
@@ -2597,37 +2592,6 @@ pub struct LayoutConfig {
 impl Default for LayoutConfig {
     fn default() -> Self {
         Self { use_rounding: true }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::GridPlacement;
-
-    #[test]
-    fn invalid_grid_placement_values() {
-        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
-        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
-    }
-
-    #[test]
-    fn grid_placement_accessors() {
-        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
-        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
-        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
-        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
-        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
-        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }
 
@@ -2826,5 +2790,36 @@ impl Default for TextShadow {
             offset: Vec2::splat(4.),
             color: Color::linear_rgba(0., 0., 0., 0.75),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::GridPlacement;
+
+    #[test]
+    fn invalid_grid_placement_values() {
+        assert!(std::panic::catch_unwind(|| GridPlacement::span(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_end(-1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::start_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(0, 1)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::end_span(1, 0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_start(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_end(0)).is_err());
+        assert!(std::panic::catch_unwind(|| GridPlacement::default().set_span(0)).is_err());
+    }
+
+    #[test]
+    fn grid_placement_accessors() {
+        assert_eq!(GridPlacement::start(5).get_start(), Some(5));
+        assert_eq!(GridPlacement::end(-4).get_end(), Some(-4));
+        assert_eq!(GridPlacement::span(2).get_span(), Some(2));
+        assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
+        assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
+        assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
     }
 }
