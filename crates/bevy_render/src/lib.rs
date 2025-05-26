@@ -92,7 +92,8 @@ use render_asset::{
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
-    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
+    despawn_temporary_render_entities, entity_sync_system, MainEntity, RenderEntity,
+    SyncToRenderWorld, SyncWorldPlugin, TemporaryRenderEntity,
 };
 
 use crate::gpu_readback::GpuReadbackPlugin;
@@ -449,6 +450,9 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>()
+            .register_type::<RenderEntity>()
+            .register_type::<TemporaryRenderEntity>()
+            .register_type::<MainEntity>()
             .register_type::<SyncToRenderWorld>();
     }
 

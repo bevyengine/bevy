@@ -175,6 +175,7 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
+            .register_type::<GlobalZIndex>()
             .register_type::<Outline>()
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
