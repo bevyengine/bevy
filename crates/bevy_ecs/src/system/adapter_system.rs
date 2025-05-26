@@ -1,6 +1,6 @@
 use alloc::{borrow::Cow, vec::Vec};
 
-use super::{IntoSystem, ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, System, SystemParamValidationError};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -131,6 +131,12 @@ where
         self.system.component_access()
     }
 
+    fn component_access_set(
+        &self,
+    ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
+        self.system.component_access_set()
+    }
+
     #[inline]
     fn archetype_component_access(
         &self,
@@ -163,12 +169,6 @@ where
     }
 
     #[inline]
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut crate::prelude::World) -> Self::Out {
-        self.func
-            .adapt(input, |input| self.system.run(input, world))
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, world: &mut crate::prelude::World) {
         self.system.apply_deferred(world);
     }
@@ -179,7 +179,10 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.system.validate_param_unsafe(world) }
     }

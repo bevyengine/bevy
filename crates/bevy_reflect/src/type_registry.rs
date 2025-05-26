@@ -1,6 +1,6 @@
 use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
 use alloc::{boxed::Box, string::String};
-use bevy_platform_support::{
+use bevy_platform::{
     collections::{HashMap, HashSet},
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
@@ -165,6 +165,43 @@ impl TypeRegistry {
         }
     }
 
+    /// Attempts to register the referenced type `T` if it has not yet been registered.
+    ///
+    /// See [`register`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::{Reflect, TypeRegistry};
+    /// # use core::any::TypeId;
+    /// #
+    /// # let mut type_registry = TypeRegistry::default();
+    /// #
+    /// #[derive(Reflect)]
+    /// struct Foo {
+    ///   bar: Bar,
+    /// }
+    ///
+    /// #[derive(Reflect)]
+    /// struct Bar;
+    ///
+    /// let foo = Foo { bar: Bar };
+    ///
+    /// // Equivalent to `type_registry.register::<Foo>()`
+    /// type_registry.register_by_val(&foo);
+    ///
+    /// assert!(type_registry.contains(TypeId::of::<Foo>()));
+    /// assert!(type_registry.contains(TypeId::of::<Bar>()));
+    /// ```
+    ///
+    /// [`register`]: Self::register
+    pub fn register_by_val<T>(&mut self, _: &T)
+    where
+        T: GetTypeRegistration,
+    {
+        self.register::<T>();
+    }
+
     /// Attempts to register the type described by `registration`.
     ///
     /// If the registration for the type already exists, it will not be registered again.
@@ -213,7 +250,7 @@ impl TypeRegistry {
         type_id: TypeId,
         get_registration: impl FnOnce() -> TypeRegistration,
     ) -> bool {
-        use bevy_platform_support::collections::hash_map::Entry;
+        use bevy_platform::collections::hash_map::Entry;
 
         match self.registrations.entry(type_id) {
             Entry::Occupied(_) => false,
@@ -859,7 +896,6 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 )]
 mod test {
     use super::*;
-    use crate as bevy_reflect;
 
     #[test]
     fn test_reflect_from_ptr() {

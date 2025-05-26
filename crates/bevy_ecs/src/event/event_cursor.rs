@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use bevy_ecs::event::{
     Event, EventIterator, EventIteratorWithId, EventMutIterator, EventMutIteratorWithId, Events,
 };

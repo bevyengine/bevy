@@ -19,6 +19,7 @@ pub mod graph {
         MainOpaquePass,
         MainTransparentPass,
         EndMainPass,
+        Wireframe,
         Bloom,
         PostProcessing,
         Tonemapping,
@@ -33,7 +34,7 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     render_phase::PhaseItemBatchSetKey,
@@ -64,7 +65,7 @@ use bevy_render::{
     sync_world::MainEntity,
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
 use self::graph::{Core2d, Node2d};
@@ -92,8 +93,8 @@ impl Plugin for Core2dPlugin {
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
-                    prepare_core_2d_depth_textures.in_set(RenderSet::PrepareResources),
+                    sort_phase_system::<Transparent2d>.in_set(RenderSystems::PhaseSort),
+                    prepare_core_2d_depth_textures.in_set(RenderSystems::PrepareResources),
                 ),
             );
 
@@ -349,6 +350,7 @@ pub struct Transparent2d {
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
+    pub extracted_index: usize,
     pub extra_index: PhaseItemExtraIndex,
     /// Whether the mesh in question is indexed (uses an index buffer in
     /// addition to its vertex buffer).
@@ -436,8 +438,9 @@ pub fn extract_core_2d_camera_phases(
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
         transparent_2d_phases.insert_or_clear(retained_view_entity);
-        opaque_2d_phases.insert_or_clear(retained_view_entity, GpuPreprocessingMode::None);
-        alpha_mask_2d_phases.insert_or_clear(retained_view_entity, GpuPreprocessingMode::None);
+        opaque_2d_phases.prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
+        alpha_mask_2d_phases
+            .prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
 
         live_entities.insert(retained_view_entity);
     }

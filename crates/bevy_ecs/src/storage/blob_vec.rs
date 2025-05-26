@@ -176,7 +176,7 @@ impl BlobVec {
     /// # Safety
     /// - index must be in bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
-    ///     `item_layout`, must have been previously allocated.
+    ///   `item_layout`, must have been previously allocated.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
@@ -189,10 +189,10 @@ impl BlobVec {
     /// # Safety
     /// - index must be in-bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this
-    ///     [`BlobVec`]'s `item_layout`, must have been previously initialized with an item matching
-    ///     this [`BlobVec`]'s `item_layout`
+    ///   [`BlobVec`]'s `item_layout`, must have been previously initialized with an item matching
+    ///   this [`BlobVec`]'s `item_layout`
     /// - the memory at `*value` must also be previously initialized with an item matching this
-    ///     [`BlobVec`]'s `item_layout`
+    ///   [`BlobVec`]'s `item_layout`
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
 
@@ -366,6 +366,13 @@ impl BlobVec {
         unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }
     }
 
+    /// Returns the drop function for values stored in the vector,
+    /// or `None` if they don't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.drop
+    }
+
     /// Clears the vector, removing (and dropping) all values.
     ///
     /// Note that this method has no effect on the allocated capacity of the vector.
@@ -498,7 +505,6 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::BlobVec;
-    use crate as bevy_ecs; // required for derive macros
     use crate::{component::Component, ptr::OwningPtr, world::World};
     use alloc::{
         rc::Rc,

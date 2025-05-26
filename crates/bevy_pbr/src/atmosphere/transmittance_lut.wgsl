@@ -1,7 +1,7 @@
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
     bindings::{settings, atmosphere},
-    functions::{AtmosphereSample, sample_atmosphere, get_local_r, max_atmosphere_distance},
+    functions::{AtmosphereSample, sample_atmosphere, get_local_r, max_atmosphere_distance, MIDPOINT_RATIO},
     bruneton_functions::{transmittance_lut_uv_to_r_mu, distance_to_bottom_atmosphere_boundary, distance_to_top_atmosphere_boundary},
 }
 
@@ -32,7 +32,7 @@ fn ray_optical_depth(r: f32, mu: f32, sample_count: u32) -> vec3<f32> {
     var prev_t = 0.0f;
 
     for (var i = 0u; i < sample_count; i++) {
-        let t_i = t_max * (f32(i) + 0.3f) / f32(sample_count);
+        let t_i = t_max * (f32(i) + MIDPOINT_RATIO) / f32(sample_count);
         let dt = t_i - prev_t;
         prev_t = t_i;
 

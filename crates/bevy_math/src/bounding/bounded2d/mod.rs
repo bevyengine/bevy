@@ -9,6 +9,10 @@ use crate::{
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
@@ -32,8 +36,17 @@ pub trait Bounded2d {
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
 #[doc(alias = "BoundingRectangle")]
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(Serialize), derive(Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Aabb2d {
     /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,
@@ -230,13 +243,9 @@ impl BoundingVolume for Aabb2d {
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
-        let rotation: Rot2 = rotation.into();
-        let abs_rot_mat = Mat2::from_cols(
-            Vec2::new(rotation.cos, rotation.sin),
-            Vec2::new(rotation.sin, rotation.cos),
-        );
-        let half_size = abs_rot_mat * self.half_size();
-        *self = Self::new(rotation * self.center(), half_size);
+        let rot_mat = Mat2::from(rotation.into());
+        let half_size = rot_mat.abs() * self.half_size();
+        *self = Self::new(rot_mat * self.center(), half_size);
     }
 }
 
@@ -261,6 +270,8 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
 
 #[cfg(test)]
 mod aabb2d_tests {
+    use approx::assert_relative_eq;
+
     use super::Aabb2d;
     use crate::{
         bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
@@ -382,6 +393,17 @@ mod aabb2d_tests {
     }
 
     #[test]
+    fn rotate() {
+        let a = Aabb2d {
+            min: Vec2::new(-2.0, -2.0),
+            max: Vec2::new(2.0, 2.0),
+        };
+        let rotated = a.rotated_by(core::f32::consts::PI);
+        assert_relative_eq!(rotated.min, a.min);
+        assert_relative_eq!(rotated.max, a.max);
+    }
+
+    #[test]
     fn transform() {
         let a = Aabb2d {
             min: Vec2::new(-2.0, -2.0),
@@ -450,8 +472,17 @@ mod aabb2d_tests {
 use crate::primitives::Circle;
 
 /// A bounding circle
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(Serialize), derive(Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct BoundingCircle {
     /// The center of the bounding circle
     pub center: Vec2,

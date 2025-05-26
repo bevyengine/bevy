@@ -3,7 +3,7 @@
 //! Currently, this consists only of chromatic aberration.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -11,7 +11,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -36,7 +36,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::GpuImage,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::prelude::default;
 
@@ -47,17 +47,18 @@ use crate::{
 };
 
 /// The handle to the built-in postprocessing shader `post_process.wgsl`.
-const POST_PROCESSING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(14675654334038973533);
+const POST_PROCESSING_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("5e8e627a-7531-484d-a988-9a38acb34e52");
 /// The handle to the chromatic aberration shader `chromatic_aberration.wgsl`.
 const CHROMATIC_ABERRATION_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(10969893303667163833);
+    weak_handle!("e598550e-71c3-4f5a-ba29-aebc3f88c7b5");
 
 /// The handle to the default chromatic aberration lookup texture.
 ///
 /// This is just a 3x1 image consisting of one red pixel, one green pixel, and
 /// one blue pixel, in that order.
 const DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE: Handle<Image> =
-    Handle::weak_from_u128(2199972955136579180);
+    weak_handle!("dc3e3307-40a1-49bb-be6d-e0634e8836b2");
 
 /// The default chromatic aberration intensity amount, in a fraction of the
 /// window size.
@@ -97,7 +98,7 @@ pub struct PostProcessingPlugin;
 ///
 /// [Gjøl & Svendsen 2016]: https://github.com/playdeadgames/publications/blob/master/INSIDE/rendering_inside_gdc2016.pdf
 #[derive(Reflect, Component, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct ChromaticAberration {
     /// The lookup texture that determines the color gradient.
     ///
@@ -233,7 +234,7 @@ impl Plugin for PostProcessingPlugin {
                     prepare_post_processing_pipelines,
                     prepare_post_processing_uniforms,
                 )
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderSystems::Prepare),
             )
             .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
                 Core3d,

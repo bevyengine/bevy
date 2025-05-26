@@ -2,10 +2,10 @@
     types::{Atmosphere, AtmosphereSettings},
     bindings::{atmosphere, view, atmosphere_transforms},
     functions::{
-        sample_transmittance_lut, sample_sky_view_lut, 
-        direction_world_to_atmosphere, uv_to_ray_direction,
-        uv_to_ndc, sample_aerial_view_lut, view_radius,
-        sample_sun_illuminance,
+        sample_transmittance_lut, sample_transmittance_lut_segment,
+        sample_sky_view_lut, direction_world_to_atmosphere,
+        uv_to_ray_direction, uv_to_ndc, sample_aerial_view_lut,
+        view_radius, sample_sun_radiance, ndc_to_camera_dist
     },
 };
 #import bevy_render::view::View;
@@ -18,22 +18,41 @@
 @group(0) @binding(13) var depth_texture: texture_depth_2d;
 #endif
 
+struct RenderSkyOutput {
+    @location(0) inscattering: vec4<f32>,
+#ifdef DUAL_SOURCE_BLENDING
+    @location(0) @second_blend_source transmittance: vec4<f32>,
+#endif
+}
+
 @fragment
-fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
+
+    let ray_dir_ws = uv_to_ray_direction(in.uv);
+    let r = view_radius();
+    let mu = ray_dir_ws.y;
+
+    var transmittance: vec3<f32>;
+    var inscattering: vec3<f32>;
+
+    let sun_radiance = sample_sun_radiance(ray_dir_ws.xyz);
+
     if depth == 0.0 {
-        let ray_dir_ws = uv_to_ray_direction(in.uv);
         let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
-
-        let r = view_radius();
-        let mu = ray_dir_ws.y;
-
-        let transmittance = sample_transmittance_lut(r, mu);
-        let inscattering = sample_sky_view_lut(r, ray_dir_as);
-
-        let sun_illuminance = sample_sun_illuminance(ray_dir_ws.xyz, transmittance);
-        return vec4(inscattering + sun_illuminance, (transmittance.r + transmittance.g + transmittance.b) / 3.0);
+        transmittance = sample_transmittance_lut(r, mu);
+        inscattering += sample_sky_view_lut(r, ray_dir_as);
+        inscattering += sun_radiance * transmittance * view.exposure;
     } else {
-        return sample_aerial_view_lut(in.uv, depth);
+        let t = ndc_to_camera_dist(vec3(uv_to_ndc(in.uv), depth));
+        inscattering = sample_aerial_view_lut(in.uv, t);
+        transmittance = sample_transmittance_lut_segment(r, mu, t);
     }
+#ifdef DUAL_SOURCE_BLENDING
+    return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
+#else
+    let mean_transmittance = (transmittance.r + transmittance.g + transmittance.b) / 3.0;
+    return RenderSkyOutput(vec4(inscattering, mean_transmittance));
+#endif
+    
 }

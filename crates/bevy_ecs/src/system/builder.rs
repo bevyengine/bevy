@@ -8,6 +8,7 @@ use crate::{
     resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
+        SystemParamValidationError, When,
     },
     world::{
         FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
@@ -710,15 +711,59 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
     }
 }
 
+/// A [`SystemParamBuilder`] for an [`Option`].
+#[derive(Clone)]
+pub struct OptionBuilder<T>(T);
+
+// SAFETY: `OptionBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Option<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Option<P>>
+    for OptionBuilder<B>
+{
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <Option<P> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`Result`] of [`SystemParamValidationError`].
+#[derive(Clone)]
+pub struct ResultBuilder<T>(T);
+
+// SAFETY: `ResultBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Result<P, SystemParamValidationError>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>>
+    SystemParamBuilder<Result<P, SystemParamValidationError>> for ResultBuilder<B>
+{
+    fn build(
+        self,
+        world: &mut World,
+        meta: &mut SystemMeta,
+    ) -> <Result<P, SystemParamValidationError> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`When`].
+#[derive(Clone)]
+pub struct WhenBuilder<T>(T);
+
+// SAFETY: `WhenBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `When<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<When<P>>
+    for WhenBuilder<B>
+{
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <When<P> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         entity::Entities,
         prelude::{Component, Query},
+        reflect::ReflectResource,
         system::{Local, RunSystemOnce},
     };
     use alloc::vec;
+    use bevy_reflect::{FromType, Reflect, ReflectRef};
 
     use super::*;
 
@@ -731,8 +776,11 @@ mod tests {
     #[derive(Component)]
     struct C;
 
-    #[derive(Resource, Default)]
-    struct R;
+    #[derive(Resource, Default, Reflect)]
+    #[reflect(Resource)]
+    struct R {
+        foo: usize,
+    }
 
     fn local_system(local: Local<u64>) -> u64 {
         *local
@@ -1071,5 +1119,32 @@ mod tests {
         )
             .build_state(&mut world)
             .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
+    }
+
+    #[test]
+    fn filtered_resource_reflect() {
+        let mut world = World::new();
+        world.insert_resource(R { foo: 7 });
+
+        let system = (FilteredResourcesParamBuilder::new(|builder| {
+            builder.add_read::<R>();
+        }),)
+            .build_state(&mut world)
+            .build_system(|res: FilteredResources| {
+                let reflect_resource = <ReflectResource as FromType<R>>::from_type();
+                let ReflectRef::Struct(reflect_struct) =
+                    reflect_resource.reflect(res).unwrap().reflect_ref()
+                else {
+                    panic!()
+                };
+                *reflect_struct
+                    .field("foo")
+                    .unwrap()
+                    .try_downcast_ref::<usize>()
+                    .unwrap()
+            });
+
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 7);
     }
 }

@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use bevy_ecs::{
     change_detection::Mut,
     component::Tick,
@@ -14,7 +13,11 @@ use super::registry::ShouldUpdateEvents;
 
 #[doc(hidden)]
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct EventUpdates;
+pub struct EventUpdateSystems;
+
+/// Deprecated alias for [`EventUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `EventUpdateSystems`.")]
+pub type EventUpdates = EventUpdateSystems;
 
 /// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
 ///

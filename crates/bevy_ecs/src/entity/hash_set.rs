@@ -12,7 +12,7 @@ use core::{
     },
 };
 
-use bevy_platform_support::collections::hash_set::{self, HashSet};
+use bevy_platform::collections::hash_set::{self, HashSet};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
@@ -20,6 +20,7 @@ use super::{Entity, EntityHash, EntitySet, EntitySetIterator, FromEntitySetItera
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EntityHashSet(pub(crate) HashSet<Entity, EntityHash>);
 

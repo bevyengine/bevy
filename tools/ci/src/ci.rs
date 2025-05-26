@@ -74,10 +74,16 @@ impl CI {
                 cmds.append(&mut commands::ClippyCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::TestCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::TestCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::IntegrationTestCommand::default().prepare(sh, flags));
+                cmds.append(
+                    &mut commands::IntegrationTestCheckCommand::default().prepare(sh, flags),
+                );
+                cmds.append(
+                    &mut commands::IntegrationTestCleanCommand::default().prepare(sh, flags),
+                );
                 cmds.append(&mut commands::DocCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::DocTestCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::CompileCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::CompileCheckNoStdCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::CompileFailCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::BenchCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::ExampleCheckCommand::default().prepare(sh, flags));
@@ -100,10 +106,12 @@ enum Commands {
     Clippy(commands::ClippyCommand),
     Test(commands::TestCommand),
     TestCheck(commands::TestCheckCommand),
+    IntegrationTest(commands::IntegrationTestCommand),
+    IntegrationTestCheck(commands::IntegrationTestCheckCommand),
+    IntegrationTestClean(commands::IntegrationTestCleanCommand),
     DocCheck(commands::DocCheckCommand),
     DocTest(commands::DocTestCommand),
     CompileCheck(commands::CompileCheckCommand),
-    CompileCheckNoStd(commands::CompileCheckNoStdCommand),
     CompileFail(commands::CompileFailCommand),
     BenchCheck(commands::BenchCheckCommand),
     ExampleCheck(commands::ExampleCheckCommand),
@@ -120,10 +128,12 @@ impl Prepare for Commands {
             Commands::Clippy(subcommand) => subcommand.prepare(sh, flags),
             Commands::Test(subcommand) => subcommand.prepare(sh, flags),
             Commands::TestCheck(subcommand) => subcommand.prepare(sh, flags),
+            Commands::IntegrationTest(subcommand) => subcommand.prepare(sh, flags),
+            Commands::IntegrationTestCheck(subcommand) => subcommand.prepare(sh, flags),
+            Commands::IntegrationTestClean(subcommand) => subcommand.prepare(sh, flags),
             Commands::DocCheck(subcommand) => subcommand.prepare(sh, flags),
             Commands::DocTest(subcommand) => subcommand.prepare(sh, flags),
             Commands::CompileCheck(subcommand) => subcommand.prepare(sh, flags),
-            Commands::CompileCheckNoStd(subcommand) => subcommand.prepare(sh, flags),
             Commands::CompileFail(subcommand) => subcommand.prepare(sh, flags),
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, flags),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, flags),

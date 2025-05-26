@@ -14,7 +14,11 @@ use core::time::Duration;
 /// Note that in order to advance the timer [`tick`](Timer::tick) **MUST** be called.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Clone, PartialEq)
+)]
 pub struct Timer {
     stopwatch: Stopwatch,
     duration: Duration,
@@ -437,7 +441,11 @@ impl Timer {
 /// Specifies [`Timer`] behavior.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Clone, PartialEq, Hash)
+)]
 pub enum TimerMode {
     /// Run once and stop.
     #[default]

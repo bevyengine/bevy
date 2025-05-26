@@ -136,7 +136,6 @@ all_tuples!(
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{schedule::Schedule, system::Local, world::World};
     use alloc::vec::Vec;
     use bevy_ecs_macros::Resource;

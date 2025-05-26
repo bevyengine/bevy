@@ -1,6 +1,6 @@
 [package]
 name = "benches"
-edition = "2021"
+edition = "2024"
 description = "Benchmarks that test Bevy's performance"
 publish = false
 license = "MIT OR Apache-2.0"
@@ -24,7 +24,7 @@ bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
 bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
-bevy_platform_support = { path = "../crates/bevy_platform_support", default-features = false, features = [
+bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
   "std",
 ] }
 
@@ -32,6 +32,7 @@ bevy_platform_support = { path = "../crates/bevy_platform_support", default-feat
 glam = "0.29"
 rand = "0.8"
 rand_chacha = "0.3"
+nonmax = { version = "0.5", default-features = false }
 
 # Make `bevy_render` compile on Linux with x11 windowing. x11 vs. Wayland does not matter here
 # because the benches do not actually open any windows.
@@ -50,6 +51,7 @@ undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
 too_many_arguments = "allow"
+nonstandard_macro_braces = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"

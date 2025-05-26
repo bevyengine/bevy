@@ -13,7 +13,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::world::World;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
@@ -296,10 +296,14 @@ impl<A: Asset> AssetContainer for A {
 /// [`NestedLoader::load`]: crate::NestedLoader::load
 /// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
-#[error("Failed to load dependency {dependency:?} {error}")]
-pub struct LoadDirectError {
-    pub dependency: AssetPath<'static>,
-    pub error: AssetLoadError,
+pub enum LoadDirectError {
+    #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
+    RequestedSubasset(AssetPath<'static>),
+    #[error("Failed to load dependency {dependency:?} {error}")]
+    LoadError {
+        dependency: AssetPath<'static>,
+        error: AssetLoadError,
+    },
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
@@ -477,8 +481,8 @@ impl<'a> LoadContext<'a> {
         let path = path.into();
         let source = self.asset_server.get_source(path.source())?;
         let asset_reader = match self.asset_server.mode() {
-            AssetServerMode::Unprocessed { .. } => source.reader(),
-            AssetServerMode::Processed { .. } => source.processed_reader()?,
+            AssetServerMode::Unprocessed => source.reader(),
+            AssetServerMode::Processed => source.processed_reader()?,
         };
         let mut reader = asset_reader.read(path.path()).await?;
         let hash = if self.populate_hashes {
@@ -537,7 +541,7 @@ impl<'a> LoadContext<'a> {
                 self.populate_hashes,
             )
             .await
-            .map_err(|error| LoadDirectError {
+            .map_err(|error| LoadDirectError::LoadError {
                 dependency: path.clone(),
                 error,
             })?;
