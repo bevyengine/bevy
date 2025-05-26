@@ -32,7 +32,7 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeId, ArchetypeRow, Archetypes},
+    archetype::{ArchetypeId, Archetypes},
     bundle::{
         Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
@@ -960,18 +960,8 @@ impl World {
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
         self.archetypes.iter().flat_map(|archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(|(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(|(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
                     let cell = UnsafeEntityCell::new(
                         self.as_unsafe_world_cell_readonly(),
@@ -993,18 +983,8 @@ impl World {
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(move |(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(move |(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
                     let cell = UnsafeEntityCell::new(
                         world_cell,
@@ -3402,11 +3382,18 @@ impl World {
 
 // Schedule-related methods
 impl World {
-    /// Adds the specified [`Schedule`] to the world. The schedule can later be run
+    /// Adds the specified [`Schedule`] to the world.
+    /// If a schedule already exists with the same [label](Schedule::label), it will be replaced.
+    ///
+    /// The schedule can later be run
     /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
     /// accessing the [`Schedules`] resource.
     ///
     /// The `Schedules` resource will be initialized if it does not already exist.
+    ///
+    /// An alternative to this is to call [`Schedules::add_systems()`] with some
+    /// [`ScheduleLabel`] and let the schedule for that label be created if it
+    /// does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule) {
         let mut schedules = self.get_resource_or_init::<Schedules>();
         schedules.insert(schedule);
@@ -3512,6 +3499,7 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    /// This avoids the need to create a unique [`ScheduleLabel`].
     ///
     /// # Panics
     ///
