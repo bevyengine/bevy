@@ -246,7 +246,7 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        let type_id = system.system_type_id();
+        let type_id = system.system_system_type();
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
             SystemIdentifier::Type(type_id),
@@ -272,7 +272,7 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        let type_id = system.system_type_id();
+        let type_id = system.system_system_type();
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
             SystemIdentifier::Type(type_id),
@@ -298,7 +298,7 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        let type_id = system.system_type_id();
+        let type_id = system.system_system_type();
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
             SystemIdentifier::Type(type_id),
@@ -345,7 +345,7 @@ impl Stepping {
         schedule: impl ScheduleLabel,
         system: impl IntoSystem<(), (), Marker>,
     ) -> &mut Self {
-        let type_id = system.system_type_id();
+        let type_id = system.system_system_type();
         self.updates.push(Update::ClearBehavior(
             schedule.intern(),
             SystemIdentifier::Type(type_id),

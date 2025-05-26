@@ -326,20 +326,20 @@ mod tests {
             let system = IntoSystem::into_system(function);
 
             assert_eq!(
-                system.type_id(),
-                function.system_type_id(),
-                "System::type_id should be consistent with IntoSystem::system_type_id"
+                system.system_type(),
+                function.system_system_type(),
+                "System::system_type should be consistent with IntoSystem::system_system_type"
             );
 
             assert_eq!(
-                system.type_id(),
+                system.system_type(),
                 TypeId::of::<T::System>(),
-                "System::type_id should be consistent with TypeId::of::<T::System>()"
+                "System::system_type should be consistent with TypeId::of::<T::System>()"
             );
 
             assert_ne!(
-                system.type_id(),
-                IntoSystem::into_system(reference_system).type_id(),
+                system.system_type(),
+                IntoSystem::into_system(reference_system).system_type(),
                 "Different systems should have different TypeIds"
             );
         }

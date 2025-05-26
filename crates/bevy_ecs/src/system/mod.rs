@@ -301,7 +301,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
 
     /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
     #[inline]
-    fn system_type_id(&self) -> TypeId {
+    fn system_system_type(&self) -> TypeId {
         TypeId::of::<Self::System>()
     }
 }
