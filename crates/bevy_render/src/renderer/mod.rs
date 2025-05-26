@@ -14,6 +14,7 @@ use crate::{
     render_phase::TrackedRenderPass,
     render_resource::RenderPassDescriptor,
     settings::{WgpuSettings, WgpuSettingsPriority},
+    texture_blitter::{TextureBlitter, TextureBlitterRenderPass},
     view::{ExtractedWindows, ViewTarget},
 };
 use alloc::sync::Arc;
@@ -479,6 +480,44 @@ impl<'w> RenderContext<'w> {
 
         self.command_buffer_queue
             .push(QueuedCommandBuffer::Task(Box::new(task)));
+    }
+
+    // Copies the source texture to the target texture
+    //
+    // Needs a TextureBlitter to be created ahead of time. It is recommended to cache it and reuse
+    // it.
+    pub fn blit(
+        &mut self,
+        blitter: &TextureBlitter,
+        source: &wgpu::TextureView,
+        target: &wgpu::TextureView,
+    ) {
+        self.blit_with_render_pass(
+            blitter,
+            source,
+            target,
+            &TextureBlitterRenderPass::default(),
+        );
+    }
+
+    // Copies the source texture to the target texture but with more advanced configurations for
+    // the render pass used by the texture blitter
+    //
+    // Needs a TextureBlitter to be created ahead of time. It is recommended to cache it and reuse
+    // it.
+    pub fn blit_with_render_pass(
+        &mut self,
+        blitter: &TextureBlitter,
+        source: &wgpu::TextureView,
+        target: &wgpu::TextureView,
+        render_pass: &TextureBlitterRenderPass,
+    ) {
+        let command_encoder = self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        });
+        let device = self.render_device.wgpu_device();
+        blitter.copy_with_render_pass(device, command_encoder, source, target, render_pass);
     }
 
     /// Finalizes and returns the queue of [`CommandBuffer`]s.

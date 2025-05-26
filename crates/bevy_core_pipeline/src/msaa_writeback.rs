@@ -1,16 +1,14 @@
 use crate::{
-    blit::{BlitPipeline, BlitPipelineKey},
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
-use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::*,
-    renderer::RenderContext,
+    renderer::{RenderContext, RenderDevice},
+    texture_blitter::{TextureBlitter, TextureBlitterBuilder, TextureBlitterRenderPass},
     view::{Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
@@ -53,7 +51,8 @@ pub struct MsaaWritebackNode;
 impl ViewNode for MsaaWritebackNode {
     type ViewQuery = (
         &'static ViewTarget,
-        &'static MsaaWritebackBlitPipeline,
+        &'static MsaaWritebackRequired,
+        &'static MsaaWritebackTextureBlitter,
         &'static Msaa,
     );
 
@@ -61,92 +60,104 @@ impl ViewNode for MsaaWritebackNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (target, blit_pipeline_id, msaa): QueryItem<'w, Self::ViewQuery>,
-        world: &'w World,
+        (target, _writeback_enabled, texture_blitter, msaa): QueryItem<'w, Self::ViewQuery>,
+        _world: &'w World,
     ) -> Result<(), NodeRunError> {
         if *msaa == Msaa::Off {
             return Ok(());
         }
 
-        let blit_pipeline = world.resource::<BlitPipeline>();
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(blit_pipeline_id.0) else {
-            return Ok(());
-        };
-
         // The current "main texture" needs to be bound as an input resource, and we need the "other"
         // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
         // as a post process write!
         let post_process = target.post_process_write();
-
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("msaa_writeback"),
-            // The target's "resolve target" is the "destination" in post_process.
-            // We will indirectly write the results to the "destination" using
-            // the MSAA resolve step.
-            color_attachments: &[Some(RenderPassColorAttachment {
-                // If MSAA is enabled, then the sampled texture will always exist
-                view: target.sampled_main_texture_view().unwrap(),
+        render_context.blit_with_render_pass(
+            &texture_blitter.texture_blitter,
+            post_process.source,
+            // If MSAA is enabled, then the sampled texture will always exist
+            target.sampled_main_texture_view().unwrap(),
+            &TextureBlitterRenderPass {
+                clear_color: Some(wgpu::Color::BLACK),
+                // The target's "resolve target" is the "destination" in post_process.
+                // We will indirectly write the results to the "destination" using
+                // the MSAA resolve step.
                 resolve_target: Some(post_process.destination),
-                ops: Operations {
-                    load: LoadOp::Clear(LinearRgba::BLACK.into()),
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        };
-
-        let bind_group = render_context.render_device().create_bind_group(
-            None,
-            &blit_pipeline.texture_bind_group,
-            &BindGroupEntries::sequential((post_process.source, &blit_pipeline.sampler)),
+                ..Default::default()
+            },
         );
-
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
-
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
 
         Ok(())
     }
 }
 
 #[derive(Component)]
-pub struct MsaaWritebackBlitPipeline(CachedRenderPipelineId);
+pub struct MsaaWritebackTextureBlitter {
+    // The values used to create the texture blitter
+    // We need to keep them around to check if they changed between frames
+    //
+    // (msaa samples, main texture format)
+    descriptor: (u32, wgpu::TextureFormat),
+    // The texture blitter that will be used to do the writeback
+    // It should be created based on the descriptor
+    texture_blitter: TextureBlitter,
+}
+
+#[derive(Component)]
+pub struct MsaaWritebackRequired;
 
 fn prepare_msaa_writeback_pipelines(
     mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
-    blit_pipeline: Res<BlitPipeline>,
-    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
+    view_targets: Query<(
+        Entity,
+        &ViewTarget,
+        &ExtractedCamera,
+        &Msaa,
+        Option<&MsaaWritebackTextureBlitter>,
+    )>,
+    render_device: Res<RenderDevice>,
 ) {
-    for (entity, view_target, camera, msaa) in view_targets.iter() {
+    for (entity, view_target, camera, msaa, maybe_texture_blitter) in view_targets.iter() {
         // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,
         // as there is nothing to write back for the first camera.
         if msaa.samples() > 1 && camera.msaa_writeback && camera.sorted_camera_index_for_target > 0
         {
-            let key = BlitPipelineKey {
-                texture_format: view_target.main_texture_format(),
-                samples: msaa.samples(),
-                blend_state: None,
-            };
+            let mut entity_commands = commands.entity(entity);
+            entity_commands.insert(MsaaWritebackRequired);
 
-            let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
-            commands
-                .entity(entity)
-                .insert(MsaaWritebackBlitPipeline(pipeline));
+            let new_descriptor = (msaa.samples(), view_target.main_texture_format());
+
+            // We want to only create a new texture blitter if there isn't one or if the descriptor
+            // has changed.
+            //
+            // We can't currently rely on change detection because those components update every
+            // frame even if they haven't changed
+            let mut create_new_texture_blitter = maybe_texture_blitter.is_none();
+            if let Some(MsaaWritebackTextureBlitter { descriptor, .. }) = maybe_texture_blitter {
+                if *descriptor != new_descriptor {
+                    create_new_texture_blitter = true;
+                }
+            }
+
+            if create_new_texture_blitter {
+                // Create a new texture blitter based on the descriptor
+                let texture_blitter =
+                    TextureBlitterBuilder::new(render_device.wgpu_device(), new_descriptor.1)
+                        .target_sample_count(new_descriptor.0)
+                        .build();
+
+                entity_commands.insert(MsaaWritebackTextureBlitter {
+                    // Make sure to store the new descriptor
+                    descriptor: new_descriptor,
+                    texture_blitter,
+                });
+            }
         } else {
-            // This isn't strictly necessary now, but if we move to retained render entity state I don't
-            // want this to silently break
             commands
                 .entity(entity)
-                .remove::<MsaaWritebackBlitPipeline>();
+                .remove::<MsaaWritebackRequired>()
+                // Technically we could keep it around, but if writeback is never needed for this
+                // camera in the future it's better to completely remove it
+                .remove::<MsaaWritebackTextureBlitter>();
         }
     }
 }

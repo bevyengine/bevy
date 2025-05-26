@@ -46,6 +46,7 @@ smallvec = "1"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 bytemuck = { version = "1" }
+wgpu = "24.0.1"
 
 [lints]
 workspace = true
