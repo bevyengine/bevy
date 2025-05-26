@@ -900,7 +900,7 @@ mod tests {
             // system TypeId, and name.
             let systems: Vec<(TypeId, alloc::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
                 .map(|(_, system)| {
-                    (system.type_id(), system.name())
+                    (system.system_type(), system.name())
                 })
             .collect();
 
@@ -909,7 +909,7 @@ mod tests {
             $(
                 let sys = IntoSystem::into_system($system);
                 for (i, (type_id, _)) in systems.iter().enumerate() {
-                    if sys.type_id() == *type_id {
+                    if sys.system_type() == *type_id {
                         expected.insert(i);
                     }
                 }
