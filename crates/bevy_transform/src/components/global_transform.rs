@@ -1,6 +1,6 @@
 use core::ops::Mul;
 
-use super::Transform3d;
+use super::{Transform2d, Transform3d};
 use bevy_math::{ops, Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
 use derive_more::derive::From;
 
@@ -311,6 +311,12 @@ impl Default for GlobalTransform {
 impl From<Transform3d> for GlobalTransform {
     fn from(transform: Transform3d) -> Self {
         Self(transform.compute_affine())
+    }
+}
+
+impl From<Transform2d> for GlobalTransform {
+    fn from(transform: Transform2d) -> Self {
+        Self(transform.compute_affine3())
     }
 }
 
