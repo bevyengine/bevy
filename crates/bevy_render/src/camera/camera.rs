@@ -13,7 +13,7 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
+        ColorGrading, ExtractedView, ExtractedWindows, Hdr, Msaa, NoIndirectDrawing, RenderLayers,
         RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
@@ -307,9 +307,6 @@ pub struct Camera {
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
     pub target: RenderTarget,
-    /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
-    /// This allows rendering with a wider range of lighting values.
-    pub hdr: bool,
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     #[reflect(ignore, clone)]
@@ -341,7 +338,6 @@ impl Default for Camera {
             computed: Default::default(),
             target: Default::default(),
             output_mode: Default::default(),
-            hdr: false,
             msaa_writeback: true,
             clear_color: Default::default(),
             crop: None,
@@ -1053,6 +1049,7 @@ pub fn extract_cameras(
             &GlobalTransform,
             &VisibleEntities,
             &Frustum,
+            Has<Hdr>,
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
@@ -1074,6 +1071,7 @@ pub fn extract_cameras(
         transform,
         visible_entities,
         frustum,
+        hdr,
         color_grading,
         exposure,
         temporal_jitter,
@@ -1152,14 +1150,14 @@ pub fn extract_cameras(
                     exposure: exposure
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
-                    hdr: camera.hdr,
+                    hdr,
                 },
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    hdr: camera.hdr,
+                    hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,
