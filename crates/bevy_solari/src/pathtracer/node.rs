@@ -1,5 +1,6 @@
-use super::{prepare::PathtracerAccumulationTexture, Pathtracer, PATHTRACER_SHADER_HANDLE};
+use super::{prepare::PathtracerAccumulationTexture, Pathtracer};
 use crate::scene::RaytracingSceneBindings;
+use bevy_asset::load_embedded_asset;
 use bevy_ecs::{
     query::QueryItem,
     world::{FromWorld, World},
@@ -119,7 +120,7 @@ impl FromWorld for PathtracerNode {
                 bind_group_layout.clone(),
             ],
             push_constant_ranges: vec![],
-            shader: PATHTRACER_SHADER_HANDLE,
+            shader: load_embedded_asset!(world, "pathtracer.wgsl"),
             shader_defs: vec![],
             entry_point: "pathtrace".into(),
             zero_initialize_workgroup_memory: false,

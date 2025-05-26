@@ -4,13 +4,12 @@ mod prepare;
 
 use crate::SolariPlugin;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::embedded_asset;
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::Shader,
     renderer::RenderDevice,
     view::Hdr,
     ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -20,19 +19,11 @@ use node::PathtracerNode;
 use prepare::prepare_pathtracer_accumulation_texture;
 use tracing::warn;
 
-const PATHTRACER_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("87a5940d-b1ba-4cae-b8ce-be20c931e0c7");
-
 pub struct PathtracingPlugin;
 
 impl Plugin for PathtracingPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            PATHTRACER_SHADER_HANDLE,
-            "pathtracer.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "pathtracer.wgsl");
 
         app.register_type::<Pathtracer>();
     }
