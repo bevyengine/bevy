@@ -66,7 +66,7 @@ use tracing::{error, info_span, warn};
 
 use crate::{
     vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
+    GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -1463,11 +1463,16 @@ fn load_node(
                         });
                     }
 
-                    if let Some(name) = material.name() {
-                        mesh_entity.insert(GltfMaterialName(String::from(name)));
+                    if let Some(name) = mesh.name() {
+                        mesh_entity.insert(GltfMeshName(name.to_string()));
                     }
 
-                    mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
+                    if let Some(name) = material.name() {
+                        mesh_entity.insert(GltfMaterialName(name.to_string()));
+                    }
+
+                    mesh_entity.insert(Name::new(primitive_name(&mesh, &material)));
+
                     // Mark for adding skinned mesh
                     if let Some(skin) = gltf_node.skin() {
                         entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());

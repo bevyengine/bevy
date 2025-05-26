@@ -11,11 +11,11 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
+use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::warn;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
     SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -358,7 +358,7 @@ pub struct Image {
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
 /// [`ImageSampler::Default`], will read the sampler from the `ImagePlugin` at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the `ImagePlugin` setup.
     #[default]
@@ -403,7 +403,7 @@ impl ImageSampler {
 /// See [`ImageSamplerDescriptor`] for information how to configure this.
 ///
 /// This type mirrors [`AddressMode`].
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum ImageAddressMode {
     /// Clamp the value to the edge of the texture.
     ///
@@ -432,7 +432,7 @@ pub enum ImageAddressMode {
 /// Texel mixing mode when sampling between texels.
 ///
 /// This type mirrors [`FilterMode`].
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum ImageFilterMode {
     /// Nearest neighbor sampling.
     ///
@@ -448,7 +448,7 @@ pub enum ImageFilterMode {
 /// Comparison function used for depth and stencil operations.
 ///
 /// This type mirrors [`CompareFunction`].
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ImageCompareFunction {
     /// Function never passes
     Never,
@@ -475,7 +475,7 @@ pub enum ImageCompareFunction {
 /// Color variation to use when the sampler addressing mode is [`ImageAddressMode::ClampToBorder`].
 ///
 /// This type mirrors [`SamplerBorderColor`].
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ImageSamplerBorderColor {
     /// RGBA color `[0, 0, 0, 0]`.
     TransparentBlack,
@@ -498,7 +498,7 @@ pub enum ImageSamplerBorderColor {
 /// a breaking change.
 ///
 /// This types mirrors [`SamplerDescriptor`], but that might change in future versions.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ImageSamplerDescriptor {
     pub label: Option<String>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.
@@ -850,7 +850,7 @@ impl Image {
     }
 
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
-    /// Does not properly resize the contents of the image, but only its internal `data` buffer.
+    /// Does not properly scale the contents of the image.
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
         if let Some(ref mut data) = self.data {
@@ -858,8 +858,6 @@ impl Image {
                 size.volume() * self.texture_descriptor.format.pixel_size(),
                 0,
             );
-        } else {
-            warn!("Resized an uninitialized image. Directly modify image.texture_descriptor.size instead");
         }
     }
 
@@ -1650,6 +1648,12 @@ impl CompressedImageFormats {
         }
     }
 }
+
+/// For defining which compressed image formats are supported. This will be initialized from available device features
+/// in `finish()` of the bevy `RenderPlugin`, but is left for the user to specify if not using the `RenderPlugin`, or
+/// the WGPU backend.
+#[derive(Resource)]
+pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
 
 #[cfg(test)]
 mod test {
