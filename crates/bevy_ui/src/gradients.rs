@@ -43,7 +43,7 @@ impl ColorStop {
         }
     }
 
-    // Set the interpolation midpoint between this and and the following stop
+    // Set the interpolation midpoint between this and the following stop
     pub fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
@@ -155,7 +155,7 @@ impl AngularColorStop {
         }
     }
 
-    // Set the interpolation midpoint between this and and the following stop
+    // Set the interpolation midpoint between this and the following stop
     pub fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
@@ -213,8 +213,8 @@ impl Default for AngularColorStop {
     reflect(Serialize, Deserialize)
 )]
 pub struct LinearGradient {
-    /// The direction of the gradient.
-    /// An angle of `0.` points upward, angles increasing clockwise.
+    /// The direction of the gradient in radians.
+    /// An angle of `0.` points upward, with the value increasing in the clockwise direction.
     pub angle: f32,
     /// The list of color stops
     pub stops: Vec<ColorStop>,
@@ -376,7 +376,7 @@ pub struct ConicGradient {
 }
 
 impl ConicGradient {
-    /// create a new conic gradient
+    /// Create a new conic gradient
     pub fn new(position: Position, stops: Vec<AngularColorStop>) -> Self {
         Self {
             start: 0.,
@@ -385,7 +385,7 @@ impl ConicGradient {
         }
     }
 
-    /// Sets the starting angle of the gradient
+    /// Sets the starting angle of the gradient in radians
     pub fn with_start(mut self, start: f32) -> Self {
         self.start = start;
         self
@@ -430,7 +430,7 @@ impl Gradient {
         }
     }
 
-    /// If the gradient has only a single color stop `get_single` returns its color.
+    /// If the gradient has only a single color stop, `get_single` returns its color.
     pub fn get_single(&self) -> Option<Color> {
         match self {
             Gradient::Linear(gradient) => gradient
