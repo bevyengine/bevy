@@ -851,14 +851,19 @@ impl Image {
 
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
     /// Does not properly scale the contents of the image.
-    pub fn resize(&mut self, size: Extent3d) {
-        self.texture_descriptor.size = size;
+    /// This method does nothing when self.data is None.
+    pub fn resize(&mut self, size: Extent3d) -> Result<(), ResizeError> {
         if let Some(ref mut data) = self.data {
+            self.texture_descriptor.size = size;
             data.resize(
                 size.volume() * self.texture_descriptor.format.pixel_size(),
                 0,
             );
+
+            return Ok(());
         }
+        
+        Err(ResizeError::ResizedWithoutData)
     }
 
     /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
@@ -1440,7 +1445,7 @@ impl Image {
             TextureFormat::Rg16Unorm | TextureFormat::Rg16Uint => {
                 let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
                 let r = (r * u16::MAX as f32) as u16;
-                let g = (g * u16::MAX as f32) as u16;
+e               let g = (g * u16::MAX as f32) as u16;
                 bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
                 bytes[2..4].copy_from_slice(&u16::to_le_bytes(g));
             }
@@ -1503,6 +1508,12 @@ pub enum TextureAccessError {
     UnsupportedTextureFormat(TextureFormat),
     #[error("attempt to access texture with different dimension")]
     WrongDimension,
+}
+
+#[derive(Error, Debug)]
+pub enum ResizeError {
+    #[error("unable to resize an image without data")]
+    ResizedWithoutData,
 }
 
 /// An error that occurs when loading a texture.
