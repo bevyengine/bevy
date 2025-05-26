@@ -62,6 +62,31 @@ pub fn spawn_commands(criterion: &mut Criterion) {
     group.finish();
 }
 
+pub fn nonempty_spawn_commands(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("nonempty_spawn_commands");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    for entity_count in [100, 1_000, 10_000] {
+        group.bench_function(format!("{}_entities", entity_count), |bencher| {
+            let mut world = World::default();
+            let mut command_queue = CommandQueue::default();
+
+            bencher.iter(|| {
+                let mut commands = Commands::new(&mut command_queue, &world);
+                for i in 0..entity_count {
+                    if black_box(i % 2 == 0) {
+                        commands.spawn(A);
+                    }
+                }
+                command_queue.apply(&mut world);
+            });
+        });
+    }
+
+    group.finish();
+}
+
 #[derive(Default, Component)]
 struct Matrix([[f32; 4]; 4]);
 

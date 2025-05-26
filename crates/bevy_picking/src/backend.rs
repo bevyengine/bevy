@@ -84,7 +84,7 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+    /// Construct [`PointerHits`].
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -114,7 +114,7 @@ pub struct HitData {
 }
 
 impl HitData {
-    #[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+    /// Construct a [`HitData`].
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,
