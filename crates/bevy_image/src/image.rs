@@ -862,7 +862,7 @@ impl Image {
 
             return Ok(());
         }
-        
+
         Err(ResizeError::ResizedWithoutData)
     }
 
@@ -1445,7 +1445,7 @@ impl Image {
             TextureFormat::Rg16Unorm | TextureFormat::Rg16Uint => {
                 let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
                 let r = (r * u16::MAX as f32) as u16;
-e               let g = (g * u16::MAX as f32) as u16;
+                let g = (g * u16::MAX as f32) as u16;
                 bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
                 bytes[2..4].copy_from_slice(&u16::to_le_bytes(g));
             }
