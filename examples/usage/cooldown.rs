@@ -68,8 +68,8 @@ fn setup(
         Text::new("*Click some food to eat it*"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            left: Val::Px(15.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         },
     ));
