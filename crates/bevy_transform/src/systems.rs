@@ -1,4 +1,4 @@
-use crate::components::{GlobalTransform, Transform3d, TransformTreeChanged};
+use crate::components::{GlobalTransform, Transform2d, Transform3d, TransformTreeChanged};
 use bevy_ecs::prelude::*;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
@@ -9,33 +9,35 @@ pub use serial::propagate_parent_transforms;
 ///
 /// Third party plugins should ensure that this is used in concert with
 /// [`propagate_parent_transforms`] and [`mark_dirty_trees`].
-pub fn sync_simple_transforms(
+pub fn sync_simple_transforms<T>(
     mut query: ParamSet<(
         Query<
-            (&Transform3d, &mut GlobalTransform),
+            (&T, &mut GlobalTransform),
             (
-                Or<(Changed<Transform3d>, Added<GlobalTransform>)>,
+                Or<(Changed<T>, Added<GlobalTransform>)>,
                 Without<ChildOf>,
                 Without<Children>,
             ),
         >,
-        Query<(Ref<Transform3d>, &mut GlobalTransform), (Without<ChildOf>, Without<Children>)>,
+        Query<(Ref<T>, &mut GlobalTransform), (Without<ChildOf>, Without<Children>)>,
     )>,
     mut orphaned: RemovedComponents<ChildOf>,
-) {
+) where
+    T: Copy + Clone + Component + Into<GlobalTransform>,
+{
     // Update changed entities.
     query
         .p0()
         .par_iter_mut()
         .for_each(|(transform, mut global_transform)| {
-            *global_transform = GlobalTransform::from(*transform);
+            *global_transform = (*transform).into();
         });
     // Update orphaned entities.
     let mut query = query.p1();
     let mut iter = query.iter_many_mut(orphaned.read());
     while let Some((transform, mut global_transform)) = iter.fetch_next() {
         if !transform.is_changed() && !global_transform.is_added() {
-            *global_transform = GlobalTransform::from(*transform);
+            *global_transform = (*transform).into();
         }
     }
 }
@@ -48,6 +50,7 @@ pub fn mark_dirty_trees(
         Entity,
         Or<(
             Changed<Transform3d>,
+            Changed<Transform2d>,
             Changed<ChildOf>,
             Added<GlobalTransform>,
         )>,
@@ -107,7 +110,11 @@ mod serial {
         >,
         mut orphaned: RemovedComponents<ChildOf>,
         transform_query: Query<
-            (Ref<Transform3d>, &mut GlobalTransform, Option<&Children>),
+            (
+                AnyOf<(Ref<Transform3d>, Ref<Transform2d>)>,
+                &mut GlobalTransform,
+                Option<&Children>,
+            ),
             With<ChildOf>,
         >,
         child_query: Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
@@ -120,7 +127,7 @@ mod serial {
         |(entity, children, transform, mut global_transform)| {
             let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
             if changed {
-                *global_transform = GlobalTransform::from(*transform);
+                *global_transform = local_to_global(transform);
             }
 
             for (child, child_of) in child_query.iter_many(children) {
@@ -175,7 +182,11 @@ mod serial {
     unsafe fn propagate_recursive(
         parent: &GlobalTransform,
         transform_query: &Query<
-            (Ref<Transform3d>, &mut GlobalTransform, Option<&Children>),
+            (
+                AnyOf<(Ref<Transform3d>, Ref<Transform2d>)>,
+                &mut GlobalTransform,
+                Option<&Children>,
+            ),
             With<ChildOf>,
         >,
         child_query: &Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
@@ -252,6 +263,7 @@ mod serial {
 /// the serial version.
 #[cfg(feature = "std")]
 mod parallel {
+    use super::local_to_global;
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use alloc::{sync::Arc, vec::Vec};
@@ -273,7 +285,12 @@ mod parallel {
     pub fn propagate_parent_transforms(
         mut queue: Local<WorkQueue>,
         mut roots: Query<
-            (Entity, Ref<Transform3d>, &mut GlobalTransform, &Children),
+            (
+                Entity,
+                AnyOf<(Ref<Transform3d>, Ref<Transform2d>)>,
+                &mut GlobalTransform,
+                &Children,
+            ),
             (Without<ChildOf>, Changed<TransformTreeChanged>),
         >,
         nodes: NodeQuery,
@@ -282,7 +299,7 @@ mod parallel {
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children)| {
-                *parent_transform = GlobalTransform::from(*transform);
+                *parent_transform = local_to_global(transform);
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
                 // over the root entity query. Queries iterate over disjoint entities, preventing
@@ -460,7 +477,8 @@ mod parallel {
 
                     // Transform prop is expensive - this helps avoid updating entire subtrees if
                     // the GlobalTransform is unchanged, at the cost of an added equality check.
-                    global_transform.set_if_neq(p_global_transform.mul_transform(*transform));
+                    let child_global = local_to_global(transform);
+                    global_transform.set_if_neq(*p_global_transform * child_global);
 
                     children.map(|children| {
                         // Only continue propagation if the entity has children.
@@ -499,7 +517,7 @@ mod parallel {
         (
             Entity,
             (
-                Ref<'static, Transform3d>,
+                AnyOf<(Ref<'static, Transform3d>, Ref<'static, Transform2d>)>,
                 Mut<'static, GlobalTransform>,
                 Ref<'static, TransformTreeChanged>,
             ),
@@ -554,6 +572,16 @@ mod parallel {
                 .iter_mut()
                 .for_each(|outbox| Self::send_batches_with(sender, outbox));
         }
+    }
+}
+
+fn local_to_global(
+    any_of: (Option<Ref<'_, Transform3d>>, Option<Ref<'_, Transform2d>>),
+) -> GlobalTransform {
+    match any_of {
+        (Some(transform_3d), _) => GlobalTransform::from(*transform_3d),
+        (_, Some(transform_2d)) => GlobalTransform::from(*transform_2d),
+        _ => unreachable!(),
     }
 }
 

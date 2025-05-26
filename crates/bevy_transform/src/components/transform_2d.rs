@@ -1,10 +1,30 @@
+use super::{GlobalTransform, TransformTreeChanged};
+use bevy_math::{Affine2, Affine3A, Dir2, Isometry2d, Mat3, Quat, Rot2, Vec2, Vec3};
 use core::ops::Mul;
 
-use bevy_math::{Affine2, Affine3A, Dir2, Isometry2d, Mat3, Quat, Rot2, Vec2, Vec3};
+#[cfg(feature = "bevy-support")]
+use bevy_ecs::component::Component;
 
-use super::GlobalTransform;
+#[cfg(feature = "bevy_reflect")]
+use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
 
 /// TODO
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component),
+    require(GlobalTransform, TransformTreeChanged)
+)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, PartialEq, Debug, Clone)
+)]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Transform2d {
     /// TODO
     pub translation: Vec2,
