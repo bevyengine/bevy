@@ -403,7 +403,6 @@ impl Plugin for ScreenshotPlugin {
                 .after(event_update_system)
                 .before(ApplyDeferred),
         )
-        .add_systems(Update, trigger_screenshots)
         .register_type::<Screenshot>()
         .register_type::<ScreenshotCaptured>();
 
@@ -417,7 +416,8 @@ impl Plugin for ScreenshotPlugin {
 
     fn finish(&self, app: &mut bevy_app::App) {
         let (tx, rx) = std::sync::mpsc::channel();
-        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))));
+        app.add_systems(Update, trigger_screenshots)
+            .insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
