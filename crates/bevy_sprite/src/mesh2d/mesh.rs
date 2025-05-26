@@ -21,7 +21,7 @@ use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
 use bevy_render::mesh::MeshTag;
 use bevy_render::prelude::Msaa;
-use bevy_render::RenderSet::PrepareAssets;
+use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParametersCpuMetadata,
@@ -48,7 +48,7 @@ use bevy_render::{
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::GlobalTransform;
 use nonmax::NonMaxU32;
@@ -119,20 +119,20 @@ impl Plugin for Mesh2dRenderPlugin {
                             sweep_old_entities::<Opaque2d>,
                             sweep_old_entities::<AlphaMask2d>,
                         )
-                            .in_set(RenderSet::QueueSweep),
+                            .in_set(RenderSystems::QueueSweep),
                         batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResources),
+                            .in_set(RenderSystems::PrepareResources),
                         batch_and_prepare_binned_render_phase::<AlphaMask2d, Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResources),
+                            .in_set(RenderSystems::PrepareResources),
                         batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResources),
+                            .in_set(RenderSystems::PrepareResources),
                         write_batched_instance_buffer::<Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
-                        prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
-                        prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                            .in_set(RenderSystems::PrepareResourcesFlush),
+                        prepare_mesh2d_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                        prepare_mesh2d_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<Mesh2dPipeline>
-                            .in_set(RenderSet::Cleanup)
-                            .after(RenderSet::Render),
+                            .in_set(RenderSystems::Cleanup)
+                            .after(RenderSystems::Render),
                     ),
                 );
         }

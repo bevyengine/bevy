@@ -27,11 +27,12 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use core::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
 };
+use nonmax::NonMaxU32;
 
 /// An opaque location within a [`Archetype`].
 ///
@@ -44,23 +45,30 @@ use core::{
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 // SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
-pub struct ArchetypeRow(u32);
+pub struct ArchetypeRow(NonMaxU32);
 
 impl ArchetypeRow {
     /// Index indicating an invalid archetype row.
     /// This is meant to be used as a placeholder.
-    pub const INVALID: ArchetypeRow = ArchetypeRow(u32::MAX);
+    // TODO: Deprecate in favor of options, since `INVALID` is, technically, valid.
+    pub const INVALID: ArchetypeRow = ArchetypeRow(NonMaxU32::MAX);
 
     /// Creates a `ArchetypeRow`.
     #[inline]
-    pub const fn new(index: usize) -> Self {
-        Self(index as u32)
+    pub const fn new(index: NonMaxU32) -> Self {
+        Self(index)
     }
 
     /// Gets the index of the row.
     #[inline]
     pub const fn index(self) -> usize {
-        self.0 as usize
+        self.0.get() as usize
+    }
+
+    /// Gets the index of the row.
+    #[inline]
+    pub const fn index_u32(self) -> u32 {
+        self.0.get()
     }
 }
 
@@ -467,6 +475,27 @@ impl Archetype {
         &self.entities
     }
 
+    /// Fetches the entities contained in this archetype.
+    #[inline]
+    pub fn entities_with_location(&self) -> impl Iterator<Item = (Entity, EntityLocation)> {
+        self.entities.iter().enumerate().map(
+            |(archetype_row, &ArchetypeEntity { entity, table_row })| {
+                (
+                    entity,
+                    EntityLocation {
+                        archetype_id: self.id,
+                        // SAFETY: The entities in the archetype must be unique and there are never more than u32::MAX entities.
+                        archetype_row: unsafe {
+                            ArchetypeRow::new(NonMaxU32::new_unchecked(archetype_row as u32))
+                        },
+                        table_id: self.table_id,
+                        table_row,
+                    },
+                )
+            },
+        )
+    }
+
     /// Gets an iterator of all of the components stored in [`Table`]s.
     ///
     /// All of the IDs are unique.
@@ -569,7 +598,8 @@ impl Archetype {
         entity: Entity,
         table_row: TableRow,
     ) -> EntityLocation {
-        let archetype_row = ArchetypeRow::new(self.entities.len());
+        // SAFETY: An entity can not have multiple archetype rows and there can not be more than u32::MAX entities.
+        let archetype_row = unsafe { ArchetypeRow::new(NonMaxU32::new_unchecked(self.len())) };
         self.entities.push(ArchetypeEntity { entity, table_row });
 
         EntityLocation {
@@ -606,8 +636,10 @@ impl Archetype {
 
     /// Gets the total number of entities that belong to the archetype.
     #[inline]
-    pub fn len(&self) -> usize {
-        self.entities.len()
+    pub fn len(&self) -> u32 {
+        // No entity may have more than one archetype row, so there are no duplicates,
+        // and there may only ever be u32::MAX entities, so the length never exceeds u32's cappacity.
+        self.entities.len() as u32
     }
 
     /// Checks if the archetype has any entities.

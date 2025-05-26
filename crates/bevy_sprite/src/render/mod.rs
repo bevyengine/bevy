@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use crate::{ComputedTextureSlices, ScalingMode, Sprite, SPRITE_SHADER_HANDLE};
+use crate::{Anchor, ComputedTextureSlices, ScalingMode, Sprite, SPRITE_SHADER_HANDLE};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
@@ -18,7 +18,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -394,13 +394,14 @@ pub fn extract_sprites(
             &ViewVisibility,
             &Sprite,
             &GlobalTransform,
+            &Anchor,
             Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
     extracted_slices.slices.clear();
-    for (main_entity, render_entity, view_visibility, sprite, transform, slices) in
+    for (main_entity, render_entity, view_visibility, sprite, transform, anchor, slices) in
         sprite_query.iter()
     {
         if !view_visibility.get() {
@@ -411,7 +412,7 @@ pub fn extract_sprites(
             let start = extracted_slices.slices.len();
             extracted_slices
                 .slices
-                .extend(slices.extract_slices(sprite));
+                .extend(slices.extract_slices(sprite, anchor.as_vec()));
             let end = extracted_slices.slices.len();
             extracted_sprites.sprites.push(ExtractedSprite {
                 main_entity,
@@ -451,7 +452,7 @@ pub fn extract_sprites(
                 flip_y: sprite.flip_y,
                 image_handle_id: sprite.image.id(),
                 kind: ExtractedSpriteKind::Single {
-                    anchor: sprite.anchor.as_vec(),
+                    anchor: anchor.as_vec(),
                     rect,
                     scaling_mode: sprite.image_mode.scale(),
                     // Pass the custom size

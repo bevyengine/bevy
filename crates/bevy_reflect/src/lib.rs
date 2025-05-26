@@ -589,7 +589,14 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod alloc;
+    mod bevy_platform;
+    mod core;
     mod foldhash;
+    #[cfg(feature = "hashbrown")]
+    mod hashbrown;
+    mod macros;
+    #[cfg(feature = "std")]
     mod std;
 
     #[cfg(feature = "glam")]
@@ -734,7 +741,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use core::{
         any::TypeId,
         fmt::{Debug, Formatter},
@@ -986,6 +993,41 @@ mod tests {
             .map(|value| *value.try_downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
+    }
+
+    /// This test ensures that we are able to reflect generic types with one or more type parameters.
+    ///
+    /// When there is an `Add` implementation for `String`, the compiler isn't able to infer the correct
+    /// type to deref to.
+    /// If we don't append the strings in the `TypePath` derive correctly (i.e. explicitly specifying the type),
+    /// we'll get a compilation error saying that "`&String` cannot be added to `String`".
+    ///
+    /// So this test just ensures that we do do that correctly.
+    ///
+    /// This problem is a known issue and is unexpectedly expected behavior:
+    /// - <https://github.com/rust-lang/rust/issues/77143>
+    /// - <https://github.com/bodil/smartstring/issues/7>
+    /// - <https://github.com/pola-rs/polars/issues/14666>
+    #[test]
+    fn should_reflect_generic() {
+        struct FakeString {}
+
+        // This implementation confuses the compiler when trying to add a `&String` to a `String`
+        impl core::ops::Add<FakeString> for String {
+            type Output = Self;
+            fn add(self, _rhs: FakeString) -> Self::Output {
+                unreachable!()
+            }
+        }
+
+        #[derive(Reflect)]
+        struct Foo<A>(A);
+
+        #[derive(Reflect)]
+        struct Bar<A, B>(A, B);
+
+        #[derive(Reflect)]
+        struct Baz<A, B, C>(A, B, C);
     }
 
     #[test]

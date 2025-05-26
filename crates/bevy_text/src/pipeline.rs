@@ -9,15 +9,15 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_log::{once, warn};
-use bevy_math::{UVec2, Vec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_math::{Rect, UVec2, Vec2};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout, YAxisOrientation,
+    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -53,11 +53,15 @@ impl Default for SwashCache {
 
 /// Information about a font collected as part of preparing for text layout.
 #[derive(Clone)]
-struct FontFaceInfo {
-    stretch: cosmic_text::fontdb::Stretch,
-    style: cosmic_text::fontdb::Style,
-    weight: cosmic_text::fontdb::Weight,
-    family_name: Arc<str>,
+pub struct FontFaceInfo {
+    /// Width class: <https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>
+    pub stretch: cosmic_text::fontdb::Stretch,
+    /// Allows italic or oblique faces to be selected
+    pub style: cosmic_text::fontdb::Style,
+    /// The degree of blackness or stroke thickness
+    pub weight: cosmic_text::fontdb::Weight,
+    /// Font family name
+    pub family_name: Arc<str>,
 }
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
@@ -66,7 +70,7 @@ struct FontFaceInfo {
 #[derive(Default, Resource)]
 pub struct TextPipeline {
     /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
-    map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
+    pub map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
@@ -188,7 +192,7 @@ impl TextPipeline {
         buffer.set_rich_text(
             font_system,
             spans_iter,
-            Attrs::new(),
+            &Attrs::new(),
             Shaping::Advanced,
             Some(justify.into()),
         );
@@ -228,12 +232,12 @@ impl TextPipeline {
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
-        y_axis_orientation: YAxisOrientation,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
+        layout_info.section_rects.clear();
         layout_info.size = Default::default();
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
@@ -265,11 +269,38 @@ impl TextPipeline {
         let box_size = buffer_dimensions(buffer);
 
         let result = buffer.layout_runs().try_for_each(|run| {
+            let mut current_section: Option<usize> = None;
+            let mut start = 0.;
+            let mut end = 0.;
             let result = run
                 .glyphs
                 .iter()
                 .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
                 .try_for_each(|(layout_glyph, line_y, line_i)| {
+                    match current_section {
+                        Some(section) => {
+                            if section != layout_glyph.metadata {
+                                layout_info.section_rects.push((
+                                    computed.entities[section].entity,
+                                    Rect::new(
+                                        start,
+                                        run.line_top,
+                                        end,
+                                        run.line_top + run.line_height,
+                                    ),
+                                ));
+                                start = end.max(layout_glyph.x);
+                                current_section = Some(layout_glyph.metadata);
+                            }
+                            end = layout_glyph.x + layout_glyph.w;
+                        }
+                        None => {
+                            current_section = Some(layout_glyph.metadata);
+                            start = layout_glyph.x;
+                            end = start + layout_glyph.w;
+                        }
+                    }
+
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
                     let font_id = glyph_info[span_index].0;
@@ -320,10 +351,6 @@ impl TextPipeline {
                     let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
                     let y =
                         line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
-                    let y = match y_axis_orientation {
-                        YAxisOrientation::TopToBottom => y,
-                        YAxisOrientation::BottomToTop => box_size.y - y,
-                    };
 
                     let position = Vec2::new(x, y);
 
@@ -339,6 +366,12 @@ impl TextPipeline {
                     layout_info.glyphs.push(pos_glyph);
                     Ok(())
                 });
+            if let Some(section) = current_section {
+                layout_info.section_rects.push((
+                    computed.entities[section].entity,
+                    Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                ));
+            }
 
             result
         });
@@ -418,6 +451,9 @@ impl TextPipeline {
 pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
+    /// Rects bounding the text block's text sections.
+    /// A text section spanning more than one line will have multiple bounding rects.
+    pub section_rects: Vec<(Entity, Rect)>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
@@ -452,7 +488,8 @@ impl TextMeasureInfo {
     }
 }
 
-fn load_font_to_fontdb(
+/// Add the font to the cosmic text's `FontSystem`'s in-memory font database
+pub fn load_font_to_fontdb(
     text_font: &TextFont,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
@@ -495,7 +532,7 @@ fn get_attrs<'a>(
     face_info: &'a FontFaceInfo,
     scale_factor: f64,
 ) -> Attrs<'a> {
-    let attrs = Attrs::new()
+    Attrs::new()
         .metadata(span_index)
         .family(Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
@@ -508,8 +545,7 @@ fn get_attrs<'a>(
             }
             .scale(scale_factor as f32),
         )
-        .color(cosmic_text::Color(color.to_linear().as_u32()));
-    attrs
+        .color(cosmic_text::Color(color.to_linear().as_u32()))
 }
 
 /// Calculate the size of the text area for the given buffer.

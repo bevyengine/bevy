@@ -33,6 +33,9 @@ debug_stack = ["std"]
 ## Adds reflection support to `glam` types.
 glam = ["dep:glam"]
 
+## Adds reflection support to `hashbrown` types.
+hashbrown = ["dep:hashbrown"]
+
 ## Adds reflection support to `petgraph` types.
 petgraph = ["dep:petgraph", "std"]
 
@@ -51,42 +54,37 @@ wgpu-types = ["dep:wgpu-types"]
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-  "bevy_utils/std",
   "erased-serde/std",
   "downcast-rs/std",
   "serde/std",
   "glam?/std",
   "smol_str?/std",
   "uuid?/std",
-  "bevy_platform_support/std",
+  "bevy_platform/std",
   "wgpu-types?/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
-critical-section = [
-  "bevy_platform_support/critical-section",
-  "bevy_utils/critical-section",
-]
+critical-section = ["bevy_platform/critical-section"]
 
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
-web = ["bevy_platform_support/web", "uuid?/js"]
+web = ["bevy_platform/web", "uuid?/js"]
 
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "derive", version = "0.16.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
-  "alloc",
-] }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
   "serialize",
 ] }
 
 # used by bevy-utils, but it also needs reflect impls
 foldhash = { version = "0.1.3", default-features = false }
+hashbrown = { version = "0.15.1", optional = true, default-features = false }
 
 # other
 erased-serde = { version = "0.4", default-features = false, features = [
@@ -99,7 +97,7 @@ derive_more = { version = "1", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1.11", default-features = false, optional = true }
-glam = { version = "0.29", default-features = false, features = [
+glam = { version = "0.29.3", default-features = false, features = [
   "serde",
 ], optional = true }
 petgraph = { version = "0.7", features = ["serde-1"], optional = true }

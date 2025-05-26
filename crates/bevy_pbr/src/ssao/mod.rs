@@ -33,7 +33,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_utils::prelude::default;
 use core::mem;
@@ -111,9 +111,9 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_ssao_pipelines.in_set(RenderSet::Prepare),
-                    prepare_ssao_textures.in_set(RenderSet::PrepareResources),
-                    prepare_ssao_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_ssao_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_ssao_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_ssao_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(

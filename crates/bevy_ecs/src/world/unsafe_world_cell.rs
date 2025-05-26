@@ -6,7 +6,8 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{Entities, Entity, EntityBorrow, EntityDoesNotExistError, EntityLocation},
+    entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    error::{DefaultErrorHandler, ErrorHandler},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -15,7 +16,7 @@ use crate::{
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
-use bevy_platform_support::sync::atomic::Ordering;
+use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
 use thiserror::Error;
@@ -365,7 +366,31 @@ impl<'w> UnsafeWorldCell<'w> {
             .entities()
             .get(entity)
             .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
-        Ok(UnsafeEntityCell::new(self, entity, location))
+        Ok(UnsafeEntityCell::new(
+            self,
+            entity,
+            location,
+            self.last_change_tick(),
+            self.change_tick(),
+        ))
+    }
+
+    /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
+    /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
+    #[inline]
+    pub fn get_entity_with_ticks(
+        self,
+        entity: Entity,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Result<UnsafeEntityCell<'w>, EntityDoesNotExistError> {
+        let location = self
+            .entities()
+            .get(entity)
+            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+        Ok(UnsafeEntityCell::new(
+            self, entity, location, last_run, this_run,
+        ))
     }
 
     /// Gets a reference to the resource of the given type if it exists
@@ -681,6 +706,18 @@ impl<'w> UnsafeWorldCell<'w> {
             (*self.ptr).last_trigger_id = (*self.ptr).last_trigger_id.wrapping_add(1);
         }
     }
+
+    /// Convenience method for accessing the world's default error handler,
+    ///
+    /// # Safety
+    /// Must have read access to [`DefaultErrorHandler`].
+    #[inline]
+    pub unsafe fn default_error_handler(&self) -> ErrorHandler {
+        self.get_resource::<DefaultErrorHandler>()
+            .copied()
+            .unwrap_or_default()
+            .0
+    }
 }
 
 impl Debug for UnsafeWorldCell<'_> {
@@ -696,6 +733,8 @@ pub struct UnsafeEntityCell<'w> {
     world: UnsafeWorldCell<'w>,
     entity: Entity,
     location: EntityLocation,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 impl<'w> UnsafeEntityCell<'w> {
@@ -704,11 +743,15 @@ impl<'w> UnsafeEntityCell<'w> {
         world: UnsafeWorldCell<'w>,
         entity: Entity,
         location: EntityLocation,
+        last_run: Tick,
+        this_run: Tick,
     ) -> Self {
         UnsafeEntityCell {
             world,
             entity,
             location,
+            last_run,
+            this_run,
         }
     }
 
@@ -807,8 +850,8 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_ref<T: Component>(self) -> Option<Ref<'w, T>> {
-        let last_change_tick = self.world.last_change_tick();
-        let change_tick = self.world.change_tick();
+        let last_change_tick = self.last_run;
+        let change_tick = self.this_run;
         let component_id = self.world.components().get_id(TypeId::of::<T>())?;
 
         // SAFETY:
@@ -909,12 +952,7 @@ impl<'w> UnsafeEntityCell<'w> {
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
-        unsafe {
-            self.get_mut_using_ticks_assume_mutable(
-                self.world.last_change_tick(),
-                self.world.change_tick(),
-            )
-        }
+        unsafe { self.get_mut_using_ticks_assume_mutable(self.last_run, self.this_run) }
     }
 
     /// # Safety
@@ -976,14 +1014,8 @@ impl<'w> UnsafeEntityCell<'w> {
         };
         if Q::matches_component_set(&state, &|id| archetype.contains(id)) {
             // SAFETY: state was initialized above using the world passed into this function
-            let mut fetch = unsafe {
-                Q::init_fetch(
-                    self.world,
-                    &state,
-                    self.world.last_change_tick(),
-                    self.world.change_tick(),
-                )
-            };
+            let mut fetch =
+                unsafe { Q::init_fetch(self.world, &state, self.last_run, self.this_run) };
             // SAFETY: Table is guaranteed to exist
             let table = unsafe {
                 self.world
@@ -1070,11 +1102,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .map(|(value, cells, caller)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                 value: value.assert_unique(),
-                ticks: TicksMut::from_tick_cells(
-                    cells,
-                    self.world.last_change_tick(),
-                    self.world.change_tick(),
-                ),
+                ticks: TicksMut::from_tick_cells(cells, self.last_run, self.this_run),
                 changed_by: caller.map(|caller| caller.deref_mut()),
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
@@ -1118,11 +1146,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .map(|(value, cells, caller)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                 value: value.assert_unique(),
-                ticks: TicksMut::from_tick_cells(
-                    cells,
-                    self.world.last_change_tick(),
-                    self.world.change_tick(),
-                ),
+                ticks: TicksMut::from_tick_cells(cells, self.last_run, self.this_run),
                 changed_by: caller.map(|caller| caller.deref_mut()),
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
@@ -1135,6 +1159,17 @@ impl<'w> UnsafeEntityCell<'w> {
             .entities()
             .entity_get_spawned_or_despawned_by(self.entity)
             .map(|o| o.unwrap())
+    }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(self) -> Tick {
+        // SAFETY: UnsafeEntityCell is only constructed for living entities and offers no despawn method
+        unsafe {
+            self.world()
+                .entities()
+                .entity_get_spawned_or_despawned_unchecked(self.entity)
+                .1
+        }
     }
 }
 
@@ -1273,7 +1308,7 @@ unsafe fn get_ticks(
     }
 }
 
-impl EntityBorrow for UnsafeEntityCell<'_> {
+impl ContainsEntity for UnsafeEntityCell<'_> {
     fn entity(&self) -> Entity {
         self.id()
     }

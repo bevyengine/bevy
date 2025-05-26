@@ -1,9 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::{
-        unique_array::UniqueEntityArray, Entity, EntityBorrow, EntityDoesNotExistError, EntitySet,
-    },
+    entity::{Entity, EntityDoesNotExistError, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
         DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
         QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
@@ -17,33 +15,40 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-/// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
+/// A [system parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
-/// Enables access to [entity identifiers] and [components] from a system, without the need to directly access the world.
-/// Its iterators and getter methods return *query items*.
-/// Each query item is a type containing data relative to an entity.
+/// Queries enable systems to access [entity identifiers] and [components] without requiring direct access to the [`World`].
+/// Its iterators and getter methods return *query items*, which are types containing data related to an entity.
 ///
 /// `Query` is a generic data structure that accepts two type parameters:
 ///
-/// - **`D` (query data).**
-///   The type of data contained in the query item.
+/// - **`D` (query data)**:
+///   The type of data fetched by the query, which will be returned as the query item.
 ///   Only entities that match the requested data will generate an item.
 ///   Must implement the [`QueryData`] trait.
-/// - **`F` (query filter).**
-///   A set of conditions that determines whether query items should be kept or discarded.
+/// - **`F` (query filter)**:
+///   An optional set of conditions that determine whether query items should be kept or discarded.
+///   This defaults to [`unit`], which means no additional filters will be applied.
 ///   Must implement the [`QueryFilter`] trait.
-///   This type parameter is optional.
 ///
+/// [system parameter]: crate::system::SystemParam
+/// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
+/// [entity identifiers]: Entity
+/// [components]: crate::component::Component
 ///
 /// # Similar parameters
 ///
-/// [`Query`] has few sibling [`SystemParam`](crate::system::system_param::SystemParam)s, which perform additional validation:
+/// `Query` has few sibling [`SystemParam`]s, which perform additional validation:
+///
 /// - [`Single`] - Exactly one matching query item.
 /// - [`Option<Single>`] - Zero or one matching query item.
 /// - [`Populated`] - At least one matching query item.
 ///
-/// Those parameters will prevent systems from running if their requirements aren't met.
+/// These parameters will prevent systems from running if their requirements are not met.
+///
+/// [`SystemParam`]: crate::system::system_param::SystemParam
+/// [`Option<Single>`]: Single
 ///
 /// # System parameter declaration
 ///
@@ -52,330 +57,429 @@ use core::{
 ///
 /// ## Component access
 ///
-/// A query defined with a reference to a component as the query fetch type parameter can be used to generate items that refer to the data of said component.
+/// You can fetch an entity's component by specifying a reference to that component in the query's data parameter:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
-/// # fn immutable_ref(
-/// // A component can be accessed by shared reference...
-/// query: Query<&ComponentA>
-/// # ) {}
-/// # bevy_ecs::system::assert_is_system(immutable_ref);
+/// #
+/// // A component can be accessed by a shared reference...
+/// fn immutable_query(query: Query<&ComponentA>) {
+///     // ...
+/// }
 ///
-/// # fn mutable_ref(
-/// // ... or by mutable reference.
-/// query: Query<&mut ComponentA>
-/// # ) {}
-/// # bevy_ecs::system::assert_is_system(mutable_ref);
+/// // ...or by a mutable reference.
+/// fn mutable_query(query: Query<&mut ComponentA>) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(immutable_query);
+/// # bevy_ecs::system::assert_is_system(mutable_query);
+/// ```
+///
+/// Note that components need to be behind a reference (`&` or `&mut`), or the query will not compile:
+///
+/// ```compile_fail,E0277
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// // This needs to be `&ComponentA` or `&mut ComponentA` in order to compile.
+/// fn invalid_query(query: Query<ComponentA>) {
+///     // ...
+/// }
 /// ```
 ///
 /// ## Query filtering
 ///
-/// Setting the query filter type parameter will ensure that each query item satisfies the given condition.
+/// Setting the query filter type parameter will ensure that each query item satisfies the given condition:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentB;
-/// # fn system(
-/// // Just `ComponentA` data will be accessed, but only for entities that also contain
-/// // `ComponentB`.
-/// query: Query<&ComponentA, With<ComponentB>>
-/// # ) {}
-/// # bevy_ecs::system::assert_is_system(system);
+/// #
+/// // `ComponentA` data will be accessed, but only for entities that also contain `ComponentB`.
+/// fn filtered_query(query: Query<&ComponentA, With<ComponentB>>) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(filtered_query);
 /// ```
+///
+/// Note that the filter is `With<ComponentB>`, not `With<&ComponentB>`. Unlike query data, `With`
+/// does require components to be behind a reference.
 ///
 /// ## `QueryData` or `QueryFilter` tuples
 ///
-/// Using tuples, each `Query` type parameter can contain multiple elements.
+/// Using [`tuple`]s, each `Query` type parameter can contain multiple elements.
 ///
-/// In the following example, two components are accessed simultaneously, and the query items are filtered on two conditions.
+/// In the following example two components are accessed simultaneously, and the query items are
+/// filtered on two conditions:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentB;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentC;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentD;
-/// # fn immutable_ref(
-/// query: Query<(&ComponentA, &ComponentB), (With<ComponentC>, Without<ComponentD>)>
-/// # ) {}
-/// # bevy_ecs::system::assert_is_system(immutable_ref);
+/// #
+/// fn complex_query(
+///     query: Query<(&mut ComponentA, &ComponentB), (With<ComponentC>, Without<ComponentD>)>
+/// ) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(complex_query);
+/// ```
+///
+/// Note that this currently only works on tuples with 15 or fewer items. You may nest tuples to
+/// get around this limit:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentC;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentD;
+/// #
+/// fn nested_query(
+///     query: Query<(&ComponentA, &ComponentB, (&mut ComponentC, &mut ComponentD))>
+/// ) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(nested_query);
 /// ```
 ///
 /// ## Entity identifier access
 ///
-/// The identifier of an entity can be made available inside the query item by including [`Entity`] in the query fetch type parameter.
+/// You can access [`Entity`], the entity identifier, by including it in the query data parameter:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
-/// # fn system(
-/// query: Query<(Entity, &ComponentA)>
-/// # ) {}
-/// # bevy_ecs::system::assert_is_system(system);
+/// #
+/// fn entity_id_query(query: Query<(Entity, &ComponentA)>) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(entity_id_query);
 /// ```
+///
+/// Be aware that [`Entity`] is not a component, so it does not need to be behind a reference.
 ///
 /// ## Optional component access
 ///
-/// A component can be made optional in a query by wrapping it into an [`Option`].
-/// In this way, a query item can still be generated even if the queried entity does not contain the wrapped component.
-/// In this case, its corresponding value will be `None`.
+/// A component can be made optional by wrapping it into an [`Option`]. In the following example, a
+/// query item will still be generated even if the queried entity does not contain `ComponentB`.
+/// When this is the case, `Option<&ComponentB>`'s corresponding value will be `None`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentB;
-/// # fn system(
-/// // Generates items for entities that contain `ComponentA`, and optionally `ComponentB`.
-/// query: Query<(&ComponentA, Option<&ComponentB>)>
-/// # ) {}
-/// # bevy_ecs::system::assert_is_system(system);
+/// #
+/// // A queried items must contain `ComponentA`. If they also contain `ComponentB`, its value will
+/// // be fetched as well.
+/// fn optional_component_query(query: Query<(&ComponentA, Option<&ComponentB>)>) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(optional_component_query);
 /// ```
 ///
-/// See the documentation for [`AnyOf`] to idiomatically declare many optional components.
+/// Optional components can hurt performance in some cases, so please read the [performance]
+/// section to learn more about them. Additionally, if you need to declare several optional
+/// components, you may be interested in using [`AnyOf`].
 ///
-/// See the [performance] section to learn more about the impact of optional components.
+/// [performance]: #performance
+/// [`AnyOf`]: crate::query::AnyOf
 ///
 /// ## Disjoint queries
 ///
-/// A system cannot contain two queries that break Rust's mutability rules.
-/// In this case, the [`Without`] filter can be used to disjoint them.
+/// A system cannot contain two queries that break Rust's mutability rules, or else it will panic
+/// when initialized. This can often be fixed with the [`Without`] filter, which makes the queries
+/// disjoint.
 ///
-/// In the following example, two queries mutably access the same component.
-/// Executing this system will panic, since an entity could potentially match the two queries at the same time by having both `Player` and `Enemy` components.
-/// This would violate mutability rules.
+/// In the following example, the two queries can mutably access the same `&mut Health` component
+/// if an entity has both the `Player` and `Enemy` components. Bevy will catch this and panic,
+/// however, instead of breaking Rust's mutability rules:
 ///
 /// ```should_panic
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct Health;
+/// #
 /// # #[derive(Component)]
 /// # struct Player;
+/// #
 /// # #[derive(Component)]
 /// # struct Enemy;
 /// #
 /// fn randomize_health(
 ///     player_query: Query<&mut Health, With<Player>>,
 ///     enemy_query: Query<&mut Health, With<Enemy>>,
-/// )
-/// # {}
-/// # let mut randomize_health_system = IntoSystem::into_system(randomize_health);
-/// # let mut world = World::new();
-/// # randomize_health_system.initialize(&mut world);
-/// # randomize_health_system.run((), &mut world);
+/// ) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_system_does_not_conflict(randomize_health);
 /// ```
 ///
-/// Adding a `Without` filter will disjoint the queries.
-/// In this way, any entity that has both `Player` and `Enemy` components is excluded from both queries.
+/// Adding a [`Without`] filter will disjoint the queries. In the following example, any entity
+/// that has both the `Player` and `Enemy` components will be excluded from _both_ queries:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct Health;
+/// #
 /// # #[derive(Component)]
 /// # struct Player;
+/// #
 /// # #[derive(Component)]
 /// # struct Enemy;
 /// #
 /// fn randomize_health(
 ///     player_query: Query<&mut Health, (With<Player>, Without<Enemy>)>,
 ///     enemy_query: Query<&mut Health, (With<Enemy>, Without<Player>)>,
-/// )
-/// # {}
-/// # let mut randomize_health_system = IntoSystem::into_system(randomize_health);
-/// # let mut world = World::new();
-/// # randomize_health_system.initialize(&mut world);
-/// # randomize_health_system.run((), &mut world);
+/// ) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_system_does_not_conflict(randomize_health);
 /// ```
 ///
-/// An alternative to this idiom is to wrap the conflicting queries into a [`ParamSet`](super::ParamSet).
+/// An alternative solution to this problem would be to wrap the conflicting queries in
+/// [`ParamSet`].
+///
+/// [`Without`]: crate::query::Without
+/// [`ParamSet`]: crate::system::ParamSet
 ///
 /// ## Whole Entity Access
 ///
-/// [`EntityRef`]s can be fetched from a query. This will give read-only access to any component on the entity,
-/// and can be used to dynamically fetch any component without baking it into the query type. Due to this global
-/// access to the entity, this will block any other system from parallelizing with it. As such these queries
-/// should be sparingly used.
+/// [`EntityRef`] can be used in a query to gain read-only access to all components of an entity.
+/// This is useful when dynamically fetching components instead of baking them into the query type.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
-/// # fn system(
-/// query: Query<(EntityRef, &ComponentA)>
-/// # ) {}
-/// # bevy_ecs::system::assert_is_system(system);
+/// #
+/// fn all_components_query(query: Query<(EntityRef, &ComponentA)>) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(all_components_query);
 /// ```
 ///
-/// As `EntityRef` can read any component on an entity, a query using it will conflict with *any* mutable
-/// access. It is strongly advised to couple `EntityRef` queries with the use of either `With`/`Without`
-/// filters or `ParamSets`. This also limits the scope of the query, which will improve iteration performance
-/// and also allows it to parallelize with other non-conflicting systems.
+/// As [`EntityRef`] can read any component on an entity, a query using it will conflict with *any*
+/// mutable component access.
 ///
 /// ```should_panic
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
-/// # fn system(
-/// // This will panic!
-/// // EntityRef provides read access to ALL components on an entity.
-/// // When combined with &mut ComponentA in the same query, it creates
-/// // a conflict because EntityRef could read ComponentA while the &mut
-/// // attempts to modify it - violating Rust's borrowing rules of no
-/// // simultaneous read+write access.
-/// query: Query<(EntityRef, &mut ComponentA)>
-/// # ) {}
-/// # bevy_ecs::system::assert_system_does_not_conflict(system);
+/// #
+/// // `EntityRef` provides read access to *all* components on an entity. When combined with
+/// // `&mut ComponentA` in the same query, it creates a conflict because `EntityRef` could read
+/// // `&ComponentA` while `&mut ComponentA` attempts to modify it - violating Rust's borrowing
+/// // rules.
+/// fn invalid_query(query: Query<(EntityRef, &mut ComponentA)>) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_system_does_not_conflict(invalid_query);
 /// ```
+///
+/// It is strongly advised to couple [`EntityRef`] queries with the use of either [`With`] /
+/// [`Without`] filters or [`ParamSet`]s. Not only does this improve the performance and
+/// parallelization of the system, but it enables systems to gain mutable access to other
+/// components:
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentB;
-/// # fn system(
-/// // This will not panic.
-/// // This creates a perfect separation where:
-/// // 1. First query reads entities that have ComponentA
-/// // 2. Second query modifies ComponentB only on entities that DON'T have ComponentA
-/// // Result: No entity can ever be accessed by both queries simultaneously
-/// query_a: Query<EntityRef, With<ComponentA>>,
-/// query_b: Query<&mut ComponentB, Without<ComponentA>>,
-/// # ) {}
-/// # bevy_ecs::system::assert_system_does_not_conflict(system);
+/// #
+/// // The first query only reads entities that have `ComponentA`, while the second query only
+/// // modifies entities that *don't* have `ComponentA`. Because neither query will access the same
+/// // entity, this system does not conflict.
+/// fn disjoint_query(
+///     query_a: Query<EntityRef, With<ComponentA>>,
+///     query_b: Query<&mut ComponentB, Without<ComponentA>>,
+/// ) {
+///     // ...
+/// }
+/// #
+/// # bevy_ecs::system::assert_system_does_not_conflict(disjoint_query);
 /// ```
+///
 /// The fundamental rule: [`EntityRef`]'s ability to read all components means it can never
-/// coexist with mutable access. With/Without filters guarantee this by keeping the
+/// coexist with mutable access. [`With`] / [`Without`] filters can guarantee this by keeping the
 /// queries on completely separate entities.
+///
+/// [`EntityRef`]: crate::world::EntityRef
+/// [`With`]: crate::query::With
 ///
 /// # Accessing query items
 ///
-/// The following table summarizes the behavior of the safe methods that can be used to get query items.
+/// The following table summarizes the behavior of safe methods that can be used to get query
+/// items:
 ///
 /// |Query methods|Effect|
-/// |:---:|---|
-/// |[`iter`]\[[`_mut`][`iter_mut`]]|Returns an iterator over all query items.|
-/// |[[`iter().for_each()`][`for_each`]\[[`iter_mut().for_each()`][`for_each`]],<br>[`par_iter`]\[[`_mut`][`par_iter_mut`]]|Runs a specified function for each query item.|
-/// |[`iter_many`]\[[`_mut`][`iter_many_mut`]]|Iterates or runs a specified function over query items generated by a list of entities.|
-/// |[`iter_combinations`]\[[`_mut`][`iter_combinations_mut`]]|Returns an iterator over all combinations of a specified number of query items.|
-/// |[`get`]\[[`_mut`][`get_mut`]]|Returns the query item for the specified entity.|
-/// |[`many`]\[[`_mut`][`many_mut`]],<br>[`get_many`]\[[`_mut`][`get_many_mut`]]|Returns the query items for the specified entities.|
-/// |[`single`]\[[`_mut`][`single_mut`]],<br>[`single`]\[[`_mut`][`single_mut`]]|Returns the query item while verifying that there aren't others.|
+/// |-|-|
+/// |[`iter`]\[[`_mut`][`iter_mut`]\]|Returns an iterator over all query items.|
+/// |[`iter[_mut]().for_each()`][`for_each`],<br />[`par_iter`]\[[`_mut`][`par_iter_mut`]\]|Runs a specified function for each query item.|
+/// |[`iter_many`]\[[`_unique`][`iter_many_unique`]\]\[[`_mut`][`iter_many_mut`]\]|Iterates over query items that match a list of entities.|
+/// |[`iter_combinations`]\[[`_mut`][`iter_combinations_mut`]\]|Iterates over all combinations of query items.|
+/// |[`single`](Self::single)\[[`_mut`][`single_mut`]\]|Returns a single query item if only one exists.|
+/// |[`get`]\[[`_mut`][`get_mut`]\]|Returns the query item for a specified entity.|
+/// |[`get_many`]\[[`_unique`][`get_many_unique`]\]\[[`_mut`][`get_many_mut`]\]|Returns all query items that match a list of entities.|
 ///
 /// There are two methods for each type of query operation: immutable and mutable (ending with `_mut`).
 /// When using immutable methods, the query items returned are of type [`ROQueryItem`], a read-only version of the query item.
 /// In this circumstance, every mutable reference in the query fetch type parameter is substituted by a shared reference.
 ///
+/// [`iter`]: Self::iter
+/// [`iter_mut`]: Self::iter_mut
+/// [`for_each`]: #iteratorfor_each
+/// [`par_iter`]: Self::par_iter
+/// [`par_iter_mut`]: Self::par_iter_mut
+/// [`iter_many`]: Self::iter_many
+/// [`iter_many_unique`]: Self::iter_many_unique
+/// [`iter_many_mut`]: Self::iter_many_mut
+/// [`iter_combinations`]: Self::iter_combinations
+/// [`iter_combinations_mut`]: Self::iter_combinations_mut
+/// [`single_mut`]: Self::single_mut
+/// [`get`]: Self::get
+/// [`get_mut`]: Self::get_mut
+/// [`get_many`]: Self::get_many
+/// [`get_many_unique`]: Self::get_many_unique
+/// [`get_many_mut`]: Self::get_many_mut
+///
 /// # Performance
 ///
-/// Creating a `Query` is a low-cost constant operation.
-/// Iterating it, on the other hand, fetches data from the world and generates items, which can have a significant computational cost.
+/// Creating a `Query` is a low-cost constant operation. Iterating it, on the other hand, fetches
+/// data from the world and generates items, which can have a significant computational cost.
 ///
-/// [`Table`] component storage type is much more optimized for query iteration than [`SparseSet`].
+/// Two systems cannot be executed in parallel if both access the same component type where at
+/// least one of the accesses is mutable. Because of this, it is recommended for queries to only
+/// fetch mutable access to components when necessary, since immutable access can be parallelized.
 ///
-/// Two systems cannot be executed in parallel if both access the same component type where at least one of the accesses is mutable.
-/// This happens unless the executor can verify that no entity could be found in both queries.
+/// Query filters ([`With`] / [`Without`]) can improve performance because they narrow the kinds of
+/// entities that can be fetched. Systems that access fewer kinds of entities are more likely to be
+/// parallelized by the scheduler.
 ///
-/// Optional components increase the number of entities a query has to match against.
-/// This can hurt iteration performance, especially if the query solely consists of only optional components, since the query would iterate over each entity in the world.
+/// On the other hand, be careful using optional components (`Option<&ComponentA>`) and
+/// [`EntityRef`] because they broaden the amount of entities kinds that can be accessed. This is
+/// especially true of a query that _only_ fetches optional components or [`EntityRef`], as the
+/// query would iterate over all entities in the world.
 ///
-/// The following table compares the computational complexity of the various methods and operations, where:
+/// There are two types of [component storage types]: [`Table`] and [`SparseSet`]. [`Table`] offers
+/// fast iteration speeds, but slower insertion and removal speeds. [`SparseSet`] is the opposite:
+/// it offers fast component insertion and removal speeds, but slower iteration speeds.
 ///
-/// - **n** is the number of entities that match the query,
-/// - **r** is the number of elements in a combination,
-/// - **k** is the number of involved entities in the operation,
-/// - **a** is the number of archetypes in the world,
-/// - **C** is the [binomial coefficient], used to count combinations.
-///   <sub>n</sub>C<sub>r</sub> is read as "*n* choose *r*" and is equivalent to the number of distinct unordered subsets of *r* elements that can be taken from a set of *n* elements.
+/// The following table compares the computational complexity of the various methods and
+/// operations, where:
+///
+/// - **n** is the number of entities that match the query.
+/// - **r** is the number of elements in a combination.
+/// - **k** is the number of involved entities in the operation.
+/// - **a** is the number of archetypes in the world.
+/// - **C** is the [binomial coefficient], used to count combinations. <sub>n</sub>C<sub>r</sub> is
+///   read as "*n* choose *r*" and is equivalent to the number of distinct unordered subsets of *r*
+///   elements that can be taken from a set of *n* elements.
 ///
 /// |Query operation|Computational complexity|
-/// |:---:|:---:|
-/// |[`iter`]\[[`_mut`][`iter_mut`]]|O(n)|
-/// |[[`iter().for_each()`][`for_each`]\[[`iter_mut().for_each()`][`for_each`]],<br>[`par_iter`]\[[`_mut`][`par_iter_mut`]]|O(n)|
-/// |[`iter_many`]\[[`_mut`][`iter_many_mut`]]|O(k)|
-/// |[`iter_combinations`]\[[`_mut`][`iter_combinations_mut`]]|O(<sub>n</sub>C<sub>r</sub>)|
-/// |[`get`]\[[`_mut`][`get_mut`]]|O(1)|
-/// |([`get_`][`get_many`])[`many`]|O(k)|
-/// |([`get_`][`get_many_mut`])[`many_mut`]|O(k<sup>2</sup>)|
-/// |[`single`]\[[`_mut`][`single_mut`]],<br>[`single`]\[[`_mut`][`single_mut`]]|O(a)|
-/// |Archetype based filtering ([`With`], [`Without`], [`Or`])|O(a)|
-/// |Change detection filtering ([`Added`], [`Changed`])|O(a + n)|
+/// |-|-|
+/// |[`iter`]\[[`_mut`][`iter_mut`]\]|O(n)|
+/// |[`iter[_mut]().for_each()`][`for_each`],<br/>[`par_iter`]\[[`_mut`][`par_iter_mut`]\]|O(n)|
+/// |[`iter_many`]\[[`_mut`][`iter_many_mut`]\]|O(k)|
+/// |[`iter_combinations`]\[[`_mut`][`iter_combinations_mut`]\]|O(<sub>n</sub>C<sub>r</sub>)|
+/// |[`single`](Self::single)\[[`_mut`][`single_mut`]\]|O(a)|
+/// |[`get`]\[[`_mut`][`get_mut`]\]|O(1)|
+/// |[`get_many`]|O(k)|
+/// |[`get_many_mut`]|O(k<sup>2</sup>)|
+/// |Archetype-based filtering ([`With`], [`Without`], [`Or`])|O(a)|
+/// |Change detection filtering ([`Added`], [`Changed`], [`Spawned`])|O(a + n)|
+///
+/// [component storage types]: crate::component::StorageType
+/// [`Table`]: crate::storage::Table
+/// [`SparseSet`]: crate::storage::SparseSet
+/// [binomial coefficient]: https://en.wikipedia.org/wiki/Binomial_coefficient
+/// [`Or`]: crate::query::Or
+/// [`Added`]: crate::query::Added
+/// [`Changed`]: crate::query::Changed
+/// [`Spawned`]: crate::query::Spawned
 ///
 /// # `Iterator::for_each`
 ///
-/// `for_each` methods are seen to be generally faster than directly iterating through `iter` on worlds with high archetype
-/// fragmentation, and may enable additional optimizations like [autovectorization]. It is strongly advised to only use
-/// [`Iterator::for_each`] if it tangibly improves performance.  *Always* be sure profile or benchmark both before and
-/// after the change!
+/// The `for_each` methods appear to be generally faster than `for`-loops when run on worlds with
+/// high archetype fragmentation, and may enable additional optimizations like [autovectorization]. It
+/// is strongly advised to only use [`Iterator::for_each`] if it tangibly improves performance.
+/// *Always* profile or benchmark before and after the change!
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
+/// #
 /// # #[derive(Component)]
 /// # struct ComponentA;
-/// # fn system(
-/// # query: Query<&ComponentA>,
-/// # ) {
-/// // This might be result in better performance...
-/// query.iter().for_each(|component| {
-///     // do things with the component
-/// });
-/// // ...than this. Always be sure to benchmark to validate the difference!
-/// for component in query.iter() {
-///     // do things with the component
+/// #
+/// fn system(query: Query<&ComponentA>) {
+///     // This may result in better performance...
+///     query.iter().for_each(|component| {
+///         // ...
+///     });
+///
+///     // ...than this. Always benchmark to validate the difference!
+///     for component in query.iter() {
+///         // ...
+///     }
 /// }
-/// # }
-/// # bevy_ecs::system::assert_system_does_not_conflict(system);
+/// #
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
-/// [`Component`]: crate::component::Component
 /// [autovectorization]: https://en.wikipedia.org/wiki/Automatic_vectorization
-/// [`Added`]: crate::query::Added
-/// [`AnyOf`]: crate::query::AnyOf
-/// [binomial coefficient]: https://en.wikipedia.org/wiki/Binomial_coefficient
-/// [`Changed`]: crate::query::Changed
-/// [components]: crate::component::Component
-/// [entity identifiers]: Entity
-/// [`EntityRef`]: crate::world::EntityRef
-/// [`for_each`]: #iterator-for-each
-/// [`get`]: Self::get
-/// [`get_many`]: Self::get_many
-/// [`get_many_mut`]: Self::get_many_mut
-/// [`get_mut`]: Self::get_mut
-/// [`single`]: Self::single
-/// [`single_mut`]: Self::single_mut
-/// [`iter`]: Self::iter
-/// [`iter_combinations`]: Self::iter_combinations
-/// [`iter_combinations_mut`]: Self::iter_combinations_mut
-/// [`iter_many`]: Self::iter_many
-/// [`iter_many_mut`]: Self::iter_many_mut
-/// [`iter_mut`]: Self::iter_mut
-/// [`many`]: Self::many
-/// [`many_mut`]: Self::many_mut
-/// [`Or`]: crate::query::Or
-/// [`par_iter`]: Self::par_iter
-/// [`par_iter_mut`]: Self::par_iter_mut
-/// [performance]: #performance
-/// [`Single`]: Single
-/// [`Option<Single>`]: Single
-/// [`single`]: Self::single
-/// [`single_mut`]: Self::single_mut
-/// [`SparseSet`]: crate::storage::SparseSet
-/// [System parameter]: crate::system::SystemParam
-/// [`Table`]: crate::storage::Table
-/// [`With`]: crate::query::With
-/// [`Without`]: crate::query::Without
 pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'world>,
@@ -727,7 +831,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     /// - [`iter_many_inner`](Self::iter_many_inner) to get mutable query items with the full `'world` lifetime.
     #[inline]
-    pub fn iter_many<EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many<EntityList: IntoIterator<Item: EntityEquivalent>>(
         &self,
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter> {
@@ -772,7 +876,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_many`](Self::iter_many) to get read-only query items.
     /// - [`iter_many_inner`](Self::iter_many_inner) to get mutable query items with the full `'world` lifetime.
     #[inline]
-    pub fn iter_many_mut<EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_mut<EntityList: IntoIterator<Item: EntityEquivalent>>(
         &mut self,
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
@@ -790,7 +894,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_many`](Self::iter_many) to get read-only query items.
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many_inner<EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn iter_many_inner<EntityList: IntoIterator<Item: EntityEquivalent>>(
         self,
         entities: EntityList,
     ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter> {
@@ -830,7 +934,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     type Item = &'a Entity;
     ///     type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
-    ///  
+    ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
     ///        unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
@@ -1035,7 +1139,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to safely access the query items.
-    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator<Item: EntityEquivalent>>(
         &self,
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
@@ -1173,7 +1277,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`par_iter_many_unique_mut`]: Self::par_iter_many_unique_mut
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
-    pub fn par_iter_many<EntityList: IntoIterator<Item: EntityBorrow>>(
+    pub fn par_iter_many<EntityList: IntoIterator<Item: EntityEquivalent>>(
         &self,
         entities: EntityList,
     ) -> QueryParManyIter<'_, '_, D::ReadOnly, F, EntityList::Item> {
@@ -1311,7 +1415,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(
     ///     match query.get_many([wrong_entity]).unwrap_err() {
@@ -1326,7 +1430,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_many_mut`](Self::get_many_mut) to get mutable query items.
     /// - [`get_many_unique`](Self::get_many_unique) to only handle unique inputs.
-    /// - [`many`](Self::many) for the panicking version.
     #[inline]
     pub fn get_many<const N: usize>(
         &self,
@@ -1345,7 +1448,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
@@ -1363,7 +1466,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(component_values, [&A(0), &A(1), &A(2)]);
     ///
-    /// let wrong_entity = Entity::from_raw(365);
+    /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
     /// assert_eq!(
     ///     match query.get_many_unique(UniqueEntityArray::from([wrong_entity])).unwrap_err() {
@@ -1384,57 +1487,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entities: UniqueEntityArray<N>,
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
         self.as_readonly().get_many_unique_inner(entities)
-    }
-
-    /// Returns the read-only query items for the given array of [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch or a non-existing entity.
-    ///
-    /// # Examples
-    /// ``` no_run
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Targets([Entity; 3]);
-    ///
-    /// #[derive(Component)]
-    /// struct Position{
-    ///     x: i8,
-    ///     y: i8
-    /// };
-    ///
-    /// impl Position {
-    ///     fn distance(&self, other: &Position) -> i8 {
-    ///         // Manhattan distance is way easier to compute!
-    ///         (self.x - other.x).abs() + (self.y - other.y).abs()
-    ///     }
-    /// }
-    ///
-    /// fn check_all_targets_in_range(targeting_query: Query<(Entity, &Targets, &Position)>, targets_query: Query<&Position>){
-    ///     for (targeting_entity, targets, origin) in &targeting_query {
-    ///         // We can use "destructuring" to unpack the results nicely
-    ///         let [target_1, target_2, target_3] = targets_query.many(targets.0);
-    ///
-    ///         assert!(target_1.distance(origin) <= 5);
-    ///         assert!(target_2.distance(origin) <= 5);
-    ///         assert!(target_3.distance(origin) <= 5);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many`](Self::get_many) for the non-panicking version.
-    #[inline]
-    #[track_caller]
-    #[deprecated(note = "Use `get_many` instead and handle the Result.")]
-    pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
-        match self.get_many(entities) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get query results: {error}"),
-        }
     }
 
     /// Returns the query item for the given [`Entity`].
@@ -1559,7 +1611,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// let entities: [Entity; 3] = entities.try_into().unwrap();
     ///
     /// world.spawn(A(73));
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     ///
@@ -1606,7 +1658,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
-    /// - [`many_mut`](Self::many_mut) for the panicking version.
     #[inline]
     pub fn get_many_mut<const N: usize>(
         &mut self,
@@ -1623,18 +1674,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, unique_array::UniqueEntityArray, unique_vec::UniqueEntityVec}};
+    /// use bevy_ecs::{prelude::*, query::QueryEntityError, entity::{EntitySetIterator, UniqueEntityArray, UniqueEntityVec}};
     ///
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
     ///
     /// let mut world = World::new();
     ///
-    /// let entity_set: UniqueEntityVec<_> = world.spawn_batch((0..3).map(A)).collect_set();
+    /// let entity_set: UniqueEntityVec = world.spawn_batch((0..3).map(A)).collect_set();
     /// let entity_set: UniqueEntityArray<3> = entity_set.try_into().unwrap();
     ///
     /// world.spawn(A(73));
-    /// let wrong_entity = Entity::from_raw(57);
+    /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
     ///
@@ -1776,64 +1827,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         Ok(values.map(|x| unsafe { x.assume_init() }))
     }
 
-    /// Returns the query items for the given array of [`Entity`].
-    ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch, a non-existing entity, or the same `Entity` is included more than once in the array.
-    ///
-    /// # Examples
-    ///
-    /// ``` no_run
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Spring{
-    ///     connected_entities: [Entity; 2],
-    ///     strength: f32,
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///     x: f32,
-    ///     y: f32,
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Force {
-    ///     x: f32,
-    ///     y: f32,
-    /// }
-    ///
-    /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
-    ///     for spring in &spring_query {
-    ///          // We can use "destructuring" to unpack our query items nicely
-    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
-    ///
-    ///          force_1.x += spring.strength * (position_1.x - position_2.x);
-    ///          force_1.y += spring.strength * (position_1.y - position_2.y);
-    ///
-    ///          // Silence borrow-checker: I have split your mutable borrow!
-    ///          force_2.x += spring.strength * (position_2.x - position_1.x);
-    ///          force_2.y += spring.strength * (position_2.y - position_1.y);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many_mut`](Self::get_many_mut) for the non panicking version.
-    /// - [`many`](Self::many) to get read-only query items.
-    #[inline]
-    #[track_caller]
-    #[deprecated(note = "Use `get_many_mut` instead and handle the Result.")]
-    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
-        match self.get_many_mut(entities) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get query result: {error}"),
-        }
-    }
-
     /// Returns the query item for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
@@ -1889,12 +1882,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.as_readonly().single_inner()
     }
 
-    /// A deprecated alias for [`single`](Self::single).
-    #[deprecated(note = "Please use `single` instead")]
-    pub fn get_single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
-        self.single()
-    }
-
     /// Returns a single query item when there is exactly one entity matching the query.
     ///
     /// If the number of query items is not exactly one, a [`QuerySingleError`] is returned instead.
@@ -1922,12 +1909,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub fn single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
         self.reborrow().single_inner()
-    }
-
-    /// A deprecated alias for [`single_mut`](Self::single_mut).
-    #[deprecated(note = "Please use `single_mut` instead")]
-    pub fn get_single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
-        self.single_mut()
     }
 
     /// Returns a single query item when there is exactly one entity matching the query.
@@ -1976,8 +1957,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
     /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
-    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
-    /// result for a match.
+    /// on non-archetypal filters such as [`Added`], [`Changed`] or [`Spawned`] which must individually check
+    /// each query result for a match.
     ///
     /// # Example
     ///
@@ -2000,6 +1981,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// [`Added`]: crate::query::Added
     /// [`Changed`]: crate::query::Changed
+    /// [`Spawned`]: crate::query::Spawned
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.as_nop().iter().next().is_none()
@@ -2038,9 +2020,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
     /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
-    /// terms see [`Self::transmute_lens_filtered`]
+    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will not be
+    /// respected. To maintain or change filter terms see [`Self::transmute_lens_filtered`]
     ///
     /// ## Panics
     ///
@@ -2095,12 +2077,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * Tuples of query data and `#[derive(QueryData)]` structs have the union of the access of their subqueries
     /// * [`EntityMut`](crate::world::EntityMut) has read and write access to all components, but no required access
     /// * [`EntityRef`](crate::world::EntityRef) has read access to all components, but no required access
-    /// * [`Entity`], [`EntityLocation`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
+    /// * [`Entity`], [`EntityLocation`], [`SpawnDetails`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
     ///   so can be added to any query
     /// * [`FilteredEntityRef`](crate::world::FilteredEntityRef) and [`FilteredEntityMut`](crate::world::FilteredEntityMut)
     ///   have access determined by the [`QueryBuilder`](crate::query::QueryBuilder) used to construct them.
-    ///   Any query can be transmuted to them, and they will receive the access of the source query,
-    ///   but only if they are the top-level query and not nested
+    ///   Any query can be transmuted to them, and they will receive the access of the source query.
+    ///   When combined with other `QueryData`, they will receive any access of the source query that does not conflict with the other data.
     /// * [`Added<T>`](crate::query::Added) and [`Changed<T>`](crate::query::Changed) filters have read and required access to `T`
     /// * [`With<T>`](crate::query::With) and [`Without<T>`](crate::query::Without) filters have no access at all,
     ///   so can be added to any query
@@ -2172,9 +2154,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// // Anything can be transmuted to `FilteredEntityRef` or `FilteredEntityMut`
     /// // This will create a `FilteredEntityMut` that only has read access to `T`
     /// assert_valid_transmute::<&T, FilteredEntityMut>();
-    /// // This transmute will succeed, but the `FilteredEntityMut` will have no access!
-    /// // It must be the top-level query to be given access, but here it is nested in a tuple.
-    /// assert_valid_transmute::<&T, (Entity, FilteredEntityMut)>();
+    /// // This will create a `FilteredEntityMut` that has no access to `T`,
+    /// // read access to `U`, and write access to `V`.
+    /// assert_valid_transmute::<(&mut T, &mut U, &mut V), (&mut T, &U, FilteredEntityMut)>();
     ///
     /// // `Added<T>` and `Changed<T>` filters have the same access as `&T` data
     /// // Remember that they are only evaluated on the transmuted query, not the original query!
@@ -2185,6 +2167,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ```
     ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
+    /// [`SpawnDetails`]: crate::query::SpawnDetails
     /// [`&Archetype`]: crate::archetype::Archetype
     /// [`Has<T>`]: crate::query::Has
     #[track_caller]
@@ -2197,9 +2180,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
     /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
-    /// terms see [`Self::transmute_lens_filtered`]
+    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will not be
+    /// respected. To maintain or change filter terms see [`Self::transmute_lens_filtered`]
     ///
     /// ## Panics
     ///
@@ -2254,7 +2237,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
+    ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
     ///
@@ -2270,8 +2253,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
-    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
+    /// are in the type signature.
     #[track_caller]
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
@@ -2284,8 +2268,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
-    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
     ///
     /// # See also
     ///
@@ -2321,7 +2305,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
+    /// are dropped, non-archetypal filters like `Added`, `Changed` and `Spawned` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Example
@@ -2383,7 +2367,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
+    /// are dropped, non-archetypal filters like `Added`, `Changed` and `Spawned` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Panics
@@ -2410,8 +2394,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
-    /// terms like `Added` and `Changed` will only be respected if they are in
-    /// the type signature.
+    /// terms like `Added`, `Changed` and `Spawned` will only be respected if they
+    /// are in the type signature.
     pub fn join_filtered<
         'a,
         OtherD: QueryData,
@@ -2431,8 +2415,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
-    /// terms like `Added` and `Changed` will only be respected if they are in
-    /// the type signature.
+    /// terms like `Added`, `Changed` and `Spawned` will only be respected if they
+    /// are in the type signature.
     ///
     /// # See also
     ///
@@ -2613,8 +2597,9 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// This will cause the system to be skipped, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
-/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)
-/// which must individually check each query result for a match.
+/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added),
+/// [`Changed`](crate::query::Changed) of [`Spawned`](crate::query::Spawned) which must individually check each query
+/// result for a match.
 ///
 /// See [`Query`] for more details.
 ///

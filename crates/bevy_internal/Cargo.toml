@@ -91,15 +91,15 @@ serialize = [
   "bevy_color?/serialize",
   "bevy_ecs/serialize",
   "bevy_image?/serialize",
-  "bevy_input?/serialize",
-  "bevy_math?/serialize",
+  "bevy_input/serialize",
+  "bevy_math/serialize",
   "bevy_scene?/serialize",
   "bevy_time/serialize",
-  "bevy_transform?/serialize",
+  "bevy_transform/serialize",
   "bevy_ui?/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
-  "bevy_platform_support/serialize",
+  "bevy_platform/serialize",
 ]
 multi_threaded = [
   "std",
@@ -279,9 +279,6 @@ custom_cursor = ["bevy_winit/custom_cursor"]
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_ui/ghost_nodes"]
 
-# Use the configurable global error handler as the default error handler.
-configurable_error_handler = ["bevy_ecs/configurable_error_handler"]
-
 # Allows access to the `std` crate. Enabling this feature will prevent compilation
 # on `no_std` targets, but provides access to certain additional features on
 # supported platforms.
@@ -294,12 +291,11 @@ std = [
   "bevy_input/std",
   "bevy_input_focus?/std",
   "bevy_math/std",
-  "bevy_platform_support/std",
+  "bevy_platform/std",
   "bevy_reflect/std",
   "bevy_state?/std",
   "bevy_time/std",
   "bevy_transform/std",
-  "bevy_utils/std",
   "bevy_tasks/std",
   "bevy_window?/std",
 ]
@@ -311,13 +307,12 @@ critical-section = [
   "bevy_app/critical-section",
   "bevy_diagnostic/critical-section",
   "bevy_ecs/critical-section",
-  "bevy_input?/critical-section",
+  "bevy_input/critical-section",
   "bevy_input_focus?/critical-section",
-  "bevy_platform_support/critical-section",
+  "bevy_platform/critical-section",
   "bevy_reflect/critical-section",
   "bevy_state?/critical-section",
   "bevy_time/critical-section",
-  "bevy_utils/critical-section",
   "bevy_tasks/critical-section",
 ]
 
@@ -337,14 +332,14 @@ async_executor = [
   "std",
   "bevy_tasks/async_executor",
   "bevy_ecs/async_executor",
-  "bevy_transform?/async_executor",
+  "bevy_transform/async_executor",
 ]
 
 # Enables use of browser APIs.
 # Note this is currently only applicable on `wasm32` architectures.
 web = [
   "bevy_app/web",
-  "bevy_platform_support/web",
+  "bevy_platform/web",
   "bevy_reflect/web",
   "bevy_tasks/web",
 ]
@@ -361,11 +356,12 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = fa
 ] }
 bevy_input = { path = "../bevy_input", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-], optional = true }
+] }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
-], optional = true }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "nostd-libm",
+] }
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev", default-features = false }
@@ -378,10 +374,8 @@ bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = 
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev", default-features = false, features = [
   "bevy-support",
   "bevy_reflect",
-], optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
-  "alloc",
 ] }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
 
 # bevy (std required)

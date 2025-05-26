@@ -8,13 +8,13 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
+    entity::{EntityHashMap, EntityHashSet},
     prelude::*,
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::hash::FixedHasher;
+use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::hash::FixedHasher;
 use bevy_render::experimental::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
@@ -220,7 +220,18 @@ pub fn extract_lights(
     mut commands: Commands,
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
-    global_point_lights: Extract<Res<GlobalVisibleClusterableObjects>>,
+    global_visible_clusterable: Extract<Res<GlobalVisibleClusterableObjects>>,
+    previous_point_lights: Query<
+        Entity,
+        (
+            With<RenderCubemapVisibleEntities>,
+            With<ExtractedPointLight>,
+        ),
+    >,
+    previous_spot_lights: Query<
+        Entity,
+        (With<RenderVisibleMeshEntities>, With<ExtractedPointLight>),
+    >,
     point_lights: Extract<
         Query<(
             Entity,
@@ -276,6 +287,22 @@ pub fn extract_lights(
     if directional_light_shadow_map.is_changed() {
         commands.insert_resource(directional_light_shadow_map.clone());
     }
+
+    // Clear previous visible entities for all point/spot lights as they might not be in the
+    // `global_visible_clusterable` list anymore.
+    commands.try_insert_batch(
+        previous_point_lights
+            .iter()
+            .map(|render_entity| (render_entity, RenderCubemapVisibleEntities::default()))
+            .collect::<Vec<_>>(),
+    );
+    commands.try_insert_batch(
+        previous_spot_lights
+            .iter()
+            .map(|render_entity| (render_entity, RenderVisibleMeshEntities::default()))
+            .collect::<Vec<_>>(),
+    );
+
     // This is the point light shadow map texel size for one face of the cube as a distance of 1.0
     // world unit from the light.
     // point_light_texel_size = 2.0 * 1.0 * tan(PI / 4.0) / cube face width in texels
@@ -286,7 +313,7 @@ pub fn extract_lights(
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
-    for entity in global_point_lights.iter().copied() {
+    for entity in global_visible_clusterable.iter().copied() {
         let Ok((
             main_entity,
             render_entity,
@@ -350,7 +377,7 @@ pub fn extract_lights(
     commands.try_insert_batch(point_lights_values);
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
-    for entity in global_point_lights.iter().copied() {
+    for entity in global_visible_clusterable.iter().copied() {
         if let Ok((
             main_entity,
             render_entity,
@@ -1729,7 +1756,7 @@ pub fn specialize_shadows<M: Material>(
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
         Res<RenderAssets<PreparedMaterial<M>>>,
-        Res<RenderMaterialInstances<M>>,
+        Res<RenderMaterialInstances>,
         Res<MaterialBindGroupAllocator<M>>,
     ),
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
@@ -1809,7 +1836,17 @@ pub fn specialize_shadows<M: Material>(
                 .or_default();
 
             for (_, visible_entity) in visible_entities.iter().copied() {
-                let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
+                let Some(material_instances) =
+                    render_material_instances.instances.get(&visible_entity)
+                else {
+                    continue;
+                };
+                let Ok(material_asset_id) = material_instances.asset_id.try_typed::<M>() else {
+                    continue;
+                };
+                let Some(mesh_instance) =
+                    render_mesh_instances.render_mesh_queue_data(visible_entity)
+                else {
                     continue;
                 };
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
@@ -1823,12 +1860,7 @@ pub fn specialize_shadows<M: Material>(
                 if !needs_specialization {
                     continue;
                 }
-                let Some(material) = render_materials.get(*material_asset_id) else {
-                    continue;
-                };
-                let Some(mesh_instance) =
-                    render_mesh_instances.render_mesh_queue_data(visible_entity)
-                else {
+                let Some(material) = render_materials.get(material_asset_id) else {
                     continue;
                 };
                 if !mesh_instance
@@ -1906,7 +1938,7 @@ pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    render_material_instances: Res<RenderMaterialInstances>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
@@ -1989,10 +2021,14 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 }
 
-                let Some(material_asset_id) = render_material_instances.get(&main_entity) else {
+                let Some(material_instance) = render_material_instances.instances.get(&main_entity)
+                else {
                     continue;
                 };
-                let Some(material) = render_materials.get(*material_asset_id) else {
+                let Ok(material_asset_id) = material_instance.asset_id.try_typed::<M>() else {
+                    continue;
+                };
+                let Some(material) = render_materials.get(material_asset_id) else {
                     continue;
                 };
 

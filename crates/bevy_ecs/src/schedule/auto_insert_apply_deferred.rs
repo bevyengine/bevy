@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 
 use crate::system::IntoSystem;
 use crate::world::World;

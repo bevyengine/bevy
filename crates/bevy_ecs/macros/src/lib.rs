@@ -6,7 +6,6 @@ extern crate proc_macro;
 mod component;
 mod query_data;
 mod query_filter;
-mod states;
 mod world_query;
 
 use crate::{
@@ -35,7 +34,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let named_fields = match get_struct_fields(&ast.data) {
+    let named_fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
         Ok(fields) => fields,
         Err(e) => return e.into_compile_error().into(),
     };
@@ -192,12 +191,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
+
     let map_entities_impl = map_entities(
         &ast.data,
         Ident::new("self", Span::call_site()),
         false,
         false,
     );
+
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     TokenStream::from(quote! {
@@ -229,19 +230,39 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let path = bevy_ecs_path();
 
     let mut field_locals = Vec::new();
+    let mut field_names = Vec::new();
     let mut fields = Vec::new();
     let mut field_types = Vec::new();
+    let mut field_messages = Vec::new();
     for (i, field) in field_definitions.iter().enumerate() {
         field_locals.push(format_ident!("f{i}"));
         let i = Index::from(i);
-        fields.push(
-            field
-                .ident
-                .as_ref()
-                .map(|f| quote! { #f })
-                .unwrap_or_else(|| quote! { #i }),
-        );
+        let field_value = field
+            .ident
+            .as_ref()
+            .map(|f| quote! { #f })
+            .unwrap_or_else(|| quote! { #i });
+        field_names.push(format!("::{}", field_value));
+        fields.push(field_value);
         field_types.push(&field.ty);
+        let mut field_message = None;
+        for meta in field
+            .attrs
+            .iter()
+            .filter(|a| a.path().is_ident("system_param"))
+        {
+            if let Err(e) = meta.parse_nested_meta(|nested| {
+                if nested.path.is_ident("validation_message") {
+                    field_message = Some(nested.value()?.parse()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Unsupported attribute"))
+                }
+            }) {
+                return e.into_compile_error().into();
+            }
+        }
+        field_messages.push(field_message.unwrap_or_else(|| quote! { err.message }));
     }
 
     let generics = ast.generics;
@@ -427,10 +448,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 #[inline]
                 unsafe fn validate_param<'w, 's>(
                     state: &'s Self::State,
-                    system_meta: &#path::system::SystemMeta,
-                    world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+                    _system_meta: &#path::system::SystemMeta,
+                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                 ) -> Result<(), #path::system::SystemParamValidationError> {
-                    <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world)
+                    let #state_struct_name { state: (#(#tuple_patterns,)*) } = state;
+                    #(
+                        <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
+                            .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_messages, #field_names))?;
+                    )*
+                    Result::Ok(())
                 }
 
                 #[inline]
@@ -479,12 +505,10 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
-    let mut dyn_eq_path = trait_path.clone();
     trait_path
         .segments
         .push(format_ident!("ScheduleLabel").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "ScheduleLabel", &trait_path, &dyn_eq_path)
+    derive_label(input, "ScheduleLabel", &trait_path)
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.
@@ -495,10 +519,8 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
-    let mut dyn_eq_path = trait_path.clone();
     trait_path.segments.push(format_ident!("SystemSet").into());
-    dyn_eq_path.segments.push(format_ident!("DynEq").into());
-    derive_label(input, "SystemSet", &trait_path, &dyn_eq_path)
+    derive_label(input, "SystemSet", &trait_path)
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
@@ -521,16 +543,6 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
-}
-
-#[proc_macro_derive(States)]
-pub fn derive_states(input: TokenStream) -> TokenStream {
-    states::derive_states(input)
-}
-
-#[proc_macro_derive(SubStates, attributes(source))]
-pub fn derive_substates(input: TokenStream) -> TokenStream {
-    states::derive_substates(input)
 }
 
 #[proc_macro_derive(FromWorld, attributes(from_world))]

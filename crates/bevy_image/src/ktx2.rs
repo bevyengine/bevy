@@ -10,8 +10,8 @@ use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use ktx2::SupercompressionScheme;
 use ktx2::{
-    BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
-    Header, SampleInformation,
+    ChannelTypeQualifiers, ColorModel, DfdBlockBasic, DfdBlockHeaderBasic, DfdHeader, Header,
+    SampleInformation,
 };
 use wgpu_types::{
     AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
@@ -45,28 +45,28 @@ pub fn ktx2_buffer_to_image(
     // Handle supercompression
     let mut levels = Vec::new();
     if let Some(supercompression_scheme) = supercompression_scheme {
-        for (_level, _level_data) in ktx2.levels().enumerate() {
+        for (level_index, level) in ktx2.levels().enumerate() {
             match supercompression_scheme {
                 #[cfg(feature = "flate2")]
                 SupercompressionScheme::ZLIB => {
-                    let mut decoder = flate2::bufread::ZlibDecoder::new(_level_data);
+                    let mut decoder = flate2::bufread::ZlibDecoder::new(level.data);
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
-                            "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
+                            "Failed to decompress {supercompression_scheme:?} for mip {level_index}: {err:?}",
                         ))
                     })?;
                     levels.push(decompressed);
                 }
                 #[cfg(feature = "ruzstd")]
                 SupercompressionScheme::Zstandard => {
-                    let mut cursor = std::io::Cursor::new(_level_data);
+                    let mut cursor = std::io::Cursor::new(level.data);
                     let mut decoder = ruzstd::decoding::StreamingDecoder::new(&mut cursor)
                         .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
-                            "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
+                            "Failed to decompress {supercompression_scheme:?} for mip {level_index}: {err:?}",
                         ))
                     })?;
                     levels.push(decompressed);
@@ -79,7 +79,7 @@ pub fn ktx2_buffer_to_image(
             }
         }
     } else {
-        levels = ktx2.levels().map(<[u8]>::to_vec).collect();
+        levels = ktx2.levels().map(|level| level.data.to_vec()).collect();
     }
 
     // Identify the format
@@ -267,6 +267,9 @@ pub fn ktx2_buffer_to_image(
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
     image.data = Some(wgpu_data.into_iter().flatten().collect::<Vec<_>>());
+    // Note: we must give wgpu the logical texture dimensions, so it can correctly compute mip sizes.
+    // However this currently causes wgpu to panic if the dimensions arent a multiple of blocksize.
+    // See https://github.com/gfx-rs/wgpu/issues/7677 for more context.
     image.texture_descriptor.size = Extent3d {
         width,
         height,
@@ -276,8 +279,7 @@ pub fn ktx2_buffer_to_image(
             depth
         }
         .max(1),
-    }
-    .physical_size(texture_format);
+    };
     image.texture_descriptor.mip_level_count = level_count;
     image.texture_descriptor.dimension = if depth > 1 {
         TextureDimension::D3
@@ -397,16 +399,15 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
         return ktx2_format_to_texture_format(format, is_srgb);
     }
 
-    for data_format_descriptor in ktx2.data_format_descriptors() {
-        if data_format_descriptor.header == DataFormatDescriptorHeader::BASIC {
-            let basic_data_format_descriptor =
-                BasicDataFormatDescriptor::parse(data_format_descriptor.data)
-                    .map_err(|err| TextureError::InvalidData(format!("KTX2: {err:?}")))?;
+    for data_format_descriptor in ktx2.dfd_blocks() {
+        if data_format_descriptor.header == DfdHeader::BASIC {
+            let basic_data_format_descriptor = DfdBlockBasic::parse(data_format_descriptor.data)
+                .map_err(|err| TextureError::InvalidData(format!("KTX2: {err:?}")))?;
             let sample_information = basic_data_format_descriptor
                 .sample_information()
                 .collect::<Vec<_>>();
-            return ktx2_dfd_to_texture_format(
-                &basic_data_format_descriptor,
+            return ktx2_dfd_header_to_texture_format(
+                &basic_data_format_descriptor.header,
                 &sample_information,
                 is_srgb,
             );
@@ -476,8 +477,8 @@ fn sample_information_to_data_type(
 }
 
 #[cfg(feature = "ktx2")]
-pub fn ktx2_dfd_to_texture_format(
-    data_format_descriptor: &BasicDataFormatDescriptor,
+pub fn ktx2_dfd_header_to_texture_format(
+    data_format_descriptor: &DfdBlockHeaderBasic,
     sample_information: &[SampleInformation],
     is_srgb: bool,
 ) -> Result<TextureFormat, TextureError> {
@@ -495,7 +496,7 @@ pub fn ktx2_dfd_to_texture_format(
 
                     let sample = &sample_information[0];
                     let data_type = sample_information_to_data_type(sample, false)?;
-                    match sample.bit_length {
+                    match sample.bit_length.get() {
                         8 => match data_type {
                             DataType::Unorm => TextureFormat::R8Unorm,
                             DataType::UnormSrgb => {
@@ -577,7 +578,7 @@ pub fn ktx2_dfd_to_texture_format(
 
                     let sample = &sample_information[0];
                     let data_type = sample_information_to_data_type(sample, false)?;
-                    match sample.bit_length {
+                    match sample.bit_length.get() {
                         8 => match data_type {
                             DataType::Unorm => TextureFormat::Rg8Unorm,
                             DataType::UnormSrgb => {
@@ -635,27 +636,27 @@ pub fn ktx2_dfd_to_texture_format(
                 }
                 3 => {
                     if sample_information[0].channel_type == 0
-                        && sample_information[0].bit_length == 11
+                        && sample_information[0].bit_length.get() == 11
                         && sample_information[1].channel_type == 1
-                        && sample_information[1].bit_length == 11
+                        && sample_information[1].bit_length.get() == 11
                         && sample_information[2].channel_type == 2
-                        && sample_information[2].bit_length == 10
+                        && sample_information[2].bit_length.get() == 10
                     {
                         TextureFormat::Rg11b10Ufloat
                     } else if sample_information[0].channel_type == 0
-                        && sample_information[0].bit_length == 9
+                        && sample_information[0].bit_length.get() == 9
                         && sample_information[1].channel_type == 1
-                        && sample_information[1].bit_length == 9
+                        && sample_information[1].bit_length.get() == 9
                         && sample_information[2].channel_type == 2
-                        && sample_information[2].bit_length == 9
+                        && sample_information[2].bit_length.get() == 9
                     {
                         TextureFormat::Rgb9e5Ufloat
                     } else if sample_information[0].channel_type == 0
-                        && sample_information[0].bit_length == 8
+                        && sample_information[0].bit_length.get() == 8
                         && sample_information[1].channel_type == 1
-                        && sample_information[1].bit_length == 8
+                        && sample_information[1].bit_length.get() == 8
                         && sample_information[2].channel_type == 2
-                        && sample_information[2].bit_length == 8
+                        && sample_information[2].bit_length.get() == 8
                     {
                         return Err(TextureError::FormatRequiresTranscodingError(
                             TranscodeFormat::Rgb8,
@@ -681,10 +682,10 @@ pub fn ktx2_dfd_to_texture_format(
                     assert_eq!(sample_information[3].channel_type, 15);
 
                     // Handle one special packed format
-                    if sample_information[0].bit_length == 10
-                        && sample_information[1].bit_length == 10
-                        && sample_information[2].bit_length == 10
-                        && sample_information[3].bit_length == 2
+                    if sample_information[0].bit_length.get() == 10
+                        && sample_information[1].bit_length.get() == 10
+                        && sample_information[2].bit_length.get() == 10
+                        && sample_information[3].bit_length.get() == 2
                     {
                         return Ok(TextureFormat::Rgb10a2Unorm);
                     }
@@ -708,7 +709,7 @@ pub fn ktx2_dfd_to_texture_format(
 
                     let sample = &sample_information[0];
                     let data_type = sample_information_to_data_type(sample, is_srgb)?;
-                    match sample.bit_length {
+                    match sample.bit_length.get() {
                         8 => match data_type {
                             DataType::Unorm => {
                                 if is_rgba {
@@ -896,7 +897,7 @@ pub fn ktx2_dfd_to_texture_format(
         Some(ColorModel::XYZW) => {
             // Same number of channels in both texel block dimensions and sample info descriptions
             assert_eq!(
-                data_format_descriptor.texel_block_dimensions[0] as usize,
+                data_format_descriptor.texel_block_dimensions[0].get() as usize,
                 sample_information.len()
             );
             match sample_information.len() {
@@ -935,7 +936,7 @@ pub fn ktx2_dfd_to_texture_format(
 
                     let sample = &sample_information[0];
                     let data_type = sample_information_to_data_type(sample, false)?;
-                    match sample.bit_length {
+                    match sample.bit_length.get() {
                         8 => match data_type {
                             DataType::Unorm => TextureFormat::Rgba8Unorm,
                             DataType::UnormSrgb => {
@@ -1124,8 +1125,8 @@ pub fn ktx2_dfd_to_texture_format(
         },
         Some(ColorModel::ASTC) => TextureFormat::Astc {
             block: match (
-                data_format_descriptor.texel_block_dimensions[0],
-                data_format_descriptor.texel_block_dimensions[1],
+                data_format_descriptor.texel_block_dimensions[0].get(),
+                data_format_descriptor.texel_block_dimensions[1].get(),
             ) {
                 (4, 4) => AstcBlock::B4x4,
                 (5, 4) => AstcBlock::B5x4,

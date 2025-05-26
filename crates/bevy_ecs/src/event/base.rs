@@ -93,7 +93,7 @@ pub trait Event: Send + Sync + 'static {
 ///
 /// This exists so we can easily get access to a unique [`ComponentId`] for each [`Event`] type,
 /// without requiring that [`Event`] types implement [`Component`] directly.
-/// [`ComponentId`] is used internally as a unique identitifier for events because they are:
+/// [`ComponentId`] is used internally as a unique identifier for events because they are:
 ///
 /// - Unique to each event type.
 /// - Can be quickly generated and looked up.

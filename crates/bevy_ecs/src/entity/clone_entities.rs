@@ -1,5 +1,5 @@
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, vec::Vec};
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::any::TypeId;
@@ -324,16 +324,10 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::component::{StorageType, ComponentCloneBehavior, Mutable};
-/// #[derive(Clone)]
+/// #[derive(Clone, Component)]
+/// #[component(clone_behavior = clone::<Self>())]
 /// struct SomeComponent;
 ///
-/// impl Component for SomeComponent {
-///     const STORAGE_TYPE: StorageType = StorageType::Table;
-///     type Mutability = Mutable;
-///     fn clone_behavior() -> ComponentCloneBehavior {
-///         ComponentCloneBehavior::clone::<Self>()
-///     }
-/// }
 /// ```
 ///
 /// # Clone Behaviors
@@ -844,7 +838,7 @@ mod tests {
     use super::ComponentCloneCtx;
     use crate::{
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
-        entity::{hash_map::EntityHashMap, Entity, EntityCloner, SourceComponent},
+        entity::{Entity, EntityCloner, EntityHashMap, SourceComponent},
         prelude::{ChildOf, Children, Resource},
         reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
         world::{FromWorld, World},
@@ -1337,9 +1331,9 @@ mod tests {
     fn recursive_clone() {
         let mut world = World::new();
         let root = world.spawn_empty().id();
-        let child1 = world.spawn(ChildOf { parent: root }).id();
-        let grandchild = world.spawn(ChildOf { parent: child1 }).id();
-        let child2 = world.spawn(ChildOf { parent: root }).id();
+        let child1 = world.spawn(ChildOf(root)).id();
+        let grandchild = world.spawn(ChildOf(child1)).id();
+        let child2 = world.spawn(ChildOf(root)).id();
 
         let clone_root = world.spawn_empty().id();
         EntityCloner::build(&mut world)
