@@ -665,16 +665,17 @@ where
         let params =
             unsafe { F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick) };
 
-        // SAFETY:
-        // - this is not safe
-        // - no way
-        // - nu uh
-        // - not even marked as unsafe, that's how unsafe this is
-        // - enjoy
         #[cfg(feature = "hotpatching")]
-        let out = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
-            .try_call_with_ptr(self.current_ptr, (&mut self.func, input, params))
-            .expect("Error calling hotpatched system. Run a full rebuild");
+        let out = {
+            let mut hot_fn = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run);
+            // SAFETY:
+            // - pointer used to call is from the current jump table
+            unsafe {
+                hot_fn
+                    .try_call_with_ptr(self.current_ptr, (&mut self.func, input, params))
+                    .expect("Error calling hotpatched system. Run a full rebuild")
+            }
+        };
         #[cfg(not(feature = "hotpatching"))]
         let out = self.func.run(input, params);
 
