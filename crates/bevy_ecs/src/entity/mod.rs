@@ -74,6 +74,7 @@ pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
+    component::Tick,
     identifier::{
         error::IdentifierError,
         kinds::IdKind,
@@ -84,7 +85,13 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::sync::atomic::Ordering;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use core::{
+    fmt,
+    hash::Hash,
+    mem::{self},
+    num::NonZero,
+    panic::Location,
+};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -864,6 +871,20 @@ impl Entities {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
+    }
+
+    /// # Safety
+    ///  - `index` must be a valid entity index.
+    #[inline]
+    pub(crate) unsafe fn mark_spawn_despawn(&mut self, index: u32, by: MaybeLocation, _at: Tick) {
+        // // SAFETY: Caller guarantees that `index` a valid entity index
+        // let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+        // meta.spawned_or_despawned_by = MaybeUninit::new(SpawnedOrDespawned { by, at });
+        by.map(|caller| {
+            // SAFETY: Caller guarantees that `index` a valid entity index
+            let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
+            meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
+        });
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
