@@ -15,6 +15,7 @@ use bevy::{
         dof::{self, DepthOfField, DepthOfFieldMode},
         tonemapping::Tonemapping,
     },
+    gltf::GltfMeshName,
     pbr::Lightmap,
     prelude::*,
     render::camera::PhysicalCameraParameters,
@@ -186,7 +187,7 @@ fn tweak_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut lights: Query<&mut DirectionalLight, Changed<DirectionalLight>>,
     mut named_entities: Query<
-        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (Entity, &GltfMeshName, &MeshMaterial3d<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {

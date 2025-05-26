@@ -293,6 +293,8 @@ impl Diagnostic {
     /// Clear the history of this diagnostic.
     pub fn clear_history(&mut self) {
         self.history.clear();
+        self.sum = 0.0;
+        self.ema = 0.0;
     }
 }
 
@@ -418,5 +420,33 @@ impl RegisterDiagnostic for App {
     fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
         SubApp::register_diagnostic(self.main_mut(), diagnostic);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_clear_history() {
+        const MEASUREMENT: f64 = 20.0;
+
+        let mut diagnostic =
+            Diagnostic::new(DiagnosticPath::new("test")).with_max_history_length(5);
+        let mut now = Instant::now();
+
+        for _ in 0..3 {
+            for _ in 0..5 {
+                diagnostic.add_measurement(DiagnosticMeasurement {
+                    time: now,
+                    value: MEASUREMENT,
+                });
+                // Increase time to test smoothed average.
+                now += Duration::from_secs(1);
+            }
+            assert!((diagnostic.average().unwrap() - MEASUREMENT).abs() < 0.1);
+            assert!((diagnostic.smoothed().unwrap() - MEASUREMENT).abs() < 0.1);
+            diagnostic.clear_history();
+        }
     }
 }
