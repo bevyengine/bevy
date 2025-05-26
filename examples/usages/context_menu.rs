@@ -13,7 +13,7 @@ struct OpenContextMenu {
     pos: Vec2,
 }
 
-/// event will be send to close currently open context menus
+/// event will be sent to close currently open context menus
 #[derive(Event)]
 struct CloseContextMenus;
 
