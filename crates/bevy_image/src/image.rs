@@ -1510,8 +1510,10 @@ pub enum TextureAccessError {
     WrongDimension,
 }
 
+/// An error that occurs when an image cannot be resized.
 #[derive(Error, Debug)]
 pub enum ResizeError {
+    /// Failed to resize an Image because it has no data.
     #[error("unable to resize an image without data")]
     ResizedWithoutData,
 }
