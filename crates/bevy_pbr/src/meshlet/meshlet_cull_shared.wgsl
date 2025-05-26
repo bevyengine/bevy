@@ -122,6 +122,7 @@ fn sample_hzb(smin: vec2<u32>, smax: vec2<u32>, mip: i32) -> f32 {
     let texel = vec4<u32>(0, 1, 2, 3);
     let sx = min(smin.x + texel, smax.xxxx);
     let sy = min(smin.y + texel, smax.yyyy);
+    // TODO: switch to min samplers when wgpu has them
     // sampling 16 times a finer mip is worth the extra cost for better culling
     let a = sample_hzb_row(sx, sy.x, mip);
     let b = sample_hzb_row(sx, sy.y, mip);
@@ -185,7 +186,6 @@ fn occlusion_cull_clip_from_local(instance_id: u32) -> mat4x4<f32> {
 
 fn should_occlusion_cull_aabb(aabb: MeshletAabb, instance_id: u32) -> bool {
     let projection = occlusion_cull_projection();
-    let col2 = projection[2];
     var near: f32;
     if projection[3][3] == 1.0 {
         near = projection[3][2] / projection[2][2];
