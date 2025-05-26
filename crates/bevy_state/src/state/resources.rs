@@ -136,7 +136,8 @@ pub enum NextState<S: FreelyMutableState> {
 impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a pending state transition to `Some(state)`.
     ///
-    /// This will *not* trigger state transition [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit) schedules.
+    /// If `state` is the same as the current state, this will *not* trigger state
+    /// transition [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit) schedules.
     ///
     /// If [`set_forced`](Self::set_forced) has already been called in the same frame with the same state, its behavior is kept.
     pub fn set(&mut self, state: S) {
@@ -147,7 +148,8 @@ impl<S: FreelyMutableState> NextState<S> {
 
     /// Tentatively set a pending state transition to `Some(state)`.
     ///
-    /// This will trigger state transition [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit) schedules.
+    /// If `state` is the same as the current state, this will trigger state
+    /// transition [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit) schedules.
     pub fn set_forced(&mut self, state: S) {
         *self = Self::ForcedPending(state);
     }
