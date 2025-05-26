@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.85.0"
+rust-version = "1.86.0"
 
 [workspace]
 resolver = "2"
@@ -569,7 +569,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
-accesskit = "0.18"
+accesskit = "0.19"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]

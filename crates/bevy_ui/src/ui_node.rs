@@ -1,5 +1,5 @@
 use crate::{FocusPolicy, UiRect, Val};
-use bevy_color::Color;
+use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
@@ -2036,17 +2036,40 @@ impl<T: Into<Color>> From<T> for BackgroundColor {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BorderColor(pub Color);
+pub struct BorderColor {
+    pub top: Color,
+    pub right: Color,
+    pub bottom: Color,
+    pub left: Color,
+}
 
 impl<T: Into<Color>> From<T> for BorderColor {
     fn from(color: T) -> Self {
-        Self(color.into())
+        Self::all(color.into())
     }
 }
 
 impl BorderColor {
     /// Border color is transparent by default.
-    pub const DEFAULT: Self = BorderColor(Color::NONE);
+    pub const DEFAULT: Self = BorderColor::all(Color::NONE);
+
+    /// Helper to create a `BorderColor` struct with all borders set to the given color
+    pub const fn all(color: Color) -> Self {
+        Self {
+            top: color,
+            bottom: color,
+            left: color,
+            right: color,
+        }
+    }
+
+    /// Check if all contained border colors are transparent
+    pub fn is_fully_transparent(&self) -> bool {
+        self.top.is_fully_transparent()
+            && self.bottom.is_fully_transparent()
+            && self.left.is_fully_transparent()
+            && self.right.is_fully_transparent()
+    }
 }
 
 impl Default for BorderColor {
