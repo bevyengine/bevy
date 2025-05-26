@@ -3,7 +3,7 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
-    error::{default_error_handler, ErrorContext},
+    error::{ErrorContext, ErrorHandler},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -190,7 +190,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer {
     hook_on_add: ComponentHook,
-    error_handler: Option<fn(BevyError, ErrorContext)>,
+    error_handler: Option<ErrorHandler>,
     system: Box<dyn Any + Send + Sync + 'static>,
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) last_trigger_id: u32,
@@ -232,6 +232,7 @@ impl Observer {
             system: Box::new(|| {}),
             descriptor: Default::default(),
             hook_on_add: |mut world, hook_context| {
+                let default_error_handler = world.default_error_handler();
                 world.commands().queue(move |world: &mut World| {
                     let entity = hook_context.entity;
                     if let Some(mut observe) = world.get_mut::<Observer>(entity) {
@@ -239,7 +240,7 @@ impl Observer {
                             return;
                         }
                         if observe.error_handler.is_none() {
-                            observe.error_handler = Some(default_error_handler());
+                            observe.error_handler = Some(default_error_handler);
                         }
                         world.register_observer(entity);
                     }
@@ -348,8 +349,6 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         return;
     }
     state.last_trigger_id = last_trigger;
-    // SAFETY: Observer was triggered so must have an `Observer` component.
-    let error_handler = unsafe { state.error_handler.debug_checked_unwrap() };
 
     let trigger: Trigger<E, B> = Trigger::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
@@ -377,7 +376,10 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         match (*system).validate_param_unsafe(world) {
             Ok(()) => {
                 if let Err(err) = (*system).run_unsafe(trigger, world) {
-                    error_handler(
+                    let handler = state
+                        .error_handler
+                        .unwrap_or_else(|| world.default_error_handler());
+                    handler(
                         err,
                         ErrorContext::Observer {
                             name: (*system).name(),
@@ -389,7 +391,10 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             }
             Err(e) => {
                 if !e.skipped {
-                    error_handler(
+                    let handler = state
+                        .error_handler
+                        .unwrap_or_else(|| world.default_error_handler());
+                    handler(
                         e.into(),
                         ErrorContext::Observer {
                             name: (*system).name(),
@@ -424,9 +429,6 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             observe.descriptor.events.push(event_id);
             observe.descriptor.components.extend(components);
 
-            if observe.error_handler.is_none() {
-                observe.error_handler = Some(default_error_handler());
-            }
             let system: *mut dyn ObserverSystem<E, B> = observe.system.downcast_mut::<S>().unwrap();
             // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
             unsafe {
@@ -439,7 +441,11 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{event::Event, observer::Trigger};
+    use crate::{
+        error::{ignore, DefaultErrorHandler},
+        event::Event,
+        observer::Trigger,
+    };
 
     #[derive(Event)]
     struct TriggerEvent;
@@ -467,11 +473,20 @@ mod tests {
             Err("I failed!".into())
         }
 
+        // Using observer error handler
         let mut world = World::default();
         world.init_resource::<Ran>();
-        let observer = Observer::new(system).with_error_handler(crate::error::ignore);
-        world.spawn(observer);
-        Schedule::default().run(&mut world);
+        world.spawn(Observer::new(system).with_error_handler(ignore));
+        world.trigger(TriggerEvent);
+        assert!(world.resource::<Ran>().0);
+
+        // Using world error handler
+        let mut world = World::default();
+        world.init_resource::<Ran>();
+        world.spawn(Observer::new(system));
+        // Test that the correct handler is used when the observer was added
+        // before the default handler
+        world.insert_resource(DefaultErrorHandler(ignore));
         world.trigger(TriggerEvent);
         assert!(world.resource::<Ran>().0);
     }
