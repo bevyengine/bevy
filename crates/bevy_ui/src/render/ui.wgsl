@@ -5,10 +5,11 @@
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
 const BOTTOM_VERTEX = 4u;
-const BORDER_LEFT: u32 = 8u;
-const BORDER_TOP: u32 = 16u;
-const BORDER_RIGHT: u32 = 32u;
-const BORDER_BOTTOM: u32 = 64u;
+// must align with BORDER_* shader_flags from bevy_ui/render/mod.rs
+const BORDER_LEFT: u32 = 256u;
+const BORDER_TOP: u32 = 512u;
+const BORDER_RIGHT: u32 = 1024u;
+const BORDER_BOTTOM: u32 = 2048u;
 const BORDER_ANY: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
 
 fn enabled(flags: u32, mask: u32) -> bool {
@@ -153,6 +154,7 @@ fn draw_uinode_border(
     size: vec2<f32>,
     radius: vec4<f32>,
     border: vec4<f32>,
+    flags: u32,
 ) -> vec4<f32> {
     // Signed distances. The magnitude is the distance of the point from the edge of the shape.
     // * Negative values indicate that the point is inside the shape.
@@ -173,7 +175,7 @@ fn draw_uinode_border(
     let border_distance = max(external_distance, -internal_distance);
 
     // check if this node should apply color for the nearest border
-    let nearest_border = select(0.0, 1.0, nearest_border_active(in.point, in.size, in.border, in.flags));
+    let nearest_border = select(0.0, 1.0, nearest_border_active(point, size, border, flags));
 
 #ifdef ANTI_ALIAS
     // At external edges with no border, `border_distance` is equal to zero. 
@@ -217,7 +219,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
     if enabled(in.flags, BORDER_ANY) {
-        return draw_uinode_border(color, in.point, in.size, in.radius, in.border);
+        return draw_uinode_border(color, in.point, in.size, in.radius, in.border, in.flags);
     } else {
         return draw_uinode_background(color, in.point, in.size, in.radius, in.border);
     }
