@@ -21,6 +21,6 @@ pub mod taa;
 pub struct AntiAliasingPlugin;
 impl Plugin for AntiAliasingPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_plugins((CasPlugin, FxaaPlugin, SmaaPlugin, TemporalAntiAliasPlugin));
+        app.add_plugins((FxaaPlugin, SmaaPlugin, TemporalAntiAliasPlugin, CasPlugin));
     }
 }
