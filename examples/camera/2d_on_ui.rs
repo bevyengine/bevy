@@ -1,4 +1,4 @@
-//! This example shows how to draw 2d objects on top of bevy ui, using two cameras and their order.
+//! This example shows how to render 2D objects on top of Bevy UI, by using a second camera with a higher `order` than the UI camera.
 
 use bevy::{color::palettes::tailwind, prelude::*, render::view::RenderLayers};
 
