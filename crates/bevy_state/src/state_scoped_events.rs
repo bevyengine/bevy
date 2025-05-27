@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 
-use crate::state::{OnExit, StateTransitionEvent, States};
+use crate::state::{OnEnter, OnExit, StateTransitionEvent, States};
 
 fn clear_event_queue<E: Event>(w: &mut World) {
     if let Some(mut queue) = w.get_resource_mut::<Events<E>>() {
@@ -80,7 +80,7 @@ fn clear_events_on_exit_state<S: States>(
 
     c.queue(move |w: &mut World| {
         w.resource_scope::<StateScopedEvents<S>, ()>(|w, events| {
-            events.cleanup(w, exited, TransitionType::OnEnter);
+            events.cleanup(w, exited, TransitionType::OnExit);
         });
     });
 }
@@ -118,10 +118,10 @@ fn clear_event_on_state_transition<E: Event, S: States>(
     app.world_mut()
         .resource_mut::<StateScopedEvents<S>>()
         .add_event::<E>(state.clone(), transition_type);
-    app.add_systems(OnExit(state), match transition_type {
-        TransitionType::OnExit => clear_events_on_exit_state::<S>,
-        TransitionType::OnEnter => clear_events_on_enter_state::<S>,
-    });
+    match transition_type {
+        TransitionType::OnExit => app.add_systems(OnExit(state), clear_events_on_exit_state::<S>),
+        TransitionType::OnEnter => app.add_systems(OnEnter(state), clear_events_on_enter_state::<S>),
+    };
 }
 
 /// Extension trait for [`App`] adding methods for registering state scoped events.
@@ -159,5 +159,58 @@ impl StateScopedEventsAppExt for SubApp {
     fn clear_event_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self {
         clear_event_on_state_transition(self, PhantomData::<E>, state, TransitionType::OnEnter);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::StatesPlugin;
+    use bevy_state::prelude::*;
+
+    #[derive(States, Default, Clone, Hash, Eq, PartialEq, Debug)]
+    enum TestState {
+        #[default]
+        A,
+        B,
+    }
+    
+    #[derive(Event, Debug)]
+    struct TestEvent;
+    
+    #[test]
+    fn clear_event_on_exit_state() {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.init_state::<TestState>();
+        
+        app.add_event::<TestEvent>();
+        app.clear_event_on_exit_state::<TestEvent>(TestState::A);
+        
+        app.world_mut().send_event(TestEvent).unwrap();
+        assert!(!app.world().resource::<Events<TestEvent>>().is_empty());
+
+        app.world_mut().resource_mut::<NextState<TestState>>().set(TestState::B);
+        app.update();
+        
+        assert!(app.world().resource::<Events<TestEvent>>().is_empty());
+    }
+
+    #[test]
+    fn clear_event_on_enter_state() {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.init_state::<TestState>();
+        
+        app.add_event::<TestEvent>();
+        app.clear_event_on_enter_state::<TestEvent>(TestState::B);
+
+        app.world_mut().send_event(TestEvent).unwrap();
+        assert!(!app.world().resource::<Events<TestEvent>>().is_empty());
+
+        app.world_mut().resource_mut::<NextState<TestState>>().set(TestState::B);
+        app.update();
+
+        assert!(app.world().resource::<Events<TestEvent>>().is_empty());
     }
 }
