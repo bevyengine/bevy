@@ -27,19 +27,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         RenderLayers::layer(1),
     ));
 
-    commands
-        .spawn((
-            // We could also use a `UiTargetCamera` component here instead of the general `IsDefaultUiCamera`.
-            Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                display: Display::Flex,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(tailwind::ROSE_400.into()),
-          children![(
+    commands.spawn((
+        // We could also use a `UiTargetCamera` component here instead of the general `IsDefaultUiCamera`.
+        Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            display: Display::Flex,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(tailwind::ROSE_400.into()),
+        children![(
             Node {
                 height: Val::Percent(30.),
                 width: Val::Percent(20.),
