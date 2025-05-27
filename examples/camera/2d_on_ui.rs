@@ -3,8 +3,8 @@
 use bevy::{color::palettes::tailwind, prelude::*, render::view::RenderLayers};
 
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
+    App::new()
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_sprite)
         .run();
