@@ -35,7 +35,6 @@ use crate::{
     render_resource::{Buffer, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntity,
-    view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
     Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 

@@ -81,7 +81,7 @@ impl Views {
 
 #[derive(Event)]
 #[event(auto_propagate, traversal = &'static CompositedBy)]
-pub enum CompositorEvent {
+pub(super) enum CompositorEvent {
     CompositorChanged,
     ViewChanged(Entity),
 }

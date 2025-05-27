@@ -47,9 +47,9 @@ use crate::batching::gpu_preprocessing::{
     GpuPreprocessingMode, GpuPreprocessingSupport, PhaseBatchedInstanceBuffers,
     PhaseIndirectParametersBuffers,
 };
+use crate::camera::RetainedViewEntity;
 use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
-use crate::view::RetainedViewEntity;
 use crate::RenderDebugFlags;
 use crate::{
     batching::{

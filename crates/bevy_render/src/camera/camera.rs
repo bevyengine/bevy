@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::ManualTextureViews,
+    composition::{manual_texture_view::ManualTextureViews, ViewTarget},
     primitives::{Frustum, SubRect},
     render_phase::Rangefinder3d,
     sync_world::RenderEntity,
@@ -337,7 +337,7 @@ impl Camera {
         &self,
         view_target: &ViewTarget,
         camera_transform: &GlobalTransform,
-        projection: &Projection,
+        projection: &ComputedProjection,
         viewport_position: Vec2,
     ) -> Result<Vec2, ViewportConversionError> {
         let target_rect = view_target.logical_viewport_rect();

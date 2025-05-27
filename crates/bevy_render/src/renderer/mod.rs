@@ -10,12 +10,14 @@ pub use render_device::*;
 use tracing::{error, info, info_span, warn};
 
 use crate::{
+    camera::MainCameraTextures,
+    composition::{screenshot, ExtractedWindows},
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
+    gpu_readback,
     render_graph::RenderGraph,
     render_phase::TrackedRenderPass,
     render_resource::RenderPassDescriptor,
     settings::{WgpuSettings, WgpuSettingsPriority},
-    view::{ExtractedWindows, MainCameraTextures},
 };
 use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
@@ -52,8 +54,8 @@ pub fn render_system(
         &render_adapter.0,
         world,
         |encoder| {
-            crate::view::screenshot::submit_screenshot_commands(world, encoder);
-            crate::gpu_readback::submit_readback_commands(world, encoder);
+            screenshot::submit_screenshot_commands(world, encoder);
+            gpu_readback::submit_readback_commands(world, encoder);
         },
     );
 
@@ -108,7 +110,7 @@ pub fn render_system(
         );
     }
 
-    crate::view::screenshot::collect_screenshots(world);
+    screenshot::collect_screenshots(world);
 
     // update the time and send it to the app world
     let time_sender = world.resource::<TimeSender>();

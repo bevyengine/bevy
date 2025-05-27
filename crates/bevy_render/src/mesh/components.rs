@@ -1,6 +1,6 @@
 use crate::{
+    camera::{self, Visibility, VisibilityClass},
     mesh::Mesh,
-    view::{self, Visibility, VisibilityClass},
 };
 use bevy_asset::{AsAssetId, AssetEvent, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};

@@ -4,11 +4,11 @@ use morph::{MeshMorphWeights, MorphWeights};
 pub mod allocator;
 mod components;
 use crate::{
+    camera::VisibilitySystems,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_resource::TextureView,
     texture::GpuImage,
-    view::VisibilitySystems,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;

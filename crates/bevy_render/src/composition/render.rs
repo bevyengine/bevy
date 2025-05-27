@@ -10,16 +10,19 @@ use bevy_ecs::{
 use bevy_platform::collections::HashSet;
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
 
-use super::{CompositedBy, Compositor};
+use super::{CompositedBy, Compositor, RenderGraphDriver, Views};
+
+pub struct RunCompositorsNode {}
 
 // TODO:
-// - setup compositor graph structure, and defer to view render graph
-// - extraction and such
-// - module structure. This all probably shouldn't still live in `Camera`.
-// - move `ComputedCameraValues` around. merge with Frustum?
-// - investigate utility camera query data
-// - fix event dispatch
-// - fix relationship hooks
+// - [ ] setup compositor graph structure, and defer to view render graph
+// - [ ] extraction and such
+// - [x] module structure. This all probably shouldn't still live in `Camera`.
+// - [x] move `ComputedCameraValues` around. merge with Frustum?
+// - [ ] investigate utility camera query data
+// - [ ] fix event dispatch
+// - [ ] fix relationship hooks
+// - [ ] fix everything else oh god
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, RenderSubGraph)]
 pub struct CompositorGraph;
@@ -28,8 +31,8 @@ pub struct CompositorGraph;
 pub struct RenderViews;
 
 pub struct RenderViewsNode {
-    compositors: QueryState<(Read<Compositor>, Read<CompositedBy>)>,
-    cameras: QueryState<Read<ExtractedCamera>>,
+    compositors: QueryState<(Read<Compositor>, Read<Views>)>,
+    views: QueryState<(Read<ExtractedView>, Read<RenderGraphDriver>)>,
 }
 
 impl RenderViewsNode {

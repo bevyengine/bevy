@@ -1,7 +1,7 @@
 use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::{
     component::{Component, HookContext},
-    entity::Entity,
+    entity::{ContainsEntity, Entity},
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -13,12 +13,12 @@ use derive_more::derive::From;
 use tracing::warn;
 use wgpu::TextureFormat;
 
-use crate::{
-    render_asset::RenderAssets, render_resource::TextureView, texture::GpuImage,
-    view::ExtractedWindows,
-};
+use crate::{render_asset::RenderAssets, render_resource::TextureView, texture::GpuImage};
 
-use super::{Compositor, CompositorEvent, ManualTextureViewHandle, ManualTextureViews};
+use super::{
+    manual_texture_view::ManualTextureViewHandle, window::ExtractedWindows, Compositor,
+    CompositorEvent, ManualTextureViews,
+};
 
 /// Information about the current [`RenderTarget`].
 #[derive(Default, Debug, Clone)]
