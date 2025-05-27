@@ -7,7 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{
         Component, ComponentId, ComponentTicks, Components, ComponentsRegistrator, Mutable,
-        StorageType,
+        StorageType, Tick,
     },
     entity::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent, EntityLocation,
@@ -295,6 +295,11 @@ impl<'w> EntityRef<'w> {
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(&self) -> MaybeLocation {
         self.cell.spawned_by()
+    }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.cell.spawned_at()
     }
 }
 
@@ -982,6 +987,11 @@ impl<'w> EntityMut<'w> {
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(&self) -> MaybeLocation {
         self.cell.spawned_by()
+    }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.cell.spawned_at()
     }
 }
 
@@ -2415,6 +2425,7 @@ impl<'w> EntityWorldMut<'w> {
             .expect("entity should exist at this point.");
         let table_row;
         let moved_entity;
+        let change_tick = world.change_tick();
 
         {
             let archetype = &mut world.archetypes[self.location.archetype_id];
@@ -2424,7 +2435,7 @@ impl<'w> EntityWorldMut<'w> {
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
-                    world.entities.set(
+                    world.entities.set_spawn_despawn(
                         swapped_entity.index(),
                         EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -2432,6 +2443,8 @@ impl<'w> EntityWorldMut<'w> {
                             table_id: swapped_location.table_id,
                             table_row: swapped_location.table_row,
                         },
+                        caller,
+                        change_tick,
                     );
                 }
             }
@@ -2453,7 +2466,7 @@ impl<'w> EntityWorldMut<'w> {
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
-                world.entities.set(
+                world.entities.set_spawn_despawn(
                     moved_entity.index(),
                     EntityLocation {
                         archetype_id: moved_location.archetype_id,
@@ -2461,19 +2474,14 @@ impl<'w> EntityWorldMut<'w> {
                         table_id: moved_location.table_id,
                         table_row,
                     },
+                    caller,
+                    change_tick,
                 );
             }
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
         world.flush();
-
-        // SAFETY: No structural changes
-        unsafe {
-            world
-                .entities_mut()
-                .set_spawned_or_despawned_by(self.entity.index(), caller);
-        }
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
@@ -2813,6 +2821,19 @@ impl<'w> EntityWorldMut<'w> {
             .entities()
             .entity_get_spawned_or_despawned_by(self.entity)
             .map(|location| location.unwrap())
+    }
+
+    /// Returns the [`Tick`] at which this entity has last been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.assert_not_despawned();
+
+        // SAFETY: entity being alive was asserted
+        unsafe {
+            self.world()
+                .entities()
+                .entity_get_spawned_or_despawned_unchecked(self.entity)
+                .1
+        }
     }
 
     /// Reborrows this entity in a temporary scope.
@@ -3336,6 +3357,11 @@ impl<'w> FilteredEntityRef<'w> {
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
     }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.entity.spawned_at()
+    }
 }
 
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
@@ -3709,6 +3735,11 @@ impl<'w> FilteredEntityMut<'w> {
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
     }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.entity.spawned_at()
+    }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
@@ -3905,6 +3936,11 @@ where
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
+    }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.entity.spawned_at()
     }
 
     /// Gets the component of the given [`ComponentId`] from the entity.
@@ -4149,6 +4185,11 @@ where
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
+    }
+
+    /// Returns the [`Tick`] at which this entity has been spawned.
+    pub fn spawned_at(&self) -> Tick {
+        self.entity.spawned_at()
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -4690,7 +4731,7 @@ mod tests {
     use core::panic::AssertUnwindSafe;
     use std::sync::OnceLock;
 
-    use crate::component::HookContext;
+    use crate::component::{HookContext, Tick};
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
@@ -5978,22 +6019,27 @@ mod tests {
         #[component(on_remove = get_tracked)]
         struct C;
 
-        static TRACKED: OnceLock<MaybeLocation> = OnceLock::new();
+        static TRACKED: OnceLock<(MaybeLocation, Tick)> = OnceLock::new();
         fn get_tracked(world: DeferredWorld, HookContext { entity, .. }: HookContext) {
             TRACKED.get_or_init(|| {
-                world
+                let by = world
                     .entities
                     .entity_get_spawned_or_despawned_by(entity)
-                    .map(|l| l.unwrap())
+                    .map(|l| l.unwrap());
+                let at = world
+                    .entities
+                    .entity_get_spawned_or_despawned_at(entity)
+                    .unwrap();
+                (by, at)
             });
         }
 
         #[track_caller]
-        fn caller_spawn(world: &mut World) -> (Entity, MaybeLocation) {
+        fn caller_spawn(world: &mut World) -> (Entity, MaybeLocation, Tick) {
             let caller = MaybeLocation::caller();
-            (world.spawn(C).id(), caller)
+            (world.spawn(C).id(), caller, world.change_tick())
         }
-        let (entity, spawner) = caller_spawn(&mut world);
+        let (entity, spawner, spawn_tick) = caller_spawn(&mut world);
 
         assert_eq!(
             spawner,
@@ -6004,19 +6050,26 @@ mod tests {
         );
 
         #[track_caller]
-        fn caller_despawn(world: &mut World, entity: Entity) -> MaybeLocation {
+        fn caller_despawn(world: &mut World, entity: Entity) -> (MaybeLocation, Tick) {
             world.despawn(entity);
-            MaybeLocation::caller()
+            (MaybeLocation::caller(), world.change_tick())
         }
-        let despawner = caller_despawn(&mut world, entity);
+        let (despawner, despawn_tick) = caller_despawn(&mut world, entity);
 
-        assert_eq!(spawner, *TRACKED.get().unwrap());
+        assert_eq!((spawner, spawn_tick), *TRACKED.get().unwrap());
         assert_eq!(
             despawner,
             world
                 .entities()
                 .entity_get_spawned_or_despawned_by(entity)
                 .map(|l| l.unwrap())
+        );
+        assert_eq!(
+            despawn_tick,
+            world
+                .entities()
+                .entity_get_spawned_or_despawned_at(entity)
+                .unwrap()
         );
     }
 

@@ -425,8 +425,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
     /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
-    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
-    /// result for a match.
+    /// on non-archetypal filters such as [`Added`], [`Changed`] or [`Spawned`] which must individually check
+    /// each query result for a match.
     ///
     /// # Panics
     ///
@@ -434,6 +434,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// [`Added`]: crate::query::Added
     /// [`Changed`]: crate::query::Changed
+    /// [`Spawned`]: crate::query::Spawned
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
         self.validate_world(world.id());
@@ -1390,7 +1391,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
-        batch_size: usize,
+        batch_size: u32,
         func: FN,
         last_run: Tick,
         this_run: Tick,
@@ -1433,7 +1434,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
             // submit single storage larger than batch_size
             let submit_single = |count, storage_id: StorageId| {
-                for offset in (0..count).step_by(batch_size) {
+                for offset in (0..count).step_by(batch_size as usize) {
                     let mut func = func.clone();
                     let init_accum = init_accum.clone();
                     let len = batch_size.min(count - offset);
@@ -1449,7 +1450,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
             };
 
-            let storage_entity_count = |storage_id: StorageId| -> usize {
+            let storage_entity_count = |storage_id: StorageId| -> u32 {
                 if self.is_dense {
                     tables[storage_id.table_id].entity_count()
                 } else {
@@ -1505,7 +1506,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
         entity_list: &UniqueEntityEquivalentSlice<E>,
-        batch_size: usize,
+        batch_size: u32,
         mut func: FN,
         last_run: Tick,
         this_run: Tick,
@@ -1519,7 +1520,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            let chunks = entity_list.chunks_exact(batch_size);
+            let chunks = entity_list.chunks_exact(batch_size as usize);
             let remainder = chunks.remainder();
 
             for batch in chunks {
@@ -1568,7 +1569,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
         entity_list: &[E],
-        batch_size: usize,
+        batch_size: u32,
         mut func: FN,
         last_run: Tick,
         this_run: Tick,
@@ -1582,7 +1583,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
         // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            let chunks = entity_list.chunks_exact(batch_size);
+            let chunks = entity_list.chunks_exact(batch_size as usize);
             let remainder = chunks.remainder();
 
             for batch in chunks {

@@ -39,7 +39,6 @@ pub mod entity_disabling;
 pub mod error;
 pub mod event;
 pub mod hierarchy;
-pub mod identifier;
 pub mod intern;
 pub mod label;
 pub mod name;
@@ -82,8 +81,8 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs, IntoSystemSet,
-            Schedule, Schedules, SystemSet,
+            common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
+            Schedules, SystemCondition, SystemSet,
         },
         spawn::{Spawn, SpawnRelated},
         system::{

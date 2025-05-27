@@ -115,7 +115,7 @@ use core::{
 /// ```
 ///
 /// Note that the filter is `With<ComponentB>`, not `With<&ComponentB>`. Unlike query data, `With`
-/// does require components to be behind a reference.
+/// does not require components to be behind a reference.
 ///
 /// ## `QueryData` or `QueryFilter` tuples
 ///
@@ -209,7 +209,7 @@ use core::{
 /// # #[derive(Component)]
 /// # struct ComponentB;
 /// #
-/// // A queried items must contain `ComponentA`. If they also contain `ComponentB`, its value will
+/// // Queried items must contain `ComponentA`. If they also contain `ComponentB`, its value will
 /// // be fetched as well.
 /// fn optional_component_query(query: Query<(&ComponentA, Option<&ComponentB>)>) {
 ///     // ...
@@ -440,7 +440,7 @@ use core::{
 /// |[`get_many`]|O(k)|
 /// |[`get_many_mut`]|O(k<sup>2</sup>)|
 /// |Archetype-based filtering ([`With`], [`Without`], [`Or`])|O(a)|
-/// |Change detection filtering ([`Added`], [`Changed`])|O(a + n)|
+/// |Change detection filtering ([`Added`], [`Changed`], [`Spawned`])|O(a + n)|
 ///
 /// [component storage types]: crate::component::StorageType
 /// [`Table`]: crate::storage::Table
@@ -449,6 +449,7 @@ use core::{
 /// [`Or`]: crate::query::Or
 /// [`Added`]: crate::query::Added
 /// [`Changed`]: crate::query::Changed
+/// [`Spawned`]: crate::query::Spawned
 ///
 /// # `Iterator::for_each`
 ///
@@ -1956,8 +1957,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// This is equivalent to `self.iter().next().is_none()`, and thus the worst case runtime will be `O(n)`
     /// where `n` is the number of *potential* matches. This can be notably expensive for queries that rely
-    /// on non-archetypal filters such as [`Added`] or [`Changed`] which must individually check each query
-    /// result for a match.
+    /// on non-archetypal filters such as [`Added`], [`Changed`] or [`Spawned`] which must individually check
+    /// each query result for a match.
     ///
     /// # Example
     ///
@@ -1980,6 +1981,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// [`Added`]: crate::query::Added
     /// [`Changed`]: crate::query::Changed
+    /// [`Spawned`]: crate::query::Spawned
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.as_nop().iter().next().is_none()
@@ -2018,9 +2020,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
     /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
-    /// terms see [`Self::transmute_lens_filtered`]
+    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will not be
+    /// respected. To maintain or change filter terms see [`Self::transmute_lens_filtered`]
     ///
     /// ## Panics
     ///
@@ -2075,7 +2077,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * Tuples of query data and `#[derive(QueryData)]` structs have the union of the access of their subqueries
     /// * [`EntityMut`](crate::world::EntityMut) has read and write access to all components, but no required access
     /// * [`EntityRef`](crate::world::EntityRef) has read access to all components, but no required access
-    /// * [`Entity`], [`EntityLocation`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
+    /// * [`Entity`], [`EntityLocation`], [`SpawnDetails`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
     ///   so can be added to any query
     /// * [`FilteredEntityRef`](crate::world::FilteredEntityRef) and [`FilteredEntityMut`](crate::world::FilteredEntityMut)
     ///   have access determined by the [`QueryBuilder`](crate::query::QueryBuilder) used to construct them.
@@ -2165,6 +2167,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ```
     ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
+    /// [`SpawnDetails`]: crate::query::SpawnDetails
     /// [`&Archetype`]: crate::archetype::Archetype
     /// [`Has<T>`]: crate::query::Has
     #[track_caller]
@@ -2177,9 +2180,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
     /// This can be useful for passing the query to another function. Note that since
-    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
-    /// terms see [`Self::transmute_lens_filtered`]
+    /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will not be
+    /// respected. To maintain or change filter terms see [`Self::transmute_lens_filtered`]
     ///
     /// ## Panics
     ///
@@ -2250,8 +2253,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
-    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
+    /// are in the type signature.
     #[track_caller]
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
@@ -2264,8 +2268,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
-    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
-    /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
+    /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added),
+    /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
     ///
     /// # See also
     ///
@@ -2301,7 +2305,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
+    /// are dropped, non-archetypal filters like `Added`, `Changed` and `Spawned` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Example
@@ -2363,7 +2367,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
+    /// are dropped, non-archetypal filters like `Added`, `Changed` and `Spawned` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Panics
@@ -2390,8 +2394,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
-    /// terms like `Added` and `Changed` will only be respected if they are in
-    /// the type signature.
+    /// terms like `Added`, `Changed` and `Spawned` will only be respected if they
+    /// are in the type signature.
     pub fn join_filtered<
         'a,
         OtherD: QueryData,
@@ -2411,8 +2415,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
-    /// terms like `Added` and `Changed` will only be respected if they are in
-    /// the type signature.
+    /// terms like `Added`, `Changed` and `Spawned` will only be respected if they
+    /// are in the type signature.
     ///
     /// # See also
     ///
@@ -2593,8 +2597,9 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// This will cause the system to be skipped, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
-/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)
-/// which must individually check each query result for a match.
+/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added),
+/// [`Changed`](crate::query::Changed) of [`Spawned`](crate::query::Spawned) which must individually check each query
+/// result for a match.
 ///
 /// See [`Query`] for more details.
 ///

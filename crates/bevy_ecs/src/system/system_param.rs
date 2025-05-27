@@ -1582,7 +1582,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 /// Component change ticks that are more recent than `last_run` will be detected by the system.
 /// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
 /// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](ResMut).
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SystemChangeTick {
     last_run: Tick,
     this_run: Tick,
@@ -2349,10 +2349,7 @@ impl DynSystemParamState {
 }
 
 /// Allows a [`SystemParam::State`] to be used as a trait object for implementing [`DynSystemParam`].
-trait DynParamState: Sync + Send {
-    /// Casts the underlying `ParamState<T>` to an `Any` so it can be downcast.
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-
+trait DynParamState: Sync + Send + Any {
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     ///
@@ -2377,10 +2374,6 @@ trait DynParamState: Sync + Send {
 struct ParamState<T: SystemParam>(T::State);
 
 impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
         T::apply(&mut self.0, system_meta, world);
     }
@@ -2425,18 +2418,11 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         // SAFETY:
-        // - `state.0` is a boxed `ParamState<T>`, and its implementation of `as_any_mut` returns `self`.
+        // - `state.0` is a boxed `ParamState<T>`.
         // - The state was obtained from `SystemParamBuilder::build()`, which registers all [`World`] accesses used
         //   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
         // - The caller ensures that the provided world is the same and has the required access.
-        unsafe {
-            DynSystemParam::new(
-                state.0.as_any_mut(),
-                world,
-                system_meta.clone(),
-                change_tick,
-            )
-        }
+        unsafe { DynSystemParam::new(state.0.as_mut(), world, system_meta.clone(), change_tick) }
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {

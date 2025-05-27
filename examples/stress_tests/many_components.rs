@@ -22,6 +22,7 @@ use bevy::{
         world::FilteredEntityMut,
     },
     log::LogPlugin,
+    platform::collections::HashSet,
     prelude::{App, In, IntoSystem, Query, Schedule, SystemParamBuilder, Update},
     ptr::{OwningPtr, PtrMut},
     MinimalPlugins,
@@ -163,9 +164,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
         .add_plugins(DiagnosticsPlugin)
         .add_plugins(LogPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(LogDiagnosticsPlugin::filtered(vec![DiagnosticPath::new(
-            "fps",
-        )]));
+        .add_plugins(LogDiagnosticsPlugin::filtered(HashSet::from_iter([
+            DiagnosticPath::new("fps"),
+        ])));
     app.run();
 }
 
