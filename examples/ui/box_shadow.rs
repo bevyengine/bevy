@@ -1,7 +1,6 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
-use bevy::time::Time;
-use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::css::*, prelude::*, time::Time, winit::WinitSettings};
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
@@ -157,7 +156,7 @@ fn setup(
 
             (
                 node,
-                BorderColor(WHITE.into()),
+                BorderColor::all(WHITE.into()),
                 radius,
                 BackgroundColor(Color::srgb(0.21, 0.21, 0.21)),
                 BoxShadow(vec![ShadowStyle {
@@ -184,7 +183,7 @@ fn setup(
                 ..default()
             },
             BackgroundColor(Color::srgb(0.12, 0.12, 0.12).with_alpha(0.85)),
-            BorderColor(Color::WHITE.with_alpha(0.15)),
+            BorderColor::all(Color::WHITE.with_alpha(0.15)),
             BorderRadius::all(Val::Px(12.0)),
             ZIndex(10),
         ))
@@ -588,7 +587,7 @@ fn trigger_button_action(
         SettingsButton::SamplesInc => shadow.samples += 1,
         SettingsButton::SamplesDec => {
             if shadow.samples > 1 {
-                shadow.samples -= 1
+                shadow.samples -= 1;
             }
         }
     }
