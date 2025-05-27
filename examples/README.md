@@ -579,6 +579,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Context Menu](../examples/usages/context_menu.rs) | Example of a context menu
 [Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
 
 ## Window

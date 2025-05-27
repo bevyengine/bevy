@@ -23,8 +23,8 @@ use alloc::{
     vec::Vec,
 };
 pub use bevy_ecs_macros::SystemParam;
+use bevy_platform::cell::SyncCell;
 use bevy_ptr::UnsafeCellDeref;
-use bevy_utils::synccell::SyncCell;
 use core::{
     any::Any,
     fmt::{Debug, Display},

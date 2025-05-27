@@ -4,18 +4,12 @@
 //! Bevy.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
 use crate::{
-    extract_component::ExtractComponent,
-    render_resource::{Shader, TextureView},
+    extract_component::ExtractComponent, load_shader_library, render_resource::TextureView,
 };
-
-/// The handle to the `mesh_preprocess_types.wgsl` compute shader.
-pub const MESH_PREPROCESS_TYPES_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("7bf7bdb1-ec53-4417-987f-9ec36533287c");
 
 /// Enables GPU occlusion culling.
 ///
@@ -25,12 +19,7 @@ pub struct OcclusionCullingPlugin;
 
 impl Plugin for OcclusionCullingPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            MESH_PREPROCESS_TYPES_SHADER_HANDLE,
-            "mesh_preprocess_types.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "mesh_preprocess_types.wgsl");
     }
 }
 

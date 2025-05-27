@@ -59,7 +59,7 @@ fn transfer_log_events(
 }
 
 /// This is the [`Layer`] that we will use to capture log events and then send them to Bevy's
-/// ECS via it's [`mpsc::Sender`].
+/// ECS via its [`mpsc::Sender`].
 struct CaptureLayer {
     sender: mpsc::Sender<LogEvent>,
 }
