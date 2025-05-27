@@ -39,7 +39,8 @@ use bevy::{
 // it _greatly enhances_ the look of the resulting blur effects.
 // Sadly, it's not available under WebGL.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-use bevy::core_pipeline::taa::TemporalAntiAliasing;
+use bevy::anti_aliasing::taa::TemporalAntiAliasing;
+
 use rand::random;
 
 fn main() {
