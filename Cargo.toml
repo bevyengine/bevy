@@ -3929,7 +3929,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.2d_on_ui]
 name = "2D on Bevy UI"
-description = "Shows how to draw 2d on top on bevy ui"
+description = "Shows how to render 2D objects on top of Bevy UI"
 category = "Camera"
 wasm = true
 
