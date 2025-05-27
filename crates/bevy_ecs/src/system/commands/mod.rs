@@ -132,21 +132,6 @@ const _: () = {
             }
         }
 
-        unsafe fn new_archetype(
-            state: &mut Self::State,
-            archetype: &bevy_ecs::archetype::Archetype,
-            system_meta: &mut bevy_ecs::system::SystemMeta,
-        ) {
-            // SAFETY: Caller guarantees the archetype is from the world used in `init_state`
-            unsafe {
-                <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::new_archetype(
-                    &mut state.state,
-                    archetype,
-                    system_meta,
-                );
-            };
-        }
-
         fn apply(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
@@ -173,12 +158,12 @@ const _: () = {
 
         #[inline]
         unsafe fn validate_param(
-            state: &Self::State,
+            state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell,
         ) -> Result<(), SystemParamValidationError> {
             <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
-                &state.state,
+                &mut state.state,
                 system_meta,
                 world,
             )
