@@ -189,7 +189,7 @@ impl SparseSetIndex for EntityRow {
 /// This tracks different versions or generations of an [`EntityRow`].
 /// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityRow`].
 ///
-/// This should be treated as a opaque identifier, and it's internal representation may be subject to change.
+/// This should be treated as a opaque identifier, and its internal representation may be subject to change.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
@@ -940,6 +940,15 @@ impl Entities {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
+        meta.spawned_or_despawned = MaybeUninit::new(SpawnedOrDespawned { by, at });
+    }
+
+    /// # Safety
+    ///  - `index` must be a valid entity index.
+    #[inline]
+    pub(crate) unsafe fn mark_spawn_despawn(&mut self, index: u32, by: MaybeLocation, at: Tick) {
+        // SAFETY: Caller guarantees that `index` a valid entity index
+        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.spawned_or_despawned = MaybeUninit::new(SpawnedOrDespawned { by, at });
     }
 

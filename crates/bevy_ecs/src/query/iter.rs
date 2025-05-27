@@ -19,6 +19,7 @@ use core::{
     mem::MaybeUninit,
     ops::Range,
 };
+use nonmax::NonMaxU32;
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -136,7 +137,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         storage: StorageId,
-        range: Option<Range<usize>>,
+        range: Option<Range<u32>>,
     ) -> B
     where
         Func: FnMut(B, D::Item<'w>) -> B,
@@ -199,7 +200,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         table: &'w Table,
-        rows: Range<usize>,
+        rows: Range<u32>,
     ) -> B
     where
         Func: FnMut(B, D::Item<'w>) -> B,
@@ -207,10 +208,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         if table.is_empty() {
             return accum;
         }
-        debug_assert!(
-            rows.end <= u32::MAX as usize,
-            "TableRow is only valid up to u32::MAX"
-        );
 
         D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
         F::set_table(
@@ -222,8 +219,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let entities = table.entities();
         for row in rows {
             // SAFETY: Caller assures `row` in range of the current archetype.
-            let entity = unsafe { entities.get_unchecked(row) };
-            let row = TableRow::from_usize(row);
+            let entity = unsafe { entities.get_unchecked(row as usize) };
+            // SAFETY: This is from an exclusive range, so it can't be max.
+            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
 
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
@@ -254,7 +252,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         archetype: &'w Archetype,
-        indices: Range<usize>,
+        indices: Range<u32>,
     ) -> B
     where
         Func: FnMut(B, D::Item<'w>) -> B,
@@ -279,7 +277,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let entities = archetype.entities();
         for index in indices {
             // SAFETY: Caller assures `index` in range of the current archetype.
-            let archetype_entity = unsafe { entities.get_unchecked(index) };
+            let archetype_entity = unsafe { entities.get_unchecked(index as usize) };
 
             // SAFETY: set_archetype was called prior.
             // Caller assures `index` in range of the current archetype.
@@ -315,7 +313,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Safety
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
-    ///  - `archetype` must have the same length with it's table.
+    ///  - `archetype` must have the same length as its table.
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
@@ -323,7 +321,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         archetype: &'w Archetype,
-        rows: Range<usize>,
+        rows: Range<u32>,
     ) -> B
     where
         Func: FnMut(B, D::Item<'w>) -> B,
@@ -331,14 +329,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         if archetype.is_empty() {
             return accum;
         }
-        debug_assert!(
-            rows.end <= u32::MAX as usize,
-            "TableRow is only valid up to u32::MAX"
-        );
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
         debug_assert!(
             archetype.len() == table.entity_count(),
-            "archetype and it's table must have the same length. "
+            "archetype and its table must have the same length. "
         );
 
         D::set_archetype(
@@ -356,8 +350,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let entities = table.entities();
         for row in rows {
             // SAFETY: Caller assures `row` in range of the current archetype.
-            let entity = unsafe { *entities.get_unchecked(row) };
-            let row = TableRow::from_usize(row);
+            let entity = unsafe { *entities.get_unchecked(row as usize) };
+            // SAFETY: This is from an exclusive range, so it can't be max.
+            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
 
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
@@ -895,7 +890,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
         let max_size = self.cursor.max_remaining(self.tables, self.archetypes);
         let archetype_query = F::IS_ARCHETYPAL;
         let min_size = if archetype_query { max_size } else { 0 };
-        (min_size, Some(max_size))
+        (min_size as usize, Some(max_size as usize))
     }
 
     #[inline]
@@ -2275,7 +2270,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
             .enumerate()
             .try_fold(0, |acc, (i, cursor)| {
                 let n = cursor.max_remaining(self.tables, self.archetypes);
-                Some(acc + choose(n, K - i)?)
+                Some(acc + choose(n as usize, K - i)?)
             });
 
         let archetype_query = F::IS_ARCHETYPAL;
@@ -2317,9 +2312,9 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
     // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
-    current_len: usize,
+    current_len: u32,
     // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense
-    current_row: usize,
+    current_row: u32,
 }
 
 impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
@@ -2400,7 +2395,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             let index = self.current_row - 1;
             if self.is_dense {
                 // SAFETY: This must have been called previously in `next` as `current_row > 0`
-                let entity = unsafe { self.table_entities.get_unchecked(index) };
+                let entity = unsafe { self.table_entities.get_unchecked(index as usize) };
                 // SAFETY:
                 //  - `set_table` must have been called previously either in `next` or before it.
                 //  - `*entity` and `index` are in the current table.
@@ -2408,12 +2403,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     Some(D::fetch(
                         &mut self.fetch,
                         *entity,
-                        TableRow::from_usize(index),
+                        // SAFETY: This is from an exclusive range, so it can't be max.
+                        TableRow::new(NonMaxU32::new_unchecked(index)),
                     ))
                 }
             } else {
                 // SAFETY: This must have been called previously in `next` as `current_row > 0`
-                let archetype_entity = unsafe { self.archetype_entities.get_unchecked(index) };
+                let archetype_entity =
+                    unsafe { self.archetype_entities.get_unchecked(index as usize) };
                 // SAFETY:
                 //  - `set_archetype` must have been called previously either in `next` or before it.
                 //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
@@ -2434,9 +2431,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     ///
     /// Note that if `F::IS_ARCHETYPAL`, the return value
     /// will be **the exact count of remaining values**.
-    fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
+    fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> u32 {
         let ids = self.storage_id_iter.clone();
-        let remaining_matched: usize = if self.is_dense {
+        let remaining_matched: u32 = if self.is_dense {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
         } else {
@@ -2483,8 +2480,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
                 // SAFETY: set_table was called prior.
                 // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
-                let entity = unsafe { self.table_entities.get_unchecked(self.current_row) };
-                let row = TableRow::from_usize(self.current_row);
+                let entity =
+                    unsafe { self.table_entities.get_unchecked(self.current_row as usize) };
+                // SAFETY: The row is less than the u32 len, so it must not be max.
+                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.current_row)) };
                 if !F::filter_fetch(&mut self.filter, *entity, row) {
                     self.current_row += 1;
                     continue;
@@ -2532,8 +2531,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
                 // SAFETY: set_archetype was called prior.
                 // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let archetype_entity =
-                    unsafe { self.archetype_entities.get_unchecked(self.current_row) };
+                let archetype_entity = unsafe {
+                    self.archetype_entities
+                        .get_unchecked(self.current_row as usize)
+                };
                 if !F::filter_fetch(
                     &mut self.filter,
                     archetype_entity.id(),
