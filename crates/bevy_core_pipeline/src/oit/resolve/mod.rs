@@ -6,7 +6,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::Deref;
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
+    entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
 use bevy_image::BevyDefault as _;
@@ -20,7 +20,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use tracing::warn;
 
@@ -65,8 +65,8 @@ impl Plugin for OitResolvePlugin {
             .add_systems(
                 Render,
                 (
-                    queue_oit_resolve_pipeline.in_set(RenderSet::Queue),
-                    prepare_oit_resolve_bind_group.in_set(RenderSet::PrepareBindGroups),
+                    queue_oit_resolve_pipeline.in_set(RenderSystems::Queue),
+                    prepare_oit_resolve_bind_group.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             .init_resource::<OitResolvePipeline>();

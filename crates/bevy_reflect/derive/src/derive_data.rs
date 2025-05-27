@@ -937,7 +937,10 @@ impl<'a> ReflectEnum<'a> {
             }
         };
 
-        let body = if self.meta.is_remote_wrapper() {
+        let body = if variant_patterns.is_empty() {
+            // enum variant is empty, so &self will never exist
+            quote!(unreachable!())
+        } else if self.meta.is_remote_wrapper() {
             quote! {
                 let #this = <Self as #bevy_reflect_path::ReflectRemote>::as_remote(self);
                 #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(<Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#inner)))
@@ -1097,7 +1100,7 @@ pub(crate) enum ReflectTypePath<'a> {
         reason = "Not currently used but may be useful in the future due to its generality."
     )]
     Anonymous {
-        qualified_type: Type,
+        qualified_type: Box<Type>,
         long_type_path: StringExpr,
         short_type_path: StringExpr,
     },

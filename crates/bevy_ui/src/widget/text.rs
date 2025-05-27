@@ -20,7 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -29,7 +29,7 @@ use tracing::error;
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct TextNodeFlags {
     /// If set then a new measure function for the text node will be created.
     needs_measure_fn: bool,
@@ -94,7 +94,7 @@ impl Default for TextNodeFlags {
 /// });
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
@@ -328,7 +328,6 @@ fn queue_text(
         font_atlas_sets,
         texture_atlases,
         textures,
-        YAxisOrientation::TopToBottom,
         computed,
         font_system,
         swash_cache,

@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
 use bevy_math::Vec3;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
 use thiserror::Error;

@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    anti_aliasing::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     core_pipeline::{
         prepass::{DepthPrepass, MotionVectorPrepass},
         taa::TemporalAntiAliasing,

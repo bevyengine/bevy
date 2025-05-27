@@ -218,42 +218,6 @@ where
     /// See [`ReflectOwned`].
     fn reflect_owned(self: Box<Self>) -> ReflectOwned;
 
-    /// Clones `Self` into its dynamic representation.
-    ///
-    /// For value types or types marked with `#[reflect_value]`,
-    /// this will simply return a clone of `Self`.
-    ///
-    /// Otherwise the associated dynamic type will be returned.
-    ///
-    /// For example, a [`List`] type will invoke [`List::clone_dynamic`], returning [`DynamicList`].
-    /// A [`Struct`] type will invoke [`Struct::clone_dynamic`], returning [`DynamicStruct`].
-    /// And so on.
-    ///
-    /// If the dynamic behavior is not desired, a concrete clone can be obtained using [`PartialReflect::reflect_clone`].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_reflect::{PartialReflect};
-    /// let value = (1, true, 3.14);
-    /// let cloned = value.clone_value();
-    /// assert!(cloned.is_dynamic())
-    /// ```
-    ///
-    /// [`List`]: crate::List
-    /// [`List::clone_dynamic`]: crate::List::clone_dynamic
-    /// [`DynamicList`]: crate::DynamicList
-    /// [`Struct`]: crate::Struct
-    /// [`Struct::clone_dynamic`]: crate::Struct::clone_dynamic
-    /// [`DynamicStruct`]: crate::DynamicStruct
-    #[deprecated(
-        since = "0.16.0",
-        note = "to clone reflected values, prefer using `reflect_clone`. To convert reflected values to dynamic ones, use `to_dynamic`."
-    )]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        self.to_dynamic()
-    }
-
     /// Converts this reflected value into its dynamic representation based on its [kind].
     ///
     /// For example, a [`List`] type will internally invoke [`List::to_dynamic_list`], returning [`DynamicList`].
@@ -606,7 +570,7 @@ impl TypePath for dyn Reflect {
 macro_rules! impl_full_reflect {
     ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
         impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
-            fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
+            fn into_any(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn ::core::any::Any> {
                 self
             }
 
@@ -618,7 +582,7 @@ macro_rules! impl_full_reflect {
                 self
             }
 
-            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
+            fn into_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::Reflect> {
                 self
             }
 
@@ -632,8 +596,8 @@ macro_rules! impl_full_reflect {
 
             fn set(
                 &mut self,
-                value: Box<dyn $crate::Reflect>,
-            ) -> Result<(), Box<dyn $crate::Reflect>> {
+                value: bevy_platform::prelude::Box<dyn $crate::Reflect>,
+            ) -> Result<(), bevy_platform::prelude::Box<dyn $crate::Reflect>> {
                 *self = <dyn $crate::Reflect>::take(value)?;
                 Ok(())
             }

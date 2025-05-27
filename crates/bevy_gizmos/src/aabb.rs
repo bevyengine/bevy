@@ -14,7 +14,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::primitives::Aabb;
 use bevy_transform::{
     components::{GlobalTransform, Transform},
-    TransformSystem,
+    TransformSystems,
 };
 
 use crate::{
@@ -39,12 +39,13 @@ impl Plugin for AabbGizmoPlugin {
                     }),
                 )
                     .after(bevy_render::view::VisibilitySystems::CalculateBounds)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystems::Propagate),
             );
     }
 }
 /// The [`GizmoConfigGroup`] used for debug visualizations of [`Aabb`] components on entities
 #[derive(Clone, Default, Reflect, GizmoConfigGroup)]
+#[reflect(Clone, Default)]
 pub struct AabbGizmoConfigGroup {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///

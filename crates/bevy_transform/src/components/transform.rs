@@ -49,12 +49,14 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+/// [`GlobalTransform`] is updated from [`Transform`] in the [`TransformSystems::Propagate`]
+/// system set.
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform`] of an entity during this set or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
+///
+/// [`TransformSystems::Propagate`]: crate::TransformSystems::Propagate
 ///
 /// # Examples
 ///
@@ -71,7 +73,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, PartialEq, Debug)
+    reflect(Component, Default, PartialEq, Debug, Clone)
 )]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),

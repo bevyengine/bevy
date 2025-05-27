@@ -5,13 +5,15 @@ use bevy::{
     input::{gestures::RotationGesture, touch::TouchPhase},
     log::{Level, LogPlugin},
     prelude::*,
-    window::{AppLifecycle, WindowMode},
+    window::{AppLifecycle, ScreenEdge, WindowMode},
     winit::WinitSettings,
 };
 
-// the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
+// the `bevy_main` proc_macro generates the required boilerplate for Android
 #[bevy_main]
-fn main() {
+/// The entry point for the application. Is `pub` so that it can be used from
+/// `main.rs`.
+pub fn main() {
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
@@ -32,6 +34,8 @@ fn main() {
                     prefers_home_indicator_hidden: true,
                     // Only has an effect on iOS
                     prefers_status_bar_hidden: true,
+                    // Only has an effect on iOS
+                    preferred_screen_edges_deferring_system_gestures: ScreenEdge::Bottom,
                     ..default()
                 }),
                 ..default()

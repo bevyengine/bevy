@@ -24,7 +24,7 @@ use bevy_math::{
 };
 use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 
 use crate::{
     config::{GizmoConfigGroup, GizmoConfigStore},
@@ -126,13 +126,14 @@ impl Plugin for LightGizmoPlugin {
                         config.config::<LightGizmoConfigGroup>().1.draw_all
                     }),
                 )
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystems::Propagate),
             );
     }
 }
 
 /// Configures how a color is attributed to a light gizmo.
 #[derive(Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Clone, Default)]
 pub enum LightGizmoColor {
     /// User-specified color.
     Manual(Color),
@@ -147,6 +148,7 @@ pub enum LightGizmoColor {
 
 /// The [`GizmoConfigGroup`] used to configure the visualization of lights.
 #[derive(Clone, Reflect, GizmoConfigGroup)]
+#[reflect(Clone, Default)]
 pub struct LightGizmoConfigGroup {
     /// Draw a gizmo for all lights if true.
     ///
