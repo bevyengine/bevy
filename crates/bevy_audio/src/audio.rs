@@ -142,6 +142,12 @@ impl PlaybackSettings {
         self.spatial_scale = Some(spatial_scale);
         self
     }
+
+    /// Helper to use a custom playback start position
+    pub const fn with_start_position(mut self, start_position: std::time::Duration) -> Self {
+        self.start_position = Some(start_position);
+        self
+    }
 }
 
 /// Settings for the listener for spatial audio sources.
