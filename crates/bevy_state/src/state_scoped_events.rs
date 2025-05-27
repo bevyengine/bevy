@@ -128,13 +128,22 @@ fn clear_event_on_state_transition<E: Event, S: States>(
 pub trait StateScopedEventsAppExt {
     /// Clears an [`Event`] when leaving the specified `state`.
     ///
-    /// Note that event cleanup is ordered ambiguously relative to [`DespawnOnEnterState`](crate::prelude::DespawnOnEnterState)
-    /// and [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity
-    /// cleanup and the [`OnExit`] schedule for the target state. All of these (state scoped
-    /// entities and events cleanup, and `OnExit`) occur within schedule [`StateTransition`](crate::prelude::StateTransition).
+    /// Note that event cleanup is ambiguously ordered relative to  
+    /// [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity cleanup,
+    /// and the [`OnExit`] schedule for the target state. 
+    /// All of these (state scoped entities and events cleanup, and `OnExit`) 
+    /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
+    /// and system set `StateTransitionSystems::ExitSchedules`.
     fn clear_event_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self;
 
-    /// Clears an [`Event`] when leaving the specified `state`.
+    /// Clears an [`Event`] when entering the specified `state`.
+    ///
+    /// Note that event cleanup is ambiguously ordered relative to 
+    /// [`DespawnOnEnterState`](crate::prelude::DespawnOnEnterState) entity cleanup,
+    /// and the [`OnEnter`] schedule for the target state. 
+    /// All of these (state scoped entities and events cleanup, and `OnEnter`) 
+    /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
+    /// and system set `StateTransitionSystems::EnterSchedules`.
     fn clear_event_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self;
 }
 
