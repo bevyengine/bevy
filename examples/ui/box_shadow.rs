@@ -94,6 +94,19 @@ enum SettingType {
     Shape,
     Samples,
 }
+impl SettingType {
+    fn label(&self) -> &str {
+        match self {
+            SettingType::XOffset => "X Offset",
+            SettingType::YOffset => "Y Offset",
+            SettingType::Blur => "Blur",
+            SettingType::Spread => "Spread",
+            SettingType::Count => "Count",
+            SettingType::Shape => "Shape",
+            SettingType::Samples => "Samples",
+        }
+    }
+}
 
 #[derive(Resource, Default)]
 struct HeldButton {
@@ -191,42 +204,42 @@ fn setup(
         ))
         .insert(children![
             build_setting_row(
-                "Shape:",
+                SettingType::Shape,
                 SettingsButton::ShapePrev,
                 SettingsButton::ShapeNext,
                 shape.index as f32,
                 &asset_server,
             ),
             build_setting_row(
-                "X Offset:",
+                SettingType::XOffset,
                 SettingsButton::XOffsetDec,
                 SettingsButton::XOffsetInc,
                 shadow.x_offset,
                 &asset_server,
             ),
             build_setting_row(
-                "Y Offset:",
+                SettingType::YOffset,
                 SettingsButton::YOffsetDec,
                 SettingsButton::YOffsetInc,
                 shadow.y_offset,
                 &asset_server,
             ),
             build_setting_row(
-                "Blur:",
+                SettingType::Blur,
                 SettingsButton::BlurDec,
                 SettingsButton::BlurInc,
                 shadow.blur,
                 &asset_server,
             ),
             build_setting_row(
-                "Spread:",
+                SettingType::Spread,
                 SettingsButton::SpreadDec,
                 SettingsButton::SpreadInc,
                 shadow.spread,
                 &asset_server,
             ),
             build_setting_row(
-                "Count:",
+                SettingType::Count,
                 SettingsButton::CountDec,
                 SettingsButton::CountInc,
                 shadow.count as f32,
@@ -234,7 +247,7 @@ fn setup(
             ),
             // Add BoxShadowSamples as a setting row
             build_setting_row(
-                "Samples:",
+                SettingType::Samples,
                 SettingsButton::SamplesDec,
                 SettingsButton::SamplesInc,
                 shadow.samples as f32,
@@ -278,22 +291,18 @@ fn setup(
 
 // Helper to return an input to the children! macro for a setting row
 fn build_setting_row(
-    label: &str,
+    setting_type: SettingType,
     dec: SettingsButton,
     inc: SettingsButton,
     value: f32,
     asset_server: &Res<AssetServer>,
 ) -> impl Bundle {
-    let label_type = match label {
-        "X Offset:" => SettingType::XOffset,
-        "Y Offset:" => SettingType::YOffset,
-        "Blur:" => SettingType::Blur,
-        "Spread:" => SettingType::Spread,
-        "Count:" => SettingType::Count,
-        "Shape:" => SettingType::Shape,
-        "Samples:" => SettingType::Samples,
-        _ => panic!("Unknown label: {}", label),
+    let value_text = match setting_type {
+        SettingType::Shape => SHAPES[value as usize % SHAPES.len()].0.to_string(),
+        SettingType::Count => format!("{}", value as usize),
+        _ => format!("{:.1}", value),
     };
+
     (
         Node {
             flex_direction: FlexDirection::Row,
@@ -311,7 +320,7 @@ fn build_setting_row(
                 },
                 // Attach SettingType to the value label node, not the parent row
                 children![(
-                    Text::new(label),
+                    Text::new(setting_type.label()),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 16.0,
@@ -333,7 +342,11 @@ fn build_setting_row(
                 BorderRadius::all(Val::Px(6.)),
                 dec,
                 children![(
-                    Text::new(if label == "Shape:" { "<" } else { "-" }),
+                    Text::new(if setting_type == SettingType::Shape {
+                        "<"
+                    } else {
+                        "-"
+                    }),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 18.0,
@@ -352,31 +365,15 @@ fn build_setting_row(
                 },
                 BorderRadius::all(Val::Px(6.)),
                 children![{
-                    if label_type == SettingType::Shape {
-                        (
-                            Text::new(SHAPES[value as usize % SHAPES.len()].0),
-                            TextFont {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 16.0,
-                                ..default()
-                            },
-                            label_type,
-                        )
-                    } else {
-                        (
-                            Text::new(if label_type == SettingType::Count {
-                                format!("{}", value as usize)
-                            } else {
-                                format!("{:.1}", value)
-                            }),
-                            TextFont {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 16.0,
-                                ..default()
-                            },
-                            label_type,
-                        )
-                    }
+                    (
+                        Text::new(value_text),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        setting_type,
+                    )
                 }],
             ),
             (
@@ -392,7 +389,11 @@ fn build_setting_row(
                 BorderRadius::all(Val::Px(6.)),
                 inc,
                 children![(
-                    Text::new(if label == "Shape:" { ">" } else { "+" }),
+                    Text::new(if setting_type == SettingType::Shape {
+                        ">"
+                    } else {
+                        "+"
+                    }),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 18.0,
