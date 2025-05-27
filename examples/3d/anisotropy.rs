@@ -100,14 +100,14 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     spawn_directional_light(&mut commands);
 
     commands.spawn((
         SceneRoot(asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0")),
-        Transform::from_xyz(0.0, 0.07, -0.13),
+        Transform3d::from_xyz(0.0, 0.07, -0.13),
         Scene::BarnLamp,
     ));
 
@@ -178,7 +178,7 @@ fn create_material_variants(
 
 /// A system that animates the light every frame, if there is one.
 fn animate_light(
-    mut lights: Query<&mut Transform, Or<(With<DirectionalLight>, With<PointLight>)>>,
+    mut lights: Query<&mut Transform3d, Or<(With<DirectionalLight>, With<PointLight>)>>,
     time: Res<Time>,
 ) {
     let now = time.elapsed_secs();
@@ -190,7 +190,7 @@ fn animate_light(
 
 /// A system that rotates the camera if the environment map is enabled.
 fn rotate_camera(
-    mut camera: Query<&mut Transform, With<Camera>>,
+    mut camera: Query<&mut Transform3d, With<Camera>>,
     app_status: Res<AppStatus>,
     time: Res<Time>,
     mut stopwatch: Local<Stopwatch>,
@@ -201,7 +201,7 @@ fn rotate_camera(
 
     let now = stopwatch.elapsed_secs();
     for mut transform in camera.iter_mut() {
-        *transform = Transform::from_translation(
+        *transform = Transform3d::from_translation(
             Quat::from_rotation_y(now).mul_vec3(CAMERA_INITIAL_POSITION),
         )
         .looking_at(Vec3::ZERO, Vec3::Y);

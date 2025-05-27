@@ -65,7 +65,7 @@ fn spawn_tasks(mut commands: Commands) {
                     async_std::task::sleep(duration).await;
 
                     // Such hard work, all done!
-                    let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
+                    let transform = Transform3d::from_xyz(x as f32, y as f32, z as f32);
                     let mut command_queue = CommandQueue::default();
 
                     // we use a raw command queue to pass a FnOnce(&mut World) back to be
@@ -127,12 +127,15 @@ fn setup_env(mut commands: Commands) {
     };
 
     // lights
-    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 12.0, 15.0)));
+    commands.spawn((
+        PointLight::default(),
+        Transform3d::from_xyz(4.0, 12.0, 15.0),
+    ));
 
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(offset, offset, 15.0)
+        Transform3d::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
     ));
 }

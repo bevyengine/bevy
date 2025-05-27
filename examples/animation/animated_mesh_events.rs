@@ -65,7 +65,7 @@ fn observe_on_step(
             },
             Mesh3d(particle.mesh.clone()),
             MeshMaterial3d(particle.material.clone()),
-            Transform {
+            Transform3d {
                 translation,
                 scale: Vec3::splat(size),
                 ..Default::default()
@@ -97,7 +97,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
+        Transform3d::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
     ));
 
     // Plane
@@ -108,7 +108,7 @@ fn setup(
 
     // Light
     commands.spawn((
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
             shadows_enabled: true,
             ..default()
@@ -190,7 +190,7 @@ fn setup_scene_once_loaded(
 
 fn simulate_particles(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Transform, &mut Particle)>,
+    mut query: Query<(Entity, &mut Transform3d, &mut Particle)>,
     time: Res<Time>,
 ) {
     for (entity, mut transform, mut particle) in &mut query {

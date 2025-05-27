@@ -89,7 +89,7 @@ mod light {
                 base_color: DEEP_PINK.into(),
                 ..default()
             })),
-            Transform::from_xyz(0.0, 1.0, 0.0),
+            Transform3d::from_xyz(0.0, 1.0, 0.0),
             DespawnOnExitState(CURRENT_SCENE),
         ));
 
@@ -100,7 +100,7 @@ mod light {
                 shadows_enabled: true,
                 ..default()
             },
-            Transform::from_xyz(1.0, 2.0, 0.0),
+            Transform3d::from_xyz(1.0, 2.0, 0.0),
             DespawnOnExitState(CURRENT_SCENE),
         ));
 
@@ -113,7 +113,7 @@ mod light {
                 outer_angle: 0.8,
                 ..default()
             },
-            Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+            Transform3d::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             DespawnOnExitState(CURRENT_SCENE),
         ));
 
@@ -123,7 +123,7 @@ mod light {
                 shadows_enabled: true,
                 ..default()
             },
-            Transform {
+            Transform3d {
                 translation: Vec3::new(0.0, 2.0, 0.0),
                 rotation: Quat::from_rotation_x(-PI / 4.),
                 ..default()
@@ -133,7 +133,7 @@ mod light {
 
         commands.spawn((
             Camera3d::default(),
-            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             DespawnOnExitState(CURRENT_SCENE),
         ));
     }
@@ -155,7 +155,7 @@ mod bloom {
         commands.spawn((
             Camera3d::default(),
             Tonemapping::TonyMcMapface,
-            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             Bloom::NATURAL,
             DespawnOnExitState(CURRENT_SCENE),
         ));
@@ -181,7 +181,7 @@ mod bloom {
             commands.spawn((
                 Mesh3d(mesh.clone()),
                 MeshMaterial3d(material),
-                Transform::from_xyz(z as f32 * 2.0, 0.0, 0.0),
+                Transform3d::from_xyz(z as f32 * 2.0, 0.0, 0.0),
                 DespawnOnExitState(CURRENT_SCENE),
             ));
         }
@@ -196,7 +196,7 @@ mod gltf {
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
             Camera3d::default(),
-            Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+            Transform3d::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             EnvironmentMapLight {
                 diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
                 specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -253,12 +253,13 @@ mod animation {
 
         commands.spawn((
             Camera3d::default(),
-            Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
+            Transform3d::from_xyz(100.0, 100.0, 150.0)
+                .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
             DespawnOnExitState(CURRENT_SCENE),
         ));
 
         commands.spawn((
-            Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+            Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
             DirectionalLight {
                 shadows_enabled: true,
                 ..default()
@@ -304,14 +305,14 @@ mod gizmos {
     pub fn setup(mut commands: Commands) {
         commands.spawn((
             Camera3d::default(),
-            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             DespawnOnExitState(super::Scene::Gizmos),
         ));
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
         gizmos.cuboid(
-            Transform::from_translation(Vec3::X * 2.0).with_scale(Vec3::splat(2.0)),
+            Transform3d::from_translation(Vec3::X * 2.0).with_scale(Vec3::splat(2.0)),
             RED,
         );
         gizmos

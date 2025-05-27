@@ -53,7 +53,7 @@ fn setup(
                 Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_handle.clone()),
                 MeshTag(current_color_id % 5),
-                Transform::from_xyz(i as f32, j as f32, 0.0),
+                Transform3d::from_xyz(i as f32, j as f32, 0.0),
             ));
             current_color_id += 1;
         }
@@ -62,7 +62,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 

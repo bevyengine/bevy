@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             color: bevy::color::palettes::tailwind::BLUE_800.into(),
             ..Default::default()
         },
-        Transform::from_translation(Vec3::ZERO),
+        Transform3d::from_translation(Vec3::ZERO),
     ));
 }
 
@@ -106,7 +106,7 @@ fn user_input(
                 color: bevy::color::palettes::tailwind::RED_800.into(),
                 ..default()
             },
-            Transform::from_translation(Vec3::ZERO),
+            Transform3d::from_translation(Vec3::ZERO),
         ));
     }
 
@@ -119,7 +119,7 @@ fn user_input(
 
 // System that moves the enemies in a circle.
 // Only runs if there are enemies, due to the `Populated` parameter.
-fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
+fn move_targets(mut enemies: Populated<(&mut Transform3d, &mut Enemy)>, time: Res<Time>) {
     for (mut transform, mut target) in &mut *enemies {
         target.rotation += target.rotation_speed * time.delta_secs();
         transform.rotation = Quat::from_rotation_z(target.rotation);
@@ -133,9 +133,9 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
 /// Otherwise, the player will search for enemies.
 fn track_targets(
     // `Single` ensures the system runs ONLY when exactly one matching entity exists.
-    mut player: Single<(&mut Transform, &Player)>,
+    mut player: Single<(&mut Transform3d, &Player)>,
     // `Option<Single>` never prevents the system from running, but will be `None` if there is not exactly one matching entity.
-    enemy: Option<Single<&Transform, (With<Enemy>, Without<Player>)>>,
+    enemy: Option<Single<&Transform3d, (With<Enemy>, Without<Player>)>>,
     time: Res<Time>,
 ) {
     let (player_transform, player) = &mut *player;

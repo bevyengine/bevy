@@ -56,7 +56,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap())),
         MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_scale(Vec3::NEG_ONE),
+        Transform3d::from_scale(Vec3::NEG_ONE),
     ));
 
     let mesh = meshes.add(Cuboid::default());
@@ -84,7 +84,7 @@ fn setup(
                 color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
-            Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
+            Transform3d::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
         )
     }));
 
@@ -107,7 +107,7 @@ fn setup(
     commands.spawn((
         Mesh3d(mesh),
         MeshMaterial3d(material),
-        Transform {
+        Transform3d {
             translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
@@ -135,7 +135,7 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 }
 
 // System for rotating the camera
-fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform3d, With<Camera>>) {
     let delta = time.delta_secs() * 0.15;
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);

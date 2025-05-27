@@ -99,7 +99,7 @@ pub struct BrpGetParams {
     ///
     /// Note that these strings must consist of the *full* type paths: e.g.
     /// `bevy_transform::components::transform::Transform`, not just
-    /// `Transform`.
+    /// `Transform3d`.
     ///
     /// [full paths]: bevy_reflect::TypePath::type_path
     pub components: Vec<String>,
@@ -151,7 +151,7 @@ pub struct BrpSpawnParams {
     ///
     /// Note that the keys of the map must be the [full type paths]: e.g.
     /// `bevy_transform::components::transform::Transform`, not just
-    /// `Transform`.
+    /// `Transform3d`.
     ///
     /// [full type paths]: bevy_reflect::TypePath::type_path
     pub components: HashMap<String, Value>,
@@ -179,7 +179,7 @@ pub struct BrpRemoveParams {
     ///
     /// Note that these strings must consist of the [full type paths]: e.g.
     /// `bevy_transform::components::transform::Transform`, not just
-    /// `Transform`.
+    /// `Transform3d`.
     ///
     /// [full type paths]: bevy_reflect::TypePath::type_path
     pub components: Vec<String>,
@@ -208,7 +208,7 @@ pub struct BrpInsertParams {
     ///
     /// Note that the keys of the map must be the [full type paths]: e.g.
     /// `bevy_transform::components::transform::Transform`, not just
-    /// `Transform`.
+    /// `Transform3d`.
     ///
     /// [full type paths]: bevy_reflect::TypePath::type_path
     pub components: HashMap<String, Value>,
@@ -1287,7 +1287,7 @@ fn get_entity_mut(world: &mut World, entity: Entity) -> Result<EntityWorldMut<'_
 /// - A list of unregistered component paths.
 ///
 /// Note that the supplied path names must be *full* path names: e.g.
-/// `bevy_transform::components::transform::Transform` instead of `Transform`.
+/// `bevy_transform::components::transform::Transform` instead of `Transform3d`.
 fn get_component_ids(
     type_registry: &TypeRegistry,
     world: &World,

@@ -61,7 +61,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
-        Transform::from_xyz(0.0, -2.5, 0.0),
+        Transform3d::from_xyz(0.0, -2.5, 0.0),
     ));
 
     // Store the shape we sample from in a resource:
@@ -85,13 +85,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
     ));
 
     // A camera:
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Store the mesh and material for sample points in resources:
@@ -165,7 +165,7 @@ fn handle_keypress(
         commands.spawn((
             Mesh3d(sample_mesh.0.clone()),
             MeshMaterial3d(sample_material.0.clone()),
-            Transform::from_translation(sample),
+            Transform3d::from_translation(sample),
             SamplePoint,
         ));
 
@@ -199,7 +199,7 @@ fn handle_keypress(
             commands.spawn((
                 Mesh3d(sample_mesh.0.clone()),
                 MeshMaterial3d(sample_material.0.clone()),
-                Transform::from_translation(sample),
+                Transform3d::from_translation(sample),
                 SamplePoint,
             ));
         }
@@ -221,7 +221,7 @@ fn handle_keypress(
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut camera_transform: Single<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform3d, With<Camera>>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource

@@ -55,14 +55,14 @@ fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
         commands.spawn((
             Text2d::new(event.0.to_string()),
             TextLayout::new_with_justify(JustifyText::Center),
-            Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
+            Transform3d::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
         ));
     }
 }
 
 fn move_text(
     mut commands: Commands,
-    mut texts: Query<(Entity, &mut Transform), With<Text2d>>,
+    mut texts: Query<(Entity, &mut Transform3d), With<Text2d>>,
     time: Res<Time>,
 ) {
     for (entity, mut position) in &mut texts {

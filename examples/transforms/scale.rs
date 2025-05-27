@@ -43,26 +43,26 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_rotation(Quat::from_rotation_y(PI / 4.0)),
+        Transform3d::from_rotation(Quat::from_rotation_y(PI / 4.0)),
         Scaling::new(),
     ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Add a light source for better 3d visibility.
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
 // This system will check if a scaled entity went above or below the entities scaling bounds
 // and change the direction of the scaling vector.
-fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
+fn change_scale_direction(mut cubes: Query<(&mut Transform3d, &mut Scaling)>) {
     for (mut transform, mut cube) in &mut cubes {
         // If an entity scaled beyond the maximum of its size in any dimension
         // the scaling vector is flipped so the scaling is gradually reverted.
@@ -88,7 +88,7 @@ fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
 
 // This system will scale any entity with assigned Scaling in each direction
 // by cycling through the directions to scale.
-fn scale_cube(mut cubes: Query<(&mut Transform, &Scaling)>, timer: Res<Time>) {
+fn scale_cube(mut cubes: Query<(&mut Transform3d, &Scaling)>, timer: Res<Time>) {
     for (mut transform, cube) in &mut cubes {
         transform.scale += cube.scale_direction * cube.scale_speed * timer.delta_secs();
     }

@@ -20,7 +20,7 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+        Transform3d::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         // This is the component that enables atmospheric scattering for a camera
         Atmosphere::EARTH,
         // The scene is in units of 10km, so we need to scale up the
@@ -73,7 +73,7 @@ fn setup_terrain_scene(
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
-        Transform::from_xyz(1.0, -0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(1.0, -0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         cascade_shadow_config,
     ));
 
@@ -88,7 +88,7 @@ fn setup_terrain_scene(
             perceptual_roughness: 0.0,
             ..default()
         })),
-        Transform::from_xyz(-0.3, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
+        Transform3d::from_xyz(-0.3, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
     ));
 
     commands.spawn((
@@ -99,7 +99,7 @@ fn setup_terrain_scene(
             perceptual_roughness: 1.0,
             ..default()
         })),
-        Transform::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
+        Transform3d::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
     ));
 
     // Terrain
@@ -108,13 +108,13 @@ fn setup_terrain_scene(
         SceneRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
         ),
-        Transform::from_xyz(-1.0, 0.0, -0.5)
+        Transform3d::from_xyz(-1.0, 0.0, -0.5)
             .with_scale(Vec3::splat(0.5))
             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
     ));
 }
 
-fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
+fn dynamic_scene(mut suns: Query<&mut Transform3d, With<DirectionalLight>>, time: Res<Time>) {
     suns.iter_mut()
         .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * PI / 10.0));
 }

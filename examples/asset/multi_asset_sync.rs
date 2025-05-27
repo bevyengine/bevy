@@ -190,7 +190,7 @@ fn setup_scene(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(10.0, 10.0, 15.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        Transform3d::from_xyz(10.0, 10.0, 15.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
     ));
 
     // Light
@@ -199,7 +199,7 @@ fn setup_scene(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
     ));
 
     // Plane
@@ -230,7 +230,7 @@ fn wait_on_load(
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
-        Transform::from_translation(Vec3::Z * -0.01),
+        Transform3d::from_translation(Vec3::Z * -0.01),
     ));
 
     // Spawn our scenes.
@@ -241,7 +241,7 @@ fn wait_on_load(
             // All gltfs must exist because this is guarded by the `AssetBarrier`.
             let gltf = gltfs.get(&foxes.0[index]).unwrap();
             let scene = gltf.scenes.first().unwrap().clone();
-            commands.spawn((SceneRoot(scene), Transform::from_translation(position)));
+            commands.spawn((SceneRoot(scene), Transform3d::from_translation(position)));
         }
     }
 }

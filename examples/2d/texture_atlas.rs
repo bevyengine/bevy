@@ -100,7 +100,7 @@ fn setup(
     // Draw unpadded texture atlas
     commands.spawn((
         Sprite::from_image(linear_texture.clone()),
-        Transform {
+        Transform3d {
             translation: Vec3::new(-250.0, -160.0, 0.0),
             scale: Vec3::splat(0.5),
             ..default()
@@ -110,7 +110,7 @@ fn setup(
     // Draw padded texture atlas
     commands.spawn((
         Sprite::from_image(linear_padded_texture.clone()),
-        Transform {
+        Transform3d {
             translation: Vec3::new(250.0, -160.0, 0.0),
             scale: Vec3::splat(0.5),
             ..default()
@@ -257,7 +257,7 @@ fn create_sprite_from_atlas(
     vendor_handle: &Handle<Image>,
 ) {
     commands.spawn((
-        Transform {
+        Transform3d {
             translation: Vec3::new(translation.0, translation.1, translation.2),
             scale: Vec3::splat(3.0),
             ..default()
@@ -280,7 +280,7 @@ fn create_label(
         Text2d::new(text),
         text_style,
         TextLayout::new_with_justify(JustifyText::Center),
-        Transform {
+        Transform3d {
             translation: Vec3::new(translation.0, translation.1, translation.2),
             ..default()
         },

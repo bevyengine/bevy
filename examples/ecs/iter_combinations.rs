@@ -81,7 +81,7 @@ fn generate_bodies(
                         ) * time.timestep().as_secs_f32(),
                 ),
             },
-            Transform {
+            Transform3d {
                 translation: position,
                 scale: Vec3::splat(radius),
                 ..default()
@@ -104,7 +104,7 @@ fn generate_bodies(
                 mass: Mass(500.0),
                 ..default()
             },
-            Transform::from_scale(Vec3::splat(star_radius)),
+            Transform3d::from_scale(Vec3::splat(star_radius)),
             Star,
         ))
         .with_child(PointLight {
@@ -115,7 +115,7 @@ fn generate_bodies(
         });
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -134,7 +134,10 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
     }
 }
 
-fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
+fn integrate(
+    time: Res<Time>,
+    mut query: Query<(&mut Acceleration, &mut Transform3d, &mut LastPos)>,
+) {
     let dt_sq = time.delta_secs() * time.delta_secs();
     for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
@@ -148,8 +151,8 @@ fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transfor
 }
 
 fn look_at_star(
-    mut camera: Single<&mut Transform, (With<Camera>, Without<Star>)>,
-    star: Single<&Transform, With<Star>>,
+    mut camera: Single<&mut Transform3d, (With<Camera>, Without<Star>)>,
+    star: Single<&Transform3d, With<Star>>,
 ) {
     let new_rotation = camera
         .looking_at(star.translation, Vec3::Y)

@@ -1,4 +1,4 @@
-use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
+use crate::components::{GlobalTransform, Transform2d, Transform3d, TransformTreeChanged};
 use bevy_ecs::prelude::*;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
@@ -9,33 +9,35 @@ pub use serial::propagate_parent_transforms;
 ///
 /// Third party plugins should ensure that this is used in concert with
 /// [`propagate_parent_transforms`] and [`mark_dirty_trees`].
-pub fn sync_simple_transforms(
+pub fn sync_simple_transforms<T>(
     mut query: ParamSet<(
         Query<
-            (&Transform, &mut GlobalTransform),
+            (&T, &mut GlobalTransform),
             (
-                Or<(Changed<Transform>, Added<GlobalTransform>)>,
+                Or<(Changed<T>, Added<GlobalTransform>)>,
                 Without<ChildOf>,
                 Without<Children>,
             ),
         >,
-        Query<(Ref<Transform>, &mut GlobalTransform), (Without<ChildOf>, Without<Children>)>,
+        Query<(Ref<T>, &mut GlobalTransform), (Without<ChildOf>, Without<Children>)>,
     )>,
     mut orphaned: RemovedComponents<ChildOf>,
-) {
+) where
+    T: Copy + Clone + Component + Into<GlobalTransform>,
+{
     // Update changed entities.
     query
         .p0()
         .par_iter_mut()
         .for_each(|(transform, mut global_transform)| {
-            *global_transform = GlobalTransform::from(*transform);
+            *global_transform = (*transform).into();
         });
     // Update orphaned entities.
     let mut query = query.p1();
     let mut iter = query.iter_many_mut(orphaned.read());
     while let Some((transform, mut global_transform)) = iter.fetch_next() {
         if !transform.is_changed() && !global_transform.is_added() {
-            *global_transform = GlobalTransform::from(*transform);
+            *global_transform = (*transform).into();
         }
     }
 }
@@ -46,7 +48,12 @@ pub fn sync_simple_transforms(
 pub fn mark_dirty_trees(
     changed_transforms: Query<
         Entity,
-        Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>,
+        Or<(
+            Changed<Transform3d>,
+            Changed<Transform2d>,
+            Changed<ChildOf>,
+            Added<GlobalTransform>,
+        )>,
     >,
     mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<(Option<&ChildOf>, &mut TransformTreeChanged)>,
@@ -90,7 +97,7 @@ mod serial {
     use alloc::vec::Vec;
     use bevy_ecs::prelude::*;
 
-    /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
+    /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform3d`]
     /// component.
     ///
     /// Third party plugins should ensure that this is used in concert with
@@ -98,12 +105,16 @@ mod serial {
     /// [`mark_dirty_trees`](super::mark_dirty_trees).
     pub fn propagate_parent_transforms(
         mut root_query: Query<
-            (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
+            (Entity, &Children, Ref<Transform3d>, &mut GlobalTransform),
             Without<ChildOf>,
         >,
         mut orphaned: RemovedComponents<ChildOf>,
         transform_query: Query<
-            (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
+            (
+                AnyOf<(Ref<Transform3d>, Ref<Transform2d>)>,
+                &mut GlobalTransform,
+                Option<&Children>,
+            ),
             With<ChildOf>,
         >,
         child_query: Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
@@ -116,7 +127,7 @@ mod serial {
         |(entity, children, transform, mut global_transform)| {
             let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
             if changed {
-                *global_transform = GlobalTransform::from(*transform);
+                *global_transform = local_to_global(transform);
             }
 
             for (child, child_of) in child_query.iter_many(children) {
@@ -171,7 +182,11 @@ mod serial {
     unsafe fn propagate_recursive(
         parent: &GlobalTransform,
         transform_query: &Query<
-            (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
+            (
+                AnyOf<(Ref<Transform3d>, Ref<Transform2d>)>,
+                &mut GlobalTransform,
+                Option<&Children>,
+            ),
             With<ChildOf>,
         >,
         child_query: &Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
@@ -248,6 +263,7 @@ mod serial {
 /// the serial version.
 #[cfg(feature = "std")]
 mod parallel {
+    use super::local_to_global;
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use alloc::{sync::Arc, vec::Vec};
@@ -260,7 +276,7 @@ mod parallel {
         Mutex,
     };
 
-    /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
+    /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform3d`]
     /// component.
     ///
     /// Third party plugins should ensure that this is used in concert with
@@ -269,7 +285,12 @@ mod parallel {
     pub fn propagate_parent_transforms(
         mut queue: Local<WorkQueue>,
         mut roots: Query<
-            (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
+            (
+                Entity,
+                AnyOf<(Ref<Transform3d>, Ref<Transform2d>)>,
+                &mut GlobalTransform,
+                &Children,
+            ),
             (Without<ChildOf>, Changed<TransformTreeChanged>),
         >,
         nodes: NodeQuery,
@@ -278,7 +299,7 @@ mod parallel {
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children)| {
-                *parent_transform = GlobalTransform::from(*transform);
+                *parent_transform = local_to_global(transform);
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
                 // over the root entity query. Queries iterate over disjoint entities, preventing
@@ -456,7 +477,8 @@ mod parallel {
 
                     // Transform prop is expensive - this helps avoid updating entire subtrees if
                     // the GlobalTransform is unchanged, at the cost of an added equality check.
-                    global_transform.set_if_neq(p_global_transform.mul_transform(*transform));
+                    let child_global = local_to_global(transform);
+                    global_transform.set_if_neq(*p_global_transform * child_global);
 
                     children.map(|children| {
                         // Only continue propagation if the entity has children.
@@ -495,7 +517,7 @@ mod parallel {
         (
             Entity,
             (
-                Ref<'static, Transform>,
+                AnyOf<(Ref<'static, Transform3d>, Ref<'static, Transform2d>)>,
                 Mut<'static, GlobalTransform>,
                 Ref<'static, TransformTreeChanged>,
             ),
@@ -553,6 +575,16 @@ mod parallel {
     }
 }
 
+fn local_to_global(
+    any_of: (Option<Ref<'_, Transform3d>>, Option<Ref<'_, Transform2d>>),
+) -> GlobalTransform {
+    match any_of {
+        (Some(transform_3d), _) => GlobalTransform::from(*transform_3d),
+        (_, Some(transform_2d)) => GlobalTransform::from(*transform_2d),
+        _ => unreachable!(),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use alloc::{vec, vec::Vec};
@@ -568,8 +600,8 @@ mod test {
         ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::default();
         let offset_global_transform =
-            |offset| GlobalTransform::from(Transform::from_xyz(offset, offset, offset));
-        let offset_transform = |offset| Transform::from_xyz(offset, offset, offset);
+            |offset| GlobalTransform::from(Transform3d::from_xyz(offset, offset, offset));
+        let offset_transform = |offset| Transform3d::from_xyz(offset, offset, offset);
 
         let mut schedule = Schedule::default();
         schedule.add_systems(
@@ -640,25 +672,25 @@ mod test {
         );
 
         // Root entity
-        world.spawn(Transform::from_xyz(1.0, 0.0, 0.0));
+        world.spawn(Transform3d::from_xyz(1.0, 0.0, 0.0));
 
         let mut children = Vec::new();
         world
-            .spawn(Transform::from_xyz(1.0, 0.0, 0.0))
+            .spawn(Transform3d::from_xyz(1.0, 0.0, 0.0))
             .with_children(|parent| {
-                children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.)).id());
-                children.push(parent.spawn(Transform::from_xyz(0.0, 0.0, 3.)).id());
+                children.push(parent.spawn(Transform3d::from_xyz(0.0, 2.0, 0.)).id());
+                children.push(parent.spawn(Transform3d::from_xyz(0.0, 0.0, 3.)).id());
             });
         schedule.run(&mut world);
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform3d::from_xyz(0.0, 2.0, 0.0)
         );
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform3d::from_xyz(0.0, 0.0, 3.0)
         );
     }
 
@@ -681,22 +713,22 @@ mod test {
         let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn(Transform::from_xyz(1.0, 0.0, 0.0))
+            .spawn(Transform3d::from_xyz(1.0, 0.0, 0.0))
             .with_children(|parent| {
-                children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.0)).id());
-                children.push(parent.spawn(Transform::from_xyz(0.0, 0.0, 3.0)).id());
+                children.push(parent.spawn(Transform3d::from_xyz(0.0, 2.0, 0.0)).id());
+                children.push(parent.spawn(Transform3d::from_xyz(0.0, 0.0, 3.0)).id());
             });
         queue.apply(&mut world);
         schedule.run(&mut world);
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform3d::from_xyz(0.0, 2.0, 0.0)
         );
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform3d::from_xyz(0.0, 0.0, 3.0)
         );
     }
 
@@ -720,10 +752,10 @@ mod test {
         let parent = {
             let mut command_queue = CommandQueue::default();
             let mut commands = Commands::new(&mut command_queue, &world);
-            let parent = commands.spawn(Transform::from_xyz(1.0, 0.0, 0.0)).id();
+            let parent = commands.spawn(Transform3d::from_xyz(1.0, 0.0, 0.0)).id();
             commands.entity(parent).with_children(|parent| {
-                children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.0)).id());
-                children.push(parent.spawn(Transform::from_xyz(0.0, 3.0, 0.0)).id());
+                children.push(parent.spawn(Transform3d::from_xyz(0.0, 2.0, 0.0)).id());
+                children.push(parent.spawn(Transform3d::from_xyz(0.0, 3.0, 0.0)).id());
             });
             command_queue.apply(&mut world);
             schedule.run(&mut world);
@@ -802,12 +834,12 @@ mod test {
         let mut grandchild = Entity::from_raw_u32(1).unwrap();
         let parent = app
             .world_mut()
-            .spawn(Transform::from_translation(translation))
+            .spawn(Transform3d::from_translation(translation))
             .with_children(|builder| {
                 child = builder
-                    .spawn(Transform::IDENTITY)
+                    .spawn(Transform3d::IDENTITY)
                     .with_children(|builder| {
-                        grandchild = builder.spawn(Transform::IDENTITY).id();
+                        grandchild = builder.spawn(Transform3d::IDENTITY).id();
                     })
                     .id();
             })
@@ -851,9 +883,9 @@ mod test {
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw_u32(0).unwrap();
             let child = world
-                .spawn(Transform::IDENTITY)
+                .spawn(Transform3d::IDENTITY)
                 .with_children(|builder| {
-                    grandchild = builder.spawn(Transform::IDENTITY).id();
+                    grandchild = builder.spawn(Transform3d::IDENTITY).id();
                 })
                 .id();
             (child, grandchild)
@@ -866,7 +898,7 @@ mod test {
         assert_eq!(temp_grandchild, grandchild);
 
         app.world_mut()
-            .spawn(Transform::IDENTITY)
+            .spawn(Transform3d::IDENTITY)
             .add_children(&[child]);
 
         let mut child_entity = app.world_mut().entity_mut(child);
@@ -914,9 +946,9 @@ mod test {
                 .chain(),
         );
 
-        // Spawn a `Transform` entity with a local translation of `Vec3::ONE`
+        // Spawn a `Transform3d` entity with a local translation of `Vec3::ONE`
         let mut spawn_transform_bundle =
-            || world.spawn(Transform::from_translation(translation)).id();
+            || world.spawn(Transform3d::from_translation(translation)).id();
 
         // Spawn parent and child with identical transform bundles
         let parent = spawn_transform_bundle();

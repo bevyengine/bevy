@@ -106,7 +106,7 @@ fn setup(
         Name::new("Left Shape"),
         Mesh3d(left_shape_model),
         MeshMaterial3d(material_handle.clone()),
-        Transform::from_xyz(-3.0, 0.0, 0.0),
+        Transform3d::from_xyz(-3.0, 0.0, 0.0),
         left_shape,
     ));
 
@@ -114,20 +114,20 @@ fn setup(
         Name::new("Right Shape"),
         Mesh3d(right_shape_model),
         MeshMaterial3d(material_handle),
-        Transform::from_xyz(3.0, 0.0, 0.0),
+        Transform3d::from_xyz(3.0, 0.0, 0.0),
         right_shape,
     ));
 
     commands.spawn((
         Name::new("Point Light"),
         PointLight::default(),
-        Transform::from_xyz(4.0, 5.0, 4.0),
+        Transform3d::from_xyz(4.0, 5.0, 4.0),
     ));
 
     commands.spawn((
         Name::new("Camera"),
         Camera3d::default(),
-        Transform::from_xyz(0.0, 3.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 3.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 

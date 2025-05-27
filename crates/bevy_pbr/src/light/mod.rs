@@ -17,7 +17,7 @@ use bevy_render::{
         ViewVisibility, VisibilityClass, VisibilityRange, VisibleEntityRanges,
     },
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::{GlobalTransform, Transform3d};
 use bevy_utils::Parallel;
 
 use crate::*;
@@ -595,7 +595,7 @@ pub fn update_point_light_frusta(
 ) {
     let view_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Transform3d::IDENTITY.looking_at(*target, *up))
         .collect::<Vec<_>>();
 
     for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
@@ -623,7 +623,7 @@ pub fn update_point_light_frusta(
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects
         // and ignore rotation because we want the shadow map projections to align with the axes
-        let view_translation = Transform::from_translation(transform.translation());
+        let view_translation = Transform3d::from_translation(transform.translation());
         let view_backward = transform.back();
 
         for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {

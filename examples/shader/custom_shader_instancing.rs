@@ -72,7 +72,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
         // We need this component because we use `draw_indexed` and `draw`
         // instead of `draw_indirect_indexed` and `draw_indirect` in
         // `DrawMeshInstanced::render`.

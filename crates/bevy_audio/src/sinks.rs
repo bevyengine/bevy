@@ -1,7 +1,7 @@
 use crate::Volume;
 use bevy_ecs::component::Component;
 use bevy_math::Vec3;
-use bevy_transform::prelude::Transform;
+use bevy_transform::prelude::Transform3d;
 use core::time::Duration;
 pub use rodio::source::SeekError;
 use rodio::{Sink, SpatialSink};
@@ -341,7 +341,7 @@ impl SpatialAudioSink {
     }
 
     /// Set the listener position, with an ear on each side separated by `gap`.
-    pub fn set_listener_position(&self, position: Transform, gap: f32) {
+    pub fn set_listener_position(&self, position: Transform3d, gap: f32) {
         self.set_ears_position(
             position.translation + position.left() * gap / 2.0,
             position.translation + position.right() * gap / 2.0,

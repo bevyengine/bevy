@@ -36,7 +36,7 @@ fn main() {
 #[derive(Component)]
 struct Spin;
 
-fn spin(time: Res<Time>, mut query: Query<&mut Transform, With<Spin>>) {
+fn spin(time: Res<Time>, mut query: Query<&mut Transform3d, With<Spin>>) {
     for mut transform in query.iter_mut() {
         transform.rotation *= Quat::from_rotation_z(time.delta_secs() / 5.);
     }
@@ -98,7 +98,7 @@ enum Shape {
     Polygon(RegularPolygon),
 }
 
-fn render_shapes(mut gizmos: Gizmos, query: Query<(&Shape, &Transform)>) {
+fn render_shapes(mut gizmos: Gizmos, query: Query<(&Shape, &Transform3d)>) {
     let color = GRAY;
     for (shape, transform) in query.iter() {
         let translation = transform.translation.xy();
@@ -142,8 +142,8 @@ enum CurrentVolume {
 fn update_volumes(
     mut commands: Commands,
     query: Query<
-        (Entity, &DesiredVolume, &Shape, &Transform),
-        Or<(Changed<DesiredVolume>, Changed<Shape>, Changed<Transform>)>,
+        (Entity, &DesiredVolume, &Shape, &Transform3d),
+        Or<(Changed<DesiredVolume>, Changed<Shape>, Changed<Transform3d>)>,
     >,
 ) {
     for (entity, desired_volume, shape, transform) in query.iter() {
@@ -203,14 +203,14 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     commands.spawn((
-        Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
+        Transform3d::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
         Shape::Circle(Circle::new(45.)),
         DesiredVolume::Aabb,
         Intersects::default(),
     ));
 
     commands.spawn((
-        Transform::from_xyz(0., OFFSET_Y, 0.),
+        Transform3d::from_xyz(0., OFFSET_Y, 0.),
         Shape::Rectangle(Rectangle::new(80., 80.)),
         Spin,
         DesiredVolume::Circle,
@@ -218,7 +218,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        Transform::from_xyz(OFFSET_X, OFFSET_Y, 0.),
+        Transform3d::from_xyz(OFFSET_X, OFFSET_Y, 0.),
         Shape::Triangle(Triangle2d::new(
             Vec2::new(-40., -40.),
             Vec2::new(-20., 40.),
@@ -230,7 +230,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
+        Transform3d::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
         Shape::Line(Segment2d::from_direction_and_length(
             Dir2::from_xy(1., 0.3).unwrap(),
             90.,
@@ -241,7 +241,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        Transform::from_xyz(0., -OFFSET_Y, 0.),
+        Transform3d::from_xyz(0., -OFFSET_Y, 0.),
         Shape::Capsule(Capsule2d::new(25., 50.)),
         Spin,
         DesiredVolume::Aabb,
@@ -249,7 +249,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        Transform::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
+        Transform3d::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
         Shape::Polygon(RegularPolygon::new(50., 6)),
         Spin,
         DesiredVolume::Circle,

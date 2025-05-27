@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()
         },
-        Transform::from_xyz(-100.0, 0.0, 0.0),
+        Transform3d::from_xyz(-100.0, 0.0, 0.0),
     ));
 
     // When a .meta file is added with the same name as the asset and a '.meta' extension
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()
         },
-        Transform::from_xyz(100.0, 0.0, 0.0),
+        Transform3d::from_xyz(100.0, 0.0, 0.0),
     ));
 
     // Another option is to use the AssetServers load_with_settings function.
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()
         },
-        Transform::from_xyz(0.0, 150.0, 0.0),
+        Transform3d::from_xyz(0.0, 150.0, 0.0),
     ));
 
     commands.spawn(Camera2d);

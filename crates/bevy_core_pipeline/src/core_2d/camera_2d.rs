@@ -9,7 +9,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     primitives::Frustum,
 };
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::prelude::{GlobalTransform, Transform3d};
 
 /// A 2D camera component. Enables the 2D render graph for a [`Camera`].
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
@@ -20,7 +20,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
     DebandDither,
     CameraRenderGraph::new(Core2d),
     Projection::Orthographic(OrthographicProjection::default_2d()),
-    Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
+    Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform3d::default())),
     Tonemapping::None,
 )]
 pub struct Camera2d;

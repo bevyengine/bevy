@@ -22,7 +22,7 @@ fn main() {
 #[derive(Component, Default)]
 struct Ship {
     /// The target transform of the ship move, the endpoint of interpolation
-    target_transform: Transform,
+    target_transform: Transform3d,
 
     /// Whether the ship is currently in motion; allows motion to be paused
     in_motion: bool,
@@ -55,14 +55,14 @@ fn setup(
     // A camera looking at the origin
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // A plane that we can sit on top of
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
-        Transform::from_xyz(0., -2., 0.),
+        Transform3d::from_xyz(0., -2., 0.),
     ));
 
     // A light source
@@ -71,7 +71,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 7.0, -4.0),
+        Transform3d::from_xyz(4.0, 7.0, -4.0),
     ));
 
     // Initialize random axes
@@ -119,7 +119,7 @@ fn setup(
 // Update systems
 
 // Draw the main and secondary axes on the rotating ship
-fn draw_ship_axes(mut gizmos: Gizmos, ship_transform: Single<&Transform, With<Ship>>) {
+fn draw_ship_axes(mut gizmos: Gizmos, ship_transform: Single<&Transform3d, With<Ship>>) {
     // Local Z-axis arrow, negative direction
     let z_ends = arrow_ends(*ship_transform, Vec3::NEG_Z, 1.5);
     gizmos.arrow(z_ends.0, z_ends.1, RED);
@@ -137,7 +137,7 @@ fn draw_random_axes(mut gizmos: Gizmos, random_axes: Single<&RandomAxes>) {
 }
 
 // Actually update the ship's transform according to its initial source and target
-fn rotate_ship(ship: Single<(&mut Ship, &mut Transform)>, time: Res<Time>) {
+fn rotate_ship(ship: Single<(&mut Ship, &mut Transform3d)>, time: Res<Time>) {
     let (mut ship, mut ship_transform) = ship.into_inner();
 
     if !ship.in_motion {
@@ -191,7 +191,7 @@ fn handle_keypress(
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut camera_transform: Single<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform3d, With<Camera>>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
@@ -214,14 +214,14 @@ fn handle_mouse(
 
 // Helper functions (i.e. non-system functions)
 
-fn arrow_ends(transform: &Transform, axis: Vec3, length: f32) -> (Vec3, Vec3) {
+fn arrow_ends(transform: &Transform3d, axis: Vec3, length: f32) -> (Vec3, Vec3) {
     let local_vector = length * (transform.rotation * axis);
     (transform.translation, transform.translation + local_vector)
 }
 
 // This is where `Transform::align` is actually used!
 // Note that the choice of `Vec3::X` and `Vec3::Y` here matches the use of those in `draw_ship_axes`.
-fn random_axes_target_alignment(random_axes: &RandomAxes) -> Transform {
+fn random_axes_target_alignment(random_axes: &RandomAxes) -> Transform3d {
     let RandomAxes(first, second) = random_axes;
-    Transform::IDENTITY.aligned_by(Vec3::NEG_Z, *first, Vec3::X, *second)
+    Transform3d::IDENTITY.aligned_by(Vec3::NEG_Z, *first, Vec3::X, *second)
 }

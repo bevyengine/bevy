@@ -1,16 +1,16 @@
 //! Extension to [`EntityCommands`] to modify [`bevy_ecs::hierarchy`] hierarchies.
 //! while preserving [`GlobalTransform`].
 
-use crate::prelude::{GlobalTransform, Transform};
+use crate::prelude::{GlobalTransform, Transform3d};
 use bevy_ecs::{entity::Entity, hierarchy::ChildOf, system::EntityCommands, world::EntityWorldMut};
 
 /// Collection of methods similar to the built-in parenting methods on [`EntityWorldMut`] and [`EntityCommands`], but preserving each
 /// entity's [`GlobalTransform`].
 pub trait BuildChildrenTransformExt {
     /// Change this entity's parent while preserving this entity's [`GlobalTransform`]
-    /// by updating its [`Transform`].
+    /// by updating its [`Transform3d`].
     ///
-    /// Insert the [`ChildOf`] component directly if you don't want to also update the [`Transform`].
+    /// Insert the [`ChildOf`] component directly if you don't want to also update the [`Transform3d`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
     /// the next time commands are applied
@@ -18,9 +18,9 @@ pub trait BuildChildrenTransformExt {
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self;
 
     /// Make this entity parentless while preserving this entity's [`GlobalTransform`]
-    /// by updating its [`Transform`] to be equal to its current [`GlobalTransform`].
+    /// by updating its [`Transform3d`] to be equal to its current [`GlobalTransform`].
     ///
-    /// See [`EntityWorldMut::remove::<ChildOf>`] or [`EntityCommands::remove::<ChildOf>`] for a method that doesn't update the [`Transform`].
+    /// See [`EntityWorldMut::remove::<ChildOf>`] or [`EntityCommands::remove::<ChildOf>`] for a method that doesn't update the [`Transform3d`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
     /// the next time commands are applied
@@ -52,7 +52,7 @@ impl BuildChildrenTransformExt for EntityWorldMut<'_> {
                 let parent = *world.get_entity(parent).ok()?.get::<GlobalTransform>()?;
                 let child_global = *world.get_entity(child).ok()?.get::<GlobalTransform>()?;
                 let mut child_entity = world.get_entity_mut(child).ok()?;
-                let mut child = child_entity.get_mut::<Transform>()?;
+                let mut child = child_entity.get_mut::<Transform3d>()?;
                 *child = child_global.reparented_to(&parent);
                 Some(())
             };
@@ -69,7 +69,7 @@ impl BuildChildrenTransformExt for EntityWorldMut<'_> {
             let mut update_transform = || {
                 let child_global = *world.get_entity(child).ok()?.get::<GlobalTransform>()?;
                 let mut child_entity = world.get_entity_mut(child).ok()?;
-                let mut child = child_entity.get_mut::<Transform>()?;
+                let mut child = child_entity.get_mut::<Transform3d>()?;
                 *child = child_global.compute_transform();
                 Some(())
             };

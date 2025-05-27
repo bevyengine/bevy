@@ -128,7 +128,7 @@ fn setup_scene(
             DisableOnClick,
             Mesh2d(shape),
             MeshMaterial2d(materials.add(color)),
-            Transform::from_xyz(
+            Transform3d::from_xyz(
                 // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
                 -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
                 0.0,

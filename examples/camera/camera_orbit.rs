@@ -51,7 +51,7 @@ fn setup(
     commands.spawn((
         Name::new("Camera"),
         Camera3d::default(),
-        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     commands.spawn((
@@ -69,13 +69,13 @@ fn setup(
         Name::new("Cube"),
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(1.5, 0.51, 1.5),
+        Transform3d::from_xyz(1.5, 0.51, 1.5),
     ));
 
     commands.spawn((
         Name::new("Light"),
         PointLight::default(),
-        Transform::from_xyz(3.0, 8.0, 5.0),
+        Transform3d::from_xyz(3.0, 8.0, 5.0),
     ));
 }
 
@@ -97,7 +97,7 @@ fn instructions(mut commands: Commands) {
 }
 
 fn orbit(
-    mut camera: Single<&mut Transform, With<Camera>>,
+    mut camera: Single<&mut Transform3d, With<Camera>>,
     camera_settings: Res<CameraSettings>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,

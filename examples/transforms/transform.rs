@@ -47,7 +47,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap())),
         MeshMaterial3d(materials.add(Color::from(YELLOW))),
-        Transform::from_translation(Vec3::ZERO),
+        Transform3d::from_translation(Vec3::ZERO),
         Center {
             max_size: 1.0,
             min_size: 0.1,
@@ -60,8 +60,8 @@ fn setup(
     // by changing its rotation each frame and moving forward.
     // Define a start transform for an orbiting cube, that's away from our central object (sphere)
     // and rotate it so it will be able to move around the sphere and not towards it.
-    let cube_spawn =
-        Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(PI / 2.));
+    let cube_spawn = Transform3d::from_translation(Vec3::Z * -10.0)
+        .with_rotation(Quat::from_rotation_y(PI / 2.));
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::WHITE)),
@@ -76,18 +76,18 @@ fn setup(
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Add a light source for better 3d visibility.
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
 // This system will move the cube forward.
-fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time>) {
+fn move_cube(mut cubes: Query<(&mut Transform3d, &mut CubeState)>, timer: Res<Time>) {
     for (mut transform, cube) in &mut cubes {
         // Move the cube forward smoothly at a given move_speed.
         let forward = transform.forward();
@@ -99,8 +99,8 @@ fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time
 // Due to the forward movement the resulting movement
 // will be a circular motion around the center_sphere.
 fn rotate_cube(
-    mut cubes: Query<(&mut Transform, &mut CubeState), Without<Center>>,
-    center_spheres: Query<&Transform, With<Center>>,
+    mut cubes: Query<(&mut Transform3d, &mut CubeState), Without<Center>>,
+    center_spheres: Query<&Transform3d, With<Center>>,
     timer: Res<Time>,
 ) {
     // Calculate the point to circle around. (The position of the center_sphere)
@@ -124,8 +124,8 @@ fn rotate_cube(
 // This system will scale down the sphere in the center of the scene
 // according to the traveling distance of the orbiting cube(s) from their start position(s).
 fn scale_down_sphere_proportional_to_cube_travel_distance(
-    cubes: Query<(&Transform, &CubeState), Without<Center>>,
-    mut centers: Query<(&mut Transform, &Center)>,
+    cubes: Query<(&Transform3d, &CubeState), Without<Center>>,
+    mut centers: Query<(&mut Transform3d, &Center)>,
 ) {
     // First we need to calculate the length of between
     // the current position of the orbiting cube and the spawn position.

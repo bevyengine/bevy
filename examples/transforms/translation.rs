@@ -41,25 +41,25 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_translation(entity_spawn),
+        Transform3d::from_translation(entity_spawn),
         Movable::new(entity_spawn),
     ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 10.0, 20.0).looking_at(entity_spawn, Vec3::Y),
+        Transform3d::from_xyz(0.0, 10.0, 20.0).looking_at(entity_spawn, Vec3::Y),
     ));
 
     // Add a light source for better 3d visibility.
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
 // This system will move all Movable entities with a Transform
-fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
+fn move_cube(mut cubes: Query<(&mut Transform3d, &mut Movable)>, timer: Res<Time>) {
     for (mut transform, mut cube) in &mut cubes {
         // Check if the entity moved too far from its spawn, if so invert the moving direction.
         if (cube.spawn - transform.translation).length() > cube.max_distance {

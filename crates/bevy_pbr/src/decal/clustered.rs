@@ -45,7 +45,7 @@ use bevy_render::{
     view::{self, ViewVisibility, Visibility, VisibilityClass},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_transform::{components::GlobalTransform, prelude::Transform};
+use bevy_transform::{components::GlobalTransform, prelude::Transform3d};
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
@@ -81,7 +81,7 @@ pub struct ClusteredDecalPlugin;
 /// with forward or deferred rendering and don't require a prepass.
 #[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
 #[reflect(Component, Debug, Clone)]
-#[require(Transform, Visibility, VisibilityClass)]
+#[require(Transform3d, Visibility, VisibilityClass)]
 #[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
 pub struct ClusteredDecal {
     /// The image that the clustered decal projects.

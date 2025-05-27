@@ -90,7 +90,7 @@ struct Bubble {
 
 fn bubbling_text(
     mut commands: Commands,
-    mut bubbles: Query<(Entity, &mut Transform, &mut Bubble)>,
+    mut bubbles: Query<(Entity, &mut Transform3d, &mut Bubble)>,
     time: Res<Time>,
 ) {
     for (entity, mut transform, mut bubble) in bubbles.iter_mut() {

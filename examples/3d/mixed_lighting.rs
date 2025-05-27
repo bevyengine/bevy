@@ -157,7 +157,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 fn spawn_camera(commands: &mut Commands) {
     commands
         .spawn(Camera3d::default())
-        .insert(Transform::from_xyz(-0.7, 0.7, 1.0).looking_at(vec3(0.0, 0.3, 0.0), Vec3::Y));
+        .insert(Transform3d::from_xyz(-0.7, 0.7, 1.0).looking_at(vec3(0.0, 0.3, 0.0), Vec3::Y));
 }
 
 /// Spawns the scene.
@@ -405,7 +405,7 @@ fn handle_lighting_mode_change(
 /// original position, the sphere must be placed there in order for the lighting
 /// to be correct.
 fn reset_sphere_position(
-    mut objects: Query<(&Name, &mut Transform)>,
+    mut objects: Query<(&Name, &mut Transform3d)>,
     mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
     app_status: Res<AppStatus>,
 ) {
@@ -434,7 +434,7 @@ fn move_sphere(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     pointers: Query<&PointerInteraction>,
     mut meshes: Query<(&GltfMeshName, &ChildOf), With<Mesh3d>>,
-    mut transforms: Query<&mut Transform>,
+    mut transforms: Query<&mut Transform3d>,
     app_status: Res<AppStatus>,
 ) {
     // Only run when the left button is clicked and we're not in baked lighting

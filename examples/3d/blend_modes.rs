@@ -42,7 +42,7 @@ fn setup(
                 alpha_mode: AlphaMode::Opaque,
                 ..default()
             })),
-            Transform::from_xyz(-4.0, 0.0, 0.0),
+            Transform3d::from_xyz(-4.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -59,7 +59,7 @@ fn setup(
                 alpha_mode: AlphaMode::Blend,
                 ..default()
             })),
-            Transform::from_xyz(-2.0, 0.0, 0.0),
+            Transform3d::from_xyz(-2.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -76,7 +76,7 @@ fn setup(
                 alpha_mode: AlphaMode::Premultiplied,
                 ..default()
             })),
-            Transform::from_xyz(0.0, 0.0, 0.0),
+            Transform3d::from_xyz(0.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -93,7 +93,7 @@ fn setup(
                 alpha_mode: AlphaMode::Add,
                 ..default()
             })),
-            Transform::from_xyz(2.0, 0.0, 0.0),
+            Transform3d::from_xyz(2.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -110,7 +110,7 @@ fn setup(
                 alpha_mode: AlphaMode::Multiply,
                 ..default()
             })),
-            Transform::from_xyz(4.0, 0.0, 0.0),
+            Transform3d::from_xyz(4.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -133,7 +133,7 @@ fn setup(
                 } else {
                     white_material.clone()
                 }),
-                Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
+                Transform3d::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
                 ExampleControls {
                     unlit: false,
                     color: true,
@@ -143,12 +143,12 @@ fn setup(
     }
 
     // Light
-    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 8.0, 4.0)));
+    commands.spawn((PointLight::default(), Transform3d::from_xyz(4.0, 8.0, 4.0)));
 
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
         // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
         // Since this example uses HDR, we must disable MSAA for Wasm builds, at least
@@ -254,7 +254,7 @@ fn example_control_system(
         (
             Entity,
             &mut Camera,
-            &mut Transform,
+            &mut Transform3d,
             &GlobalTransform,
             Has<Hdr>,
         ),

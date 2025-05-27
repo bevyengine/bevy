@@ -60,7 +60,7 @@ fn setup(
     commands.spawn((
         Mesh2d(mesh),
         MeshMaterial2d(materials.add(CustomMaterial {})),
-        Transform::from_scale(150.0 * Vec3::ONE),
+        Transform3d::from_scale(150.0 * Vec3::ONE),
     ));
 
     commands.spawn(Camera2d);

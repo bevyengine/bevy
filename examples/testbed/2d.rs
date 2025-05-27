@@ -95,7 +95,7 @@ mod shapes {
             commands.spawn((
                 Mesh2d(shape),
                 MeshMaterial2d(materials.add(color)),
-                Transform::from_xyz(
+                Transform3d::from_xyz(
                     // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
                     -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
                     0.0,
@@ -128,14 +128,14 @@ mod bloom {
         commands.spawn((
             Mesh2d(meshes.add(Circle::new(100.))),
             MeshMaterial2d(materials.add(Color::srgb(7.5, 0.0, 7.5))),
-            Transform::from_translation(Vec3::new(-200., 0., 0.)),
+            Transform3d::from_translation(Vec3::new(-200., 0., 0.)),
             DespawnOnExitState(super::Scene::Bloom),
         ));
 
         commands.spawn((
             Mesh2d(meshes.add(RegularPolygon::new(100., 6))),
             MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))),
-            Transform::from_translation(Vec3::new(200., 0., 0.)),
+            Transform3d::from_translation(Vec3::new(200., 0., 0.)),
             DespawnOnExitState(super::Scene::Bloom),
         ));
     }
@@ -178,7 +178,7 @@ mod text {
             commands.spawn((
                 Text2d::new("Bevy"),
                 sans_serif.clone(),
-                Transform::from_xyz(0.0, fraction * 200.0, i as f32)
+                Transform3d::from_xyz(0.0, fraction * 200.0, i as f32)
                     .with_scale(1.0 + Vec2::splat(fraction).extend(1.))
                     .with_rotation(Quat::from_rotation_z(fraction * core::f32::consts::PI)),
                 TextColor(Color::hsla(fraction * 360.0, 0.8, 0.8, 0.8)),
@@ -205,7 +205,7 @@ mod text {
                 custom_size: Some(5. * Vec2::ONE),
                 ..Default::default()
             },
-            Transform::from_translation(dest),
+            Transform3d::from_translation(dest),
             DespawnOnExitState(super::Scene::Text),
         ));
 
@@ -218,7 +218,7 @@ mod text {
             let mut text = commands.spawn((
                 Text2d::new("L R\n"),
                 TextLayout::new_with_justify(justify),
-                Transform::from_translation(dest + Vec3::Z),
+                Transform3d::from_translation(dest + Vec3::Z),
                 anchor,
                 DespawnOnExitState(super::Scene::Text),
                 children![
@@ -243,7 +243,7 @@ mod text {
                         custom_size: Some(Vec2::new(bounds.width.unwrap(), bounds.height.unwrap())),
                         ..Default::default()
                     },
-                    Transform::from_translation(dest - Vec3::Z),
+                    Transform3d::from_translation(dest - Vec3::Z),
                     anchor,
                     DespawnOnExitState(super::Scene::Text),
                 ));

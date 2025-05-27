@@ -2,7 +2,7 @@ use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, prelude::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 use derive_more::derive::From;
 
 #[cfg(feature = "bevy_render")]
@@ -14,7 +14,7 @@ use crate::{DynamicScene, Scene};
 /// Once it's spawned, the entity will have a [`SceneInstance`](crate::SceneInstance) component.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Transform)]
+#[require(Transform3d)]
 #[cfg_attr(feature = "bevy_render", require(Visibility))]
 pub struct SceneRoot(pub Handle<Scene>);
 
@@ -22,6 +22,6 @@ pub struct SceneRoot(pub Handle<Scene>);
 /// Once it's spawned, the entity will have a [`SceneInstance`](crate::SceneInstance) component.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Transform)]
+#[require(Transform3d)]
 #[cfg_attr(feature = "bevy_render", require(Visibility))]
 pub struct DynamicSceneRoot(pub Handle<DynamicScene>);

@@ -82,26 +82,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Enemy that snaps to face the player spawns on the bottom and left
     commands.spawn((
         Sprite::from_image(enemy_a_handle.clone()),
-        Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
+        Transform3d::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
         SnapToPlayer,
     ));
     commands.spawn((
         Sprite::from_image(enemy_a_handle),
-        Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
+        Transform3d::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
         SnapToPlayer,
     ));
 
     // Enemy that rotates to face the player enemy spawns on the top and right
     commands.spawn((
         Sprite::from_image(enemy_b_handle.clone()),
-        Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
+        Transform3d::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
         RotateToPlayer {
             rotation_speed: f32::to_radians(45.0), // Degrees per second
         },
     ));
     commands.spawn((
         Sprite::from_image(enemy_b_handle),
-        Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
+        Transform3d::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
         RotateToPlayer {
             rotation_speed: f32::to_radians(90.0), // Degrees per second
         },
@@ -112,7 +112,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn player_movement_system(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    query: Single<(&Player, &mut Transform)>,
+    query: Single<(&Player, &mut Transform3d)>,
 ) {
     let (ship, mut transform) = query.into_inner();
 
@@ -152,8 +152,8 @@ fn player_movement_system(
 
 /// Demonstrates snapping the enemy ship to face the player ship immediately.
 fn snap_to_player_system(
-    mut query: Query<&mut Transform, (With<SnapToPlayer>, Without<Player>)>,
-    player_transform: Single<&Transform, With<Player>>,
+    mut query: Query<&mut Transform3d, (With<SnapToPlayer>, Without<Player>)>,
+    player_transform: Single<&Transform3d, With<Player>>,
 ) {
     // Get the player translation in 2D
     let player_translation = player_transform.translation.xy();
@@ -194,8 +194,8 @@ fn snap_to_player_system(
 /// `acos`.
 fn rotate_to_player_system(
     time: Res<Time>,
-    mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
-    player_transform: Single<&Transform, With<Player>>,
+    mut query: Query<(&RotateToPlayer, &mut Transform3d), Without<Player>>,
+    player_transform: Single<&Transform3d, With<Player>>,
 ) {
     // Get the player translation in 2D
     let player_translation = player_transform.translation.xy();

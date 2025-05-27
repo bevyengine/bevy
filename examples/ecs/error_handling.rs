@@ -67,7 +67,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
-        Transform::from_xyz(0.0, -2.5, 0.0),
+        Transform3d::from_xyz(0.0, -2.5, 0.0),
     ));
 
     // Spawn a light:
@@ -76,13 +76,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
     ));
 
     // Spawn a camera:
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Create a new sphere mesh:
@@ -93,7 +93,7 @@ fn setup(
     let mut sphere = commands.spawn((
         Mesh3d(meshes.add(sphere_mesh.clone())),
         MeshMaterial3d(materials.add(StandardMaterial::default())),
-        Transform::from_xyz(-1.0, 1.0, 0.0),
+        Transform3d::from_xyz(-1.0, 1.0, 0.0),
     ));
 
     // Generate random sample points:
@@ -113,7 +113,7 @@ fn setup(
         sphere.with_child((
             Mesh3d(point_mesh.clone()),
             MeshMaterial3d(point_material.clone()),
-            Transform::from_translation(point),
+            Transform3d::from_translation(point),
         ));
     }
 
@@ -128,7 +128,7 @@ fn fallible_observer(
     mut step: Local<f32>,
 ) -> Result {
     let mut transform = world
-        .get_mut::<Transform>(trigger.target)
+        .get_mut::<Transform3d>(trigger.target)
         .ok_or("No transform found.")?;
 
     *step = if transform.translation.x > 3. {
@@ -165,7 +165,7 @@ fn failing_commands(mut commands: Commands) {
         // Normally, this failed command would panic,
         // but since we've set the global error handler to `warn`
         // it will log a warning instead.
-        .insert(Transform::default());
+        .insert(Transform3d::default());
 
     // The error handlers for commands can be set individually as well,
     // by using the queue_handled method.

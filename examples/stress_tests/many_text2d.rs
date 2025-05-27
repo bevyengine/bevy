@@ -136,7 +136,7 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                 } else {
                     JustifyText::Left
                 }),
-                Transform {
+                Transform3d {
                     translation,
                     rotation,
                     scale,
@@ -154,13 +154,13 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
 }
 
 // System for rotating and translating the camera
-fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
+fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform3d, With<Camera>>) {
     let Ok(mut camera_transform) = camera_query.single_mut() else {
         return;
     };
     camera_transform.rotate_z(time.delta_secs() * 0.5);
-    *camera_transform =
-        *camera_transform * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
+    *camera_transform = *camera_transform
+        * Transform3d::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
 }
 
 // System for printing the number of texts on every tick of the timer

@@ -80,7 +80,7 @@ impl FromWorld for ButtonMeshes {
 struct GamepadButtonBundle {
     mesh: Mesh2d,
     material: MeshMaterial2d<ColorMaterial>,
-    transform: Transform,
+    transform: Transform3d,
     react_to: ReactTo,
 }
 
@@ -95,7 +95,7 @@ impl GamepadButtonBundle {
         Self {
             mesh,
             material,
-            transform: Transform::from_xyz(x, y, 0.),
+            transform: Transform3d::from_xyz(x, y, 0.),
             react_to: ReactTo(button_type),
         }
     }
@@ -133,7 +133,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // Buttons
 
     commands.spawn((
-        Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
+        Transform3d::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
         Visibility::default(),
         children![
             GamepadButtonBundle::new(
@@ -188,7 +188,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // D-Pad
 
     commands.spawn((
-        Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
+        Transform3d::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
         Visibility::default(),
         children![
             GamepadButtonBundle::new(
@@ -272,21 +272,21 @@ fn setup_sticks(
             ..default()
         };
         commands.spawn((
-            Transform::from_xyz(x_pos, y_pos, 0.),
+            Transform3d::from_xyz(x_pos, y_pos, 0.),
             Visibility::default(),
             children![
                 Sprite::from_color(DEAD_COLOR, Vec2::splat(STICK_BOUNDS_SIZE * 2.),),
                 (
                     Sprite::from_color(LIVE_COLOR, Vec2::splat(live_size)),
-                    Transform::from_xyz(live_mid, live_mid, 2.),
+                    Transform3d::from_xyz(live_mid, live_mid, 2.),
                 ),
                 (
                     Sprite::from_color(DEAD_COLOR, Vec2::splat(dead_size)),
-                    Transform::from_xyz(dead_mid, dead_mid, 3.),
+                    Transform3d::from_xyz(dead_mid, dead_mid, 3.),
                 ),
                 (
                     Text2d::default(),
-                    Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
+                    Transform3d::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
                     Anchor::BOTTOM_CENTER,
                     TextWithAxes { x_axis, y_axis },
                     children![
@@ -298,7 +298,7 @@ fn setup_sticks(
                 (
                     meshes.circle.clone(),
                     materials.normal.clone(),
-                    Transform::from_xyz(0., 0., 5.).with_scale(Vec2::splat(0.15).extend(1.)),
+                    Transform3d::from_xyz(0., 0., 5.).with_scale(Vec2::splat(0.15).extend(1.)),
                     MoveWithAxes {
                         x_axis,
                         y_axis,
@@ -341,7 +341,7 @@ fn setup_triggers(
                 y,
             ),
             children![(
-                Transform::from_xyz(0., 0., 1.),
+                Transform3d::from_xyz(0., 0., 1.),
                 Text(format!("{:.3}", 0.)),
                 TextFont {
                     font_size: 13.,
@@ -402,7 +402,7 @@ fn update_button_values(
 
 fn update_axes(
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
-    mut query: Query<(&mut Transform, &MoveWithAxes)>,
+    mut query: Query<(&mut Transform3d, &MoveWithAxes)>,
     text_query: Query<(Entity, &TextWithAxes)>,
     mut writer: Text2dWriter,
 ) {

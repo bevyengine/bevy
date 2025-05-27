@@ -21,7 +21,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create a camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
+        Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
     ));
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
@@ -46,7 +46,7 @@ fn joint_animation(
     time: Res<Time>,
     children: Query<&ChildOf, With<SkinnedMesh>>,
     parents: Query<&Children>,
-    mut transform_query: Query<&mut Transform>,
+    mut transform_query: Query<&mut Transform3d>,
 ) {
     // Iter skinned mesh entity
     for child_of in &children {
@@ -62,7 +62,7 @@ fn joint_animation(
 
         // Second joint is the first child of the first joint.
         let second_joint_entity = first_joint_children[0];
-        // Get `Transform` in the second joint.
+        // Get `Transform3d` in the second joint.
         let mut second_joint_transform = transform_query.get_mut(second_joint_entity).unwrap();
 
         second_joint_transform.rotation =

@@ -68,7 +68,7 @@ fn setup(
     commands.spawn((
         Mesh3d(cube_handle),
         MeshMaterial3d(cube_material_handle),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
+        Transform3d::from_translation(Vec3::new(0.0, 0.0, 1.0)),
         FirstPassCube,
         first_pass_layer.clone(),
     ));
@@ -79,7 +79,7 @@ fn setup(
     // Setting the layer to RenderLayers::layer(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.
     commands.spawn((
         PointLight::default(),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+        Transform3d::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         RenderLayers::layer(0).with(1),
     ));
 
@@ -90,7 +90,7 @@ fn setup(
             clear_color: Color::WHITE.into(),
             ..default()
         },
-        Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::ZERO, Vec3::Y),
         first_pass_layer,
     ));
 
@@ -109,19 +109,19 @@ fn setup(
     commands.spawn((
         Mesh3d(cube_handle),
         MeshMaterial3d(material_handle),
-        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
+        Transform3d::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         MainPassCube,
     ));
 
     // The main pass camera.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
 /// Rotates the inner cube (first pass)
-fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<FirstPassCube>>) {
+fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform3d, With<FirstPassCube>>) {
     for mut transform in &mut query {
         transform.rotate_x(1.5 * time.delta_secs());
         transform.rotate_z(1.3 * time.delta_secs());
@@ -129,7 +129,7 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<FirstPa
 }
 
 /// Rotates the outer cube (main pass)
-fn cube_rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<MainPassCube>>) {
+fn cube_rotator_system(time: Res<Time>, mut query: Query<&mut Transform3d, With<MainPassCube>>) {
     for mut transform in &mut query {
         transform.rotate_x(1.0 * time.delta_secs());
         transform.rotate_y(0.7 * time.delta_secs());

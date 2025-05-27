@@ -173,8 +173,10 @@ fn setup_scene_after_load(
         let mut camera = commands.spawn((
             Camera3d::default(),
             Projection::from(projection),
-            Transform::from_translation(Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5))
-                .looking_at(Vec3::from(aabb.center), Vec3::Y),
+            Transform3d::from_translation(
+                Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
+            )
+            .looking_at(Vec3::from(aabb.center), Vec3::Y),
             Camera {
                 is_active: false,
                 ..default()
@@ -214,7 +216,7 @@ fn setup_scene_after_load(
             info!("Spawning a directional light");
             let mut light = commands.spawn((
                 DirectionalLight::default(),
-                Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+                Transform3d::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             ));
             if args.occlusion_culling == Some(true) {
                 light.insert(OcclusionCulling);

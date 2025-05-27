@@ -81,7 +81,7 @@ fn setup_scene(
             .spawn((
                 Mesh3d(shape),
                 MeshMaterial3d(white_matl.clone()),
-                Transform::from_xyz(
+                Transform3d::from_xyz(
                     -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
                     2.0,
                     Z_EXTENT / 2.,
@@ -103,7 +103,7 @@ fn setup_scene(
             .spawn((
                 Mesh3d(shape),
                 MeshMaterial3d(white_matl.clone()),
-                Transform::from_xyz(
+                Transform3d::from_xyz(
                     -EXTRUSION_X_EXTENT / 2.
                         + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
                     2.0,
@@ -135,13 +135,13 @@ fn setup_scene(
             shadow_depth_bias: 0.2,
             ..default()
         },
-        Transform::from_xyz(8.0, 16.0, 8.0),
+        Transform3d::from_xyz(8.0, 16.0, 8.0),
     ));
 
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        Transform3d::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
     ));
 
     // Instructions
@@ -183,14 +183,14 @@ fn draw_mesh_intersections(pointers: Query<&PointerInteraction>, mut gizmos: Giz
 }
 
 /// A system that rotates all shapes.
-fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
+fn rotate(mut query: Query<&mut Transform3d, With<Shape>>, time: Res<Time>) {
     for mut transform in &mut query {
         transform.rotate_y(time.delta_secs() / 2.);
     }
 }
 
 /// An observer to rotate an entity when it is dragged
-fn rotate_on_drag(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
+fn rotate_on_drag(drag: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform3d>) {
     let mut transform = transforms.get_mut(drag.target()).unwrap();
     transform.rotate_y(drag.delta.x * 0.02);
     transform.rotate_x(drag.delta.y * 0.02);

@@ -36,7 +36,7 @@ fn setup(
     commands.spawn((
         Mesh2d(meshes.add(Circle::new(15.0))),
         MeshMaterial2d(materials.add(Color::from(BLUE))),
-        Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
+        Transform3d::from_translation(Vec3::new(0.0, 50.0, 0.0)),
         Emitter::default(),
         AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP.with_spatial(true),
@@ -44,19 +44,19 @@ fn setup(
 
     let listener = SpatialListener::new(gap);
     commands.spawn((
-        Transform::default(),
+        Transform3d::default(),
         Visibility::default(),
         listener.clone(),
         children![
             // left ear
             (
                 Sprite::from_color(RED, Vec2::splat(20.0)),
-                Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
+                Transform3d::from_xyz(-gap / 2.0, 0.0, 0.0),
             ),
             // right ear
             (
                 Sprite::from_color(LIME, Vec2::splat(20.0)),
-                Transform::from_xyz(gap / 2.0, 0.0, 0.0),
+                Transform3d::from_xyz(gap / 2.0, 0.0, 0.0),
             )
         ],
     ));
@@ -83,7 +83,7 @@ struct Emitter {
 
 fn update_emitters(
     time: Res<Time>,
-    mut emitters: Query<(&mut Transform, &mut Emitter), With<Emitter>>,
+    mut emitters: Query<(&mut Transform3d, &mut Emitter), With<Emitter>>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
@@ -106,7 +106,7 @@ fn update_emitters(
 fn update_listener(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut listener: Single<&mut Transform, With<SpatialListener>>,
+    mut listener: Single<&mut Transform3d, With<SpatialListener>>,
 ) {
     let speed = 200.;
 

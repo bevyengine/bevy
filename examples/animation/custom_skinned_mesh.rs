@@ -46,7 +46,7 @@ fn setup(
     // Create a camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(2.5, 2.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(2.5, 2.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Create inverse bindpose matrices for a skeleton consists of 2 joints
@@ -148,7 +148,7 @@ fn setup(
     for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
-            .spawn(Transform::from_xyz(
+            .spawn(Transform3d::from_xyz(
                 i as f32 * 1.5,
                 0.0,
                 // Move quads back a small amount to avoid Z-fighting and not
@@ -156,7 +156,9 @@ fn setup(
                 -(i as f32 * 0.01).abs(),
             ))
             .id();
-        let joint_1 = commands.spawn((AnimatedJoint(i), Transform::IDENTITY)).id();
+        let joint_1 = commands
+            .spawn((AnimatedJoint(i), Transform3d::IDENTITY))
+            .id();
 
         // Set joint_1 as a child of joint_0.
         commands.entity(joint_0).add_children(&[joint_1]);
@@ -187,7 +189,7 @@ fn setup(
 /// Animate the joint marked with [`AnimatedJoint`] component.
 fn joint_animation(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &AnimatedJoint)>,
+    mut query: Query<(&mut Transform3d, &AnimatedJoint)>,
     mut gizmos: Gizmos,
 ) {
     for (mut transform, animated_joint) in &mut query {

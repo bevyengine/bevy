@@ -1492,7 +1492,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.animated_transform]
 name = "Animated Transform"
-description = "Create and play an animation defined by code that operates on the `Transform` component"
+description = "Create and play an animation defined by code that operates on the `Transform3d` component"
 category = "Animation"
 wasm = true
 
@@ -3180,7 +3180,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.align]
 name = "Alignment"
-description = "A demonstration of Transform's axis-alignment feature"
+description = "A demonstration of `Transform3d`'s axis-alignment feature"
 category = "Transforms"
 wasm = true
 

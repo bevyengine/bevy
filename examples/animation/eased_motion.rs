@@ -40,7 +40,7 @@ fn setup(
         .spawn((
             Mesh3d(meshes.add(Cuboid::from_length(2.0))),
             MeshMaterial3d(materials.add(Color::from(ORANGE))),
-            Transform::from_translation(vec3(-6., 2., 0.)),
+            Transform3d::from_translation(vec3(-6., 2., 0.)),
             animation_target_name,
             animation_player,
             AnimationGraphHandle(animation_graph),
@@ -60,7 +60,7 @@ fn setup(
             range: 100.0,
             ..default()
         },
-        Transform::from_xyz(8., 16., 8.),
+        Transform3d::from_xyz(8., 16., 8.),
     ));
 
     // Ground plane
@@ -72,7 +72,7 @@ fn setup(
     // The camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 1.5, 0.), Vec3::Y),
+        Transform3d::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 1.5, 0.), Vec3::Y),
     ));
 }
 
@@ -129,11 +129,11 @@ impl AnimationInfo {
 
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(animated_field!(Transform::translation), translation_curve),
+            AnimatableCurve::new(animated_field!(Transform3d::translation), translation_curve),
         );
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(animated_field!(Transform::rotation), rotation_curve),
+            AnimatableCurve::new(animated_field!(Transform3d::rotation), rotation_curve),
         );
 
         // Save our animation clip as an asset.

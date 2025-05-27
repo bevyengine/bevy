@@ -33,7 +33,7 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        Transform3d::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         // MSAA needs to be off for Deferred rendering
         Msaa::Off,
         DistanceFog {
@@ -68,7 +68,7 @@ fn setup(
             ..default()
         }
         .build(),
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
     ));
 
     // FlightHelmet
@@ -78,7 +78,7 @@ fn setup(
     commands.spawn(SceneRoot(helmet_scene.clone()));
     commands.spawn((
         SceneRoot(helmet_scene),
-        Transform::from_xyz(-4.0, 0.0, -3.0),
+        Transform3d::from_xyz(-4.0, 0.0, -3.0),
     ));
 
     let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
@@ -98,16 +98,16 @@ fn setup(
     commands.spawn((
         Mesh3d(cube_h.clone()),
         MeshMaterial3d(forward_mat_h.clone()),
-        Transform::from_xyz(-0.3, 0.5, -0.2),
+        Transform3d::from_xyz(-0.3, 0.5, -0.2),
     ));
     commands.spawn((
         Mesh3d(cube_h),
         MeshMaterial3d(forward_mat_h),
-        Transform::from_xyz(0.2, 0.5, 0.2),
+        Transform3d::from_xyz(0.2, 0.5, 0.2),
     ));
 
     let sphere_color = Color::srgb(10.0, 4.0, 1.0);
-    let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
+    let sphere_pos = Transform3d::from_xyz(0.4, 0.5, -0.8);
     // Emissive sphere
     let mut unlit_mat: StandardMaterial = sphere_color.into();
     unlit_mat.unlit = true;
@@ -158,7 +158,7 @@ fn setup(
         commands.spawn((
             Mesh3d(sphere_h.clone()),
             MeshMaterial3d(material),
-            Transform::from_xyz(
+            Transform3d::from_xyz(
                 j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
                 0.125,
                 -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
@@ -175,7 +175,7 @@ fn setup(
             cull_mode: None,
             ..default()
         })),
-        Transform::from_scale(Vec3::splat(1_000_000.0)),
+        Transform3d::from_scale(Vec3::splat(1_000_000.0)),
         NotShadowCaster,
         NotShadowReceiver,
     ));
@@ -197,7 +197,7 @@ struct Pause(bool);
 
 fn animate_light_direction(
     time: Res<Time>,
-    mut query: Query<&mut Transform, With<DirectionalLight>>,
+    mut query: Query<&mut Transform3d, With<DirectionalLight>>,
     pause: Res<Pause>,
 ) {
     if pause.0 {
@@ -245,7 +245,7 @@ fn setup_parallax(
     commands.spawn((
         Mesh3d(meshes.add(cube)),
         MeshMaterial3d(parallax_material),
-        Transform::from_xyz(0.4, 0.2, -0.8),
+        Transform3d::from_xyz(0.4, 0.2, -0.8),
         Spin { speed: 0.3 },
     ));
 }
@@ -254,7 +254,7 @@ struct Spin {
     speed: f32,
 }
 
-fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>, pause: Res<Pause>) {
+fn spin(time: Res<Time>, mut query: Query<(&mut Transform3d, &Spin)>, pause: Res<Pause>) {
     if pause.0 {
         return;
     }

@@ -273,7 +273,7 @@ fn setup(
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(0.25, 0.25, 0.25))),
             MeshMaterial3d(cube_material.clone()),
-            Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
+            Transform3d::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
         ));
     }
 
@@ -289,7 +289,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
@@ -302,7 +302,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Hdr,
-        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        Transform3d::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ContrastAdaptiveSharpening {
             enabled: false,
             ..default()

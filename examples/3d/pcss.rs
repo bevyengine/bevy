@@ -153,7 +153,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn((
             Camera3d::default(),
-            Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
+            Transform3d::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
                 Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
             ),
         ))
@@ -183,7 +183,7 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
     commands
         .spawn((
             create_directional_light(app_status),
-            Transform::from_rotation(Quat::from_array([
+            Transform3d::from_rotation(Quat::from_array([
                 0.6539259,
                 -0.34646285,
                 0.36505926,

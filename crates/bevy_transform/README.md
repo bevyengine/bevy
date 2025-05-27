@@ -6,4 +6,4 @@
 [![Docs](https://docs.rs/bevy_transform/badge.svg)](https://docs.rs/bevy_transform/latest/bevy_transform/)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
-This crate contains types and functions associated with the `Transform` component.
+This crate contains types and functions associated with the `Transform3d` component.

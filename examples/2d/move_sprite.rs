@@ -21,14 +21,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         Sprite::from_image(asset_server.load("branding/icon.png")),
-        Transform::from_xyz(0., 0., 0.),
+        Transform3d::from_xyz(0., 0., 0.),
         Direction::Right,
     ));
 }
 
 /// The sprite is animated by changing its translation depending on the time that has passed since
 /// the last frame.
-fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
+fn sprite_movement(
+    time: Res<Time>,
+    mut sprite_position: Query<(&mut Direction, &mut Transform3d)>,
+) {
     for (mut logo, mut transform) in &mut sprite_position {
         match *logo {
             Direction::Right => transform.translation.x += 150. * time.delta_secs(),

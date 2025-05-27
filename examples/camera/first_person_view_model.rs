@@ -107,7 +107,7 @@ fn spawn_view_model(
     commands.spawn((
         Player,
         CameraSensitivity::default(),
-        Transform::from_xyz(0.0, 1.0, 0.0),
+        Transform3d::from_xyz(0.0, 1.0, 0.0),
         Visibility::default(),
         children![
             (
@@ -137,7 +137,7 @@ fn spawn_view_model(
             (
                 Mesh3d(arm),
                 MeshMaterial3d(arm_material),
-                Transform::from_xyz(0.2, -0.1, -0.25),
+                Transform3d::from_xyz(0.2, -0.1, -0.25),
                 // Ensure the arm is only rendered by the view model camera.
                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
                 // The arm is free-floating, so shadows would look weird.
@@ -164,13 +164,13 @@ fn spawn_world_model(
     commands.spawn((
         Mesh3d(cube.clone()),
         MeshMaterial3d(material.clone()),
-        Transform::from_xyz(0.0, 0.25, -3.0),
+        Transform3d::from_xyz(0.0, 0.25, -3.0),
     ));
 
     commands.spawn((
         Mesh3d(cube),
         MeshMaterial3d(material),
-        Transform::from_xyz(0.75, 1.75, 0.0),
+        Transform3d::from_xyz(0.75, 1.75, 0.0),
     ));
 }
 
@@ -181,7 +181,7 @@ fn spawn_lights(mut commands: Commands) {
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(-2.0, 4.0, -0.75),
+        Transform3d::from_xyz(-2.0, 4.0, -0.75),
         // The light source illuminates both the world model and the view model.
         RenderLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
     ));
@@ -204,7 +204,7 @@ fn spawn_text(mut commands: Commands) {
 
 fn move_player(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    player: Single<(&mut Transform, &CameraSensitivity), With<Player>>,
+    player: Single<(&mut Transform3d, &CameraSensitivity), With<Player>>,
 ) {
     let (mut transform, camera_sensitivity) = player.into_inner();
 

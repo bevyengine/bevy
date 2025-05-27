@@ -220,7 +220,7 @@ fn setup_scene(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        Transform3d::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
     ));
 
     commands.spawn((
@@ -229,14 +229,14 @@ fn setup_scene(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(-4.0, 8.0, 13.0),
+        Transform3d::from_xyz(-4.0, 8.0, 13.0),
     ));
 
     commands.spawn((
         SceneRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ),
-        Transform::from_scale(Vec3::splat(0.07)),
+        Transform3d::from_scale(Vec3::splat(0.07)),
     ));
 
     // Ground
@@ -244,7 +244,7 @@ fn setup_scene(
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(7.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        Transform3d::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 }
 

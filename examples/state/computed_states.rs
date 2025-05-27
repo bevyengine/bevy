@@ -415,7 +415,7 @@ mod ui {
         time: Res<Time>,
         input: Res<ButtonInput<KeyCode>>,
         turbo: Option<Res<State<TurboMode>>>,
-        mut query: Query<&mut Transform, With<Sprite>>,
+        mut query: Query<&mut Transform3d, With<Sprite>>,
     ) {
         for mut transform in &mut query {
             let mut direction = Vec3::ZERO;

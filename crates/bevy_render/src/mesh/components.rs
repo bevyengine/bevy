@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 use derive_more::derive::From;
 
 /// A component for 2D meshes. Requires a [`MeshMaterial2d`] to be rendered, commonly using a [`ColorMaterial`].
@@ -42,7 +42,7 @@ use derive_more::derive::From;
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
-#[require(Transform, Visibility, VisibilityClass)]
+#[require(Transform3d, Visibility, VisibilityClass)]
 #[component(on_add = view::add_visibility_class::<Mesh2d>)]
 pub struct Mesh2d(pub Handle<Mesh>);
 
@@ -98,7 +98,7 @@ impl AsAssetId for Mesh2d {
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
-#[require(Transform, Visibility, VisibilityClass)]
+#[require(Transform3d, Visibility, VisibilityClass)]
 #[component(on_add = view::add_visibility_class::<Mesh3d>)]
 pub struct Mesh3d(pub Handle<Mesh>);
 

@@ -132,23 +132,23 @@ fn setup(
                 modulate_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
             },
         })),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
     ));
 
     // Create a light.
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Create a camera.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
-fn rotate_sphere(mut meshes: Query<&mut Transform, With<Mesh3d>>, time: Res<Time>) {
+fn rotate_sphere(mut meshes: Query<&mut Transform3d, With<Mesh3d>>, time: Res<Time>) {
     for mut transform in &mut meshes {
         transform.rotation =
             Quat::from_euler(EulerRot::YXZ, -time.elapsed_secs(), FRAC_PI_2 * 3.0, 0.0);

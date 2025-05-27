@@ -66,19 +66,19 @@ fn setup(
             MeshMaterial3d(material_handle.clone()),
             // This is an optional component that can be used to help tie external data to a mesh instance
             MeshTag(index),
-            Transform::from_xyz(world_x, world_y, 0.0),
+            Transform3d::from_xyz(world_x, world_y, 0.0),
         ));
     }
 
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
 // Animate the transform
-fn update(time: Res<Time>, mut transforms: Query<(&mut Transform, &MeshTag)>) {
+fn update(time: Res<Time>, mut transforms: Query<(&mut Transform3d, &MeshTag)>) {
     for (mut transform, index) in transforms.iter_mut() {
         // Animate the z position based on time using the index to create a spiral
         transform.translation.z = ops::sin(time.elapsed_secs() + index.0 as f32 * 0.01);

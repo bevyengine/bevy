@@ -150,7 +150,7 @@ fn update_parallax_layers(
     }
 }
 
-fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>) {
+fn spin(time: Res<Time>, mut query: Query<(&mut Transform3d, &Spin)>) {
     for (mut transform, spin) in query.iter_mut() {
         transform.rotate_local_y(spin.speed * time.delta_secs());
         transform.rotate_local_x(spin.speed * time.delta_secs());
@@ -159,23 +159,23 @@ fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>) {
 }
 
 // Camera positions to cycle through when left-clicking.
-const CAMERA_POSITIONS: &[Transform] = &[
-    Transform {
+const CAMERA_POSITIONS: &[Transform3d] = &[
+    Transform3d {
         translation: Vec3::new(1.5, 1.5, 1.5),
         rotation: Quat::from_xyzw(-0.279, 0.364, 0.115, 0.880),
         scale: Vec3::ONE,
     },
-    Transform {
+    Transform3d {
         translation: Vec3::new(2.4, 0.0, 0.2),
         rotation: Quat::from_xyzw(0.094, 0.676, 0.116, 0.721),
         scale: Vec3::ONE,
     },
-    Transform {
+    Transform3d {
         translation: Vec3::new(2.4, 2.6, -4.3),
         rotation: Quat::from_xyzw(0.170, 0.908, 0.308, 0.225),
         scale: Vec3::ONE,
     },
-    Transform {
+    Transform3d {
         translation: Vec3::new(-1.0, 0.8, -1.2),
         rotation: Quat::from_xyzw(-0.004, 0.909, 0.247, -0.335),
         scale: Vec3::ONE,
@@ -183,7 +183,7 @@ const CAMERA_POSITIONS: &[Transform] = &[
 ];
 
 fn move_camera(
-    mut camera: Single<&mut Transform, With<CameraController>>,
+    mut camera: Single<&mut Transform3d, With<CameraController>>,
     mut current_view: Local<usize>,
     button: Res<ButtonInput<MouseButton>>,
 ) {
@@ -214,7 +214,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController,
     ));
 
@@ -225,7 +225,7 @@ fn setup(
                 shadows_enabled: true,
                 ..default()
             },
-            Transform::from_xyz(2.0, 1.0, -1.1),
+            Transform3d::from_xyz(2.0, 1.0, -1.1),
         ))
         .with_children(|commands| {
             // represent the light source as a sphere
@@ -243,7 +243,7 @@ fn setup(
             reflectance: 0.18,
             ..Color::srgb_u8(0, 80, 0).into()
         })),
-        Transform::from_xyz(0.0, -1.0, 0.0),
+        Transform3d::from_xyz(0.0, -1.0, 0.0),
     ));
 
     let parallax_depth_scale = TargetDepth::default().0;
@@ -285,7 +285,7 @@ fn setup(
         (
             Mesh3d(background_cube.clone()),
             MeshMaterial3d(parallax_material.clone()),
-            Transform::from_translation(translation),
+            Transform3d::from_translation(translation),
             Spin { speed: -0.1 },
         )
     };

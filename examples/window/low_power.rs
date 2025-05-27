@@ -133,7 +133,7 @@ pub(crate) mod test_setup {
     /// Rotate the cube to make it clear when the app is updating
     pub(crate) fn rotate_cube(
         time: Res<Time>,
-        mut cube_transform: Query<&mut Transform, With<Rotator>>,
+        mut cube_transform: Query<&mut Transform3d, With<Rotator>>,
     ) {
         for mut transform in &mut cube_transform {
             transform.rotate_x(time.delta_secs());
@@ -178,11 +178,11 @@ pub(crate) mod test_setup {
 
         commands.spawn((
             DirectionalLight::default(),
-            Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform3d::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
         commands.spawn((
             Camera3d::default(),
-            Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform3d::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
         event.write(RequestRedraw);
         commands

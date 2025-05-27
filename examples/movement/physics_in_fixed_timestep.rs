@@ -57,7 +57,7 @@
 //! - The player's velocity is stored in a `Velocity` component. This is the speed in units per second.
 //! - The player's current position in the physics simulation is stored in a `PhysicalTranslation` component.
 //! - The player's previous position in the physics simulation is stored in a `PreviousPhysicalTranslation` component.
-//! - The player's visual representation is stored in Bevy's regular `Transform` component.
+//! - The player's visual representation is stored in Bevy's regular `Transform3d` component.
 //! - Every frame, we go through the following steps:
 //!   - Accumulate the player's input and set the current speed in the `handle_input` system.
 //!     This is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystems::BeforeFixedMainLoop`,
@@ -98,7 +98,7 @@ fn main() {
                 handle_input.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
                 // The player's visual representation needs to be updated after the physics simulation has been advanced.
                 // This could be run in `Update`, but if we run it here instead, the systems in `Update`
-                // will be working with the `Transform` that will actually be shown on screen.
+                // will be working with the `Transform3d` that will actually be shown on screen.
                 interpolate_rendered_transform.in_set(RunFixedMainLoopSystems::AfterFixedMainLoop),
             ),
         )
@@ -115,10 +115,10 @@ struct AccumulatedInput(Vec2);
 struct Velocity(Vec3);
 
 /// The actual position of the player in the physics simulation.
-/// This is separate from the `Transform`, which is merely a visual representation.
+/// This is separate from the `Transform3d`, which is merely a visual representation.
 ///
 /// If you want to make sure that this component is always initialized
-/// with the same value as the `Transform`'s translation, you can
+/// with the same value as the `Transform3d`'s translation, you can
 /// use a [component lifecycle hook](https://docs.rs/bevy/0.14.0/bevy/ecs/component/struct.ComponentHooks.html)
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
 struct PhysicalTranslation(Vec3);
@@ -134,7 +134,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Name::new("Player"),
         Sprite::from_image(asset_server.load("branding/icon.png")),
-        Transform::from_scale(Vec3::splat(0.3)),
+        Transform3d::from_scale(Vec3::splat(0.3)),
         AccumulatedInput::default(),
         Velocity::default(),
         PhysicalTranslation::default(),
@@ -224,7 +224,7 @@ fn advance_physics(
 fn interpolate_rendered_transform(
     fixed_time: Res<Time<Fixed>>,
     mut query: Query<(
-        &mut Transform,
+        &mut Transform3d,
         &PhysicalTranslation,
         &PreviousPhysicalTranslation,
     )>,

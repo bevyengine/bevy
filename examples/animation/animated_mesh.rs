@@ -103,7 +103,7 @@ fn setup_camera_and_environment(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
+        Transform3d::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
     ));
 
     // Plane
@@ -114,7 +114,7 @@ fn setup_camera_and_environment(
 
     // Light
     commands.spawn((
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
             shadows_enabled: true,
             ..default()

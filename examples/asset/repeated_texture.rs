@@ -30,7 +30,7 @@ fn setup(
             base_color_texture: Some(image_with_default_sampler.clone()),
             ..default()
         })),
-        Transform::from_translation(Vec3::ZERO),
+        Transform3d::from_translation(Vec3::ZERO),
     ));
 
     // left cube with repeated texture
@@ -57,7 +57,7 @@ fn setup(
             uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
             ..default()
         })),
-        Transform::from_xyz(-1.5, 0.0, 0.0),
+        Transform3d::from_xyz(-1.5, 0.0, 0.0),
     ));
 
     // right cube with scaled texture, because with default sampler
@@ -74,7 +74,7 @@ fn setup(
             uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
             ..default()
         })),
-        Transform::from_xyz(1.5, 0.0, 0.0),
+        Transform3d::from_xyz(1.5, 0.0, 0.0),
     ));
 
     // light
@@ -83,11 +83,11 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
     ));
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 1.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 1.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }

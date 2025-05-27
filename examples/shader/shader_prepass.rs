@@ -49,7 +49,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
         Msaa::Off,
         // To enable the prepass you need to add the components associated with the ones you need
@@ -75,7 +75,7 @@ fn setup(
         MeshMaterial3d(depth_materials.add(PrepassOutputMaterial {
             settings: ShowPrepassSettings::default(),
         })),
-        Transform::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
+        Transform3d::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         NotShadowCaster,
     ));
 
@@ -87,7 +87,7 @@ fn setup(
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Opaque,
         })),
-        Transform::from_xyz(-1.0, 0.5, 0.0),
+        Transform3d::from_xyz(-1.0, 0.5, 0.0),
         Rotates,
     ));
 
@@ -99,7 +99,7 @@ fn setup(
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
         })),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
     ));
 
     // Cube with alpha blending.
@@ -111,7 +111,7 @@ fn setup(
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
         })),
-        Transform::from_xyz(1.0, 0.5, 0.0),
+        Transform3d::from_xyz(1.0, 0.5, 0.0),
     ));
 
     // light
@@ -120,7 +120,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
     ));
 
     commands.spawn((
@@ -173,7 +173,7 @@ impl Material for CustomMaterial {
 #[derive(Component)]
 struct Rotates;
 
-fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
+fn rotate(mut q: Query<&mut Transform3d, With<Rotates>>, time: Res<Time>) {
     for mut t in q.iter_mut() {
         let rot = (ops::sin(time.elapsed_secs()) * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);

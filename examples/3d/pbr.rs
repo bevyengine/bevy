@@ -34,7 +34,7 @@ fn setup(
                     perceptual_roughness: x01,
                     ..default()
                 })),
-                Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
+                Transform3d::from_xyz(x as f32, y as f32 + 0.5, 0.0),
             ));
         }
     }
@@ -47,7 +47,7 @@ fn setup(
             unlit: true,
             ..default()
         })),
-        Transform::from_xyz(-5.0, -2.5, 0.0),
+        Transform3d::from_xyz(-5.0, -2.5, 0.0),
     ));
 
     commands.spawn((
@@ -55,7 +55,7 @@ fn setup(
             illuminance: 1_500.,
             ..default()
         },
-        Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // labels
@@ -85,7 +85,7 @@ fn setup(
             right: Val::ZERO,
             ..default()
         },
-        Transform {
+        Transform3d {
             rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
             ..default()
         },
@@ -109,7 +109,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
         Projection::from(OrthographicProjection {
             scale: 0.01,
             scaling_mode: ScalingMode::WindowSize,

@@ -27,11 +27,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // light
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(2.0, 2.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }

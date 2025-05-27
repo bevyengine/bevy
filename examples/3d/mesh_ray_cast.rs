@@ -81,7 +81,7 @@ fn setup(
     let plane_material = materials.add(Color::from(css::GRAY).with_alpha(0.01));
     let create_plane = move |translation, rotation| {
         (
-            Transform::from_translation(translation)
+            Transform3d::from_translation(translation)
                 .with_rotation(Quat::from_scaled_axis(rotation)),
             Mesh3d(plane_mesh.clone()),
             MeshMaterial3d(plane_material.clone()),
@@ -98,13 +98,13 @@ fn setup(
     // Light
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.1, 0.2, 0.0)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.1, 0.2, 0.0)),
     ));
 
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
         Tonemapping::TonyMcMapface,
         Bloom::default(),
     ));

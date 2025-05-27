@@ -49,7 +49,7 @@ use super::*;
     CascadesFrusta,
     CascadeShadowConfig,
     CascadesVisibleEntities,
-    Transform,
+    Transform3d,
     Visibility,
     VisibilityClass
 )]

@@ -46,12 +46,12 @@ fn setup(
             },
             ..default()
         },
-        Transform::from_xyz(4., 1., 0.),
+        Transform3d::from_xyz(4., 1., 0.),
     ));
 
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController::default(),
     ));
     // plane
@@ -63,7 +63,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
     ));
     // light
     commands.spawn((
@@ -71,7 +71,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform3d::from_xyz(4.0, 8.0, 4.0),
     ));
 
     // example instructions
@@ -131,7 +131,7 @@ fn draw_example_collection(
         .spacing(Vec2::new(0.2, 0.1));
 
     gizmos.cuboid(
-        Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
+        Transform3d::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         BLACK,
     );
     gizmos.rect(

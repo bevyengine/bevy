@@ -76,25 +76,25 @@ fn setup(
     commands.spawn((
         Mesh3d(torus_handle),
         MeshMaterial3d(material_handle.clone()),
-        Transform::from_xyz(-3.0, 0.0, 0.0),
+        Transform3d::from_xyz(-3.0, 0.0, 0.0),
     ));
     // cube
     commands.spawn((
         Mesh3d(cube_handle),
         MeshMaterial3d(material_handle.clone()),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Transform3d::from_xyz(0.0, 0.0, 0.0),
     ));
     // sphere
     commands.spawn((
         Mesh3d(sphere_handle),
         MeshMaterial3d(material_handle),
-        Transform::from_xyz(3.0, 0.0, 0.0),
+        Transform3d::from_xyz(3.0, 0.0, 0.0),
     ));
     // light
-    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 5.0, 4.0)));
+    commands.spawn((PointLight::default(), Transform3d::from_xyz(4.0, 5.0, 4.0)));
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }

@@ -234,7 +234,7 @@ fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
         Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
@@ -245,7 +245,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
 
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn((
-        Transform::from_matrix(VOXEL_FROM_WORLD),
+        Transform3d::from_matrix(VOXEL_FROM_WORLD),
         IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
@@ -262,7 +262,7 @@ fn spawn_light(commands: &mut Commands) {
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0762, 5.9039, 1.0055),
+        Transform3d::from_xyz(4.0762, 5.9039, 1.0055),
     ));
 }
 
@@ -271,20 +271,20 @@ fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
         .spawn((
             Mesh3d(assets.main_sphere.clone()),
             MeshMaterial3d(assets.main_sphere_material.clone()),
-            Transform::from_xyz(0.0, SPHERE_SCALE, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+            Transform3d::from_xyz(0.0, SPHERE_SCALE, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(MainObject);
 }
 
 fn spawn_voxel_cube_parent(commands: &mut Commands) {
-    commands.spawn((Visibility::Hidden, Transform::default(), VoxelCubeParent));
+    commands.spawn((Visibility::Hidden, Transform3d::default(), VoxelCubeParent));
 }
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn((
         SceneRoot(assets.fox.clone()),
         Visibility::Hidden,
-        Transform::from_scale(Vec3::splat(FOX_SCALE)),
+        Transform3d::from_scale(Vec3::splat(FOX_SCALE)),
         MainObject,
     ));
 }
@@ -348,7 +348,7 @@ impl AppStatus {
 
 // Rotates the camera a bit every frame.
 fn rotate_camera(
-    mut camera_query: Query<&mut Transform, With<Camera3d>>,
+    mut camera_query: Query<&mut Transform3d, With<Camera3d>>,
     time: Res<Time>,
     app_status: Res<AppStatus>,
 ) {
@@ -451,7 +451,7 @@ fn handle_mouse_clicks(
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     cameras: Query<(&Camera, &GlobalTransform)>,
-    mut main_objects: Query<&mut Transform, With<MainObject>>,
+    mut main_objects: Query<&mut Transform3d, With<MainObject>>,
 ) {
     if !buttons.pressed(MouseButton::Left) {
         return;
@@ -580,7 +580,7 @@ fn create_cubes(
                         .spawn((
                             Mesh3d(example_assets.voxel_cube.clone()),
                             MeshMaterial3d(voxel_cube_material.clone()),
-                            Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
+                            Transform3d::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
                                 .with_translation(pos),
                         ))
                         .insert(VoxelCube)

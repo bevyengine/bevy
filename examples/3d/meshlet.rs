@@ -50,7 +50,7 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_translation(Vec3::new(1.8, 0.4, -0.1)).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_translation(Vec3::new(1.8, 0.4, -0.1)).looking_at(Vec3::ZERO, Vec3::Y),
         Msaa::Off,
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
@@ -73,7 +73,7 @@ fn setup(
             ..default()
         }
         .build(),
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
     ));
 
     // A custom file format storing a [`bevy_render::mesh::Mesh`]
@@ -98,7 +98,7 @@ fn setup(
                 perceptual_roughness: (x + 2) as f32 / 4.0,
                 ..default()
             })),
-            Transform::default()
+            Transform3d::default()
                 .with_scale(Vec3::splat(0.2))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, -0.3)),
         ));
@@ -107,7 +107,7 @@ fn setup(
         commands.spawn((
             MeshletMesh3d(meshlet_mesh_handle.clone()),
             MeshMaterial3d(debug_material.clone()),
-            Transform::default()
+            Transform3d::default()
                 .with_scale(Vec3::splat(0.2))
                 .with_rotation(Quat::from_rotation_y(PI))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, 0.3)),

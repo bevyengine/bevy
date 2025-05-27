@@ -9,7 +9,7 @@ use bevy_reflect::prelude::*;
 #[cfg(feature = "ghost_nodes")]
 use bevy_render::view::Visibility;
 #[cfg(feature = "ghost_nodes")]
-use bevy_transform::prelude::Transform;
+use bevy_transform::prelude::Transform3d;
 #[cfg(feature = "ghost_nodes")]
 use smallvec::SmallVec;
 /// Marker component for entities that should be ignored within UI hierarchies.

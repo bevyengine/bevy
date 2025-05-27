@@ -173,7 +173,7 @@ fn setup(
                     .spawn((
                         Mesh3d(mesh.clone()),
                         MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_translation((radius * unit_sphere_p).as_vec3())
+                        Transform3d::from_translation((radius * unit_sphere_p).as_vec3())
                             .looking_at(Vec3::ZERO, Vec3::Y)
                             .mul_transform(*transform),
                     ))
@@ -194,7 +194,7 @@ fn setup(
             commands.spawn((
                 Mesh3d(mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2)))),
                 MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
-                Transform::from_scale(-Vec3::ONE),
+                Transform3d::from_scale(-Vec3::ONE),
                 NotShadowCaster,
             ));
         }
@@ -212,12 +212,12 @@ fn setup(
                     commands.spawn((
                         Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
                         MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
+                        Transform3d::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
                     ));
                     commands.spawn((
                         Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
                         MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz(
+                        Transform3d::from_xyz(
                             (x as f32) * scale,
                             HEIGHT as f32 * scale,
                             (y as f32) * scale,
@@ -226,23 +226,23 @@ fn setup(
                     commands.spawn((
                         Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
                         MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
+                        Transform3d::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
                     ));
                     commands.spawn((
                         Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
                         MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
+                        Transform3d::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
                     ));
                 }
             }
             // camera
             let center = 0.5 * scale * Vec3::new(WIDTH as f32, HEIGHT as f32, WIDTH as f32);
-            commands.spawn((Camera3d::default(), Transform::from_translation(center)));
+            commands.spawn((Camera3d::default(), Transform3d::from_translation(center)));
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
                 Mesh3d(mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center))),
                 MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
-                Transform::from_scale(-Vec3::ONE).with_translation(center),
+                Transform3d::from_scale(-Vec3::ONE).with_translation(center),
                 NotShadowCaster,
             ));
         }
@@ -253,7 +253,7 @@ fn setup(
             shadows_enabled: args.shadows,
             ..default()
         },
-        Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
+        Transform3d::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
     ));
 }
 
@@ -322,7 +322,7 @@ fn init_materials(
     materials
 }
 
-fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Transform)> {
+fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Transform3d)> {
     let capacity = args.mesh_count.max(1);
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -336,18 +336,18 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 assets.add(Cuboid {
                     half_size: Vec3::splat(radius),
                 }),
-                Transform::IDENTITY,
+                Transform3d::IDENTITY,
             ),
             1 => (
                 assets.add(Capsule3d {
                     radius,
                     half_length: radius,
                 }),
-                Transform::IDENTITY,
+                Transform3d::IDENTITY,
             ),
             2 => (
                 assets.add(Circle { radius }),
-                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                Transform3d::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             3 => {
                 let mut vertices = [Vec2::ZERO; 3];
@@ -358,34 +358,34 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 }
                 (
                     assets.add(Triangle2d { vertices }),
-                    Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                    Transform3d::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
                 )
             }
             4 => (
                 assets.add(Rectangle {
                     half_size: Vec2::splat(radius),
                 }),
-                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                Transform3d::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             v if (5..=8).contains(&v) => (
                 assets.add(RegularPolygon {
                     circumcircle: Circle { radius },
                     sides: v,
                 }),
-                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                Transform3d::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             9 => (
                 assets.add(Cylinder {
                     radius,
                     half_height: radius,
                 }),
-                Transform::IDENTITY,
+                Transform3d::IDENTITY,
             ),
             10 => (
                 assets.add(Ellipse {
                     half_size: Vec2::new(radius, 0.5 * radius),
                 }),
-                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                Transform3d::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             11 => (
                 assets.add(
@@ -396,22 +396,22 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                     .mesh()
                     .size(radius, radius),
                 ),
-                Transform::IDENTITY,
+                Transform3d::IDENTITY,
             ),
-            12 => (assets.add(Sphere { radius }), Transform::IDENTITY),
+            12 => (assets.add(Sphere { radius }), Transform3d::IDENTITY),
             13 => (
                 assets.add(Torus {
                     minor_radius: 0.5 * radius,
                     major_radius: radius,
                 }),
-                Transform::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
+                Transform3d::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
             ),
             14 => (
                 assets.add(Capsule2d {
                     radius,
                     half_length: radius,
                 }),
-                Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
+                Transform3d::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             _ => unreachable!(),
         };
@@ -445,7 +445,7 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 fn move_camera(
     time: Res<Time>,
     args: Res<Args>,
-    mut camera_transform: Single<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform3d, With<Camera>>,
 ) {
     let delta = 0.15
         * if args.benchmark {

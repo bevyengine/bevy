@@ -140,7 +140,7 @@ impl PlaybackSettings {
 
 /// Settings for the listener for spatial audio sources.
 ///
-/// This must be accompanied by `Transform` and `GlobalTransform`.
+/// This must be accompanied by `Transform3d` and `GlobalTransform`.
 /// Only one entity with a `SpatialListener` should be present at any given time.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Clone, Default, Component, Debug)]

@@ -42,7 +42,7 @@ use bevy_render::{
     mesh::allocator::SlabId,
     sync_world::{MainEntity, RenderEntity},
 };
-use bevy_transform::{components::GlobalTransform, prelude::Transform};
+use bevy_transform::{components::GlobalTransform, prelude::Transform3d};
 use bevy_utils::default;
 use core::{hash::Hash, marker::PhantomData, ops::Range};
 #[cfg(feature = "trace")]
@@ -793,7 +793,7 @@ pub fn prepare_lights(
     // Pre-calculate for PointLights
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Transform3d::IDENTITY.looking_at(*target, *up))
         .collect::<Vec<_>>();
 
     global_light_meta.entity_to_index.clear();

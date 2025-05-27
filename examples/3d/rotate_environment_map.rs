@@ -78,7 +78,7 @@ fn spawn_sphere(
             base_color: GOLD.into(),
             ..default()
         })),
-        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
+        Transform3d::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
     ));
 }
 
@@ -101,7 +101,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 fov: 27.0 / 180.0 * PI,
                 ..default()
             }),
-            Transform::from_xyz(0.0, 0.0, 10.0),
+            Transform3d::from_xyz(0.0, 0.0, 10.0),
             AcesFitted,
         ))
         .insert(Skybox {

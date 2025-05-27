@@ -67,7 +67,7 @@ fn setup(
         commands.spawn((
             Mesh2d(meshes.add(sector_mesh)),
             MeshMaterial2d(material.clone()),
-            Transform {
+            Transform3d {
                 translation: Vec3::new(SPACING_X * i as f32 - OFFSET_X, 50.0, 0.0),
                 rotation: Quat::from_rotation_z(sector_angle),
                 ..default()
@@ -91,7 +91,7 @@ fn setup(
         commands.spawn((
             Mesh2d(meshes.add(segment_mesh)),
             MeshMaterial2d(material.clone()),
-            Transform {
+            Transform3d {
                 translation: Vec3::new(SPACING_X * i as f32 - OFFSET_X, -50.0, 0.0),
                 rotation: Quat::from_rotation_z(segment_angle),
                 ..default()

@@ -29,7 +29,7 @@ fn main() {
             MaterialPlugin::<ColorGradientMaterial>::default(),
         ))
         .insert_resource(CameraTransform(
-            Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+            Transform3d::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ))
         .init_resource::<PerMethodSettings>()
         .insert_resource(CurrentScene(1))
@@ -110,7 +110,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
-        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
+        Transform3d::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
         SceneNumber(1),
     ));
 
@@ -121,7 +121,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
@@ -607,7 +607,7 @@ impl Material for ColorGradientMaterial {
 struct ColorGradientMaterial {}
 
 #[derive(Resource)]
-struct CameraTransform(Transform);
+struct CameraTransform(Transform3d);
 
 #[derive(Resource)]
 struct CurrentScene(u32);

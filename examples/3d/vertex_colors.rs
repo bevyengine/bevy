@@ -38,7 +38,7 @@ fn setup(
         // multiplied by the base color, so you'll likely want this to be
         // white if using vertex colors.
         MeshMaterial3d(materials.add(Color::srgb(1., 1., 1.))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform3d::from_xyz(0.0, 0.5, 0.0),
     ));
 
     // Light
@@ -47,12 +47,12 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }

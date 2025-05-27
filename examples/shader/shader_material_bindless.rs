@@ -60,7 +60,7 @@ fn setup(
             color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/bevy_logo_dark.png")),
         })),
-        Transform::from_xyz(-2.0, 0.5, 0.0),
+        Transform3d::from_xyz(-2.0, 0.5, 0.0),
     ));
 
     // Add a cylinder with a red tinted texture.
@@ -70,13 +70,13 @@ fn setup(
             color: LinearRgba::RED,
             color_texture: Some(asset_server.load("branding/bevy_logo_light.png")),
         })),
-        Transform::from_xyz(2.0, 0.5, 0.0),
+        Transform3d::from_xyz(2.0, 0.5, 0.0),
     ));
 
     // Add a camera.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 

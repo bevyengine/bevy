@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
             CustomRenderedEntity,
             // We need to add the mesh handle to the entity
             Mesh3d(meshes.add(mesh.clone())),
-            Transform::from_xyz(x, y, 0.0),
+            Transform3d::from_xyz(x, y, 0.0),
         ));
     }
 
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
         Camera3d::default(),
         // Move the camera back a bit to see all the triangles
-        Transform::from_xyz(0.0, 0.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 

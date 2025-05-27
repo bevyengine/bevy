@@ -370,7 +370,7 @@ fn bird_velocity_transform(
     velocity_rng: &mut ChaCha8Rng,
     waves: Option<usize>,
     dt: f32,
-) -> (Transform, Vec3) {
+) -> (Transform3d, Vec3) {
     let mut velocity = Vec3::new(MAX_VELOCITY * (velocity_rng.r#gen::<f32>() - 0.5), 0., 0.);
 
     if let Some(waves) = waves {
@@ -382,7 +382,7 @@ fn bird_velocity_transform(
         }
     }
     (
-        Transform::from_translation(translation).with_scale(Vec3::splat(BIRD_SCALE)),
+        Transform3d::from_translation(translation).with_scale(Vec3::splat(BIRD_SCALE)),
         velocity,
     )
 }
@@ -507,7 +507,7 @@ fn step_movement(translation: &mut Vec3, velocity: &mut Vec3, dt: f32) {
 fn movement_system(
     args: Res<Args>,
     time: Res<Time>,
-    mut bird_query: Query<(&mut Bird, &mut Transform)>,
+    mut bird_query: Query<(&mut Bird, &mut Transform3d)>,
 ) {
     let dt = if args.benchmark {
         FIXED_DELTA_TIME
@@ -533,7 +533,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
         velocity.y = 0.0;
     }
 }
-fn collision_system(window: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+fn collision_system(window: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform3d)>) {
     let Ok(window) = window.single() else {
         return;
     };

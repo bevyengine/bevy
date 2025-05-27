@@ -38,13 +38,13 @@ fn setup(
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
         MeshMaterial2d(materials.add(ColorMaterial::default())),
-        Transform::from_translation(Vec3::new(-96., 0., 0.)).with_scale(Vec3::splat(128.)),
+        Transform3d::from_translation(Vec3::new(-96., 0., 0.)).with_scale(Vec3::splat(128.)),
     ));
 
     // Spawning the quad with vertex colors and a texture results in tinting
     commands.spawn((
         Mesh2d(mesh_handle),
         MeshMaterial2d(materials.add(texture_handle)),
-        Transform::from_translation(Vec3::new(96., 0., 0.)).with_scale(Vec3::splat(128.)),
+        Transform3d::from_translation(Vec3::new(96., 0., 0.)).with_scale(Vec3::splat(128.)),
     ));
 }

@@ -1,4 +1,4 @@
-//! Create and play an animation defined by code that operates on the [`Transform`] component.
+//! Create and play an animation defined by code that operates on the [`Transform3d`] component.
 
 use std::f32::consts::PI;
 
@@ -29,7 +29,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Light
@@ -38,7 +38,7 @@ fn setup(
             intensity: 500_000.0,
             ..default()
         },
-        Transform::from_xyz(0.0, 2.5, 0.0),
+        Transform3d::from_xyz(0.0, 2.5, 0.0),
     ));
 
     // Let's use the `Name` component to target entities. We can use anything we
@@ -54,7 +54,7 @@ fn setup(
     animation.add_curve_to_target(
         planet_animation_target_id,
         AnimatableCurve::new(
-            animated_field!(Transform::translation),
+            animated_field!(Transform3d::translation),
             UnevenSampleAutoCurve::new([0.0, 1.0, 2.0, 3.0, 4.0].into_iter().zip([
                 Vec3::new(1.0, 0.0, 1.0),
                 Vec3::new(-1.0, 0.0, 1.0),
@@ -75,7 +75,7 @@ fn setup(
     animation.add_curve_to_target(
         orbit_controller_animation_target_id,
         AnimatableCurve::new(
-            animated_field!(Transform::rotation),
+            animated_field!(Transform3d::rotation),
             UnevenSampleAutoCurve::new([0.0, 1.0, 2.0, 3.0, 4.0].into_iter().zip([
                 Quat::IDENTITY,
                 Quat::from_axis_angle(Vec3::Y, PI / 2.),
@@ -95,7 +95,7 @@ fn setup(
     animation.add_curve_to_target(
         satellite_animation_target_id,
         AnimatableCurve::new(
-            animated_field!(Transform::scale),
+            animated_field!(Transform3d::scale),
             UnevenSampleAutoCurve::new(
                 [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
                     .into_iter()
@@ -120,7 +120,7 @@ fn setup(
             [planet.clone(), orbit_controller.clone(), satellite.clone()].iter(),
         ),
         AnimatableCurve::new(
-            animated_field!(Transform::rotation),
+            animated_field!(Transform3d::rotation),
             UnevenSampleAutoCurve::new([0.0, 1.0, 2.0, 3.0, 4.0].into_iter().zip([
                 Quat::IDENTITY,
                 Quat::from_axis_angle(Vec3::Y, PI / 2.),
@@ -160,7 +160,7 @@ fn setup(
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
             p.spawn((
-                Transform::default(),
+                Transform3d::default(),
                 Visibility::default(),
                 orbit_controller,
                 AnimationTarget {
@@ -173,7 +173,7 @@ fn setup(
                 p.spawn((
                     Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
                     MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
-                    Transform::from_xyz(1.5, 0.0, 0.0),
+                    Transform3d::from_xyz(1.5, 0.0, 0.0),
                     AnimationTarget {
                         id: satellite_animation_target_id,
                         player: planet_entity,

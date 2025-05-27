@@ -111,7 +111,7 @@ fn spawn_car_paint_sphere(
                 base_color: BLUE.into(),
                 ..default()
             })),
-            Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+            Transform3d::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
 }
@@ -134,7 +134,7 @@ fn spawn_coated_glass_bubble_sphere(
                 alpha_mode: AlphaMode::Blend,
                 ..default()
             })),
-            Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+            Transform3d::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
 }
@@ -149,7 +149,7 @@ fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
         SceneRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
         ),
-        Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        Transform3d::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ExampleSphere,
     ));
 }
@@ -177,7 +177,7 @@ fn spawn_scratched_gold_ball(
                 base_color: GOLD.into(),
                 ..default()
             })),
-            Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+            Transform3d::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
 }
@@ -197,7 +197,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 fov: 27.0 / 180.0 * PI,
                 ..default()
             }),
-            Transform::from_xyz(0.0, 0.0, 10.0),
+            Transform3d::from_xyz(0.0, 0.0, 10.0),
             AcesFitted,
         ))
         .insert(Skybox {
@@ -228,7 +228,7 @@ fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
 
 /// Moves the light around.
 fn animate_light(
-    mut lights: Query<&mut Transform, Or<(With<PointLight>, With<DirectionalLight>)>>,
+    mut lights: Query<&mut Transform3d, Or<(With<PointLight>, With<DirectionalLight>)>>,
     time: Res<Time>,
 ) {
     let now = time.elapsed_secs();
@@ -243,7 +243,7 @@ fn animate_light(
 }
 
 /// Rotates the spheres.
-fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time: Res<Time>) {
+fn animate_spheres(mut spheres: Query<&mut Transform3d, With<ExampleSphere>>, time: Res<Time>) {
     let now = time.elapsed_secs();
     for mut transform in spheres.iter_mut() {
         transform.rotation = Quat::from_rotation_y(SPHERE_ROTATION_SPEED * now);

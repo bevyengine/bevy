@@ -17,7 +17,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     for z in 0..128 {
         commands.spawn((
             Sprite::from_image(texture.clone()),
-            Transform::from_scale(Vec3::splat(0.1))
+            Transform3d::from_scale(Vec3::splat(0.1))
                 .with_translation(Vec2::splat(0.0).extend(z as f32)),
             Velocity(20.0 * Vec2::new(rng.r#gen::<f32>() - 0.5, rng.r#gen::<f32>() - 0.5)),
         ));
@@ -25,7 +25,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // Move sprites according to their velocity
-fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
+fn move_system(mut sprites: Query<(&mut Transform3d, &Velocity)>) {
     // Compute the new location of each sprite in parallel on the
     // ComputeTaskPool
     //
@@ -42,7 +42,7 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
 }
 
 // Bounce sprites outside the window
-fn bounce_system(window: Query<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
+fn bounce_system(window: Query<&Window>, mut sprites: Query<(&Transform3d, &mut Velocity)>) {
     let Ok(window) = window.single() else {
         return;
     };

@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 use thiserror::Error;
 use tracing::warn;
 use ui_surface::UiSurface;
@@ -83,7 +83,7 @@ pub fn ui_layout_system(
     ui_children: UiChildren,
     mut node_transform_query: Query<(
         &mut ComputedNode,
-        &mut Transform,
+        &mut Transform3d,
         &Node,
         Option<&LayoutConfig>,
         Option<&BorderRadius>,
@@ -192,7 +192,7 @@ with UI components as a child of an entity without UI components, your UI layout
         target_size: Vec2,
         node_transform_query: &mut Query<(
             &mut ComputedNode,
-            &mut Transform,
+            &mut Transform3d,
             &Node,
             Option<&LayoutConfig>,
             Option<&BorderRadius>,

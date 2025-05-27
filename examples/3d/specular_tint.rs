@@ -81,7 +81,7 @@ fn setup(
 ) {
     // Spawns a camera.
     commands.spawn((
-        Transform::from_xyz(-2.0, 0.0, 3.5).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(-2.0, 0.0, 3.5).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
         Camera3d::default(),
         Skybox {
@@ -101,7 +101,7 @@ fn setup(
 
     // Spawn the sphere.
     commands.spawn((
-        Transform::from_rotation(Quat::from_rotation_x(PI * 0.5)),
+        Transform3d::from_rotation(Quat::from_rotation_x(PI * 0.5)),
         Mesh3d(meshes.add(Sphere::default().mesh().uv(32, 18))),
         MeshMaterial3d(standard_materials.add(StandardMaterial {
             // We want only reflected specular light here, so we set the base
@@ -132,7 +132,7 @@ fn setup(
 }
 
 /// Rotates the camera a bit every frame.
-fn rotate_camera(mut cameras: Query<&mut Transform, With<Camera3d>>) {
+fn rotate_camera(mut cameras: Query<&mut Transform3d, With<Camera3d>>) {
     for mut camera_transform in cameras.iter_mut() {
         camera_transform.translation =
             Quat::from_rotation_y(ROTATION_SPEED) * camera_transform.translation;

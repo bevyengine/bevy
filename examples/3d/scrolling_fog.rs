@@ -48,7 +48,7 @@ fn setup(
     // Spawn camera with temporal anti-aliasing and a VolumetricFog configuration.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
+        Transform3d::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
         Msaa::Off,
         TemporalAntiAliasing::default(),
         Bloom::default(),
@@ -65,7 +65,7 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(-5.0, 5.0, -7.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        Transform3d::from_xyz(-5.0, 5.0, -7.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         VolumetricLight,
     ));
 
@@ -77,14 +77,14 @@ fn setup(
             perceptual_roughness: 1.0,
             ..default()
         })),
-        Transform::from_xyz(0.0, -0.5, 0.0),
+        Transform3d::from_xyz(0.0, -0.5, 0.0),
     ));
 
     // Spawn pillar standing between the camera and the sun.
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(2.0, 9.0, 2.0))),
         MeshMaterial3d(materials.add(Color::BLACK)),
-        Transform::from_xyz(-10.0, 4.5, -11.0),
+        Transform3d::from_xyz(-10.0, 4.5, -11.0),
     ));
 
     // Load a repeating 3d noise texture. Make sure to set ImageAddressMode to Repeat
@@ -107,7 +107,7 @@ fn setup(
 
     // Spawn a FogVolume and use the repeating noise texture as its density texture.
     commands.spawn((
-        Transform::from_xyz(0.0, 32.0, 0.0).with_scale(Vec3::splat(64.0)),
+        Transform3d::from_xyz(0.0, 32.0, 0.0).with_scale(Vec3::splat(64.0)),
         FogVolume {
             density_texture: Some(noise_texture),
             density_factor: 0.05,

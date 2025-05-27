@@ -255,7 +255,7 @@ struct UpdateFilter {
 struct UpdateValue(f32);
 
 /// update positions system
-fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>) {
+fn update(time: Res<Time>, mut query: Query<(&mut Transform3d, &mut UpdateValue)>) {
     for (mut t, mut u) in &mut query {
         u.0 += time.delta_secs() * 0.1;
         set_translation(&mut t.translation, u.0);
@@ -271,7 +271,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
     warn!(include_str!("warning_string.txt"));
 
-    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 100.0)));
+    commands.spawn((Camera2d, Transform3d::from_xyz(0.0, 0.0, 100.0)));
 
     let result = match cfg.test_case {
         TestCase::Tree {
@@ -297,7 +297,7 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
                     &HUMANOID_RIG,
                     &mut commands,
                     &cfg.update_filter,
-                    Transform::from_xyz(
+                    Transform3d::from_xyz(
                         rng.r#gen::<f32>() * 500.0 - 250.0,
                         rng.r#gen::<f32>() * 500.0 - 250.0,
                         0.0,
@@ -314,7 +314,7 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
                         probability: -1.0,
                         ..cfg.update_filter
                     },
-                    Transform::from_xyz(
+                    Transform3d::from_xyz(
                         rng.r#gen::<f32>() * 500.0 - 250.0,
                         rng.r#gen::<f32>() * 500.0 - 250.0,
                         0.0,
@@ -355,7 +355,7 @@ fn spawn_tree(
     parent_map: &[usize],
     commands: &mut Commands,
     update_filter: &UpdateFilter,
-    root_transform: Transform,
+    root_transform: Transform3d,
 ) -> InsertResult {
     // total count (# of nodes + root)
     let count = parent_map.len() + 1;
@@ -418,7 +418,7 @@ fn spawn_tree(
                 // use the same placement fn as the `update` system
                 // this way the entities won't be all at (0, 0, 0) when they don't have an `Update` component
                 set_translation(&mut translation, sep);
-                Transform::from_translation(translation)
+                Transform3d::from_translation(translation)
             };
 
             // only insert the components necessary for the transform propagation

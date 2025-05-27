@@ -21,7 +21,7 @@
 //! animation system.
 //!
 //! For instance, let's imagine that we want to use the `Vec3` output
-//! from our curve to animate the [translation component of a `Transform`]. For this, there is
+//! from our curve to animate the [translation component of a `Transform3d`]. For this, there is
 //! the adaptor [`AnimatableCurve`], which wraps any [`Curve`] and [`AnimatableProperty`] and turns it into an
 //! [`AnimationCurve`] that will use the given curve to animate the entity's property:
 //!
@@ -78,7 +78,7 @@
 //! This is the lowest-level option with the most control, but it is also the most complicated.
 //!
 //! [using a function]: bevy_math::curve::FunctionCurve
-//! [translation component of a `Transform`]: bevy_transform::prelude::Transform::translation
+//! [translation component of a `Transform3d`]: bevy_transform::prelude::Transform::translation
 //! [`AnimationClip`]: crate::AnimationClip
 //! [there]: AnimatableProperty
 //! [`animated_field`]: crate::animated_field

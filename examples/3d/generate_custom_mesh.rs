@@ -48,7 +48,7 @@ fn setup(
 
     // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
     let camera_and_light_transform =
-        Transform::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
+        Transform3d::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
     commands.spawn((Camera3d::default(), camera_and_light_transform));
@@ -74,7 +74,7 @@ fn input_handler(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mesh_query: Query<&Mesh3d, With<CustomUV>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut query: Query<&mut Transform, With<CustomUV>>,
+    mut query: Query<&mut Transform3d, With<CustomUV>>,
     time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {

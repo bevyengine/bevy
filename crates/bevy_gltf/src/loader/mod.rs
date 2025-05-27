@@ -48,7 +48,7 @@ use bevy_render::{
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 
 use gltf::{
     accessor::Iter,
@@ -302,7 +302,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 {
                     match outputs {
                         ReadOutputs::Translations(tr) => {
-                            let translation_property = animated_field!(Transform::translation);
+                            let translation_property = animated_field!(Transform3d::translation);
                             let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
@@ -349,7 +349,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             }
                         }
                         ReadOutputs::Rotations(rots) => {
-                            let rotation_property = animated_field!(Transform::rotation);
+                            let rotation_property = animated_field!(Transform3d::rotation);
                             let rotations: Vec<Quat> =
                                 rots.into_f32().map(Quat::from_array).collect();
                             if keyframe_timestamps.len() == 1 {
@@ -400,7 +400,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             }
                         }
                         ReadOutputs::Scales(scale) => {
-                            let scale_property = animated_field!(Transform::scale);
+                            let scale_property = animated_field!(Transform3d::scale);
                             let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
@@ -867,7 +867,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut scene_load_context = load_context.begin_labeled_asset();
 
         let world_root_id = world
-            .spawn((Transform::default(), Visibility::default()))
+            .spawn((Transform3d::default(), Visibility::default()))
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
@@ -879,7 +879,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
-                        &Transform::default(),
+                        &Transform3d::default(),
                         #[cfg(feature = "bevy_animation")]
                         &animation_roots,
                         #[cfg(feature = "bevy_animation")]
@@ -1292,7 +1292,7 @@ fn load_node(
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut EntityHashMap<usize>,
     active_camera_found: &mut bool,
-    parent_transform: &Transform,
+    parent_transform: &Transform3d,
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,

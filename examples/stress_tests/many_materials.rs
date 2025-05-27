@@ -58,13 +58,13 @@ fn setup(
     let w = n as f32;
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(w * 1.25, w + 1.0, w * 1.25)
+        Transform3d::from_xyz(w * 1.25, w + 1.0, w * 1.25)
             .looking_at(Vec3::new(0.0, (w * -1.1) + 1.0, 0.0), Vec3::Y),
     ));
 
     // Light
     commands.spawn((
-        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        Transform3d::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
             illuminance: 3000.0,
             shadows_enabled: true,
@@ -79,7 +79,7 @@ fn setup(
             commands.spawn((
                 Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_assets.add(Color::WHITE)),
-                Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
+                Transform3d::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
             ));
         }
     }

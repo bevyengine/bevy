@@ -104,20 +104,20 @@ fn setup(
     commands.spawn((
         Mesh3d(cube_handle),
         MeshMaterial3d(material_handle),
-        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
+        Transform3d::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         Cube,
     ));
 
     // The main pass camera.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
 const ROTATION_SPEED: f32 = 0.5;
 
-fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
+fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform3d, With<Cube>>) {
     for mut transform in &mut query {
         transform.rotate_x(1.0 * time.delta_secs() * ROTATION_SPEED);
         transform.rotate_y(0.7 * time.delta_secs() * ROTATION_SPEED);

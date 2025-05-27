@@ -25,10 +25,10 @@ struct ShowAxes;
 #[derive(Component)]
 struct TransformTracking {
     /// The initial transform of the cube during the move
-    initial_transform: Transform,
+    initial_transform: Transform3d,
 
     /// The target transform of the cube during the move
-    target_transform: Transform,
+    target_transform: Transform3d,
 
     /// The progress of the cube during the move in seconds
     progress: f32,
@@ -52,13 +52,13 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(2., 6., 0.),
+        Transform3d::from_xyz(2., 6., 0.),
     ));
 
     // Camera...
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0., 1.5, -8.).looking_at(Vec3::new(0., -0.5, 0.), Vec3::Y),
+        Transform3d::from_xyz(0., 1.5, -8.).looking_at(Vec3::new(0., -0.5, 0.), Vec3::Y),
     ));
 
     // Action! (Our cubes that are going to move)
@@ -88,7 +88,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(20., 20.))),
         MeshMaterial3d(materials.add(Color::srgb(0.1, 0.1, 0.1))),
-        Transform::from_xyz(0., -2., 0.),
+        Transform3d::from_xyz(0., -2., 0.),
     ));
 
     commands.insert_resource(SeededRng(rng));
@@ -96,7 +96,7 @@ fn setup(
 
 // This system draws the axes based on the cube's transform, with length based on the size of
 // the entity's axis-aligned bounding box (AABB).
-fn draw_axes(mut gizmos: Gizmos, query: Query<(&Transform, &Aabb), With<ShowAxes>>) {
+fn draw_axes(mut gizmos: Gizmos, query: Query<(&Transform3d, &Aabb), With<ShowAxes>>) {
     for (&transform, &aabb) in &query {
         let length = aabb.half_extents.length();
         gizmos.axes(transform, length);
@@ -105,7 +105,7 @@ fn draw_axes(mut gizmos: Gizmos, query: Query<(&Transform, &Aabb), With<ShowAxes
 
 // This system changes the cubes' transforms to interpolate between random transforms
 fn move_cubes(
-    mut query: Query<(&mut Transform, &mut TransformTracking)>,
+    mut query: Query<(&mut Transform3d, &mut TransformTracking)>,
     time: Res<Time>,
     mut rng: ResMut<SeededRng>,
 ) {
@@ -138,8 +138,8 @@ const TRANSLATION_BOUND_UPPER_Z: f32 = 6.;
 const SCALING_BOUND_LOWER_LOG: f32 = -1.2;
 const SCALING_BOUND_UPPER_LOG: f32 = 1.2;
 
-fn random_transform(rng: &mut impl Rng) -> Transform {
-    Transform {
+fn random_transform(rng: &mut impl Rng) -> Transform3d {
+    Transform3d {
         translation: random_translation(rng),
         rotation: random_rotation(rng),
         scale: random_scale(rng),
@@ -207,12 +207,12 @@ fn build_direction(height: f32, theta: f32) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
-fn interpolate_transforms(t1: Transform, t2: Transform, t: f32) -> Transform {
+fn interpolate_transforms(t1: Transform3d, t2: Transform3d, t: f32) -> Transform3d {
     let translation = t1.translation.lerp(t2.translation, t);
     let rotation = t1.rotation.slerp(t2.rotation, t);
     let scale = elerp(t1.scale, t2.scale, t);
 
-    Transform {
+    Transform3d {
         translation,
         rotation,
         scale,

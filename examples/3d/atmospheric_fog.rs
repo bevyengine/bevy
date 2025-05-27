@@ -26,7 +26,7 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-1.0, 0.1, 1.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        Transform3d::from_xyz(-1.0, 0.1, 1.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         DistanceFog {
             color: Color::srgba(0.35, 0.48, 0.66, 1.0),
             directional_light_color: Color::srgba(1.0, 0.95, 0.85, 0.5),
@@ -61,7 +61,7 @@ fn setup_terrain_scene(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
+        Transform3d::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
         cascade_shadow_config,
     ));
 
@@ -79,7 +79,7 @@ fn setup_terrain_scene(
             cull_mode: None,
             ..default()
         })),
-        Transform::from_scale(Vec3::splat(20.0)),
+        Transform3d::from_scale(Vec3::splat(20.0)),
         NotShadowCaster,
     ));
 }

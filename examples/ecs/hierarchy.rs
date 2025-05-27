@@ -1,7 +1,7 @@
 //! Demonstrates techniques for creating a hierarchy of parent and child entities.
 //!
 //! When [`DefaultPlugins`] are added to your app, systems are automatically added to propagate
-//! [`Transform`] and [`Visibility`] from parents to children down the hierarchy,
+//! [`Transform3d`] and [`Visibility`] from parents to children down the hierarchy,
 //! resulting in a final [`GlobalTransform`] and [`InheritedVisibility`] component for each entity.
 
 use std::f32::consts::*;
@@ -24,13 +24,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let parent = commands
         .spawn((
             Sprite::from_image(texture.clone()),
-            Transform::from_scale(Vec3::splat(0.75)),
+            Transform3d::from_scale(Vec3::splat(0.75)),
         ))
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
             // parent is a ChildSpawnerCommands, which has a similar API to Commands
             parent.spawn((
-                Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
+                Transform3d::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
                 Sprite {
                     image: texture.clone(),
                     color: BLUE.into(),
@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: LIME.into(),
                 ..default()
             },
-            Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
+            Transform3d::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
         ))
         .id();
 
@@ -63,7 +63,7 @@ fn rotate(
     mut commands: Commands,
     time: Res<Time>,
     mut parents_query: Query<(Entity, &Children), With<Sprite>>,
-    mut transform_query: Query<&mut Transform, With<Sprite>>,
+    mut transform_query: Query<&mut Transform3d, With<Sprite>>,
 ) {
     for (parent, children) in &mut parents_query {
         if let Ok(mut transform) = transform_query.get_mut(parent) {

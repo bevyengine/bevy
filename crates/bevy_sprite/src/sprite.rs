@@ -9,13 +9,13 @@ use bevy_render::{
     sync_world::SyncToRenderWorld,
     view::{self, Visibility, VisibilityClass},
 };
-use bevy_transform::components::Transform;
+use bevy_transform::components::Transform3d;
 
 use crate::TextureSlicer;
 
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass, Anchor)]
+#[require(Transform3d, Visibility, SyncToRenderWorld, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
 #[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Sprite {
@@ -240,7 +240,7 @@ pub enum ScalingMode {
     FitEnd,
 }
 
-/// Normalized (relative to its size) offset of a 2d renderable entity from its [`Transform`].
+/// Normalized (relative to its size) offset of a 2d renderable entity from its [`Transform3d`].
 #[derive(Component, Debug, Clone, Copy, PartialEq, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[doc(alias = "pivot")]
