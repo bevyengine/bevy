@@ -57,7 +57,7 @@ pub struct PlaybackSettings {
     /// Optional scale factor applied to the positions of this audio source and the listener,
     /// overriding the default value configured on [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
     pub spatial_scale: Option<SpatialScale>,
-    /// The point in time in the audio clip where playback should start. If set to None, it will
+    /// The point in time in the audio clip where playback should start. If set to `None`, it will
     /// play from the beginning of the clip.
     ///
     /// If the playback mode is set to `Loop`, each loop will start from this position.
@@ -143,7 +143,7 @@ impl PlaybackSettings {
         self
     }
 
-    /// Helper to use a custom playback start position
+    /// Helper to use a custom playback start position.
     pub const fn with_start_position(mut self, start_position: core::time::Duration) -> Self {
         self.start_position = Some(start_position);
         self
