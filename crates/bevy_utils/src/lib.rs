@@ -48,6 +48,7 @@ pub mod prelude {
 
 pub mod synccell;
 pub mod syncunsafecell;
+mod wgpu_wrapper;
 
 mod default;
 mod once;
@@ -56,6 +57,9 @@ mod once;
 pub use once::OnceFlag;
 
 pub use default::default;
+
+#[cfg(feature = "wgpu_wrapper")]
+pub use wgpu_wrapper::WgpuWrapper;
 
 use core::mem::ManuallyDrop;
 

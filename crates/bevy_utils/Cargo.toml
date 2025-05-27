@@ -19,6 +19,9 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 
 thread_local = { version = "1.0", optional = true }
 
+[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
+send_wrapper = "0.6.0"
+
 [dev-dependencies]
 static_assertions = "1.1.0"
 

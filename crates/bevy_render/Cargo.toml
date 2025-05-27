@@ -151,9 +151,6 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-featu
   "web",
 ] }
 
-[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
-send_wrapper = "0.6.0"
-
 [lints]
 workspace = true
 
