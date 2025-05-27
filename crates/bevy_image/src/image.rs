@@ -878,6 +878,46 @@ impl Image {
         self.texture_descriptor.size = new_size;
     }
 
+    /// Resizes the image to the new size, keeping the pixel data intact, anchored at the top-left.
+    /// When growing, the new space is filled with `fill`. When shrinking, the image is clipped.
+    ///
+    /// # Panics
+    /// Panics if this is not a 2d image
+    pub fn resize_in_place_2d(&mut self, new_size: Extent3d, fill: &[u8]) {
+        let old_size = self.texture_descriptor.size;
+        let pixel_size = self.texture_descriptor.format.pixel_size();
+        let byte_len = self.texture_descriptor.format.pixel_size() * new_size.volume();
+
+        assert!(old_size.depth_or_array_layers == 1);
+        debug_assert_eq!(
+            fill.len(),
+            pixel_size,
+            "Fill value must match format pixel size ({}B).",
+            pixel_size,
+        );
+
+        if let Some(ref mut data) = self.data {
+            let mut new: Vec<u8> = fill.iter().copied().cycle().take(byte_len).collect();
+
+            let copy_width = old_size.width.min(new_size.width);
+            let copy_height = old_size.height.min(new_size.height);
+
+            for row in 0..copy_height {
+                let old_row_start = (row * old_size.width) as usize * pixel_size;
+                let old_row_end = old_row_start + copy_width as usize * pixel_size;
+
+                let new_row_start = (row * new_size.width) as usize * pixel_size;
+                let new_row_end = new_row_start + copy_width as usize * pixel_size;
+
+                new[new_row_start..new_row_end].copy_from_slice(&data[old_row_start..old_row_end]);
+            }
+
+            self.data = Some(new);
+        }
+
+        self.texture_descriptor.size = new_size;
+    }
+
     /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
     /// it as a 2D array texture, where each of the stacked images becomes one layer of the
     /// array. This is primarily for use with the `texture2DArray` shader uniform type.
@@ -1729,5 +1769,78 @@ mod test {
         assert!(matches!(image.get_color_at_3d(2, 3, 1), Ok(Color::WHITE)));
         image.set_color_at_3d(4, 9, 2, Color::WHITE).unwrap();
         assert!(matches!(image.get_color_at_3d(4, 9, 2), Ok(Color::WHITE)));
+    }
+
+    #[test]
+    fn resize_in_place_2d_grow_and_shrink() {
+        use bevy_color::ColorToPacked;
+
+        const INITIAL_FILL: LinearRgba = LinearRgba::BLACK;
+        const GROW_FILL: LinearRgba = LinearRgba::WHITE;
+
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 2,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &INITIAL_FILL.to_u8_array(),
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+
+        // Create a test pattern
+
+        const TEST_PIXELS: [(u32, u32, LinearRgba); 3] = [
+            (0, 1, LinearRgba::RED),
+            (1, 1, LinearRgba::GREEN),
+            (1, 0, LinearRgba::BLUE),
+        ];
+
+        for (x, y, color) in &TEST_PIXELS {
+            image.set_color_at(*x, *y, Color::from(*color)).unwrap();
+        }
+
+        // Grow image
+        image.resize_in_place_2d(
+            Extent3d {
+                width: 4,
+                height: 4,
+                depth_or_array_layers: 1,
+            },
+            &GROW_FILL.to_u8_array(),
+        );
+
+        // After growing, the test pattern should be the same.
+        assert!(matches!(
+            image.get_color_at(0, 0),
+            Ok(Color::LinearRgba(INITIAL_FILL))
+        ));
+        for (x, y, color) in &TEST_PIXELS {
+            assert_eq!(
+                image.get_color_at(*x, *y).unwrap(),
+                Color::LinearRgba(*color)
+            );
+        }
+
+        // Pixels in the newly added area should get filled with the value provided
+        assert!(matches!(
+            image.get_color_at(3, 3),
+            Ok(Color::LinearRgba(GROW_FILL))
+        ));
+
+        // Shrink
+        image.resize_in_place_2d(
+            Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            &GROW_FILL.to_u8_array(),
+        );
+
+        // Images outside of the new dimensions should be clipped
+        assert!(image.get_color_at(1, 1).is_err());
     }
 }
