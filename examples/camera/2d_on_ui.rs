@@ -23,7 +23,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             clear_color: ClearColorConfig::None,
             ..default()
         },
-        // this camera will only render entity which are on the same render layer.
+        // This camera will only render entities which are on the same render layer.
         RenderLayers::layer(1),
     ));
 
