@@ -16,7 +16,6 @@ fn main() {
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
         .add_systems(OnEnter(Scene::Gizmos), gizmos::setup)
-        .add_systems(OnEnter(Scene::RadialGradients), radial_gradients::setup)
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
 
@@ -34,7 +33,6 @@ enum Scene {
     Text,
     Sprite,
     Gizmos,
-    RadialGradients,
 }
 
 impl Next for Scene {
@@ -44,8 +42,7 @@ impl Next for Scene {
             Scene::Bloom => Scene::Text,
             Scene::Text => Scene::Sprite,
             Scene::Sprite => Scene::Gizmos,
-            Scene::Gizmos => Scene::RadialGradients,
-            Scene::RadialGradients => Scene::Shapes,
+            Scene::Gizmos => Scene::Shapes,
         }
     }
 }
@@ -295,102 +292,5 @@ mod gizmos {
         gizmos
             .circle_2d(Isometry2d::IDENTITY, 200.0, GREEN)
             .resolution(64);
-    }
-}
-
-mod radial_gradients {
-    use bevy::color::palettes::css::RED;
-    use bevy::color::palettes::tailwind::GRAY_700;
-    use bevy::prelude::*;
-    use bevy::ui::ColorStop;
-
-    const CELL_SIZE: f32 = 80.;
-    const GAP: f32 = 10.;
-
-    pub fn setup(mut commands: Commands) {
-        let color_stops = vec![
-            ColorStop::new(Color::BLACK, Val::Px(5.)),
-            ColorStop::new(Color::WHITE, Val::Px(5.)),
-            ColorStop::new(Color::WHITE, Val::Percent(100.)),
-            ColorStop::auto(RED),
-        ];
-
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::RadialGradients)));
-        commands
-            .spawn((
-                Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    display: Display::Grid,
-                    align_items: AlignItems::Start,
-                    grid_template_columns: vec![RepeatedGridTrack::px(
-                        GridTrackRepetition::AutoFill,
-                        CELL_SIZE,
-                    )],
-                    grid_auto_flow: GridAutoFlow::Row,
-                    row_gap: Val::Px(GAP),
-                    column_gap: Val::Px(GAP),
-                    padding: UiRect::all(Val::Px(GAP)),
-                    ..default()
-                },
-                DespawnOnExitState(super::Scene::RadialGradients),
-            ))
-            .with_children(|commands| {
-                for (shape, shape_label) in [
-                    (RadialGradientShape::ClosestSide, "ClosestSide"),
-                    (RadialGradientShape::FarthestSide, "FarthestSide"),
-                    (
-                        RadialGradientShape::Circle(Val::Percent(55.)),
-                        "Circle(55%)",
-                    ),
-                    (RadialGradientShape::FarthestCorner, "FarthestCorner"),
-                ] {
-                    for (position, position_label) in [
-                        (Position::TOP_LEFT, "TOP_LEFT"),
-                        (Position::LEFT, "LEFT"),
-                        (Position::BOTTOM_LEFT, "BOTTOM_LEFT"),
-                        (Position::TOP, "TOP"),
-                        (Position::CENTER, "CENTER"),
-                        (Position::BOTTOM, "BOTTOM"),
-                        (Position::TOP_RIGHT, "TOP_RIGHT"),
-                        (Position::RIGHT, "RIGHT"),
-                        (Position::BOTTOM_RIGHT, "BOTTOM_RIGHT"),
-                    ] {
-                        for (w, h) in [(CELL_SIZE, CELL_SIZE), (CELL_SIZE, CELL_SIZE / 2.)] {
-                            commands
-                                .spawn((
-                                    BackgroundColor(GRAY_700.into()),
-                                    Node {
-                                        display: Display::Grid,
-                                        width: Val::Px(CELL_SIZE),
-                                        ..Default::default()
-                                    },
-                                ))
-                                .with_children(|commands| {
-                                    commands.spawn((
-                                        Node {
-                                            margin: UiRect::all(Val::Px(2.0)),
-                                            ..default()
-                                        },
-                                        Text(format!("{shape_label}\n{position_label}")),
-                                        TextFont::from_font_size(9.),
-                                    ));
-                                    commands.spawn((
-                                        Node {
-                                            width: Val::Px(w),
-                                            height: Val::Px(h),
-                                            ..default()
-                                        },
-                                        BackgroundGradient::from(RadialGradient {
-                                            stops: color_stops.clone(),
-                                            position,
-                                            shape,
-                                        }),
-                                    ));
-                                });
-                        }
-                    }
-                }
-            });
     }
 }
