@@ -1306,6 +1306,8 @@ impl App {
 
     /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
     ///
+    /// `observer` can be any system whose first parameter is a [`Trigger`].
+    ///
     /// # Examples
     ///
     /// ```rust
@@ -1326,7 +1328,7 @@ impl App {
     /// # #[derive(Component)]
     /// # struct Friend;
     /// #
-    /// // An observer system can be any system where the first parameter is a trigger
+    ///
     /// app.add_observer(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
     ///     if trigger.event().friends_allowed {
     ///         for friend in friends.iter() {
