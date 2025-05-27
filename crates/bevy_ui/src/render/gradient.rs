@@ -32,6 +32,8 @@ use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
+use super::shader_flags::BORDER_ALL;
+
 pub const UI_GRADIENT_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("10116113-aac4-47fa-91c8-35cbe80dddcb");
 
@@ -388,7 +390,7 @@ pub fn extract_gradients(
 
         for (gradients, node_type) in [
             (gradient.map(|g| &g.0), NodeType::Rect),
-            (gradient_border.map(|g| &g.0), NodeType::Border),
+            (gradient_border.map(|g| &g.0), NodeType::Border(BORDER_ALL)),
         ]
         .iter()
         .filter_map(|(g, n)| g.map(|g| (g, *n)))
@@ -742,8 +744,8 @@ pub fn prepare_gradient(
 
                     let uvs = { [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y] };
 
-                    let mut flags = if gradient.node_type == NodeType::Border {
-                        shader_flags::BORDER
+                    let mut flags = if let NodeType::Border(borders) = gradient.node_type {
+                        borders
                     } else {
                         0
                     };
