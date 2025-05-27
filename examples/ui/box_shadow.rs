@@ -1,6 +1,8 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
-use bevy::{color::palettes::css::*, prelude::*, time::Time, winit::WinitSettings};
+use bevy::{
+    color::palettes::css::*, prelude::*, time::Time, window::RequestRedraw, winit::WinitSettings,
+};
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
@@ -103,7 +105,7 @@ struct HeldButton {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(WinitSettings::default())
+        .insert_resource(WinitSettings::desktop_app())
         .insert_resource(SHADOW_DEFAULT_SETTINGS)
         .insert_resource(SHAPE_DEFAULT_SETTINGS)
         .insert_resource(HeldButton::default())
@@ -599,7 +601,11 @@ fn button_repeat_system(
     mut held: ResMut<HeldButton>,
     mut shadow: ResMut<ShadowSettings>,
     mut shape: ResMut<ShapeSettings>,
+    mut redraw_events: EventWriter<RequestRedraw>,
 ) {
+    if held.button.is_some() {
+        redraw_events.write(RequestRedraw);
+    }
     const INITIAL_DELAY: f64 = 0.15;
     const REPEAT_RATE: f64 = 0.08;
     if let (Some(btn), Some(pressed_at)) = (held.button, held.pressed_at) {
