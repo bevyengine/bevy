@@ -25,12 +25,14 @@ enum TransitionType {
 }
 
 #[derive(Resource)]
-struct ClearEventsOnStateTransition<S: States> {
+struct StateScopedEvents<S: States> {
+    /// Keeps track of which events need to be reset when the state is exited.
     on_exit: HashMap<S, Vec<fn(&mut World)>>,
+    /// Keeps track of which events need to be reset when the state is entered.
     on_enter: HashMap<S, Vec<fn(&mut World)>>,
 }
 
-impl<S: States> ClearEventsOnStateTransition<S> {
+impl<S: States> StateScopedEvents<S> {
     fn add_event<E: Event>(&mut self, state: S, transition_type: TransitionType) {
         let map = match transition_type {
             TransitionType::OnExit => &mut self.on_exit,
@@ -53,7 +55,7 @@ impl<S: States> ClearEventsOnStateTransition<S> {
     }
 }
 
-impl<S: States> Default for ClearEventsOnStateTransition<S> {
+impl<S: States> Default for StateScopedEvents<S> {
     fn default() -> Self {
         Self {
             on_exit: HashMap::default(),
@@ -77,7 +79,7 @@ fn clear_events_on_exit_state<S: States>(
     };
 
     c.queue(move |w: &mut World| {
-        w.resource_scope::<ClearEventsOnStateTransition<S>, ()>(|w, events| {
+        w.resource_scope::<StateScopedEvents<S>, ()>(|w, events| {
             events.cleanup(w, exited, TransitionType::OnEnter);
         });
     });
@@ -98,7 +100,7 @@ fn clear_events_on_enter_state<S: States>(
     };
 
     c.queue(move |w: &mut World| {
-        w.resource_scope::<ClearEventsOnStateTransition<S>, ()>(|w, events| {
+        w.resource_scope::<StateScopedEvents<S>, ()>(|w, events| {
             events.cleanup(w, entered, TransitionType::OnEnter);
         });
     });
@@ -110,11 +112,11 @@ fn clear_event_on_state_transition<E: Event, S: States>(
     state: S,
     transition_type: TransitionType,
 ) {
-    if !app.world().contains_resource::<ClearEventsOnStateTransition<S>>() {
-        app.init_resource::<ClearEventsOnStateTransition<S>>();
+    if !app.world().contains_resource::<StateScopedEvents<S>>() {
+        app.init_resource::<StateScopedEvents<S>>();
     }
     app.world_mut()
-        .resource_mut::<ClearEventsOnStateTransition<S>>()
+        .resource_mut::<StateScopedEvents<S>>()
         .add_event::<E>(state.clone(), transition_type);
     app.add_systems(OnExit(state), match transition_type {
         TransitionType::OnExit => clear_events_on_exit_state::<S>,
