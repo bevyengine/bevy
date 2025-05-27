@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            // here we could also use a `UiTargetCamera` component instead of the general `IsDefaultUiCamera`
+            // We could also use a `UiTargetCamera` component here instead of the general `IsDefaultUiCamera`.
             Node {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
