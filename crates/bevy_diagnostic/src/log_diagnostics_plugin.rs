@@ -190,7 +190,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time<Real>>,
         diagnostics: Res<DiagnosticsStore>,
     ) {
-        if state.timer.tick(time.delta()).finished() {
+        if state.timer.tick(time.delta()).is_finished() {
             Self::log_diagnostics(&state, &diagnostics);
         }
     }
@@ -200,7 +200,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time<Real>>,
         diagnostics: Res<DiagnosticsStore>,
     ) {
-        if state.timer.tick(time.delta()).finished() {
+        if state.timer.tick(time.delta()).is_finished() {
             Self::for_each_diagnostic(&state, &diagnostics, |diagnostic| {
                 debug!("{:#?}\n", diagnostic);
             });

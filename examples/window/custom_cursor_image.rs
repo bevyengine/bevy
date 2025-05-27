@@ -117,7 +117,7 @@ fn execute_animation(time: Res<Time>, mut query: Query<(&mut AnimationConfig, &m
         if let CursorIcon::Custom(CustomCursor::Image(ref mut image)) = *cursor_icon {
             config.frame_timer.tick(time.delta());
 
-            if config.frame_timer.finished() {
+            if config.frame_timer.is_finished() {
                 if let Some(atlas) = image.texture_atlas.as_mut() {
                     atlas.index += config.increment;
 
