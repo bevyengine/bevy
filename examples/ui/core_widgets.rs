@@ -7,6 +7,7 @@ use bevy::{
     ui::Depressed,
     winit::WinitSettings,
 };
+use bevy_ecs::system::SystemId;
 
 fn main() {
     App::new()
@@ -57,12 +58,15 @@ fn button_system(
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+    let on_click = commands.register_system(|| {
+        info!("Button clicked!");
+    });
     // ui camera
     commands.spawn(Camera2d);
-    commands.spawn(button(&assets));
+    commands.spawn(button(&assets, on_click));
 }
 
-fn button(asset_server: &AssetServer) -> impl Bundle + use<> {
+fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle + use<> {
     (
         Node {
             width: Val::Percent(100.0),
@@ -83,7 +87,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle + use<> {
                 ..default()
             },
             CoreButton {
-                on_click: None, // No action on click
+                on_click: Some(on_click),
             },
             BorderColor(Color::BLACK),
             BorderRadius::MAX,
