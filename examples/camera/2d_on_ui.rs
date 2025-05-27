@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn rotate_sprite(time: Res<Time>, mut sprite: Single<&mut Transform, With<Sprite>>) {
-    // can use 2d concept things like Transform
+    // Use any of the regular 2D rendering features, for example rotating a sprite via its `Transform`.
     sprite.rotation *=
         Quat::from_rotation_z(time.delta_secs() * 0.5) * Quat::from_rotation_y(time.delta_secs());
 }
