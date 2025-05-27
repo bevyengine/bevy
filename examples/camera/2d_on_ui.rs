@@ -39,21 +39,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             BackgroundColor(tailwind::ROSE_400.into()),
-        ))
-        .with_children(|p| {
-            p.spawn((
-                Node {
-                    height: Val::Percent(30.),
-                    width: Val::Percent(20.),
-                    min_height: Val::Px(150.),
-                    min_width: Val::Px(150.),
-                    border: UiRect::all(Val::Px(2.)),
-                    ..default()
-                },
-                BorderRadius::all(Val::Percent(25.0)),
-                BorderColor(Color::WHITE),
-            ));
-        });
+          children![(
+            Node {
+                height: Val::Percent(30.),
+                width: Val::Percent(20.),
+                min_height: Val::Px(150.),
+                min_width: Val::Px(150.),
+                border: UiRect::all(Val::Px(2.)),
+                ..default()
+            },
+            BorderRadius::all(Val::Percent(25.0)),
+            BorderColor(Color::WHITE),
+        )],
+    ));
 
     // this 2d object, will be rendered on the second camera, on top of the default camera where the ui is rendered.
     commands.spawn((
