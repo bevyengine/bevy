@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             BorderRadius::all(Val::Percent(25.0)),
-            BorderColor(Color::WHITE),
+            BorderColor::all(Color::WHITE),
         )],
     ));
 
