@@ -61,7 +61,7 @@ pub struct PlaybackSettings {
     /// play from the beginning of the clip.
     ///
     /// If the playback mode is set to `Loop`, each loop will start from this position.
-    pub start_position: Option<std::time::Duration>,
+    pub start_position: Option<core::time::Duration>,
 }
 
 impl Default for PlaybackSettings {
@@ -144,7 +144,7 @@ impl PlaybackSettings {
     }
 
     /// Helper to use a custom playback start position
-    pub const fn with_start_position(mut self, start_position: std::time::Duration) -> Self {
+    pub const fn with_start_position(mut self, start_position: core::time::Duration) -> Self {
         self.start_position = Some(start_position);
         self
     }
