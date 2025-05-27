@@ -67,6 +67,7 @@ git checkout v0.4.0
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
+  - [Usage](#usage)
   - [Window](#window)
 
 - [Tests](#tests)
@@ -574,6 +575,13 @@ Example | Description
 [Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
 
+## Usage
+
+Example | Description
+--- | ---
+[Context Menu](../examples/usages/context_menu.rs) | Example of a context menu
+[Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
+
 ## Window
 
 Example | Description
@@ -782,6 +790,7 @@ Bevy has a helper to build its examples:
 
 - Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
 - Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+- Debug: `cargo run -p build-wasm-example -- --debug --api webgl2 load_gltf`
 
 This helper will log the command used to build the examples.
 

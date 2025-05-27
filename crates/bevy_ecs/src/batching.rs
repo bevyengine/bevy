@@ -22,7 +22,7 @@ use core::ops::Range;
 /// [`EventReader::par_read`]: crate::event::EventReader::par_read
 #[derive(Clone, Debug)]
 pub struct BatchingStrategy {
-    /// The upper and lower limits for a batch of entities.
+    /// The upper and lower limits for a batch of items.
     ///
     /// Setting the bounds to the same value will result in a fixed
     /// batch size.

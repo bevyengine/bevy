@@ -66,7 +66,7 @@ use tracing::{error, info_span, warn};
 
 use crate::{
     vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
+    GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -1461,6 +1461,10 @@ fn load_node(
                         mesh_entity.insert(GltfMaterialExtras {
                             value: extras.get().to_string(),
                         });
+                    }
+
+                    if let Some(name) = mesh.name() {
+                        mesh_entity.insert(GltfMeshName(name.to_string()));
                     }
 
                     if let Some(name) = material.name() {

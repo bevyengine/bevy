@@ -589,7 +589,14 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod alloc;
+    mod bevy_platform;
+    mod core;
     mod foldhash;
+    #[cfg(feature = "hashbrown")]
+    mod hashbrown;
+    mod macros;
+    #[cfg(feature = "std")]
     mod std;
 
     #[cfg(feature = "glam")]

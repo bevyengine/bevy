@@ -1,5 +1,5 @@
 use alloc::{boxed::Box, vec::Vec};
-use bevy_utils::synccell::SyncCell;
+use bevy_platform::cell::SyncCell;
 use variadics_please::all_tuples;
 
 use crate::{
