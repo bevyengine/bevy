@@ -42,16 +42,17 @@ pub use sprite::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetEventSystems, Assets, Handle};
+use bevy_asset::{embedded_asset, AssetEventSystems, Assets};
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_render::{
     batching::sort_binned_render_phase,
+    load_shader_library,
     mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
-    render_resource::{Shader, SpecializedRenderPipelines},
+    render_resource::SpecializedRenderPipelines,
     view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -59,11 +60,6 @@ use bevy_render::{
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
 pub struct SpritePlugin;
-
-pub const SPRITE_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("ed996613-54c0-49bd-81be-1c2d1a0d03c2");
-pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("43947210-8df6-459a-8f2a-12f350d174cc");
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -78,18 +74,9 @@ pub type SpriteSystem = SpriteSystems;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            SPRITE_SHADER_HANDLE,
-            "render/sprite.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            SPRITE_VIEW_BINDINGS_SHADER_HANDLE,
-            "render/sprite_view_bindings.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "render/sprite_view_bindings.wgsl");
+
+        embedded_asset!(app, "render/sprite.wgsl");
 
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
             app.add_plugins(TextureAtlasPlugin);
