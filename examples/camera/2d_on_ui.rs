@@ -19,7 +19,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Camera2d,
         Camera {
             order: 1,
-            // dont draw anything in the background, to see the previous cameras.
+            // Don't draw anything in the background, to see the previous camera.
             clear_color: ClearColorConfig::None,
             ..default()
         },
