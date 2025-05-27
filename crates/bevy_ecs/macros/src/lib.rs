@@ -242,7 +242,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .as_ref()
             .map(|f| quote! { #f })
             .unwrap_or_else(|| quote! { #i });
-        field_names.push(format!("::{}", field_value));
+        field_names.push(format!("::{field_value}"));
         fields.push(field_value);
         field_types.push(&field.ty);
         let mut field_message = None;

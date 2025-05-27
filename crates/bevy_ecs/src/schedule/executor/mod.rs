@@ -370,7 +370,7 @@ mod tests {
     #[expect(clippy::print_stdout, reason = "std and println are allowed in tests")]
     fn single_and_populated_skipped_and_run() {
         for executor in EXECUTORS {
-            std::println!("Testing executor: {:?}", executor);
+            std::println!("Testing executor: {executor:?}");
 
             let mut world = World::new();
             world.init_resource::<TestState>();
