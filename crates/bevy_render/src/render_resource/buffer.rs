@@ -1,5 +1,5 @@
 use crate::frame_graph::{
-    BindGroupResourceHandle, BindGroupResourceHandleHelper, BindingResourceBufferHandle,
+    BindGroupResourceHandle, BindGroupResourceHandleHelper, BindGroupBufferHandle,
     BufferInfo, FrameGraph, TransientBuffer, Handle, IntoBindGroupResourceHandle,
 };
 use crate::renderer::WgpuWrapper;
@@ -23,7 +23,7 @@ impl BindGroupResourceHandleHelper for Buffer {
     ) -> BindGroupResourceHandle {
         let buffer = self.imported(frame_graph);
 
-        BindingResourceBufferHandle { buffer, size: None, offset: 0 }.into_binding()
+        BindGroupBufferHandle { buffer, size: None, offset: 0 }.into_binding()
     }
 }
 

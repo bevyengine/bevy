@@ -7,7 +7,7 @@ use crate::{
 
 use super::{
     BindGroupBinding, BindGroupEntryHandle, BindGroupResourceHandleHelper,
-    IntoBindGroupResourceHandle,
+    BindGroupTextureViewHandleHelper, IntoBindGroupResourceHandle,
 };
 
 pub struct BindGroupHandleBuilder<'a> {
@@ -30,12 +30,18 @@ impl<'a> BindGroupHandleBuilder<'a> {
             frame_graph,
         }
     }
-
-    pub fn add_handle<T: IntoBindGroupResourceHandle>(
-        mut self,
+    pub fn add_texture_view<T: BindGroupTextureViewHandleHelper>(
+        self,
         binding: u32,
-        handle: T,
+        value: &T,
     ) -> Self {
+        let handle = value
+            .make_bind_group_texture_view_handle(self.frame_graph)
+            .into_binding();
+        self.add_handle(binding, handle)
+    }
+
+    pub fn add_handle<T: IntoBindGroupResourceHandle>(mut self, binding: u32, handle: T) -> Self {
         self.entries.push(BindGroupEntryHandle {
             binding,
             resource: handle.into_binding(),

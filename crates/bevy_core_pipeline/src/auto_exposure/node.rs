@@ -119,25 +119,25 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
-        let mut pass_builder = frame_graph.create_pass_builder("auto_exposure_pass");
-
-        let compute_bind_group = pass_builder
-            .create_bind_group_builder(None, &pipeline.histogram_layout)
+        let compute_bind_group = frame_graph
+            .create_bind_group_handle_builder(None, &pipeline.histogram_layout)
             .add_handle(0, &globals_buffer_binding)
             .add_handle(1, &auto_exposure_buffers_setting_binding)
             .add_helper(2, source)
-            .add_helper(3, &mask.texture)
-            .add_helper(4, &compensation_curve.texture)
+            .add_texture_view(3, &mask.texture)
+            .add_texture_view(4, &compensation_curve.texture)
             .add_handle(5, &compensation_curve_extents)
             .add_helper(6, &resources.histogram)
             .add_handle(7, &auto_exposure_buffers_state_binding)
             .add_handle(8, &view_uniforms_binding)
             .build();
 
+        let mut pass_builder = frame_graph.create_pass_builder("auto_exposure_pass");
+
         let mut builder = pass_builder.create_compute_pass_builder("auto_exposure_pass");
 
         builder
-            .set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset])
+            .set_bind_group_handle(0, &compute_bind_group, &[view_uniform_offset.offset])
             .set_compute_pipeline(auto_exposure.histogram_pipeline)
             .dispatch_workgroups(
                 view.viewport.z.div_ceil(16),

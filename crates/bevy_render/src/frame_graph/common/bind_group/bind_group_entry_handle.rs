@@ -36,21 +36,21 @@ impl BindGroupEntryHandle {
 
 #[derive(Clone)]
 pub enum BindGroupResourceHandle {
-    Buffer(BindingResourceBufferHandle),
+    Buffer(BindGroupBufferHandle),
     Sampler(Sampler),
-    TextureView(BindingResourceTextureViewHandle),
-    TextureViewArray(Vec<BindingResourceTextureViewHandle>),
+    TextureView(BindGroupTextureViewHandle),
+    TextureViewArray(Vec<BindGroupTextureViewHandle>),
 }
 
 #[derive(Clone)]
-pub struct BindingResourceBufferHandle {
+pub struct BindGroupBufferHandle {
     pub buffer: Handle<TransientBuffer>,
     pub size: Option<NonZero<u64>>,
     pub offset: u64,
 }
 
 #[derive(Clone)]
-pub struct BindingResourceTextureViewHandle {
+pub struct BindGroupTextureViewHandle {
     pub texture: Handle<TransientTexture>,
     pub texture_view_info: TextureViewInfo,
 }
@@ -113,19 +113,19 @@ impl IntoBindGroupResourceHandle for BindGroupResourceHandle {
     }
 }
 
-impl IntoBindGroupResourceHandle for &[BindingResourceTextureViewHandle] {
+impl IntoBindGroupResourceHandle for &[BindGroupTextureViewHandle] {
     fn into_binding(self) -> BindGroupResourceHandle {
         BindGroupResourceHandle::TextureViewArray(self.to_vec())
     }
 }
 
-impl IntoBindGroupResourceHandle for BindingResourceTextureViewHandle {
+impl IntoBindGroupResourceHandle for BindGroupTextureViewHandle {
     fn into_binding(self) -> BindGroupResourceHandle {
         BindGroupResourceHandle::TextureView(self)
     }
 }
 
-impl IntoBindGroupResourceHandle for &BindingResourceTextureViewHandle {
+impl IntoBindGroupResourceHandle for &BindGroupTextureViewHandle {
     fn into_binding(self) -> BindGroupResourceHandle {
         BindGroupResourceHandle::TextureView(self.clone())
     }
@@ -133,7 +133,7 @@ impl IntoBindGroupResourceHandle for &BindingResourceTextureViewHandle {
 
 impl IntoBindGroupResourceHandle for Handle<TransientBuffer> {
     fn into_binding(self) -> BindGroupResourceHandle {
-        BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
+        BindGroupResourceHandle::Buffer(BindGroupBufferHandle {
             buffer: self,
             size: None,
             offset: 0,
@@ -149,7 +149,7 @@ impl IntoBindGroupResourceHandle
     )
 {
     fn into_binding(self) -> BindGroupResourceHandle {
-        BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
+        BindGroupResourceHandle::Buffer(BindGroupBufferHandle {
             buffer: self.0.clone(),
             size: self.2,
             offset: self.1,
@@ -164,7 +164,7 @@ impl IntoBindGroupResourceHandle
     )
 {
     fn into_binding(self) -> BindGroupResourceHandle {
-        BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
+        BindGroupResourceHandle::Buffer(BindGroupBufferHandle {
             buffer: self.0.clone(),
             size: self.1,
             offset: 0,
@@ -174,7 +174,7 @@ impl IntoBindGroupResourceHandle
 
 impl IntoBindGroupResourceHandle for &Handle<TransientBuffer> {
     fn into_binding(self) -> BindGroupResourceHandle {
-        BindGroupResourceHandle::Buffer(BindingResourceBufferHandle {
+        BindGroupResourceHandle::Buffer(BindGroupBufferHandle {
             buffer: self.clone(),
             size: None,
             offset: 0,
@@ -182,7 +182,7 @@ impl IntoBindGroupResourceHandle for &Handle<TransientBuffer> {
     }
 }
 
-impl IntoBindGroupResourceHandle for BindingResourceBufferHandle {
+impl IntoBindGroupResourceHandle for BindGroupBufferHandle {
     fn into_binding(self) -> BindGroupResourceHandle {
         BindGroupResourceHandle::Buffer(self)
     }
@@ -202,7 +202,7 @@ impl IntoBindGroupResourceHandle for &Sampler {
 
 impl IntoBindGroupResourceHandle for Handle<TransientTexture> {
     fn into_binding(self) -> BindGroupResourceHandle {
-        BindGroupResourceHandle::TextureView(BindingResourceTextureViewHandle {
+        BindGroupResourceHandle::TextureView(BindGroupTextureViewHandle {
             texture: self,
             texture_view_info: TextureViewInfo::default(),
         })
@@ -211,7 +211,7 @@ impl IntoBindGroupResourceHandle for Handle<TransientTexture> {
 
 impl IntoBindGroupResourceHandle for &Handle<TransientTexture> {
     fn into_binding(self) -> BindGroupResourceHandle {
-        BindGroupResourceHandle::TextureView(BindingResourceTextureViewHandle {
+        BindGroupResourceHandle::TextureView(BindGroupTextureViewHandle {
             texture: self.clone(),
             texture_view_info: TextureViewInfo::default(),
         })
@@ -225,7 +225,7 @@ impl IntoBindGroupResourceHandle
     )
 {
     fn into_binding(self) -> BindGroupResourceHandle {
-        BindGroupResourceHandle::TextureView(BindingResourceTextureViewHandle {
+        BindGroupResourceHandle::TextureView(BindGroupTextureViewHandle {
             texture: self.0.clone(),
             texture_view_info: self.1.clone(),
         })

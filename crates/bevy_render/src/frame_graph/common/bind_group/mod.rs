@@ -8,12 +8,7 @@ pub use bind_group_entry_binding::*;
 pub use bind_group_entry_handle::*;
 pub use bind_group_handle::*;
 
-use crate::{
-    frame_graph::{FrameGraph, PassNodeBuilder},
-    render_resource::{Buffer, Texture},
-};
-
-use super::TextureViewInfo;
+use crate::frame_graph::{FrameGraph, PassNodeBuilder};
 
 pub trait BindGroupResourceHandleHelper {
     fn make_bind_group_resource_handle(
@@ -22,34 +17,20 @@ pub trait BindGroupResourceHandleHelper {
     ) -> BindGroupResourceHandle;
 }
 
+pub trait BindGroupTextureViewHandleHelper {
+    fn make_bind_group_texture_view_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> BindGroupTextureViewHandle;
+}
+
+pub trait BindGroupBufferHandleHelper {
+    fn make_bind_group_buffer_handle(&self, frame_graph: &mut FrameGraph) -> BindGroupBufferHandle;
+}
+
 pub trait BindGroupResourceBindingHelper {
     fn make_bind_group_resource_binding(
         &self,
         pass_node_builder: &mut PassNodeBuilder,
     ) -> BindGroupResourceBinding;
-}
-
-impl BindGroupResourceBindingHelper for Buffer {
-    fn make_bind_group_resource_binding(
-        &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> BindGroupResourceBinding {
-        let buffer = pass_node_builder.read_material(self);
-
-        BindingResourceBuffer { buffer, size: None, offest: 0 }.into_binding()
-    }
-}
-
-impl BindGroupResourceBindingHelper for Texture {
-    fn make_bind_group_resource_binding(
-        &self,
-        pass_node_builder: &mut PassNodeBuilder,
-    ) -> BindGroupResourceBinding {
-        let texture = pass_node_builder.read_material(self);
-
-        BindGroupResourceBinding::TextureView(BindingResourceTextureView {
-            texture,
-            texture_view_info: TextureViewInfo::default(),
-        })
-    }
 }

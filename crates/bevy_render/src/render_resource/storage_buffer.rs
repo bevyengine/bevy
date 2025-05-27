@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use super::Buffer;
 use crate::{
     frame_graph::{
-        BindingResourceBuffer, BindGroupResourceHandle, BindGroupResourceBinding, BindingResourceBufferHandle,
+        BindingResourceBuffer, BindGroupResourceHandle, BindGroupResourceBinding, BindGroupBufferHandle,
         FrameGraph, IntoBindGroupResourceHandle, IntoBindGroupResourceBinding, PassNodeBuilder,
         ResourceMaterial,
     },
@@ -100,7 +100,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
             let size = T::min_size();
 
-            BindingResourceBufferHandle {
+            BindGroupBufferHandle {
                 buffer,
                 size: Some(size),
                 offset: 0

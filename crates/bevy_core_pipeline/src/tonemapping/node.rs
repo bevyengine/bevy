@@ -2,7 +2,7 @@ use crate::tonemapping::ViewTonemappingPipeline;
 
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    frame_graph::{ColorAttachment, FrameGraph, PassBuilder, TextureView, TextureViewInfo},
+    frame_graph::{BindGroupTextureViewHandleHelper, ColorAttachment, FrameGraph, PassBuilder, TextureView, TextureViewInfo},
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{LoadOp, Operations, PipelineCache, StoreOp},

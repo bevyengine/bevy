@@ -1,6 +1,6 @@
 use crate::{
     frame_graph::{
-        BindingResourceTextureViewHandle, FrameGraph, ResourceMaterial, TextureViewInfo,
+        BindGroupTextureViewHandle, FrameGraph, ResourceMaterial, TextureViewInfo,
     },
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
@@ -113,10 +113,10 @@ impl GpuImage {
     pub fn make_texture_view_handle(
         &self,
         frame_graph: &mut FrameGraph,
-    ) -> BindingResourceTextureViewHandle {
+    ) -> BindGroupTextureViewHandle {
         let texture = self.texture.imported(frame_graph);
 
-        BindingResourceTextureViewHandle {
+        BindGroupTextureViewHandle {
             texture,
             texture_view_info: self.texture_view_info.clone(),
         }

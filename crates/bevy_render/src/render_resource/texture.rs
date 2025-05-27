@@ -1,4 +1,7 @@
-use crate::frame_graph::{FrameGraph, TransientTexture, Handle, TextureInfo};
+use crate::frame_graph::{
+    BindGroupTextureViewHandle, BindGroupTextureViewHandleHelper, FrameGraph, Handle, TextureInfo,
+    TextureViewInfo, TransientTexture,
+};
 use crate::renderer::WgpuWrapper;
 use crate::{define_atomic_id, frame_graph::ResourceMaterial};
 use bevy_derive::{Deref, DerefMut};
@@ -26,6 +29,19 @@ pub struct Texture {
     id: TextureId,
     value: WgpuWrapper<wgpu::Texture>,
     desc: TextureInfo,
+}
+
+impl BindGroupTextureViewHandleHelper for Texture {
+    fn make_bind_group_texture_view_handle(
+        &self,
+        frame_graph: &mut FrameGraph,
+    ) -> BindGroupTextureViewHandle {
+        let handle = self.imported(frame_graph);
+        BindGroupTextureViewHandle {
+            texture: handle,
+            texture_view_info: TextureViewInfo::default(),
+        }
+    }
 }
 
 impl ResourceMaterial for Texture {
