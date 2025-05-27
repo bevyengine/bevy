@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         )],
     ));
 
-    // this 2d object, will be rendered on the second camera, on top of the default camera where the ui is rendered.
+    // This 2D object will be rendered on the second camera, on top of the default camera where the UI is rendered.
     commands.spawn((
         Sprite {
             image: asset_server.load("textures/rpg/chars/sensei/sensei.png"),
