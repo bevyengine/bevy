@@ -10,7 +10,6 @@ use bevy_platform::hash::FixedHasher;
 use bevy_ptr::Ptr;
 use core::{
     any::{Any, TypeId},
-    borrow::Borrow,
     hash::{BuildHasher, Hash, Hasher},
     ptr::NonNull,
 };
@@ -18,7 +17,8 @@ use indexmap::Equivalent;
 
 use crate::{
     bundle::Bundle,
-    component::{ComponentId, ComponentKey, Components, ComponentsRegistrator, Immutable},
+    component::{ComponentId, ComponentKey, Components, ComponentsRegistrator, Immutable, Tick},
+    storage::{Shared, SharedFragmentingValue},
 };
 
 /// Trait used to define values that can fragment archetypes.
@@ -106,12 +106,12 @@ impl dyn FragmentingValue {
 /// This collection is sorted internally to allow for order-independent comparison.
 ///
 /// Owned version can be used as a key in maps. [`FragmentingValuesBorrowed`] is a version that doesn't require cloning the values.
-#[derive(Hash, PartialEq, Eq, Default)]
-pub struct FragmentingValuesOwned {
-    values: Box<[(ComponentId, Box<dyn FragmentingValue>)]>,
+#[derive(Hash, PartialEq, Eq, Default, Clone)]
+pub struct FragmentingValuesShared {
+    values: Box<[(ComponentId, SharedFragmentingValue)]>,
 }
 
-impl FragmentingValuesOwned {
+impl FragmentingValuesShared {
     /// Returns `true` if there are no fragmenting values.
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
@@ -120,20 +120,15 @@ impl FragmentingValuesOwned {
     /// Returns fragmenting component values with their corresponding [`ComponentId`]s.
     pub fn iter_ids_and_values(
         &self,
-    ) -> impl Iterator<Item = (ComponentId, &dyn FragmentingValue)> {
-        self.values.iter().map(|(id, v)| (*id, v.as_ref()))
+    ) -> impl Iterator<Item = (ComponentId, &SharedFragmentingValue)> {
+        self.values.iter().map(|(id, v)| (*id, v))
     }
 }
 
-impl<T: Borrow<dyn FragmentingValue>> FromIterator<(ComponentId, T)> for FragmentingValuesOwned {
-    fn from_iter<I: IntoIterator<Item = (ComponentId, T)>>(iter: I) -> Self {
-        let mut values = Vec::new();
-        for (id, value) in iter {
-            values.push((id, value.borrow().clone_boxed()));
-        }
-        values.sort_unstable_by_key(|(id, _)| *id);
-        FragmentingValuesOwned {
-            values: values.into_boxed_slice(),
+impl FromIterator<(ComponentId, SharedFragmentingValue)> for FragmentingValuesShared {
+    fn from_iter<I: IntoIterator<Item = (ComponentId, SharedFragmentingValue)>>(iter: I) -> Self {
+        FragmentingValuesShared {
+            values: iter.into_iter().collect(),
         }
     }
 }
@@ -141,7 +136,7 @@ impl<T: Borrow<dyn FragmentingValue>> FromIterator<(ComponentId, T)> for Fragmen
 /// A collection of fragmenting component values and ids.
 /// This collection is sorted internally to allow for order-independent comparison.
 ///
-/// Borrowed version is used to query maps with [`FragmentingValuesOwned`] keys.
+/// Borrowed version is used to query maps with [`FragmentingValuesShared`] keys.
 #[derive(Hash, PartialEq, Eq, Default)]
 pub struct FragmentingValuesBorrowed<'a> {
     values: Vec<(ComponentId, &'a dyn FragmentingValue)>,
@@ -162,15 +157,24 @@ impl<'a> FragmentingValuesBorrowed<'a> {
         self.values.is_empty()
     }
 
-    /// Creates [`FragmentingValuesOwned`] by cloning all fragmenting values.
-    pub fn to_owned(&self) -> FragmentingValuesOwned {
-        FragmentingValuesOwned {
-            values: self
-                .values
-                .iter()
-                .map(|(id, v)| (*id, v.clone_boxed()))
-                .collect(),
-        }
+    /// Creates [`FragmentingValuesShared`] by cloning or retrieving from [`Shared`] all fragmenting values.
+    pub fn to_shared(
+        &self,
+        current_tick: Tick,
+        shared_component_storage: &mut Shared,
+    ) -> FragmentingValuesShared {
+        self.values
+            .iter()
+            .map(|(id, v)| {
+                (
+                    *id,
+                    shared_component_storage
+                        .get_or_insert(current_tick, *id, *v)
+                        .value()
+                        .clone(),
+                )
+            })
+            .collect()
     }
 
     /// Returns fragmenting component values with their corresponding [`ComponentId`]s.
@@ -192,15 +196,15 @@ impl<'a> FromIterator<(ComponentId, &'a dyn FragmentingValue)> for FragmentingVa
     }
 }
 
-impl<'a> Equivalent<FragmentingValuesOwned> for FragmentingValuesBorrowed<'a> {
-    fn equivalent(&self, key: &FragmentingValuesOwned) -> bool {
+impl<'a> Equivalent<FragmentingValuesShared> for FragmentingValuesBorrowed<'a> {
+    fn equivalent(&self, key: &FragmentingValuesShared) -> bool {
         self.values.len() == key.values.len()
             && self
                 .values
                 .iter()
                 .zip(key.values.iter())
-                // We know that v2 is never an instance of DynamicFragmentingValue since it is from FragmentingValuesOwned.
-                // Because FragmentingValuesOwned is created by calling clone_boxed, it always creates Box<T> of a proper type that DynamicFragmentingValues abstracts.
+                // We know that v2 is never an instance of DynamicFragmentingValue since it is from FragmentingValuesShared.
+                // Because FragmentingValuesShared is created by calling clone_boxed, it always creates Box<T> of a proper type that DynamicFragmentingValues abstracts.
                 // This means that we don't have to use value_eq_dynamic implementation and can compare with value_eq instead.
                 .all(|((id1, v1), (id2, v2))| id1 == id2 && v1.value_eq(&**v2))
     }

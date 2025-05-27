@@ -23,11 +23,13 @@
 mod blob_array;
 mod blob_vec;
 mod resource;
+mod shared;
 mod sparse_set;
 mod table;
 mod thin_array_ptr;
 
 pub use resource::*;
+pub use shared::*;
 pub use sparse_set::*;
 pub use table::*;
 
@@ -45,6 +47,8 @@ pub struct Storages {
     pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
+
+    pub shared: Shared,
 }
 
 impl Storages {

@@ -2973,6 +2973,7 @@ impl World {
             ref mut sparse_sets,
             ref mut resources,
             ref mut non_send_resources,
+            ref mut shared,
         } = self.storages;
 
         #[cfg(feature = "trace")]
@@ -2981,6 +2982,7 @@ impl World {
         sparse_sets.check_change_ticks(change_tick);
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
+        shared.check_change_ticks(change_tick);
         self.entities.check_change_ticks(change_tick);
 
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
@@ -3000,6 +3002,7 @@ impl World {
     /// Despawns all entities in this [`World`].
     pub fn clear_entities(&mut self) {
         self.storages.tables.clear();
+        self.storages.shared.clear();
         self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();

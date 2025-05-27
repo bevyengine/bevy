@@ -15,7 +15,7 @@ use crate::{
         RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
-    fragmenting_value::{FragmentingValue, FragmentingValuesBorrowed},
+    fragmenting_value::{FragmentingValue, FragmentingValuesBorrowed, FragmentingValuesShared},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
@@ -795,6 +795,7 @@ impl BundleInfo {
         observers: &Observers,
         archetype_id: ArchetypeId,
         value_components: &FragmentingValuesBorrowed,
+        current_tick: Tick,
     ) -> ArchetypeId {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
@@ -852,11 +853,18 @@ impl BundleInfo {
 
         for (component_id, component_value) in value_components.iter_ids_and_values() {
             if let Some(old_value) = current_archetype.get_value_component(component_id) {
-                if *old_value != *component_value {
+                if old_value.as_ref() != component_value {
                     replaced_value_components.insert(component_id, component_value);
                 }
             } else {
-                new_value_components.push((component_id, component_value));
+                new_value_components.push((
+                    component_id,
+                    storages
+                        .shared
+                        .get_or_insert(current_tick, component_id, component_value)
+                        .value()
+                        .clone(),
+                ));
             }
         }
 
@@ -952,8 +960,14 @@ impl BundleInfo {
                         component_id,
                         replaced_value_components
                             .get(&component_id)
-                            .copied()
-                            .unwrap_or(value),
+                            .map(|value| {
+                                storages
+                                    .shared
+                                    .get_or_insert(current_tick, component_id, *value)
+                                    .value()
+                            })
+                            .unwrap_or(value)
+                            .clone(),
                     )
                 })
                 .chain(new_value_components)
@@ -970,7 +984,7 @@ impl BundleInfo {
                 .edges_mut()
                 .cache_archetype_value_components_after_bundle_insert(
                     self.id,
-                    value_components.to_owned(),
+                    value_components.to_shared(current_tick, &mut storages.shared),
                     value_archetype_id,
                 );
             value_archetype_id
@@ -1072,6 +1086,7 @@ impl BundleInfo {
                         removed_sparse_set_components.binary_search(id).is_err()
                             && removed_table_components.binary_search(id).is_err()
                     })
+                    .map(|(id, value)| (id, value.clone()))
                     .collect();
             }
 
@@ -1176,6 +1191,7 @@ impl<'w> BundleInserter<'w> {
             &world.observers,
             archetype_id,
             value_components,
+            change_tick,
         );
         if new_archetype_id == archetype_id {
             let archetype = &mut world.archetypes[archetype_id];
@@ -1833,6 +1849,7 @@ impl<'w> BundleSpawner<'w> {
             &world.observers,
             ArchetypeId::EMPTY,
             value_components,
+            change_tick,
         );
         let archetype = &mut world.archetypes[new_archetype_id];
         let table = &mut world.storages.tables[archetype.table_id()];

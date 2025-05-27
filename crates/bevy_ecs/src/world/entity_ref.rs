@@ -1836,8 +1836,14 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         let location = self.location();
         let change_tick = self.world.change_tick();
-        let mut registrator = self.world.components_registrator();
-        let value_components = FragmentingValuesBorrowed::from_bundle(&mut registrator, &bundle);
+
+        let value_components = if T::has_fragmenting_values() {
+            let mut registrator = self.world.components_registrator();
+            FragmentingValuesBorrowed::from_bundle(&mut registrator, &bundle)
+        } else {
+            FragmentingValuesBorrowed::default()
+        };
+
         let mut bundle_inserter = BundleInserter::new::<T>(
             self.world,
             location.archetype_id,
