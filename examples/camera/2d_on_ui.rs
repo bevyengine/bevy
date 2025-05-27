@@ -11,7 +11,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // the default camera. we explicitly set that this is the Ui render camera. you can also use `UiTargetCamera` on each entity.
+    // The default camera. `IsDefaultUiCamera` makes this the default camera to render UI elements to. Alternatively, you can add the `UiTargetCamera` component to root UI nodes to define which camera they should be rendered to.
     commands.spawn((Camera2d, IsDefaultUiCamera));
 
     // the second camera, with a higher order, will be drawn after the first camera. we will render to this camera to draw on top of the UI.
