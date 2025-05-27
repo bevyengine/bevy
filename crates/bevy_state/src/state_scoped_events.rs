@@ -19,11 +19,11 @@ fn clear_event_queue<E: Event>(w: &mut World) {
 }
 
 #[derive(Resource)]
-struct StateScopedEvents<S: States> {
+struct ClearEventsOnExitState<S: States> {
     cleanup_fns: HashMap<S, Vec<fn(&mut World)>>,
 }
 
-impl<S: States> StateScopedEvents<S> {
+impl<S: States> ClearEventsOnExitState<S> {
     fn add_event<E: Event>(&mut self, state: S) {
         self.cleanup_fns
             .entry(state)
@@ -41,7 +41,7 @@ impl<S: States> StateScopedEvents<S> {
     }
 }
 
-impl<S: States> Default for StateScopedEvents<S> {
+impl<S: States> Default for ClearEventsOnExitState<S> {
     fn default() -> Self {
         Self {
             cleanup_fns: HashMap::default(),
@@ -49,7 +49,9 @@ impl<S: States> Default for StateScopedEvents<S> {
     }
 }
 
-fn cleanup_state_scoped_event<S: States>(
+/// Clears events marked with [`ClearEventsOnExitState<S>`] when their state no
+/// longer matches the world state.
+fn clear_events_on_exit_state<S: States>(
     mut c: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
 ) {
@@ -64,25 +66,25 @@ fn cleanup_state_scoped_event<S: States>(
     };
 
     c.queue(move |w: &mut World| {
-        w.resource_scope::<StateScopedEvents<S>, ()>(|w, events| {
+        w.resource_scope::<ClearEventsOnExitState<S>, ()>(|w, events| {
             events.cleanup(w, exited);
         });
     });
 }
 
-fn add_state_scoped_event_impl<E: Event, S: States>(
+fn add_event_cleared_on_exit_state<E: Event, S: States>(
     app: &mut SubApp,
     _p: PhantomData<E>,
     state: S,
 ) {
-    if !app.world().contains_resource::<StateScopedEvents<S>>() {
-        app.init_resource::<StateScopedEvents<S>>();
+    if !app.world().contains_resource::<ClearEventsOnExitState<S>>() {
+        app.init_resource::<ClearEventsOnExitState<S>>();
     }
     app.add_event::<E>();
     app.world_mut()
-        .resource_mut::<StateScopedEvents<S>>()
+        .resource_mut::<ClearEventsOnExitState<S>>()
         .add_event::<E>(state.clone());
-    app.add_systems(OnExit(state), cleanup_state_scoped_event::<S>);
+    app.add_systems(OnExit(state), clear_events_on_exit_state::<S>);
 }
 
 /// Extension trait for [`App`] adding methods for registering state scoped events.
@@ -92,21 +94,20 @@ pub trait StateScopedEventsAppExt {
     /// Note that event cleanup is ordered ambiguously relative to [`DespawnOnEnterState`](crate::prelude::DespawnOnEnterState)
     /// and [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity
     /// cleanup and the [`OnExit`] schedule for the target state. All of these (state scoped
-    /// entities and events cleanup, and `OnExit`) occur within schedule [`StateTransition`](crate::prelude::StateTransition)
-    /// and system set `StateTransitionSystems::ExitSchedules`.
-    fn add_state_scoped_event<E: Event>(&mut self, state: impl States) -> &mut Self;
+    /// entities and events cleanup, and `OnExit`) occur within schedule [`StateTransition`](crate::prelude::StateTransition).
+    fn add_event_cleared_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self;
 }
 
 impl StateScopedEventsAppExt for App {
-    fn add_state_scoped_event<E: Event>(&mut self, state: impl States) -> &mut Self {
-        add_state_scoped_event_impl(self.main_mut(), PhantomData::<E>, state);
+    fn add_event_cleared_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self {
+        add_event_cleared_on_exit_state(self.main_mut(), PhantomData::<E>, state);
         self
     }
 }
 
 impl StateScopedEventsAppExt for SubApp {
-    fn add_state_scoped_event<E: Event>(&mut self, state: impl States) -> &mut Self {
-        add_state_scoped_event_impl(self, PhantomData::<E>, state);
+    fn add_event_cleared_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self {
+        add_event_cleared_on_exit_state(self, PhantomData::<E>, state);
         self
     }
 }
