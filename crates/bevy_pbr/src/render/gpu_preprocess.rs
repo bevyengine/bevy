@@ -9,7 +9,7 @@
 use core::num::{NonZero, NonZeroU64};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     experimental::mip_generation::ViewDepthPyramid,
@@ -62,16 +62,6 @@ use crate::{
 };
 
 use super::{ShadowView, ViewLightEntities};
-
-/// The handle to the `mesh_preprocess.wgsl` compute shader.
-pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("c8579292-cf92-43b5-9c5a-ec5bd4e44d12");
-/// The handle to the `reset_indirect_batch_sets.wgsl` compute shader.
-pub const RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("045fb176-58e2-4e76-b241-7688d761bb23");
-/// The handle to the `build_indirect_params.wgsl` compute shader.
-pub const BUILD_INDIRECT_PARAMS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("133b01f0-3eaf-4590-9ee9-f0cf91a00b71");
 
 /// The GPU workgroup size.
 const WORKGROUP_SIZE: usize = 64;
@@ -255,6 +245,8 @@ pub struct PreprocessPhasePipelines {
 pub struct PreprocessPipeline {
     /// The bind group layout for the compute shader.
     pub bind_group_layout: BindGroupLayout,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
     ///
     /// This gets filled in `prepare_preprocess_pipelines`.
@@ -269,6 +261,8 @@ pub struct PreprocessPipeline {
 pub struct ResetIndirectBatchSetsPipeline {
     /// The bind group layout for the compute shader.
     pub bind_group_layout: BindGroupLayout,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
     ///
     /// This gets filled in `prepare_preprocess_pipelines`.
@@ -280,6 +274,8 @@ pub struct ResetIndirectBatchSetsPipeline {
 pub struct BuildIndirectParametersPipeline {
     /// The bind group layout for the compute shader.
     pub bind_group_layout: BindGroupLayout,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
     ///
     /// This gets filled in `prepare_preprocess_pipelines`.
@@ -431,24 +427,9 @@ pub struct SkipGpuPreprocess;
 
 impl Plugin for GpuMeshPreprocessPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            MESH_PREPROCESS_SHADER_HANDLE,
-            "mesh_preprocess.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE,
-            "reset_indirect_batch_sets.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            BUILD_INDIRECT_PARAMS_SHADER_HANDLE,
-            "build_indirect_params.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "mesh_preprocess.wgsl");
+        embedded_asset!(app, "reset_indirect_batch_sets.wgsl");
+        embedded_asset!(app, "build_indirect_params.wgsl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -1292,7 +1273,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             } else {
                 vec![]
             },
-            shader: MESH_PREPROCESS_SHADER_HANDLE,
+            shader: self.shader.clone(),
             shader_defs,
             entry_point: "main".into(),
             zero_initialize_workgroup_memory: false,
@@ -1363,18 +1344,27 @@ impl FromWorld for PreprocessPipelines {
                 &build_non_indexed_indirect_params_bind_group_layout_entries,
             );
 
+        let preprocess_shader = load_embedded_asset!(world, "mesh_preprocess.wgsl");
+        let reset_indirect_batch_sets_shader =
+            load_embedded_asset!(world, "reset_indirect_batch_sets.wgsl");
+        let build_indirect_params_shader =
+            load_embedded_asset!(world, "build_indirect_params.wgsl");
+
         let preprocess_phase_pipelines = PreprocessPhasePipelines {
             reset_indirect_batch_sets: ResetIndirectBatchSetsPipeline {
                 bind_group_layout: reset_indirect_batch_sets_bind_group_layout.clone(),
+                shader: reset_indirect_batch_sets_shader,
                 pipeline_id: None,
             },
             gpu_occlusion_culling_build_indexed_indirect_params: BuildIndirectParametersPipeline {
                 bind_group_layout: build_indexed_indirect_params_bind_group_layout.clone(),
+                shader: build_indirect_params_shader.clone(),
                 pipeline_id: None,
             },
             gpu_occlusion_culling_build_non_indexed_indirect_params:
                 BuildIndirectParametersPipeline {
                     bind_group_layout: build_non_indexed_indirect_params_bind_group_layout.clone(),
+                    shader: build_indirect_params_shader.clone(),
                     pipeline_id: None,
                 },
         };
@@ -1382,27 +1372,33 @@ impl FromWorld for PreprocessPipelines {
         PreprocessPipelines {
             direct_preprocess: PreprocessPipeline {
                 bind_group_layout: direct_bind_group_layout,
+                shader: preprocess_shader.clone(),
                 pipeline_id: None,
             },
             gpu_frustum_culling_preprocess: PreprocessPipeline {
                 bind_group_layout: gpu_frustum_culling_bind_group_layout,
+                shader: preprocess_shader.clone(),
                 pipeline_id: None,
             },
             early_gpu_occlusion_culling_preprocess: PreprocessPipeline {
                 bind_group_layout: gpu_early_occlusion_culling_bind_group_layout,
+                shader: preprocess_shader.clone(),
                 pipeline_id: None,
             },
             late_gpu_occlusion_culling_preprocess: PreprocessPipeline {
                 bind_group_layout: gpu_late_occlusion_culling_bind_group_layout,
+                shader: preprocess_shader,
                 pipeline_id: None,
             },
             gpu_frustum_culling_build_indexed_indirect_params: BuildIndirectParametersPipeline {
                 bind_group_layout: build_indexed_indirect_params_bind_group_layout.clone(),
+                shader: build_indirect_params_shader.clone(),
                 pipeline_id: None,
             },
             gpu_frustum_culling_build_non_indexed_indirect_params:
                 BuildIndirectParametersPipeline {
                     bind_group_layout: build_non_indexed_indirect_params_bind_group_layout.clone(),
+                    shader: build_indirect_params_shader,
                     pipeline_id: None,
                 },
             early_phase: preprocess_phase_pipelines.clone(),
@@ -1642,7 +1638,7 @@ impl SpecializedComputePipeline for ResetIndirectBatchSetsPipeline {
             label: Some("reset indirect batch sets".into()),
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: vec![],
-            shader: RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE,
+            shader: self.shader.clone(),
             shader_defs: vec![],
             entry_point: "main".into(),
             zero_initialize_workgroup_memory: false,
@@ -1696,7 +1692,7 @@ impl SpecializedComputePipeline for BuildIndirectParametersPipeline {
             label: Some(label.into()),
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: vec![],
-            shader: BUILD_INDIRECT_PARAMS_SHADER_HANDLE,
+            shader: self.shader.clone(),
             shader_defs,
             entry_point: "main".into(),
             zero_initialize_workgroup_memory: false,
