@@ -15,6 +15,7 @@ const SHADOW_DEFAULT_SETTINGS: ShadowSettings = ShadowSettings {
     blur: 10.0,
     spread: 15.0,
     count: 1,
+    samples: 6,
 };
 
 const SHAPES: &[(&str, fn(&mut Node, &mut BorderRadius))] = &[
@@ -57,6 +58,7 @@ struct ShadowSettings {
     blur: f32,
     spread: f32,
     count: usize,
+    samples: u32,
 }
 
 #[derive(Component)]
@@ -77,10 +79,20 @@ enum SettingsButton {
     ShapePrev,
     ShapeNext,
     Reset,
+    SamplesInc,
+    SamplesDec,
 }
 
-#[derive(Component)]
-struct ValueLabel(String);
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+enum SettingType {
+    XOffset,
+    YOffset,
+    Blur,
+    Spread,
+    Count,
+    Shape,
+    Samples,
+}
 
 #[derive(Resource, Default)]
 struct HeldButton {
@@ -102,8 +114,9 @@ fn main() {
             (
                 button_system,
                 button_color_system,
-                update_shape,
-                update_shadow,
+                update_shape.run_if(resource_changed::<ShapeSettings>),
+                update_shadow.run_if(resource_changed::<ShadowSettings>),
+                update_shadow_samples.run_if(resource_changed::<ShadowSettings>),
                 button_repeat_system,
             ),
         )
@@ -117,7 +130,7 @@ fn setup(
     shadow: Res<ShadowSettings>,
     shape: Res<ShapeSettings>,
 ) {
-    commands.spawn((Camera2d, BoxShadowSamples(6)));
+    commands.spawn((Camera2d, BoxShadowSamples(shadow.samples)));
     // Spawn shape node
     commands
         .spawn((
@@ -165,12 +178,8 @@ fn setup(
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 left: Val::Px(24.0),
-                top: Val::Percent(50.0),
+                bottom: Val::Px(24.0),
                 width: Val::Px(270.0),
-                min_height: Val::Px(260.0),
-                align_items: AlignItems::FlexStart,
-                justify_content: JustifyContent::FlexStart,
-                row_gap: Val::Px(10.0),
                 padding: UiRect::all(Val::Px(16.0)),
                 ..default()
             },
@@ -180,55 +189,55 @@ fn setup(
             ZIndex(10),
         ))
         .insert(children![
-            // Shape settings (transparent background)
-            spawn_setting_children(
+            build_setting_row(
                 "Shape:",
                 SettingsButton::ShapePrev,
                 SettingsButton::ShapeNext,
                 shape.index as f32,
                 &asset_server,
-                BackgroundColor(Color::NONE),
             ),
-            // Shadow settings (gray background)
-            spawn_setting_children(
+            build_setting_row(
                 "X Offset:",
                 SettingsButton::XOffsetDec,
                 SettingsButton::XOffsetInc,
                 shadow.x_offset,
                 &asset_server,
-                BackgroundColor(Color::WHITE.with_alpha(0.08)),
             ),
-            spawn_setting_children(
+            build_setting_row(
                 "Y Offset:",
                 SettingsButton::YOffsetDec,
                 SettingsButton::YOffsetInc,
                 shadow.y_offset,
                 &asset_server,
-                BackgroundColor(Color::WHITE.with_alpha(0.08)),
             ),
-            spawn_setting_children(
+            build_setting_row(
                 "Blur:",
                 SettingsButton::BlurDec,
                 SettingsButton::BlurInc,
                 shadow.blur,
                 &asset_server,
-                BackgroundColor(Color::WHITE.with_alpha(0.08)),
             ),
-            spawn_setting_children(
+            build_setting_row(
                 "Spread:",
                 SettingsButton::SpreadDec,
                 SettingsButton::SpreadInc,
                 shadow.spread,
                 &asset_server,
-                BackgroundColor(Color::WHITE.with_alpha(0.08)),
             ),
-            spawn_setting_children(
+            build_setting_row(
                 "Count:",
                 SettingsButton::CountDec,
                 SettingsButton::CountInc,
                 shadow.count as f32,
                 &asset_server,
-                BackgroundColor(Color::WHITE.with_alpha(0.08)),
+            ),
+            // Add BoxShadowSamples as a setting row
+            build_setting_row(
+                "Samples:",
+                SettingsButton::SamplesDec,
+                SettingsButton::SamplesInc,
+                shadow.samples as f32,
+                &asset_server,
             ),
             // Reset button
             (
@@ -237,7 +246,6 @@ fn setup(
                     align_items: AlignItems::Center,
                     height: Val::Px(36.0),
                     margin: UiRect::top(Val::Px(12.0)),
-                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 children![(
@@ -249,7 +257,7 @@ fn setup(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BackgroundColor(Color::WHITE),
+                    BackgroundColor(NORMAL_BUTTON),
                     BorderRadius::all(Val::Px(8.)),
                     SettingsButton::Reset,
                     children![(
@@ -259,7 +267,6 @@ fn setup(
                             font_size: 16.0,
                             ..default()
                         },
-                        TextColor(Color::WHITE),
                     )],
                 )],
             ),
@@ -268,15 +275,24 @@ fn setup(
 
 // --- UI Helper Functions ---
 
-// Helper to return children! macro output for a setting row
-fn spawn_setting_children(
+// Helper to return an input to the children! macro for a setting row
+fn build_setting_row(
     label: &str,
     dec: SettingsButton,
     inc: SettingsButton,
     value: f32,
     asset_server: &Res<AssetServer>,
-    label_bg: BackgroundColor,
 ) -> impl Bundle {
+    let label_type = match label {
+        "X Offset:" => SettingType::XOffset,
+        "Y Offset:" => SettingType::YOffset,
+        "Blur:" => SettingType::Blur,
+        "Spread:" => SettingType::Spread,
+        "Count:" => SettingType::Count,
+        "Shape:" => SettingType::Shape,
+        "Samples:" => SettingType::Samples,
+        _ => panic!("Unknown label: {}", label),
+    };
     (
         Node {
             flex_direction: FlexDirection::Row,
@@ -292,6 +308,7 @@ fn spawn_setting_children(
                     align_items: AlignItems::Center,
                     ..default()
                 },
+                // Attach SettingType to the value label node, not the parent row
                 children![(
                     Text::new(label),
                     TextFont {
@@ -299,7 +316,6 @@ fn spawn_setting_children(
                         font_size: 16.0,
                         ..default()
                     },
-                    TextColor(Color::WHITE),
                 )],
             ),
             (
@@ -322,7 +338,6 @@ fn spawn_setting_children(
                         font_size: 18.0,
                         ..default()
                     },
-                    TextColor(Color::WHITE),
                 )],
             ),
             (
@@ -334,10 +349,9 @@ fn spawn_setting_children(
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                label_bg,
                 BorderRadius::all(Val::Px(6.)),
                 children![{
-                    if label == "Shape:" {
+                    if label_type == SettingType::Shape {
                         (
                             Text::new(SHAPES[value as usize % SHAPES.len()].0),
                             TextFont {
@@ -345,12 +359,11 @@ fn spawn_setting_children(
                                 font_size: 16.0,
                                 ..default()
                             },
-                            TextColor(Color::WHITE),
-                            ValueLabel(label.to_string()),
+                            label_type,
                         )
                     } else {
                         (
-                            Text::new(if label == "Count:" {
+                            Text::new(if label_type == SettingType::Count {
                                 format!("{}", value as usize)
                             } else {
                                 format!("{:.1}", value)
@@ -360,8 +373,7 @@ fn spawn_setting_children(
                                 font_size: 16.0,
                                 ..default()
                             },
-                            TextColor(Color::WHITE),
-                            ValueLabel(label.to_string()),
+                            label_type,
                         )
                     }
                 }],
@@ -385,7 +397,6 @@ fn spawn_setting_children(
                         font_size: 18.0,
                         ..default()
                     },
-                    TextColor(Color::WHITE),
                 )],
             ),
         ],
@@ -394,31 +405,36 @@ fn spawn_setting_children(
 
 // --- SYSTEMS ---
 
-// Update the shadow node's BoxShadow and background color if settings changed
+// Update the shadow node's BoxShadow on resource changes
 fn update_shadow(
     shadow: Res<ShadowSettings>,
-    mut query: Query<(&mut BoxShadow, &mut BackgroundColor), With<ShadowNode>>,
-    mut label_query: Query<(&mut Text, &ValueLabel)>,
+    mut query: Query<&mut BoxShadow, With<ShadowNode>>,
+    mut label_query: Query<(&mut Text, &SettingType)>,
 ) {
-    if !shadow.is_changed() {
-        return;
-    }
-    for (mut box_shadow, _background_color) in &mut query {
+    for mut box_shadow in &mut query {
         *box_shadow = BoxShadow(generate_shadows(&shadow));
     }
     // Update value labels for shadow settings
-    for (mut text, label) in &mut label_query {
-        let value = match label.0.as_str() {
-            "X Offset:" => format!("{:.1}", shadow.x_offset),
-            "Y Offset:" => format!("{:.1}", shadow.y_offset),
-            "Blur:" => format!("{:.1}", shadow.blur),
-            "Spread:" => format!("{:.1}", shadow.spread),
-            "Count:" => format!("{}", shadow.count),
-            _ => continue,
+    for (mut text, setting) in &mut label_query {
+        let value = match setting {
+            SettingType::XOffset => format!("{:.1}", shadow.x_offset),
+            SettingType::YOffset => format!("{:.1}", shadow.y_offset),
+            SettingType::Blur => format!("{:.1}", shadow.blur),
+            SettingType::Spread => format!("{:.1}", shadow.spread),
+            SettingType::Count => format!("{}", shadow.count),
+            SettingType::Shape => continue,
+            SettingType::Samples => format!("{}", shadow.samples),
         };
-        if label.0 != "Shape:" {
-            *text = Text::new(value);
-        }
+        *text = Text::new(value);
+    }
+}
+
+fn update_shadow_samples(
+    shadow: Res<ShadowSettings>,
+    mut query: Query<&mut BoxShadowSamples, With<Camera2d>>,
+) {
+    for mut samples in &mut query {
+        samples.0 = shadow.samples;
     }
 }
 
@@ -488,16 +504,13 @@ fn make_shadow(color: Color, x_offset: f32, y_offset: f32, spread: f32, blur: f3
 fn update_shape(
     shape: Res<ShapeSettings>,
     mut query: Query<(&mut Node, &mut BorderRadius), With<ShadowNode>>,
-    mut label_query: Query<(&mut Text, &ValueLabel)>,
+    mut label_query: Query<(&mut Text, &SettingType)>,
 ) {
-    if !shape.is_changed() {
-        return;
-    }
     for (mut node, mut radius) in &mut query {
         SHAPES[shape.index % SHAPES.len()].1(&mut node, &mut radius);
     }
-    for (mut text, label) in &mut label_query {
-        if label.0 == "Shape:" {
+    for (mut text, kind) in &mut label_query {
+        if *kind == SettingType::Shape {
             *text = Text::new(SHAPES[shape.index % SHAPES.len()].0);
         }
     }
@@ -572,6 +585,12 @@ fn trigger_button_action(
             *shape = SHAPE_DEFAULT_SETTINGS;
             *shadow = SHADOW_DEFAULT_SETTINGS;
         }
+        SettingsButton::SamplesInc => shadow.samples += 1,
+        SettingsButton::SamplesDec => {
+            if shadow.samples > 1 {
+                shadow.samples -= 1
+            }
+        }
     }
 }
 
@@ -599,17 +618,15 @@ fn button_repeat_system(
 // Changes color of button on hover and on pressed
 fn button_color_system(
     mut query: Query<
-        (&Interaction, &mut BackgroundColor, Option<&SettingsButton>),
-        (Changed<Interaction>, With<Button>),
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<Button>, With<SettingsButton>),
     >,
 ) {
-    for (interaction, mut color, shadow_btn) in &mut query {
-        if shadow_btn.is_some() {
-            match *interaction {
-                Interaction::Pressed => *color = PRESSED_BUTTON.into(),
-                Interaction::Hovered => *color = HOVERED_BUTTON.into(),
-                Interaction::None => *color = NORMAL_BUTTON.into(),
-            }
+    for (interaction, mut color) in &mut query {
+        match *interaction {
+            Interaction::Pressed => *color = PRESSED_BUTTON.into(),
+            Interaction::Hovered => *color = HOVERED_BUTTON.into(),
+            Interaction::None => *color = NORMAL_BUTTON.into(),
         }
     }
 }
