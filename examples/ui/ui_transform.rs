@@ -206,7 +206,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(Color::WHITE),
-                                    UiTransform::from_angle(-std::f32::consts::FRAC_PI_2),
+                                    UiTransform::from_rotation(Rot2::radians(
+                                        -std::f32::consts::FRAC_PI_2
+                                    )),
                                     children![(Text::new("Left"), TextColor(Color::BLACK),)]
                                 ),
                                 (
@@ -230,7 +232,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         justify_content: JustifyContent::Center,
                                         ..default()
                                     },
-                                    UiTransform::from_angle(std::f32::consts::FRAC_PI_2),
+                                    UiTransform::from_rotation(Rot2::radians(
+                                        core::f32::consts::FRAC_PI_2
+                                    )),
                                     BackgroundColor(Color::WHITE),
                                     children![(Text::new("Right"), TextColor(Color::BLACK))]
                                 ),
@@ -246,7 +250,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::WHITE),
-                            UiTransform::from_angle(std::f32::consts::PI),
+                            UiTransform::from_rotation(Rot2::radians(std::f32::consts::PI)),
                             children![(Text::new("Bottom"), TextColor(Color::BLACK),)]
                         ),
                     ]
