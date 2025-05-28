@@ -102,7 +102,7 @@ impl UiTransform {
         rotation: Rot2::IDENTITY,
     };
 
-    /// Creates a UI transform representing a rotation in `radians``.
+    /// Creates a UI transform representing a rotation in `radians`.
     pub fn from_angle(radians: f32) -> Self {
         Self {
             rotation: Rot2::radians(radians),
