@@ -194,7 +194,9 @@ pub fn derive_map_entities(input: TokenStream) -> TokenStream {
 
     let map_entities_impl = map_entities(
         &ast.data,
+        &ecs_path,
         Ident::new("self", Span::call_site()),
+        false,
         false,
         false,
     );

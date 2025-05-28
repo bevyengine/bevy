@@ -94,9 +94,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let map_entities = map_entities(
         &ast.data,
+        &bevy_ecs_path,
         Ident::new("this", Span::call_site()),
         relationship.is_some(),
         relationship_target.is_some(),
+        attrs.entities
     ).map(|map_entities_impl| quote! {
         fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(this: &mut Self, mapper: &mut M) {
             use #bevy_ecs_path::entity::MapEntities;
@@ -305,10 +307,15 @@ const ENTITIES: &str = "entities";
 
 pub(crate) fn map_entities(
     data: &Data,
+    bevy_ecs_path: &Path,
     self_ident: Ident,
     is_relationship: bool,
     is_relationship_target: bool,
+    entities_attr_on_type: bool,
 ) -> Option<TokenStream2> {
+    if entities_attr_on_type {
+        return Some(quote!(<Self as #bevy_ecs_path::entity::MapEntities>::map_entities(#self_ident, mapper)));
+    }
     match data {
         Data::Struct(DataStruct { fields, .. }) => {
             let mut map = Vec::with_capacity(fields.len());
@@ -462,6 +469,7 @@ struct Attrs {
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
     clone_behavior: Option<Expr>,
+    entities: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -501,6 +509,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         relationship_target: None,
         immutable: false,
         clone_behavior: None,
+        entities: false,
     };
 
     let mut require_paths = HashSet::new();
@@ -538,6 +547,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     Ok(())
                 } else if nested.path.is_ident(CLONE_BEHAVIOR) {
                     attrs.clone_behavior = Some(nested.value()?.parse()?);
+                    Ok(())
+                } else if nested.path.is_ident(ENTITIES) {
+                    attrs.entities = true;
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
