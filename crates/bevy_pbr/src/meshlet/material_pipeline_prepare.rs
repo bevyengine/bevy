@@ -183,6 +183,9 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             let mut shader_defs = material_fragment.shader_defs;
             shader_defs.push("MESHLET_MESH_MATERIAL_PASS".into());
 
+            let default_shader =
+                load_embedded_asset!(asset_server.as_ref(), "meshlet_mesh_material.wgsl");
+
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout: vec![
@@ -192,10 +195,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 ],
                 push_constant_ranges: vec![],
                 vertex: VertexState {
-                    shader: load_embedded_asset!(
-                        asset_server.as_ref(),
-                        "meshlet_mesh_material.wgsl"
-                    ),
+                    shader: default_shader.clone(),
                     shader_defs: shader_defs.clone(),
                     entry_point: material_pipeline_descriptor.vertex.entry_point,
                     buffers: Vec::new(),
@@ -211,12 +211,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
                     shader: match M::meshlet_mesh_fragment_shader() {
-                        ShaderRef::Default => {
-                            load_embedded_asset!(
-                                asset_server.as_ref(),
-                                "meshlet_mesh_material.wgsl"
-                            )
-                        }
+                        ShaderRef::Default => default_shader,
                         ShaderRef::Handle(handle) => handle,
                         ShaderRef::Path(path) => asset_server.load(path),
                     },
