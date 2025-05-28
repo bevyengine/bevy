@@ -314,7 +314,9 @@ pub(crate) fn map_entities(
     entities_attr_on_type: bool,
 ) -> Option<TokenStream2> {
     if entities_attr_on_type {
-        return Some(quote!(<Self as #bevy_ecs_path::entity::MapEntities>::map_entities(#self_ident, mapper)));
+        return Some(
+            quote!(<Self as #bevy_ecs_path::entity::MapEntities>::map_entities(#self_ident, mapper)),
+        );
     }
     match data {
         Data::Struct(DataStruct { fields, .. }) => {

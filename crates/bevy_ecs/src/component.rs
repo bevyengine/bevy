@@ -577,7 +577,7 @@ pub trait Component: Send + Sync + 'static {
     /// }
     /// ```
     ///
-    /// If your component contains types that don't directly implement [`MapEntities`](crate::entity::MapEntities), 
+    /// If your component contains types that don't directly implement [`MapEntities`](crate::entity::MapEntities),
     /// you can implement it yourself on the [`Component`] type and then add `#[component(entities)]` as a type-level attribute
     /// ```
     /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
