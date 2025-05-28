@@ -21,7 +21,7 @@ use crate::events::ButtonClicked;
 /// event when the button is un-pressed.
 #[derive(Component, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
-#[require(Depressed)]
+#[require(Depressed, InteractionDisabled)]
 pub struct CoreButton {
     /// Optional system to run when the button is clicked, or when the Enter or Space key
     /// is pressed while the button is focused. If this field is `None`, the button will
