@@ -1738,7 +1738,8 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.set_spawn_despawn(entity.index(), location, caller, self.change_tick);
+            entities.set(entity.index(), location);
+            entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
             (location, after_effect)
         };
 
@@ -2237,6 +2238,28 @@ mod tests {
         let entity = world.entity(id);
         assert!(entity.contains::<A>());
         assert_eq!(entity.get(), Some(&V("one")));
+    }
+
+    #[derive(Component, Debug, Eq, PartialEq)]
+    #[component(storage = "SparseSet")]
+    pub struct SparseV(&'static str);
+
+    #[derive(Component, Debug, Eq, PartialEq)]
+    #[component(storage = "SparseSet")]
+    pub struct SparseA;
+
+    #[test]
+    fn sparse_set_insert_if_new() {
+        let mut world = World::new();
+        let id = world.spawn(SparseV("one")).id();
+        let mut entity = world.entity_mut(id);
+        entity.insert_if_new(SparseV("two"));
+        entity.insert_if_new((SparseA, SparseV("three")));
+        entity.flush();
+        // should still contain "one"
+        let entity = world.entity(id);
+        assert!(entity.contains::<SparseA>());
+        assert_eq!(entity.get(), Some(&SparseV("one")));
     }
 
     #[test]

@@ -1517,7 +1517,7 @@ impl MaybeLocation {
     /// within a non-tracked function body.
     #[inline]
     #[track_caller]
-    pub fn caller() -> Self {
+    pub const fn caller() -> Self {
         // Note that this cannot use `new_with`, since `FnOnce` invocations cannot be annotated with `#[track_caller]`.
         MaybeLocation {
             #[cfg(feature = "track_location")]
@@ -1847,8 +1847,7 @@ mod tests {
 
         let mut new = value.map_unchanged(|ptr| {
             // SAFETY: The underlying type of `ptr` matches `reflect_from_ptr`.
-            let value = unsafe { reflect_from_ptr.as_reflect_mut(ptr) };
-            value
+            unsafe { reflect_from_ptr.as_reflect_mut(ptr) }
         });
 
         assert!(!new.is_changed());

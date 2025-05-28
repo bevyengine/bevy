@@ -1,6 +1,6 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -101,22 +101,6 @@ impl MeshRenderPlugin {
     }
 }
 
-pub const FORWARD_IO_HANDLE: Handle<Shader> = weak_handle!("38111de1-6e35-4dbb-877b-7b6f9334baf6");
-pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> =
-    weak_handle!("979493db-4ae1-4003-b5c6-fcbb88b152a2");
-pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> =
-    weak_handle!("c6fe674b-4c21-4d4b-867a-352848da5337");
-pub const MESH_TYPES_HANDLE: Handle<Shader> = weak_handle!("a4a3fc2e-a57e-4083-a8ab-2840176927f2");
-pub const MESH_BINDINGS_HANDLE: Handle<Shader> =
-    weak_handle!("84e7f9e6-e566-4a61-914e-c568f5dabf49");
-pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> =
-    weak_handle!("c46aa0f0-6c0c-4b3a-80bf-d8213c771f12");
-pub const MESH_SHADER_HANDLE: Handle<Shader> = weak_handle!("1a7bbae8-4b4f-48a7-b53b-e6822e56f321");
-pub const SKINNING_HANDLE: Handle<Shader> = weak_handle!("7474e812-2506-4cbf-9de3-fe07e5c6ff24");
-pub const MORPH_HANDLE: Handle<Shader> = weak_handle!("da30aac7-34cc-431d-a07f-15b1a783008c");
-pub const OCCLUSION_CULLING_HANDLE: Handle<Shader> =
-    weak_handle!("eaea07d9-7516-482c-aa42-6f8e9927e1f0");
-
 /// How many textures are allowed in the view bind group layout (`@group(0)`) before
 /// broader compatibility with WebGL and WebGPU is at risk, due to the minimum guaranteed
 /// values for `MAX_TEXTURE_IMAGE_UNITS` (in WebGL) and `maxSampledTexturesPerShaderStage` (in WebGPU),
@@ -130,45 +114,28 @@ pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            MESH_VIEW_TYPES_HANDLE,
-            "mesh_view_types.wgsl",
-            Shader::from_wgsl_with_defs,
-            vec![
-                ShaderDefVal::UInt(
-                    "MAX_DIRECTIONAL_LIGHTS".into(),
-                    MAX_DIRECTIONAL_LIGHTS as u32
-                ),
-                ShaderDefVal::UInt(
-                    "MAX_CASCADES_PER_LIGHT".into(),
-                    MAX_CASCADES_PER_LIGHT as u32,
-                )
-            ]
-        );
-        load_internal_asset!(
-            app,
-            MESH_VIEW_BINDINGS_HANDLE,
-            "mesh_view_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, MESH_TYPES_HANDLE, "mesh_types.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            MESH_FUNCTIONS_HANDLE,
-            "mesh_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            OCCLUSION_CULLING_HANDLE,
-            "occlusion_culling.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "forward_io.wgsl");
+        load_shader_library!(app, "mesh_view_types.wgsl", |settings| *settings =
+            ShaderSettings {
+                shader_defs: vec![
+                    ShaderDefVal::UInt(
+                        "MAX_DIRECTIONAL_LIGHTS".into(),
+                        MAX_DIRECTIONAL_LIGHTS as u32
+                    ),
+                    ShaderDefVal::UInt(
+                        "MAX_CASCADES_PER_LIGHT".into(),
+                        MAX_CASCADES_PER_LIGHT as u32,
+                    )
+                ]
+            });
+        load_shader_library!(app, "mesh_view_bindings.wgsl");
+        load_shader_library!(app, "mesh_types.wgsl");
+        load_shader_library!(app, "mesh_functions.wgsl");
+        load_shader_library!(app, "skinning.wgsl");
+        load_shader_library!(app, "morph.wgsl");
+        load_shader_library!(app, "occlusion_culling.wgsl");
+
+        embedded_asset!(app, "mesh.wgsl");
 
         if app.get_sub_app(RenderApp).is_none() {
             return;
@@ -310,13 +277,10 @@ impl Plugin for MeshRenderPlugin {
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
         // whether storage buffers are supported, or the maximum uniform buffer binding size.
-        load_internal_asset!(
-            app,
-            MESH_BINDINGS_HANDLE,
-            "mesh_bindings.wgsl",
-            Shader::from_wgsl_with_defs,
-            mesh_bindings_shader_defs
-        );
+        load_shader_library!(app, "mesh_bindings.wgsl", move |settings| *settings =
+            ShaderSettings {
+                shader_defs: mesh_bindings_shader_defs.clone(),
+            });
     }
 }
 
@@ -837,10 +801,31 @@ pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 pub struct MeshesToReextractNextFrame(MainEntityHashSet);
 
 impl RenderMeshInstanceShared {
-    fn from_components(
+    /// A gpu builder will provide the mesh instance id
+    /// during [`RenderMeshInstanceGpuBuilder::update`].
+    fn for_gpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
         tag: Option<&MeshTag>,
+        not_shadow_caster: bool,
+        no_automatic_batching: bool,
+    ) -> Self {
+        Self::for_cpu_building(
+            previous_transform,
+            mesh,
+            tag,
+            default(),
+            not_shadow_caster,
+            no_automatic_batching,
+        )
+    }
+
+    /// The cpu builder does not have an equivalent [`RenderMeshInstanceGpuBuilder::update`].
+    fn for_cpu_building(
+        previous_transform: Option<&PreviousGlobalTransform>,
+        mesh: &Mesh3d,
+        tag: Option<&MeshTag>,
+        material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
     ) -> Self {
@@ -858,8 +843,7 @@ impl RenderMeshInstanceShared {
         RenderMeshInstanceShared {
             mesh_asset_id: mesh.id(),
             flags: mesh_instance_flags,
-            // This gets filled in later, during `RenderMeshGpuBuilder::update`.
-            material_bindings_index: default(),
+            material_bindings_index,
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
         }
@@ -1309,6 +1293,8 @@ pub type ExtractMeshesSet = MeshExtractionSystems;
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    mesh_material_ids: Res<RenderMaterialInstances>,
+    render_material_bindings: Res<RenderMaterialBindings>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
     meshes_query: Extract<
@@ -1362,10 +1348,18 @@ pub fn extract_meshes_for_cpu_building(
                 transmitted_receiver,
             );
 
-            let shared = RenderMeshInstanceShared::from_components(
+            let mesh_material = mesh_material_ids.mesh_material(MainEntity::from(entity));
+
+            let material_bindings_index = render_material_bindings
+                .get(&mesh_material)
+                .copied()
+                .unwrap_or_default();
+
+            let shared = RenderMeshInstanceShared::for_cpu_building(
                 previous_transform,
                 mesh,
                 tag,
+                material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -1570,7 +1564,7 @@ fn extract_mesh_for_gpu_building(
         transmitted_receiver,
     );
 
-    let shared = RenderMeshInstanceShared::from_components(
+    let shared = RenderMeshInstanceShared::for_gpu_building(
         previous_transform,
         mesh,
         tag,
@@ -1757,6 +1751,8 @@ pub struct MeshPipeline {
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
     pub mesh_layouts: MeshLayouts,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
     /// `MeshUniform`s are stored in arrays in buffers. If storage buffers are available, they
     /// are used and this will be `None`, otherwise uniform buffers will be used with batches
     /// of this many `MeshUniform`s, stored at dynamic offsets within the uniform buffer.
@@ -1786,6 +1782,7 @@ pub struct MeshPipeline {
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
+        let shader = load_embedded_asset!(world, "mesh.wgsl");
         let mut system_state: SystemState<(
             Res<RenderDevice>,
             Res<RenderAdapter>,
@@ -1838,6 +1835,7 @@ impl FromWorld for MeshPipeline {
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
+            shader,
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
             clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
@@ -2572,13 +2570,13 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: MESH_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: MESH_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

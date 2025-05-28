@@ -19,6 +19,8 @@ use crate::{
 use alloc::{format, string::String, vec::Vec};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
@@ -96,9 +98,14 @@ use log::warn;
     feature = "bevy_reflect",
     reflect(Component, PartialEq, Debug, FromWorld, Clone)
 )]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[relationship(relationship_target = Children)]
 #[doc(alias = "IsChild", alias = "Parent")]
-pub struct ChildOf(pub Entity);
+pub struct ChildOf(#[entities] pub Entity);
 
 impl ChildOf {
     /// The parent entity of this child entity.
@@ -437,7 +444,7 @@ pub fn validate_parent_has_component<C: Component>(
             caller.map(|c| format!("{c}: ")).unwrap_or_default(),
             ty_name = ShortName::of::<C>(),
             name = name.map_or_else(
-                || format!("Entity {}", entity),
+                || format!("Entity {entity}"),
                 |s| format!("The {s} entity")
             ),
         );
@@ -628,6 +635,43 @@ mod tests {
                     Node::new(child3),
                     Node::new(child4),
                     Node::new(child2)
+                ]
+            )
+        );
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/19134
+    #[test]
+    fn insert_children_index_bound() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+        let child4 = world.spawn_empty().id();
+
+        let mut entity_world_mut = world.spawn_empty();
+
+        let first_children = entity_world_mut.add_children(&[child1, child2]).id();
+        let hierarchy = get_hierarchy(&world, first_children);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(first_children, vec![Node::new(child1), Node::new(child2)])
+        );
+
+        let root = world
+            .entity_mut(first_children)
+            .insert_children(usize::MAX, &[child3, child4])
+            .id();
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(
+                root,
+                vec![
+                    Node::new(child1),
+                    Node::new(child2),
+                    Node::new(child3),
+                    Node::new(child4),
                 ]
             )
         );
