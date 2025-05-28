@@ -1545,22 +1545,22 @@ mod tests {
     #[test]
     fn entity_debug() {
         let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
-        let string = format!("{:?}", entity);
+        let string = format!("{entity:?}");
         assert_eq!(string, "42v0#4294967253");
 
         let entity = Entity::PLACEHOLDER;
-        let string = format!("{:?}", entity);
+        let string = format!("{entity:?}");
         assert_eq!(string, "PLACEHOLDER");
     }
 
     #[test]
     fn entity_display() {
         let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
-        let string = format!("{}", entity);
+        let string = format!("{entity}");
         assert_eq!(string, "42v0");
 
         let entity = Entity::PLACEHOLDER;
-        let string = format!("{}", entity);
+        let string = format!("{entity}");
         assert_eq!(string, "PLACEHOLDER");
     }
 }
