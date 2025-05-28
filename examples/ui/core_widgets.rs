@@ -24,6 +24,7 @@ fn main() {
 }
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+// TODO: Use this when hover PR goes in.
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
@@ -31,21 +32,21 @@ fn button_system(
     mut buttons: Query<
         (
             &Depressed,
+            &InteractionDisabled,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
-            Has<InteractionDisabled>,
         ),
-        // Note: we can't use change detection on `InteractionDisabled` here because
-        // it's a marker, and query filters don't detect removals. For this example we will
-        // just update the button color every frame.
-        With<CoreButton>,
+        (
+            Or<(Changed<Depressed>, Changed<InteractionDisabled>)>,
+            With<CoreButton>,
+        ),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (depressed, mut color, mut border_color, children, disabled) in &mut buttons {
+    for (depressed, disabled, mut color, mut border_color, children) in &mut buttons {
         let mut text = text_query.get_mut(children[0]).unwrap();
-        match (disabled, depressed.0) {
+        match (disabled.get(), depressed.0) {
             (true, _) => {
                 **text = "Disabled".to_string();
                 *color = NORMAL_BUTTON.into();
@@ -98,9 +99,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle + use<>
                     width: Val::Px(150.0),
                     height: Val::Px(65.0),
                     border: UiRect::all(Val::Px(5.0)),
-                    // horizontally center child text
                     justify_content: JustifyContent::Center,
-                    // vertically center child text
                     align_items: AlignItems::Center,
                     ..default()
                 },
@@ -128,18 +127,17 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle + use<>
 }
 
 fn toggle_disabled(
-    mut commands: Commands,
     input: Res<ButtonInput<KeyCode>>,
-    mut interaction_query: Query<(Entity, Has<InteractionDisabled>), With<CoreButton>>,
+    mut interaction_query: Query<&mut InteractionDisabled, With<CoreButton>>,
 ) {
     if input.just_pressed(KeyCode::KeyD) {
-        for (button, disabled) in &mut interaction_query {
-            if disabled {
+        for mut disabled in &mut interaction_query {
+            if disabled.get() {
                 info!("Button enabled");
-                commands.entity(button).remove::<InteractionDisabled>();
+                disabled.clear_disabled();
             } else {
                 info!("Button disabled");
-                commands.entity(button).insert(InteractionDisabled);
+                disabled.set_disabled();
             }
         }
     }

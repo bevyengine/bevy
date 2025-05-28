@@ -1,10 +1,4 @@
 /// This module contains components that are used to track the interaction state of UI widgets.
-///
-// Note to implementers: This uses a combination of both marker components and newtype components
-// containing a bool. Markers are used for one-way binding, "write-only" components
-// (like `InteractionDisabled`) that relay instructions from the user to the framework, whereas
-// newtype components are used to request state updates from the framework, which mutates the
-// content of those components on update.
 use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
     component::Component,
@@ -12,7 +6,7 @@ use bevy_ecs::{
     world::{DeferredWorld, OnAdd, OnRemove, OnReplace},
 };
 
-/// A marker component to indicate that a widget is disabled and should be "grayed out".
+/// A component indicating that a widget is disabled and should be "grayed out".
 /// This is used to prevent user interaction with the widget. It should not, however, prevent
 /// the widget from being updated or rendered, or from acquiring keyboard focus.
 ///
@@ -20,8 +14,25 @@ use bevy_ecs::{
 /// the `InteractionDisabled` component should be added to the root entity of the widget - the
 /// same entity that contains the `AccessibilityNode` component. This will ensure that
 /// the a11y tree is updated correctly.
-#[derive(Component, Debug, Clone, Copy)]
-pub struct InteractionDisabled;
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub struct InteractionDisabled(pub bool);
+
+impl InteractionDisabled {
+    /// Returns whether the widget is currently disabled.
+    pub fn get(&self) -> bool {
+        self.0
+    }
+
+    /// Sets the disabled state of the widget.
+    pub fn set_disabled(&mut self) {
+        self.0 = true;
+    }
+
+    /// Clears the disabled state of the widget.
+    pub fn clear_disabled(&mut self) {
+        self.0 = false;
+    }
+}
 
 pub(crate) fn on_add_disabled(
     trigger: Trigger<OnAdd, InteractionDisabled>,
