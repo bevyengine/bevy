@@ -156,27 +156,49 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 }
             };
 
+            let decoder = audio_source.decoder();
+
             match settings.mode {
-                PlaybackMode::Loop => {
-                    if let Some(start_position) = settings.start_position {
-                        sink.append(
-                            audio_source
-                                .decoder()
-                                .skip_duration(start_position)
-                                .repeat_infinite(),
-                        );
-                    } else {
-                        sink.append(audio_source.decoder().repeat_infinite());
+                PlaybackMode::Loop => match (settings.start_position, settings.duration) {
+                    // custom start position and duration
+                    (Some(start_position), Some(duration)) => sink.append(
+                        decoder
+                            .skip_duration(start_position)
+                            .take_duration(duration)
+                            .repeat_infinite(),
+                    ),
+
+                    // custom start position
+                    (Some(start_position), None) => {
+                        sink.append(decoder.skip_duration(start_position).repeat_infinite())
                     }
-                }
+
+                    // custom duration
+                    (None, Some(duration)) => {
+                        sink.append(decoder.take_duration(duration).repeat_infinite())
+                    }
+
+                    // full clip
+                    (None, None) => sink.append(decoder.repeat_infinite()),
+                },
                 PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
-                    if let Some(start_position) = settings.start_position {
-                        sink.append(audio_source.decoder().skip_duration(start_position));
-                    } else {
-                        sink.append(audio_source.decoder());
+                    match (settings.start_position, settings.duration) {
+                        (Some(start_position), Some(duration)) => sink.append(
+                            decoder
+                                .skip_duration(start_position)
+                                .take_duration(duration),
+                        ),
+
+                        (Some(start_position), None) => {
+                            sink.append(decoder.skip_duration(start_position))
+                        }
+
+                        (None, Some(duration)) => sink.append(decoder.take_duration(duration)),
+
+                        (None, None) => sink.append(decoder),
                     }
                 }
-            };
+            }
 
             let mut sink = SpatialAudioSink::new(sink);
 
@@ -211,27 +233,49 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 }
             };
 
+            let decoder = audio_source.decoder();
+
             match settings.mode {
-                PlaybackMode::Loop => {
-                    if let Some(start_position) = settings.start_position {
-                        sink.append(
-                            audio_source
-                                .decoder()
-                                .skip_duration(start_position)
-                                .repeat_infinite(),
-                        );
-                    } else {
-                        sink.append(audio_source.decoder().repeat_infinite());
+                PlaybackMode::Loop => match (settings.start_position, settings.duration) {
+                    // custom start position and duration
+                    (Some(start_position), Some(duration)) => sink.append(
+                        decoder
+                            .skip_duration(start_position)
+                            .take_duration(duration)
+                            .repeat_infinite(),
+                    ),
+
+                    // custom start position
+                    (Some(start_position), None) => {
+                        sink.append(decoder.skip_duration(start_position).repeat_infinite())
                     }
-                }
+
+                    // custom duration
+                    (None, Some(duration)) => {
+                        sink.append(decoder.take_duration(duration).repeat_infinite())
+                    }
+
+                    // full clip
+                    (None, None) => sink.append(decoder.repeat_infinite()),
+                },
                 PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
-                    if let Some(start_position) = settings.start_position {
-                        sink.append(audio_source.decoder().skip_duration(start_position));
-                    } else {
-                        sink.append(audio_source.decoder());
+                    match (settings.start_position, settings.duration) {
+                        (Some(start_position), Some(duration)) => sink.append(
+                            decoder
+                                .skip_duration(start_position)
+                                .take_duration(duration),
+                        ),
+
+                        (Some(start_position), None) => {
+                            sink.append(decoder.skip_duration(start_position))
+                        }
+
+                        (None, Some(duration)) => sink.append(decoder.take_duration(duration)),
+
+                        (None, None) => sink.append(decoder),
                     }
                 }
-            };
+            }
 
             let mut sink = AudioSink::new(sink);
 

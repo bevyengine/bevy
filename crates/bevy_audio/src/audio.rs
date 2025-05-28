@@ -62,6 +62,11 @@ pub struct PlaybackSettings {
     ///
     /// If the playback mode is set to `Loop`, each loop will start from this position.
     pub start_position: Option<core::time::Duration>,
+    /// How long the audio should play before stopping. If set, the clip will play for at most
+    /// the specified duration. If set to `None`, it will play for as long as it can.
+    ///
+    /// If the playback mode is set to `Loop`, each loop will last for this duration.
+    pub duration: Option<core::time::Duration>,
 }
 
 impl Default for PlaybackSettings {
@@ -87,6 +92,7 @@ impl PlaybackSettings {
         spatial: false,
         spatial_scale: None,
         start_position: None,
+        duration: None,
     };
 
     /// Will play the associated audio source in a loop.
@@ -146,6 +152,12 @@ impl PlaybackSettings {
     /// Helper to use a custom playback start position.
     pub const fn with_start_position(mut self, start_position: core::time::Duration) -> Self {
         self.start_position = Some(start_position);
+        self
+    }
+
+    /// Helper to use a custom playback duration.
+    pub const fn with_duration(mut self, duration: core::time::Duration) -> Self {
+        self.duration = Some(duration);
         self
     }
 }
