@@ -7,7 +7,6 @@ use log::warn;
 use thiserror::Error;
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     query::{Access, FilteredAccessSet},
     schedule::InternedSystemSet,
@@ -51,8 +50,6 @@ pub trait System: Send + Sync + 'static {
     /// Returns the system's component [`FilteredAccessSet`].
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId>;
 
-    /// Returns the system's archetype component [`Access`].
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
 
@@ -72,13 +69,10 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `archetype_component_access`. There must be no conflicting
+    ///   registered in `component_access_set`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
     ///   [`UnsafeWorldCell::world_mut`] on `world`.
-    /// - The method [`System::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
-    ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
         -> Self::Out;
 
@@ -104,10 +98,8 @@ pub trait System: Send + Sync + 'static {
         world: &mut World,
     ) -> Self::Out {
         let world_cell = world.as_unsafe_world_cell();
-        self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world_cell) }
     }
 
@@ -123,7 +115,7 @@ pub trait System: Send + Sync + 'static {
     /// Validates that all parameters can be acquired and that system can run without panic.
     /// Built-in executors use this to prevent invalid systems from running.
     ///
-    /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
+    /// However calling and respecting [`System::validate_param_unsafe`] or its safe variant
     /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
     /// should provide their own safety mechanism to prevent undefined behavior.
     ///
@@ -134,11 +126,8 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `archetype_component_access`. There must be no conflicting
+    ///   registered in `component_access_set`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - The method [`System::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
-    ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn validate_param_unsafe(
         &mut self,
         world: UnsafeWorldCell,
@@ -148,22 +137,13 @@ pub trait System: Send + Sync + 'static {
     /// that runs on exclusive, single-threaded `world` pointer.
     fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
         let world_cell = world.as_unsafe_world_cell_readonly();
-        self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.validate_param_unsafe(world_cell) }
     }
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
-
-    /// Update the system's archetype component [`Access`].
-    ///
-    /// ## Note for implementers
-    /// `world` may only be used to access metadata. This can be done in safe code
-    /// via functions such as [`UnsafeWorldCell::archetypes`].
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -210,10 +190,8 @@ pub unsafe trait ReadOnlySystem: System {
     /// since this system is known not to modify the world.
     fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Self::Out {
         let world = world.as_unsafe_world_cell_readonly();
-        self.update_archetype_component_access(world);
         // SAFETY:
         // - We have read-only access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
 }

@@ -1788,9 +1788,7 @@ mod tests {
             for (i, (a, b)) in cubic_curve.iter().zip(rational_curve.iter()).enumerate() {
                 assert!(
                     a.distance(*b) < EPSILON,
-                    "Mismatch at {name} value {i}. CubicCurve: {} Converted RationalCurve: {}",
-                    a,
-                    b
+                    "Mismatch at {name} value {i}. CubicCurve: {a} Converted RationalCurve: {b}",
                 );
             }
         }

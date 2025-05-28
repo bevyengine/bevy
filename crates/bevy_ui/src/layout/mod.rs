@@ -176,7 +176,7 @@ with UI components as a child of an entity without UI components, your UI layout
             ui_root_entity,
             &mut ui_surface,
             true,
-            None,
+            computed_target.physical_size().as_vec2(),
             Affine2::IDENTITY,
             &mut node_update_query,
             &ui_children,
@@ -192,7 +192,7 @@ with UI components as a child of an entity without UI components, your UI layout
         entity: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
-        root_size: Option<Vec2>,
+        target_size: Vec2,
         mut inherited_transform: Affine2,
         node_update_query: &mut Query<(
             &mut ComputedNode,
@@ -230,10 +230,11 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let layout_size = Vec2::new(layout.size.width, layout.size.height);
 
+            /// Position in taffy's layout of the top-left corner of the node, relative to its parent.
             let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
-            // The position of the center of the node, stored in the node's transform
-            let node_center =
+            // The position of the center of the node relative to its top-left corner.
+            let local_center =
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
@@ -259,18 +260,17 @@ with UI components as a child of an entity without UI components, your UI layout
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
-            let viewport_size = root_size.unwrap_or(node.size);
-
-            let node_transform = Affine2::from_scale_angle_translation(
+            // Computer the node's new global transform
+            let local_transform = Affine2::from_scale_angle_translation(
                 transform.scale,
                 transform.rotation,
                 transform.translation.resolve(
                     inverse_target_scale_factor,
                     layout_size,
-                    viewport_size,
-                ) + node_center,
+                    target_size,
+                ) + local_center,
             );
-            inherited_transform *= node_transform;
+            inherited_transform *= local_transform;
 
             if inherited_transform != **global_transform {
                 *global_transform = inherited_transform.into();
@@ -279,9 +279,9 @@ with UI components as a child of an entity without UI components, your UI layout
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
                 node.bypass_change_detection().border_radius = border_radius.resolve(
-                    node.size,
-                    viewport_size,
                     inverse_target_scale_factor.recip(),
+                    node.size,
+                    target_size,
                 );
             }
 
@@ -294,7 +294,7 @@ with UI components as a child of an entity without UI components, your UI layout
                         .resolve(
                             inverse_target_scale_factor.recip(),
                             node.size().x,
-                            viewport_size,
+                            target_size,
                         )
                         .unwrap_or(0.)
                         .max(0.)
@@ -307,7 +307,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     .resolve(
                         inverse_target_scale_factor.recip(),
                         node.size().x,
-                        viewport_size,
+                        target_size,
                     )
                     .unwrap_or(0.)
                     .max(0.);
@@ -351,7 +351,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     child_uinode,
                     ui_surface,
                     use_rounding,
-                    Some(viewport_size),
+                    target_size,
                     inherited_transform,
                     node_update_query,
                     ui_children,

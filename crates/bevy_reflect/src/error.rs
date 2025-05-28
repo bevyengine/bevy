@@ -55,7 +55,7 @@ fn full_path(
     container_type_path: &str,
 ) -> alloc::string::String {
     match variant {
-        Some(variant) => format!("{}::{}::{}", container_type_path, variant, field),
-        None => format!("{}::{}", container_type_path, field),
+        Some(variant) => format!("{container_type_path}::{variant}::{field}"),
+        None => format!("{container_type_path}::{field}"),
     }
 }

@@ -589,7 +589,14 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod alloc;
+    mod bevy_platform;
+    mod core;
     mod foldhash;
+    #[cfg(feature = "hashbrown")]
+    mod hashbrown;
+    mod macros;
+    #[cfg(feature = "std")]
     mod std;
 
     #[cfg(feature = "glam")]
@@ -2601,7 +2608,7 @@ bevy_reflect::tests::Test {
         let foo = Foo { a: 1 };
         let foo: &dyn Reflect = &foo;
 
-        assert_eq!("123", format!("{:?}", foo));
+        assert_eq!("123", format!("{foo:?}"));
     }
 
     #[test]
@@ -2854,7 +2861,7 @@ bevy_reflect::tests::Test {
         test_unknown_tuple_struct.insert(14);
         test_struct.insert("unknown_tuplestruct", test_unknown_tuple_struct);
         assert_eq!(
-            format!("{:?}", test_struct),
+            format!("{test_struct:?}"),
             "DynamicStruct(bevy_reflect::tests::TestStruct { \
                 tuple: DynamicTuple((0, 1)), \
                 tuple_struct: DynamicTupleStruct(bevy_reflect::tests::TestTupleStruct(8)), \

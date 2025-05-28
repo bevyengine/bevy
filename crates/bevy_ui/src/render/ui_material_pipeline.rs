@@ -1,10 +1,7 @@
-use core::{hash::Hash, marker::PhantomData, ops::Range};
-
-use crate::prelude::UiGlobalTransform;
 use crate::*;
 use bevy_asset::*;
 use bevy_ecs::{
-    prelude::Component,
+    prelude::{Component, With},
     query::ROQueryItem,
     system::{
         lifetimeless::{Read, SRes},
@@ -12,26 +9,22 @@ use bevy_ecs::{
     },
 };
 use bevy_image::BevyDefault as _;
-use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
-use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
+use bevy_math::{Affine2, FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
+    load_shader_library,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::{MainEntity, TemporaryRenderEntity},
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::BorderRect;
 use bytemuck::{Pod, Zeroable};
-
-pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("b5612b7b-aed5-41b4-a930-1d1588239fcd");
-
-const UI_VERTEX_OUTPUT_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("1d97ca3e-eaa8-4bc5-a676-e8e9568c472e");
+use core::{hash::Hash, marker::PhantomData, ops::Range};
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given
 /// [`UiMaterial`] asset type (which includes [`UiMaterial`] types).
@@ -48,18 +41,10 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            UI_VERTEX_OUTPUT_SHADER_HANDLE,
-            "ui_vertex_output.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            UI_MATERIAL_SHADER_HANDLE,
-            "ui_material.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "ui_vertex_output.wgsl");
+
+        embedded_asset!(app, "ui_material.wgsl");
+
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
             .add_plugins((
@@ -135,8 +120,8 @@ pub struct UiMaterialBatch<M: UiMaterial> {
 pub struct UiMaterialPipeline<M: UiMaterial> {
     pub ui_layout: BindGroupLayout,
     pub view_layout: BindGroupLayout,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
+    pub vertex_shader: Handle<Shader>,
+    pub fragment_shader: Handle<Shader>,
     marker: PhantomData<M>,
 }
 
@@ -166,13 +151,13 @@ where
 
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: UI_MATERIAL_SHADER_HANDLE,
+                shader: self.vertex_shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: UI_MATERIAL_SHADER_HANDLE,
+                shader: self.fragment_shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -205,13 +190,6 @@ where
             label: Some("ui_material_pipeline".into()),
             zero_initialize_workgroup_memory: false,
         };
-        if let Some(vertex_shader) = &self.vertex_shader {
-            descriptor.vertex.shader = vertex_shader.clone();
-        }
-
-        if let Some(fragment_shader) = &self.fragment_shader {
-            descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
-        }
 
         descriptor.layout = vec![self.view_layout.clone(), self.ui_layout.clone()];
 
@@ -238,18 +216,20 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
             ),
         );
 
+        let load_default = || load_embedded_asset!(asset_server, "ui_material.wgsl");
+
         UiMaterialPipeline {
             ui_layout,
             view_layout,
             vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
+                ShaderRef::Default => load_default(),
+                ShaderRef::Handle(handle) => handle,
+                ShaderRef::Path(path) => asset_server.load(path),
             },
             fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
+                ShaderRef::Default => load_default(),
+                ShaderRef::Handle(handle) => handle,
+                ShaderRef::Path(path) => asset_server.load(path),
             },
             marker: PhantomData,
         }
