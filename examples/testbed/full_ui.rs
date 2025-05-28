@@ -232,7 +232,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..Default::default()
                                 },
                                 UiTransform {
-                                    rotation: 0.25 * PI,
+                                    rotation: Rot2::radians(0.25 * PI),
                                     ..Default::default()
                                 },
                                 BorderRadius::all(Val::Px(10.)),

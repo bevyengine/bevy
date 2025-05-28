@@ -91,7 +91,7 @@ pub struct UiTransform {
     pub translation: Val2,
     /// Scale the node. A negative value reflects the node in that axis.
     pub scale: Vec2,
-    /// Rotate the node counterclockwise.
+    /// Rotate the node clockwise.
     pub rotation: Rot2,
 }
 
