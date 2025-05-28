@@ -7,8 +7,9 @@
 // content of those components on update.
 use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
-    component::{Component, HookContext},
-    world::DeferredWorld,
+    component::Component,
+    observer::Trigger,
+    world::{DeferredWorld, OnAdd, OnRemove, OnReplace},
 };
 
 /// A marker component to indicate that a widget is disabled and should be "grayed out".
@@ -20,20 +21,23 @@ use bevy_ecs::{
 /// same entity that contains the `AccessibilityNode` component. This will ensure that
 /// the a11y tree is updated correctly.
 #[derive(Component, Debug, Clone, Copy)]
-#[component(on_add = on_add_disabled, on_remove = on_remove_disabled)]
 pub struct InteractionDisabled;
 
-// Hook to set the a11y "disabled" state when the widget is disabled.
-fn on_add_disabled(mut world: DeferredWorld, context: HookContext) {
-    let mut entity = world.entity_mut(context.entity);
+pub(crate) fn on_add_disabled(
+    trigger: Trigger<OnAdd, InteractionDisabled>,
+    mut world: DeferredWorld,
+) {
+    let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_disabled();
     }
 }
 
-// Hook to remove the a11y "disabled" state when the widget is enabled.
-fn on_remove_disabled(mut world: DeferredWorld, context: HookContext) {
-    let mut entity = world.entity_mut(context.entity);
+pub(crate) fn on_remove_disabled(
+    trigger: Trigger<OnRemove, InteractionDisabled>,
+    mut world: DeferredWorld,
+) {
+    let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.clear_disabled();
     }
@@ -45,18 +49,49 @@ fn on_remove_disabled(mut world: DeferredWorld, context: HookContext) {
 #[component(immutable)]
 pub struct Depressed(pub bool);
 
+impl Depressed {
+    /// Returns whether the button is currently depressed.
+    pub fn get(&self) -> bool {
+        self.0
+    }
+}
+
 /// Component that indicates whether a checkbox or radio button is in a checked state.
 #[derive(Component, Default, Debug)]
-#[component(immutable, on_add = on_add_checked, on_replace = on_add_checked)]
 pub struct Checked(pub bool);
 
-// Hook to set the a11y "checked" state when the checkbox is added.
-fn on_add_checked(mut world: DeferredWorld, context: HookContext) {
-    let mut entity = world.entity_mut(context.entity);
-    let checked = entity.get::<Checked>().unwrap().0;
-    let mut accessibility = entity.get_mut::<AccessibilityNode>().unwrap();
-    accessibility.set_toggled(match checked {
-        true => accesskit::Toggled::True,
-        false => accesskit::Toggled::False,
-    });
+impl Checked {
+    /// Returns whether the checkbox or radio button is currently checked.
+    pub fn get(&self) -> bool {
+        self.0
+    }
+}
+
+pub(crate) fn on_add_checked(trigger: Trigger<OnAdd, Checked>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(trigger.target());
+    let checked = entity.get::<Checked>().unwrap().get();
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_toggled(match checked {
+            true => accesskit::Toggled::True,
+            false => accesskit::Toggled::False,
+        });
+    }
+}
+
+pub(crate) fn on_replace_checked(trigger: Trigger<OnReplace, Checked>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(trigger.target());
+    let checked = entity.get::<Checked>().unwrap().get();
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_toggled(match checked {
+            true => accesskit::Toggled::True,
+            false => accesskit::Toggled::False,
+        });
+    }
+}
+
+pub(crate) fn on_remove_checked(trigger: Trigger<OnRemove, Checked>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(trigger.target());
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_toggled(accesskit::Toggled::False);
+    }
 }

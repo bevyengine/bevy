@@ -39,7 +39,7 @@ mod ui_node;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
-pub use interaction_states::*;
+pub use interaction_states::{Checked, Depressed, InteractionDisabled};
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -320,6 +320,12 @@ fn build_text_interop(app: &mut App) {
     );
 
     app.add_plugins(accessibility::AccessibilityPlugin);
+
+    app.add_observer(interaction_states::on_add_disabled)
+        .add_observer(interaction_states::on_remove_disabled)
+        .add_observer(interaction_states::on_add_checked)
+        .add_observer(interaction_states::on_remove_checked)
+        .add_observer(interaction_states::on_replace_checked);
 
     app.configure_sets(
         PostUpdate,
