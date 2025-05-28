@@ -3,6 +3,7 @@ use bevy_derive::Deref;
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_math::Affine2;
+use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use core::f32::consts::PI;
@@ -91,29 +92,29 @@ pub struct UiTransform {
     pub translation: Val2,
     /// Scale the node. A negative value reflects the node in that axis.
     pub scale: Vec2,
-    /// Rotate the node clockwise by the given value in radians.
-    pub rotation: f32,
+    /// Rotate the node counterclockwise.
+    pub rotation: Rot2,
 }
 
 impl UiTransform {
     pub const IDENTITY: Self = Self {
         translation: Val2::ZERO,
         scale: Vec2::ONE,
-        rotation: 0.,
+        rotation: Rot2::IDENTITY,
     };
 
-    /// Creates a UI transform representing a rotation in `angle` radians.
-    pub fn from_angle(angle: f32) -> Self {
+    /// Creates a UI transform representing a rotation in `radians``.
+    pub fn from_angle(radians: f32) -> Self {
         Self {
-            rotation: angle,
+            rotation: Rot2::radians(radians),
             ..Self::IDENTITY
         }
     }
 
-    /// Creates a UI transform representing a rotation in `angle` degrees.
-    pub fn from_angle_deg(angle: f32) -> Self {
+    /// Creates a UI transform representing a rotation in `degrees`.
+    pub fn from_angle_deg(degrees: f32) -> Self {
         Self {
-            rotation: PI * angle / 180.,
+            rotation: Rot2::degrees(degrees),
             ..Self::IDENTITY
         }
     }
@@ -132,6 +133,17 @@ impl UiTransform {
             scale,
             ..Self::IDENTITY
         }
+    }
+
+    /// Resolves the translation from the given `scale_factor`, `base_value`, and `target_size`
+    /// and returns a 2d affine transform from the resolved translation, and the `UiTransform`'s rotation, and scale.
+    pub fn compute_affine(&self, scale_factor: f32, base_value: f32, target_size: Vec2) -> Affine2 {
+        Affine2::from_scale_rotation_translation(
+            self.scale,
+            self.rotation.as_radians(),
+            self.translation
+                .resolve(scale_factor, Vec2::splat(base_value), target_size),
+        )
     }
 }
 
