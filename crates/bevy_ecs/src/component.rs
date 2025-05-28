@@ -576,6 +576,37 @@ pub trait Component: Send + Sync + 'static {
     ///     items: Vec<Option<Entity>>
     /// }
     /// ```
+    ///
+    /// If your component contains types that don't directly implement [`MapEntities`](crate::entity::MapEntities), 
+    /// you can implement it yourself on the [`Component`] type and then add `#[component(entities)]` as a type-level attribute
+    /// ```
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
+    /// # use std::collections::HashMap;
+    /// #[derive(Component)]
+    /// #[component(entities)]
+    /// struct Inventory {
+    ///     items: HashMap<Entity, usize>
+    /// }
+    ///
+    /// impl MapEntities for Inventory {
+    ///   fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+    ///      self.items = self.items
+    ///          .drain()
+    ///          .map(|(id, count)|(entity_mapper.get_mapped(id), count))
+    ///          .collect();
+    ///   }
+    /// }
+    ///
+    /// # fn main() {
+    /// #   let a = Entity::from_bits(0x1_0000_0001);
+    /// #   let b = Entity::from_bits(0x1_0000_0002);
+    /// #   let mut inv = Inventory { items: Default::default() };
+    /// #   inv.items.insert(a, 10);
+    /// #   <Inventory as Component>::map_entities(&mut inv, &mut (a,b));
+    /// #   assert_eq!(inv.items.get(&b), Some(&10));
+    /// # }
+    ///
+    /// ````
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
