@@ -230,7 +230,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let layout_size = Vec2::new(layout.size.width, layout.size.height);
 
-            /// Position in taffy's layout of the top-left corner of the node, relative to its parent.
+            // Taffy layout position of the top-left corner of the node, relative to its parent.
             let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
             // The position of the center of the node relative to its top-left corner.
