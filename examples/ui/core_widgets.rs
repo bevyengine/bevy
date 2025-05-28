@@ -3,7 +3,10 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{CoreButton, CoreWidgetsPlugin},
-    input_focus::tab_navigation::{TabGroup, TabIndex},
+    input_focus::{
+        tab_navigation::{TabGroup, TabIndex},
+        InputDispatchPlugin,
+    },
     prelude::*,
     ui::{Depressed, InteractionDisabled},
     winit::WinitSettings,
@@ -12,7 +15,7 @@ use bevy_ecs::system::SystemId;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CoreWidgetsPlugin))
+        .add_plugins((DefaultPlugins, CoreWidgetsPlugin, InputDispatchPlugin))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
