@@ -170,12 +170,12 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
 
                     // custom start position
                     (Some(start_position), None) => {
-                        sink.append(decoder.skip_duration(start_position).repeat_infinite())
+                        sink.append(decoder.skip_duration(start_position).repeat_infinite());
                     }
 
                     // custom duration
                     (None, Some(duration)) => {
-                        sink.append(decoder.take_duration(duration).repeat_infinite())
+                        sink.append(decoder.take_duration(duration).repeat_infinite());
                     }
 
                     // full clip
@@ -190,7 +190,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                         ),
 
                         (Some(start_position), None) => {
-                            sink.append(decoder.skip_duration(start_position))
+                            sink.append(decoder.skip_duration(start_position));
                         }
 
                         (None, Some(duration)) => sink.append(decoder.take_duration(duration)),
@@ -247,12 +247,12 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
 
                     // custom start position
                     (Some(start_position), None) => {
-                        sink.append(decoder.skip_duration(start_position).repeat_infinite())
+                        sink.append(decoder.skip_duration(start_position).repeat_infinite());
                     }
 
                     // custom duration
                     (None, Some(duration)) => {
-                        sink.append(decoder.take_duration(duration).repeat_infinite())
+                        sink.append(decoder.take_duration(duration).repeat_infinite());
                     }
 
                     // full clip
@@ -267,7 +267,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                         ),
 
                         (Some(start_position), None) => {
-                            sink.append(decoder.skip_duration(start_position))
+                            sink.append(decoder.skip_duration(start_position));
                         }
 
                         (None, Some(duration)) => sink.append(decoder.take_duration(duration)),
