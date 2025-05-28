@@ -482,7 +482,7 @@ use thiserror::Error;
 /// ```
 /// # use std::cell::RefCell;
 /// # use bevy_ecs::component::Component;
-/// use bevy_utils::synccell::SyncCell;
+/// use bevy_platform::cell::SyncCell;
 ///
 /// // This will compile.
 /// #[derive(Component)]
@@ -491,7 +491,7 @@ use thiserror::Error;
 /// }
 /// ```
 ///
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
+/// [`SyncCell`]: bevy_platform::cell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Component`",

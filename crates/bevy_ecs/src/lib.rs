@@ -82,8 +82,8 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs, IntoSystemSet,
-            Schedule, Schedules, SystemSet,
+            common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
+            Schedules, SystemCondition, SystemSet,
         },
         spawn::{Spawn, SpawnRelated},
         system::{
@@ -1229,7 +1229,6 @@ mod tests {
             .components()
             .get_resource_id(TypeId::of::<Num>())
             .unwrap();
-        let archetype_component_id = world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(world.resource::<Num>().0, 123);
         assert!(world.contains_resource::<Num>());
@@ -1290,14 +1289,6 @@ mod tests {
         assert_eq!(
             resource_id, current_resource_id,
             "resource id does not change after removing / re-adding"
-        );
-
-        let current_archetype_component_id =
-            world.storages().resources.get(resource_id).unwrap().id();
-
-        assert_eq!(
-            archetype_component_id, current_archetype_component_id,
-            "resource archetype component id does not change after removing / re-adding"
         );
     }
 

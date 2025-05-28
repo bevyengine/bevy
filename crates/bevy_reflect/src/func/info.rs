@@ -434,7 +434,7 @@ impl<'a> Debug for PrettyPrintFunctionInfo<'a> {
         }
 
         match (self.include_name, self.info.name()) {
-            (true, Some(name)) => write!(f, "{}", name)?,
+            (true, Some(name)) => write!(f, "{name}")?,
             (true, None) => write!(f, "_")?,
             _ => {}
         }
@@ -509,7 +509,7 @@ impl<'a> Debug for PrettyPrintSignatureInfo<'a> {
         }
 
         match (self.include_name, self.info.name()) {
-            (true, Some(name)) => write!(f, "{}", name)?,
+            (true, Some(name)) => write!(f, "{name}")?,
             (true, None) => write!(f, "_")?,
             _ => {}
         }
