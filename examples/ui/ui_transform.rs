@@ -3,9 +3,7 @@ use bevy::color::palettes::css::DARK_GRAY;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
-
-// #[derive(Resource)]
-// struct Center(Entity);
+use core::f32::consts::FRAC_PI_8;
 
 fn main() {
     App::new()
@@ -22,7 +20,7 @@ const PRESSED_BUTTON: Color = Color::Srgba(RED);
 
 /// A button that rotates the target node
 #[derive(Component)]
-pub struct RotateButton(pub f32);
+pub struct RotateButton(pub Rot2);
 
 /// A button that scales the target node
 #[derive(Component)]
@@ -51,7 +49,7 @@ fn button_system(
                 *color = PRESSED_BUTTON.into();
                 if let Some(step) = maybe_rotate {
                     for mut transform in rotator_query.iter_mut() {
-                        transform.rotation += step.0;
+                        transform.rotation *= step.0;
                     }
                 }
                 if let Some(step) = maybe_scale {
@@ -147,7 +145,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::WHITE),
-                            RotateButton(-std::f32::consts::FRAC_PI_8),
+                            RotateButton(Rot2::radians(-FRAC_PI_8)),
                             children![(Text::new("<--"), TextColor(Color::BLACK),)]
                         ),
                         (
@@ -276,7 +274,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::WHITE),
-                            RotateButton(std::f32::consts::FRAC_PI_8),
+                            RotateButton(Rot2::radians(FRAC_PI_8)),
                             children![(Text::new("-->"), TextColor(Color::BLACK),)]
                         ),
                         (

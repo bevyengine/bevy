@@ -230,7 +230,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let layout_size = Vec2::new(layout.size.width, layout.size.height);
 
-            /// Position in taffy's layout of the top-left corner of the node, relative to its parent.
+            // Taffy layout position of the top-left corner of the node, relative to its parent.
             let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
             // The position of the center of the node relative to its top-left corner.
@@ -261,15 +261,9 @@ with UI components as a child of an entity without UI components, your UI layout
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
             // Computer the node's new global transform
-            let local_transform = Affine2::from_scale_angle_translation(
-                transform.scale,
-                transform.rotation,
-                transform.translation.resolve(
-                    inverse_target_scale_factor,
-                    layout_size,
-                    target_size,
-                ) + local_center,
-            );
+            let mut local_transform =
+                transform.compute_affine(inverse_target_scale_factor, layout_size, target_size);
+            local_transform.translation += local_center;
             inherited_transform *= local_transform;
 
             if inherited_transform != **global_transform {

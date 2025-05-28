@@ -68,7 +68,7 @@ struct Rotate;
 
 impl UpdateTransform for Rotate {
     fn update(&self, t: f32, transform: &mut UiTransform) {
-        transform.rotation = (ops::cos(t * TAU) * 45.0).to_radians();
+        transform.rotation = Rot2::radians(ops::cos(t * TAU) * 45.0);
     }
 }
 

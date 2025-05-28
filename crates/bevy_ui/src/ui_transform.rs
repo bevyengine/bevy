@@ -6,7 +6,6 @@ use bevy_math::Affine2;
 use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
-use core::f32::consts::PI;
 
 /// A pair of [`Val`]s used to representin a 2-dimensional size or offset.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
@@ -137,12 +136,12 @@ impl UiTransform {
 
     /// Resolves the translation from the given `scale_factor`, `base_value`, and `target_size`
     /// and returns a 2d affine transform from the resolved translation, and the `UiTransform`'s rotation, and scale.
-    pub fn compute_affine(&self, scale_factor: f32, base_value: f32, target_size: Vec2) -> Affine2 {
-        Affine2::from_scale_rotation_translation(
+    pub fn compute_affine(&self, scale_factor: f32, base_size: Vec2, target_size: Vec2) -> Affine2 {
+        Affine2::from_scale_angle_translation(
             self.scale,
             self.rotation.as_radians(),
             self.translation
-                .resolve(scale_factor, Vec2::splat(base_value), target_size),
+                .resolve(scale_factor, base_size, target_size),
         )
     }
 }
