@@ -3,7 +3,7 @@
 //! Currently, this consists only of chromatic aberration.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, uuid_handle, Assets, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -47,13 +47,6 @@ use crate::{
     FullscreenShader,
 };
 
-/// The handle to the default chromatic aberration lookup texture.
-///
-/// This is just a 3x1 image consisting of one red pixel, one green pixel, and
-/// one blue pixel, in that order.
-const DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE: Handle<Image> =
-    uuid_handle!("dc3e3307-40a1-49bb-be6d-e0634e8836b2");
-
 /// The default chromatic aberration intensity amount, in a fraction of the
 /// window size.
 const DEFAULT_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.02;
@@ -67,6 +60,9 @@ const DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES: u32 = 8;
 /// order.
 static DEFAULT_CHROMATIC_ABERRATION_LUT_DATA: [u8; 12] =
     [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
+
+#[derive(Resource)]
+struct DefaultChromaticAberrationLut(Handle<Image>);
 
 /// A plugin that implements a built-in postprocessing stack with some common
 /// effects.
@@ -96,14 +92,14 @@ pub struct PostProcessingPlugin;
 pub struct ChromaticAberration {
     /// The lookup texture that determines the color gradient.
     ///
-    /// By default, this is a 3×1 texel texture consisting of one red pixel, one
-    /// green pixel, and one blue texel, in that order. This recreates the most
-    /// typical chromatic aberration pattern. However, you can change it to
-    /// achieve different artistic effects.
+    /// By default (if None), this is a 3×1 texel texture consisting of one red
+    /// pixel, one green pixel, and one blue texel, in that order. This
+    /// recreates the most typical chromatic aberration pattern. However, you
+    /// can change it to achieve different artistic effects.
     ///
     /// The texture is always sampled in its vertical center, so it should
     /// ordinarily have a height of 1 texel.
-    pub color_lut: Handle<Image>,
+    pub color_lut: Option<Handle<Image>>,
 
     /// The size of the streaks around the edges of objects, as a fraction of
     /// the window size.
@@ -192,20 +188,17 @@ impl Plugin for PostProcessingPlugin {
 
         // Load the default chromatic aberration LUT.
         let mut assets = app.world_mut().resource_mut::<Assets<_>>();
-        assets.insert(
-            DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE.id(),
-            Image::new(
-                Extent3d {
-                    width: 3,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                TextureDimension::D2,
-                DEFAULT_CHROMATIC_ABERRATION_LUT_DATA.to_vec(),
-                TextureFormat::Rgba8UnormSrgb,
-                RenderAssetUsages::RENDER_WORLD,
-            ),
-        );
+        let default_lut = assets.add(Image::new(
+            Extent3d {
+                width: 3,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            DEFAULT_CHROMATIC_ABERRATION_LUT_DATA.to_vec(),
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD,
+        ));
 
         app.register_type::<ChromaticAberration>();
         app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::default());
@@ -215,6 +208,7 @@ impl Plugin for PostProcessingPlugin {
         };
 
         render_app
+            .insert_resource(DefaultChromaticAberrationLut(default_lut))
             .init_resource::<SpecializedRenderPipelines<PostProcessingPipeline>>()
             .init_resource::<PostProcessingUniformBuffers>()
             .add_systems(
@@ -258,7 +252,7 @@ impl Plugin for PostProcessingPlugin {
 impl Default for ChromaticAberration {
     fn default() -> Self {
         Self {
-            color_lut: DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE,
+            color_lut: None,
             intensity: DEFAULT_CHROMATIC_ABERRATION_INTENSITY,
             max_samples: DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES,
         }
@@ -357,6 +351,7 @@ impl ViewNode for PostProcessingNode {
         let post_processing_pipeline = world.resource::<PostProcessingPipeline>();
         let post_processing_uniform_buffers = world.resource::<PostProcessingUniformBuffers>();
         let gpu_image_assets = world.resource::<RenderAssets<GpuImage>>();
+        let default_lut = world.resource::<DefaultChromaticAberrationLut>();
 
         // We need a render pipeline to be prepared.
         let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
@@ -364,8 +359,12 @@ impl ViewNode for PostProcessingNode {
         };
 
         // We need the chromatic aberration LUT to be present.
-        let Some(chromatic_aberration_lut) = gpu_image_assets.get(&chromatic_aberration.color_lut)
-        else {
+        let Some(chromatic_aberration_lut) = gpu_image_assets.get(
+            chromatic_aberration
+                .color_lut
+                .as_ref()
+                .unwrap_or(&default_lut.0),
+        ) else {
             return Ok(());
         };
 
