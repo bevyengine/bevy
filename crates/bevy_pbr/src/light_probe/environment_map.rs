@@ -44,7 +44,7 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
-use bevy_asset::{weak_handle, AssetId, Handle};
+use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
     component::Component, query::QueryItem, reflect::ReflectComponent, system::lifetimeless::Read,
 };
@@ -56,8 +56,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{self, uniform_buffer},
-        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
-        TextureSampleType, TextureView,
+        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, ShaderStages, TextureSampleType,
+        TextureView,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -71,10 +71,6 @@ use crate::{
 };
 
 use super::{LightProbeComponent, RenderViewLightProbes};
-
-/// A handle to the environment map helper shader.
-pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d38c4ec4-e84c-468f-b485-bf44745db937");
 
 /// A pair of cubemap textures that represent the surroundings of a specific
 /// area in space.
