@@ -41,7 +41,7 @@ Many of the core widgets will define supplementary ECS components that are used 
 state, similar to how the old `Interaction` component worked, but in a way that is more flexible.
 These components include:
 
-- `InteractionDisabled` - a marker component used to indicate that a component should be
+- `InteractionDisabled` - a boolean component used to indicate that a component should be
   "grayed out" and non-interactive. Note that these disabled widgets are still visible and can
   have keyboard focus (otherwise the user would have no way to discover them).
 - `Hovering` is a simple boolean component that allows detection of whether the widget is being
