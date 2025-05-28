@@ -42,6 +42,7 @@ mod pipeline;
 mod text;
 mod text2d;
 mod text_access;
+mod util;
 
 pub use bounds::*;
 pub use error::*;
@@ -54,6 +55,7 @@ pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
 pub use text_access::*;
+pub use util::*;
 
 /// The text prelude.
 ///
