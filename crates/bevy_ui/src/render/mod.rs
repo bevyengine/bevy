@@ -1314,15 +1314,12 @@ pub fn prepare_uinodes(
 
                             let mut uinode_rect = extracted_uinode.rect;
 
-                            let rect_size = uinode_rect.size().extend(1.0);
+                            let rect_size = uinode_rect.size();
 
                             // Specify the corners of the node
-                            let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                                transform
-                                    .transform_point2(pos * rect_size.truncate())
-                                    .extend(0.)
-                            });
-                            let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size.xy());
+                            let positions = QUAD_VERTEX_POSITIONS
+                                .map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
+                            let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
 
                             // Calculate the effect of clipping
                             // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -1363,8 +1360,7 @@ pub fn prepare_uinodes(
                                 points[3] + positions_diff[3],
                             ];
 
-                            let transformed_rect_size =
-                                transform.transform_vector2(uinode_rect.size());
+                            let transformed_rect_size = transform.transform_vector2(rect_size);
 
                             // Don't try to cull nodes that have a rotation
                             // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -1445,7 +1441,7 @@ pub fn prepare_uinodes(
                                         border_radius.bottom_left,
                                     ],
                                     border: [border.left, border.top, border.right, border.bottom],
-                                    size: rect_size.xy().into(),
+                                    size: rect_size.into(),
                                     point: points[i].into(),
                                 });
                             }
@@ -1467,9 +1463,7 @@ pub fn prepare_uinodes(
                             let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {
                                 let glyph_rect = glyph.rect;
-                                let size = glyph.rect.size();
-
-                                let rect_size = glyph_rect.size().extend(1.0);
+                                let rect_size = glyph_rect.size();
 
                                 // Specify the corners of the glyph
                                 let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
@@ -1511,7 +1505,7 @@ pub fn prepare_uinodes(
 
                                 // cull nodes that are completely clipped
                                 let transformed_rect_size =
-                                    glyph.transform.transform_vector2(rect_size.truncate());
+                                    glyph.transform.transform_vector2(rect_size);
                                 if positions_diff[0].x - positions_diff[1].x
                                     >= transformed_rect_size.x.abs()
                                     || positions_diff[1].y - positions_diff[2].y
@@ -1548,7 +1542,7 @@ pub fn prepare_uinodes(
                                         flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
                                         radius: [0.0; 4],
                                         border: [0.0; 4],
-                                        size: size.into(),
+                                        size: rect_size.into(),
                                         point: [0.0; 2],
                                     });
                                 }
