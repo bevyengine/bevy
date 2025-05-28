@@ -55,7 +55,8 @@ const LIGHT_SOURCE_KIND_DIRECTIONAL = 1u;
 struct DirectionalLight {
     direction_to_light: vec3<f32>,
     cos_theta_max: f32,
-    illuminance: vec4<f32>,
+    luminance: vec3<f32>,
+    inverse_pdf: f32,
 }
 
 @group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;

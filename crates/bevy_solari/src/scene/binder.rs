@@ -1,6 +1,6 @@
 use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d};
 use bevy_asset::{AssetId, Handle};
-use bevy_color::LinearRgba;
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::{
     resource::Resource,
     system::{Query, Res, ResMut},
@@ -17,7 +17,7 @@ use bevy_render::{
     texture::{FallbackImage, GpuImage},
 };
 use bevy_transform::components::GlobalTransform;
-use core::{hash::Hash, num::NonZeroU32, ops::Deref};
+use core::{f32::consts::TAU, hash::Hash, num::NonZeroU32, ops::Deref};
 
 const MAX_MESH_SLAB_COUNT: NonZeroU32 = NonZeroU32::new(500).unwrap();
 const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
@@ -191,11 +191,7 @@ pub fn prepare_raytracing_scene_bindings(
         let directional_lights = directional_lights.get_mut();
         let directional_light_id = directional_lights.len() as u32;
 
-        directional_lights.push(GpuDirectionalLight {
-            direction_to_light: directional_light.transform.back().into(),
-            cos_theta_max: cos(SUN_ANGULAR_DIAMETER_RADIANS / 2.0),
-            illuminance: directional_light.color * directional_light.illuminance,
-        });
+        directional_lights.push(GpuDirectionalLight::new(directional_light));
 
         light_sources
             .get_mut()
@@ -343,7 +339,24 @@ impl GpuLightSource {
 struct GpuDirectionalLight {
     direction_to_light: Vec3,
     cos_theta_max: f32,
-    illuminance: LinearRgba,
+    luminance: Vec3,
+    inverse_pdf: f32,
+}
+
+impl GpuDirectionalLight {
+    fn new(directional_light: &ExtractedDirectionalLight) -> Self {
+        let cos_theta_max = cos(SUN_ANGULAR_DIAMETER_RADIANS / 2.0);
+        let solid_angle = TAU * (1.0 - cos_theta_max);
+        let luminance =
+            (directional_light.color.to_vec3() * directional_light.illuminance) / solid_angle;
+
+        Self {
+            direction_to_light: directional_light.transform.back().into(),
+            cos_theta_max,
+            luminance,
+            inverse_pdf: solid_angle,
+        }
+    }
 }
 
 fn tlas_transform(transform: &Mat4) -> [f32; 12] {
