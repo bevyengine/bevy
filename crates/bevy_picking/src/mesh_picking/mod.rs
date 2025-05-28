@@ -1,6 +1,6 @@
 //! A [mesh ray casting](ray_cast) backend for [`bevy_picking`](crate).
 //!
-//! By default, all meshes that have both asset_usage [`RenderAssetUsages::MAIN_WORLD`] and [`RenderAssetUsages::RENDER_WORLD`] pickable.
+//! By default, all meshes that have both asset_usage [`bevy_asset::RenderAssetUsages::MAIN_WORLD`] and [`bevy_asset::RenderAssetUsages::RENDER_WORLD`] pickable.
 //! Picking can be disabled for individual entities by adding [`Pickable::IGNORE`].
 //!
 //! To make mesh picking entirely opt-in, set [`MeshPickingSettings::require_markers`]
