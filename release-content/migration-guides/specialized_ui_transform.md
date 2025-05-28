@@ -1,10 +1,32 @@
 ---
-title: Specialized Ui Transform
+title: Specialized UI transform
 pull_requests: [16615]
 ---
-New specialized 2D UI transform components `UiTransform` and `UiGlobalTransform`.  `UiTransform` is a 2d-only equivalent of `Transform` with a translation in `Val`s. `UiGlobalTransform` newtypes `Affine2` and is updated in `ui_layout_system`.
+
+Bevy UI now uses specialized 2D UI transform components `UiTransform` and `UiGlobalTransform` in place of `Transform` and `GlobalTransform`.
+
+UiTransform is a 2d-only equivalent of Transform with a responsive translation in `Val`s. `UiGlobalTransform` newtypes `Affine2` and is updated in `ui_layout_system
+
 `Node` now requires `UiTransform` instead of `Transform`. `UiTransform` requires `UiGlobalTransform`.
 
-In previous versions of Bevy `ui_layout_system` would overwrite UI node's `Transform::translation` each frame. `UiTransform`s aren't overwritten and there is no longer any need for systems that cache and rewrite the transform for translated UI elements.
+The `UiTransform` equivalent of the `Transform`:
 
-`RelativeCursorPosition`'s coordinates are now object-centered with (0,0) at the the center of the node and the corners at  (±0.5, ±0.5). Its `normalized_visible_node_rect` field has been removed and replaced with a new `cursor_over: bool` field which is set to true when the cursor is hovering an unclipped area of the UI node.
+```rust
+Transform {
+    translation: Vec3 { x, y, z },
+    rotation:Quat::from_rotation_z(radians),
+    scale,
+}
+```
+
+is
+
+```rust
+UiTransform {
+    translation: Val2::px(x, y),
+    rotation: Rot2::from_rotation(radians),
+    scale: scale.xy(),
+} 
+```
+
+In previous versions of Bevy `ui_layout_system` would overwrite UI node's `Transform::translation` each frame. `UiTransform`s aren't overwritten and there is no longer any need for systems that cache and rewrite the transform for translated UI elements.
