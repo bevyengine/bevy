@@ -9,7 +9,7 @@ use bevy_ecs::{
     },
 };
 use bevy_image::BevyDefault as _;
-use bevy_math::{Affine2, FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
