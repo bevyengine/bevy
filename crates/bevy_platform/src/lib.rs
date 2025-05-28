@@ -19,6 +19,7 @@ cfg::alloc! {
     pub mod collections;
 }
 
+pub mod cell;
 pub mod cfg;
 pub mod hash;
 pub mod sync;

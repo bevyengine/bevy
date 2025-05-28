@@ -242,8 +242,7 @@ impl DynamicTupleStruct {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::TupleStruct(_)),
-                "expected TypeInfo::TupleStruct but received: {:?}",
-                represented_type
+                "expected TypeInfo::TupleStruct but received: {represented_type:?}"
             );
         }
 
