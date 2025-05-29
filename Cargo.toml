@@ -3452,17 +3452,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "radial_gradients"
-path = "examples/ui/radial_gradients.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.radial_gradients]
-name = "Radial Gradients"
-description = "An example demonstrating radial gradients"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "scroll"
 path = "examples/ui/scroll.rs"
 doc-scrape-examples = true

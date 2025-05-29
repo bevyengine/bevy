@@ -38,7 +38,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
                 traversal = meta.value()?.parse()?;
                 Ok(())
             }
-            Some(ident) => Err(meta.error(format!("unsupported attribute: {}", ident))),
+            Some(ident) => Err(meta.error(format!("unsupported attribute: {ident}"))),
             None => Err(meta.error("expected identifier")),
         }) {
             return e.to_compile_error().into();
