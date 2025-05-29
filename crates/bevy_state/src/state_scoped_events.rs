@@ -106,7 +106,7 @@ fn clear_events_on_enter_state<S: States>(
     });
 }
 
-fn clear_event_on_state_transition<E: Event, S: States>(
+fn add_event_cleared_on_state_transition<E: Event, S: States>(
     app: &mut SubApp,
     _p: PhantomData<E>,
     state: S,
@@ -115,6 +115,7 @@ fn clear_event_on_state_transition<E: Event, S: States>(
     if !app.world().contains_resource::<StateScopedEvents<S>>() {
         app.init_resource::<StateScopedEvents<S>>();
     }
+    app.add_event::<E>();
     app.world_mut()
         .resource_mut::<StateScopedEvents<S>>()
         .add_event::<E>(state.clone(), transition_type);
@@ -136,7 +137,7 @@ pub trait StateScopedEventsAppExt {
     /// All of these (state scoped entities and events cleanup, and `OnExit`)
     /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
     /// and system set `StateTransitionSystems::ExitSchedules`.
-    fn clear_event_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self;
+    fn add_event_cleared_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self;
 
     /// Clears an [`Event`] when entering the specified `state`.
     ///
@@ -146,12 +147,12 @@ pub trait StateScopedEventsAppExt {
     /// All of these (state scoped entities and events cleanup, and `OnEnter`)
     /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
     /// and system set `StateTransitionSystems::EnterSchedules`.
-    fn clear_event_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self;
+    fn add_event_cleared_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self;
 }
 
 impl StateScopedEventsAppExt for App {
-    fn clear_event_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self {
-        clear_event_on_state_transition(
+    fn add_event_cleared_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self {
+        add_event_cleared_on_state_transition(
             self.main_mut(),
             PhantomData::<E>,
             state,
@@ -160,8 +161,8 @@ impl StateScopedEventsAppExt for App {
         self
     }
 
-    fn clear_event_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self {
-        clear_event_on_state_transition(
+    fn add_event_cleared_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self {
+        add_event_cleared_on_state_transition(
             self.main_mut(),
             PhantomData::<E>,
             state,
@@ -172,13 +173,23 @@ impl StateScopedEventsAppExt for App {
 }
 
 impl StateScopedEventsAppExt for SubApp {
-    fn clear_event_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self {
-        clear_event_on_state_transition(self, PhantomData::<E>, state, TransitionType::OnExit);
+    fn add_event_cleared_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self {
+        add_event_cleared_on_state_transition(
+            self,
+            PhantomData::<E>,
+            state,
+            TransitionType::OnExit,
+        );
         self
     }
 
-    fn clear_event_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self {
-        clear_event_on_state_transition(self, PhantomData::<E>, state, TransitionType::OnEnter);
+    fn add_event_cleared_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self {
+        add_event_cleared_on_state_transition(
+            self,
+            PhantomData::<E>,
+            state,
+            TransitionType::OnEnter,
+        );
         self
     }
 }
@@ -205,8 +216,7 @@ mod tests {
         app.add_plugins(StatesPlugin);
         app.init_state::<TestState>();
 
-        app.add_event::<TestEvent>();
-        app.clear_event_on_exit_state::<TestEvent>(TestState::A);
+        app.add_event_cleared_on_exit_state::<TestEvent>(TestState::A);
 
         app.world_mut().send_event(TestEvent).unwrap();
         assert!(!app.world().resource::<Events<TestEvent>>().is_empty());
@@ -225,8 +235,7 @@ mod tests {
         app.add_plugins(StatesPlugin);
         app.init_state::<TestState>();
 
-        app.add_event::<TestEvent>();
-        app.clear_event_on_enter_state::<TestEvent>(TestState::B);
+        app.add_event_cleared_on_enter_state::<TestEvent>(TestState::B);
 
         app.world_mut().send_event(TestEvent).unwrap();
         assert!(!app.world().resource::<Events<TestEvent>>().is_empty());
