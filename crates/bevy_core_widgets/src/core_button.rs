@@ -6,7 +6,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     observer::Trigger,
-    query::{Has, With},
+    query::With,
     system::{Commands, Query, SystemId},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
@@ -31,11 +31,11 @@ pub struct CoreButton {
 
 fn button_on_key_event(
     mut trigger: Trigger<FocusedInput<KeyboardInput>>,
-    q_state: Query<(&CoreButton, Has<InteractionDisabled>)>,
+    q_state: Query<(&CoreButton, &InteractionDisabled)>,
     mut commands: Commands,
 ) {
     if let Ok((bstate, disabled)) = q_state.get(trigger.target()) {
-        if !disabled {
+        if !disabled.get() {
             let event = &trigger.event().input;
             if !event.repeat
                 && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
@@ -53,12 +53,12 @@ fn button_on_key_event(
 
 fn button_on_pointer_click(
     mut trigger: Trigger<Pointer<Click>>,
-    mut q_state: Query<(&CoreButton, &Depressed, Has<InteractionDisabled>)>,
+    mut q_state: Query<(&CoreButton, &Depressed, &InteractionDisabled)>,
     mut commands: Commands,
 ) {
     if let Ok((bstate, pressed, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
-        if pressed.0 && !disabled {
+        if pressed.get() && !disabled.get() {
             if let Some(on_click) = bstate.on_click {
                 commands.run_system(on_click);
             } else {
@@ -70,14 +70,14 @@ fn button_on_pointer_click(
 
 fn button_on_pointer_down(
     mut trigger: Trigger<Pointer<Pressed>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>), With<CoreButton>>,
+    mut q_state: Query<(Entity, &InteractionDisabled), With<CoreButton>>,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
     if let Ok((button, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
-        if !disabled {
+        if !disabled.get() {
             commands.entity(button).insert(Depressed(true));
             // Clicking on a button makes it the focused input,
             // and hides the focus ring if it was visible.
@@ -93,12 +93,12 @@ fn button_on_pointer_down(
 
 fn button_on_pointer_up(
     mut trigger: Trigger<Pointer<Released>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>), With<CoreButton>>,
+    mut q_state: Query<(Entity, &InteractionDisabled), With<CoreButton>>,
     mut commands: Commands,
 ) {
     if let Ok((button, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
-        if !disabled {
+        if !disabled.get() {
             commands.entity(button).insert(Depressed(false));
         }
     }
@@ -106,12 +106,12 @@ fn button_on_pointer_up(
 
 fn button_on_pointer_drag_end(
     mut trigger: Trigger<Pointer<DragEnd>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>), With<CoreButton>>,
+    mut q_state: Query<(Entity, &InteractionDisabled), With<CoreButton>>,
     mut commands: Commands,
 ) {
     if let Ok((button, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
-        if !disabled {
+        if !disabled.get() {
             commands.entity(button).insert(Depressed(false));
         }
     }
@@ -119,12 +119,12 @@ fn button_on_pointer_drag_end(
 
 fn button_on_pointer_cancel(
     mut trigger: Trigger<Pointer<Cancel>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>), With<CoreButton>>,
+    mut q_state: Query<(Entity, &InteractionDisabled), With<CoreButton>>,
     mut commands: Commands,
 ) {
     if let Ok((button, disabled)) = q_state.get_mut(trigger.target()) {
         trigger.propagate(false);
-        if !disabled {
+        if !disabled.get() {
             commands.entity(button).insert(Depressed(false));
         }
     }

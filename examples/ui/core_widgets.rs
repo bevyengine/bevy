@@ -7,6 +7,7 @@ use bevy::{
         tab_navigation::{TabGroup, TabIndex},
         InputDispatchPlugin,
     },
+    picking::hover::IsHovered,
     prelude::*,
     ui::{Depressed, InteractionDisabled},
     winit::WinitSettings,
@@ -24,7 +25,6 @@ fn main() {
 }
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-// TODO: Use this when hover PR goes in.
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
@@ -32,38 +32,49 @@ fn button_system(
     mut buttons: Query<
         (
             &Depressed,
+            &IsHovered,
             &InteractionDisabled,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
         ),
         (
-            Or<(Changed<Depressed>, Changed<InteractionDisabled>)>,
+            Or<(
+                Changed<Depressed>,
+                Changed<IsHovered>,
+                Changed<InteractionDisabled>,
+            )>,
             With<CoreButton>,
         ),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (depressed, disabled, mut color, mut border_color, children) in &mut buttons {
+    for (depressed, hovered, disabled, mut color, mut border_color, children) in &mut buttons {
         let mut text = text_query.get_mut(children[0]).unwrap();
-        match (disabled.get(), depressed.0) {
-            (true, _) => {
+        match (disabled.get(), hovered.get(), depressed.0) {
+            // Disabed button
+            (true, _, _) => {
                 **text = "Disabled".to_string();
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = GRAY.into();
             }
 
-            (false, true) => {
+            // Pressed and hovered button
+            (false, true, true) => {
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
             }
-            // Interaction::Hovered => {
-            //     **text = "Hover".to_string();
-            //     *color = HOVERED_BUTTON.into();
-            //     border_color.0 = Color::WHITE;
-            // }
-            (false, false) => {
+
+            // Hovered, unpressed button
+            (false, true, false) => {
+                **text = "Hover".to_string();
+                *color = HOVERED_BUTTON.into();
+                border_color.0 = Color::WHITE;
+            }
+
+            // Unhovered button (either pressed or not).
+            (false, false, _) => {
                 **text = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = Color::BLACK;
@@ -106,6 +117,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle + use<>
                 CoreButton {
                     on_click: Some(on_click),
                 },
+                IsHovered::default(),
                 TabIndex(0),
                 BorderColor(Color::BLACK),
                 BorderRadius::MAX,
