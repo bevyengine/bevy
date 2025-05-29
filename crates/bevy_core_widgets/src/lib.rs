@@ -3,6 +3,12 @@
 //! appropriate for their game or application.
 //!
 //! # State Management
+//!
+//! Most of the widgets use external state management: this means that the widgets do not
+//! automatically update their own internal state, but instead rely on the app to update the widget
+//! state (as well as any other related game state) in response to a change event emitted by the
+//! widget. The primary motivation for this is to avoid two-way data binding in scenarios where the
+//! user interface is showing a live view of dynamic data coming from deeper within the game engine.
 
 mod core_button;
 mod events;
