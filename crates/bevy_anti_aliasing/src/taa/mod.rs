@@ -2,9 +2,9 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
+    FullscreenShader,
 };
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
@@ -241,7 +241,8 @@ struct TaaPipeline {
     taa_bind_group_layout: BindGroupLayout,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
-    shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 impl FromWorld for TaaPipeline {
@@ -286,7 +287,8 @@ impl FromWorld for TaaPipeline {
             taa_bind_group_layout,
             nearest_sampler,
             linear_sampler,
-            shader: load_embedded_asset!(world, "taa.wgsl"),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(world, "taa.wgsl"),
         }
     }
 }
@@ -317,9 +319,9 @@ impl SpecializedRenderPipeline for TaaPipeline {
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
             layout: vec![self.taa_bind_group_layout.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
                 entry_point: "taa".into(),
                 targets: vec![

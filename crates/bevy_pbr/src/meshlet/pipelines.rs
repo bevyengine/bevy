@@ -2,7 +2,7 @@ use super::resource_manager::ResourceManager;
 use bevy_asset::{weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    FullscreenShader,
 };
 use bevy_ecs::{
     resource::Resource,
@@ -80,6 +80,8 @@ impl FromWorld for MeshletPipelines {
         let remap_1d_to_2d_dispatch_layout = resource_manager
             .remap_1d_to_2d_dispatch_bind_group_layout
             .clone();
+
+        let vertex_state = world.resource::<FullscreenShader>().to_vertex_state();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
         Self {
@@ -400,7 +402,7 @@ impl FromWorld for MeshletPipelines {
                 label: Some("meshlet_resolve_depth_pipeline".into()),
                 layout: vec![resolve_depth_layout],
                 push_constant_ranges: vec![],
-                vertex: fullscreen_shader_vertex_state(),
+                vertex: vertex_state.clone(),
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
                     format: CORE_3D_DEPTH_FORMAT,
@@ -424,7 +426,7 @@ impl FromWorld for MeshletPipelines {
                     label: Some("meshlet_resolve_depth_pipeline".into()),
                     layout: vec![resolve_depth_shadow_view_layout],
                     push_constant_ranges: vec![],
-                    vertex: fullscreen_shader_vertex_state(),
+                    vertex: vertex_state.clone(),
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
                         format: CORE_3D_DEPTH_FORMAT,
@@ -449,7 +451,7 @@ impl FromWorld for MeshletPipelines {
                     label: Some("meshlet_resolve_material_depth_pipeline".into()),
                     layout: vec![resolve_material_depth_layout],
                     push_constant_ranges: vec![],
-                    vertex: fullscreen_shader_vertex_state(),
+                    vertex: vertex_state,
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
                         format: TextureFormat::Depth16Unorm,

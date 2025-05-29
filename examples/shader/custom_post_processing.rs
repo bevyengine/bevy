@@ -9,7 +9,7 @@
 use bevy::{
     core_pipeline::{
         core_3d::graph::{Core3d, Node3d},
-        fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+        FullscreenShader,
     },
     ecs::query::QueryItem,
     prelude::*,
@@ -259,6 +259,8 @@ impl FromWorld for PostProcessPipeline {
 
         // Get the shader handle
         let shader = world.load_asset(SHADER_ASSET_PATH);
+        // This will setup a fullscreen triangle for the vertex state.
+        let vertex_state = world.resource::<FullscreenShader>().to_vertex_state();
 
         let pipeline_id = world
             .resource_mut::<PipelineCache>()
@@ -266,8 +268,7 @@ impl FromWorld for PostProcessPipeline {
             .queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("post_process_pipeline".into()),
                 layout: vec![layout.clone()],
-                // This will setup a fullscreen triangle for the vertex state
-                vertex: fullscreen_shader_vertex_state(),
+                vertex: vertex_state,
                 fragment: Some(FragmentState {
                     shader,
                     shader_defs: vec![],

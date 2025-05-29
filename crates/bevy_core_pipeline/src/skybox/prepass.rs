@@ -27,7 +27,7 @@ use crate::{
         prepass_target_descriptors, MotionVectorPrepass, NormalPrepass, PreviousViewData,
         PreviousViewUniforms,
     },
-    Skybox,
+    FullscreenShader, Skybox,
 };
 
 /// This pipeline writes motion vectors to the prepass for all [`Skybox`]es.
@@ -38,7 +38,8 @@ use crate::{
 #[derive(Resource)]
 pub struct SkyboxPrepassPipeline {
     bind_group_layout: BindGroupLayout,
-    shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 /// Used to specialize the [`SkyboxPrepassPipeline`].
@@ -73,7 +74,8 @@ impl FromWorld for SkyboxPrepassPipeline {
                     ),
                 ),
             ),
-            shader: load_embedded_asset!(world, "skybox_prepass.wgsl"),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(world, "skybox_prepass.wgsl"),
         }
     }
 }
@@ -86,7 +88,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
             label: Some("skybox_prepass_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: vec![],
-            vertex: crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             primitive: default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
@@ -101,7 +103,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
