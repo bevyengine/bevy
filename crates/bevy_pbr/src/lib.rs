@@ -124,7 +124,7 @@ pub mod graph {
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetPath, Assets, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetApp, AssetPath, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
@@ -149,8 +149,14 @@ fn shader_ref(path: PathBuf) -> ShaderRef {
     ShaderRef::Path(AssetPath::from_path_buf(path).with_source("embedded"))
 }
 
-const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("69187376-3dea-4d0f-b3f5-185bde63d6a2");
+#[derive(Resource)]
+pub(crate) struct MeshletVisibilityBufferResolveShader(
+    #[expect(
+        unused,
+        reason = "We don't need to use the shader, we just need to keep the handle alive."
+    )]
+    pub(crate) Handle<Shader>,
+);
 
 pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 26;
 pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 27;
@@ -205,12 +211,16 @@ impl Plugin for PbrPlugin {
         load_shader_library!(app, "render/view_transformations.wgsl");
 
         // Setup dummy shaders for when MeshletPlugin is not used to prevent shader import errors.
-        load_internal_asset!(
-            app,
-            MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
-            "meshlet/dummy_visibility_buffer_resolve.wgsl",
-            Shader::from_wgsl
-        );
+        // Do not overwrite the resolve shader if it is already present (e.g., the meshlet plugin
+        // was added first).
+        if !app
+            .world()
+            .contains_resource::<MeshletVisibilityBufferResolveShader>()
+        {
+            embedded_asset!(app, "meshlet/dummy_visibility_buffer_resolve.wgsl");
+            let shader = load_embedded_asset!(app, "meshlet/dummy_visibility_buffer_resolve.wgsl");
+            app.insert_resource(MeshletVisibilityBufferResolveShader(shader));
+        }
 
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()

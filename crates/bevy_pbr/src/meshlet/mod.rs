@@ -56,9 +56,12 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{graph::NodePbr, PreviousGlobalTransform};
+use crate::{graph::NodePbr, MeshletVisibilityBufferResolveShader, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetId, Handle};
+use bevy_asset::{
+    embedded_asset, load_embedded_asset, load_internal_asset, weak_handle, AssetApp, AssetId,
+    Handle,
+};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
@@ -152,6 +155,16 @@ impl Plugin for MeshletPlugin {
             std::process::exit(1);
         }
 
+        // Load the `visibility_buffer_resolve` shader and replace the existing (dummy) shader held
+        // in `MeshletVisibilityBufferResolveShader`. This ensures we only have one shader with that
+        // module path.
+        embedded_asset!(app, "visibility_buffer_resolve.wgsl");
+        let visibility_buffer_resolve_shader =
+            load_embedded_asset!(app, "visibility_buffer_resolve.wgsl");
+        app.insert_resource(MeshletVisibilityBufferResolveShader(
+            visibility_buffer_resolve_shader,
+        ));
+
         load_internal_asset!(
             app,
             MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
@@ -162,12 +175,6 @@ impl Plugin for MeshletPlugin {
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
             "meshlet_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            super::MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
-            "visibility_buffer_resolve.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
