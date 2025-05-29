@@ -44,17 +44,17 @@ These components include:
 - `InteractionDisabled` - a boolean component used to indicate that a component should be
   "grayed out" and non-interactive. Note that these disabled widgets are still visible and can
   have keyboard focus (otherwise the user would have no way to discover them).
-- `Hovering` is a simple boolean component that allows detection of whether the widget is being
+- `IsHovered` is a simple boolean component that allows detection of whether the widget is being
   hovered using regular Bevy change detection.
 - `Checked` is a boolean component that stores the checked state of a checkbox or radio button.
 - `Depressed` is used for a button-like widget, and will be true while the button is held down.
 
-The combination of `Hovering` and `ButtonPressed` fulfills the same purpose as the old `Interaction`
-component, except that now we can also represent "roll-off" behavior (the state where you click
-on a button and then, while holding the mouse down, move the pointer out of the button's bounds).
-It also provides additional flexibility in cases where a widget has multiple hoverable parts,
-or cases where a widget is hoverable but doesn't have a pressed state (such as a tree-view expansion
-toggle).
+The combination of `IsHovered` and `ButtonPressed` fulfills the same purpose as the old
+`Interaction` component, except that now we can also represent "roll-off" behavior (the state where
+you click on a button and then, while holding the mouse down, move the pointer out of the button's
+bounds). It also provides additional flexibility in cases where a widget has multiple hoverable
+parts, or cases where a widget is hoverable but doesn't have a pressed state (such as a tree-view
+expansion toggle).
 
 ## Widget Notifications
 
@@ -79,9 +79,9 @@ same time update any other game state that is dependent on that parameter.
 There are multiple reasons for this, but the main one is this: typical game user interfaces aren't
 just passive forms of fields to fill in, but more often represent a dynamic view of live data. As a
 consequence, the displayed value of a widget may change even when the user is not directly
-interacting with that widget. This avoids the need for two-way data binding, and instead allows
-simpler one-way data binding that aligns well with the traditional "Model / View / Controller" (MVC)
-design pattern.
+interacting with that widget. Externalizing the state avoids the need for two-way data binding, and
+instead allows simpler one-way data binding that aligns well with the traditional "Model / View /
+Controller" (MVC) design pattern.
 
 There are two exceptions to this rule about external state management. First, widgets which don't
 edit a value, but which merely trigger an event (such as buttons), don't fall under this rule.
