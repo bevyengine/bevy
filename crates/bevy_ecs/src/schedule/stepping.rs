@@ -125,7 +125,7 @@ impl core::fmt::Debug for Stepping {
         if self.action != Action::RunAll {
             let Cursor { schedule, system } = self.cursor;
             match self.schedule_order.get(schedule) {
-                Some(label) => write!(f, "cursor: {:?}[{}], ", label, system)?,
+                Some(label) => write!(f, "cursor: {label:?}[{system}], ")?,
                 None => write!(f, "cursor: None, ")?,
             };
         }

@@ -30,19 +30,11 @@ use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 use widget::ImageNode;
 
-pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");
-
 pub struct UiTextureSlicerPlugin;
 
 impl Plugin for UiTextureSlicerPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            UI_SLICER_SHADER_HANDLE,
-            "ui_texture_slice.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "ui_texture_slice.wgsl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -116,6 +108,7 @@ pub struct UiTextureSliceImageBindGroups {
 pub struct UiTextureSlicePipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
 }
 
 impl FromWorld for UiTextureSlicePipeline {
@@ -144,6 +137,7 @@ impl FromWorld for UiTextureSlicePipeline {
         UiTextureSlicePipeline {
             view_layout,
             image_layout,
+            shader: load_embedded_asset!(world, "ui_texture_slice.wgsl"),
         }
     }
 }
@@ -180,13 +174,13 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: UI_SLICER_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: UI_SLICER_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

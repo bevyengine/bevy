@@ -94,7 +94,7 @@ export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
 ## [Arch](https://archlinux.org/) / [Manjaro](https://manjaro.org/)
 
 ```bash
-sudo pacman -S libx11 pkgconf alsa-lib
+sudo pacman -S libx11 pkgconf alsa-lib libxcursor libxrandr libxi
 ```
 
 Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
