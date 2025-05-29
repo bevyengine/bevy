@@ -34,19 +34,11 @@ use bytemuck::{Pod, Zeroable};
 
 use super::shader_flags::BORDER_ALL;
 
-pub const UI_GRADIENT_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("10116113-aac4-47fa-91c8-35cbe80dddcb");
-
 pub struct GradientPlugin;
 
 impl Plugin for GradientPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            UI_GRADIENT_SHADER_HANDLE,
-            "gradient.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "gradient.wgsl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -103,6 +95,7 @@ impl Default for GradientMeta {
 #[derive(Resource)]
 pub struct GradientPipeline {
     pub view_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
 }
 
 impl FromWorld for GradientPipeline {
@@ -117,7 +110,10 @@ impl FromWorld for GradientPipeline {
             ),
         );
 
-        GradientPipeline { view_layout }
+        GradientPipeline {
+            view_layout,
+            shader: load_embedded_asset!(world, "gradient.wgsl"),
+        }
     }
 }
 
@@ -192,13 +188,13 @@ impl SpecializedRenderPipeline for GradientPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: UI_GRADIENT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: UI_GRADIENT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

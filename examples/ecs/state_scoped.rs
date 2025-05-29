@@ -116,7 +116,7 @@ fn toggle(
     state: Res<State<GameState>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    if !timer.0.tick(time.delta()).finished() {
+    if !timer.0.tick(time.delta()).is_finished() {
         return;
     }
     *next_state = match state.get() {

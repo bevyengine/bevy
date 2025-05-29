@@ -1,7 +1,7 @@
 ---
 title: Entity Spawn Ticks
-authors: ["@urben1680"]
-pull_requests: [19047]
+authors: ["@urben1680", "@specificprotagonist"]
+pull_requests: [19047, 19350]
 ---
 
 Keeping track which entities have been spawned since the last time a system ran could only be done indirectly by inserting marker components and do your logic on entities that match an `Added<MyMarker>` filter or in `MyMarker`'s `on_add` hook.
@@ -23,12 +23,11 @@ fn print_spawn_details(query: Query<(Entity, SpawnDetails)>) {
             print!("new ");
         }
         print!(
-            "entity {:?} spawned at {:?}",
-            entity,
+            "entity {entity:?} spawned at {:?}",
             spawn_details.spawned_at()
         );
         match spawn_details.spawned_by().into_option() {
-            Some(location) => println!(" by {:?}", location),
+            Some(location) => println!(" by {location:?}"),
             None => println!()
         }    
     }
@@ -44,8 +43,8 @@ Note that this, like `Added<T>` and `Changed<T>`, is a non-archetypal filter. Th
 Because of this, these systems have roughly the same performance:
 
 ```rs
-fn system1(q: Query<Entity, Spawned>) {
-    for entity in &q { /* entity spawned */ }
+fn system1(query: Query<Entity, Spawned>) {
+    for entity in &query { /* entity spawned */ }
 }
 
 fn system2(query: Query<(Entity, SpawnDetails)>) {
@@ -80,4 +79,4 @@ fn filter_spawned_after(
 
 The tick is stored in `Entities`. It's method `entity_get_spawned_or_despawned_at` not only returns when a living entity spawned at, it also returns when a despawned entity found it's bitter end.
 
-Note however that despawned entities can be replaced by bevy at any following spawn. Then this method returns `None` for the despawned entity. The same is true if the entity is not even spawned yet, only allocated.
+Note however that despawned entities can be replaced by Bevy at any following spawn. Then this method returns `None` for the despawned entity. The same is true if the entity is not even spawned yet, only allocated.

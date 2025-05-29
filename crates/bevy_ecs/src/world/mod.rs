@@ -299,7 +299,7 @@ impl World {
         &mut self,
         id: ComponentId,
     ) -> Option<&mut ComponentHooks> {
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {:?} may already be in use", id);
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {id:?} may already be in use");
         self.components.get_hooks_mut(id)
     }
 
@@ -1186,8 +1186,9 @@ impl World {
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
         let change_tick = self.change_tick();
+        self.entities.set(entity.index(), location);
         self.entities
-            .set_spawn_despawn(entity.index(), location, caller, change_tick);
+            .mark_spawn_despawn(entity.index(), caller, change_tick);
 
         EntityWorldMut::new(self, entity, location)
     }
@@ -2690,12 +2691,9 @@ impl World {
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
         self.flush_components();
-        let archetypes = &mut self.archetypes;
         self.storages
             .resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// # Panics
@@ -2706,28 +2704,32 @@ impl World {
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
         self.flush_components();
-        let archetypes = &mut self.archetypes;
         self.storages
             .non_send_resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [`Component`].
+    #[track_caller]
     pub(crate) fn flush_entities(&mut self) {
+        let by = MaybeLocation::caller();
+        let at = self.change_tick();
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
         // PERF: consider pre-allocating space for flushed entities
         // SAFETY: entity is set to a valid location
         unsafe {
-            self.entities.flush(|entity, location| {
-                // SAFETY: no components are allocated by archetype.allocate() because the archetype
-                // is empty
-                *location = empty_archetype.allocate(entity, table.allocate(entity));
-            });
+            self.entities.flush(
+                |entity, location| {
+                    // SAFETY: no components are allocated by archetype.allocate() because the archetype
+                    // is empty
+                    *location = empty_archetype.allocate(entity, table.allocate(entity));
+                },
+                by,
+                at,
+            );
         }
     }
 
@@ -2762,6 +2764,7 @@ impl World {
     ///
     /// Queued entities will be spawned, and then commands will be applied.
     #[inline]
+    #[track_caller]
     pub fn flush(&mut self) {
         self.flush_entities();
         self.flush_components();
