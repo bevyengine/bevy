@@ -16,5 +16,5 @@ Also, `clear_event_on_exit_state` no longer adds the event automatically, so you
 | Before                        | After                                     |
 |-------------------------------|-------------------------------------------|
 | `StateScoped`                 | `DespawnOnExitState`                      |
-| `clear_state_scoped_entities` | `despawn_entities_on_enter_state`         |
+| `clear_state_scoped_entities` | `despawn_entities_on_exit_state`          |
 | `add_state_scoped_event`      | `add_event` + `clear_event_on_exit_state` |
