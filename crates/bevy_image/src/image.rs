@@ -851,6 +851,8 @@ impl Image {
 
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
     /// Does not properly scale the contents of the image.
+    ///
+    /// If you need to keep pixel data intact, use [`Image::resize_in_place_2d`].
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
         if let Some(ref mut data) = self.data {
@@ -881,14 +883,20 @@ impl Image {
     /// Resizes the image to the new size, keeping the pixel data intact, anchored at the top-left.
     /// When growing, the new space is filled with `fill`. When shrinking, the image is clipped.
     ///
-    /// # Panics
-    /// Panics if this is not a 2d image
-    pub fn resize_in_place_2d(&mut self, new_size: Extent3d, fill: &[u8]) {
+    /// For faster resizing when keeping pixel data intact is not important, use [`Image::resize`].
+    pub fn resize_in_place_2d(
+        &mut self,
+        new_size: Extent3d,
+        fill: &[u8],
+    ) -> Result<(), ResizeError> {
         let old_size = self.texture_descriptor.size;
+        if old_size.depth_or_array_layers != 1 {
+            return Err(ResizeError::ImageNot2d);
+        }
+
         let pixel_size = self.texture_descriptor.format.pixel_size();
         let byte_len = self.texture_descriptor.format.pixel_size() * new_size.volume();
 
-        assert!(old_size.depth_or_array_layers == 1);
         debug_assert_eq!(
             fill.len(),
             pixel_size,
@@ -896,26 +904,30 @@ impl Image {
             pixel_size,
         );
 
-        if let Some(ref mut data) = self.data {
-            let mut new: Vec<u8> = fill.iter().copied().cycle().take(byte_len).collect();
+        let Some(ref mut data) = self.data else {
+            return Err(ResizeError::ImageWithoutData);
+        };
 
-            let copy_width = old_size.width.min(new_size.width);
-            let copy_height = old_size.height.min(new_size.height);
+        let mut new: Vec<u8> = fill.iter().copied().cycle().take(byte_len).collect();
 
-            for row in 0..copy_height {
-                let old_row_start = (row * old_size.width) as usize * pixel_size;
-                let old_row_end = old_row_start + copy_width as usize * pixel_size;
+        let copy_width = old_size.width.min(new_size.width);
+        let copy_height = old_size.height.min(new_size.height);
 
-                let new_row_start = (row * new_size.width) as usize * pixel_size;
-                let new_row_end = new_row_start + copy_width as usize * pixel_size;
+        for row in 0..copy_height {
+            let old_row_start = (row * old_size.width) as usize * pixel_size;
+            let old_row_end = old_row_start + copy_width as usize * pixel_size;
 
-                new[new_row_start..new_row_end].copy_from_slice(&data[old_row_start..old_row_end]);
-            }
+            let new_row_start = (row * new_size.width) as usize * pixel_size;
+            let new_row_end = new_row_start + copy_width as usize * pixel_size;
 
-            self.data = Some(new);
+            new[new_row_start..new_row_end].copy_from_slice(&data[old_row_start..old_row_end]);
         }
 
+        self.data = Some(new);
+
         self.texture_descriptor.size = new_size;
+
+        Ok(())
     }
 
     /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
@@ -1578,6 +1590,17 @@ pub enum TextureError {
     /// Only cubemaps with six faces are supported.
     #[error("only cubemaps with six faces are supported")]
     IncompleteCubemap,
+}
+
+/// An error that occurs when an image cannot be resized.
+#[derive(Error, Debug)]
+pub enum ResizeError {
+    /// Failed to resize an Image because it has no data.
+    #[error("resize method requires cpu-side image data but none was present")]
+    ImageWithoutData,
+    /// Failed to resize an Image because it is not 2-dimensional.
+    #[error("resize method requires a 2d image")]
+    ImageNot2d,
 }
 
 /// The type of a raw image buffer.
