@@ -184,7 +184,7 @@ impl SparseSetIndex for EntityRow {
 /// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityRow`].
 ///
 /// This should be treated as a opaque identifier, and its internal representation may be subject to change.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Display)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
@@ -225,6 +225,19 @@ impl EntityGeneration {
     pub const fn after_versions_and_could_alias(self, versions: u32) -> (Self, bool) {
         let raw = self.0.overflowing_add(versions);
         (Self(raw.0), raw.1)
+    }
+}
+
+impl PartialOrd for EntityGeneration {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for EntityGeneration {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        let diff = self.0.wrapping_sub(other.0);
+        diff.cmp(&(1u32 << 31))
     }
 }
 
