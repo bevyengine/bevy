@@ -235,7 +235,7 @@ impl EntityGeneration {
     /// Represents the first generation of an [`EntityRow`].
     pub const FIRST: Self = Self(0);
 
-    /// Non-wrapping difference between two generations where a signed interpretation becomes negative.
+    /// Non-wrapping difference between two generations after which a signed interpretation becomes negative.
     const DIFF_MAX: u32 = 1u32 << 31;
 
     /// Gets some bits that represent this value.
