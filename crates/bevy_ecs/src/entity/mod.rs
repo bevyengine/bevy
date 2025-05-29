@@ -282,7 +282,7 @@ impl Ord for EntityGeneration {
         use core::cmp::Ordering;
         match self.0.wrapping_sub(other.0) {
             0 => Ordering::Equal,
-            ..Self::DIFF_MAX => Ordering::Greater,
+            1..Self::DIFF_MAX => Ordering::Greater,
             _ => Ordering::Less,
         }
     }
