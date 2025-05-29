@@ -179,7 +179,7 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
 }
 ```
 
-> [!TIPS]
+> [!TIP]
 > We have confirmed that this flake.nix can be used successfully on NixOS and MacOS with Rust's edition set to 2021.
 
 ### shell.nix
