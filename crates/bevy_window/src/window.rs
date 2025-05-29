@@ -225,6 +225,15 @@ pub struct Window {
     /// You should also set the window `composite_alpha_mode` to `CompositeAlphaMode::PostMultiplied`.
     pub transparent: bool,
     /// Get/set whether the window is focused.
+    ///
+    /// It cannot be set unfocused after creation.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - iOS / Android / X11 / Wayland: Spawning unfocused is
+    ///   [not supported](https://docs.rs/winit/latest/winit/window/struct.WindowAttributes.html#method.with_active).
+    /// - iOS / Android / Web / Wayland: Setting focused after creation is
+    ///   [not supported](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.focus_window).
     pub focused: bool,
     /// Where should the window appear relative to other overlapping window.
     ///
@@ -443,6 +452,17 @@ pub struct Window {
     ///
     /// [`WindowAttributesExtIOS::with_prefers_status_bar_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/trait.WindowAttributesExtIOS.html#tymethod.with_prefers_status_bar_hidden
     pub prefers_status_bar_hidden: bool,
+    /// Sets screen edges for which you want your gestures to take precedence
+    /// over the system gestures.
+    ///
+    /// Corresponds to [`WindowAttributesExtIOS::with_preferred_screen_edges_deferring_system_gestures`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on iOS.
+    ///
+    /// [`WindowAttributesExtIOS::with_preferred_screen_edges_deferring_system_gestures`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/trait.WindowAttributesExtIOS.html#tymethod.with_preferred_screen_edges_deferring_system_gestures
+    pub preferred_screen_edges_deferring_system_gestures: ScreenEdge,
 }
 
 impl Default for Window {
@@ -487,6 +507,7 @@ impl Default for Window {
             titlebar_show_buttons: true,
             prefers_home_indicator_hidden: false,
             prefers_status_bar_hidden: false,
+            preferred_screen_edges_deferring_system_gestures: Default::default(),
         }
     }
 }
@@ -1443,6 +1464,31 @@ impl Default for EnabledButtons {
 /// is in the process of closing (on the next frame).
 #[derive(Component, Default)]
 pub struct ClosingWindow;
+
+/// The edges of a screen. Corresponds to [`winit::platform::ios::ScreenEdge`].
+///
+/// # Platform-specific
+///
+/// - Only used on iOS.
+///
+/// [`winit::platform::ios::ScreenEdge`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/struct.ScreenEdge.html
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub enum ScreenEdge {
+    #[default]
+    /// No edge.
+    None,
+    /// The top edge of the screen.
+    Top,
+    /// The left edge of the screen.
+    Left,
+    /// The bottom edge of the screen.
+    Bottom,
+    /// The right edge of the screen.
+    Right,
+    /// All edges of the screen.
+    All,
+}
 
 #[cfg(test)]
 mod tests {

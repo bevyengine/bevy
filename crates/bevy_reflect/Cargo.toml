@@ -33,6 +33,9 @@ debug_stack = ["std"]
 ## Adds reflection support to `glam` types.
 glam = ["dep:glam"]
 
+## Adds reflection support to `hashbrown` types.
+hashbrown = ["dep:hashbrown"]
+
 ## Adds reflection support to `petgraph` types.
 petgraph = ["dep:petgraph", "std"]
 
@@ -51,7 +54,6 @@ wgpu-types = ["dep:wgpu-types"]
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-  "bevy_utils/std",
   "erased-serde/std",
   "downcast-rs/std",
   "serde/std",
@@ -64,10 +66,7 @@ std = [
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
-critical-section = [
-  "bevy_platform/critical-section",
-  "bevy_utils/critical-section",
-]
+critical-section = ["bevy_platform/critical-section"]
 
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
@@ -76,9 +75,7 @@ web = ["bevy_platform/web", "uuid?/js"]
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "derive", version = "0.16.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
-  "alloc",
-] }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
@@ -87,6 +84,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 
 # used by bevy-utils, but it also needs reflect impls
 foldhash = { version = "0.1.3", default-features = false }
+hashbrown = { version = "0.15.1", optional = true, default-features = false }
 
 # other
 erased-serde = { version = "0.4", default-features = false, features = [
@@ -119,7 +117,7 @@ wgpu-types = { version = "24", features = [
 ron = "0.8.0"
 rmp-serde = "1.1"
 bincode = { version = "2.0", features = ["serde"] }
-serde_json = "1.0"
+serde_json = "1.0.140"
 serde = { version = "1", features = ["derive"] }
 static_assertions = "1.1.0"
 

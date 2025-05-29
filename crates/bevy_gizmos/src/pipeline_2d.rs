@@ -1,10 +1,11 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
+    DrawLineJointGizmo, GizmoRenderSystems, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
+    SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
@@ -25,7 +26,7 @@ use bevy_render::{
     },
     render_resource::*,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use tracing::error;
@@ -46,8 +47,8 @@ impl Plugin for LineGizmo2dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos2d
-                    .in_set(RenderSet::Queue)
+                GizmoRenderSystems::QueueLineGizmos2d
+                    .in_set(RenderSystems::Queue)
                     .ambiguous_with(bevy_sprite::queue_sprites)
                     .ambiguous_with(
                         bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
@@ -56,7 +57,7 @@ impl Plugin for LineGizmo2dPlugin {
             .add_systems(
                 Render,
                 (queue_line_gizmos_2d, queue_line_joint_gizmos_2d)
-                    .in_set(GizmoRenderSystem::QueueLineGizmos2d)
+                    .in_set(GizmoRenderSystems::QueueLineGizmos2d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
     }
@@ -75,6 +76,7 @@ impl Plugin for LineGizmo2dPlugin {
 struct LineGizmoPipeline {
     mesh_pipeline: Mesh2dPipeline,
     uniform_layout: BindGroupLayout,
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for LineGizmoPipeline {
@@ -85,6 +87,7 @@ impl FromWorld for LineGizmoPipeline {
                 .resource::<LineGizmoUniformBindgroupLayout>()
                 .layout
                 .clone(),
+            shader: load_embedded_asset!(render_world, "lines.wgsl"),
         }
     }
 }
@@ -124,13 +127,13 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: fragment_entry_point.into(),
                 targets: vec![Some(ColorTargetState {
@@ -173,6 +176,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 struct LineJointGizmoPipeline {
     mesh_pipeline: Mesh2dPipeline,
     uniform_layout: BindGroupLayout,
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for LineJointGizmoPipeline {
@@ -183,6 +187,7 @@ impl FromWorld for LineJointGizmoPipeline {
                 .resource::<LineGizmoUniformBindgroupLayout>()
                 .layout
                 .clone(),
+            shader: load_embedded_asset!(render_world, "line_joints.wgsl"),
         }
     }
 }
@@ -225,13 +230,13 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_JOINT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: entry_point.into(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
             },
             fragment: Some(FragmentState {
-                shader: LINE_JOINT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

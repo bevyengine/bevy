@@ -9,19 +9,22 @@
 //!
 //! [Bevy]: https://bevyengine.org/
 
-#[cfg(feature = "std")]
-extern crate std;
+cfg::std! {
+    extern crate std;
+}
 
-#[cfg(feature = "alloc")]
-extern crate alloc;
+cfg::alloc! {
+    extern crate alloc;
 
+    pub mod collections;
+}
+
+pub mod cell;
+pub mod cfg;
 pub mod hash;
 pub mod sync;
 pub mod thread;
 pub mod time;
-
-#[cfg(feature = "alloc")]
-pub mod collections;
 
 /// Frequently used items which would typically be included in most contexts.
 ///
@@ -33,10 +36,11 @@ pub mod collections;
 /// This prelude aims to ease the transition by re-exporting items from `alloc` which would
 /// otherwise be included in the `std` implicit prelude.
 pub mod prelude {
-    #[cfg(feature = "alloc")]
-    pub use alloc::{
-        borrow::ToOwned, boxed::Box, format, string::String, string::ToString, vec, vec::Vec,
-    };
+    crate::cfg::alloc! {
+        pub use alloc::{
+            borrow::ToOwned, boxed::Box, format, string::String, string::ToString, vec, vec::Vec,
+        };
+    }
 
     // Items from `std::prelude` that are missing in this module:
     // * dbg

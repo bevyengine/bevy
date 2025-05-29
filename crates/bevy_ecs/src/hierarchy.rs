@@ -19,6 +19,8 @@ use crate::{
 use alloc::{format, string::String, vec::Vec};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
@@ -96,21 +98,19 @@ use log::warn;
     feature = "bevy_reflect",
     reflect(Component, PartialEq, Debug, FromWorld, Clone)
 )]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[relationship(relationship_target = Children)]
 #[doc(alias = "IsChild", alias = "Parent")]
-pub struct ChildOf(pub Entity);
+pub struct ChildOf(#[entities] pub Entity);
 
 impl ChildOf {
     /// The parent entity of this child entity.
     #[inline]
     pub fn parent(&self) -> Entity {
-        self.0
-    }
-
-    /// The parent entity of this child entity.
-    #[deprecated(since = "0.16.0", note = "Use child_of.parent() instead")]
-    #[inline]
-    pub fn get(&self) -> Entity {
         self.0
     }
 }
@@ -281,6 +281,12 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(children)
     }
 
+    /// Removes all the children from this entity.
+    /// See also [`clear_related`](Self::clear_related)
+    pub fn clear_children(&mut self) -> &mut Self {
+        self.clear_related::<ChildOf>()
+    }
+
     /// Insert children at specific index.
     /// See also [`insert_related`](Self::insert_related).
     pub fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
@@ -338,20 +344,6 @@ impl<'w> EntityWorldMut<'w> {
         });
         self
     }
-
-    /// Removes the [`ChildOf`] component, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.remove::<ChildOf>()")]
-    pub fn remove_parent(&mut self) -> &mut Self {
-        self.remove::<ChildOf>();
-        self
-    }
-
-    /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(ChildOf(entity))")]
-    pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
-        self
-    }
 }
 
 impl<'a> EntityCommands<'a> {
@@ -367,6 +359,12 @@ impl<'a> EntityCommands<'a> {
     /// Adds the given children to this entity
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
         self.add_related::<ChildOf>(children)
+    }
+
+    /// Removes all the children from this entity.
+    /// See also [`clear_related`](Self::clear_related)
+    pub fn clear_children(&mut self) -> &mut Self {
+        self.clear_related::<ChildOf>()
     }
 
     /// Insert children at specific index.
@@ -422,20 +420,6 @@ impl<'a> EntityCommands<'a> {
         self.with_related::<ChildOf>(bundle);
         self
     }
-
-    /// Removes the [`ChildOf`] component, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.remove::<ChildOf>()")]
-    pub fn remove_parent(&mut self) -> &mut Self {
-        self.remove::<ChildOf>();
-        self
-    }
-
-    /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(ChildOf(entity))")]
-    pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(ChildOf(parent));
-        self
-    }
 }
 
 /// An `on_insert` component hook that when run, will validate that the parent of a given entity
@@ -460,7 +444,7 @@ pub fn validate_parent_has_component<C: Component>(
             caller.map(|c| format!("{c}: ")).unwrap_or_default(),
             ty_name = ShortName::of::<C>(),
             name = name.map_or_else(
-                || format!("Entity {}", entity),
+                || format!("Entity {entity}"),
                 |s| format!("The {s} entity")
             ),
         );
@@ -499,7 +483,7 @@ pub fn validate_parent_has_component<C: Component>(
 #[macro_export]
 macro_rules! children {
     [$($child:expr),*$(,)?] => {
-       $crate::hierarchy::Children::spawn(($($crate::spawn::Spawn($child)),*))
+       $crate::hierarchy::Children::spawn($crate::recursive_spawn!($($child),*))
     };
 }
 
@@ -656,6 +640,43 @@ mod tests {
         );
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/19134
+    #[test]
+    fn insert_children_index_bound() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+        let child4 = world.spawn_empty().id();
+
+        let mut entity_world_mut = world.spawn_empty();
+
+        let first_children = entity_world_mut.add_children(&[child1, child2]).id();
+        let hierarchy = get_hierarchy(&world, first_children);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(first_children, vec![Node::new(child1), Node::new(child2)])
+        );
+
+        let root = world
+            .entity_mut(first_children)
+            .insert_children(usize::MAX, &[child3, child4])
+            .id();
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(
+                root,
+                vec![
+                    Node::new(child1),
+                    Node::new(child2),
+                    Node::new(child3),
+                    Node::new(child4),
+                ]
+            )
+        );
+    }
+
     #[test]
     fn remove_children() {
         let mut world = World::new();
@@ -717,6 +738,39 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
         assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
+    }
+
+    #[test]
+    fn spawn_many_children() {
+        let mut world = World::new();
+
+        // 12 children should result in a flat tuple
+        let id = world
+            .spawn(children![(), (), (), (), (), (), (), (), (), (), (), ()])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 12,);
+
+        // 13 will start nesting, but should nonetheless produce a flat hierarchy
+        let id = world
+            .spawn(children![
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+                (),
+            ])
+            .id();
+
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 13,);
     }
 
     #[test]

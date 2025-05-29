@@ -1,14 +1,13 @@
 //! Text and on-screen debugging tools
 
 use bevy_app::prelude::*;
-use bevy_asset::prelude::*;
 use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_picking::backend::HitData;
 use bevy_picking::hover::HoverMap;
 use bevy_picking::pointer::{Location, PointerId, PointerPress};
 use bevy_picking::prelude::*;
-use bevy_picking::{pointer, PickSet};
+use bevy_picking::{pointer, PickingSystems};
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_text::prelude::*;
@@ -85,7 +84,7 @@ impl Plugin for DebugPickingPlugin {
         app.init_resource::<DebugPickingMode>()
             .add_systems(
                 PreUpdate,
-                pointer_debug_visibility.in_set(PickSet::PostHover),
+                pointer_debug_visibility.in_set(PickingSystems::PostHover),
             )
             .add_systems(
                 PreUpdate,
@@ -108,7 +107,7 @@ impl Plugin for DebugPickingPlugin {
                     log_pointer_event_debug::<DragDrop>,
                 )
                     .distributive_run_if(DebugPickingMode::is_enabled)
-                    .in_set(PickSet::Last),
+                    .in_set(PickingSystems::Last),
             );
 
         app.add_systems(
@@ -116,7 +115,7 @@ impl Plugin for DebugPickingPlugin {
             (add_pointer_debug, update_debug_data, debug_draw)
                 .chain()
                 .distributive_run_if(DebugPickingMode::is_enabled)
-                .in_set(PickSet::Last),
+                .in_set(PickingSystems::Last),
         );
     }
 }
@@ -248,25 +247,18 @@ pub fn debug_draw(
     pointers: Query<(Entity, &PointerId, &PointerDebug)>,
     scale: Res<UiScale>,
 ) {
-    let font_handle: Handle<Font> = Default::default();
-    for (entity, id, debug) in pointers.iter() {
+    for (entity, id, debug) in &pointers {
         let Some(pointer_location) = &debug.location else {
             continue;
         };
         let text = format!("{id:?}\n{debug}");
 
-        for camera in camera_query
-            .iter()
-            .map(|(entity, camera)| {
-                (
-                    entity,
-                    camera.target.normalize(primary_window.single().ok()),
-                )
-            })
-            .filter_map(|(entity, target)| Some(entity).zip(target))
-            .filter(|(_entity, target)| target == &pointer_location.target)
-            .map(|(cam_entity, _target)| cam_entity)
-        {
+        for (camera, _) in camera_query.iter().filter(|(_, camera)| {
+            camera
+                .target
+                .normalize(primary_window.single().ok())
+                .is_some_and(|target| target == pointer_location.target)
+        }) {
             let mut pointer_pos = pointer_location.position;
             if let Some(viewport) = camera_query
                 .get(camera)
@@ -278,23 +270,21 @@ pub fn debug_draw(
 
             commands
                 .entity(entity)
+                .despawn_related::<Children>()
                 .insert((
-                    Text::new(text.clone()),
-                    TextFont {
-                        font: font_handle.clone(),
-                        font_size: 12.0,
-                        ..Default::default()
-                    },
-                    TextColor(Color::WHITE),
                     Node {
                         position_type: PositionType::Absolute,
                         left: Val::Px(pointer_pos.x + 5.0) / scale.0,
                         top: Val::Px(pointer_pos.y + 5.0) / scale.0,
+                        padding: UiRect::px(10.0, 10.0, 8.0, 6.0),
                         ..Default::default()
                     },
-                ))
-                .insert(Pickable::IGNORE)
-                .insert(UiTargetCamera(camera));
+                    BackgroundColor(Color::BLACK.with_alpha(0.75)),
+                    GlobalZIndex(i32::MAX),
+                    Pickable::IGNORE,
+                    UiTargetCamera(camera),
+                    children![(Text::new(text.clone()), TextFont::from_font_size(12.0))],
+                ));
         }
     }
 }

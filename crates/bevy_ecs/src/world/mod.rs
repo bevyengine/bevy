@@ -14,6 +14,7 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
+use crate::error::{DefaultErrorHandler, ErrorHandler};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -30,12 +31,8 @@ pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
-#[expect(
-    deprecated,
-    reason = "We need to support `AllocAtWithoutReplacement` for now."
-)]
 use crate::{
-    archetype::{ArchetypeId, ArchetypeRow, Archetypes},
+    archetype::{ArchetypeId, Archetypes},
     bundle::{
         Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
@@ -46,9 +43,7 @@ use crate::{
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
-    entity::{
-        AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,
-    },
+    entity::{Entities, Entity, EntityDoesNotExistError, EntityLocation},
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
@@ -304,7 +299,7 @@ impl World {
         &mut self,
         id: ComponentId,
     ) -> Option<&mut ComponentHooks> {
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {:?} may already be in use", id);
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {id:?} may already be in use");
         self.components.get_hooks_mut(id)
     }
 
@@ -965,23 +960,15 @@ impl World {
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
         self.archetypes.iter().flat_map(|archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(|(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(|(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
                     let cell = UnsafeEntityCell::new(
                         self.as_unsafe_world_cell_readonly(),
                         entity,
                         location,
+                        self.last_change_tick,
+                        self.read_change_tick(),
                     );
                     // SAFETY: `&self` gives read access to the entire world.
                     unsafe { EntityRef::new(cell) }
@@ -991,23 +978,21 @@ impl World {
 
     /// Returns a mutable iterator over all entities in the `World`.
     pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
+        let last_change_tick = self.last_change_tick;
+        let change_tick = self.change_tick();
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(move |(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(move |(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(world_cell, entity, location);
+                    let cell = UnsafeEntityCell::new(
+                        world_cell,
+                        entity,
+                        location,
+                        last_change_tick,
+                        change_tick,
+                    );
                     // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
                     // so none will conflict with one another.
                     unsafe { EntityMut::new(cell) }
@@ -1181,9 +1166,6 @@ impl World {
                 .unwrap_or(EntityLocation::INVALID);
         }
 
-        self.entities
-            .set_spawned_or_despawned_by(entity.index(), caller);
-
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
         after_effect.apply(&mut entity);
@@ -1203,10 +1185,10 @@ impl World {
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
+        let change_tick = self.change_tick();
         self.entities.set(entity.index(), location);
-
         self.entities
-            .set_spawned_or_despawned_by(entity.index(), caller);
+            .mark_spawn_despawn(entity.index(), caller, change_tick);
 
         EntityWorldMut::new(self, entity, location)
     }
@@ -2222,176 +2204,6 @@ impl World {
         unsafe { self.as_unsafe_world_cell().get_non_send_resource_mut() }
     }
 
-    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, either spawns each [`Entity`] with the given
-    /// bundle (if the entity does not exist), or inserts the [`Bundle`] (if the entity already exists).
-    /// This is faster than doing equivalent operations one-by-one.
-    /// Returns `Ok` if all entities were successfully inserted into or spawned. Otherwise it returns an `Err`
-    /// with a list of entities that could not be spawned or inserted into. A "spawn or insert" operation can
-    /// only fail if an [`Entity`] is passed in with an "invalid generation" that conflicts with an existing [`Entity`].
-    ///
-    /// # Note
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`World::spawn_batch`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an ID space (which doesn't happen by default).
-    ///
-    /// ```
-    /// use bevy_ecs::{entity::Entity, world::World, component::Component};
-    /// #[derive(Component)]
-    /// struct A(&'static str);
-    /// #[derive(Component, PartialEq, Debug)]
-    /// struct B(f32);
-    ///
-    /// let mut world = World::new();
-    /// let e0 = world.spawn_empty().id();
-    /// let e1 = world.spawn_empty().id();
-    /// world.insert_or_spawn_batch(vec![
-    ///   (e0, (A("a"), B(0.0))), // the first entity
-    ///   (e1, (A("b"), B(1.0))), // the second entity
-    /// ]);
-    ///
-    /// assert_eq!(world.get::<B>(e0), Some(&B(0.0)));
-    /// ```
-    #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
-    )]
-    pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
-    where
-        I: IntoIterator,
-        I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
-    {
-        #[expect(
-            deprecated,
-            reason = "This needs to be supported for now, and the outer function is deprecated too."
-        )]
-        self.insert_or_spawn_batch_with_caller(iter, MaybeLocation::caller())
-    }
-
-    /// Split into a new function so we can pass the calling location into the function when using
-    /// as a command.
-    #[inline]
-    #[deprecated(
-        since = "0.16.0",
-        note = "This can cause extreme performance problems when used with lots of arbitrary free entities. See #18054 on GitHub."
-    )]
-    pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
-        &mut self,
-        iter: I,
-        caller: MaybeLocation,
-    ) -> Result<(), Vec<Entity>>
-    where
-        I: IntoIterator,
-        I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
-    {
-        self.flush();
-        let change_tick = self.change_tick();
-
-        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
-        enum SpawnOrInsert<'w> {
-            Spawn(BundleSpawner<'w>),
-            Insert(BundleInserter<'w>, ArchetypeId),
-        }
-
-        impl<'w> SpawnOrInsert<'w> {
-            fn entities(&mut self) -> &mut Entities {
-                match self {
-                    SpawnOrInsert::Spawn(spawner) => spawner.entities(),
-                    SpawnOrInsert::Insert(inserter, _) => inserter.entities(),
-                }
-            }
-        }
-        // SAFETY: we initialized this bundle_id in `init_info`
-        let mut spawn_or_insert = SpawnOrInsert::Spawn(unsafe {
-            BundleSpawner::new_with_id(self, bundle_id, change_tick)
-        });
-
-        let mut invalid_entities = Vec::new();
-        for (entity, bundle) in iter {
-            #[expect(
-                deprecated,
-                reason = "This needs to be supported for now, and the outer function is deprecated too."
-            )]
-            match spawn_or_insert
-                .entities()
-                .alloc_at_without_replacement(entity)
-            {
-                AllocAtWithoutReplacement::Exists(location) => {
-                    match spawn_or_insert {
-                        SpawnOrInsert::Insert(ref mut inserter, archetype)
-                            if location.archetype_id == archetype =>
-                        {
-                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe {
-                                inserter.insert(
-                                    entity,
-                                    location,
-                                    bundle,
-                                    InsertMode::Replace,
-                                    caller,
-                                    RelationshipHookMode::Run,
-                                )
-                            };
-                        }
-                        _ => {
-                            // SAFETY: we initialized this bundle_id in `init_info`
-                            let mut inserter = unsafe {
-                                BundleInserter::new_with_id(
-                                    self,
-                                    location.archetype_id,
-                                    bundle_id,
-                                    change_tick,
-                                )
-                            };
-                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe {
-                                inserter.insert(
-                                    entity,
-                                    location,
-                                    bundle,
-                                    InsertMode::Replace,
-                                    caller,
-                                    RelationshipHookMode::Run,
-                                )
-                            };
-                            spawn_or_insert =
-                                SpawnOrInsert::Insert(inserter, location.archetype_id);
-                        }
-                    };
-                }
-                AllocAtWithoutReplacement::DidNotExist => {
-                    if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
-                        // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
-                        unsafe { spawner.spawn_non_existent(entity, bundle, caller) };
-                    } else {
-                        // SAFETY: we initialized this bundle_id in `init_info`
-                        let mut spawner =
-                            unsafe { BundleSpawner::new_with_id(self, bundle_id, change_tick) };
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe { spawner.spawn_non_existent(entity, bundle, caller) };
-                        spawn_or_insert = SpawnOrInsert::Spawn(spawner);
-                    }
-                }
-                AllocAtWithoutReplacement::ExistsWithWrongGeneration => {
-                    invalid_entities.push(entity);
-                }
-            }
-        }
-
-        if invalid_entities.is_empty() {
-            Ok(())
-        } else {
-            Err(invalid_entities)
-        }
-    }
-
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity`.
     /// This is faster than doing equivalent operations one-by-one.
@@ -2879,12 +2691,9 @@ impl World {
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
         self.flush_components();
-        let archetypes = &mut self.archetypes;
         self.storages
             .resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// # Panics
@@ -2895,28 +2704,32 @@ impl World {
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
         self.flush_components();
-        let archetypes = &mut self.archetypes;
         self.storages
             .non_send_resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [`Component`].
+    #[track_caller]
     pub(crate) fn flush_entities(&mut self) {
+        let by = MaybeLocation::caller();
+        let at = self.change_tick();
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
         // PERF: consider pre-allocating space for flushed entities
         // SAFETY: entity is set to a valid location
         unsafe {
-            self.entities.flush(|entity, location| {
-                // SAFETY: no components are allocated by archetype.allocate() because the archetype
-                // is empty
-                *location = empty_archetype.allocate(entity, table.allocate(entity));
-            });
+            self.entities.flush(
+                |entity, location| {
+                    // SAFETY: no components are allocated by archetype.allocate() because the archetype
+                    // is empty
+                    *location = empty_archetype.allocate(entity, table.allocate(entity));
+                },
+                by,
+                at,
+            );
         }
     }
 
@@ -2951,6 +2764,7 @@ impl World {
     ///
     /// Queued entities will be spawned, and then commands will be applied.
     #[inline]
+    #[track_caller]
     pub fn flush(&mut self) {
         self.flush_entities();
         self.flush_components();
@@ -3145,6 +2959,7 @@ impl World {
         sparse_sets.check_change_ticks(change_tick);
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
+        self.entities.check_change_ticks(change_tick);
 
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(change_tick);
@@ -3214,6 +3029,16 @@ impl World {
                 .init_dynamic_info(&mut self.storages, &self.components, component_ids);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+
+    /// Convenience method for accessing the world's default error handler,
+    /// which can be overwritten with [`DefaultErrorHandler`].
+    #[inline]
+    pub fn default_error_handler(&self) -> ErrorHandler {
+        self.get_resource::<DefaultErrorHandler>()
+            .copied()
+            .unwrap_or_default()
+            .0
     }
 }
 
@@ -3560,11 +3385,18 @@ impl World {
 
 // Schedule-related methods
 impl World {
-    /// Adds the specified [`Schedule`] to the world. The schedule can later be run
+    /// Adds the specified [`Schedule`] to the world.
+    /// If a schedule already exists with the same [label](Schedule::label), it will be replaced.
+    ///
+    /// The schedule can later be run
     /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
     /// accessing the [`Schedules`] resource.
     ///
     /// The `Schedules` resource will be initialized if it does not already exist.
+    ///
+    /// An alternative to this is to call [`Schedules::add_systems()`] with some
+    /// [`ScheduleLabel`] and let the schedule for that label be created if it
+    /// does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule) {
         let mut schedules = self.get_resource_or_init::<Schedules>();
         schedules.insert(schedule);
@@ -3670,6 +3502,7 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    /// This avoids the need to create a unique [`ScheduleLabel`].
     ///
     /// # Panics
     ///
@@ -4438,10 +4271,18 @@ mod tests {
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(Some(Location::caller()))
         );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            Some(world.change_tick())
+        );
         world.despawn(entity);
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(Some(Location::caller()))
+        );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            Some(world.change_tick())
         );
         let new = world.spawn_empty().id();
         assert_eq!(entity.index(), new.index());
@@ -4449,10 +4290,18 @@ mod tests {
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(None)
         );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            None
+        );
         world.despawn(new);
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(None)
+        );
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_at(entity),
+            None
         );
     }
 

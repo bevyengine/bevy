@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -36,11 +36,9 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use tracing::warn;
-
-const TAA_SHADER_HANDLE: Handle<Shader> = weak_handle!("fea20d50-86b6-4069-aa32-374346aec00c");
 
 /// Plugin for temporal anti-aliasing.
 ///
@@ -49,7 +47,7 @@ pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "taa.wgsl");
 
         app.register_type::<TemporalAntiAliasing>();
 
@@ -64,9 +62,9 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter_and_mip_bias.in_set(RenderSet::ManageViews),
-                    prepare_taa_pipelines.in_set(RenderSet::Prepare),
-                    prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
+                    prepare_taa_jitter_and_mip_bias.in_set(RenderSystems::ManageViews),
+                    prepare_taa_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_taa_history_textures.in_set(RenderSystems::PrepareResources),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(Core3d, Node3d::Taa)
@@ -243,6 +241,7 @@ struct TaaPipeline {
     taa_bind_group_layout: BindGroupLayout,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for TaaPipeline {
@@ -287,6 +286,7 @@ impl FromWorld for TaaPipeline {
             taa_bind_group_layout,
             nearest_sampler,
             linear_sampler,
+            shader: load_embedded_asset!(world, "taa.wgsl"),
         }
     }
 }
@@ -319,7 +319,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
             layout: vec![self.taa_bind_group_layout.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TAA_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "taa".into(),
                 targets: vec![

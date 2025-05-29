@@ -23,7 +23,7 @@
 //!
 //! The order in which interaction events are received is extremely important, and you can read more
 //! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in
-//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickSet::Hover`](crate::PickSet::Hover). All pointer-event
+//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickingSystems::Hover`](crate::PickingSystems::Hover). All pointer-event
 //! observers resolve during the sync point between [`pointer_events`] and
 //! [`update_interactions`](crate::hover::update_interactions).
 //!
@@ -527,11 +527,7 @@ pub fn pointer_events(
             for button in PointerButton::iter() {
                 let state = pointer_state.get_mut(pointer_id, button);
 
-                for drag_target in state
-                    .dragging
-                    .keys()
-                    .filter(|&&drag_target| hovered_entity != drag_target)
-                {
+                for drag_target in state.dragging.keys() {
                     state.dragging_over.insert(hovered_entity, hit.clone());
                     let drag_enter_event = Pointer::new(
                         pointer_id,

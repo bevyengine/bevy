@@ -1,7 +1,6 @@
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
@@ -87,8 +86,8 @@ where
     }
 
     #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.system_meta.archetype_component_access
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.system_meta.component_access_set
     }
 
     #[inline]
@@ -163,8 +162,6 @@ where
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
-
-    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {

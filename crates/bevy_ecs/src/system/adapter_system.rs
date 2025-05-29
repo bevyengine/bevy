@@ -131,11 +131,10 @@ where
         self.system.component_access()
     }
 
-    #[inline]
-    fn archetype_component_access(
+    fn component_access_set(
         &self,
-    ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
-        self.system.archetype_component_access()
+    ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
+        self.system.component_access_set()
     }
 
     fn is_send(&self) -> bool {
@@ -183,11 +182,6 @@ where
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {
         self.system.initialize(world);
-    }
-
-    #[inline]
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: crate::component::Tick) {

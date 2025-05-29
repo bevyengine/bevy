@@ -3,7 +3,7 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystem,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystems,
     ResolvedBorderRadius, TransparentUi, Val,
 };
 use bevy_app::prelude::*;
@@ -27,27 +27,19 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::TemporaryRenderEntity,
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
 use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
-pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d2991ecd-134f-4f82-adf5-0fcc86f02227");
-
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
 
 impl Plugin for BoxShadowPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            BOX_SHADOW_SHADER_HANDLE,
-            "box_shadow.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "box_shadow.wgsl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -57,13 +49,13 @@ impl Plugin for BoxShadowPlugin {
                 .init_resource::<SpecializedRenderPipelines<BoxShadowPipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_shadows.in_set(RenderUiSystem::ExtractBoxShadows),
+                    extract_shadows.in_set(RenderUiSystems::ExtractBoxShadows),
                 )
                 .add_systems(
                     Render,
                     (
-                        queue_shadows.in_set(RenderSet::Queue),
-                        prepare_shadows.in_set(RenderSet::PrepareBindGroups),
+                        queue_shadows.in_set(RenderSystems::Queue),
+                        prepare_shadows.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
         }
@@ -115,6 +107,7 @@ impl Default for BoxShadowMeta {
 #[derive(Resource)]
 pub struct BoxShadowPipeline {
     pub view_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
 }
 
 impl FromWorld for BoxShadowPipeline {
@@ -129,7 +122,10 @@ impl FromWorld for BoxShadowPipeline {
             ),
         );
 
-        BoxShadowPipeline { view_layout }
+        BoxShadowPipeline {
+            view_layout,
+            shader: load_embedded_asset!(world, "box_shadow.wgsl"),
+        }
     }
 }
 
@@ -170,13 +166,13 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: BOX_SHADOW_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: BOX_SHADOW_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

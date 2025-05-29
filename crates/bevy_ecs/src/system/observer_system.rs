@@ -2,12 +2,11 @@ use alloc::{borrow::Cow, vec::Vec};
 use core::marker::PhantomData;
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::Result,
     never::Never,
     prelude::{Bundle, Trigger},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::{Fallible, Infallible},
     system::{input::SystemIn, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -123,8 +122,8 @@ where
     }
 
     #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.observer.archetype_component_access()
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        self.observer.component_access_set()
     }
 
     #[inline]
@@ -173,11 +172,6 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.observer.initialize(world);
-    }
-
-    #[inline]
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.observer.update_archetype_component_access(world);
     }
 
     #[inline]

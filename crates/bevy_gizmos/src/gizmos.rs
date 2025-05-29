@@ -134,7 +134,7 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 ///            .add_systems(EndOfMyContext, end_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
 ///            .add_systems(
 ///                Last,
-///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(UpdateGizmoMeshes),
+///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(GizmoMeshSystems),
 ///            );
 ///     }
 /// }
@@ -205,29 +205,20 @@ where
         }
     }
 
-    unsafe fn new_archetype(
-        state: &mut Self::State,
-        archetype: &bevy_ecs::archetype::Archetype,
-        system_meta: &mut SystemMeta,
-    ) {
-        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-        unsafe {
-            GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta);
-        };
-    }
-
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
+        unsafe {
+            GizmosState::<Config, Clear>::validate_param(&mut state.state, system_meta, world)
+        }
     }
 
     #[inline]

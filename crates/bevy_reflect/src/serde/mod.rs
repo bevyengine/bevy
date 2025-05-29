@@ -400,7 +400,7 @@ mod tests {
             };
 
             // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
-            assert_eq!(format!("{:?}", expected), format!("{:?}", output));
+            assert_eq!(format!("{expected:?}"), format!("{output:?}",));
 
             let unexpected = Level {
                 name: String::from("Level 1"),
@@ -414,7 +414,7 @@ mod tests {
             };
 
             // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
-            assert_ne!(format!("{:?}", unexpected), format!("{:?}", output));
+            assert_ne!(format!("{unexpected:?}"), format!("{output:?}"));
         }
 
         #[test]

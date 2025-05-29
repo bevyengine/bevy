@@ -2,10 +2,9 @@ use alloc::{borrow::Cow, format, vec::Vec};
 use core::marker::PhantomData;
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     prelude::World,
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn, SystemParamValidationError},
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -114,22 +113,20 @@ pub struct CombinatorSystem<Func, A, B> {
     a: A,
     b: B,
     name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
-    archetype_component_access: Access<ArchetypeComponentId>,
+    component_access_set: FilteredAccessSet<ComponentId>,
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
     /// Creates a new system that combines two inner systems.
     ///
     /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
-    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             _marker: PhantomData,
             a,
             b,
             name,
-            component_access: Access::new(),
-            archetype_component_access: Access::new(),
+            component_access_set: FilteredAccessSet::default(),
         }
     }
 }
@@ -148,11 +145,11 @@ where
     }
 
     fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
+        self.component_access_set.combined_access()
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
     }
 
     fn is_send(&self) -> bool {
@@ -179,8 +176,6 @@ where
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
             // Since these closures are `!Send + !Sync + !'static`, they can never be called
             // in parallel, so their world accesses will not conflict with each other.
-            // Additionally, `update_archetype_component_access` has been called,
-            // which forwards to the implementations for `self.a` and `self.b`.
             |input| unsafe { self.a.run_unsafe(input, world) },
             // SAFETY: See the comment above.
             |input| unsafe { self.b.run_unsafe(input, world) },
@@ -211,18 +206,10 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.a.initialize(world);
         self.b.initialize(world);
-        self.component_access.extend(self.a.component_access());
-        self.component_access.extend(self.b.component_access());
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.a.update_archetype_component_access(world);
-        self.b.update_archetype_component_access(world);
-
-        self.archetype_component_access
-            .extend(self.a.archetype_component_access());
-        self.archetype_component_access
-            .extend(self.b.archetype_component_access());
+        self.component_access_set
+            .extend(self.a.component_access_set().clone());
+        self.component_access_set
+            .extend(self.b.component_access_set().clone());
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {
@@ -343,8 +330,7 @@ pub struct PipeSystem<A, B> {
     a: A,
     b: B,
     name: Cow<'static, str>,
-    component_access: Access<ComponentId>,
-    archetype_component_access: Access<ArchetypeComponentId>,
+    component_access_set: FilteredAccessSet<ComponentId>,
 }
 
 impl<A, B> PipeSystem<A, B>
@@ -354,13 +340,12 @@ where
     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
     /// Creates a new system that pipes two inner systems.
-    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+    pub fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
             a,
             b,
             name,
-            component_access: Access::new(),
-            archetype_component_access: Access::new(),
+            component_access_set: FilteredAccessSet::default(),
         }
     }
 }
@@ -379,11 +364,11 @@ where
     }
 
     fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
+        self.component_access_set.combined_access()
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
     }
 
     fn is_send(&self) -> bool {
@@ -443,18 +428,10 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.a.initialize(world);
         self.b.initialize(world);
-        self.component_access.extend(self.a.component_access());
-        self.component_access.extend(self.b.component_access());
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.a.update_archetype_component_access(world);
-        self.b.update_archetype_component_access(world);
-
-        self.archetype_component_access
-            .extend(self.a.archetype_component_access());
-        self.archetype_component_access
-            .extend(self.b.archetype_component_access());
+        self.component_access_set
+            .extend(self.a.component_access_set().clone());
+        self.component_access_set
+            .extend(self.b.component_access_set().clone());
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {
