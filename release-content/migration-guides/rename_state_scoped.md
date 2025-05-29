@@ -1,6 +1,6 @@
 ---
 title: Renamed state scoped entities and events
-pull_requests: [18818, TODO]
+pull_requests: [18818, 19435]
 ---
 
 Previously, Bevy provided the `StateScoped` component and `add_state_scoped_event` method
