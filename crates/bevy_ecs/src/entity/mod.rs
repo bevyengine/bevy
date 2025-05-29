@@ -886,8 +886,10 @@ impl Entities {
 
     /// Destroy an entity, allowing it to be reused.
     ///
+    /// Returns the `Option<EntityLocation>` of the entity or `None` if the `entity` was not present.
+    ///
     /// Must not be called while reserved entities are awaiting `flush()`.
-    pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
+    pub fn free(&mut self, entity: Entity) -> Option<Option<EntityLocation>> {
         self.verify_flushed();
 
         let meta = &mut self.meta[entity.index() as usize];
@@ -954,12 +956,9 @@ impl Entities {
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if let Some(meta) = self.meta.get(entity.index() as usize) {
-            if meta.generation != entity.generation
-                || meta.location.archetype_id == ArchetypeId::INVALID
-            {
-                return None;
-            }
-            Some(meta.location)
+            (meta.generation == entity.generation)
+                .then_some(meta.location)
+                .flatten()
         } else {
             None
         }
@@ -973,7 +972,7 @@ impl Entities {
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
+    pub(crate) unsafe fn set(&mut self, index: u32, location: Option<EntityLocation>) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
@@ -1001,7 +1000,7 @@ impl Entities {
         }
 
         let meta = &mut self.meta[index as usize];
-        if meta.location.archetype_id == ArchetypeId::INVALID {
+        if meta.location.is_none() {
             meta.generation = meta.generation.after_versions(generations);
             true
         } else {
@@ -1045,7 +1044,7 @@ impl Entities {
     /// to be initialized with the invalid archetype.
     pub unsafe fn flush(
         &mut self,
-        mut init: impl FnMut(Entity, &mut EntityLocation),
+        mut init: impl FnMut(Entity, &mut Option<EntityLocation>),
         by: MaybeLocation,
         at: Tick,
     ) {
@@ -1090,7 +1089,7 @@ impl Entities {
         unsafe {
             self.flush(
                 |_entity, location| {
-                    location.archetype_id = ArchetypeId::INVALID;
+                    *location = None;
                 },
                 by,
                 at,
@@ -1178,8 +1177,8 @@ impl Entities {
             .filter(|meta|
             // Generation is incremented immediately upon despawn
             (meta.generation == entity.generation)
-            || (meta.location.archetype_id == ArchetypeId::INVALID)
-            && (meta.generation == entity.generation.after_versions(1)))
+            || (meta.location.is_none()
+                && (meta.generation == entity.generation.after_versions(1))))
             .map(|meta| meta.spawned_or_despawned)
     }
 
@@ -1203,9 +1202,7 @@ impl Entities {
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for meta in &mut self.meta {
-            if meta.generation != EntityGeneration::FIRST
-                || meta.location.archetype_id != ArchetypeId::INVALID
-            {
+            if meta.location.is_some() {
                 meta.spawned_or_despawned.at.check_tick(change_tick);
             }
         }
@@ -1269,7 +1266,7 @@ struct EntityMeta {
     /// The current [`EntityGeneration`] of the [`EntityRow`].
     pub generation: EntityGeneration,
     /// The current location of the [`EntityRow`].
-    pub location: EntityLocation,
+    pub location: Option<EntityLocation>,
     /// Location and tick of the last spawn, despawn or flush of this entity.
     spawned_or_despawned: SpawnedOrDespawned,
 }
@@ -1284,7 +1281,7 @@ impl EntityMeta {
     /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
         generation: EntityGeneration::FIRST,
-        location: EntityLocation::INVALID,
+        location: None,
         spawned_or_despawned: SpawnedOrDespawned {
             by: MaybeLocation::caller(),
             at: Tick::new(0),
@@ -1314,16 +1311,6 @@ pub struct EntityLocation {
     ///
     /// [`Table`]: crate::storage::Table
     pub table_row: TableRow,
-}
-
-impl EntityLocation {
-    /// location for **pending entity** and **invalid entity**
-    pub(crate) const INVALID: EntityLocation = EntityLocation {
-        archetype_id: ArchetypeId::INVALID,
-        archetype_row: ArchetypeRow::INVALID,
-        table_id: TableId::INVALID,
-        table_row: TableRow::INVALID,
-    };
 }
 
 #[cfg(test)]
