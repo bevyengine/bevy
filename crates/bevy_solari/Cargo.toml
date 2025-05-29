@@ -18,7 +18,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-dev" }
-bevy_pbr = { path = "../bevy_pbr", version = "0.16.0-dev" } # TODO: Ideally remove this dependency
+bevy_pbr = { path = "../bevy_pbr", version = "0.16.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
 ] }
