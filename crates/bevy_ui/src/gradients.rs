@@ -1,4 +1,4 @@
-use crate::{Position, Val};
+use crate::{UiPosition, Val};
 use bevy_color::{Color, Srgba};
 use bevy_ecs::component::Component;
 use bevy_math::Vec2;
@@ -328,7 +328,7 @@ impl LinearGradient {
 )]
 pub struct RadialGradient {
     /// The center of the radial gradient
-    pub position: Position,
+    pub position: UiPosition,
     /// Defines the end shape of the radial gradient
     pub shape: RadialGradientShape,
     /// The list of color stops
@@ -337,7 +337,7 @@ pub struct RadialGradient {
 
 impl RadialGradient {
     /// Create a new radial gradient
-    pub fn new(position: Position, shape: RadialGradientShape, stops: Vec<ColorStop>) -> Self {
+    pub fn new(position: UiPosition, shape: RadialGradientShape, stops: Vec<ColorStop>) -> Self {
         Self {
             position,
             shape,
@@ -349,7 +349,7 @@ impl RadialGradient {
 impl Default for RadialGradient {
     fn default() -> Self {
         Self {
-            position: Position::CENTER,
+            position: UiPosition::CENTER,
             shape: RadialGradientShape::ClosestCorner,
             stops: Vec::new(),
         }
@@ -370,14 +370,14 @@ pub struct ConicGradient {
     /// The starting angle of the gradient in radians
     pub start: f32,
     /// The center of the conic gradient
-    pub position: Position,
+    pub position: UiPosition,
     /// The list of color stops
     pub stops: Vec<AngularColorStop>,
 }
 
 impl ConicGradient {
     /// Create a new conic gradient
-    pub fn new(position: Position, stops: Vec<AngularColorStop>) -> Self {
+    pub fn new(position: UiPosition, stops: Vec<AngularColorStop>) -> Self {
         Self {
             start: 0.,
             position,
@@ -392,7 +392,7 @@ impl ConicGradient {
     }
 
     /// Sets the position of the gradient
-    pub fn with_position(mut self, position: Position) -> Self {
+    pub fn with_position(mut self, position: UiPosition) -> Self {
         self.position = position;
         self
     }
