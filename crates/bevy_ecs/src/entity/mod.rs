@@ -235,6 +235,9 @@ impl EntityGeneration {
     /// Represents the first generation of an [`EntityRow`].
     pub const FIRST: Self = Self(0);
 
+    /// Non-wrapping difference between two generations where a signed interpretation becomes negative.
+    const DIFF_MAX: u32 = 1u32 << 31;
+
     /// Gets some bits that represent this value.
     /// The bits are opaque and should not be regarded as meaningful.
     #[inline(always)]
@@ -276,8 +279,12 @@ impl PartialOrd for EntityGeneration {
 
 impl Ord for EntityGeneration {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        let diff = self.0.wrapping_sub(other.0);
-        (1u32 << 31).cmp(&diff)
+        use core::cmp::Ordering;
+        match self.0.wrapping_sub(other.0) {
+            0 => Ordering::Equal,
+            ..Self::DIFF_MAX => Ordering::Greater,
+            _ => Ordering::Less,
+        }
     }
 }
 
@@ -1606,6 +1613,21 @@ mod tests {
             ))) >> 57;
             assert_ne!(hash, first_hash);
         }
+    }
+
+    #[test]
+    fn entity_generation_is_ordered() {
+        use core::cmp::Ordering;
+
+        let old = EntityGeneration::FIRST;
+        let middle = old.after_versions(1);
+        let younger_before_ord_wrap = middle.after_versions(EntityGeneration::DIFF_MAX);
+        let younger_after_ord_wrap = middle.after_versions(EntityGeneration::DIFF_MAX + 1);
+
+        assert_eq!(middle.cmp(&old), Ordering::Greater);
+        assert_eq!(middle.cmp(&middle), Ordering::Equal);
+        assert_eq!(middle.cmp(&younger_before_ord_wrap), Ordering::Less);
+        assert_eq!(middle.cmp(&younger_after_ord_wrap), Ordering::Greater);
     }
 
     #[test]
