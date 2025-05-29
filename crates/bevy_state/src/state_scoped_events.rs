@@ -120,7 +120,9 @@ fn clear_event_on_state_transition<E: Event, S: States>(
         .add_event::<E>(state.clone(), transition_type);
     match transition_type {
         TransitionType::OnExit => app.add_systems(OnExit(state), clear_events_on_exit_state::<S>),
-        TransitionType::OnEnter => app.add_systems(OnEnter(state), clear_events_on_enter_state::<S>),
+        TransitionType::OnEnter => {
+            app.add_systems(OnEnter(state), clear_events_on_enter_state::<S>)
+        }
     };
 }
 
@@ -130,18 +132,18 @@ pub trait StateScopedEventsAppExt {
     ///
     /// Note that event cleanup is ambiguously ordered relative to  
     /// [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity cleanup,
-    /// and the [`OnExit`] schedule for the target state. 
-    /// All of these (state scoped entities and events cleanup, and `OnExit`) 
+    /// and the [`OnExit`] schedule for the target state.
+    /// All of these (state scoped entities and events cleanup, and `OnExit`)
     /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
     /// and system set `StateTransitionSystems::ExitSchedules`.
     fn clear_event_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self;
 
     /// Clears an [`Event`] when entering the specified `state`.
     ///
-    /// Note that event cleanup is ambiguously ordered relative to 
+    /// Note that event cleanup is ambiguously ordered relative to
     /// [`DespawnOnEnterState`](crate::prelude::DespawnOnEnterState) entity cleanup,
-    /// and the [`OnEnter`] schedule for the target state. 
-    /// All of these (state scoped entities and events cleanup, and `OnEnter`) 
+    /// and the [`OnEnter`] schedule for the target state.
+    /// All of these (state scoped entities and events cleanup, and `OnEnter`)
     /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
     /// and system set `StateTransitionSystems::EnterSchedules`.
     fn clear_event_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self;
@@ -149,12 +151,22 @@ pub trait StateScopedEventsAppExt {
 
 impl StateScopedEventsAppExt for App {
     fn clear_event_on_exit_state<E: Event>(&mut self, state: impl States) -> &mut Self {
-        clear_event_on_state_transition(self.main_mut(), PhantomData::<E>, state, TransitionType::OnExit);
+        clear_event_on_state_transition(
+            self.main_mut(),
+            PhantomData::<E>,
+            state,
+            TransitionType::OnExit,
+        );
         self
     }
 
     fn clear_event_on_enter_state<E: Event>(&mut self, state: impl States) -> &mut Self {
-        clear_event_on_state_transition(self.main_mut(), PhantomData::<E>, state, TransitionType::OnEnter);
+        clear_event_on_state_transition(
+            self.main_mut(),
+            PhantomData::<E>,
+            state,
+            TransitionType::OnEnter,
+        );
         self
     }
 }
@@ -183,25 +195,27 @@ mod tests {
         A,
         B,
     }
-    
+
     #[derive(Event, Debug)]
     struct TestEvent;
-    
+
     #[test]
     fn clear_event_on_exit_state() {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.init_state::<TestState>();
-        
+
         app.add_event::<TestEvent>();
         app.clear_event_on_exit_state::<TestEvent>(TestState::A);
-        
+
         app.world_mut().send_event(TestEvent).unwrap();
         assert!(!app.world().resource::<Events<TestEvent>>().is_empty());
 
-        app.world_mut().resource_mut::<NextState<TestState>>().set(TestState::B);
+        app.world_mut()
+            .resource_mut::<NextState<TestState>>()
+            .set(TestState::B);
         app.update();
-        
+
         assert!(app.world().resource::<Events<TestEvent>>().is_empty());
     }
 
@@ -210,14 +224,16 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.init_state::<TestState>();
-        
+
         app.add_event::<TestEvent>();
         app.clear_event_on_enter_state::<TestEvent>(TestState::B);
 
         app.world_mut().send_event(TestEvent).unwrap();
         assert!(!app.world().resource::<Events<TestEvent>>().is_empty());
 
-        app.world_mut().resource_mut::<NextState<TestState>>().set(TestState::B);
+        app.world_mut()
+            .resource_mut::<NextState<TestState>>()
+            .set(TestState::B);
         app.update();
 
         assert!(app.world().resource::<Events<TestEvent>>().is_empty());
