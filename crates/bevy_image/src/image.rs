@@ -1826,14 +1826,16 @@ mod test {
         }
 
         // Grow image
-        image.resize_in_place_2d(
-            Extent3d {
-                width: 4,
-                height: 4,
-                depth_or_array_layers: 1,
-            },
-            &GROW_FILL.to_u8_array(),
-        );
+        image
+            .resize_in_place_2d(
+                Extent3d {
+                    width: 4,
+                    height: 4,
+                    depth_or_array_layers: 1,
+                },
+                &GROW_FILL.to_u8_array(),
+            )
+            .unwrap();
 
         // After growing, the test pattern should be the same.
         assert!(matches!(
@@ -1854,14 +1856,16 @@ mod test {
         ));
 
         // Shrink
-        image.resize_in_place_2d(
-            Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
-            &GROW_FILL.to_u8_array(),
-        );
+        image
+            .resize_in_place_2d(
+                Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                &GROW_FILL.to_u8_array(),
+            )
+            .unwrap();
 
         // Images outside of the new dimensions should be clipped
         assert!(image.get_color_at(1, 1).is_err());
