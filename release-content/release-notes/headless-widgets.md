@@ -79,11 +79,12 @@ same time update any other game state that is dependent on that parameter.
 There are multiple reasons for this, but the main one is this: typical game user interfaces aren't
 just passive forms of fields to fill in, but more often represent a dynamic view of live data. As a
 consequence, the displayed value of a widget may change even when the user is not directly
-interacting with that widget. This aligns well with the classic "Model / View / Controller" (MVC)
-pattern, where each editable parameter has a single source of truth maintained beneath the user
-interface layer.
+interacting with that widget. This avoids the need for two-way data binding, and instead allows
+simpler one-way data binding that aligns well with the traditional "Model / View / Controller" (MVC)
+design pattern.
 
 There are two exceptions to this rule about external state management. First, widgets which don't
 edit a value, but which merely trigger an event (such as buttons), don't fall under this rule.
 Second, widgets which have complex states that are too large and heavyweight to fit within a
-notification event (such as a text editor) can choose to manage their state internally.
+notification event (such as a text editor) can choose to manage their state internally. These latter
+widgets will need to implement a two-way data binding strategy.
