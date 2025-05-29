@@ -190,7 +190,7 @@ impl core::ops::Sub<Self> for Volume {
         use Volume::{Decibels, Linear};
 
         match (self, rhs) {
-            (Linear(a), Linear(b)) => Linear(a - b),
+            (Linear(a), Linear(b)) => Linear((a - b).max(0.0)),
             (Decibels(a), Decibels(b)) => Decibels(linear_to_decibels(
                 decibels_to_linear(a) - decibels_to_linear(b),
             )),
@@ -423,6 +423,10 @@ mod tests {
         // Linear to Linear.
         let mut volume = Linear(0.5);
         volume -= Linear(0.5);
+        assert_approx_eq(volume, Linear(0.0));
+
+        let mut volume = Linear(0.5);
+        volume -= Linear(1.6);
         assert_approx_eq(volume, Linear(0.0));
     }
 
