@@ -36,8 +36,6 @@ mod column;
 pub struct TableId(u32);
 
 impl TableId {
-    pub(crate) const INVALID: TableId = TableId(u32::MAX);
-
     /// Creates a new [`TableId`].
     ///
     /// `index` *must* be retrieved from calling [`TableId::as_u32`] on a `TableId` you got
@@ -105,9 +103,6 @@ impl TableId {
 pub struct TableRow(NonMaxU32);
 
 impl TableRow {
-    // TODO: Deprecate in favor of options, since `INVALID` is, technically, valid.
-    pub(crate) const INVALID: TableRow = TableRow(NonMaxU32::MAX);
-
     /// Creates a [`TableRow`].
     #[inline]
     pub const fn new(index: NonMaxU32) -> Self {
