@@ -52,7 +52,7 @@ fn button_system(
     for (depressed, hovered, disabled, mut color, mut border_color, children) in &mut buttons {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match (disabled.get(), hovered.get(), depressed.0) {
-            // Disabed button
+            // Disabled button
             (true, _, _) => {
                 **text = "Disabled".to_string();
                 *color = NORMAL_BUTTON.into();
