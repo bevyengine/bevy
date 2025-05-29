@@ -184,7 +184,47 @@ impl SparseSetIndex for EntityRow {
 /// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityRow`].
 ///
 /// This should be treated as a opaque identifier, and its internal representation may be subject to change.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
+///
+/// # Ordering
+///
+/// [`EntityGeneration`] implements [`Ord`].
+/// Generations that are later will be [`Greater`](core::cmp::Ordering::Greater) than earlier ones.
+///
+/// ```
+/// # use bevy_ecs::entity::EntityGeneration;
+/// assert!(EntityGeneration::FIRST < EntityGeneration::FIRST.after_versions(400));
+/// let (aliased, did_alias) = EntityGeneration::FIRST.after_versions(400).after_versions_and_could_alias(u32::MAX);
+/// assert!(did_alias);
+/// assert!(EntityGeneration::FIRST < aliased);
+/// ```
+///
+/// Ordering will be incorrect for distant generations:
+///
+/// ```
+/// # use bevy_ecs::entity::EntityGeneration;
+/// // This ordering is wrong!
+/// assert!(EntityGeneration::FIRST > EntityGeneration::FIRST.after_versions(400 + (1u32 << 31)));
+/// ```
+///
+/// This strange behavior needed to account for aliasing.
+///
+/// # Aliasing
+///
+/// Internally [`EntityGeneration`] wraps a `u32`, so it can't represent *every* possible generation.
+/// Eventually, generations can (and do) wrap or alias.
+/// This can cause [`Entity`] and [`EntityGeneration`] values to be equal while still referring to different conceptual entities.
+/// This can cause some surprising behavior:
+///
+/// ```
+/// # use bevy_ecs::entity::EntityGeneration;
+/// let (aliased, did_alias) = EntityGeneration::FIRST.after_versions(1u32 << 31).after_versions_and_could_alias(1u32 << 31);
+/// assert!(did_alias);
+/// assert!(EntityGeneration::FIRST == aliased);
+/// ```
+///
+/// This can cause some unintended side effects.
+/// See [`Entity`] docs for practical concerns and how to minimize any risks.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Display)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
@@ -228,15 +268,41 @@ impl EntityGeneration {
     }
 }
 
+impl PartialOrd for EntityGeneration {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for EntityGeneration {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        let diff = self.0.wrapping_sub(other.0);
+        (1u32 << 31).cmp(&diff)
+    }
+}
+
 /// Lightweight identifier of an [entity](crate::entity).
 ///
-/// The identifier is implemented using a [generational index]: a combination of an index and a generation.
+/// The identifier is implemented using a [generational index]: a combination of an index ([`EntityRow`]) and a generation ([`EntityGeneration`]).
 /// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
 ///
 /// These identifiers are only valid on the [`World`] it's sourced from. Attempting to use an `Entity` to
 /// fetch entity components or metadata from a different world will either fail or return unexpected results.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+///
+/// # Aliasing
+///
+/// Once an entity is despawned, it ceases to exist.
+/// However, its [`Entity`] id is still present, and may still be contained in some data.
+/// This becomes problematic because it is possible for a later entity to be spawned at the exact same id!
+/// If this happens, which is rare but very possible, it will be logged.
+///
+/// Aliasing can happen without warning.
+/// Holding onto a [`Entity`] id corresponding to an entity well after that entity was despawned can cause un-intuitive behavior for both ordering, and comparing in general.
+/// To prevent these bugs, it is generally best practice to stop holding an [`Entity`] or [`EntityGeneration`] value as soon as you know it has been despawned.
+/// If you must do otherwise, do not assume the [`Entity`] corresponds to the same conceptual entity it originally did.
+/// See [`EntityGeneration`]'s docs for more information about aliasing and why it occurs.
 ///
 /// # Stability warning
 /// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal bit
