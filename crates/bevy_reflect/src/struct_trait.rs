@@ -292,8 +292,7 @@ impl DynamicStruct {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Struct(_)),
-                "expected TypeInfo::Struct but received: {:?}",
-                represented_type
+                "expected TypeInfo::Struct but received: {represented_type:?}"
             );
         }
 

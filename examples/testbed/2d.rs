@@ -26,7 +26,6 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
-#[states(scoped_entities)]
 enum Scene {
     #[default]
     Shapes,
@@ -121,10 +120,6 @@ mod bloom {
     ) {
         commands.spawn((
             Camera2d,
-            Camera {
-                hdr: true,
-                ..default()
-            },
             Tonemapping::TonyMcMapface,
             Bloom::default(),
             DespawnOnExitState(super::Scene::Bloom),

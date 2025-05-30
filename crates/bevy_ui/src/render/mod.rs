@@ -14,7 +14,7 @@ use crate::{
     ComputedNodeTarget, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
@@ -23,12 +23,13 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_render::load_shader_library;
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::renderer::RenderContext;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::view::RetainedViewEntity;
+use bevy_render::view::{Hdr, RetainedViewEntity};
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
@@ -100,8 +101,6 @@ pub mod stack_z_offsets {
     pub const MATERIAL: f32 = 0.18267;
 }
 
-pub const UI_SHADER_HANDLE: Handle<Shader> = weak_handle!("7d190d05-545b-42f5-bd85-22a0da85b0f6");
-
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystems {
     ExtractCameraViews,
@@ -123,7 +122,7 @@ pub enum RenderUiSystems {
 pub type RenderUiSystem = RenderUiSystems;
 
 pub fn build_ui_render(app: &mut App) {
-    load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
+    load_shader_library!(app, "ui.wgsl");
 
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
@@ -662,6 +661,7 @@ pub fn extract_ui_camera_view(
                 Entity,
                 RenderEntity,
                 &Camera,
+                Has<Hdr>,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
             ),
@@ -672,7 +672,7 @@ pub fn extract_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -708,7 +708,7 @@ pub fn extract_ui_camera_view(
                             UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                         ),
                         clip_from_world: None,
-                        hdr: camera.hdr,
+                        hdr,
                         viewport: UVec4::from((
                             physical_viewport_rect.min,
                             physical_viewport_rect.size(),

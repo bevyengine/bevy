@@ -10,7 +10,7 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-use bevy::{color::palettes::css::ORANGE, prelude::*};
+use bevy::{color::palettes::css::ORANGE, prelude::*, render::view::Hdr};
 use rand::random;
 
 fn main() {
@@ -149,6 +149,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Hdr,
         // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
         // Since this example uses HDR, we must disable MSAA for Wasm builds, at least
         // until WebGPU is ready and no longer behind a feature flag in Web browsers.
@@ -249,13 +250,23 @@ impl Default for ExampleState {
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
-    camera: Single<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
+    camera: Single<
+        (
+            Entity,
+            &mut Camera,
+            &mut Transform,
+            &GlobalTransform,
+            Has<Hdr>,
+        ),
+        With<Camera3d>,
+    >,
     mut labels: Query<(&mut Node, &ExampleLabel)>,
     mut display: Single<&mut Text, With<ExampleDisplay>>,
     labeled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
 ) {
     if input.pressed(KeyCode::ArrowUp) {
         state.alpha = (state.alpha + time.delta_secs()).min(1.0);
@@ -289,10 +300,14 @@ fn example_control_system(
         }
     }
 
-    let (mut camera, mut camera_transform, camera_global_transform) = camera.into_inner();
+    let (entity, camera, mut camera_transform, camera_global_transform, hdr) = camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
-        camera.hdr = !camera.hdr;
+        if hdr {
+            commands.entity(entity).remove::<Hdr>();
+        } else {
+            commands.entity(entity).insert(Hdr);
+        }
     }
 
     let rotation = if input.pressed(KeyCode::ArrowLeft) {
@@ -318,7 +333,7 @@ fn example_control_system(
 
     display.0 = format!(
         "  HDR: {}\nAlpha: {:.2}",
-        if camera.hdr { "ON " } else { "OFF" },
+        if hdr { "ON " } else { "OFF" },
         state.alpha
     );
 }

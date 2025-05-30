@@ -81,13 +81,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::sync::atomic::Ordering;
-use core::{
-    fmt,
-    hash::Hash,
-    mem::{self, MaybeUninit},
-    num::NonZero,
-    panic::Location,
-};
+use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
 #[cfg(feature = "serialize")]
@@ -189,8 +183,48 @@ impl SparseSetIndex for EntityRow {
 /// This tracks different versions or generations of an [`EntityRow`].
 /// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityRow`].
 ///
-/// This should be treated as a opaque identifier, and it's internal representation may be subject to change.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
+/// This should be treated as a opaque identifier, and its internal representation may be subject to change.
+///
+/// # Ordering
+///
+/// [`EntityGeneration`] implements [`Ord`].
+/// Generations that are later will be [`Greater`](core::cmp::Ordering::Greater) than earlier ones.
+///
+/// ```
+/// # use bevy_ecs::entity::EntityGeneration;
+/// assert!(EntityGeneration::FIRST < EntityGeneration::FIRST.after_versions(400));
+/// let (aliased, did_alias) = EntityGeneration::FIRST.after_versions(400).after_versions_and_could_alias(u32::MAX);
+/// assert!(did_alias);
+/// assert!(EntityGeneration::FIRST < aliased);
+/// ```
+///
+/// Ordering will be incorrect for distant generations:
+///
+/// ```
+/// # use bevy_ecs::entity::EntityGeneration;
+/// // This ordering is wrong!
+/// assert!(EntityGeneration::FIRST > EntityGeneration::FIRST.after_versions(400 + (1u32 << 31)));
+/// ```
+///
+/// This strange behavior needed to account for aliasing.
+///
+/// # Aliasing
+///
+/// Internally [`EntityGeneration`] wraps a `u32`, so it can't represent *every* possible generation.
+/// Eventually, generations can (and do) wrap or alias.
+/// This can cause [`Entity`] and [`EntityGeneration`] values to be equal while still referring to different conceptual entities.
+/// This can cause some surprising behavior:
+///
+/// ```
+/// # use bevy_ecs::entity::EntityGeneration;
+/// let (aliased, did_alias) = EntityGeneration::FIRST.after_versions(1u32 << 31).after_versions_and_could_alias(1u32 << 31);
+/// assert!(did_alias);
+/// assert!(EntityGeneration::FIRST == aliased);
+/// ```
+///
+/// This can cause some unintended side effects.
+/// See [`Entity`] docs for practical concerns and how to minimize any risks.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Display)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
@@ -234,15 +268,41 @@ impl EntityGeneration {
     }
 }
 
+impl PartialOrd for EntityGeneration {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for EntityGeneration {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        let diff = self.0.wrapping_sub(other.0);
+        (1u32 << 31).cmp(&diff)
+    }
+}
+
 /// Lightweight identifier of an [entity](crate::entity).
 ///
-/// The identifier is implemented using a [generational index]: a combination of an index and a generation.
+/// The identifier is implemented using a [generational index]: a combination of an index ([`EntityRow`]) and a generation ([`EntityGeneration`]).
 /// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
 ///
 /// These identifiers are only valid on the [`World`] it's sourced from. Attempting to use an `Entity` to
 /// fetch entity components or metadata from a different world will either fail or return unexpected results.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+///
+/// # Aliasing
+///
+/// Once an entity is despawned, it ceases to exist.
+/// However, its [`Entity`] id is still present, and may still be contained in some data.
+/// This becomes problematic because it is possible for a later entity to be spawned at the exact same id!
+/// If this happens, which is rare but very possible, it will be logged.
+///
+/// Aliasing can happen without warning.
+/// Holding onto a [`Entity`] id corresponding to an entity well after that entity was despawned can cause un-intuitive behavior for both ordering, and comparing in general.
+/// To prevent these bugs, it is generally best practice to stop holding an [`Entity`] or [`EntityGeneration`] value as soon as you know it has been despawned.
+/// If you must do otherwise, do not assume the [`Entity`] corresponds to the same conceptual entity it originally did.
+/// See [`EntityGeneration`]'s docs for more information about aliasing and why it occurs.
 ///
 /// # Stability warning
 /// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal bit
@@ -905,11 +965,8 @@ impl Entities {
         }
     }
 
-    /// Updates the location of an [`Entity`]. This must be called when moving the components of
-    /// the existing entity around in storage.
-    ///
-    /// For spawning and despawning entities, [`set_spawn_despawn`](Self::set_spawn_despawn) must
-    /// be used instead.
+    /// Updates the location of an [`Entity`].
+    /// This must be called when moving the components of the existing entity around in storage.
     ///
     /// # Safety
     ///  - `index` must be a valid entity index.
@@ -922,25 +979,15 @@ impl Entities {
         meta.location = location;
     }
 
-    /// Updates the location of an [`Entity`]. This must be called when moving the components of
-    /// the spawned or despawned entity around in storage.
+    /// Mark an [`Entity`] as spawned or despawned in the given tick.
     ///
     /// # Safety
     ///  - `index` must be a valid entity index.
-    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
-    ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn set_spawn_despawn(
-        &mut self,
-        index: u32,
-        location: EntityLocation,
-        by: MaybeLocation,
-        at: Tick,
-    ) {
+    pub(crate) unsafe fn mark_spawn_despawn(&mut self, index: u32, by: MaybeLocation, at: Tick) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
-        meta.location = location;
-        meta.spawned_or_despawned = MaybeUninit::new(SpawnedOrDespawned { by, at });
+        meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
@@ -996,7 +1043,12 @@ impl Entities {
     ///
     /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
     /// to be initialized with the invalid archetype.
-    pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
+    pub unsafe fn flush(
+        &mut self,
+        mut init: impl FnMut(Entity, &mut EntityLocation),
+        by: MaybeLocation,
+        at: Tick,
+    ) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
 
@@ -1013,6 +1065,7 @@ impl Entities {
                     Entity::from_raw_and_generation(row, meta.generation),
                     &mut meta.location,
                 );
+                meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
             }
 
             *free_cursor = 0;
@@ -1025,18 +1078,23 @@ impl Entities {
                 Entity::from_raw_and_generation(row, meta.generation),
                 &mut meta.location,
             );
+            meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
         }
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
     /// unless they are later populated with a valid archetype.
-    pub fn flush_as_invalid(&mut self) {
+    pub fn flush_as_invalid(&mut self, by: MaybeLocation, at: Tick) {
         // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
         // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
         unsafe {
-            self.flush(|_entity, location| {
-                location.archetype_id = ArchetypeId::INVALID;
-            });
+            self.flush(
+                |_entity, location| {
+                    location.archetype_id = ArchetypeId::INVALID;
+                },
+                by,
+                at,
+            );
         }
     }
 
@@ -1083,8 +1141,10 @@ impl Entities {
         self.len() == 0
     }
 
-    /// Returns the source code location from which this entity has last been spawned
-    /// or despawned. Returns `None` if its index has been reused by another entity
+    /// Try to get the source code location from which this entity has last been
+    /// spawned, despawned or flushed.
+    ///
+    /// Returns `None` if its index has been reused by another entity
     /// or if this entity has never existed.
     pub fn entity_get_spawned_or_despawned_by(
         &self,
@@ -1096,17 +1156,21 @@ impl Entities {
         })
     }
 
-    /// Returns the [`Tick`] at which this entity has last been spawned or despawned.
+    /// Try to get the [`Tick`] at which this entity has last been
+    /// spawned, despawned or flushed.
+    ///
     /// Returns `None` if its index has been reused by another entity or if this entity
-    /// has never existed.
+    /// has never been spawned.
     pub fn entity_get_spawned_or_despawned_at(&self, entity: Entity) -> Option<Tick> {
         self.entity_get_spawned_or_despawned(entity)
             .map(|spawned_or_despawned| spawned_or_despawned.at)
     }
 
-    /// Returns the [`SpawnedOrDespawned`] related to the entity's last spawn or
-    /// respawn. Returns `None` if its index has been reused by another entity or if
-    /// this entity has never existed.
+    /// Try to get the [`SpawnedOrDespawned`] related to the entity's last spawn,
+    /// despawn or flush.
+    ///
+    /// Returns `None` if its index has been reused by another entity or if
+    /// this entity has never been spawned.
     #[inline]
     fn entity_get_spawned_or_despawned(&self, entity: Entity) -> Option<SpawnedOrDespawned> {
         self.meta
@@ -1116,10 +1180,7 @@ impl Entities {
             (meta.generation == entity.generation)
             || (meta.location.archetype_id == ArchetypeId::INVALID)
             && (meta.generation == entity.generation.after_versions(1)))
-            .map(|meta| {
-                // SAFETY: valid archetype or non-min generation is proof this is init
-                unsafe { meta.spawned_or_despawned.assume_init() }
-            })
+            .map(|meta| meta.spawned_or_despawned)
     }
 
     /// Returns the source code location from which this entity has last been spawned
@@ -1136,9 +1197,7 @@ impl Entities {
     ) -> (MaybeLocation, Tick) {
         // SAFETY: caller ensures entity is allocated
         let meta = unsafe { self.meta.get_unchecked(entity.index() as usize) };
-        // SAFETY: caller ensures entities of this index were at least spawned
-        let spawned_or_despawned = unsafe { meta.spawned_or_despawned.assume_init() };
-        (spawned_or_despawned.by, spawned_or_despawned.at)
+        (meta.spawned_or_despawned.by, meta.spawned_or_despawned.at)
     }
 
     #[inline]
@@ -1147,9 +1206,7 @@ impl Entities {
             if meta.generation != EntityGeneration::FIRST
                 || meta.location.archetype_id != ArchetypeId::INVALID
             {
-                // SAFETY: non-min generation or valid archetype is proof this is init
-                let spawned_or_despawned = unsafe { meta.spawned_or_despawned.assume_init_mut() };
-                spawned_or_despawned.at.check_tick(change_tick);
+                meta.spawned_or_despawned.at.check_tick(change_tick);
             }
         }
     }
@@ -1211,10 +1268,10 @@ impl fmt::Display for EntityDoesNotExistDetails {
 struct EntityMeta {
     /// The current [`EntityGeneration`] of the [`EntityRow`].
     pub generation: EntityGeneration,
-    /// The current location of the [`EntityRow`]
+    /// The current location of the [`EntityRow`].
     pub location: EntityLocation,
-    /// Location of the last spawn or despawn of this entity
-    spawned_or_despawned: MaybeUninit<SpawnedOrDespawned>,
+    /// Location and tick of the last spawn, despawn or flush of this entity.
+    spawned_or_despawned: SpawnedOrDespawned,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1228,7 +1285,10 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: EntityGeneration::FIRST,
         location: EntityLocation::INVALID,
-        spawned_or_despawned: MaybeUninit::uninit(),
+        spawned_or_despawned: SpawnedOrDespawned {
+            by: MaybeLocation::caller(),
+            at: Tick::new(0),
+        },
     };
 }
 
@@ -1294,7 +1354,7 @@ mod tests {
         let mut e = Entities::new();
         e.reserve_entity();
         // SAFETY: entity_location is left invalid
-        unsafe { e.flush(|_, _| {}) };
+        unsafe { e.flush(|_, _| {}, MaybeLocation::caller(), Tick::default()) };
         assert_eq!(e.len(), 1);
     }
 
@@ -1307,9 +1367,13 @@ mod tests {
 
         // SAFETY: entity_location is left invalid
         unsafe {
-            entities.flush(|_entity, _location| {
-                // do nothing ... leaving entity location invalid
-            });
+            entities.flush(
+                |_entity, _location| {
+                    // do nothing ... leaving entity location invalid
+                },
+                MaybeLocation::caller(),
+                Tick::default(),
+            );
         };
 
         assert!(entities.contains(e));
@@ -1547,22 +1611,22 @@ mod tests {
     #[test]
     fn entity_debug() {
         let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
-        let string = format!("{:?}", entity);
+        let string = format!("{entity:?}");
         assert_eq!(string, "42v0#4294967253");
 
         let entity = Entity::PLACEHOLDER;
-        let string = format!("{:?}", entity);
+        let string = format!("{entity:?}");
         assert_eq!(string, "PLACEHOLDER");
     }
 
     #[test]
     fn entity_display() {
         let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
-        let string = format!("{}", entity);
+        let string = format!("{entity}");
         assert_eq!(string, "42v0");
 
         let entity = Entity::PLACEHOLDER;
-        let string = format!("{}", entity);
+        let string = format!("{entity}");
         assert_eq!(string, "PLACEHOLDER");
     }
 }

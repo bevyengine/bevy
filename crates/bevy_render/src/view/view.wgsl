@@ -19,33 +19,35 @@ struct View {
     world_from_clip: mat4x4<f32>,
     world_from_view: mat4x4<f32>,
     view_from_world: mat4x4<f32>,
-    // Typically a right-handed projection matrix, one of either:
+    // Typically a column-major right-handed projection matrix, one of either:
     //
     // Perspective (infinite reverse z)
     // ```
     // f = 1 / tan(fov_y_radians / 2)
     //
-    // ⎡ f / aspect  0     0   0 ⎤
-    // ⎢          0  f     0   0 ⎥
-    // ⎢          0  0     0  -1 ⎥
-    // ⎣          0  0  near   0 ⎦
+    // ⎡ f / aspect  0   0     0 ⎤
+    // ⎢          0  f   0     0 ⎥
+    // ⎢          0  0   0  near ⎥
+    // ⎣          0  0  -1     0 ⎦
     // ```
     //
     // Orthographic
     // ```
     // w = right - left
     // h = top - bottom
-    // d = near - far
+    // d = far - near
     // cw = -right - left
     // ch = -top - bottom
     //
-    // ⎡  2 / w       0         0  0 ⎤
-    // ⎢      0   2 / h         0  0 ⎥
-    // ⎢      0       0     1 / d  0 ⎥
-    // ⎣ cw / w  ch / h  near / d  1 ⎦
+    // ⎡ 2 / w      0      0   cw / w ⎤
+    // ⎢     0  2 / h      0   ch / h ⎥
+    // ⎢     0      0  1 / d  far / d ⎥
+    // ⎣     0      0      0        1 ⎦
     // ```
     //
     // `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    //
+    // Wgsl matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
     // 
     // Custom projections are also possible however.
     clip_from_view: mat4x4<f32>,

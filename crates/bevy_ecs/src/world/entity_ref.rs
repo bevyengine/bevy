@@ -2435,7 +2435,7 @@ impl<'w> EntityWorldMut<'w> {
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
-                    world.entities.set_spawn_despawn(
+                    world.entities.set(
                         swapped_entity.index(),
                         EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -2443,9 +2443,10 @@ impl<'w> EntityWorldMut<'w> {
                             table_id: swapped_location.table_id,
                             table_row: swapped_location.table_row,
                         },
-                        caller,
-                        change_tick,
                     );
+                    world
+                        .entities
+                        .mark_spawn_despawn(swapped_entity.index(), caller, change_tick);
                 }
             }
             table_row = remove_result.table_row;
@@ -2466,7 +2467,7 @@ impl<'w> EntityWorldMut<'w> {
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
-                world.entities.set_spawn_despawn(
+                world.entities.set(
                     moved_entity.index(),
                     EntityLocation {
                         archetype_id: moved_location.archetype_id,
@@ -2474,9 +2475,10 @@ impl<'w> EntityWorldMut<'w> {
                         table_id: moved_location.table_id,
                         table_row,
                     },
-                    caller,
-                    change_tick,
                 );
+                world
+                    .entities
+                    .mark_spawn_despawn(moved_entity.index(), caller, change_tick);
             }
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);

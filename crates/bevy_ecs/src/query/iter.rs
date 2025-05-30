@@ -313,7 +313,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Safety
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
-    ///  - `archetype` must have the same length with it's table.
+    ///  - `archetype` must have the same length as its table.
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
@@ -332,7 +332,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
         debug_assert!(
             archetype.len() == table.entity_count(),
-            "archetype and it's table must have the same length. "
+            "archetype and its table must have the same length. "
         );
 
         D::set_archetype(

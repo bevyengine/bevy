@@ -15,7 +15,7 @@ mod gilrs_system;
 mod rumble;
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_utils::synccell::SyncCell;
+use bevy_platform::cell::SyncCell;
 
 #[cfg(target_arch = "wasm32")]
 use core::cell::RefCell;
