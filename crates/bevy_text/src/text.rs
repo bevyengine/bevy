@@ -81,7 +81,7 @@ impl ComputedTextBlock {
 
     /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
     ///
-    /// Updated automatically by [`detect_text_needs_rerender`] and cleared
+    /// Updated automatically by [`detect_text_root_needs_rerender`] and [`detect_text_span_needs_rerender`], and cleared
     /// by [`TextPipeline`](crate::TextPipeline) methods.
     pub fn needs_rerender(&self) -> bool {
         self.needs_rerender
