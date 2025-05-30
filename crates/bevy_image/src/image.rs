@@ -884,12 +884,8 @@ impl Image {
     /// When growing, the new space is filled with `fill`. When shrinking, the image is clipped.
     ///
     /// For faster resizing when keeping pixel data intact is not important, use [`Image::resize`].
-    pub fn resize_in_place_2d(&mut self, new_size: Extent3d) -> Result<(), ResizeError> {
+    pub fn resize_in_place(&mut self, new_size: Extent3d) -> Result<(), ResizeError> {
         let old_size = self.texture_descriptor.size;
-        if old_size.depth_or_array_layers != 1 || new_size.depth_or_array_layers != 1 {
-            return Err(ResizeError::ImageNot2d);
-        }
-
         let pixel_size = self.texture_descriptor.format.pixel_size();
         let byte_len = self.texture_descriptor.format.pixel_size() * new_size.volume();
 
@@ -899,17 +895,28 @@ impl Image {
 
         let mut new: Vec<u8> = vec![0; byte_len];
 
-        let copy_width = old_size.width.min(new_size.width);
-        let copy_height = old_size.height.min(new_size.height);
+        let copy_width = old_size.width.min(new_size.width) as usize;
+        let copy_height = old_size.height.min(new_size.height) as usize;
+        let copy_depth = old_size
+            .depth_or_array_layers
+            .min(new_size.depth_or_array_layers) as usize;
 
-        for row in 0..copy_height {
-            let old_row_start = (row * old_size.width) as usize * pixel_size;
-            let old_row_end = old_row_start + copy_width as usize * pixel_size;
+        let old_row_stride = old_size.width as usize * pixel_size;
+        let old_layer_stride = old_size.height as usize * old_row_stride;
 
-            let new_row_start = (row * new_size.width) as usize * pixel_size;
-            let new_row_end = new_row_start + copy_width as usize * pixel_size;
+        let new_row_stride = new_size.width as usize * pixel_size;
+        let new_layer_stride = new_size.height as usize * new_row_stride;
 
-            new[new_row_start..new_row_end].copy_from_slice(&data[old_row_start..old_row_end]);
+        for z in 0..copy_depth {
+            for y in 0..copy_height {
+                let old_offset = z * old_layer_stride + y * old_row_stride;
+                let new_offset = z * new_layer_stride + y * new_row_stride;
+
+                let old_range = (old_offset)..(old_offset + copy_width * pixel_size);
+                let new_range = (new_offset)..(new_offset + copy_width * pixel_size);
+
+                new[new_range].copy_from_slice(&data[old_range]);
+            }
         }
 
         self.data = Some(new);
@@ -1816,7 +1823,7 @@ mod test {
 
         // Grow image
         image
-            .resize_in_place_2d(Extent3d {
+            .resize_in_place(Extent3d {
                 width: 4,
                 height: 4,
                 depth_or_array_layers: 1,
@@ -1835,7 +1842,7 @@ mod test {
             );
         }
 
-        // Pixels in the newly added area should get filled with the value provided
+        // Pixels in the newly added area should get filled with zeroes.
         assert!(matches!(
             image.get_color_at(3, 3),
             Ok(Color::LinearRgba(GROW_FILL))
@@ -1843,7 +1850,7 @@ mod test {
 
         // Shrink
         image
-            .resize_in_place_2d(Extent3d {
+            .resize_in_place(Extent3d {
                 width: 1,
                 height: 1,
                 depth_or_array_layers: 1,
@@ -1852,5 +1859,103 @@ mod test {
 
         // Images outside of the new dimensions should be clipped
         assert!(image.get_color_at(1, 1).is_err());
+    }
+
+    #[test]
+    fn resize_in_place_array_grow_and_shrink() {
+        use bevy_color::ColorToPacked;
+
+        const INITIAL_FILL: LinearRgba = LinearRgba::BLACK;
+        const GROW_FILL: LinearRgba = LinearRgba::NONE;
+        const LAYERS: u32 = 4;
+
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 2,
+                height: 2,
+                depth_or_array_layers: LAYERS,
+            },
+            TextureDimension::D2,
+            &INITIAL_FILL.to_u8_array(),
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+
+        // Create a test pattern
+
+        const TEST_PIXELS: [(u32, u32, LinearRgba); 3] = [
+            (0, 1, LinearRgba::RED),
+            (1, 1, LinearRgba::GREEN),
+            (1, 0, LinearRgba::BLUE),
+        ];
+
+        for z in 0..LAYERS {
+            for (x, y, color) in &TEST_PIXELS {
+                image
+                    .set_color_at_3d(*x, *y, z, Color::from(*color))
+                    .unwrap();
+            }
+        }
+
+        // Grow image
+        image
+            .resize_in_place(Extent3d {
+                width: 4,
+                height: 4,
+                depth_or_array_layers: LAYERS,
+            })
+            .unwrap();
+
+        // After growing, the test pattern should be the same.
+        assert!(matches!(
+            image.get_color_at(0, 0),
+            Ok(Color::LinearRgba(INITIAL_FILL))
+        ));
+        for z in 0..LAYERS {
+            for (x, y, color) in &TEST_PIXELS {
+                assert_eq!(
+                    image.get_color_at_3d(*x, *y, z).unwrap(),
+                    Color::LinearRgba(*color)
+                );
+            }
+        }
+
+        // Pixels in the newly added area should get filled with zeroes.
+        for z in 0..LAYERS {
+            assert!(matches!(
+                image.get_color_at_3d(3, 3, z),
+                Ok(Color::LinearRgba(GROW_FILL))
+            ));
+        }
+
+        // Shrink
+        image
+            .resize_in_place(Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            })
+            .unwrap();
+
+        // Images outside of the new dimensions should be clipped
+        assert!(image.get_color_at_3d(1, 1, 0).is_err());
+
+        // Higher layers should no longer be present
+        assert!(image.get_color_at_3d(0, 0, 1).is_err());
+
+        // Grow layers
+        image
+            .resize_in_place(Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 2,
+            })
+            .unwrap();
+
+        // Pixels in the newly added layer should be zeroes.
+        assert!(matches!(
+            image.get_color_at_3d(0, 0, 1),
+            Ok(Color::LinearRgba(GROW_FILL))
+        ));
     }
 }
