@@ -19,7 +19,7 @@ pub fn measure_text<'a>(
             font_size: line_height,
             line_height,
         }
-        .scale(scale_factor as f32),
+        .scale(scale_factor),
     );
     buffer.set_size(font_system, width, height);
     buffer.set_wrap(
