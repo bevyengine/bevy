@@ -884,11 +884,7 @@ impl Image {
     /// When growing, the new space is filled with `fill`. When shrinking, the image is clipped.
     ///
     /// For faster resizing when keeping pixel data intact is not important, use [`Image::resize`].
-    pub fn resize_in_place_2d(
-        &mut self,
-        new_size: Extent3d,
-        fill: &[u8],
-    ) -> Result<(), ResizeError> {
+    pub fn resize_in_place_2d(&mut self, new_size: Extent3d) -> Result<(), ResizeError> {
         let old_size = self.texture_descriptor.size;
         if old_size.depth_or_array_layers != 1 || new_size.depth_or_array_layers != 1 {
             return Err(ResizeError::ImageNot2d);
@@ -897,18 +893,11 @@ impl Image {
         let pixel_size = self.texture_descriptor.format.pixel_size();
         let byte_len = self.texture_descriptor.format.pixel_size() * new_size.volume();
 
-        debug_assert_eq!(
-            fill.len(),
-            pixel_size,
-            "Fill value must match format pixel size ({}B).",
-            pixel_size,
-        );
-
         let Some(ref mut data) = self.data else {
             return Err(ResizeError::ImageWithoutData);
         };
 
-        let mut new: Vec<u8> = fill.iter().copied().cycle().take(byte_len).collect();
+        let mut new: Vec<u8> = vec![0; byte_len];
 
         let copy_width = old_size.width.min(new_size.width);
         let copy_height = old_size.height.min(new_size.height);
@@ -1799,7 +1788,7 @@ mod test {
         use bevy_color::ColorToPacked;
 
         const INITIAL_FILL: LinearRgba = LinearRgba::BLACK;
-        const GROW_FILL: LinearRgba = LinearRgba::WHITE;
+        const GROW_FILL: LinearRgba = LinearRgba::NONE;
 
         let mut image = Image::new_fill(
             Extent3d {
@@ -1827,14 +1816,11 @@ mod test {
 
         // Grow image
         image
-            .resize_in_place_2d(
-                Extent3d {
-                    width: 4,
-                    height: 4,
-                    depth_or_array_layers: 1,
-                },
-                &GROW_FILL.to_u8_array(),
-            )
+            .resize_in_place_2d(Extent3d {
+                width: 4,
+                height: 4,
+                depth_or_array_layers: 1,
+            })
             .unwrap();
 
         // After growing, the test pattern should be the same.
@@ -1857,14 +1843,11 @@ mod test {
 
         // Shrink
         image
-            .resize_in_place_2d(
-                Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                &GROW_FILL.to_u8_array(),
-            )
+            .resize_in_place_2d(Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            })
             .unwrap();
 
         // Images outside of the new dimensions should be clipped
