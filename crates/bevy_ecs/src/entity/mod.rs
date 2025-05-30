@@ -80,7 +80,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform::sync::atomic::Ordering;
+use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -712,6 +712,87 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 // SAFETY: Newly reserved entity values are unique.
 unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+
+pub(crate) struct EntitiesAllocator {
+    free: Vec<Entity>,
+    free_len: AtomicU32,
+    next_row: AtomicU32,
+}
+
+impl EntitiesAllocator {
+    pub(crate) fn free(&mut self, freed: Entity) {
+        self.free.truncate(*self.free_len.get_mut() as usize);
+        self.free.push(freed);
+        *self.free_len.get_mut() = self.free.len() as u32;
+    }
+
+    pub(crate) fn alloc(&self) -> Entity {
+        let index = self
+            .free_len
+            .fetch_sub(1, Ordering::Relaxed)
+            .wrapping_sub(1);
+        self.free.get(index as usize).copied().unwrap_or_else(|| {
+            let row = self.next_row.fetch_add(1, Ordering::Relaxed);
+            let row = NonMaxU32::new(row).expect("too many entities");
+            Entity::from_raw(EntityRow::new(row))
+        })
+    }
+
+    pub(crate) fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
+        let current_len = self
+            .free_len
+            .fetch_sub(count, Ordering::Relaxed)
+            .min(self.free.len() as u32);
+        let start = current_len.saturating_sub(count);
+        let reuse = (start as usize)..(current_len as usize);
+        let still_need = count - reuse.len() as u32;
+        let new = if still_need > 0 {
+            let start_new = self.next_row.fetch_add(still_need, Ordering::Relaxed);
+            let end_new = start_new
+                .checked_add(still_need)
+                .expect("too many entities");
+            start_new..end_new
+        } else {
+            0..0
+        };
+        AllocEntitiesIterator {
+            reuse: self.free[reuse].iter(),
+            new,
+        }
+    }
+}
+
+/// An [`Iterator`] returning a sequence of [`Entity`] values from [`Entities`].
+/// Dropping this will still retain the entities as allocated; this is effectively a leak.
+pub struct AllocEntitiesIterator<'a> {
+    reuse: core::slice::Iter<'a, Entity>,
+    new: core::ops::Range<u32>,
+}
+
+impl<'a> Iterator for AllocEntitiesIterator<'a> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.reuse.next().copied().or_else(|| {
+            self.new.next().map(|index| {
+                // SAFETY: This came from an exclusive range so the max can't be hit.
+                let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) };
+                Entity::from_raw(row)
+            })
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.reuse.len() + self.new.len();
+        (len, Some(len))
+    }
+}
+
+impl<'a> ExactSizeIterator for AllocEntitiesIterator<'a> {}
+impl<'a> core::iter::FusedIterator for AllocEntitiesIterator<'a> {}
+
+// SAFETY: Newly reserved entity values are unique.
+unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
