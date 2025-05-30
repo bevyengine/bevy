@@ -515,7 +515,7 @@ pub fn detect_text_root_needs_rerender<Root: Component>(
     }
 }
 
-// System that detects changes to text spans and sets `ComputedTextBlock::should_rerender`.
+/// System that detects changes to text spans and sets `ComputedTextBlock::should_rerender`.
 pub fn detect_text_span_needs_rerender(
     changed_spans: Query<
         (Entity, Option<&ChildOf>, Has<TextLayout>),
