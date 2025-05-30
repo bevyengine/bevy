@@ -1,17 +1,30 @@
-//! Uses two windows to visualize a 3D model from different angles.
+//! Uses two windows to test bunch of things for 2 cameras.
 
-use bevy::color::palettes::css::{DEEP_SKY_BLUE, LIGHT_SKY_BLUE, YELLOW};
-use bevy::{prelude::*, render::camera::RenderTarget, window::WindowRef};
+use bevy::color::palettes::css::{DARK_BLUE, DEEP_SKY_BLUE, LIGHT_SKY_BLUE, YELLOW};
+use bevy::{
+    prelude::*, reflect::TypePath, render::camera::RenderTarget, render::render_resource::*,
+    window::WindowRef,
+};
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
 
 fn main() {
     App::new()
         // By default, a primary window gets spawned by `WindowPlugin`, contained in `DefaultPlugins`
         .add_plugins(DefaultPlugins)
+        .add_plugins(UiMaterialPlugin::<CustomUiMaterial>::default())
+        .add_plugins(UiMaterialPlugin::<CustomUiMaterial2>::default())
         .add_systems(Startup, setup_scene)
         .run();
 }
 
-fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_scene(
+    mut commands: Commands,
+    mut ui_materials: ResMut<Assets<CustomUiMaterial>>,
+    mut ui_materials2: ResMut<Assets<CustomUiMaterial2>>,
+    asset_server: Res<AssetServer>,
+) {
     // add entities to the world
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf")),
@@ -56,6 +69,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         (5., BorderRadius::all(Val::Px(20.))),
     ];
 
+    // First window
     commands
         .spawn((
             Node {
@@ -128,6 +142,46 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Node {
+                left: Val::Px(100.0),
+                top: Val::Px(100.0),
+                width: Val::Percent(50.0),
+                height: Val::Percent(50.0),
+                align_items: AlignItems::Start,
+                justify_content: JustifyContent::Start,
+                ..default()
+            },
+            UiTargetCamera(first_window_camera),
+        ))
+        .with_children(|parent| {
+            let banner_scale_factor = 0.2;
+            parent.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: Val::Px(905.0 * banner_scale_factor),
+                    height: Val::Px(363.0 * banner_scale_factor),
+                    border: UiRect::all(Val::Px(10.)),
+                    ..default()
+                },
+                MaterialNode(ui_materials.add(CustomUiMaterial {
+                    color: LinearRgba::BLUE.to_f32_array().into(),
+                    slider: Vec4::splat(1.0),
+                    color_texture: asset_server.load("branding/banner.png"),
+                    border_color: LinearRgba::WHITE.to_f32_array().into(),
+                })),
+                BorderRadius::all(Val::Px(10.)),
+                // UI material nodes can have outlines and shadows like any other UI node
+                Outline {
+                    width: Val::Px(2.),
+                    offset: Val::Px(10.),
+                    color: DARK_BLUE.into(),
+                },
+            ));
+        });
+
+    // Second window
+    commands
+        .spawn((
+            Node {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceEvenly,
@@ -193,6 +247,93 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextColor(YELLOW.into()),
             ));
         });
+
+    commands
+        .spawn((
+            Node {
+                left: Val::Px(1000.0),
+                top: Val::Px(500.0),
+                align_items: AlignItems::Start,
+                justify_content: JustifyContent::Start,
+                ..default()
+            },
+            UiTargetCamera(second_window_camera),
+        ))
+        .with_children(|parent| {
+            let banner_scale_factor = 0.2;
+            parent.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: Val::Px(905.0 * banner_scale_factor),
+                    height: Val::Px(363.0 * banner_scale_factor),
+                    border: UiRect::all(Val::Px(10.)),
+                    ..default()
+                },
+                MaterialNode(ui_materials2.add(CustomUiMaterial2 {
+                    color: LinearRgba::RED.to_f32_array().into(),
+                    slider: Vec4::splat(1.0),
+                    color_texture: asset_server.load("branding/banner.png"),
+                    border_color: LinearRgba::WHITE.to_f32_array().into(),
+                })),
+                BorderRadius::all(Val::Px(10.)),
+                // UI material nodes can have outlines and shadows like any other UI node
+                Outline {
+                    width: Val::Px(2.),
+                    offset: Val::Px(10.),
+                    color: DEEP_SKY_BLUE.into(),
+                },
+            ));
+        });
+}
+
+#[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+struct CustomUiMaterial {
+    /// Color multiplied with the image
+    #[uniform(0)]
+    color: Vec4,
+    /// Represents how much of the image is visible
+    /// Goes from 0 to 1
+    /// A `Vec4` is used here because Bevy with webgl2 requires that uniforms are 16-byte aligned but only the first component is read.
+    #[uniform(1)]
+    slider: Vec4,
+    /// Image used to represent the slider
+    #[texture(2)]
+    #[sampler(3)]
+    color_texture: Handle<Image>,
+    /// Color of the image's border
+    #[uniform(4)]
+    border_color: Vec4,
+}
+
+impl UiMaterial for CustomUiMaterial {
+    fn fragment_shader() -> ShaderRef {
+        SHADER_ASSET_PATH.into()
+    }
+}
+
+#[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+struct CustomUiMaterial2 {
+    /// Color multiplied with the image
+    #[uniform(0)]
+    color: Vec4,
+    /// Represents how much of the image is visible
+    /// Goes from 0 to 1
+    /// A `Vec4` is used here because Bevy with webgl2 requires that uniforms are 16-byte aligned but only the first component is read.
+    #[uniform(1)]
+    slider: Vec4,
+    /// Image used to represent the slider
+    #[texture(2)]
+    #[sampler(3)]
+    color_texture: Handle<Image>,
+    /// Color of the image's border
+    #[uniform(4)]
+    border_color: Vec4,
+}
+
+impl UiMaterial for CustomUiMaterial2 {
+    fn fragment_shader() -> ShaderRef {
+        SHADER_ASSET_PATH.into()
+    }
 }
 
 fn box_shadow_node_bundle(blur: f32, border_radius: BorderRadius) -> impl Bundle {
