@@ -208,7 +208,10 @@ mod tests {
     }
 
     #[derive(Event, Debug)]
-    struct TestEvent;
+    struct StandardEvent;
+
+    #[derive(Event, Debug)]
+    struct StateScopedEvent;
 
     #[test]
     fn clear_event_on_exit_state() {
@@ -216,17 +219,27 @@ mod tests {
         app.add_plugins(StatesPlugin);
         app.init_state::<TestState>();
 
-        app.add_event_cleared_on_exit_state::<TestEvent>(TestState::A);
+        app.add_event::<StandardEvent>();
+        app.add_event_cleared_on_exit_state::<StateScopedEvent>(TestState::A);
 
-        app.world_mut().send_event(TestEvent).unwrap();
-        assert!(!app.world().resource::<Events<TestEvent>>().is_empty());
+        app.world_mut().send_event(StandardEvent).unwrap();
+        app.world_mut().send_event(StateScopedEvent).unwrap();
+        assert!(!app.world().resource::<Events<StandardEvent>>().is_empty());
+        assert!(!app
+            .world()
+            .resource::<Events<StateScopedEvent>>()
+            .is_empty());
 
         app.world_mut()
             .resource_mut::<NextState<TestState>>()
             .set(TestState::B);
         app.update();
 
-        assert!(app.world().resource::<Events<TestEvent>>().is_empty());
+        assert!(!app.world().resource::<Events<StandardEvent>>().is_empty());
+        assert!(app
+            .world()
+            .resource::<Events<StateScopedEvent>>()
+            .is_empty());
     }
 
     #[test]
@@ -235,16 +248,26 @@ mod tests {
         app.add_plugins(StatesPlugin);
         app.init_state::<TestState>();
 
-        app.add_event_cleared_on_enter_state::<TestEvent>(TestState::B);
+        app.add_event::<StandardEvent>();
+        app.add_event_cleared_on_enter_state::<StateScopedEvent>(TestState::B);
 
-        app.world_mut().send_event(TestEvent).unwrap();
-        assert!(!app.world().resource::<Events<TestEvent>>().is_empty());
+        app.world_mut().send_event(StandardEvent).unwrap();
+        app.world_mut().send_event(StateScopedEvent).unwrap();
+        assert!(!app.world().resource::<Events<StandardEvent>>().is_empty());
+        assert!(!app
+            .world()
+            .resource::<Events<StateScopedEvent>>()
+            .is_empty());
 
         app.world_mut()
             .resource_mut::<NextState<TestState>>()
             .set(TestState::B);
         app.update();
 
-        assert!(app.world().resource::<Events<TestEvent>>().is_empty());
+        assert!(!app.world().resource::<Events<StandardEvent>>().is_empty());
+        assert!(app
+            .world()
+            .resource::<Events<StateScopedEvent>>()
+            .is_empty());
     }
 }
