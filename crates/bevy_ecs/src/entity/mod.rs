@@ -889,7 +889,7 @@ impl Entities {
     /// Returns the `Option<EntityLocation>` of the entity or `None` if the `entity` was not present.
     ///
     /// Must not be called while reserved entities are awaiting `flush()`.
-    pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
+    pub fn free(&mut self, entity: Entity) -> Option<EntityIdLocation> {
         self.verify_flushed();
 
         let meta = &mut self.meta[entity.index() as usize];
@@ -912,7 +912,7 @@ impl Entities {
 
         let new_free_cursor = self.pending.len() as IdCursor;
         *self.free_cursor.get_mut() = new_free_cursor;
-        loc
+        Some(loc)
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
@@ -951,14 +951,21 @@ impl Entities {
         *self.free_cursor.get_mut() = 0;
     }
 
-    /// Returns the location of an [`Entity`].
-    /// Note: for pending entities, returns `None`.
+    /// Returns the [`EntityLocation`] of an [`Entity`].
+    /// Note: for pending entities and entities not participating in the ecs (entities with a [`EntityIdLocation`] of `None`), returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
+        self.get_id_location(entity).flatten()
+    }
+
+    /// Returns the [`EntityIdLocation`] of an [`Entity`].
+    /// Note: for pending entities, returns `None`.
+    #[inline]
+    pub fn get_id_location(&self, entity: Entity) -> Option<EntityIdLocation> {
         self.meta
             .get(entity.index() as usize)
             .filter(|meta| meta.generation == entity.generation)
-            .and_then(|meta| meta.location)
+            .map(|meta| meta.location)
     }
 
     /// Updates the location of an [`Entity`].
@@ -969,7 +976,7 @@ impl Entities {
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn set(&mut self, index: u32, location: Option<EntityLocation>) {
+    pub(crate) unsafe fn set(&mut self, index: u32, location: EntityIdLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
@@ -1043,7 +1050,7 @@ impl Entities {
     /// to be initialized with the invalid archetype.
     pub unsafe fn flush(
         &mut self,
-        mut init: impl FnMut(Entity, &mut Option<EntityLocation>),
+        mut init: impl FnMut(Entity, &mut EntityIdLocation),
         by: MaybeLocation,
         at: Tick,
     ) {
@@ -1263,7 +1270,7 @@ struct EntityMeta {
     /// The current [`EntityGeneration`] of the [`EntityRow`].
     generation: EntityGeneration,
     /// The current location of the [`EntityRow`].
-    location: Option<EntityLocation>,
+    location: EntityIdLocation,
     /// Location and tick of the last spawn, despawn or flush of this entity.
     spawned_or_despawned: SpawnedOrDespawned,
 }
@@ -1287,15 +1294,6 @@ impl EntityMeta {
 }
 
 /// A location of an entity in an archetype.
-///
-/// An [`Entity`] id may or may not correspond to a valid conceptual entity.
-/// If it does, the conceptual entity may or may not have a location.
-/// If it has no location, the [`EntityLocation`] will be `None`.
-/// An location of `None` means the entity effectively does not exist; it has an id, but is not participating in the ECS.
-/// This is different from a location in the empty archetype, which is participating (queryable, etc) but just happens to have no components.
-///
-/// Setting a location to `None` is often helpful when you want to destruct an entity or yank it from the ECS without allowing another system to reuse the id for something else.
-/// It is also useful for reserving an id; commands will often allocate an `Entity` but not provide it a location until the command is applied.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.
@@ -1318,6 +1316,16 @@ pub struct EntityLocation {
     /// [`Table`]: crate::storage::Table
     pub table_row: TableRow,
 }
+
+/// An [`Entity`] id may or may not correspond to a valid conceptual entity.
+/// If it does, the conceptual entity may or may not have a location.
+/// If it has no location, the [`EntityLocation`] will be `None`.
+/// An location of `None` means the entity effectively does not exist; it has an id, but is not participating in the ECS.
+/// This is different from a location in the empty archetype, which is participating (queryable, etc) but just happens to have no components.
+///
+/// Setting a location to `None` is often helpful when you want to destruct an entity or yank it from the ECS without allowing another system to reuse the id for something else.
+/// It is also useful for reserving an id; commands will often allocate an `Entity` but not provide it a location until the command is applied.
+pub type EntityIdLocation = Option<EntityLocation>;
 
 #[cfg(test)]
 mod tests {
