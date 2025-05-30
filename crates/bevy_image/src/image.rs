@@ -1899,7 +1899,7 @@ mod test {
             .resize_in_place(Extent3d {
                 width: 4,
                 height: 4,
-                depth_or_array_layers: LAYERS,
+                depth_or_array_layers: LAYERS + 1,
             })
             .unwrap();
 
@@ -1918,7 +1918,7 @@ mod test {
         }
 
         // Pixels in the newly added area should get filled with zeroes.
-        for z in 0..LAYERS {
+        for z in 0..(LAYERS + 1) {
             assert!(matches!(
                 image.get_color_at_3d(3, 3, z),
                 Ok(Color::LinearRgba(GROW_FILL))
