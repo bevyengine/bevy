@@ -81,7 +81,7 @@ impl HttpWasmAssetReader {
                 let reader = VecReader::new(bytes);
                 Ok(reader)
             }
-            // Some web servers, including itch.io's CDN return 403 when a request file isn't present
+            // Some web servers, including itch.io's CDN, return 403 when a requested file isn't present.
             403 | 404 => Err(AssetReaderError::NotFound(path)),
             status => Err(AssetReaderError::HttpError(status)),
         }
