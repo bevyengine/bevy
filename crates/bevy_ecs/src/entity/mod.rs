@@ -1035,6 +1035,8 @@ impl Entities {
     /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
     /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
     ///
+    /// See [`EntityLocation`] for details on its meaning and how to set it.
+    ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
     /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
@@ -1288,6 +1290,15 @@ impl EntityMeta {
 }
 
 /// A location of an entity in an archetype.
+///
+/// An [`Entity`] id may or may not correspond to a valid conceptual entity.
+/// If it does, the conceptual entity may or may not have a location.
+/// If it has no location, [`EntityMeta::location`] will be `None`.
+/// An location of `None` means the entity effectively does not exist; it has an id, but is not participating in the ECS.
+/// This is different from a location in the empty archetype, which is participating (queryable, etc) but just happens to have no components.
+///
+/// Setting a location to `None` is often helpful when you want to destruct an entity or yank it from the ECS without allowing another system to reuse the id for something else.
+/// It is also useful for reserving an id; commands will often allocate an `Entity` but not provide it a location until the command is applied.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.
