@@ -1202,9 +1202,7 @@ impl Entities {
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for meta in &mut self.meta {
-            if meta.location.is_some() {
-                meta.spawned_or_despawned.at.check_tick(change_tick);
-            }
+            meta.spawned_or_despawned.at.check_tick(change_tick);
         }
     }
 
