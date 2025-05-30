@@ -1,6 +1,6 @@
 [package]
 name = "bevy_audio"
-version = "0.16.0"
+version = "0.16.1"
 edition = "2024"
 description = "Provides audio functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -10,13 +10,13 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.16.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0" }
-bevy_math = { path = "../bevy_math", version = "0.16.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0" }
-bevy_transform = { path = "../bevy_transform", version = "0.16.0" }
-bevy_derive = { path = "../bevy_derive", version = "0.16.0" }
+bevy_app = { path = "../bevy_app", version = "0.16.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.16.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.1" }
+bevy_math = { path = "../bevy_math", version = "0.16.1" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.1" }
+bevy_transform = { path = "../bevy_transform", version = "0.16.1" }
+bevy_derive = { path = "../bevy_derive", version = "0.16.1" }
 
 # other
 rodio = { version = "0.20", default-features = false }
@@ -30,10 +30,10 @@ cpal = { version = "0.15", optional = true }
 rodio = { version = "0.20", default-features = false, features = [
   "wasm-bindgen",
 ] }
-bevy_app = { path = "../bevy_app", version = "0.16.0", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.16.1", default-features = false, features = [
   "web",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0", default-features = false, features = [
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.1", default-features = false, features = [
   "web",
 ] }
 

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_input_focus"
-version = "0.16.0"
+version = "0.16.1"
 edition = "2024"
 description = "Keyboard focus management"
 homepage = "https://bevyengine.org"
@@ -60,12 +60,12 @@ libm = ["bevy_math/libm", "bevy_window/libm"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0", default-features = false }
-bevy_input = { path = "../bevy_input", version = "0.16.0", default-features = false }
-bevy_math = { path = "../bevy_math", version = "0.16.0", default-features = false }
-bevy_window = { path = "../bevy_window", version = "0.16.0", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0", features = [
+bevy_app = { path = "../bevy_app", version = "0.16.1", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.1", default-features = false }
+bevy_input = { path = "../bevy_input", version = "0.16.1", default-features = false }
+bevy_math = { path = "../bevy_math", version = "0.16.1", default-features = false }
+bevy_window = { path = "../bevy_window", version = "0.16.1", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.1", features = [
   "glam",
 ], default-features = false, optional = true }
 
