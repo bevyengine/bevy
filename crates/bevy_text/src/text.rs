@@ -180,7 +180,7 @@ impl TextLayoutSettings {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
+/// # use bevy_text::{Font, TextLayoutSettings, TextFont, TextSpan, TextColor};
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
