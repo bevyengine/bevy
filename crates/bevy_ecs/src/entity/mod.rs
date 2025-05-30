@@ -889,7 +889,7 @@ impl Entities {
     /// Returns the `Option<EntityLocation>` of the entity or `None` if the `entity` was not present.
     ///
     /// Must not be called while reserved entities are awaiting `flush()`.
-    pub fn free(&mut self, entity: Entity) -> Option<Option<EntityLocation>> {
+    pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
         self.verify_flushed();
 
         let meta = &mut self.meta[entity.index() as usize];
@@ -912,7 +912,7 @@ impl Entities {
 
         let new_free_cursor = self.pending.len() as IdCursor;
         *self.free_cursor.get_mut() = new_free_cursor;
-        Some(loc)
+        loc
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.

@@ -9,7 +9,3 @@ that will be stored for the flushed entities. For the source location,
 from the world.
 Additionally, flush now gives `&mut Option<EntityLocation>` instead of `&mut EntityLocation` access.
 This replaces invalid locations with `None`.
-
-`Entities::free` now returns `Option<Option<EntityLocation>>` rather than `Option<EntityLocation>`.
-This is because invalid locations have been replaced with `None`.
-So, if the outer option is none, the entity didn't exist, and if the inner option is none, the entity existed and was freed, but did not have a location.

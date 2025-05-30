@@ -2414,8 +2414,7 @@ impl<'w> EntityWorldMut<'w> {
         let location = world
             .entities
             .free(self.entity)
-            .expect("entity should exist at this point.")
-            .expect("entity was not despawned, so should have a location");
+            .expect("entity should exist at this point.");
         let table_row;
         let moved_entity;
         let change_tick = world.change_tick();
