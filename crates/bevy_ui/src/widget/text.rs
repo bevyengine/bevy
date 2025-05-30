@@ -205,7 +205,7 @@ fn create_text_measure<'a>(
     fonts: &Assets<Font>,
     scale_factor: f64,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
-    block: Ref<TextLayoutSettings>,
+    layout_settings: Ref<TextLayoutSettings>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextNodeFlags>,
@@ -269,7 +269,9 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target) in &mut text_query {
+    for (entity, layout_settings, content_size, text_flags, computed, computed_target) in
+        &mut text_query
+    {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         if computed_target.is_changed()
             || computed.needs_rerender()
@@ -281,7 +283,7 @@ pub fn measure_text_system(
                 &fonts,
                 computed_target.scale_factor.into(),
                 text_reader.iter(entity),
-                block,
+                layout_settings,
                 &mut text_pipeline,
                 content_size,
                 text_flags,
