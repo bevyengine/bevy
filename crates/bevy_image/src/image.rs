@@ -1594,9 +1594,6 @@ pub enum ResizeError {
     /// Failed to resize an Image because it has no data.
     #[error("resize method requires cpu-side image data but none was present")]
     ImageWithoutData,
-    /// Failed to resize an Image because it is not 2-dimensional.
-    #[error("resize method requires a 2d image")]
-    ImageNot2d,
 }
 
 /// The type of a raw image buffer.
