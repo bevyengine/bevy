@@ -695,7 +695,7 @@ impl World {
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
                     event_id,
-                    Entity::PLACEHOLDER,
+                    None,
                     targets.components(),
                     event_data,
                     false,
@@ -708,7 +708,7 @@ impl World {
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
                         event_id,
-                        target_entity,
+                        Some(target_entity),
                         targets.components(),
                         event_data,
                         E::AUTO_PROPAGATE,

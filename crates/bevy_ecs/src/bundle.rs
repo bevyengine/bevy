@@ -1133,7 +1133,7 @@ impl<'w> BundleInserter<'w> {
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
                         ON_REPLACE,
-                        entity,
+                        Some(entity),
                         archetype_after_insert.iter_existing(),
                         caller,
                     );
@@ -1318,7 +1318,7 @@ impl<'w> BundleInserter<'w> {
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(
                     ON_ADD,
-                    entity,
+                    Some(entity),
                     archetype_after_insert.iter_added(),
                     caller,
                 );
@@ -1336,7 +1336,7 @@ impl<'w> BundleInserter<'w> {
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
-                            entity,
+                            Some(entity),
                             archetype_after_insert.iter_inserted(),
                             caller,
                         );
@@ -1355,7 +1355,7 @@ impl<'w> BundleInserter<'w> {
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
-                            entity,
+                            Some(entity),
                             archetype_after_insert.iter_added(),
                             caller,
                         );
@@ -1499,7 +1499,7 @@ impl<'w> BundleRemover<'w> {
             if self.old_archetype.as_ref().has_replace_observer() {
                 deferred_world.trigger_observers(
                     ON_REPLACE,
-                    entity,
+                    Some(entity),
                     bundle_components_in_archetype(),
                     caller,
                 );
@@ -1514,7 +1514,7 @@ impl<'w> BundleRemover<'w> {
             if self.old_archetype.as_ref().has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
-                    entity,
+                    Some(entity),
                     bundle_components_in_archetype(),
                     caller,
                 );
@@ -1757,7 +1757,7 @@ impl<'w> BundleSpawner<'w> {
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(
                     ON_ADD,
-                    entity,
+                    Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
                 );
@@ -1772,7 +1772,7 @@ impl<'w> BundleSpawner<'w> {
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
                     ON_INSERT,
-                    entity,
+                    Some(entity),
                     bundle_info.iter_contributed_components(),
                     caller,
                 );
