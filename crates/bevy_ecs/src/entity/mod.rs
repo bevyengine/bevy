@@ -1264,9 +1264,9 @@ impl fmt::Display for EntityDoesNotExistDetails {
 #[derive(Copy, Clone, Debug)]
 struct EntityMeta {
     /// The current [`EntityGeneration`] of the [`EntityRow`].
-    pub generation: EntityGeneration,
+    generation: EntityGeneration,
     /// The current location of the [`EntityRow`].
-    pub location: Option<EntityLocation>,
+    location: Option<EntityLocation>,
     /// Location and tick of the last spawn, despawn or flush of this entity.
     spawned_or_despawned: SpawnedOrDespawned,
 }
@@ -1293,7 +1293,7 @@ impl EntityMeta {
 ///
 /// An [`Entity`] id may or may not correspond to a valid conceptual entity.
 /// If it does, the conceptual entity may or may not have a location.
-/// If it has no location, [`EntityMeta::location`] will be `None`.
+/// If it has no location, the [`EntityLocation`] will be `None`.
 /// An location of `None` means the entity effectively does not exist; it has an id, but is not participating in the ECS.
 /// This is different from a location in the empty archetype, which is participating (queryable, etc) but just happens to have no components.
 ///
