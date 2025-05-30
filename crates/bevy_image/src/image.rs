@@ -881,7 +881,7 @@ impl Image {
     }
 
     /// Resizes the image to the new size, keeping the pixel data intact, anchored at the top-left.
-    /// When growing, the new space is filled with `fill`. When shrinking, the image is clipped.
+    /// When growing, the new space is filled with 0. When shrinking, the image is clipped.
     ///
     /// For faster resizing when keeping pixel data intact is not important, use [`Image::resize`].
     pub fn resize_in_place(&mut self, new_size: Extent3d) -> Result<(), ResizeError> {
