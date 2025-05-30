@@ -25,6 +25,14 @@ fn setup_scene(
     mut ui_materials2: ResMut<Assets<CustomUiMaterial2>>,
     asset_server: Res<AssetServer>,
 ) {
+    let image = asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
+    let slicer = TextureSlicer {
+        border: BorderRect::all(22.0),
+        center_scale_mode: SliceScaleMode::Stretch,
+        sides_scale_mode: SliceScaleMode::Stretch,
+        max_corner_scale: 1.0,
+    };
+
     // add entities to the world
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf")),
@@ -142,10 +150,10 @@ fn setup_scene(
     commands
         .spawn((
             Node {
-                left: Val::Px(100.0),
-                top: Val::Px(100.0),
-                width: Val::Percent(50.0),
-                height: Val::Percent(50.0),
+                left: Val::ZERO,
+                top: Val::ZERO,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 align_items: AlignItems::Start,
                 justify_content: JustifyContent::Start,
                 ..default()
@@ -157,6 +165,8 @@ fn setup_scene(
             parent.spawn((
                 Node {
                     position_type: PositionType::Absolute,
+                    left: Val::Px(100.0),
+                    top: Val::Px(100.0),
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),
                     border: UiRect::all(Val::Px(10.)),
@@ -176,6 +186,36 @@ fn setup_scene(
                     color: DARK_BLUE.into(),
                 },
             ));
+            parent
+                .spawn((
+                    Button,
+                    ImageNode {
+                        image: image.clone(),
+                        image_mode: NodeImageMode::Sliced(slicer.clone()),
+                        ..default()
+                    },
+                    Node {
+                        left: Val::Px(100.0),
+                        top: Val::Px(200.0),
+                        width: Val::Px(150.0),
+                        height: Val::Px(200.0),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        margin: UiRect::all(Val::Px(20.0)),
+                        ..default()
+                    },
+                ))
+                .with_child((
+                    Text::new("Button"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 33.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                ));
         });
 
     // Second window
@@ -251,8 +291,8 @@ fn setup_scene(
     commands
         .spawn((
             Node {
-                left: Val::Px(1000.0),
-                top: Val::Px(500.0),
+                left: Val::ZERO,
+                top: Val::ZERO,
                 align_items: AlignItems::Start,
                 justify_content: JustifyContent::Start,
                 ..default()
@@ -264,6 +304,8 @@ fn setup_scene(
             parent.spawn((
                 Node {
                     position_type: PositionType::Absolute,
+                    left: Val::Px(1000.0),
+                    top: Val::Px(500.0),
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),
                     border: UiRect::all(Val::Px(10.)),
@@ -283,6 +325,36 @@ fn setup_scene(
                     color: DEEP_SKY_BLUE.into(),
                 },
             ));
+            parent
+                .spawn((
+                    Button,
+                    ImageNode {
+                        image: image.clone(),
+                        image_mode: NodeImageMode::Sliced(slicer.clone()),
+                        ..default()
+                    },
+                    Node {
+                        left: Val::Px(1000.0),
+                        top: Val::Px(200.0),
+                        width: Val::Px(150.0),
+                        height: Val::Px(200.0),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        margin: UiRect::all(Val::Px(20.0)),
+                        ..default()
+                    },
+                ))
+                .with_child((
+                    Text::new("Button"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 33.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                ));
         });
 }
 
