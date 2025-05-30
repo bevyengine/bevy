@@ -393,7 +393,7 @@ mod tests {
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_ecs::schedule::IntoScheduleConfigs;
 
-    use crate::{detect_text_needs_rerender, TextIterScratch};
+    use crate::{detect_text_root_needs_rerender, detect_text_span_needs_rerender, TextIterScratch};
 
     use super::*;
 
@@ -413,7 +413,8 @@ mod tests {
             .add_systems(
                 Update,
                 (
-                    detect_text_needs_rerender::<Text2d>,
+                    detect_text_root_needs_rerender::<Text2d>,
+                    detect_text_span_needs_rerender,
                     update_text2d_layout,
                     calculate_bounds_text2d,
                 )

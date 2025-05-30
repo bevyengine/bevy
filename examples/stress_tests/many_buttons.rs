@@ -111,7 +111,7 @@ fn main() {
     }
 
     if args.recompute_text {
-        app.add_systems(Update, |mut text_query: Query<&mut Text>| {
+        app.add_systems(Update, |mut text_query: Query<&mut TextSpan>| {
             text_query
                 .iter_mut()
                 .for_each(|mut text| text.set_changed());
