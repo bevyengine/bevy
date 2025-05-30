@@ -852,7 +852,7 @@ impl Image {
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
     /// Does not properly scale the contents of the image.
     ///
-    /// If you need to keep pixel data intact, use [`Image::resize_in_place_2d`].
+    /// If you need to keep pixel data intact, use [`Image::resize_in_place`].
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
         if let Some(ref mut data) = self.data {
