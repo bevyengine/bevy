@@ -366,13 +366,11 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     };
 
     // SAFETY:
-    // - `update_archetype_component_access` is called first
     // - there are no outstanding references to world except a private component
     // - system is an `ObserverSystem` so won't mutate world beyond the access of a `DeferredWorld`
     //   and is never exclusive
     // - system is the same type erased system from above
     unsafe {
-        (*system).update_archetype_component_access(world);
         if let Err(RunSystemError::Failed(err)) = (*system)
             .validate_param_unsafe(world)
             .map_err(From::from)

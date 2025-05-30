@@ -32,7 +32,7 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeId, ArchetypeRow, Archetypes},
+    archetype::{ArchetypeId, Archetypes},
     bundle::{
         Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
@@ -299,7 +299,7 @@ impl World {
         &mut self,
         id: ComponentId,
     ) -> Option<&mut ComponentHooks> {
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {:?} may already be in use", id);
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {id:?} may already be in use");
         self.components.get_hooks_mut(id)
     }
 
@@ -960,18 +960,8 @@ impl World {
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
         self.archetypes.iter().flat_map(|archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(|(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(|(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
                     let cell = UnsafeEntityCell::new(
                         self.as_unsafe_world_cell_readonly(),
@@ -993,18 +983,8 @@ impl World {
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {
             archetype
-                .entities()
-                .iter()
-                .enumerate()
-                .map(move |(archetype_row, archetype_entity)| {
-                    let entity = archetype_entity.id();
-                    let location = EntityLocation {
-                        archetype_id: archetype.id(),
-                        archetype_row: ArchetypeRow::new(archetype_row),
-                        table_id: archetype.table_id(),
-                        table_row: archetype_entity.table_row(),
-                    };
-
+                .entities_with_location()
+                .map(move |(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
                     let cell = UnsafeEntityCell::new(
                         world_cell,
@@ -1206,8 +1186,9 @@ impl World {
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
         let change_tick = self.change_tick();
+        self.entities.set(entity.index(), location);
         self.entities
-            .set_spawn_despawn(entity.index(), location, caller, change_tick);
+            .mark_spawn_despawn(entity.index(), caller, change_tick);
 
         EntityWorldMut::new(self, entity, location)
     }
@@ -2710,12 +2691,9 @@ impl World {
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
         self.flush_components();
-        let archetypes = &mut self.archetypes;
         self.storages
             .resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// # Panics
@@ -2726,28 +2704,32 @@ impl World {
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
         self.flush_components();
-        let archetypes = &mut self.archetypes;
         self.storages
             .non_send_resources
-            .initialize_with(component_id, &self.components, || {
-                archetypes.new_archetype_component_id()
-            })
+            .initialize_with(component_id, &self.components)
     }
 
     /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
     /// This should be called before doing operations that might operate on queued entities,
     /// such as inserting a [`Component`].
+    #[track_caller]
     pub(crate) fn flush_entities(&mut self) {
+        let by = MaybeLocation::caller();
+        let at = self.change_tick();
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
         // PERF: consider pre-allocating space for flushed entities
         // SAFETY: entity is set to a valid location
         unsafe {
-            self.entities.flush(|entity, location| {
-                // SAFETY: no components are allocated by archetype.allocate() because the archetype
-                // is empty
-                *location = empty_archetype.allocate(entity, table.allocate(entity));
-            });
+            self.entities.flush(
+                |entity, location| {
+                    // SAFETY: no components are allocated by archetype.allocate() because the archetype
+                    // is empty
+                    *location = empty_archetype.allocate(entity, table.allocate(entity));
+                },
+                by,
+                at,
+            );
         }
     }
 
@@ -2782,6 +2764,7 @@ impl World {
     ///
     /// Queued entities will be spawned, and then commands will be applied.
     #[inline]
+    #[track_caller]
     pub fn flush(&mut self) {
         self.flush_entities();
         self.flush_components();
@@ -3402,11 +3385,18 @@ impl World {
 
 // Schedule-related methods
 impl World {
-    /// Adds the specified [`Schedule`] to the world. The schedule can later be run
+    /// Adds the specified [`Schedule`] to the world.
+    /// If a schedule already exists with the same [label](Schedule::label), it will be replaced.
+    ///
+    /// The schedule can later be run
     /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
     /// accessing the [`Schedules`] resource.
     ///
     /// The `Schedules` resource will be initialized if it does not already exist.
+    ///
+    /// An alternative to this is to call [`Schedules::add_systems()`] with some
+    /// [`ScheduleLabel`] and let the schedule for that label be created if it
+    /// does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule) {
         let mut schedules = self.get_resource_or_init::<Schedules>();
         schedules.insert(schedule);
@@ -3512,6 +3502,7 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    /// This avoids the need to create a unique [`ScheduleLabel`].
     ///
     /// # Panics
     ///

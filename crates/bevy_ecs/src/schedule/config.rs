@@ -4,7 +4,7 @@ use variadics_please::all_tuples;
 use crate::{
     schedule::{
         auto_insert_apply_deferred::IgnoreDeferred,
-        condition::{BoxedCondition, Condition},
+        condition::{BoxedCondition, SystemCondition},
         graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
@@ -12,11 +12,11 @@ use crate::{
     system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
 };
 
-fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
+fn new_condition<M>(condition: impl SystemCondition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
     assert!(
         condition_system.is_send(),
-        "Condition `{}` accesses `NonSend` resources. This is not currently supported.",
+        "SystemCondition `{}` accesses `NonSend` resources. This is not currently supported.",
         condition_system.name()
     );
 
@@ -189,7 +189,7 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
         }
     }
 
-    fn distributive_run_if_inner<M>(&mut self, condition: impl Condition<M> + Clone) {
+    fn distributive_run_if_inner<M>(&mut self, condition: impl SystemCondition<M> + Clone) {
         match self {
             Self::ScheduleConfig(config) => {
                 config.conditions.push(new_condition(condition));
@@ -380,8 +380,8 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
 
     /// Add a run condition to each contained system.
     ///
-    /// Each system will receive its own clone of the [`Condition`] and will only run
-    /// if the `Condition` is true.
+    /// Each system will receive its own clone of the [`SystemCondition`] and will only run
+    /// if the `SystemCondition` is true.
     ///
     /// Each individual condition will be evaluated at most once (per schedule run),
     /// right before the corresponding system prepares to run.
@@ -408,13 +408,16 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     /// Use [`run_if`](ScheduleConfigs::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
     /// condition for each contained system separately.
-    fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> ScheduleConfigs<T> {
+    fn distributive_run_if<M>(
+        self,
+        condition: impl SystemCondition<M> + Clone,
+    ) -> ScheduleConfigs<T> {
         self.into_configs().distributive_run_if(condition)
     }
 
-    /// Run the systems only if the [`Condition`] is `true`.
+    /// Run the systems only if the [`SystemCondition`] is `true`.
     ///
-    /// The `Condition` will be evaluated at most once (per schedule run),
+    /// The `SystemCondition` will be evaluated at most once (per schedule run),
     /// the first time a system in this set prepares to run.
     ///
     /// If this set contains more than one system, calling `run_if` is equivalent to adding each
@@ -442,7 +445,7 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Use [`distributive_run_if`](IntoScheduleConfigs::distributive_run_if) if you want the
     /// condition to be evaluated for each individual system, right before one is run.
-    fn run_if<M>(self, condition: impl Condition<M>) -> ScheduleConfigs<T> {
+    fn run_if<M>(self, condition: impl SystemCondition<M>) -> ScheduleConfigs<T> {
         self.into_configs().run_if(condition)
     }
 
@@ -524,13 +527,13 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
 
     fn distributive_run_if<M>(
         mut self,
-        condition: impl Condition<M> + Clone,
+        condition: impl SystemCondition<M> + Clone,
     ) -> ScheduleConfigs<T> {
         self.distributive_run_if_inner(condition);
         self
     }
 
-    fn run_if<M>(mut self, condition: impl Condition<M>) -> ScheduleConfigs<T> {
+    fn run_if<M>(mut self, condition: impl SystemCondition<M>) -> ScheduleConfigs<T> {
         self.run_if_dyn(new_condition(condition));
         self
     }

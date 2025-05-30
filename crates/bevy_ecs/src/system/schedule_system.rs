@@ -1,7 +1,6 @@
 use alloc::borrow::Cow;
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::Result,
     query::{Access, FilteredAccessSet},
@@ -66,10 +65,6 @@ where
         self.system.component_access_set()
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.system.archetype_component_access()
-    }
-
     fn is_send(&self) -> bool {
         self.system.is_send()
     }
@@ -107,10 +102,6 @@ where
 
     fn initialize(&mut self, world: &mut World) {
         self.system.initialize(world);
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {
@@ -177,10 +168,6 @@ where
         self.system.component_access_set()
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.system.archetype_component_access()
-    }
-
     fn is_send(&self) -> bool {
         self.system.is_send()
     }
@@ -225,10 +212,6 @@ where
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {

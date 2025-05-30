@@ -15,7 +15,6 @@ pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
@@ -172,11 +171,6 @@ impl System for ApplyDeferred {
         const { &FilteredAccessSet::new() }
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        // This system accesses no archetype components.
-        const { &Access::new() }
-    }
-
     fn is_send(&self) -> bool {
         // Although this system itself does nothing on its own, the system
         // executor uses it to apply deferred commands. Commands must be allowed
@@ -233,8 +227,6 @@ impl System for ApplyDeferred {
     }
 
     fn initialize(&mut self, _world: &mut World) {}
-
-    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
 
     fn check_change_tick(&mut self, _change_tick: Tick) {}
 
@@ -380,7 +372,7 @@ mod tests {
     #[expect(clippy::print_stdout, reason = "std and println are allowed in tests")]
     fn single_and_populated_skipped_and_run() {
         for executor in EXECUTORS {
-            std::println!("Testing executor: {:?}", executor);
+            std::println!("Testing executor: {executor:?}");
 
             let mut world = World::new();
             world.init_resource::<TestState>();
