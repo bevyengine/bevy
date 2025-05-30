@@ -1180,16 +1180,6 @@ mod tests {
     }
 
     #[test]
-    fn reserve_and_spawn() {
-        let mut world = World::default();
-        let e = world.entities().reserve_entity();
-        world.flush_entities();
-        let mut e_mut = world.entity_mut(e);
-        e_mut.insert(A(0));
-        assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
-    }
-
-    #[test]
     fn changed_query() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0))).id();

@@ -1191,8 +1191,8 @@ impl<'w> BundleInserter<'w> {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
-                    entities.set(
-                        swapped_entity.index(),
+                    entities.update(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
@@ -1202,7 +1202,7 @@ impl<'w> BundleInserter<'w> {
                     );
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                entities.set(entity.index(), Some(new_location));
+                entities.update(entity.row(), Some(new_location));
                 let after_effect = bundle_info.write_components(
                     table,
                     sparse_sets,
@@ -1240,8 +1240,8 @@ impl<'w> BundleInserter<'w> {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
-                    entities.set(
-                        swapped_entity.index(),
+                    entities.update(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
@@ -1254,7 +1254,7 @@ impl<'w> BundleInserter<'w> {
                 // redundant copies
                 let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                entities.set(entity.index(), Some(new_location));
+                entities.update(entity.row(), Some(new_location));
 
                 // If an entity was moved into this entity's table spot, update its table row.
                 if let Some(swapped_entity) = move_result.swapped_entity {
@@ -1262,8 +1262,8 @@ impl<'w> BundleInserter<'w> {
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
                         unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
 
-                    entities.set(
-                        swapped_entity.index(),
+                    entities.update(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: swapped_location.archetype_row,
@@ -1571,8 +1571,8 @@ impl<'w> BundleRemover<'w> {
         if let Some(swapped_entity) = remove_result.swapped_entity {
             let swapped_location = world.entities.get(swapped_entity).unwrap();
 
-            world.entities.set(
-                swapped_entity.index(),
+            world.entities.update(
+                swapped_entity.row(),
                 Some(EntityLocation {
                     archetype_id: swapped_location.archetype_id,
                     archetype_row: location.archetype_row,
@@ -1612,8 +1612,8 @@ impl<'w> BundleRemover<'w> {
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = world.entities.get(swapped_entity).unwrap();
 
-                world.entities.set(
-                    swapped_entity.index(),
+                world.entities.update(
+                    swapped_entity.row(),
                     Some(EntityLocation {
                         archetype_id: swapped_location.archetype_id,
                         archetype_row: swapped_location.archetype_row,
@@ -1635,7 +1635,7 @@ impl<'w> BundleRemover<'w> {
 
         // SAFETY: The entity is valid and has been moved to the new location already.
         unsafe {
-            world.entities.set(entity.index(), Some(new_location));
+            world.entities.update(entity.row(), Some(new_location));
         }
 
         (new_location, pre_remove_result)
@@ -1702,10 +1702,10 @@ impl<'w> BundleSpawner<'w> {
     }
 
     /// # Safety
-    /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
+    /// `entity` must be allocated and have no location. `T` must match this [`BundleInfo`]'s type
     #[inline]
     #[track_caller]
-    pub unsafe fn spawn_non_existent<T: DynamicBundle>(
+    pub unsafe fn construct<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         bundle: T,
@@ -1736,8 +1736,8 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.set(entity.index(), Some(location));
-            entities.mark_construct_or_destruct(entity.index(), caller, self.change_tick);
+            entities.declare(entity.row(), Some(location));
+            entities.mark_construct_or_destruct(entity.row(), caller, self.change_tick);
             (location, after_effect)
         };
 
@@ -1790,16 +1790,11 @@ impl<'w> BundleSpawner<'w> {
         bundle: T,
         caller: MaybeLocation,
     ) -> (Entity, T::Effect) {
-        let entity = self.entities().alloc();
-        // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        let (_, after_effect) = unsafe { self.spawn_non_existent(entity, bundle, caller) };
-        (entity, after_effect)
-    }
-
-    #[inline]
-    pub(crate) fn entities(&mut self) -> &mut Entities {
         // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
-        unsafe { &mut self.world.world_mut().entities }
+        let entity = unsafe { self.world.world().allocator.alloc() };
+        // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
+        let (_, after_effect) = unsafe { self.construct(entity, bundle, caller) };
+        (entity, after_effect)
     }
 
     /// # Safety

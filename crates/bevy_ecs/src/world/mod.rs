@@ -1111,7 +1111,7 @@ impl World {
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
         // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
         let (entity_location, after_effect) =
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+            unsafe { bundle_spawner.construct(entity, bundle, caller) };
 
         let mut entity_location = Some(entity_location);
 

@@ -2500,10 +2500,6 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
     /// to despawn descendants. This results in "recursive despawn" behavior.
-    ///
-    /// # Panics
-    ///
-    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn despawn(self) {
         self.despawn_with_caller(MaybeLocation::caller());
@@ -2786,9 +2782,9 @@ impl<'w> EntityWorldMut<'w> {
         config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
     ) -> Entity {
         self.assert_not_despawned();
-
-        let entity_clone = self.world.entities.reserve_entity();
         self.world.flush();
+
+        let entity_clone = self.world.allocator.alloc();
 
         let mut builder = EntityCloner::build(self.world);
         config(&mut builder);
