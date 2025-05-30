@@ -33,15 +33,12 @@ use tracing::error;
 pub struct TextNodeFlags {
     /// If set then a new measure function for the text node will be created.
     needs_measure_fn: bool,
-    /// If set then the text will be recomputed.
-    needs_recompute: bool,
 }
 
 impl Default for TextNodeFlags {
     fn default() -> Self {
         Self {
             needs_measure_fn: true,
-            needs_recompute: true,
         }
     }
 }
@@ -223,7 +220,7 @@ fn create_text_measure<'a>(
 
             // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
             text_flags.needs_measure_fn = false;
-            text_flags.needs_recompute = true;
+            computed.set_needs_rerender();
         }
         Err(TextError::NoSuchFont) => {
             // Try again next frame
@@ -334,7 +331,7 @@ fn queue_text(
     ) {
         Err(TextError::NoSuchFont) => {
             // There was an error processing the text layout, try again next frame
-            text_flags.needs_recompute = true;
+            computed.set_needs_rerender();
         }
         Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
             panic!("Fatal error when processing text: {e}.");
@@ -342,7 +339,6 @@ fn queue_text(
         Ok(()) => {
             text_layout_info.size.x = scale_value(text_layout_info.size.x, inverse_scale_factor);
             text_layout_info.size.y = scale_value(text_layout_info.size.y, inverse_scale_factor);
-            text_flags.needs_recompute = false;
         }
     }
 }
@@ -374,7 +370,7 @@ pub fn text_system(
     mut swash_cache: ResMut<SwashCache>,
 ) {
     for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
-        if node.is_changed() || text_flags.needs_recompute {
+        if node.is_changed() || computed.needs_rerender() {
             queue_text(
                 entity,
                 &fonts,

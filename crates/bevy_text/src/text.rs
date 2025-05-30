@@ -96,6 +96,12 @@ impl ComputedTextBlock {
     pub fn buffer(&self) -> &CosmicBuffer {
         &self.buffer
     }
+
+    /// Flag the text block for rerendering.
+    /// Automatically unset
+    pub fn set_needs_rerender(&mut self) {
+        self.needs_rerender = true;
+    }
 }
 
 impl Default for ComputedTextBlock {
