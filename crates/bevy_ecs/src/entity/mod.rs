@@ -255,11 +255,11 @@ impl EntityGeneration {
     /// # use bevy_ecs::entity::EntityGeneration;
     /// # use core::cmp::Ordering;
     /// let later_generation = EntityGeneration::FIRST.after_versions(400);
-    /// assert_eq!(EntityGeneration::FIRST.cmp_age_approx(&later_generation), Ordering::Less);
+    /// assert_eq!(EntityGeneration::FIRST.cmp_approx(&later_generation), Ordering::Less);
     ///
     /// let (aliased, did_alias) = EntityGeneration::FIRST.after_versions(400).after_versions_and_could_alias(u32::MAX);
     /// assert!(did_alias);
-    /// assert_eq!(EntityGeneration::FIRST.cmp_age_approx(&aliased), Ordering::Less);
+    /// assert_eq!(EntityGeneration::FIRST.cmp_approx(&aliased), Ordering::Less);
     /// ```
     ///
     /// Ordering will be incorrect and [non-transitive](https://en.wikipedia.org/wiki/Transitive_relation)
@@ -272,16 +272,16 @@ impl EntityGeneration {
     /// let much_later_generation = later_generation.after_versions(3u32 << 31);
     ///
     /// // while these orderings are correct and pass assertions...
-    /// assert_eq!(EntityGeneration::FIRST.cmp_age_approx(&later_generation), Ordering::Less);
-    /// assert_eq!(later_generation.cmp_age_approx(&much_later_generation), Ordering::Less);
+    /// assert_eq!(EntityGeneration::FIRST.cmp_approx(&later_generation), Ordering::Less);
+    /// assert_eq!(later_generation.cmp_approx(&much_later_generation), Ordering::Less);
     ///
     /// // ... this ordering is not and the assertion fails!
-    /// assert_eq!(EntityGeneration::FIRST.cmp_age_approx(&much_later_generation), Ordering::Less);
+    /// assert_eq!(EntityGeneration::FIRST.cmp_approx(&much_later_generation), Ordering::Less);
     /// ```
     ///
     /// Because of this, `EntityGeneration` does not implement `Ord`/`PartialOrd`.
     #[inline]
-    pub const fn cmp_age_approx(self, other: &Self) -> core::cmp::Ordering {
+    pub const fn cmp_approx(self, other: &Self) -> core::cmp::Ordering {
         use core::cmp::Ordering;
         match self.0.wrapping_sub(other.0) {
             0 => Ordering::Equal,
@@ -1433,7 +1433,7 @@ mod tests {
         assert_eq!(next_entity.index(), entity.index());
         assert!(next_entity
             .generation()
-            .cmp_age_approx(&entity.generation().after_versions(GENERATIONS))
+            .cmp_approx(&entity.generation().after_versions(GENERATIONS))
             .is_gt());
     }
 
@@ -1630,14 +1630,11 @@ mod tests {
         let younger_before_ord_wrap = middle.after_versions(EntityGeneration::DIFF_MAX);
         let younger_after_ord_wrap = younger_before_ord_wrap.after_versions(1);
 
-        assert_eq!(middle.cmp_age_approx(&old), Ordering::Greater);
-        assert_eq!(middle.cmp_age_approx(&middle), Ordering::Equal);
+        assert_eq!(middle.cmp_approx(&old), Ordering::Greater);
+        assert_eq!(middle.cmp_approx(&middle), Ordering::Equal);
+        assert_eq!(middle.cmp_approx(&younger_before_ord_wrap), Ordering::Less);
         assert_eq!(
-            middle.cmp_age_approx(&younger_before_ord_wrap),
-            Ordering::Less
-        );
-        assert_eq!(
-            middle.cmp_age_approx(&younger_after_ord_wrap),
+            middle.cmp_approx(&younger_after_ord_wrap),
             Ordering::Greater
         );
     }

@@ -360,7 +360,7 @@ mod tests {
         assert_eq!(entity.index(), dead_ref.index());
         assert!(entity
             .generation()
-            .cmp_age_approx(&dead_ref.generation())
+            .cmp_approx(&dead_ref.generation())
             .is_gt());
     }
 
@@ -378,7 +378,7 @@ mod tests {
         assert_eq!(entity.index(), dead_ref.index());
         assert!(entity
             .generation()
-            .cmp_age_approx(&dead_ref.generation())
+            .cmp_approx(&dead_ref.generation())
             .is_gt());
     }
 
