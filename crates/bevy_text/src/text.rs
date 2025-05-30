@@ -477,11 +477,10 @@ pub enum FontSmoothing {
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, [`Text2d`](crate::Text2d)/[`TextSpan`] for
-/// 2d or `Text`/[`TextSpan`] for UI.
-pub fn detect_text_needs_rerender<Root: Component>(
-    changed_roots: Query<
-        Entity,
+/// Generic over the root text component.
+pub fn detect_text_root_needs_rerender<Root: Component>(
+    mut changed_roots: Query<
+        &mut ComputedTextBlock,
         (
             Or<(
                 Changed<Root>,
@@ -494,6 +493,30 @@ pub fn detect_text_needs_rerender<Root: Component>(
             With<TextLayout>,
         ),
     >,
+    roots_without_computed_block: Query<Entity, (With<Root>, Without<ComputedTextBlock>)>,
+) {
+    // Root entity:
+    // - Root component changed.
+    // - TextFont on root changed.
+    // - TextLayout changed.
+    // - Root children changed (can include additions and removals).
+    for mut computed in changed_roots.iter_mut() {
+        computed.needs_rerender = true;
+    }
+
+    for entity in roots_without_computed_block.iter() {
+        // If the root entity does not have a ComputedTextBlock, then it needs one.
+        // This can happen if the root was spawned without a ComputedTextBlock, or if it was removed.
+        once!(warn!(
+            "found entity {} with a root text component ({}) that has no ComputedTextBlock; this warning only prints once",
+            entity,
+            core::any::type_name::<Root>()
+        ));
+    }
+}
+
+// System that detects changes to text spans and sets `ComputedTextBlock::should_rerender`.
+pub fn detect_text_span_needs_rerender(
     changed_spans: Query<
         (Entity, Option<&ChildOf>, Has<TextLayout>),
         (
@@ -514,20 +537,6 @@ pub fn detect_text_needs_rerender<Root: Component>(
         Has<TextSpan>,
     )>,
 ) {
-    // Root entity:
-    // - Root component changed.
-    // - TextFont on root changed.
-    // - TextLayout changed.
-    // - Root children changed (can include additions and removals).
-    for root in changed_roots.iter() {
-        let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once", root, core::any::type_name::<Root>()));
-            continue;
-        };
-        computed.needs_rerender = true;
-    }
-
     // Span entity:
     // - Span component changed.
     // - Span TextFont changed.
@@ -535,16 +544,15 @@ pub fn detect_text_needs_rerender<Root: Component>(
     for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
             once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
-                text entities (that have {}); this warning only prints once",
-                entity, core::any::type_name::<Root>()));
+                text entities; this warning only prints once",
+                entity));
         }
 
         let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
                 "found entity {} with a TextSpan that has no parent; it should have an ancestor \
-                with a root text component ({}); this warning only prints once",
-                entity,
-                core::any::type_name::<Root>()
+                with a root text component; this warning only prints once",
+                entity
             ));
             continue;
         };
@@ -573,9 +581,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
             let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
                     "found entity {} with a TextSpan that has no ancestor with the root text \
-                    component ({}); this warning only prints once",
+                    component; this warning only prints once",
                     entity,
-                    core::any::type_name::<Root>()
                 ));
                 break;
             };
