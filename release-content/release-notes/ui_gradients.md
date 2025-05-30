@@ -23,4 +23,4 @@ Colors are interpolated between the stops in SRGB space. The hint is a normalize
 
 For sharp stops with no interpolated transition, place two stops at the same point.
 
-`ConicGradients` and `RadialGradients` have a center which is set using the new `Position` type. `Position` consists of a normalized (relative to the UI node) Vec2 anchor point and a responsive x, y offset.
+`ConicGradients` and `RadialGradients` have a center which is set using the new `UiPosition` type. `UiPosition` consists of a normalized (relative to the UI node) Vec2 anchor point and a responsive x, y offset.

@@ -135,7 +135,7 @@ fn setup(mut commands: Commands) {
                             BackgroundGradient::from(RadialGradient {
                                 stops: stops.clone(),
                                 shape: RadialGradientShape::ClosestSide,
-                                position: Position::CENTER,
+                                position: UiPosition::CENTER,
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
@@ -158,7 +158,7 @@ fn setup(mut commands: Commands) {
                                     .iter()
                                     .map(|stop| AngularColorStop::auto(stop.color))
                                     .collect(),
-                                position: Position::CENTER,
+                                position: UiPosition::CENTER,
                             }),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
