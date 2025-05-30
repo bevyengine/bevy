@@ -955,13 +955,10 @@ impl Entities {
     /// Note: for pending entities, returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if let Some(meta) = self.meta.get(entity.index() as usize) {
-            (meta.generation == entity.generation)
-                .then_some(meta.location)
-                .flatten()
-        } else {
-            None
-        }
+        self.meta
+            .get(entity.index() as usize)
+            .filter(|meta| meta.generation == entity.generation)
+            .and_then(|meta| meta.location)
     }
 
     /// Updates the location of an [`Entity`].
