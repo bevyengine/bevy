@@ -30,7 +30,10 @@
 /// ```
 ///
 /// Some fields may be bundles that do not implement
-/// [`BundleFromComponents`]. In those cases you can either ignore it as above,
+/// [`BundleFromComponents`]. This happens for bundles that cannot be extracted.
+/// For example with [`SpawnRelatedBundle`](bevy_ecs::spawn::SpawnRelatedBundle), see below for an
+/// example usage.
+/// In those cases you can either ignore it as above,
 /// or you can opt out the whole Struct by marking it as ignored with
 /// `#[bundle(ignore_from_components)]`.
 ///
