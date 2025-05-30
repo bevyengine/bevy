@@ -890,7 +890,7 @@ impl Image {
         fill: &[u8],
     ) -> Result<(), ResizeError> {
         let old_size = self.texture_descriptor.size;
-        if old_size.depth_or_array_layers != 1 {
+        if old_size.depth_or_array_layers != 1 || new_size.depth_or_array_layers != 1 {
             return Err(ResizeError::ImageNot2d);
         }
 
