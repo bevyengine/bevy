@@ -62,3 +62,18 @@ pub fn measure_text<'a>(
         .unwrap_or((0.0, 0.0));
     (Vec2::new(width, height) * scale_factor.recip()).ceil()
 }
+
+pub fn measure_text_buffer(
+    font_system: &mut cosmic_text::FontSystem,
+    buffer: &mut Buffer,
+    width: Option<f32>,
+    height: Option<f32>,
+) {
+    buffer.set_size(font_system, width, height);
+    let (width, height) = buffer
+        .layout_runs()
+        .map(|run| (run.line_w, run.line_height))
+        .reduce(|(w1, h1), (w2, h2)| (w1.max(w2), h1 + h2))
+        .unwrap_or((0.0, 0.0));
+    (Vec2::new(width, height) * scale_factor.recip()).ceil()
+}

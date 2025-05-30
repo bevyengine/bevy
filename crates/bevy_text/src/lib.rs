@@ -38,11 +38,11 @@ mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
 mod glyph;
+mod measurement;
 mod pipeline;
 mod text;
 mod text2d;
 mod text_access;
-mod util;
 
 pub use bounds::*;
 pub use error::*;
@@ -51,11 +51,11 @@ pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
+pub use measurement::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
 pub use text_access::*;
-pub use util::*;
 
 /// The text prelude.
 ///
