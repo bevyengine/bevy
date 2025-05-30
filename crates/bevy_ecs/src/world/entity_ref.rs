@@ -1115,45 +1115,44 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline(always)]
     #[track_caller]
-    pub(crate) fn assert_not_despawned(&self) -> EntityLocation {
-        match self.location {
-            Some(loc) => loc,
-            None => self.panic_despawned(),
+    pub(crate) fn assert_not_despawned(&self) {
+        if self.location.is_none() {
+            self.panic_despawned()
         }
     }
 
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
-        let loc = self.assert_not_despawned();
+        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.read_change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
-            loc,
+            location,
             last_change_tick,
             change_tick,
         )
     }
     fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
-        let loc = self.assert_not_despawned();
+        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
-            loc,
+            location,
             last_change_tick,
             change_tick,
         )
     }
     fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
-        let loc = self.assert_not_despawned();
+        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
-            loc,
+            location,
             last_change_tick,
             change_tick,
         )
@@ -1217,7 +1216,10 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn location(&self) -> EntityLocation {
-        self.assert_not_despawned()
+        match self.location {
+            Some(loc) => loc,
+            None => self.panic_despawned(),
+        }
     }
 
     /// Returns the archetype that the current entity belongs to.
@@ -1227,7 +1229,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         &self.world.archetypes[location.archetype_id]
     }
 
@@ -1830,7 +1832,7 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
@@ -1894,7 +1896,7 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> &mut Self {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         let change_tick = self.world.change_tick();
         let bundle_id = self.world.bundles.init_component_info(
             &mut self.world.storages,
@@ -1953,7 +1955,7 @@ impl<'w> EntityWorldMut<'w> {
         iter_components: I,
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> &mut Self {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         let change_tick = self.world.change_tick();
         let bundle_id = self.world.bundles.init_dynamic_info(
             &mut self.world.storages,
@@ -1992,7 +1994,7 @@ impl<'w> EntityWorldMut<'w> {
     #[must_use]
     #[track_caller]
     pub fn take<T: Bundle + BundleFromComponents>(&mut self) -> Option<T> {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         let entity = self.entity;
 
         let mut remover =
@@ -2053,7 +2055,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline]
     pub(crate) fn remove_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
-        let location = self.assert_not_despawned();
+        let location = self.location();
 
         let Some(mut remover) =
             // SAFETY: The archetype id must be valid since this entity is in it.
@@ -2092,7 +2094,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         caller: MaybeLocation,
     ) -> &mut Self {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         let storages = &mut self.world.storages;
         let bundles = &mut self.world.bundles;
         // SAFETY: These come from the same world.
@@ -2138,7 +2140,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline]
     pub(crate) fn retain_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
-        let old_location = self.assert_not_despawned();
+        let old_location = self.location();
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         // SAFETY: These come from the same world.
@@ -2206,7 +2208,7 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         caller: MaybeLocation,
     ) -> &mut Self {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_component_info(
@@ -2248,7 +2250,7 @@ impl<'w> EntityWorldMut<'w> {
     /// entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn remove_by_ids(&mut self, component_ids: &[ComponentId]) -> &mut Self {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_dynamic_info(
@@ -2292,7 +2294,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline]
     pub(crate) fn clear_with_caller(&mut self, caller: MaybeLocation) -> &mut Self {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         let component_ids: Vec<ComponentId> = self.archetype().components().collect();
         let components = &mut self.world.components;
 
@@ -2343,7 +2345,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {
-        let location = self.assert_not_despawned();
+        let location = self.location();
         let world = self.world;
         let archetype = &world.archetypes[location.archetype_id];
 
