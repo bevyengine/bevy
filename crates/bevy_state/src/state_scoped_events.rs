@@ -8,9 +8,9 @@ use bevy_ecs::{
     system::Commands,
     world::World,
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 
-use crate::state::{FreelyMutableState, OnExit, StateTransitionEvent};
+use crate::state::{OnExit, StateTransitionEvent, States};
 
 fn clear_event_queue<E: Event>(w: &mut World) {
     if let Some(mut queue) = w.get_resource_mut::<Events<E>>() {
@@ -19,11 +19,11 @@ fn clear_event_queue<E: Event>(w: &mut World) {
 }
 
 #[derive(Resource)]
-struct StateScopedEvents<S: FreelyMutableState> {
+struct StateScopedEvents<S: States> {
     cleanup_fns: HashMap<S, Vec<fn(&mut World)>>,
 }
 
-impl<S: FreelyMutableState> StateScopedEvents<S> {
+impl<S: States> StateScopedEvents<S> {
     fn add_event<E: Event>(&mut self, state: S) {
         self.cleanup_fns
             .entry(state)
@@ -41,7 +41,7 @@ impl<S: FreelyMutableState> StateScopedEvents<S> {
     }
 }
 
-impl<S: FreelyMutableState> Default for StateScopedEvents<S> {
+impl<S: States> Default for StateScopedEvents<S> {
     fn default() -> Self {
         Self {
             cleanup_fns: HashMap::default(),
@@ -49,7 +49,7 @@ impl<S: FreelyMutableState> Default for StateScopedEvents<S> {
     }
 }
 
-fn cleanup_state_scoped_event<S: FreelyMutableState>(
+fn cleanup_state_scoped_event<S: States>(
     mut c: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
 ) {
@@ -70,7 +70,7 @@ fn cleanup_state_scoped_event<S: FreelyMutableState>(
     });
 }
 
-fn add_state_scoped_event_impl<E: Event, S: FreelyMutableState>(
+fn add_state_scoped_event_impl<E: Event, S: States>(
     app: &mut SubApp,
     _p: PhantomData<E>,
     state: S,
@@ -89,22 +89,23 @@ fn add_state_scoped_event_impl<E: Event, S: FreelyMutableState>(
 pub trait StateScopedEventsAppExt {
     /// Adds an [`Event`] that is automatically cleaned up when leaving the specified `state`.
     ///
-    /// Note that event cleanup is ordered ambiguously relative to [`StateScoped`](crate::prelude::StateScoped) entity
+    /// Note that event cleanup is ordered ambiguously relative to [`DespawnOnEnterState`](crate::prelude::DespawnOnEnterState)
+    /// and [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity
     /// cleanup and the [`OnExit`] schedule for the target state. All of these (state scoped
     /// entities and events cleanup, and `OnExit`) occur within schedule [`StateTransition`](crate::prelude::StateTransition)
-    /// and system set `StateTransitionSteps::ExitSchedules`.
-    fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self;
+    /// and system set `StateTransitionSystems::ExitSchedules`.
+    fn add_state_scoped_event<E: Event>(&mut self, state: impl States) -> &mut Self;
 }
 
 impl StateScopedEventsAppExt for App {
-    fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self {
+    fn add_state_scoped_event<E: Event>(&mut self, state: impl States) -> &mut Self {
         add_state_scoped_event_impl(self.main_mut(), PhantomData::<E>, state);
         self
     }
 }
 
 impl StateScopedEventsAppExt for SubApp {
-    fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self {
+    fn add_state_scoped_event<E: Event>(&mut self, state: impl States) -> &mut Self {
         add_state_scoped_event_impl(self, PhantomData::<E>, state);
         self
     }

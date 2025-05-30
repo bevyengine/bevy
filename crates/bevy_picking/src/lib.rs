@@ -179,7 +179,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
-        MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
+        MeshPickingCamera, MeshPickingPlugin, MeshPickingSettings,
     };
     #[doc(hidden)]
     pub use crate::{
@@ -256,7 +256,7 @@ impl Default for Pickable {
 
 /// Groups the stages of the picking process under shared labels.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum PickSet {
+pub enum PickingSystems {
     /// Produces pointer input events. In the [`First`] schedule.
     Input,
     /// Runs after input events are generated but before commands are flushed. In the [`First`]
@@ -269,12 +269,16 @@ pub enum PickSet {
     /// Reads [`backend::PointerHits`]s, and updates the hovermap, selection, and highlighting states. In
     /// the [`PreUpdate`] schedule.
     Hover,
-    /// Runs after all the [`PickSet::Hover`] systems are done, before event listeners are triggered. In the
+    /// Runs after all the [`PickingSystems::Hover`] systems are done, before event listeners are triggered. In the
     /// [`PreUpdate`] schedule.
     PostHover,
     /// Runs after all other picking sets. In the [`PreUpdate`] schedule.
     Last,
 }
+
+/// Deprecated alias for [`PickingSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `PickingSystems`.")]
+pub type PickSet = PickingSystems;
 
 /// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
 /// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
@@ -359,29 +363,29 @@ impl Plugin for PickingPlugin {
                     pointer::PointerInput::receive,
                     backend::ray::RayMap::repopulate.after(pointer::PointerInput::receive),
                 )
-                    .in_set(PickSet::ProcessInput),
+                    .in_set(PickingSystems::ProcessInput),
             )
             .add_systems(
                 PreUpdate,
                 window::update_window_hits
                     .run_if(Self::window_picking_should_run)
-                    .in_set(PickSet::Backend),
+                    .in_set(PickingSystems::Backend),
             )
             .configure_sets(
                 First,
-                (PickSet::Input, PickSet::PostInput)
-                    .after(bevy_time::TimeSystem)
-                    .after(bevy_ecs::event::EventUpdates)
+                (PickingSystems::Input, PickingSystems::PostInput)
+                    .after(bevy_time::TimeSystems)
+                    .after(bevy_ecs::event::EventUpdateSystems)
                     .chain(),
             )
             .configure_sets(
                 PreUpdate,
                 (
-                    PickSet::ProcessInput.run_if(Self::input_should_run),
-                    PickSet::Backend,
-                    PickSet::Hover.run_if(Self::hover_should_run),
-                    PickSet::PostHover,
-                    PickSet::Last,
+                    PickingSystems::ProcessInput.run_if(Self::input_should_run),
+                    PickingSystems::Backend,
+                    PickingSystems::Hover.run_if(Self::hover_should_run),
+                    PickingSystems::PostHover,
+                    PickingSystems::Last,
                 )
                     .chain(),
             )
@@ -427,7 +431,7 @@ impl Plugin for InteractionPlugin {
                 PreUpdate,
                 (generate_hovermap, update_interactions, pointer_events)
                     .chain()
-                    .in_set(PickSet::Hover),
+                    .in_set(PickingSystems::Hover),
             );
     }
 }

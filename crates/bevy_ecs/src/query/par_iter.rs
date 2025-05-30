@@ -1,7 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::{unique_vec::UniqueEntityVec, EntityBorrow, TrustedEntityBorrow},
+    entity::{EntityEquivalent, UniqueEntityEquivalentVec},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -62,7 +62,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     ///     query.par_iter().for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += 1;
     ///      });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
@@ -130,7 +130,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
         let max_items = || {
             let id_iter = self.state.matched_storage_ids.iter();
             if self.state.is_dense {
@@ -147,10 +147,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                     .map(|id| unsafe { archetypes[id.archetype_id].len() })
                     .max()
             }
+            .map(|v| v as usize)
             .unwrap_or(0)
         };
         self.batching_strategy
-            .calc_batch_size(max_items, thread_count)
+            .calc_batch_size(max_items, thread_count) as u32
     }
 }
 
@@ -160,7 +161,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityBorrow> {
+pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
     pub(crate) entity_list: Vec<E>,
@@ -169,7 +170,7 @@ pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityBorro
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     QueryParManyIter<'w, 's, D, F, E>
 {
     /// Changes the batching strategy used when iterating.
@@ -205,7 +206,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     /// use bevy_utils::Parallel;
     /// use crate::{bevy_ecs::prelude::{Component, Res, Resource, Entity}, bevy_ecs::system::Query};
     /// # use core::slice;
-    /// use bevy_platform_support::prelude::Vec;
+    /// use bevy_platform::prelude::Vec;
     /// # fn some_expensive_operation(_item: &T) -> usize {
     /// #     0
     /// # }
@@ -232,7 +233,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     ///     query.par_iter_many(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item);
     ///     });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
@@ -301,9 +302,9 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
         self.batching_strategy
-            .calc_batch_size(|| self.entity_list.len(), thread_count)
+            .calc_batch_size(|| self.entity_list.len(), thread_count) as u32
     }
 }
 
@@ -314,22 +315,17 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
-pub struct QueryParManyUniqueIter<
-    'w,
-    's,
-    D: QueryData,
-    F: QueryFilter,
-    E: TrustedEntityBorrow + Sync,
-> {
+pub struct QueryParManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
+{
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
-    pub(crate) entity_list: UniqueEntityVec<E>,
+    pub(crate) entity_list: UniqueEntityEquivalentVec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
+impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     QueryParManyUniqueIter<'w, 's, D, F, E>
 {
     /// Changes the batching strategy used when iterating.
@@ -363,7 +359,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///
     /// ```
     /// use bevy_utils::Parallel;
-    /// use crate::{bevy_ecs::{prelude::{Component, Res, Resource, Entity}, entity::unique_vec::UniqueEntityVec, system::Query}};
+    /// use crate::{bevy_ecs::{prelude::{Component, Res, Resource, Entity}, entity::UniqueEntityVec, system::Query}};
     /// # use core::slice;
     /// # use crate::bevy_ecs::entity::UniqueEntityIter;
     /// # fn some_expensive_operation(_item: &T) -> usize {
@@ -374,7 +370,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     /// struct T;
     ///
     /// #[derive(Resource)]
-    /// struct V(UniqueEntityVec<Entity>);
+    /// struct V(UniqueEntityVec);
     ///
     /// impl<'a> IntoIterator for &'a V {
     /// // ...
@@ -392,7 +388,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///     query.par_iter_many_unique(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item);
     ///     });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
@@ -461,8 +457,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     }
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn get_batch_size(&self, thread_count: usize) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
         self.batching_strategy
-            .calc_batch_size(|| self.entity_list.len(), thread_count)
+            .calc_batch_size(|| self.entity_list.len(), thread_count) as u32
     }
 }

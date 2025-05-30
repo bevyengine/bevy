@@ -1,5 +1,5 @@
 use alloc::{boxed::Box, vec::Vec};
-use bevy_utils::synccell::SyncCell;
+use bevy_platform::cell::SyncCell;
 use variadics_please::all_tuples;
 
 use crate::{
@@ -8,6 +8,7 @@ use crate::{
     resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
+        SystemParamValidationError, When,
     },
     world::{
         FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
@@ -455,9 +456,6 @@ macro_rules! impl_param_set_builder_tuple {
                     system_meta
                         .component_access_set
                         .extend($meta.component_access_set);
-                    system_meta
-                        .archetype_component_access
-                        .extend(&$meta.archetype_component_access);
                 )*
                 #[allow(
                     clippy::unused_unit,
@@ -471,7 +469,7 @@ macro_rules! impl_param_set_builder_tuple {
 
 all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
 
-// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+// SAFETY: Relevant parameter ComponentId access is applied to SystemMeta. If any ParamState conflicts
 // with any prior access, a panic will occur.
 unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
     SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
@@ -495,9 +493,6 @@ unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
             system_meta
                 .component_access_set
                 .extend(meta.component_access_set);
-            system_meta
-                .archetype_component_access
-                .extend(&meta.archetype_component_access);
         }
         states
     }
@@ -590,7 +585,7 @@ impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuil
     }
 }
 
-// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
+// SAFETY: Resource ComponentId access is applied to SystemMeta. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
     SystemParamBuilder<FilteredResources<'w, 's>> for FilteredResourcesParamBuilder<T>
@@ -615,15 +610,10 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
         if access.has_read_all_resources() {
             meta.component_access_set
                 .add_unfiltered_read_all_resources();
-            meta.archetype_component_access.read_all_resources();
         } else {
             for component_id in access.resource_reads_and_writes() {
                 meta.component_access_set
                     .add_unfiltered_resource_read(component_id);
-
-                let archetype_component_id = world.initialize_resource_internal(component_id).id();
-                meta.archetype_component_access
-                    .add_resource_read(archetype_component_id);
             }
         }
 
@@ -654,7 +644,7 @@ impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesM
     }
 }
 
-// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
+// SAFETY: Resource ComponentId access is applied to SystemMeta. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
     SystemParamBuilder<FilteredResourcesMut<'w, 's>> for FilteredResourcesMutParamBuilder<T>
@@ -679,34 +669,67 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
         if access.has_read_all_resources() {
             meta.component_access_set
                 .add_unfiltered_read_all_resources();
-            meta.archetype_component_access.read_all_resources();
         } else {
             for component_id in access.resource_reads() {
                 meta.component_access_set
                     .add_unfiltered_resource_read(component_id);
-
-                let archetype_component_id = world.initialize_resource_internal(component_id).id();
-                meta.archetype_component_access
-                    .add_resource_read(archetype_component_id);
             }
         }
 
         if access.has_write_all_resources() {
             meta.component_access_set
                 .add_unfiltered_write_all_resources();
-            meta.archetype_component_access.write_all_resources();
         } else {
             for component_id in access.resource_writes() {
                 meta.component_access_set
                     .add_unfiltered_resource_write(component_id);
-
-                let archetype_component_id = world.initialize_resource_internal(component_id).id();
-                meta.archetype_component_access
-                    .add_resource_write(archetype_component_id);
             }
         }
 
         access
+    }
+}
+
+/// A [`SystemParamBuilder`] for an [`Option`].
+#[derive(Clone)]
+pub struct OptionBuilder<T>(T);
+
+// SAFETY: `OptionBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Option<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Option<P>>
+    for OptionBuilder<B>
+{
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <Option<P> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`Result`] of [`SystemParamValidationError`].
+#[derive(Clone)]
+pub struct ResultBuilder<T>(T);
+
+// SAFETY: `ResultBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `Result<P, SystemParamValidationError>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>>
+    SystemParamBuilder<Result<P, SystemParamValidationError>> for ResultBuilder<B>
+{
+    fn build(
+        self,
+        world: &mut World,
+        meta: &mut SystemMeta,
+    ) -> <Result<P, SystemParamValidationError> as SystemParam>::State {
+        self.0.build(world, meta)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`When`].
+#[derive(Clone)]
+pub struct WhenBuilder<T>(T);
+
+// SAFETY: `WhenBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `When<P>`
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<When<P>>
+    for WhenBuilder<B>
+{
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <When<P> as SystemParam>::State {
+        self.0.build(world, meta)
     }
 }
 

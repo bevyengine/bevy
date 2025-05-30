@@ -13,11 +13,11 @@ use variadics_please::all_tuples;
 /// # Safety
 ///
 /// Implementor must ensure that
-/// [`update_component_access`], [`matches_component_set`], [`QueryData::fetch`], [`QueryFilter::filter_fetch`] and [`init_fetch`]
+/// [`update_component_access`], [`QueryData::provide_extra_access`], [`matches_component_set`], [`QueryData::fetch`], [`QueryFilter::filter_fetch`] and [`init_fetch`]
 /// obey the following:
 ///
-/// - For each component mutably accessed by [`QueryData::fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
-/// - For each component readonly accessed by [`QueryData::fetch`] or [`QueryFilter::filter_fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
+/// - For each component mutably accessed by [`QueryData::fetch`], [`update_component_access`] or [`QueryData::provide_extra_access`] should add write access unless read or write access has already been added, in which case it should panic.
+/// - For each component readonly accessed by [`QueryData::fetch`] or [`QueryFilter::filter_fetch`], [`update_component_access`] or [`QueryData::provide_extra_access`] should add read access unless write access has already been added, in which case it should panic.
 /// - If `fetch` mutably accesses the same component twice, [`update_component_access`] should panic.
 /// - [`update_component_access`] may not add a `Without` filter for a component unless [`matches_component_set`] always returns `false` when the component set contains that component.
 /// - [`update_component_access`] may not add a `With` filter for a component unless [`matches_component_set`] always returns `false` when the component set doesn't contain that component.
@@ -27,9 +27,11 @@ use variadics_please::all_tuples;
 ///     - Each filter in that disjunction must be a conjunction of the corresponding element's filter with the previous `access`
 /// - For each resource readonly accessed by [`init_fetch`], [`update_component_access`] should add read access.
 /// - Mutable resource access is not allowed.
+/// - Any access added during [`QueryData::provide_extra_access`] must be a subset of `available_access`, and must not conflict with any access in `access`.
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
+/// [`QueryData::provide_extra_access`]: crate::query::QueryData::provide_extra_access
 /// [`QueryData::fetch`]: crate::query::QueryData::fetch
 /// [`QueryFilter::filter_fetch`]: crate::query::QueryFilter::filter_fetch
 /// [`init_fetch`]: Self::init_fetch
@@ -100,12 +102,6 @@ pub unsafe trait WorldQuery {
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
-
-    /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
-    /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
-    ///
-    /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
-    fn set_access(_state: &mut Self::State, _access: &FilteredAccess<ComponentId>) {}
 
     /// Adds any component accesses used by this [`WorldQuery`] to `access`.
     ///

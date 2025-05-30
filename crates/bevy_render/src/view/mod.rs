@@ -1,7 +1,6 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
@@ -13,7 +12,7 @@ use crate::{
     },
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
-    prelude::Shader,
+    load_shader_library,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
@@ -24,7 +23,7 @@ use crate::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
         TextureCache,
     },
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
@@ -33,7 +32,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
@@ -45,8 +44,6 @@ use wgpu::{
     BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
-
-pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
 
 /// The matrix that converts from the RGB to the LMS color space.
 ///
@@ -101,7 +98,7 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
+        load_shader_library!(app, "view.wgsl");
 
         app.register_type::<InheritedVisibility>()
             .register_type::<ViewVisibility>()
@@ -114,6 +111,7 @@ impl Plugin for ViewPlugin {
             .register_type::<OcclusionCulling>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
+                ExtractComponentPlugin::<Hdr>::default(),
                 ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
                 VisibilityPlugin,
@@ -126,18 +124,18 @@ impl Plugin for ViewPlugin {
                 (
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
-                        .in_set(RenderSet::ManageViews)
+                        .in_set(RenderSystems::ManageViews)
                         .before(create_surfaces),
                     prepare_view_attachments
-                        .in_set(RenderSet::ManageViews)
+                        .in_set(RenderSystems::ManageViews)
                         .before(prepare_view_targets)
                         .after(prepare_windows),
                     prepare_view_targets
-                        .in_set(RenderSet::ManageViews)
+                        .in_set(RenderSystems::ManageViews)
                         .after(prepare_windows)
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
-                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+                    prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
                 ),
             );
         }
@@ -198,6 +196,16 @@ impl Msaa {
         }
     }
 }
+
+/// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
+/// This allows rendering with a wider range of lighting values. However, this does *not* affect
+/// whether the camera will render with hdr display output (which bevy does not support currently)
+/// and only affects the intermediate render texture.
+#[derive(
+    Component, Default, Copy, Clone, ExtractComponent, Reflect, PartialEq, Eq, Hash, Debug,
+)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
+pub struct Hdr;
 
 /// An identifier for a view that is stable across frames.
 ///
@@ -262,33 +270,35 @@ impl RetainedViewEntity {
 pub struct ExtractedView {
     /// The entity in the main world corresponding to this render world view.
     pub retained_view_entity: RetainedViewEntity,
-    /// Typically a right-handed projection matrix, one of either:
+    /// Typically a column-major right-handed projection matrix, one of either:
     ///
     /// Perspective (infinite reverse z)
     /// ```text
     /// f = 1 / tan(fov_y_radians / 2)
     ///
-    /// ⎡ f / aspect  0     0   0 ⎤
-    /// ⎢          0  f     0   0 ⎥
-    /// ⎢          0  0     0  -1 ⎥
-    /// ⎣          0  0  near   0 ⎦
+    /// ⎡ f / aspect  0   0     0 ⎤
+    /// ⎢          0  f   0     0 ⎥
+    /// ⎢          0  0   0  near ⎥
+    /// ⎣          0  0  -1     0 ⎦
     /// ```
     ///
     /// Orthographic
     /// ```text
     /// w = right - left
     /// h = top - bottom
-    /// d = near - far
+    /// d = far - near
     /// cw = -right - left
     /// ch = -top - bottom
     ///
-    /// ⎡  2 / w       0         0  0 ⎤
-    /// ⎢      0   2 / h         0  0 ⎥
-    /// ⎢      0       0     1 / d  0 ⎥
-    /// ⎣ cw / w  ch / h  near / d  1 ⎦
+    /// ⎡ 2 / w      0      0   cw / w ⎤
+    /// ⎢     0  2 / h      0   ch / h ⎥
+    /// ⎢     0      0  1 / d  far / d ⎥
+    /// ⎣     0      0      0        1 ⎦
     /// ```
     ///
     /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Glam matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
     ///
     /// Custom projections are also possible however.
     pub clip_from_view: Mat4,
@@ -529,33 +539,35 @@ pub struct ViewUniform {
     pub world_from_clip: Mat4,
     pub world_from_view: Mat4,
     pub view_from_world: Mat4,
-    /// Typically a right-handed projection matrix, one of either:
+    /// Typically a column-major right-handed projection matrix, one of either:
     ///
     /// Perspective (infinite reverse z)
     /// ```text
     /// f = 1 / tan(fov_y_radians / 2)
     ///
-    /// ⎡ f / aspect  0     0   0 ⎤
-    /// ⎢          0  f     0   0 ⎥
-    /// ⎢          0  0     0  -1 ⎥
-    /// ⎣          0  0  near   0 ⎦
+    /// ⎡ f / aspect  0   0     0 ⎤
+    /// ⎢          0  f   0     0 ⎥
+    /// ⎢          0  0   0  near ⎥
+    /// ⎣          0  0  -1     0 ⎦
     /// ```
     ///
     /// Orthographic
     /// ```text
     /// w = right - left
     /// h = top - bottom
-    /// d = near - far
+    /// d = far - near
     /// cw = -right - left
     /// ch = -top - bottom
     ///
-    /// ⎡  2 / w       0         0  0 ⎤
-    /// ⎢      0   2 / h         0  0 ⎥
-    /// ⎢      0       0     1 / d  0 ⎥
-    /// ⎣ cw / w  ch / h  near / d  1 ⎦
+    /// ⎡ 2 / w      0      0   cw / w ⎤
+    /// ⎢     0  2 / h      0   ch / h ⎥
+    /// ⎢     0      0  1 / d  far / d ⎥
+    /// ⎣     0      0      0        1 ⎦
     /// ```
     ///
     /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Glam matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
     ///
     /// Custom projections are also possible however.
     pub clip_from_view: Mat4,
@@ -711,6 +723,9 @@ impl From<ColorGrading> for ColorGradingUniform {
 ///
 /// The vast majority of applications will not need to use this component, as it
 /// generally reduces rendering performance.
+///
+/// Note: This component should only be added when initially spawning a camera. Adding
+/// or removing after spawn can result in unspecified behavior.
 #[derive(Component, Default)]
 pub struct NoIndirectDrawing;
 

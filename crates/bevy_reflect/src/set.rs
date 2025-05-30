@@ -1,9 +1,7 @@
 use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
-use bevy_platform_support::collections::{
-    hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable,
-};
+use bevy_platform::collections::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
@@ -68,12 +66,6 @@ pub trait Set: PartialReflect {
     ///
     /// After calling this function, `self` will be empty.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
-
-    /// Clones the set, producing a [`DynamicSet`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_set` instead")]
-    fn clone_dynamic(&self) -> DynamicSet {
-        self.to_dynamic_set()
-    }
 
     /// Creates a new [`DynamicSet`] from this set.
     fn to_dynamic_set(&self) -> DynamicSet {
@@ -166,8 +158,7 @@ impl DynamicSet {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Set(_)),
-                "expected TypeInfo::Set but received: {:?}",
-                represented_type
+                "expected TypeInfo::Set but received: {represented_type:?}"
             );
         }
 
@@ -369,7 +360,7 @@ impl<T: Reflect> FromIterator<T> for DynamicSet {
 
 impl IntoIterator for DynamicSet {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = bevy_platform_support::collections::hash_table::IntoIter<Self::Item>;
+    type IntoIter = bevy_platform::collections::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.hash_table.into_iter()
@@ -379,7 +370,7 @@ impl IntoIterator for DynamicSet {
 impl<'a> IntoIterator for &'a DynamicSet {
     type Item = &'a dyn PartialReflect;
     type IntoIter = core::iter::Map<
-        bevy_platform_support::collections::hash_table::Iter<'a, Box<dyn PartialReflect>>,
+        bevy_platform::collections::hash_table::Iter<'a, Box<dyn PartialReflect>>,
         fn(&'a Box<dyn PartialReflect>) -> Self::Item,
     >;
 

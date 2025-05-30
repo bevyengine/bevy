@@ -11,7 +11,9 @@ keywords = ["bevy"]
 [features]
 default = ["bevy_reflect"]
 
-bevy_reflect = ["dep:bevy_reflect", "bevy_math/bevy_reflect"]
+# bevy_reflect can't optional as it's needed for TypePath
+# this feature only control reflection in bevy_image
+bevy_reflect = ["bevy_math/bevy_reflect"]
 
 # Image formats
 basis-universal = ["dep:basis-universal"]
@@ -30,11 +32,7 @@ qoi = ["image/qoi"]
 tga = ["image/tga"]
 tiff = ["image/tiff"]
 webp = ["image/webp"]
-serialize = [
-  "bevy_reflect",
-  "bevy_platform_support/serialize",
-  "bevy_utils/serde",
-]
+serialize = ["bevy_reflect", "bevy_platform/serialize"]
 
 # For ktx2 supercompression
 zlib = ["flate2"]
@@ -48,10 +46,11 @@ bevy_color = { path = "../bevy_color", version = "0.16.0-dev", features = [
   "serialize",
   "wgpu-types",
 ] }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", optional = true }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
 ] }
 
@@ -68,7 +67,7 @@ futures-lite = "2.0.1"
 guillotiere = "0.6.0"
 rectangle-pack = "0.4"
 ddsfile = { version = "0.5.2", optional = true }
-ktx2 = { version = "0.3.0", optional = true }
+ktx2 = { version = "0.4.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.8.0", optional = true }

@@ -13,11 +13,8 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
-    system::{
-        command::HandleError,
-        entity_command::{self, CommandWithEntity},
-        error_handler, Commands,
-    },
+    error::{ignore, CommandWithEntity, HandleError},
+    system::entity_command::{self},
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
@@ -161,19 +158,21 @@ pub trait Relationship: Component + Sized {
             {
                 relationship_target.collection_mut_risky().remove(entity);
                 if relationship_target.len() == 0 {
-                    if let Ok(mut entity) = world.commands().get_entity(target_entity) {
+                    let command = |mut entity: EntityWorldMut| {
                         // this "remove" operation must check emptiness because in the event that an identical
                         // relationship is inserted on top, this despawn would result in the removal of that identical
                         // relationship ... not what we want!
-                        entity.queue(|mut entity: EntityWorldMut| {
-                            if entity
-                                .get::<Self::RelationshipTarget>()
-                                .is_some_and(RelationshipTarget::is_empty)
-                            {
-                                entity.remove::<Self::RelationshipTarget>();
-                            }
-                        });
-                    }
+                        if entity
+                            .get::<Self::RelationshipTarget>()
+                            .is_some_and(RelationshipTarget::is_empty)
+                        {
+                            entity.remove::<Self::RelationshipTarget>();
+                        }
+                    };
+
+                    world
+                        .commands()
+                        .queue(command.with_entity(target_entity).handle_error_with(ignore));
                 }
             }
         }
@@ -212,12 +211,14 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     ///
     /// # Warning
     /// This should generally not be called by user code, as modifying the internal collection could invalidate the relationship.
+    /// The collection should not contain duplicates.
     fn collection_mut_risky(&mut self) -> &mut Self::Collection;
 
     /// Creates a new [`RelationshipTarget`] from the given [`RelationshipTarget::Collection`].
     ///
     /// # Warning
     /// This should generally not be called by user code, as constructing the internal collection could invalidate the relationship.
+    /// The collection should not contain duplicates.
     fn from_collection_risky(collection: Self::Collection) -> Self;
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
@@ -230,7 +231,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                 commands.queue(
                     entity_command::remove::<Self::Relationship>()
                         .with_entity(source_entity)
-                        .handle_error_with(error_handler::silent()),
+                        .handle_error_with(ignore),
                 );
             } else {
                 warn!(
@@ -255,7 +256,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                 commands.queue(
                     entity_command::despawn()
                         .with_entity(source_entity)
-                        .handle_error_with(error_handler::silent()),
+                        .handle_error_with(ignore),
                 );
             } else {
                 warn!(
@@ -304,7 +305,6 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 /// This will also queue up clones of the relationship sources if the [`EntityCloner`](crate::entity::EntityCloner) is configured
 /// to spawn recursively.
 pub fn clone_relationship_target<T: RelationshipTarget>(
-    _commands: &mut Commands,
     source: &SourceComponent,
     context: &mut ComponentCloneCtx,
 ) {
@@ -388,5 +388,101 @@ mod tests {
         let b = world.spawn(Rel(a)).id();
         assert!(!world.entity(b).contains::<Rel>());
         assert!(!world.entity(b).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn relationship_with_multiple_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target)]
+        #[expect(dead_code, reason = "test struct")]
+        struct Source {
+            #[relationship]
+            target: Entity,
+            foo: u8,
+            bar: u8,
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source)]
+        struct Target(Vec<Entity>);
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+    #[test]
+    fn relationship_target_with_multiple_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target)]
+        struct Source(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source)]
+        #[expect(dead_code, reason = "test struct")]
+        struct Target {
+            #[relationship]
+            target: Vec<Entity>,
+            foo: u8,
+            bar: u8,
+        }
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+
+    #[test]
+    fn parent_child_relationship_with_custom_relationship() {
+        use crate::prelude::ChildOf;
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Entity);
+
+        let mut world = World::new();
+
+        // Rel on Parent
+        // Despawn Parent
+        let mut commands = world.commands();
+        let child = commands.spawn_empty().id();
+        let parent = commands.spawn(Rel(child)).add_child(child).id();
+        commands.entity(parent).despawn();
+        world.flush();
+
+        assert!(world.get_entity(child).is_err());
+        assert!(world.get_entity(parent).is_err());
+
+        // Rel on Parent
+        // Despawn Child
+        let mut commands = world.commands();
+        let child = commands.spawn_empty().id();
+        let parent = commands.spawn(Rel(child)).add_child(child).id();
+        commands.entity(child).despawn();
+        world.flush();
+
+        assert!(world.get_entity(child).is_err());
+        assert!(!world.entity(parent).contains::<Rel>());
+
+        // Rel on Child
+        // Despawn Parent
+        let mut commands = world.commands();
+        let parent = commands.spawn_empty().id();
+        let child = commands.spawn((ChildOf(parent), Rel(parent))).id();
+        commands.entity(parent).despawn();
+        world.flush();
+
+        assert!(world.get_entity(child).is_err());
+        assert!(world.get_entity(parent).is_err());
+
+        // Rel on Child
+        // Despawn Child
+        let mut commands = world.commands();
+        let parent = commands.spawn_empty().id();
+        let child = commands.spawn((ChildOf(parent), Rel(parent))).id();
+        commands.entity(child).despawn();
+        world.flush();
+
+        assert!(world.get_entity(child).is_err());
+        assert!(!world.entity(parent).contains::<RelTarget>());
     }
 }

@@ -1,75 +1,154 @@
-use crate::{component::Tick, error::BevyError, resource::Resource};
+use core::fmt::Display;
+
+use crate::{component::Tick, error::BevyError, prelude::Resource};
 use alloc::borrow::Cow;
+use derive_more::derive::{Deref, DerefMut};
 
-/// Additional context for a failed system run.
-pub struct SystemErrorContext {
-    /// The name of the system that failed.
-    pub name: Cow<'static, str>,
-
-    /// The last tick that the system was run.
-    pub last_run: Tick,
+/// Context for a [`BevyError`] to aid in debugging.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ErrorContext {
+    /// The error occurred in a system.
+    System {
+        /// The name of the system that failed.
+        name: Cow<'static, str>,
+        /// The last tick that the system was run.
+        last_run: Tick,
+    },
+    /// The error occurred in a run condition.
+    RunCondition {
+        /// The name of the run condition that failed.
+        name: Cow<'static, str>,
+        /// The last tick that the run condition was evaluated.
+        last_run: Tick,
+    },
+    /// The error occurred in a command.
+    Command {
+        /// The name of the command that failed.
+        name: Cow<'static, str>,
+    },
+    /// The error occurred in an observer.
+    Observer {
+        /// The name of the observer that failed.
+        name: Cow<'static, str>,
+        /// The last tick that the observer was run.
+        last_run: Tick,
+    },
 }
 
-/// The default systems error handler stored as a resource in the [`World`](crate::world::World).
-pub struct DefaultSystemErrorHandler(pub fn(BevyError, SystemErrorContext));
+impl Display for ErrorContext {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::System { name, .. } => {
+                write!(f, "System `{name}` failed")
+            }
+            Self::Command { name } => write!(f, "Command `{name}` failed"),
+            Self::Observer { name, .. } => {
+                write!(f, "Observer `{name}` failed")
+            }
+            Self::RunCondition { name, .. } => {
+                write!(f, "Run condition `{name}` failed")
+            }
+        }
+    }
+}
 
-impl Resource for DefaultSystemErrorHandler {}
+impl ErrorContext {
+    /// The name of the ECS construct that failed.
+    pub fn name(&self) -> &str {
+        match self {
+            Self::System { name, .. }
+            | Self::Command { name, .. }
+            | Self::Observer { name, .. }
+            | Self::RunCondition { name, .. } => name,
+        }
+    }
 
-impl Default for DefaultSystemErrorHandler {
-    fn default() -> Self {
-        Self(panic)
+    /// A string representation of the kind of ECS construct that failed.
+    ///
+    /// This is a simpler helper used for logging.
+    pub fn kind(&self) -> &str {
+        match self {
+            Self::System { .. } => "system",
+            Self::Command { .. } => "command",
+            Self::Observer { .. } => "observer",
+            Self::RunCondition { .. } => "run condition",
+        }
     }
 }
 
 macro_rules! inner {
     ($call:path, $e:ident, $c:ident) => {
-        $call!("Encountered an error in system `{}`: {:?}", $c.name, $e);
+        $call!(
+            "Encountered an error in {} `{}`: {}",
+            $c.kind(),
+            $c.name(),
+            $e
+        );
     };
+}
+
+/// Defines how Bevy reacts to errors.
+pub type ErrorHandler = fn(BevyError, ErrorContext);
+
+/// Error handler to call when an error is not handled otherwise.
+/// Defaults to [`panic()`].
+///
+/// When updated while a [`Schedule`] is running, it doesn't take effect for
+/// that schedule until it's completed.
+///
+/// [`Schedule`]: crate::schedule::Schedule
+#[derive(Resource, Deref, DerefMut, Copy, Clone)]
+pub struct DefaultErrorHandler(pub ErrorHandler);
+
+impl Default for DefaultErrorHandler {
+    fn default() -> Self {
+        Self(panic)
+    }
 }
 
 /// Error handler that panics with the system error.
 #[track_caller]
 #[inline]
-pub fn panic(error: BevyError, ctx: SystemErrorContext) {
+pub fn panic(error: BevyError, ctx: ErrorContext) {
     inner!(panic, error, ctx);
 }
 
 /// Error handler that logs the system error at the `error` level.
 #[track_caller]
 #[inline]
-pub fn error(error: BevyError, ctx: SystemErrorContext) {
+pub fn error(error: BevyError, ctx: ErrorContext) {
     inner!(log::error, error, ctx);
 }
 
 /// Error handler that logs the system error at the `warn` level.
 #[track_caller]
 #[inline]
-pub fn warn(error: BevyError, ctx: SystemErrorContext) {
+pub fn warn(error: BevyError, ctx: ErrorContext) {
     inner!(log::warn, error, ctx);
 }
 
 /// Error handler that logs the system error at the `info` level.
 #[track_caller]
 #[inline]
-pub fn info(error: BevyError, ctx: SystemErrorContext) {
+pub fn info(error: BevyError, ctx: ErrorContext) {
     inner!(log::info, error, ctx);
 }
 
 /// Error handler that logs the system error at the `debug` level.
 #[track_caller]
 #[inline]
-pub fn debug(error: BevyError, ctx: SystemErrorContext) {
+pub fn debug(error: BevyError, ctx: ErrorContext) {
     inner!(log::debug, error, ctx);
 }
 
 /// Error handler that logs the system error at the `trace` level.
 #[track_caller]
 #[inline]
-pub fn trace(error: BevyError, ctx: SystemErrorContext) {
+pub fn trace(error: BevyError, ctx: ErrorContext) {
     inner!(log::trace, error, ctx);
 }
 
 /// Error handler that ignores the system error.
 #[track_caller]
 #[inline]
-pub fn ignore(_: BevyError, _: SystemErrorContext) {}
+pub fn ignore(_: BevyError, _: ErrorContext) {}

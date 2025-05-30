@@ -8,18 +8,22 @@ pub use crate::render_resource::DefaultImageSampler;
 use bevy_image::CompressedImageSaver;
 #[cfg(feature = "hdr")]
 use bevy_image::HdrTextureLoader;
-use bevy_image::{CompressedImageFormats, Image, ImageLoader, ImageSamplerDescriptor};
+use bevy_image::{
+    CompressedImageFormatSupport, CompressedImageFormats, Image, ImageLoader,
+    ImageSamplerDescriptor,
+};
 pub use fallback_image::*;
 pub use gpu_image::*;
 pub use texture_attachment::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
+    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{weak_handle, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
+use tracing::warn;
 
 /// A handle to a 1 x 1 transparent white image.
 ///
@@ -100,7 +104,7 @@ impl Plugin for ImagePlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<TextureCache>().add_systems(
                 Render,
-                update_texture_cache_system.in_set(RenderSet::Cleanup),
+                update_texture_cache_system.in_set(RenderSystems::Cleanup),
             );
         }
 
@@ -111,12 +115,16 @@ impl Plugin for ImagePlugin {
 
     fn finish(&self, app: &mut App) {
         if !ImageLoader::SUPPORTED_FORMATS.is_empty() {
-            let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
-                Some(render_device) => {
-                    CompressedImageFormats::from_features(render_device.features())
-                }
-                None => CompressedImageFormats::NONE,
+            let supported_compressed_formats = if let Some(resource) =
+                app.world().get_resource::<CompressedImageFormatSupport>()
+            {
+                resource.0
+            } else {
+                warn!("CompressedImageFormatSupport resource not found. It should either be initialized in finish() of \
+                       RenderPlugin, or manually if not using the RenderPlugin or the WGPU backend.");
+                CompressedImageFormats::NONE
             };
+
             app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
         }
 

@@ -23,7 +23,6 @@ decoupled_naga = []
 
 # Texture formats (require more than just image support)
 basis-universal = ["bevy_image/basis-universal"]
-dds = ["bevy_image/dds"]
 exr = ["bevy_image/exr"]
 hdr = ["bevy_image/hdr"]
 ktx2 = ["dep:ktx2", "bevy_image/ktx2"]
@@ -42,7 +41,7 @@ spirv_shader_passthrough = ["wgpu/spirv"]
 statically-linked-dxc = ["wgpu/static-dxc"]
 
 trace = ["profiling"]
-tracing-tracy = []
+tracing-tracy = ["dep:tracy-client"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
@@ -66,11 +65,13 @@ bevy_render_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.16.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", features = [
+  "wgpu_wrapper",
+] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-dev" }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "std",
   "serialize",
 ] }
@@ -98,7 +99,7 @@ downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 futures-lite = "2.0.1"
-ktx2 = { version = "0.3.0", optional = true }
+ktx2 = { version = "0.4.0", optional = true }
 encase = { version = "0.10", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [
@@ -110,6 +111,7 @@ smallvec = { version = "1.11", features = ["const_new"] }
 offset-allocator = "0.2"
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracy-client = { version = "0.18.0", optional = true }
 indexmap = { version = "2" }
 fixedbitset = { version = "0.5" }
 bitflags = "2"
@@ -144,15 +146,12 @@ bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = fa
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
-
-[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
-send_wrapper = "0.6.0"
 
 [lints]
 workspace = true

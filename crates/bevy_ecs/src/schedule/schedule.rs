@@ -2,6 +2,7 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
+use alloc::borrow::Cow;
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -10,7 +11,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
@@ -26,7 +27,6 @@ use tracing::info_span;
 
 use crate::{
     component::{ComponentId, Components, Tick},
-    error::{BevyError, DefaultSystemErrorHandler, SystemErrorContext},
     prelude::Component,
     resource::Resource,
     schedule::*,
@@ -217,6 +217,7 @@ impl Schedules {
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
     match kind {
+        #[expect(deprecated, reason = "We still need to support this.")]
         ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
         ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
         #[cfg(feature = "std")]
@@ -256,8 +257,16 @@ impl Chain {
 /// A collection of systems, and the metadata and executor needed to run them
 /// in a certain order under certain conditions.
 ///
+/// # Schedule labels
+///
+/// Each schedule has a [`ScheduleLabel`] value. This value is used to uniquely identify the
+/// schedule when added to a [`World`]’s [`Schedules`], and may be used to specify which schedule
+/// a system should be added to.
+///
 /// # Example
+///
 /// Here is an example of a `Schedule` running a "Hello world" system:
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn hello_world() { println!("Hello world!") }
@@ -272,6 +281,7 @@ impl Chain {
 /// ```
 ///
 /// A schedule can also run several systems in an ordered way:
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn system_one() { println!("System 1 works!") }
@@ -290,13 +300,38 @@ impl Chain {
 ///     schedule.run(&mut world);
 /// }
 /// ```
+///
+/// Schedules are often inserted into a [`World`] and identified by their [`ScheduleLabel`] only:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::schedule::ScheduleLabel;
+///
+/// // Declare a new schedule label.
+/// #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+/// struct Update;
+///
+/// // This system shall be part of the schedule.
+/// fn an_update_system() {
+///     println!("Hello world!");
+/// }
+///
+/// fn main() {
+///     let mut world = World::new();
+///
+///     // Add a system to the schedule with that label (creating it automatically).
+///     world.get_resource_or_init::<Schedules>().add_systems(Update, an_update_system);
+///
+///     // Run the schedule, and therefore run the system.
+///     world.run_schedule(Update);
+/// }
+/// ```
 pub struct Schedule {
     label: InternedScheduleLabel,
     graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
-    error_handler: Option<fn(BevyError, SystemErrorContext)>,
 }
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
@@ -321,14 +356,14 @@ impl Schedule {
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
-            error_handler: None,
         };
         // Call `set_build_settings` to add any default build passes
         this.set_build_settings(Default::default());
         this
     }
 
-    /// Get the `InternedScheduleLabel` for this `Schedule`.
+    /// Returns the [`InternedScheduleLabel`] for this `Schedule`,
+    /// corresponding to the [`ScheduleLabel`] this schedule was created with.
     pub fn label(&self) -> InternedScheduleLabel {
         self.label
     }
@@ -395,21 +430,26 @@ impl Schedule {
     }
 
     /// Changes miscellaneous build settings.
+    ///
+    /// If [`settings.auto_insert_apply_deferred`][ScheduleBuildSettings::auto_insert_apply_deferred]
+    /// is `false`, this clears `*_ignore_deferred` edge settings configured so far.
+    ///
+    /// Generally this method should be used before adding systems or set configurations to the schedule,
+    /// not after.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         if settings.auto_insert_apply_deferred {
-            self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
+            if !self
+                .graph
+                .passes
+                .contains_key(&TypeId::of::<passes::AutoInsertApplyDeferredPass>())
+            {
+                self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
+            }
         } else {
             self.remove_build_pass::<passes::AutoInsertApplyDeferredPass>();
         }
         self.graph.settings = settings;
         self
-    }
-
-    /// Set the error handler to use for systems that return a [`Result`](crate::error::Result).
-    ///
-    /// See the [`error` module-level documentation](crate::error) for more information.
-    pub fn set_error_handler(&mut self, error_handler: fn(BevyError, SystemErrorContext)) {
-        self.error_handler = Some(error_handler);
     }
 
     /// Returns the schedule's current `ScheduleBuildSettings`.
@@ -449,7 +489,7 @@ impl Schedule {
         self.initialize(world)
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
-        let error_handler = self.error_handler.expect("schedule initialized");
+        let error_handler = world.default_error_handler();
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
@@ -490,10 +530,6 @@ impl Schedule {
             )?;
             self.graph.changed = false;
             self.executor_initialized = false;
-        }
-
-        if self.error_handler.is_none() {
-            self.error_handler = Some(world.get_resource_or_init::<DefaultSystemErrorHandler>().0);
         }
 
         if !self.executor_initialized {
@@ -1915,7 +1951,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&'a str>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<Cow<'a, str>>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
@@ -2072,6 +2108,7 @@ mod tests {
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
+        error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, Res, Resource},
         schedule::{
             tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, SystemSet,
@@ -2087,6 +2124,46 @@ mod tests {
 
     #[derive(Resource)]
     struct Resource2;
+
+    #[test]
+    fn unchanged_auto_insert_apply_deferred_has_no_effect() {
+        use alloc::{vec, vec::Vec};
+
+        #[derive(PartialEq, Debug)]
+        enum Entry {
+            System(usize),
+            SyncPoint(usize),
+        }
+
+        #[derive(Resource, Default)]
+        struct Log(Vec<Entry>);
+
+        fn system<const N: usize>(mut res: ResMut<Log>, mut commands: Commands) {
+            res.0.push(Entry::System(N));
+            commands
+                .queue(|world: &mut World| world.resource_mut::<Log>().0.push(Entry::SyncPoint(N)));
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Log>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system::<1>, system::<2>).chain_ignore_deferred());
+        schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_apply_deferred: true,
+            ..Default::default()
+        });
+        schedule.run(&mut world);
+        let actual = world.remove_resource::<Log>().unwrap().0;
+
+        let expected = vec![
+            Entry::System(1),
+            Entry::System(2),
+            Entry::SyncPoint(1),
+            Entry::SyncPoint(2),
+        ];
+
+        assert_eq!(actual, expected);
+    }
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]
@@ -2820,5 +2897,33 @@ mod tests {
             .get_resource::<CheckSystemRan>()
             .expect("CheckSystemRan Resource Should Exist");
         assert_eq!(value.0, 2);
+    }
+
+    #[test]
+    fn test_default_error_handler() {
+        #[derive(Resource, Default)]
+        struct Ran(bool);
+
+        fn system(mut ran: ResMut<Ran>) -> Result {
+            ran.0 = true;
+            Err("I failed!".into())
+        }
+
+        // Test that the default error handler is used
+        let mut world = World::default();
+        world.init_resource::<Ran>();
+        world.insert_resource(DefaultErrorHandler(ignore));
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system).run(&mut world);
+        assert!(world.resource::<Ran>().0);
+
+        // Test that the handler doesn't change within the schedule
+        schedule.add_systems(
+            (|world: &mut World| {
+                world.insert_resource(DefaultErrorHandler(panic));
+            })
+            .before(system),
+        );
+        schedule.run(&mut world);
     }
 }

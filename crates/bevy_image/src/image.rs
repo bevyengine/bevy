@@ -4,16 +4,18 @@ use super::basis::*;
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+#[cfg(not(feature = "bevy_reflect"))]
+use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
+use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::warn;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
     SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -338,13 +340,14 @@ impl ImageFormat {
     derive(Reflect),
     reflect(opaque, Default, Debug, Clone)
 )]
+#[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub struct Image {
     /// Raw pixel data.
     /// If the image is being used as a storage texture which doesn't need to be initialized by the
-    /// CPU, then this should be `None`
-    /// Otherwise, it should always be `Some`
+    /// CPU, then this should be `None`.
+    /// Otherwise, it should always be `Some`.
     pub data: Option<Vec<u8>>,
-    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
+    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
@@ -355,7 +358,7 @@ pub struct Image {
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
 /// [`ImageSampler::Default`], will read the sampler from the `ImagePlugin` at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the `ImagePlugin` setup.
     #[default]
@@ -400,7 +403,7 @@ impl ImageSampler {
 /// See [`ImageSamplerDescriptor`] for information how to configure this.
 ///
 /// This type mirrors [`AddressMode`].
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum ImageAddressMode {
     /// Clamp the value to the edge of the texture.
     ///
@@ -429,7 +432,7 @@ pub enum ImageAddressMode {
 /// Texel mixing mode when sampling between texels.
 ///
 /// This type mirrors [`FilterMode`].
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum ImageFilterMode {
     /// Nearest neighbor sampling.
     ///
@@ -445,7 +448,7 @@ pub enum ImageFilterMode {
 /// Comparison function used for depth and stencil operations.
 ///
 /// This type mirrors [`CompareFunction`].
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ImageCompareFunction {
     /// Function never passes
     Never,
@@ -472,7 +475,7 @@ pub enum ImageCompareFunction {
 /// Color variation to use when the sampler addressing mode is [`ImageAddressMode::ClampToBorder`].
 ///
 /// This type mirrors [`SamplerBorderColor`].
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ImageSamplerBorderColor {
     /// RGBA color `[0, 0, 0, 0]`.
     TransparentBlack,
@@ -495,7 +498,7 @@ pub enum ImageSamplerBorderColor {
 /// a breaking change.
 ///
 /// This types mirrors [`SamplerDescriptor`], but that might change in future versions.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ImageSamplerDescriptor {
     pub label: Option<String>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.
@@ -847,7 +850,7 @@ impl Image {
     }
 
     /// Resizes the image to the new size, by removing information or appending 0 to the `data`.
-    /// Does not properly resize the contents of the image, but only its internal `data` buffer.
+    /// Does not properly scale the contents of the image.
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
         if let Some(ref mut data) = self.data {
@@ -855,8 +858,6 @@ impl Image {
                 size.volume() * self.texture_descriptor.format.pixel_size(),
                 0,
             );
-        } else {
-            warn!("Resized an uninitialized image. Directly modify image.texture_descriptor.size instead");
         }
     }
 
@@ -928,16 +929,11 @@ impl Image {
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
     pub fn from_buffer(
-        #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
-        #[expect(
-            clippy::allow_attributes,
-            reason = "`unused_variables` may not always lint"
-        )]
-        #[allow(
-            unused_variables,
-            reason = "`supported_compressed_formats` is needed where the image format is `Basis`, `Dds`, or `Ktx2`; if these are disabled, then `supported_compressed_formats` is unused."
+        #[cfg_attr(
+            not(any(feature = "basis-universal", feature = "dds", feature = "ktx2")),
+            expect(unused_variables, reason = "only used with certain features")
         )]
         supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
@@ -958,13 +954,7 @@ impl Image {
                 basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(
-                #[cfg(debug_assertions)]
-                name,
-                buffer,
-                supported_compressed_formats,
-                is_srgb,
-            )?,
+            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
@@ -1658,6 +1648,12 @@ impl CompressedImageFormats {
         }
     }
 }
+
+/// For defining which compressed image formats are supported. This will be initialized from available device features
+/// in `finish()` of the bevy `RenderPlugin`, but is left for the user to specify if not using the `RenderPlugin`, or
+/// the WGPU backend.
+#[derive(Resource)]
+pub struct CompressedImageFormatSupport(pub CompressedImageFormats);
 
 #[cfg(test)]
 mod test {

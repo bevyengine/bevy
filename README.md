@@ -75,7 +75,7 @@ To draw a window with standard functionality enabled, use:
 ```rust
 use bevy::prelude::*;
 
-fn main(){
+fn main() {
   App::new()
     .add_plugins(DefaultPlugins)
     .run();

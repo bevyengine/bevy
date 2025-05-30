@@ -20,6 +20,7 @@ fn main() {
         .add_systems(OnEnter(Scene::Overflow), overflow::setup)
         .add_systems(OnEnter(Scene::Slice), slice::setup)
         .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
+        .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
         .add_systems(Update, switch_scene);
 
     #[cfg(feature = "bevy_ci_testing")]
@@ -41,6 +42,7 @@ enum Scene {
     Overflow,
     Slice,
     LayoutRounding,
+    RadialGradient,
 }
 
 impl Next for Scene {
@@ -54,7 +56,8 @@ impl Next for Scene {
             Scene::TextWrap => Scene::Overflow,
             Scene::Overflow => Scene::Slice,
             Scene::Slice => Scene::LayoutRounding,
-            Scene::LayoutRounding => Scene::Image,
+            Scene::LayoutRounding => Scene::RadialGradient,
+            Scene::RadialGradient => Scene::Image,
         }
     }
 }
@@ -74,10 +77,10 @@ mod image {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Image)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Image)));
         commands.spawn((
             ImageNode::new(asset_server.load("branding/bevy_logo_dark.png")),
-            StateScoped(super::Scene::Image),
+            DespawnOnExitState(super::Scene::Image),
         ));
     }
 }
@@ -86,7 +89,7 @@ mod text {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Text)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Text)));
         commands.spawn((
             Text::new("Hello World."),
             TextFont {
@@ -94,7 +97,7 @@ mod text {
                 font_size: 200.,
                 ..default()
             },
-            StateScoped(super::Scene::Text),
+            DespawnOnExitState(super::Scene::Text),
         ));
     }
 }
@@ -103,28 +106,26 @@ mod grid {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Grid)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Grid)));
         // Top-level grid (app frame)
-        commands
-            .spawn((
-                Node {
-                    display: Display::Grid,
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
-                    grid_template_rows: vec![
-                        GridTrack::auto(),
-                        GridTrack::flex(1.0),
-                        GridTrack::px(40.),
-                    ],
-                    ..default()
-                },
-                BackgroundColor(Color::WHITE),
-                StateScoped(super::Scene::Grid),
-            ))
-            .with_children(|builder| {
+        commands.spawn((
+            Node {
+                display: Display::Grid,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
+                grid_template_rows: vec![
+                    GridTrack::auto(),
+                    GridTrack::flex(1.0),
+                    GridTrack::px(40.),
+                ],
+                ..default()
+            },
+            BackgroundColor(Color::WHITE),
+            DespawnOnExitState(super::Scene::Grid),
+            children![
                 // Header
-                builder.spawn((
+                (
                     Node {
                         display: Display::Grid,
                         grid_column: GridPlacement::span(2),
@@ -132,34 +133,32 @@ mod grid {
                         ..default()
                     },
                     BackgroundColor(RED.into()),
-                ));
-
+                ),
                 // Main content grid (auto placed in row 2, column 1)
-                builder
-                    .spawn((
-                        Node {
-                            height: Val::Percent(100.0),
-                            aspect_ratio: Some(1.0),
-                            display: Display::Grid,
-                            grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
-                            grid_template_rows: RepeatedGridTrack::flex(2, 1.0),
-                            row_gap: Val::Px(12.0),
-                            column_gap: Val::Px(12.0),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-                    ))
-                    .with_children(|builder| {
-                        builder.spawn((Node::default(), BackgroundColor(ORANGE.into())));
-                        builder.spawn((Node::default(), BackgroundColor(BISQUE.into())));
-                        builder.spawn((Node::default(), BackgroundColor(BLUE.into())));
-                        builder.spawn((Node::default(), BackgroundColor(CRIMSON.into())));
-                        builder.spawn((Node::default(), BackgroundColor(AQUA.into())));
-                    });
-
+                (
+                    Node {
+                        height: Val::Percent(100.0),
+                        aspect_ratio: Some(1.0),
+                        display: Display::Grid,
+                        grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
+                        grid_template_rows: RepeatedGridTrack::flex(2, 1.0),
+                        row_gap: Val::Px(12.0),
+                        column_gap: Val::Px(12.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+                    children![
+                        (Node::default(), BackgroundColor(ORANGE.into())),
+                        (Node::default(), BackgroundColor(BISQUE.into())),
+                        (Node::default(), BackgroundColor(BLUE.into())),
+                        (Node::default(), BackgroundColor(CRIMSON.into())),
+                        (Node::default(), BackgroundColor(AQUA.into())),
+                    ]
+                ),
                 // Right side bar (auto placed in row 2, column 2)
-                builder.spawn((Node::DEFAULT, BackgroundColor(BLACK.into())));
-            });
+                (Node::DEFAULT, BackgroundColor(BLACK.into())),
+            ],
+        ));
     }
 }
 
@@ -167,14 +166,14 @@ mod borders {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Borders)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Borders)));
         let root = commands
             .spawn((
                 Node {
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
-                StateScoped(super::Scene::Borders),
+                DespawnOnExitState(super::Scene::Borders),
             ))
             .id();
 
@@ -231,7 +230,7 @@ mod borders {
                             ..default()
                         },
                         BackgroundColor(MAROON.into()),
-                        BorderColor(RED.into()),
+                        BorderColor::all(RED.into()),
                         Outline {
                             width: Val::Px(10.),
                             offset: Val::Px(10.),
@@ -260,7 +259,7 @@ mod box_shadow {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::BoxShadow)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::BoxShadow)));
 
         commands
             .spawn((
@@ -273,7 +272,7 @@ mod box_shadow {
                     ..default()
                 },
                 BackgroundColor(GREEN.into()),
-                StateScoped(super::Scene::BoxShadow),
+                DespawnOnExitState(super::Scene::BoxShadow),
             ))
             .with_children(|commands| {
                 let example_nodes = [
@@ -323,7 +322,7 @@ mod box_shadow {
                             border: UiRect::all(Val::Px(2.)),
                             ..default()
                         },
-                        BorderColor(WHITE.into()),
+                        BorderColor::all(WHITE.into()),
                         border_radius,
                         BackgroundColor(BLUE.into()),
                         BoxShadow::new(
@@ -343,7 +342,7 @@ mod text_wrap {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::TextWrap)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::TextWrap)));
 
         let root = commands
             .spawn((
@@ -355,7 +354,7 @@ mod text_wrap {
                     ..default()
                 },
                 BackgroundColor(Color::BLACK),
-                StateScoped(super::Scene::TextWrap),
+                DespawnOnExitState(super::Scene::TextWrap),
             ))
             .id();
 
@@ -385,7 +384,7 @@ mod overflow {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Overflow)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Overflow)));
         let image = asset_server.load("branding/icon.png");
 
         commands
@@ -398,7 +397,7 @@ mod overflow {
                     ..Default::default()
                 },
                 BackgroundColor(BLUE.into()),
-                StateScoped(super::Scene::Overflow),
+                DespawnOnExitState(super::Scene::Overflow),
             ))
             .with_children(|parent| {
                 for overflow in [
@@ -421,7 +420,7 @@ mod overflow {
                                 overflow,
                                 ..default()
                             },
-                            BorderColor(RED.into()),
+                            BorderColor::all(RED.into()),
                             BackgroundColor(Color::WHITE),
                         ))
                         .with_children(|parent| {
@@ -449,7 +448,7 @@ mod slice {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Slice)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Slice)));
         let image = asset_server.load("textures/fantasy_ui_borders/numbered_slices.png");
 
         let slicer = TextureSlicer {
@@ -467,7 +466,7 @@ mod slice {
                     justify_content: JustifyContent::SpaceAround,
                     ..default()
                 },
-                StateScoped(super::Scene::Slice),
+                DespawnOnExitState(super::Scene::Slice),
             ))
             .with_children(|parent| {
                 for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
@@ -493,7 +492,7 @@ mod layout_rounding {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::LayoutRounding)));
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::LayoutRounding)));
 
         commands
             .spawn((
@@ -505,7 +504,7 @@ mod layout_rounding {
                     ..Default::default()
                 },
                 BackgroundColor(Color::WHITE),
-                StateScoped(super::Scene::LayoutRounding),
+                DespawnOnExitState(super::Scene::LayoutRounding),
             ))
             .with_children(|commands| {
                 for i in 2..12 {
@@ -523,10 +522,107 @@ mod layout_rounding {
                                         ..Default::default()
                                     },
                                     BackgroundColor(MAROON.into()),
-                                    BorderColor(DARK_BLUE.into()),
+                                    BorderColor::all(DARK_BLUE.into()),
                                 ));
                             }
                         });
+                }
+            });
+    }
+}
+
+mod radial_gradient {
+    use bevy::color::palettes::css::RED;
+    use bevy::color::palettes::tailwind::GRAY_700;
+    use bevy::prelude::*;
+    use bevy::ui::ColorStop;
+
+    const CELL_SIZE: f32 = 80.;
+    const GAP: f32 = 10.;
+
+    pub fn setup(mut commands: Commands) {
+        let color_stops = vec![
+            ColorStop::new(Color::BLACK, Val::Px(5.)),
+            ColorStop::new(Color::WHITE, Val::Px(5.)),
+            ColorStop::new(Color::WHITE, Val::Percent(100.)),
+            ColorStop::auto(RED),
+        ];
+
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::RadialGradient)));
+        commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    display: Display::Grid,
+                    align_items: AlignItems::Start,
+                    grid_template_columns: vec![RepeatedGridTrack::px(
+                        GridTrackRepetition::AutoFill,
+                        CELL_SIZE,
+                    )],
+                    grid_auto_flow: GridAutoFlow::Row,
+                    row_gap: Val::Px(GAP),
+                    column_gap: Val::Px(GAP),
+                    padding: UiRect::all(Val::Px(GAP)),
+                    ..default()
+                },
+                DespawnOnExitState(super::Scene::RadialGradient),
+            ))
+            .with_children(|commands| {
+                for (shape, shape_label) in [
+                    (RadialGradientShape::ClosestSide, "ClosestSide"),
+                    (RadialGradientShape::FarthestSide, "FarthestSide"),
+                    (
+                        RadialGradientShape::Circle(Val::Percent(55.)),
+                        "Circle(55%)",
+                    ),
+                    (RadialGradientShape::FarthestCorner, "FarthestCorner"),
+                ] {
+                    for (position, position_label) in [
+                        (UiPosition::TOP_LEFT, "TOP_LEFT"),
+                        (UiPosition::LEFT, "LEFT"),
+                        (UiPosition::BOTTOM_LEFT, "BOTTOM_LEFT"),
+                        (UiPosition::TOP, "TOP"),
+                        (UiPosition::CENTER, "CENTER"),
+                        (UiPosition::BOTTOM, "BOTTOM"),
+                        (UiPosition::TOP_RIGHT, "TOP_RIGHT"),
+                        (UiPosition::RIGHT, "RIGHT"),
+                        (UiPosition::BOTTOM_RIGHT, "BOTTOM_RIGHT"),
+                    ] {
+                        for (w, h) in [(CELL_SIZE, CELL_SIZE), (CELL_SIZE, CELL_SIZE / 2.)] {
+                            commands
+                                .spawn((
+                                    BackgroundColor(GRAY_700.into()),
+                                    Node {
+                                        display: Display::Grid,
+                                        width: Val::Px(CELL_SIZE),
+                                        ..Default::default()
+                                    },
+                                ))
+                                .with_children(|commands| {
+                                    commands.spawn((
+                                        Node {
+                                            margin: UiRect::all(Val::Px(2.0)),
+                                            ..default()
+                                        },
+                                        Text(format!("{shape_label}\n{position_label}")),
+                                        TextFont::from_font_size(9.),
+                                    ));
+                                    commands.spawn((
+                                        Node {
+                                            width: Val::Px(w),
+                                            height: Val::Px(h),
+                                            ..default()
+                                        },
+                                        BackgroundGradient::from(RadialGradient {
+                                            stops: color_stops.clone(),
+                                            position,
+                                            shape,
+                                        }),
+                                    ));
+                                });
+                        }
+                    }
                 }
             });
     }

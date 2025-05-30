@@ -17,11 +17,11 @@
 use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
+use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{Entity, EntityHashMap},
     prelude::ReflectComponent,
     query::With,
     resource::Resource,
@@ -30,20 +30,21 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::Mat4;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    load_shader_library,
     render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
-        SamplerBindingType, Shader, ShaderType, TextureSampleType, TextureView,
+        SamplerBindingType, ShaderType, TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::{self, ViewVisibility, Visibility, VisibilityClass},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bytemuck::{Pod, Zeroable};
@@ -51,10 +52,6 @@ use bytemuck::{Pod, Zeroable};
 use crate::{
     binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta, LightVisibilityClass,
 };
-
-/// The handle to the `clustered.wgsl` shader.
-pub(crate) const CLUSTERED_DECAL_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("87929002-3509-42f1-8279-2d2765dd145c");
 
 /// The maximum number of decals that can be present in a view.
 ///
@@ -152,12 +149,7 @@ impl Default for DecalsBuffer {
 
 impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            CLUSTERED_DECAL_SHADER_HANDLE,
-            "clustered.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "clustered.wgsl");
 
         app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default())
             .register_type::<ClusteredDecal>();
@@ -173,10 +165,13 @@ impl Plugin for ClusteredDecalPlugin {
             .add_systems(
                 Render,
                 prepare_decals
-                    .in_set(RenderSet::ManageViews)
+                    .in_set(RenderSystems::ManageViews)
                     .after(prepare_lights),
             )
-            .add_systems(Render, upload_decals.in_set(RenderSet::PrepareResources));
+            .add_systems(
+                Render,
+                upload_decals.in_set(RenderSystems::PrepareResources),
+            );
     }
 }
 

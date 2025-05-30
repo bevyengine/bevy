@@ -4,7 +4,7 @@ use crate::{
     system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
@@ -125,7 +125,7 @@ impl core::fmt::Debug for Stepping {
         if self.action != Action::RunAll {
             let Cursor { schedule, system } = self.cursor;
             match self.schedule_order.get(schedule) {
-                Some(label) => write!(f, "cursor: {:?}[{}], ", label, system)?,
+                Some(label) => write!(f, "cursor: {label:?}[{system}], ")?,
                 None => write!(f, "cursor: None, ")?,
             };
         }

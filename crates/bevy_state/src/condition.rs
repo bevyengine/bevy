@@ -1,7 +1,7 @@
 use crate::state::{State, States};
 use bevy_ecs::{change_detection::DetectChanges, system::Res};
 
-/// A [`Condition`](bevy_ecs::prelude::Condition)-satisfying system that returns `true`
+/// A [`SystemCondition`](bevy_ecs::prelude::SystemCondition)-satisfying system that returns `true`
 /// if the state machine exists.
 ///
 /// # Example
@@ -48,7 +48,7 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
     current_state.is_some()
 }
 
-/// Generates a [`Condition`](bevy_ecs::prelude::Condition)-satisfying closure that returns `true`
+/// Generates a [`SystemCondition`](bevy_ecs::prelude::SystemCondition)-satisfying closure that returns `true`
 /// if the state machine is currently in `state`.
 ///
 /// Will return `false` if the state does not exist or if not in `state`.
@@ -107,7 +107,7 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
     }
 }
 
-/// A [`Condition`](bevy_ecs::prelude::Condition)-satisfying system that returns `true`
+/// A [`SystemCondition`](bevy_ecs::prelude::SystemCondition)-satisfying system that returns `true`
 /// if the state machine changed state.
 ///
 /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
@@ -171,7 +171,7 @@ pub fn state_changed<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::schedule::{Condition, IntoScheduleConfigs, Schedule};
+    use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, SystemCondition};
 
     use crate::prelude::*;
     use bevy_state_macros::States;
