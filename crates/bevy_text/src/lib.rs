@@ -62,7 +62,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Font, JustifyText, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
-        TextFont, TextLayout, TextSpan,
+        TextFont, TextLayoutSettings, TextSpan,
     };
 }
 
@@ -105,7 +105,7 @@ impl Plugin for TextPlugin {
             .register_type::<TextBackgroundColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
-            .register_type::<TextLayout>()
+            .register_type::<TextLayoutSettings>()
             .register_type::<ComputedTextBlock>()
             .register_type::<TextEntity>()
             .init_asset_loader::<FontLoader>()

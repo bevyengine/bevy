@@ -334,7 +334,7 @@ fn add_mask_group_control(
                                 } else {
                                     selected_button_text_style.clone()
                                 },
-                                TextLayout::new_with_justify(JustifyText::Center),
+                                TextLayoutSettings::new_with_justify(JustifyText::Center),
                                 Node {
                                     flex_grow: 1.0,
                                     margin: UiRect::vertical(Val::Px(3.0)),

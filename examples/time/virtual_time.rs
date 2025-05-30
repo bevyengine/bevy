@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     ..default()
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.85)),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayoutSettings::new_with_justify(JustifyText::Center),
             ),
             (
                 Text::default(),
@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     ..default()
                 },
                 TextColor(virtual_color),
-                TextLayout::new_with_justify(JustifyText::Right),
+                TextLayoutSettings::new_with_justify(JustifyText::Right),
                 VirtualTime,
             ),
         ],

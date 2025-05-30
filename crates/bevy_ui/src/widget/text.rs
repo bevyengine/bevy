@@ -19,8 +19,8 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    TextBounds, TextColor, TextError, TextFont, TextLayoutInfo, TextLayoutSettings,
+    TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -84,7 +84,7 @@ impl Default for TextNodeFlags {
 /// // With text justification.
 /// world.spawn((
 ///     Text::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(JustifyText::Center)
+///     TextLayoutSettings::new_with_justify(JustifyText::Center)
 /// ));
 ///
 /// // With spans
@@ -95,7 +95,14 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+#[require(
+    Node,
+    TextLayoutSettings,
+    TextFont,
+    TextColor,
+    TextNodeFlags,
+    ContentSize
+)]
 pub struct Text(pub String);
 
 impl Text {
@@ -198,7 +205,7 @@ fn create_text_measure<'a>(
     fonts: &Assets<Font>,
     scale_factor: f64,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
-    block: Ref<TextLayout>,
+    block: Ref<TextLayoutSettings>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextNodeFlags>,
@@ -250,7 +257,7 @@ pub fn measure_text_system(
     mut text_query: Query<
         (
             Entity,
-            Ref<TextLayout>,
+            Ref<TextLayoutSettings>,
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
@@ -295,7 +302,7 @@ fn queue_text(
     textures: &mut Assets<Image>,
     scale_factor: f32,
     inverse_scale_factor: f32,
-    block: &TextLayout,
+    layout_settings: &TextLayoutSettings,
     node: Ref<ComputedNode>,
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
@@ -309,7 +316,7 @@ fn queue_text(
         return;
     }
 
-    let physical_node_size = if block.linebreak == LineBreak::NoWrap {
+    let physical_node_size = if layout_settings.linebreak == LineBreak::NoWrap {
         // With `NoWrap` set, no constraints are placed on the width of the text.
         TextBounds::UNBOUNDED
     } else {
@@ -323,7 +330,7 @@ fn queue_text(
         fonts,
         text_reader.iter(entity),
         scale_factor.into(),
-        block,
+        layout_settings,
         physical_node_size,
         font_atlas_sets,
         texture_atlases,
@@ -364,7 +371,7 @@ pub fn text_system(
     mut text_query: Query<(
         Entity,
         Ref<ComputedNode>,
-        &TextLayout,
+        &TextLayoutSettings,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
@@ -373,7 +380,9 @@ pub fn text_system(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+    for (entity, node, layout_settings, text_layout_info, text_flags, mut computed) in
+        &mut text_query
+    {
         if node.is_changed() || text_flags.needs_recompute {
             queue_text(
                 entity,
@@ -384,7 +393,7 @@ pub fn text_system(
                 &mut textures,
                 node.inverse_scale_factor.recip(),
                 node.inverse_scale_factor,
-                block,
+                layout_settings,
                 node,
                 text_flags,
                 text_layout_info,

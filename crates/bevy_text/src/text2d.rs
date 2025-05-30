@@ -1,8 +1,8 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    TextColor, TextError, TextFont, TextLayoutInfo, TextLayoutSettings, TextPipeline, TextReader,
+    TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -41,7 +41,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
 /// a [`ComputedTextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
 ///
-/// With `Text2d` the `justify` field of [`TextLayout`] only affects the internal alignment of a block of text and not its
+/// With `Text2d` the `justify` field of [`TextLayoutSettings`] only affects the internal alignment of a block of text and not its
 /// relative position, which is controlled by the [`Anchor`] component.
 /// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
 ///
@@ -73,7 +73,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// // With text justification.
 /// world.spawn((
 ///     Text2d::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(JustifyText::Center)
+///     TextLayoutSettings::new_with_justify(JustifyText::Center)
 /// ));
 ///
 /// // With spans
@@ -85,7 +85,7 @@ use bevy_window::{PrimaryWindow, Window};
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
-    TextLayout,
+    TextLayoutSettings,
     TextFont,
     TextColor,
     TextBounds,
@@ -266,7 +266,7 @@ pub fn update_text2d_layout(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Ref<TextLayout>,
+        Ref<TextLayoutSettings>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,

@@ -33,13 +33,13 @@ impl Default for CosmicBuffer {
 pub struct TextEntity {
     /// The entity.
     pub entity: Entity,
-    /// Records the hierarchy depth of the entity within a `TextLayout`.
+    /// Records the hierarchy depth of the entity within a `TextLayoutSettings`.
     pub depth: usize,
 }
 
 /// Computed information for a text block.
 ///
-/// See [`TextLayout`].
+/// See [`TextLayoutSettings`].
 ///
 /// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone, Reflect)]
@@ -49,7 +49,7 @@ pub struct ComputedTextBlock {
     ///
     /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
     /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
+    /// editor, then you need to not use `TextLayoutSettings` and instead manually implement the conversion to
     /// `TextLayoutInfo`.
     #[reflect(ignore, clone)]
     pub(crate) buffer: CosmicBuffer,
@@ -60,7 +60,7 @@ pub struct ComputedTextBlock {
     /// Flag set when any change has been made to this block that should cause it to be rerendered.
     ///
     /// Includes:
-    /// - [`TextLayout`] changes.
+    /// - [`TextLayoutSettings`] changes.
     /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
     // TODO: This encompasses both structural changes like font size or justification and non-structural
     // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
@@ -91,7 +91,7 @@ impl ComputedTextBlock {
     ///
     /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
     /// If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
+    /// editor, then you need to not use `TextLayoutSettings` and instead manually implement the conversion to
     /// `TextLayoutInfo`.
     pub fn buffer(&self) -> &CosmicBuffer {
         &self.buffer
@@ -118,7 +118,7 @@ impl Default for ComputedTextBlock {
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
-pub struct TextLayout {
+pub struct TextLayoutSettings {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub justify: JustifyText,
@@ -126,41 +126,41 @@ pub struct TextLayout {
     pub linebreak: LineBreak,
 }
 
-impl TextLayout {
-    /// Makes a new [`TextLayout`].
+impl TextLayoutSettings {
+    /// Makes a new [`TextLayoutSettings`].
     pub const fn new(justify: JustifyText, linebreak: LineBreak) -> Self {
         Self { justify, linebreak }
     }
 
-    /// Makes a new [`TextLayout`] with the specified [`JustifyText`].
+    /// Makes a new [`TextLayoutSettings`] with the specified [`JustifyText`].
     pub fn new_with_justify(justify: JustifyText) -> Self {
         Self::default().with_justify(justify)
     }
 
-    /// Makes a new [`TextLayout`] with the specified [`LineBreak`].
+    /// Makes a new [`TextLayoutSettings`] with the specified [`LineBreak`].
     pub fn new_with_linebreak(linebreak: LineBreak) -> Self {
         Self::default().with_linebreak(linebreak)
     }
 
-    /// Makes a new [`TextLayout`] with soft wrapping disabled.
+    /// Makes a new [`TextLayoutSettings`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub fn new_with_no_wrap() -> Self {
         Self::default().with_no_wrap()
     }
 
-    /// Returns this [`TextLayout`] with the specified [`JustifyText`].
+    /// Returns this [`TextLayoutSettings`] with the specified [`JustifyText`].
     pub const fn with_justify(mut self, justify: JustifyText) -> Self {
         self.justify = justify;
         self
     }
 
-    /// Returns this [`TextLayout`] with the specified [`LineBreak`].
+    /// Returns this [`TextLayoutSettings`] with the specified [`LineBreak`].
     pub const fn with_linebreak(mut self, linebreak: LineBreak) -> Self {
         self.linebreak = linebreak;
         self
     }
 
-    /// Returns this [`TextLayout`] with soft wrapping disabled.
+    /// Returns this [`TextLayoutSettings`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
         self.linebreak = LineBreak::NoWrap;
@@ -170,7 +170,7 @@ impl TextLayout {
 
 /// A span of text in a tree of spans.
 ///
-/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
+/// `TextSpan` is only valid as a child of an entity with [`TextLayoutSettings`], which is provided by `Text`
 /// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
@@ -188,7 +188,7 @@ impl TextLayout {
 /// world.spawn((
 ///     // `Text` or `Text2d` are needed, and will provide default instances
 ///     // of the following components.
-///     TextLayout::default(),
+///     TextLayoutSettings::default(),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
 ///         font_size: 60.0,
@@ -486,23 +486,23 @@ pub fn detect_text_needs_rerender<Root: Component>(
             Or<(
                 Changed<Root>,
                 Changed<TextFont>,
-                Changed<TextLayout>,
+                Changed<TextLayoutSettings>,
                 Changed<Children>,
             )>,
             With<Root>,
             With<TextFont>,
-            With<TextLayout>,
+            With<TextLayoutSettings>,
         ),
     >,
     changed_spans: Query<
-        (Entity, Option<&ChildOf>, Has<TextLayout>),
+        (Entity, Option<&ChildOf>, Has<TextLayoutSettings>),
         (
             Or<(
                 Changed<TextSpan>,
                 Changed<TextFont>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
-                Added<TextLayout>,
+                Added<TextLayoutSettings>,
             )>,
             With<TextSpan>,
             With<TextFont>,
