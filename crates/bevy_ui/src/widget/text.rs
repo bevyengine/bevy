@@ -217,12 +217,12 @@ fn create_text_measure<'a>(
         fonts,
         spans,
         scale_factor,
-        &block,
+        &layout_settings,
         computed.as_mut(),
         font_system,
     ) {
         Ok(measure) => {
-            if block.linebreak == LineBreak::NoWrap {
+            if layout_settings.linebreak == LineBreak::NoWrap {
                 content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
             } else {
                 content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
