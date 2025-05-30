@@ -82,6 +82,8 @@ impl HttpWasmAssetReader {
                 Ok(reader)
             }
             // Some web servers, including itch.io's CDN, return 403 when a requested file isn't present.
+            // TODO: remove handling of 403 as not found when it's easier to configure
+            // see https://github.com/bevyengine/bevy/pull/19268#pullrequestreview-2882410105
             403 | 404 => Err(AssetReaderError::NotFound(path)),
             status => Err(AssetReaderError::HttpError(status)),
         }
