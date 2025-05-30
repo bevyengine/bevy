@@ -10,8 +10,8 @@ use crate::{
         StorageType, Tick,
     },
     entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
-        EntityIdLocation, EntityLocation,
+        ConstructionError, ContainsEntity, Entity, EntityCloner, EntityClonerBuilder,
+        EntityEquivalent, EntityIdLocation, EntityLocation,
     },
     event::Event,
     observer::Observer,
@@ -1169,9 +1169,8 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
-        location: Option<EntityLocation>,
+        location: EntityIdLocation,
     ) -> Self {
-        debug_assert!(world.entities().contains(entity));
         debug_assert_eq!(world.entities().get(entity), location);
 
         EntityWorldMut {
@@ -1221,6 +1220,12 @@ impl<'w> EntityWorldMut<'w> {
             Some(loc) => loc,
             None => self.panic_despawned(),
         }
+    }
+
+    /// Returns whether or not the entity is constructed.
+    #[inline]
+    pub fn is_constructed(&self) -> bool {
+        self.location.is_some()
     }
 
     /// Returns the archetype that the current entity belongs to.
@@ -2328,35 +2333,39 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Despawns the current entity.
-    ///
-    /// See [`World::despawn`] for more details.
-    ///
-    /// # Note
-    ///
-    /// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
-    /// to despawn descendants. This results in "recursive despawn" behavior.
-    ///
-    /// # Panics
-    ///
-    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub fn despawn(self) {
-        self.despawn_with_caller(MaybeLocation::caller());
+    pub fn construct<B: Bundle>(&mut self, bundle: B) -> Result<&mut Self, ConstructionError> {
+        let Self {
+            world,
+            entity,
+            location,
+        } = self;
+        let found = world.construct(*entity, bundle)?;
+        *location = found.location;
+        Ok(self)
     }
 
-    pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {
-        let location = self.location();
-        let world = self.world;
-        let archetype = &world.archetypes[location.archetype_id];
+    #[track_caller]
+    pub fn destruct(&mut self) -> &mut Self {
+        self.destruct_with_caller(MaybeLocation::caller())
+    }
+
+    pub(crate) fn destruct_with_caller(&mut self, caller: MaybeLocation) -> &mut Self {
+        // setup
+        let Some(location) = self.location else {
+            // If there is no location, we are already destructed
+            return self;
+        };
+        let archetype = &self.world.archetypes[location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
         let (archetype, mut deferred_world) = unsafe {
             let archetype: *const Archetype = archetype;
-            let world = world.as_unsafe_world_cell();
+            let world = self.world.as_unsafe_world_cell();
             (&*archetype, world.into_deferred())
         };
 
+        // Triggers
         // SAFETY: All components in the archetype exist in world
         unsafe {
             if archetype.has_despawn_observer() {
@@ -2404,33 +2413,33 @@ impl<'w> EntityWorldMut<'w> {
             );
         }
 
+        // do the destruct
+        let change_tick = self.world.change_tick();
         for component_id in archetype.components() {
-            world.removed_components.send(component_id, self.entity);
+            self.world
+                .removed_components
+                .send(component_id, self.entity);
+        }
+        // SAFETY: Since we had a location, and it was valid, this is safe.
+        unsafe {
+            self.world.entities.update(self.entity.row(), None);
+            self.world
+                .entities
+                .mark_construct_or_destruct(self.entity.row(), caller, change_tick);
         }
 
-        // Observers and on_remove hooks may reserve new entities, which
-        // requires a flush before Entities::free may be called.
-        world.flush_entities();
-
-        let location = world
-            .entities
-            .free(self.entity)
-            .flatten()
-            .expect("entity should exist at this point.");
         let table_row;
         let moved_entity;
-        let change_tick = world.change_tick();
-
         {
-            let archetype = &mut world.archetypes[location.archetype_id];
+            let archetype = &mut self.world.archetypes[location.archetype_id];
             let remove_result = archetype.swap_remove(location.archetype_row);
             if let Some(swapped_entity) = remove_result.swapped_entity {
-                let swapped_location = world.entities.get(swapped_entity).unwrap();
+                let swapped_location = self.world.entities.get(swapped_entity).unwrap();
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
-                    world.entities.set(
-                        swapped_entity.index(),
+                    self.world.entities.update(
+                        swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
@@ -2438,31 +2447,34 @@ impl<'w> EntityWorldMut<'w> {
                             table_row: swapped_location.table_row,
                         }),
                     );
-                    world
-                        .entities
-                        .mark_spawn_despawn(swapped_entity.index(), caller, change_tick);
                 }
             }
             table_row = remove_result.table_row;
 
             for component_id in archetype.sparse_set_components() {
                 // set must have existed for the component to be added.
-                let sparse_set = world.storages.sparse_sets.get_mut(component_id).unwrap();
+                let sparse_set = self
+                    .world
+                    .storages
+                    .sparse_sets
+                    .get_mut(component_id)
+                    .unwrap();
                 sparse_set.remove(self.entity);
             }
             // SAFETY: table rows stored in archetypes always exist
             moved_entity = unsafe {
-                world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
+                self.world.storages.tables[archetype.table_id()].swap_remove_unchecked(table_row)
             };
         };
 
+        // Handle displaced entity
         if let Some(moved_entity) = moved_entity {
-            let moved_location = world.entities.get(moved_entity).unwrap();
+            let moved_location = self.world.entities.get(moved_entity).unwrap();
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
-                world.entities.set(
-                    moved_entity.index(),
+                self.world.entities.update(
+                    moved_entity.row(),
                     Some(EntityLocation {
                         archetype_id: moved_location.archetype_id,
                         archetype_row: moved_location.archetype_row,
@@ -2470,14 +2482,40 @@ impl<'w> EntityWorldMut<'w> {
                         table_row,
                     }),
                 );
-                world
-                    .entities
-                    .mark_spawn_despawn(moved_entity.index(), caller, change_tick);
             }
-            world.archetypes[moved_location.archetype_id]
+            self.world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
-        world.flush();
+
+        // finish
+        self.world.flush();
+        self
+    }
+
+    /// Despawns the current entity.
+    ///
+    /// See [`World::despawn`] for more details.
+    ///
+    /// # Note
+    ///
+    /// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. This results in "recursive despawn" behavior.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[track_caller]
+    pub fn despawn(self) {
+        self.despawn_with_caller(MaybeLocation::caller());
+    }
+
+    pub(crate) fn despawn_with_caller(mut self, caller: MaybeLocation) {
+        self.destruct_with_caller(caller);
+        // SAFETY: We just destructed.
+        unsafe {
+            self.world
+                .release_generations_unchecked(self.entity.row(), 1);
+        }
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]

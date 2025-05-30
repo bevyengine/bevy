@@ -316,7 +316,9 @@ impl<'w, 's> Commands<'w, 's> {
             let tick = world.change_tick();
             // SAFETY: Entity has been flushed
             unsafe {
-                world.entities_mut().mark_spawn_despawn(index, caller, tick);
+                world
+                    .entities_mut()
+                    .mark_construct_or_destruct(index, caller, tick);
             }
         });
         entity_commands
@@ -382,7 +384,9 @@ impl<'w, 's> Commands<'w, 's> {
                 let tick = world.change_tick();
                 // SAFETY: Entity has been flushed
                 unsafe {
-                    world.entities_mut().mark_spawn_despawn(index, caller, tick);
+                    world
+                        .entities_mut()
+                        .mark_construct_or_destruct(index, caller, tick);
                 }
             });
 

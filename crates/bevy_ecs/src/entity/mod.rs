@@ -666,6 +666,13 @@ pub(crate) struct EntitiesAllocator {
 }
 
 impl EntitiesAllocator {
+    /// Restarts the allocator.
+    pub(crate) fn restart(&mut self) {
+        self.free.clear();
+        *self.free_len.get_mut() = 0;
+        *self.next_row.get_mut() = 0;
+    }
+
     pub(crate) fn free(&mut self, freed: Entity) {
         self.free.truncate(*self.free_len.get_mut() as usize);
         self.free.push(freed);
@@ -752,6 +759,11 @@ impl Entities {
         Self { meta: Vec::new() }
     }
 
+    /// Clears all entity information
+    pub fn clear(&mut self) {
+        self.meta.clear()
+    }
+
     /// Returns the [`EntityLocation`] of an [`Entity`].
     /// Note: for pending entities and entities not participating in the ECS (entities with a [`EntityIdLocation`] of `None`), returns `None`.
     #[inline]
@@ -767,6 +779,25 @@ impl Entities {
             .get(entity.index() as usize)
             .filter(|meta| meta.generation == entity.generation)
             .map(|meta| meta.location)
+    }
+
+    /// Provides information regarding if `entity` may be constructed.
+    #[inline]
+    pub fn validate_construction(&self, entity: Entity) -> Result<(), ConstructionError> {
+        if self
+            .resolve_from_id(entity.row())
+            .is_some_and(|found| found.generation() != entity.generation())
+        {
+            Err(ConstructionError::InvalidId)
+        } else if self
+            .meta
+            .get(entity.index() as usize)
+            .is_some_and(|meta| meta.location.is_some())
+        {
+            Err(ConstructionError::AlreadyConstructed)
+        } else {
+            Ok(())
+        }
     }
 
     /// Updates the location of an [`EntityRow`].
@@ -791,6 +822,15 @@ impl Entities {
     ///    before handing control to unknown code.
     #[inline]
     pub(crate) unsafe fn declare(&mut self, row: EntityRow, location: EntityIdLocation) {
+        self.ensure_row(row);
+        // SAFETY: We just did `ensure_row`
+        let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
+        meta.location = location;
+    }
+
+    /// Ensures row is valid.
+    #[inline]
+    fn ensure_row(&mut self, row: EntityRow) {
         #[cold] // to help with branch prediction
         fn expand(meta: &mut Vec<EntityMeta>, len: usize) {
             meta.resize(len, EntityMeta::EMPTY);
@@ -801,44 +841,34 @@ impl Entities {
             // TODO: hint unlikely once stable.
             expand(&mut self.meta, index + 1);
         }
-        // SAFETY: We guarantee that `index` a valid entity index
-        let meta = unsafe { self.meta.get_unchecked_mut(index) };
-        meta.location = location;
     }
 
-    /// Marks the entity as free if it exists, returning its [`EntityIdLocation`] and the [`Entity`] to reuse that [`EntityRow`].
-    pub(crate) fn mark_free(
-        &mut self,
-        entity: Entity,
-        generations: u32,
-    ) -> Option<(EntityIdLocation, Entity)> {
-        let meta = self.meta.get_mut(entity.index() as usize)?;
-        if meta.generation != entity.generation {
-            return None;
-        }
+    /// Marks the `row` as free, returning the [`Entity`] to reuse that [`EntityRow`].
+    ///
+    /// # Safety
+    ///
+    /// - `row` must its [`EntityIdLocation`] set to `None`.
+    pub(crate) unsafe fn mark_free(&mut self, row: EntityRow, generations: u32) -> Entity {
+        // We need to do this in case an entity is being freed that was never constructed.
+        self.ensure_row(row);
+        // SAFETY: We just did `ensure_row`
+        let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
 
         let (new_generation, aliased) = meta.generation.after_versions_and_could_alias(generations);
         meta.generation = new_generation;
         if aliased {
-            warn!(
-                "Entity({}) generation wrapped on Entities::free, aliasing may occur",
-                entity.row()
-            );
+            warn!("EntityRow({row}) generation wrapped on Entities::free, aliasing may occur",);
         }
 
-        let loc = meta.location.take();
-        Some((
-            loc,
-            Entity::from_raw_and_generation(entity.row(), meta.generation),
-        ))
+        Entity::from_raw_and_generation(row, meta.generation)
     }
 
-    /// Mark an [`EntityRow`] as spawned or despawned in the given tick.
+    /// Mark an [`EntityRow`] as constructed or destructed in the given tick.
     ///
     /// # Safety
-    ///  - `row` must have a [`EntityIdLocation`].
+    ///  - `row` must have either been constructed or destructed, ensuring its row is valid.
     #[inline]
-    pub(crate) unsafe fn mark_spawn_despawn(
+    pub(crate) unsafe fn mark_construct_or_destruct(
         &mut self,
         row: EntityRow,
         by: MaybeLocation,
@@ -946,6 +976,11 @@ impl Entities {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+}
+
+pub enum ConstructionError {
+    InvalidId,
+    AlreadyConstructed,
 }
 
 /// An error that occurs when a specified [`Entity`] does not exist.

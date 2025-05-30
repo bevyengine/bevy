@@ -1737,7 +1737,7 @@ impl<'w> BundleSpawner<'w> {
                 caller,
             );
             entities.set(entity.index(), Some(location));
-            entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
+            entities.mark_construct_or_destruct(entity.index(), caller, self.change_tick);
             (location, after_effect)
         };
 

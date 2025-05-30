@@ -14,10 +14,13 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::error::{DefaultErrorHandler, ErrorHandler};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
+};
+use crate::{
+    entity::{ConstructionError, EntitiesAllocator, EntityRow},
+    error::{DefaultErrorHandler, ErrorHandler},
 };
 pub use bevy_ecs_macros::FromWorld;
 pub use component_constants::*;
@@ -89,6 +92,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
+    pub(crate) allocator: EntitiesAllocator,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
     pub(crate) archetypes: Archetypes,
@@ -108,6 +112,7 @@ impl Default for World {
         let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
+            allocator: EntitiesAllocator::default(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
@@ -1046,6 +1051,82 @@ impl World {
         (fetcher, commands)
     }
 
+    /// Spawns an [`Entity`] that is void/null.
+    /// The returned entity id is valid and unique, but it does not correspond to any conceptual entity.
+    /// The conceptual entity does not exist, and using the id as if it did may produce errors.
+    /// It can not be queried, and it has no [`EntityLocation`](crate::entity::EntityLocation).
+    ///
+    /// This is different from empty entities, which do exist in the world;
+    /// they just happen to have no components.
+    pub fn spawn_null(&self) -> Entity {
+        self.allocator.alloc()
+    }
+
+    pub fn release(&mut self, entity: Entity) {
+        let Ok(entity) = self.get_entity_mut(entity) else {
+            return; // Already released then.
+        };
+
+        entity.despawn();
+    }
+
+    /// Releases `entity` to be reused.
+    ///
+    /// # Safety
+    ///
+    /// It must have been destructed.
+    pub(crate) unsafe fn release_generations_unchecked(
+        &mut self,
+        entity: EntityRow,
+        generations: u32,
+    ) {
+        self.allocator
+            .free(self.entities.mark_free(entity, generations));
+    }
+
+    #[track_caller]
+    pub fn construct<B: Bundle>(
+        &mut self,
+        entity: Entity,
+        bundle: B,
+    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
+        self.entities.validate_construction(entity)?;
+        // SAFETY: We just ensured it was valid.
+        Ok(unsafe { self.construct_unchecked(entity, bundle, MaybeLocation::caller()) })
+    }
+
+    /// Constructs `bundle` on `entity`.
+    ///
+    /// # Safety
+    ///
+    /// `entity` must be valid and have no location.
+    pub(crate) unsafe fn construct_unchecked<B: Bundle>(
+        &mut self,
+        entity: Entity,
+        bundle: B,
+        caller: MaybeLocation,
+    ) -> EntityWorldMut<'_> {
+        self.flush();
+        let change_tick = self.change_tick();
+        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
+        let (entity_location, after_effect) =
+            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+
+        let mut entity_location = Some(entity_location);
+
+        // SAFETY: command_queue is not referenced anywhere else
+        if !unsafe { self.command_queue.is_empty() } {
+            self.flush();
+            entity_location = self.entities().get(entity);
+        }
+
+        // SAFETY: entity and location are valid, as they were just created above
+        let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
+        after_effect.apply(&mut entity);
+        entity
+    }
+
     /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
     /// to add components to the entity or retrieve its id.
     ///
@@ -1074,9 +1155,30 @@ impl World {
     #[track_caller]
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
         self.flush();
-        let entity = self.entities.alloc();
+        let entity = self.allocator.alloc();
         // SAFETY: entity was just allocated
         unsafe { self.spawn_at_empty_internal(entity, MaybeLocation::caller()) }
+    }
+
+    /// # Safety
+    /// must be called on an entity that was just allocated
+    unsafe fn spawn_at_empty_internal(
+        &mut self,
+        entity: Entity,
+        caller: MaybeLocation,
+    ) -> EntityWorldMut {
+        let archetype = self.archetypes.empty_mut();
+        // PERF: consider avoiding allocating entities in the empty archetype unless needed
+        let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
+        // SAFETY: no components are allocated by archetype.allocate() because the archetype is
+        // empty
+        let location = unsafe { archetype.allocate(entity, table_row) };
+        let change_tick = self.change_tick();
+        self.entities.declare(entity.row(), Some(location));
+        self.entities
+            .mark_construct_or_destruct(entity.row(), caller, change_tick);
+
+        EntityWorldMut::new(self, entity, Some(location))
     }
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
@@ -1149,47 +1251,9 @@ impl World {
         bundle: B,
         caller: MaybeLocation,
     ) -> EntityWorldMut {
-        self.flush();
-        let change_tick = self.change_tick();
-        let entity = self.entities.alloc();
-        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-        let (entity_location, after_effect) =
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
-
-        let mut entity_location = Some(entity_location);
-
-        // SAFETY: command_queue is not referenced anywhere else
-        if !unsafe { self.command_queue.is_empty() } {
-            self.flush();
-            entity_location = self.entities().get(entity);
-        }
-
-        // SAFETY: entity and location are valid, as they were just created above
-        let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
-        after_effect.apply(&mut entity);
-        entity
-    }
-
-    /// # Safety
-    /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_empty_internal(
-        &mut self,
-        entity: Entity,
-        caller: MaybeLocation,
-    ) -> EntityWorldMut {
-        let archetype = self.archetypes.empty_mut();
-        // PERF: consider avoiding allocating entities in the empty archetype unless needed
-        let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
-        // SAFETY: no components are allocated by archetype.allocate() because the archetype is
-        // empty
-        let location = unsafe { archetype.allocate(entity, table_row) };
-        let change_tick = self.change_tick();
-        self.entities.set(entity.index(), Some(location));
-        self.entities
-            .mark_spawn_despawn(entity.index(), caller, change_tick);
-
-        EntityWorldMut::new(self, entity, Some(location))
+        let entity = self.spawn_null();
+        // SAFETY: This was just spawned from null.
+        unsafe { self.construct_unchecked(entity, bundle, caller) }
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
@@ -2708,30 +2772,6 @@ impl World {
             .initialize_with(component_id, &self.components)
     }
 
-    /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
-    /// This should be called before doing operations that might operate on queued entities,
-    /// such as inserting a [`Component`].
-    #[track_caller]
-    pub(crate) fn flush_entities(&mut self) {
-        let by = MaybeLocation::caller();
-        let at = self.change_tick();
-        let empty_archetype = self.archetypes.empty_mut();
-        let table = &mut self.storages.tables[empty_archetype.table_id()];
-        // PERF: consider pre-allocating space for flushed entities
-        // SAFETY: entity is set to a valid location
-        unsafe {
-            self.entities.flush(
-                |entity, location| {
-                    // SAFETY: no components are allocated by archetype.allocate() because the archetype
-                    // is empty
-                    *location = Some(empty_archetype.allocate(entity, table.allocate(entity)));
-                },
-                by,
-                at,
-            );
-        }
-    }
-
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
     ///
@@ -2765,7 +2805,6 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn flush(&mut self) {
-        self.flush_entities();
         self.flush_components();
         self.flush_commands();
     }
@@ -2980,6 +3019,7 @@ impl World {
         self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
+        self.allocator.restart();
     }
 
     /// Clears all resources in this [`World`].
