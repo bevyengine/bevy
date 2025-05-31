@@ -2376,14 +2376,16 @@ impl<'w> EntityWorldMut<'w> {
     /// Note that this still increases the generation to differentiate different constructions of the same row.
     #[track_caller]
     pub fn destruct(&mut self) -> &mut Self {
-        self.destruct_with_caller(MaybeLocation::caller())
+        self.destruct_with_caller(MaybeLocation::caller());
+        self
     }
 
-    pub(crate) fn destruct_with_caller(&mut self, caller: MaybeLocation) -> &mut Self {
+    /// Returns whether or not it really did need to destruct.
+    pub(crate) fn destruct_with_caller(&mut self, caller: MaybeLocation) -> bool {
         // setup
         let Some(location) = self.location else {
             // If there is no location, we are already destructed
-            return self;
+            return false;
         };
         let archetype = &self.world.archetypes[location.archetype_id];
 
@@ -2522,7 +2524,7 @@ impl<'w> EntityWorldMut<'w> {
         self.entity = unsafe { self.world.entities.mark_free(self.entity.row(), 1) };
         self.world.flush();
         self.update_location(); // In case some command re-constructs this entity.
-        self
+        true
     }
 
     /// Despawns the current entity.
@@ -2539,8 +2541,9 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     pub(crate) fn despawn_with_caller(mut self, caller: MaybeLocation) {
-        self.destruct_with_caller(caller);
-        self.world.allocator.free(self.entity);
+        if self.destruct_with_caller(caller) {
+            self.world.allocator.free(self.entity);
+        }
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
