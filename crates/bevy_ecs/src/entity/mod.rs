@@ -1183,8 +1183,8 @@ impl Entities {
             .filter(|meta|
             // Generation is incremented immediately upon despawn
             (meta.generation == entity.generation)
-            || (meta.location.is_none()
-                && (meta.generation == entity.generation.after_versions(1))))
+            || meta.location.is_none()
+            && (meta.generation == entity.generation.after_versions(1)))
             .map(|meta| meta.spawned_or_despawned)
     }
 
