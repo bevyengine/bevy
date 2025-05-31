@@ -540,9 +540,6 @@ impl EntityCloner {
             }
         }
 
-        world.flush();
-        world.entity_mut(target);
-
         for deferred in self.deferred_commands.drain(..) {
             (deferred)(world, mapper);
         }
