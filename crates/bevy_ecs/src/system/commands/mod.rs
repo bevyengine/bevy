@@ -18,7 +18,7 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
-    entity::{Entities, EntitiesAllocator, Entity, EntityClonerBuilder},
+    entity::{Entities, EntitiesAllocator, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::Event,
     observer::{Observer, TriggerTargets},
@@ -99,7 +99,8 @@ use crate::{
 /// [`ApplyDeferred`]: crate::schedule::ApplyDeferred
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
-    entities: &'w EntitiesAllocator,
+    entities: &'w Entities,
+    allocator: &'w EntitiesAllocator,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -109,7 +110,11 @@ unsafe impl Send for Commands<'_, '_> {}
 unsafe impl Sync for Commands<'_, '_> {}
 
 const _: () = {
-    type __StructFieldsAlias<'w, 's> = (Deferred<'s, CommandQueue>, &'w Entities);
+    type __StructFieldsAlias<'w, 's> = (
+        Deferred<'s, CommandQueue>,
+        &'w EntitiesAllocator,
+        &'w Entities,
+    );
     #[doc(hidden)]
     pub struct FetchState {
         state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
@@ -162,7 +167,7 @@ const _: () = {
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell,
         ) -> Result<(), SystemParamValidationError> {
-            <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
+            <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
                 &mut state.state,
                 system_meta,
                 world,
@@ -176,10 +181,16 @@ const _: () = {
             world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::component::Tick,
         ) -> Self::Item<'w, 's> {
-            let(f0, f1) =  <(Deferred<'s, CommandQueue>, &'w EntitiesAllocator) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);
+            let params = <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
+                &mut state.state,
+                system_meta,
+                world,
+                change_tick,
+            );
             Commands {
-                queue: InternalQueue::CommandQueue(f0),
-                entities: f1,
+                queue: InternalQueue::CommandQueue(params.0),
+                allocator: params.1,
+                entities: params.2,
             }
         }
     }
@@ -200,13 +211,18 @@ enum InternalQueue<'s> {
 impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self::new_from_entities(queue, &world.allocator)
+        Self::new_from_entities(queue, &world.allocator, &world.entities)
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
-    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w EntitiesAllocator) -> Self {
+    pub fn new_from_entities(
+        queue: &'s mut CommandQueue,
+        allocator: &'w EntitiesAllocator,
+        entities: &'w Entities,
+    ) -> Self {
         Self {
             queue: InternalQueue::CommandQueue(Deferred(queue)),
+            allocator,
             entities,
         }
     }
@@ -220,10 +236,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// * Caller ensures that `queue` must outlive `'w`
     pub(crate) unsafe fn new_raw_from_entities(
         queue: RawCommandQueue,
-        entities: &'w EntitiesAllocator,
+        allocator: &'w EntitiesAllocator,
+        entities: &'w Entities,
     ) -> Self {
         Self {
             queue: InternalQueue::RawCommandQueue(queue),
+            allocator,
             entities,
         }
     }
@@ -255,6 +273,7 @@ impl<'w, 's> Commands<'w, 's> {
                     InternalQueue::RawCommandQueue(queue.clone())
                 }
             },
+            allocator: self.allocator,
             entities: self.entities,
         }
     }
@@ -304,7 +323,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///   with the same combination of components.
     #[track_caller]
     pub fn spawn_empty(&mut self) -> EntityCommands {
-        let entity = self.entities.alloc();
+        let entity = self.allocator.alloc();
         let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
             world
@@ -358,7 +377,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///   with the same combination of components.
     #[track_caller]
     pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
-        let entity = self.entities.alloc();
+        let entity = self.allocator.alloc();
         let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
             world
@@ -401,6 +420,62 @@ impl<'w, 's> Commands<'w, 's> {
         EntityCommands {
             entity,
             commands: self.reborrow(),
+        }
+    }
+
+    /// Returns the [`EntityCommands`] for the requested [`Entity`] if it exists in the world *now*.
+    /// Note that for entities that have not been constructed, like ones from [`spawn`](Self::spawn), this will error.
+    ///
+    /// This method does not guarantee that commands queued by the returned `EntityCommands`
+    /// will be successful, since the entity could be despawned before they are executed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityDoesNotExistError`] if the requested entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Resource)]
+    /// struct PlayerEntity {
+    ///     entity: Entity
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    ///
+    /// fn example_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
+    ///     // Get the entity if it still exists and store the `EntityCommands`.
+    ///     // If it doesn't exist, the `?` operator will propagate the returned error
+    ///     // to the system, and the system will pass it to an error handler.
+    ///     let mut entity_commands = commands.get_entity(player.entity)?;
+    ///
+    ///     // Add a component to the entity.
+    ///     entity_commands.insert(Label("hello world"));
+    ///
+    ///     // Return from the system successfully.
+    ///     Ok(())
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`entity`](Self::entity) for the infallible version.
+    #[inline]
+    #[track_caller]
+    pub fn get_entity(
+        &mut self,
+        entity: Entity,
+    ) -> Result<EntityCommands, EntityDoesNotExistError> {
+        if self.entities.contains(entity) {
+            Ok(EntityCommands {
+                entity,
+                commands: self.reborrow(),
+            })
+        } else {
+            Err(EntityDoesNotExistError::new(entity, self.entities))
         }
     }
 

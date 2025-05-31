@@ -267,7 +267,13 @@ impl World {
     #[inline]
     pub fn commands(&mut self) -> Commands {
         // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.allocator) }
+        unsafe {
+            Commands::new_raw_from_entities(
+                self.command_queue.clone(),
+                &self.allocator,
+                &self.entities,
+            )
+        }
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -1046,8 +1052,9 @@ impl World {
         // - Command queue access does not conflict with entity access.
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands =
-            unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities_allocator()) };
+        let commands = unsafe {
+            Commands::new_raw_from_entities(raw_queue, cell.entities_allocator(), cell.entities())
+        };
 
         (fetcher, commands)
     }

@@ -69,7 +69,13 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
         let command_queue = unsafe { self.world.get_raw_command_queue() };
         // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe { Commands::new_raw_from_entities(command_queue, self.world.entities_allocator()) }
+        unsafe {
+            Commands::new_raw_from_entities(
+                command_queue,
+                self.world.entities_allocator(),
+                self.world.entities(),
+            )
+        }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -415,8 +421,9 @@ impl<'w> DeferredWorld<'w> {
         // - Command queue access does not conflict with entity access.
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands =
-            unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities_allocator()) };
+        let commands = unsafe {
+            Commands::new_raw_from_entities(raw_queue, cell.entities_allocator(), cell.entities())
+        };
 
         (fetcher, commands)
     }

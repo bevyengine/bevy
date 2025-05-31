@@ -782,6 +782,14 @@ impl Entities {
             .map(|meta| meta.location)
     }
 
+    /// Returns true if the entity exists in the world *now*:
+    /// It has a location, etc.
+    ///
+    /// This will return false if the `entity` is reserved but has not been constructed.
+    pub fn contains(&self, entity: Entity) -> bool {
+        self.get(entity).is_some()
+    }
+
     /// Provides information regarding if `entity` may be constructed.
     #[inline]
     pub fn validate_construction(&self, entity: Entity) -> Result<(), ConstructionError> {
