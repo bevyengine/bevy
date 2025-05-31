@@ -677,7 +677,8 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, LoadDirectError, LoadState, UnapprovedPathMode,
+        AssetPlugin, AssetServer, Assets, DuplicateLabelError, LoadDirectError, LoadState,
+        UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -776,7 +777,11 @@ mod tests {
                 sub_texts: ron
                     .sub_texts
                     .drain(..)
-                    .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
+                    .map(|text| {
+                        load_context
+                            .add_labeled_asset(text.clone(), SubText { text })
+                            .unwrap()
+                    })
                     .collect(),
             })
         }
@@ -1898,7 +1903,7 @@ mod tests {
 
         impl AssetLoader for DuplicateSubassetLoader {
             type Asset = TestAsset;
-            type Error = std::io::Error;
+            type Error = DuplicateLabelError;
             type Settings = ();
 
             async fn load(
@@ -1907,8 +1912,8 @@ mod tests {
                 _: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                load_context.add_labeled_asset("A".into(), SubText { text: "one".into() });
-                load_context.add_labeled_asset("A".into(), SubText { text: "two".into() });
+                load_context.add_labeled_asset("A".into(), SubText { text: "one".into() })?;
+                load_context.add_labeled_asset("A".into(), SubText { text: "two".into() })?;
                 Ok(TestAsset)
             }
         }
@@ -1923,7 +1928,7 @@ mod tests {
         run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
             LoadState::Failed(err) => {
-                // TODO: Check the error message matches here.
+                assert!(err.to_string().contains("\"A\" is already in use"));
                 Some(())
             }
             state => panic!("Unexpected asset state: {state:?}"),
@@ -1951,7 +1956,7 @@ mod tests {
 
         impl AssetLoader for DiamondDuplicateSubassetLoader {
             type Asset = TestAsset;
-            type Error = std::io::Error;
+            type Error = DuplicateLabelError;
             type Settings = ();
 
             async fn load(
@@ -1962,12 +1967,12 @@ mod tests {
             ) -> Result<Self::Asset, Self::Error> {
                 let mut context_1 = load_context.begin_labeled_asset();
                 let mut context_2 = load_context.begin_labeled_asset();
-                context_1.add_labeled_asset("C".into(), SubText { text: "one".into() });
-                context_2.add_labeled_asset("C".into(), SubText { text: "two".into() });
+                context_1.add_labeled_asset("C".into(), SubText { text: "one".into() })?;
+                context_2.add_labeled_asset("C".into(), SubText { text: "two".into() })?;
                 let subasset_1 = context_1.finish(TestAsset);
                 let subasset_2 = context_2.finish(TestAsset);
-                load_context.add_loaded_labeled_asset("A", subasset_1);
-                load_context.add_loaded_labeled_asset("B", subasset_2);
+                load_context.add_loaded_labeled_asset("A", subasset_1)?;
+                load_context.add_loaded_labeled_asset("B", subasset_2)?;
                 Ok(TestAsset)
             }
         }
@@ -1982,7 +1987,7 @@ mod tests {
         run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
             LoadState::Failed(err) => {
-                // TODO: Check the error message matches here.
+                assert!(err.to_string().contains("\"C\" is already in use"));
                 Some(())
             }
             state => panic!("Unexpected asset state: {state:?}"),
@@ -2012,7 +2017,7 @@ mod tests {
 
         impl AssetLoader for NestedAssetLoader {
             type Asset = TestAsset;
-            type Error = std::io::Error;
+            type Error = DuplicateLabelError;
             type Settings = ();
 
             async fn load(
@@ -2021,7 +2026,7 @@ mod tests {
                 _: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                load_context.add_labeled_asset("Duplicate".into(), TestAsset);
+                load_context.add_labeled_asset("Duplicate".into(), TestAsset)?;
                 Ok(TestAsset)
             }
 
@@ -2034,7 +2039,7 @@ mod tests {
 
         impl AssetLoader for DiamondDuplicateSubassetLoader {
             type Asset = TestAsset;
-            type Error = LoadDirectError;
+            type Error = BevyError;
             type Settings = ();
 
             async fn load(
@@ -2054,8 +2059,8 @@ mod tests {
                     .load::<TestAsset>("c.nest")
                     .await?;
 
-                load_context.add_loaded_labeled_asset("B", b);
-                load_context.add_loaded_labeled_asset("C", c);
+                load_context.add_loaded_labeled_asset("B", b)?;
+                load_context.add_loaded_labeled_asset("C", c)?;
                 Ok(TestAsset)
             }
 

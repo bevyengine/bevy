@@ -1428,9 +1428,15 @@ impl AssetServer {
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         // TODO: experiment with this
         let asset_path = asset_path.clone_owned();
-        let load_context =
-            LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        AssertUnwindSafe(loader.load(reader, meta, load_context))
+        let labeled_assets = Default::default();
+        let load_context = LoadContext::new(
+            self,
+            asset_path.clone(),
+            load_dependencies,
+            populate_hashes,
+            &labeled_assets,
+        );
+        let maybe_asset = AssertUnwindSafe(loader.load(reader, meta, load_context))
             .catch_unwind()
             .await
             .map_err(|_| AssetLoadError::AssetLoaderPanic {
@@ -1443,7 +1449,12 @@ impl AssetServer {
                     loader_name: loader.type_name(),
                     error: e.into(),
                 })
-            })
+            });
+        let labeled_assets = labeled_assets.into_inner().unwrap();
+        maybe_asset.map(move |mut asset| {
+            asset.labeled_assets = labeled_assets;
+            asset
+        })
     }
 
     /// Returns a future that will suspend until the specified asset and its dependencies finish
