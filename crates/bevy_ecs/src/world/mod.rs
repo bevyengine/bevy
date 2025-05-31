@@ -43,7 +43,7 @@ use crate::{
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
-    entity::{Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
@@ -1154,16 +1154,15 @@ impl World {
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
         // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-        let (mut entity_location, after_effect) =
+        let (entity_location, after_effect) =
             unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+
+        let mut entity_location = Some(entity_location);
 
         // SAFETY: command_queue is not referenced anywhere else
         if !unsafe { self.command_queue.is_empty() } {
             self.flush();
-            entity_location = self
-                .entities()
-                .get(entity)
-                .unwrap_or(EntityLocation::INVALID);
+            entity_location = self.entities().get(entity);
         }
 
         // SAFETY: entity and location are valid, as they were just created above
@@ -1186,11 +1185,11 @@ impl World {
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
         let change_tick = self.change_tick();
-        self.entities.set(entity.index(), location);
+        self.entities.set(entity.index(), Some(location));
         self.entities
             .mark_spawn_despawn(entity.index(), caller, change_tick);
 
-        EntityWorldMut::new(self, entity, location)
+        EntityWorldMut::new(self, entity, Some(location))
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
@@ -2725,7 +2724,7 @@ impl World {
                 |entity, location| {
                     // SAFETY: no components are allocated by archetype.allocate() because the archetype
                     // is empty
-                    *location = empty_archetype.allocate(entity, table.allocate(entity));
+                    *location = Some(empty_archetype.allocate(entity, table.allocate(entity)));
                 },
                 by,
                 at,
