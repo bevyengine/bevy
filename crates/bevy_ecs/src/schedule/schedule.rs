@@ -416,6 +416,14 @@ impl Schedule {
         self
     }
 
+    /// Obtain a mutable reference to a schedule build pass with type `T`.
+    pub fn get_build_pass_mut<T: ScheduleBuildPass>(&mut self) -> Option<&mut T> {
+        self.graph
+            .passes
+            .get_mut(&TypeId::of::<T>())
+            .map(|x| (x.as_mut() as &mut dyn Any).downcast_mut().unwrap())
+    }
+
     /// Remove a custom build pass.
     pub fn remove_build_pass<T: ScheduleBuildPass>(&mut self) {
         self.graph.passes.remove(&TypeId::of::<T>());
@@ -1007,7 +1015,7 @@ impl ScheduleGraph {
         // check that there are no edges to system-type sets that have multiple instances
         self.check_system_type_set_ambiguity(&set_systems)?;
 
-        let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
+        let mut dependency_flattened = self.get_dependency_flattened(world, &set_systems);
 
         // modify graph with build passes
         let mut passes = core::mem::take(&mut self.passes);
@@ -1097,6 +1105,7 @@ impl ScheduleGraph {
 
     fn get_dependency_flattened(
         &mut self,
+        world: &mut World,
         set_systems: &HashMap<SystemSetKey, Vec<SystemKey>>,
     ) -> DiGraph<SystemKey> {
         // flatten: combine `in_set` with `before` and `after` information
@@ -1104,9 +1113,11 @@ impl ScheduleGraph {
         let mut dependency_flattening = self.dependency.graph.clone();
         let mut temp = Vec::new();
         for (&set, systems) in set_systems {
-            for pass in self.passes.values_mut() {
-                pass.collapse_set(set, systems, &dependency_flattening, &mut temp);
+            let mut passes = core::mem::take(&mut self.passes);
+            for pass in passes.values_mut() {
+                pass.collapse_set(set, systems, world, self, &dependency_flattening, &mut temp);
             }
+            self.passes = passes;
             if systems.is_empty() {
                 // collapse dependencies for empty sets
                 for a in dependency_flattening.neighbors_directed(NodeId::Set(set), Incoming) {
