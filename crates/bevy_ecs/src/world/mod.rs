@@ -1158,7 +1158,6 @@ impl World {
         bundle: B,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
-        self.flush();
         let change_tick = self.change_tick();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
         // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
@@ -2415,7 +2414,6 @@ impl World {
             archetype_id: ArchetypeId,
         }
 
-        self.flush();
         let change_tick = self.change_tick();
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
@@ -2560,7 +2558,6 @@ impl World {
             archetype_id: ArchetypeId,
         }
 
-        self.flush();
         let change_tick = self.change_tick();
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =

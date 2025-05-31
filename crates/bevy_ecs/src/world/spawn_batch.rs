@@ -29,10 +29,6 @@ where
     #[inline]
     #[track_caller]
     pub(crate) fn new(world: &'w mut World, iter: I, caller: MaybeLocation) -> Self {
-        // Ensure all entity allocations are accounted for so `self.entities` can realloc if
-        // necessary
-        world.flush();
-
         let change_tick = world.change_tick();
 
         let (lower, upper) = iter.size_hint();
@@ -40,10 +36,11 @@ where
 
         let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
         spawner.reserve_storage(length);
+        let allocator = spawner.allocator().alloc_many(length as u32);
 
         Self {
             inner: iter,
-            allocator: spawner.allocator().alloc_many(length as u32),
+            allocator,
             spawner,
             caller,
         }
