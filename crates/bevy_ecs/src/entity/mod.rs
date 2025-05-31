@@ -662,6 +662,9 @@ impl SparseSetIndex for Entity {
 #[derive(Default, Debug)]
 pub struct EntitiesAllocator {
     free: Vec<Entity>,
+    /// This is continually subtracted from.
+    /// If it wraps to a very large number, it will be outside the bounds of `free`,
+    /// and a new row will be needed.
     free_len: AtomicU32,
     next_row: AtomicU32,
 }
@@ -675,7 +678,12 @@ impl EntitiesAllocator {
     }
 
     pub(crate) fn free(&mut self, freed: Entity) {
-        self.free.truncate(*self.free_len.get_mut() as usize);
+        let expected_len = *self.free_len.get_mut() as usize;
+        if expected_len > self.free.len() {
+            self.free.clear();
+        } else {
+            self.free.truncate(expected_len);
+        }
         self.free.push(freed);
         *self.free_len.get_mut() = self.free.len() as u32;
     }
@@ -846,7 +854,7 @@ impl Entities {
         }
 
         let index = row.index() as usize;
-        if self.meta.len() >= index {
+        if self.meta.len() <= index {
             // TODO: hint unlikely once stable.
             expand(&mut self.meta, index + 1);
         }
@@ -984,6 +992,19 @@ impl Entities {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Counts the number of entities currently participating in the world, those that have locations.
+    pub fn count_active(&self) -> u32 {
+        self.meta
+            .iter()
+            .filter(|meta| meta.location.is_some())
+            .count() as u32
+    }
+
+    /// Returns true if there are any entities active in the world, entities that have locations.
+    pub fn any_active(&self) -> bool {
+        self.meta.iter().any(|meta| meta.location.is_some())
     }
 }
 

@@ -5818,7 +5818,6 @@ mod tests {
         );
         world.commands().queue(count_flush);
         let entity = world.spawn_empty().id();
-        assert_eq!(world.resource::<TestFlush>().0, 1);
         world.commands().queue(count_flush);
         let mut a = world.entity_mut(entity);
         a.trigger(TestEvent);

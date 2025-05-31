@@ -3645,7 +3645,7 @@ impl fmt::Debug for World {
         // Accessing any data stored in the world would be unsound.
         f.debug_struct("World")
             .field("id", &self.id)
-            .field("entity_count", &self.entities.len())
+            .field("entity_count", &self.entities.count_active())
             .field("archetype_count", &self.archetypes.len())
             .field("component_count", &self.components.len())
             .field("resource_count", &self.storages.resources.len())
@@ -4349,6 +4349,7 @@ mod tests {
             .is_ok());
 
         world.entity_mut(e1).despawn();
+        assert!(world.get_entity_mut(e2).is_ok());
 
         assert!(matches!(
             world.get_entity_mut(e1).map(|_| {}),
