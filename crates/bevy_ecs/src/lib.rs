@@ -365,14 +365,14 @@ mod tests {
         let mut e3 = world.entity_mut(e3);
         e3.destruct();
         e3.despawn();
-        let e4 = world.spawn_null();
-        world
-            .entity_mut(e4)
+        let e4 = world
+            .entity_mut(world.spawn_null())
             .construct((TableStored("junk"), A(0)))
             .unwrap()
             .destruct()
             .construct((TableStored("def"), A(456)))
-            .unwrap();
+            .unwrap()
+            .id();
 
         assert_eq!(world.entities.count_constructed(), 2);
         assert!(world.despawn(e1));
