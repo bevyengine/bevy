@@ -20,6 +20,28 @@ struct VertexOutput {
 @group(2) @binding(1) var tileset_sampler: sampler;
 @group(2) @binding(2) var tile_data: texture_2d<u32>;
 
+struct TileData {
+    tileset_index: u32,
+    visible: bool,
+    color: vec4<f32>,
+}
+
+fn getTileData(coord: vec2<u32>) -> TileData {
+    let data = textureLoad(tile_data, coord, 0);
+
+    let tileset_index = data.r;
+    let visible = data.g != 0u;
+
+    let color_r = f32(data.b & 0xFFu) / 255.0;
+    let color_g = f32((data.b >> 8u) & 0xFFu) / 255.0;
+    let color_b = f32(data.a & 0xFFu) / 255.0;
+    let color_a = f32((data.a >> 8u) & 0xFFu) / 255.0;
+
+    let color = vec4<f32>(color_r, color_g, color_b, color_a);
+
+    return TileData(tileset_index, visible, color);
+}
+
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
@@ -40,27 +62,19 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let chunk_size = textureDimensions(tile_data, 0);
-    let tile_xy = vec2<u32>(
+    let tile_coord = vec2<u32>(
         in.tile_index % chunk_size.x,
         in.tile_index / chunk_size.x
     );
 
-    let tile = textureLoad(tile_data, tile_xy, 0);
-    let tile_id = tile.r;
-    let visible = tile.g != 0u;
+    let tile = getTileData(tile_coord);
 
-    if (tile_id == 0xffffu || !visible) {
+    if (tile.tileset_index == 0xffffu || !tile.visible) {
         discard;
     }
 
-    let color_r = f32(tile.b & 0xFFu) / 255.0;
-    let color_g = f32((tile.b >> 8u) & 0xFFu) / 255.0;
-    let color_b = f32(tile.a & 0xFFu) / 255.0;
-    let color_a = f32((tile.a >> 8u) & 0xFFu) / 255.0;
-
-    let tile_color = vec4<f32>(color_r, color_g, color_b, color_a);
-    let tex_color = textureSample(tileset, tileset_sampler, in.uv, tile_id);
-    let final_color = tex_color * tile_color;
+    let tex_color = textureSample(tileset, tileset_sampler, in.uv, tile.tileset_index);
+    let final_color = tex_color * tile.color;
 
     // Alpha-based visibility - discard if fully transparent
     if (final_color.a < 0.001) {
