@@ -1349,7 +1349,7 @@ impl ScheduleGraph {
         let mut dependency_flattened = self.dependency.graph.clone();
         let mut temp = Vec::new();
         for (&set, systems) in set_systems {
-            let mut passes = std::mem::take(&mut self.passes);
+            let mut passes = core::mem::take(&mut self.passes);
             for pass in passes.values_mut() {
                 pass.collapse_set(set, systems, world, self, &dependency_flattened, &mut temp);
             }
