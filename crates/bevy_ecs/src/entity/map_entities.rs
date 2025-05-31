@@ -299,9 +299,12 @@ impl<'m> SceneEntityMapper<'m> {
     /// safely allocate any more references, this method takes ownership of `self` in order to render it unusable.
     pub fn finish(self, world: &mut World) {
         // SAFETY: We never constructed the entity and never released it for something else to construct.
-        unsafe {
-            world.release_generations_unchecked(self.dead_start.row(), self.generations);
-        }
+        let reuse_row = unsafe {
+            world
+                .entities
+                .mark_free(self.dead_start.row(), self.generations)
+        };
+        world.allocator.free(reuse_row);
     }
 
     /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity>`], then calls the

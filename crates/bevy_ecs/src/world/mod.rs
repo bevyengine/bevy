@@ -1553,20 +1553,6 @@ impl World {
         Ok(entity)
     }
 
-    /// Releases `entity` to be reused.
-    ///
-    /// # Safety
-    ///
-    /// It must have been destructed.
-    pub(crate) unsafe fn release_generations_unchecked(
-        &mut self,
-        entity: EntityRow,
-        generations: u32,
-    ) {
-        self.allocator
-            .free(self.entities.mark_free(entity, generations));
-    }
-
     /// Clears the internal component tracker state.
     ///
     /// The world maintains some internal state about changed and removed components. This state

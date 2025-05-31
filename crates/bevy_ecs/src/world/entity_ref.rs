@@ -2373,6 +2373,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Destructs the entity, without releasing it.
     /// This may be later [`constructed`](Self::construct).
+    /// Note that this still increases the generation to differentiate different constructions of the same row.
     #[track_caller]
     pub fn destruct(&mut self) -> &mut Self {
         self.destruct_with_caller(MaybeLocation::caller())
@@ -2517,7 +2518,10 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         // finish
+        // SAFETY: We just destructed it.
+        self.entity = unsafe { self.world.entities.mark_free(self.entity.row(), 1) };
         self.world.flush();
+        self.update_location(); // In case some command re-constructs this entity.
         self
     }
 
@@ -2536,11 +2540,7 @@ impl<'w> EntityWorldMut<'w> {
 
     pub(crate) fn despawn_with_caller(mut self, caller: MaybeLocation) {
         self.destruct_with_caller(caller);
-        // SAFETY: We just destructed.
-        unsafe {
-            self.world
-                .release_generations_unchecked(self.entity.row(), 1);
-        }
+        self.world.allocator.free(self.entity);
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
