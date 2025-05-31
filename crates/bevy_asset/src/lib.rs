@@ -1880,6 +1880,56 @@ mod tests {
         });
     }
 
+    #[test]
+    fn error_on_duplicate_subasset_names() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new("a.txt"), "");
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+        )
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+
+        struct DuplicateSubassetLoader;
+
+        impl AssetLoader for DuplicateSubassetLoader {
+            type Asset = TestAsset;
+            type Error = std::io::Error;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                load_context.add_labeled_asset("A".into(), SubText { text: "one".into() });
+                load_context.add_labeled_asset("A".into(), SubText { text: "two".into() });
+                Ok(TestAsset)
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .init_asset::<SubText>()
+            .register_asset_loader(DuplicateSubassetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<TestAsset>("a.txt");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Failed(err) => {
+                // TODO: Check the error message matches here.
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+    }
+
     // validate the Asset derive macro for various asset types
     #[derive(Asset, TypePath)]
     pub struct TestAsset;
