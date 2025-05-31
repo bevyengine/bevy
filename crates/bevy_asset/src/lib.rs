@@ -1930,6 +1930,65 @@ mod tests {
         });
     }
 
+    #[test]
+    fn error_on_diamond_duplicate_subasset_names() {
+        // Preventing duplicate subasset names is fairly trivial for a single LoadContext. However,
+        // we also need to handle the case of multiple LoadContext's for the same asset (through
+        // `labeled_asset_scope` or `begin_labeled_asset`).
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new("a.txt"), "");
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+        )
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+
+        struct DiamondDuplicateSubassetLoader;
+
+        impl AssetLoader for DiamondDuplicateSubassetLoader {
+            type Asset = TestAsset;
+            type Error = std::io::Error;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let mut context_1 = load_context.begin_labeled_asset();
+                let mut context_2 = load_context.begin_labeled_asset();
+                context_1.add_labeled_asset("C".into(), SubText { text: "one".into() });
+                context_2.add_labeled_asset("C".into(), SubText { text: "two".into() });
+                let subasset_1 = context_1.finish(TestAsset);
+                let subasset_2 = context_2.finish(TestAsset);
+                load_context.add_loaded_labeled_asset("A", subasset_1);
+                load_context.add_loaded_labeled_asset("B", subasset_2);
+                Ok(TestAsset)
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .init_asset::<SubText>()
+            .register_asset_loader(DiamondDuplicateSubassetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<TestAsset>("a.txt");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Failed(err) => {
+                // TODO: Check the error message matches here.
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+    }
+
     // validate the Asset derive macro for various asset types
     #[derive(Asset, TypePath)]
     pub struct TestAsset;
