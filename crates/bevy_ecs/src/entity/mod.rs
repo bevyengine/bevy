@@ -1132,6 +1132,20 @@ pub enum ConstructedEntityDoesNotExistError {
     WasNotConstructed(#[from] EntityNotConstructedError),
 }
 
+impl ConstructedEntityDoesNotExistError {
+    /// The entity that did not exist or was not constructed.
+    pub fn entity(&self) -> Entity {
+        match self {
+            ConstructedEntityDoesNotExistError::DidNotExist(entity_does_not_exist_error) => {
+                entity_does_not_exist_error.entity
+            }
+            ConstructedEntityDoesNotExistError::WasNotConstructed(entity_not_constructed_error) => {
+                entity_not_constructed_error.entity
+            }
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 struct EntityMeta {
     /// The current [`EntityGeneration`] of the [`EntityRow`].

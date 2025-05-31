@@ -1419,7 +1419,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(
     ///     match query.get_many([wrong_entity]).unwrap_err() {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1470,7 +1470,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// assert_eq!(
     ///     match query.get_many_unique(UniqueEntityArray::from([wrong_entity])).unwrap_err() {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1629,7 +1629,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///         .get_many_mut([wrong_entity])
     ///         .unwrap_err()
     ///     {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
@@ -1703,7 +1703,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///         .get_many_unique_mut(UniqueEntityArray::from([wrong_entity]))
     ///         .unwrap_err()
     ///     {
-    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity,
+    ///         QueryEntityError::EntityDoesNotExist(error) => error.entity(),
     ///         _ => panic!(),
     ///     },
     ///     wrong_entity
