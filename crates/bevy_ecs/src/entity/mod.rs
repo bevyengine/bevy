@@ -658,8 +658,9 @@ impl SparseSetIndex for Entity {
     }
 }
 
+/// Allocates [`Entity`] ids uniquely.
 #[derive(Default, Debug)]
-pub(crate) struct EntitiesAllocator {
+pub struct EntitiesAllocator {
     free: Vec<Entity>,
     free_len: AtomicU32,
     next_row: AtomicU32,
@@ -761,7 +762,7 @@ impl Entities {
 
     /// Clears all entity information
     pub fn clear(&mut self) {
-        self.meta.clear()
+        self.meta.clear();
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`].
@@ -981,10 +982,13 @@ impl Entities {
 /// An error that occurs when a specified [`Entity`] can not be constructed.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConstructionError {
+    /// The [`Entity`] to construct was invalid.
+    /// It probably had the wrong generation or was created erroneously.
     #[error(
         "The entity's id was invalid: either erroneously created or with the wrong generation."
     )]
     InvalidId,
+    /// The [`Entity`] to construct was already constructed.
     #[error("The entity can not be constructed as it already has a location.")]
     AlreadyConstructed,
 }

@@ -334,7 +334,7 @@ mod tests {
     fn entity_mapper() {
         let mut map = EntityHashMap::default();
         let mut world = World::new();
-        let mut mapper = SceneEntityMapper::new(&mut map, &mut world);
+        let mut mapper = SceneEntityMapper::new(&mut map, &world);
 
         let mapped_ent = Entity::from_raw_u32(1).unwrap();
         let dead_ref = mapper.get_mapped(mapped_ent);

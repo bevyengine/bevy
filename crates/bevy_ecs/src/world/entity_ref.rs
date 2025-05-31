@@ -2333,6 +2333,9 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Constructs the entity.
+    /// If the entity has not been constructed or has been destructed, the can construct it.
+    /// See [`World::construct`] for details.
     #[track_caller]
     pub fn construct<B: Bundle>(&mut self, bundle: B) -> Result<&mut Self, ConstructionError> {
         let Self {
@@ -2340,11 +2343,26 @@ impl<'w> EntityWorldMut<'w> {
             entity,
             location,
         } = self;
-        let found = world.construct(*entity, bundle)?;
+        let found = world.construct_with_caller(*entity, bundle, MaybeLocation::caller())?;
         *location = found.location;
         Ok(self)
     }
 
+    /// A faster version of [`construct`](Self::construct) for the empty bundle.
+    #[track_caller]
+    pub fn construct_empty(&mut self) -> Result<&mut Self, ConstructionError> {
+        let Self {
+            world,
+            entity,
+            location,
+        } = self;
+        let found = world.construct_empty_with_caller(*entity, MaybeLocation::caller())?;
+        *location = found.location;
+        Ok(self)
+    }
+
+    /// Destructs the entity, without releasing it.
+    /// This may be later [`constructed`](Self::construct).
     #[track_caller]
     pub fn destruct(&mut self) -> &mut Self {
         self.destruct_with_caller(MaybeLocation::caller())

@@ -1053,16 +1053,46 @@ impl World {
     }
 
     /// Spawns an [`Entity`] that is void/null.
-    /// The returned entity id is valid and unique, but it does not correspond to any conceptual entity.
+    /// The returned entity id is valid and unique, but it does not correspond to any conceptual entity yet.
     /// The conceptual entity does not exist, and using the id as if it did may produce errors.
     /// It can not be queried, and it has no [`EntityLocation`](crate::entity::EntityLocation).
     ///
     /// This is different from empty entities, which do exist in the world;
     /// they just happen to have no components.
+    ///
+    /// This is particularly useful when spawning entities in special ways.
+    /// For example, commands uses this to allocate an entity and [`construct`](Self::construct) it later.
+    /// Note that since this entity is not queryable and its id is not discoverable, loosing the returned [`Entity`] effectively leaks it, never to be used again!
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*};
+    /// let mut world = World::new();
+    /// let entity = world.spawn_null();
+    /// // wait as long as you like
+    /// let entity_access = world.construct_empty(entity).unwrap();
+    /// // treat it as a normal entity
+    /// entity_access.despawn();
+    /// ```
     pub fn spawn_null(&self) -> Entity {
         self.allocator.alloc()
     }
 
+    /// This releases the entity to be reused by the allocator.
+    /// It despawns the entity as needed.
+    ///
+    /// This is useful when the entity may not be constructed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*};
+    /// let mut world = World::new();
+    /// let entity = world.spawn_null();
+    /// // The entity was never constructed.
+    /// world.release(entity);
+    /// ```
     pub fn release(&mut self, entity: Entity) {
         let Ok(entity) = self.get_entity_mut(entity) else {
             return; // Already released then.
@@ -1085,6 +1115,11 @@ impl World {
             .free(self.entities.mark_free(entity, generations));
     }
 
+    /// Constructs the bundle on the entity.
+    /// If the entity can not be constructed for any reason, returns an error.
+    ///
+    /// If it succeeds, this declares the entity to have this bundle.
+    /// It is possible to construct an `entity` that has not been allocated yet.
     #[track_caller]
     pub fn construct<B: Bundle>(
         &mut self,
@@ -1137,6 +1172,7 @@ impl World {
         entity
     }
 
+    /// A faster version of [`construct`](Self::construct) for the empty bundle.
     #[track_caller]
     pub fn construct_empty(
         &mut self,
