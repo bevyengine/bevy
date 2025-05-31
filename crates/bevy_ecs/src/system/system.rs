@@ -423,9 +423,9 @@ mod tests {
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.entities.count_active(), 0);
+        assert_eq!(world.entities.count_constructed(), 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.entities.count_active(), 1);
+        assert_eq!(world.entities.count_constructed(), 1);
     }
 
     #[test]

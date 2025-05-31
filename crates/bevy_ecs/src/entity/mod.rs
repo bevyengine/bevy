@@ -761,7 +761,7 @@ impl<'a> Iterator for AllocEntitiesIterator<'a> {
 impl<'a> ExactSizeIterator for AllocEntitiesIterator<'a> {}
 impl<'a> core::iter::FusedIterator for AllocEntitiesIterator<'a> {}
 
-// SAFETY: Newly reserved entity values are unique.
+// SAFETY: Newly allocated entity values are unique.
 unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
 
 /// [`Entities`] tracks all know [`EntityRow`]s and their metadata.
@@ -781,8 +781,7 @@ impl Entities {
         self.meta.clear();
     }
 
-    /// Returns the [`EntityLocation`] of an [`Entity`].
-    /// Note: for non-constructed entities, returns `None`.
+    /// Returns the [`EntityLocation`] of an [`Entity`] if it exists and is constructed.
     #[inline]
     pub fn get_constructed(
         &self,
@@ -829,7 +828,7 @@ impl Entities {
         }
     }
 
-    /// Returns the [`EntityIdLocation`] of an [`Entity`].
+    /// Returns the [`EntityIdLocation`] of an [`Entity`] if it exists.
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<EntityIdLocation, EntityDoesNotExistError> {
         match self.meta.get(entity.index() as usize) {
@@ -866,14 +865,22 @@ impl Entities {
             .unwrap_or(Entity::from_raw(row))
     }
 
+    /// Returns whether the entity at this `row` is constructed or not.
+    #[inline]
+    pub fn is_row_constructed(&self, row: EntityRow) -> bool {
+        self.meta
+            .get(row.index() as usize)
+            .map(|meta| meta.location.is_some())
+            .unwrap_or_default()
+    }
+
     /// Returns true if the entity exists.
     /// This will return true for entities that exist but have not been constructed.
     pub fn contains(&self, entity: Entity) -> bool {
         self.resolve_from_row(entity.row()).generation() == entity.generation()
     }
 
-    /// Returns true if the entity exists in the world *now*.
-    /// This will return false if the `entity` is not constructed.
+    /// Returns true if the entity exists and are constructed.
     pub fn contains_constructed(&self, entity: Entity) -> bool {
         self.get_constructed(entity).is_ok()
     }
@@ -922,8 +929,7 @@ impl Entities {
     ) -> EntityIdLocation {
         self.ensure_row(row);
         // SAFETY: We just did `ensure_row`
-        let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
-        mem::replace(&mut meta.location, location)
+        self.update(row, location)
     }
 
     /// Ensures row is valid.
@@ -931,9 +937,9 @@ impl Entities {
     fn ensure_row(&mut self, row: EntityRow) {
         #[cold] // to help with branch prediction
         fn expand(meta: &mut Vec<EntityMeta>, len: usize) {
-            meta.resize(len, EntityMeta::EMPTY);
+            meta.resize(len, EntityMeta::FRESH);
             // Set these up too while we're here.
-            meta.resize(meta.capacity(), EntityMeta::EMPTY);
+            meta.resize(meta.capacity(), EntityMeta::FRESH);
         }
 
         let index = row.index() as usize;
@@ -947,7 +953,7 @@ impl Entities {
     ///
     /// # Safety
     ///
-    /// - `row` must its [`EntityIdLocation`] set to `None`.
+    /// - `row` must be destructed (have no location) already.
     pub(crate) unsafe fn mark_free(&mut self, row: EntityRow, generations: u32) -> Entity {
         // We need to do this in case an entity is being freed that was never constructed.
         self.ensure_row(row);
@@ -966,7 +972,7 @@ impl Entities {
     /// Mark an [`EntityRow`] as constructed or destructed in the given tick.
     ///
     /// # Safety
-    ///  - `row` must have either been constructed or destructed, ensuring its row is valid.
+    ///  - `row` must have been constructed at least once, ensuring its row is valid.
     #[inline]
     pub(crate) unsafe fn mark_construct_or_destruct(
         &mut self,
@@ -979,11 +985,9 @@ impl Entities {
         meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
     }
 
-    /// Try to get the source code location from which this entity has last been
-    /// spawned, despawned or flushed.
+    /// Try to get the source code location from which this entity has last been constructed or destructed.
     ///
-    /// Returns `None` if its index has been reused by another entity
-    /// or if this entity has never existed.
+    /// Returns `None` if the entity does not exist or has never been construced/destructed.
     pub fn entity_get_spawned_or_despawned_by(
         &self,
         entity: Entity,
@@ -994,21 +998,17 @@ impl Entities {
         })
     }
 
-    /// Try to get the [`Tick`] at which this entity has last been
-    /// spawned, despawned or flushed.
+    /// Try to get the [`Tick`] at which this entity has last been constructed or destructed.
     ///
-    /// Returns `None` if its index has been reused by another entity or if this entity
-    /// has never been spawned.
+    /// Returns `None` if the entity does not exist or has never been construced/destructed.
     pub fn entity_get_spawned_or_despawned_at(&self, entity: Entity) -> Option<Tick> {
         self.entity_get_spawned_or_despawned(entity)
             .map(|spawned_or_despawned| spawned_or_despawned.at)
     }
 
-    /// Try to get the [`SpawnedOrDespawned`] related to the entity's last spawn,
-    /// despawn or flush.
+    /// Try to get the [`SpawnedOrDespawned`] related to the entity's last construction or destruction.
     ///
-    /// Returns `None` if its index has been reused by another entity or if
-    /// this entity has never been spawned.
+    /// Returns `None` if the entity does not exist or has never been construced/destructed.
     #[inline]
     fn entity_get_spawned_or_despawned(&self, entity: Entity) -> Option<SpawnedOrDespawned> {
         self.meta
@@ -1016,8 +1016,7 @@ impl Entities {
             .filter(|meta|
             // Generation is incremented immediately upon despawn
             (meta.generation == entity.generation)
-            || meta.location.is_none()
-            && (meta.generation == entity.generation.after_versions(1)))
+            || (meta.location.is_none() && meta.generation == entity.generation.after_versions(1)))
             .map(|meta| meta.spawned_or_despawned)
     }
 
@@ -1051,22 +1050,22 @@ impl Entities {
         self.meta.len() as u32
     }
 
-    /// Checks if any entity has been allocated
+    /// Checks if any entity has been declared
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Counts the number of entities currently participating in the world, those that have locations.
-    pub fn count_active(&self) -> u32 {
+    /// Counts the number of entities currently constructed, those that have locations.
+    pub fn count_constructed(&self) -> u32 {
         self.meta
             .iter()
             .filter(|meta| meta.location.is_some())
             .count() as u32
     }
 
-    /// Returns true if there are any entities active in the world, entities that have locations.
-    pub fn any_active(&self) -> bool {
+    /// Returns true if there are any entities currently constructed, entities that have locations.
+    pub fn any_constructed(&self) -> bool {
         self.meta.iter().any(|meta| meta.location.is_some())
     }
 }
@@ -1152,7 +1151,7 @@ struct EntityMeta {
     generation: EntityGeneration,
     /// The current location of the [`EntityRow`].
     location: EntityIdLocation,
-    /// Location and tick of the last spawn, despawn or flush of this entity.
+    /// Location and tick of the last construct/destruct
     spawned_or_despawned: SpawnedOrDespawned,
 }
 
@@ -1163,8 +1162,8 @@ struct SpawnedOrDespawned {
 }
 
 impl EntityMeta {
-    /// meta for **pending entity**
-    const EMPTY: EntityMeta = EntityMeta {
+    /// The metadata for a fresh entity: Never constructed/destructed, no location, etc.
+    const FRESH: EntityMeta = EntityMeta {
         generation: EntityGeneration::FIRST,
         location: None,
         spawned_or_despawned: SpawnedOrDespawned {

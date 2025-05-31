@@ -3672,7 +3672,7 @@ impl fmt::Debug for World {
         // Accessing any data stored in the world would be unsound.
         f.debug_struct("World")
             .field("id", &self.id)
-            .field("entity_count", &self.entities.count_active())
+            .field("entity_count", &self.entities.count_constructed())
             .field("archetype_count", &self.archetypes.len())
             .field("component_count", &self.components.len())
             .field("resource_count", &self.storages.resources.len())

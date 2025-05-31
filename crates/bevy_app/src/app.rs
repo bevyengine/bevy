@@ -1579,7 +1579,7 @@ mod tests {
         app.add_systems(EnterMainMenu, (foo, bar));
 
         app.world_mut().run_schedule(EnterMainMenu);
-        assert_eq!(app.world().entities().count_active(), 2);
+        assert_eq!(app.world().entities().count_constructed(), 2);
     }
 
     #[test]

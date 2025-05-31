@@ -374,9 +374,9 @@ mod tests {
             .construct((TableStored("def"), A(456)))
             .unwrap();
 
-        assert_eq!(world.entities.count_active(), 2);
+        assert_eq!(world.entities.count_constructed(), 2);
         assert!(world.despawn(e1));
-        assert_eq!(world.entities.count_active(), 1);
+        assert_eq!(world.entities.count_constructed(), 1);
         assert!(world.get::<TableStored>(e1).is_none());
         assert!(world.get::<A>(e1).is_none());
         assert_eq!(world.get::<TableStored>(e4).unwrap().0, "def");
@@ -388,9 +388,9 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn((TableStored("abc"), A(123))).id();
         let f = world.spawn((TableStored("def"), A(456))).id();
-        assert_eq!(world.entities.count_active(), 2);
+        assert_eq!(world.entities.count_constructed(), 2);
         assert!(world.despawn(e));
-        assert_eq!(world.entities.count_active(), 1);
+        assert_eq!(world.entities.count_constructed(), 1);
         assert!(world.get::<TableStored>(e).is_none());
         assert!(world.get::<A>(e).is_none());
         assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
@@ -403,9 +403,9 @@ mod tests {
 
         let e = world.spawn((TableStored("abc"), SparseStored(123))).id();
         let f = world.spawn((TableStored("def"), SparseStored(456))).id();
-        assert_eq!(world.entities.count_active(), 2);
+        assert_eq!(world.entities.count_constructed(), 2);
         assert!(world.despawn(e));
-        assert_eq!(world.entities.count_active(), 1);
+        assert_eq!(world.entities.count_constructed(), 1);
         assert!(world.get::<TableStored>(e).is_none());
         assert!(world.get::<SparseStored>(e).is_none());
         assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
@@ -1640,7 +1640,7 @@ mod tests {
 
         assert_eq!(q1.iter(&world).len(), 1);
         assert_eq!(q2.iter(&world).len(), 1);
-        assert_eq!(world.entities().count_active(), 2);
+        assert_eq!(world.entities().count_constructed(), 2);
 
         world.clear_entities();
 
@@ -1655,7 +1655,7 @@ mod tests {
             "world should not contain sparse set components"
         );
         assert_eq!(
-            world.entities().count_active(),
+            world.entities().count_constructed(),
             0,
             "world should not have any entities"
         );
