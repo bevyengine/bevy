@@ -11,10 +11,8 @@
 //! user interface is showing a live view of dynamic data coming from deeper within the game engine.
 
 mod core_button;
-mod events;
 
 use bevy_app::{App, Plugin};
-pub use events::{ButtonClicked, ValueChange};
 
 pub use core_button::{CoreButton, CoreButtonPlugin};
 
@@ -24,15 +22,6 @@ pub struct CoreWidgetsPlugin;
 
 impl Plugin for CoreWidgetsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            // CoreBarrierPlugin,
-            CoreButtonPlugin,
-            // CoreCheckboxPlugin,
-            // CoreRadioPlugin,
-            // CoreRadioGroupPlugin,
-            // CoreScrollbarPlugin,
-            // CoreSliderPlugin,
-            // CursorIconPlugin,
-        ));
+        app.add_plugins((CoreButtonPlugin,));
     }
 }

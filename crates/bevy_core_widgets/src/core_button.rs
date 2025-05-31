@@ -14,8 +14,6 @@ use bevy_input_focus::{FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Pressed, Released};
 use bevy_ui::{Depressed, InteractionDisabled};
 
-use crate::events::ButtonClicked;
-
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
 /// indicate whether the button is currently being pressed by the user. It emits a `ButtonClicked`
 /// event when the button is un-pressed.
@@ -43,8 +41,6 @@ fn button_on_key_event(
                 if let Some(on_click) = bstate.on_click {
                     trigger.propagate(false);
                     commands.run_system(on_click);
-                } else {
-                    commands.trigger_targets(ButtonClicked, trigger.target());
                 }
             }
         }
@@ -61,8 +57,6 @@ fn button_on_pointer_click(
         if pressed.get() && !disabled.get() {
             if let Some(on_click) = bstate.on_click {
                 commands.run_system(on_click);
-            } else {
-                commands.trigger_targets(ButtonClicked, trigger.target());
             }
         }
     }

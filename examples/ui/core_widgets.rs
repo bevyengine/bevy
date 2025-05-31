@@ -144,12 +144,11 @@ fn toggle_disabled(
 ) {
     if input.just_pressed(KeyCode::KeyD) {
         for mut disabled in &mut interaction_query {
+            disabled.0 = !disabled.0;
             if disabled.get() {
                 info!("Button enabled");
-                disabled.clear_disabled();
             } else {
                 info!("Button disabled");
-                disabled.set_disabled();
             }
         }
     }

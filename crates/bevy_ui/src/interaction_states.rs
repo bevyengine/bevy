@@ -22,16 +22,6 @@ impl InteractionDisabled {
     pub fn get(&self) -> bool {
         self.0
     }
-
-    /// Sets the disabled state of the widget.
-    pub fn set_disabled(&mut self) {
-        self.0 = true;
-    }
-
-    /// Clears the disabled state of the widget.
-    pub fn clear_disabled(&mut self) {
-        self.0 = false;
-    }
 }
 
 pub(crate) fn on_add_disabled(
