@@ -82,6 +82,12 @@ impl<'w> EntityRef<'w> {
         self.cell.location()
     }
 
+    /// Returns if the entity is constructed or not.
+    #[inline]
+    pub fn is_constructed(&self) -> bool {
+        self.cell.location().is_some()
+    }
+
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> Option<&Archetype> {
@@ -490,6 +496,12 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn location(&self) -> EntityIdLocation {
         self.cell.location()
+    }
+
+    /// Returns if the entity is constructed or not.
+    #[inline]
+    pub fn is_constructed(&self) -> bool {
+        self.cell.location().is_some()
     }
 
     /// Returns the archetype that the current entity belongs to.
@@ -1220,7 +1232,7 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
-    /// Returns whether or not the entity is constructed.
+    /// Returns if the entity is constructed or not.
     #[inline]
     pub fn is_constructed(&self) -> bool {
         self.location.is_some()
@@ -3277,6 +3289,12 @@ impl<'w> FilteredEntityRef<'w> {
         self.entity.location()
     }
 
+    /// Returns if the entity is constructed or not.
+    #[inline]
+    pub fn is_constructed(&self) -> bool {
+        self.entity.location().is_some()
+    }
+
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> Option<&Archetype> {
@@ -3617,6 +3635,12 @@ impl<'w> FilteredEntityMut<'w> {
     #[inline]
     pub fn location(&self) -> EntityIdLocation {
         self.entity.location()
+    }
+
+    /// Returns if the entity is constructed or not.
+    #[inline]
+    pub fn is_constructed(&self) -> bool {
+        self.entity.location().is_some()
     }
 
     /// Returns the archetype that the current entity belongs to.
