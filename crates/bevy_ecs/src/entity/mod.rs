@@ -932,6 +932,8 @@ impl Entities {
         #[cold] // to help with branch prediction
         fn expand(meta: &mut Vec<EntityMeta>, len: usize) {
             meta.resize(len, EntityMeta::EMPTY);
+            // Set these up too while we're here.
+            meta.resize(meta.capacity(), EntityMeta::EMPTY);
         }
 
         let index = row.index() as usize;
