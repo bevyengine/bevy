@@ -1,3 +1,4 @@
+use crate::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 
@@ -20,14 +21,34 @@ use serde::{
 #[derive(Debug, Default, Resource, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FrameCount(pub u32);
 
-/// Adds frame counting functionality to Apps.
+/// Adds frame counting functionality to Apps, specifically "frame count" to diagnostics.
+///
+/// # See also
+///
+/// [`LogDiagnosticsPlugin`](crate::LogDiagnosticsPlugin) to output diagnostics to the console.
 #[derive(Default)]
-pub struct FrameCountPlugin;
+pub struct FrameCountDiagnosticsPlugin;
 
-impl Plugin for FrameCountPlugin {
+impl Plugin for FrameCountDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<FrameCount>();
-        app.add_systems(Last, update_frame_count);
+        app.init_resource::<FrameCount>()
+            .add_systems(Last, update_frame_count)
+            // An average frame count would be nonsensical, so we set the max history length
+            // to zero and disable smoothing.
+            .register_diagnostic(
+                Diagnostic::new(Self::FRAME_COUNT)
+                    .with_smoothing_factor(0.0)
+                    .with_max_history_length(0),
+            )
+            .add_systems(Update, Self::diagnostic_system);
+    }
+}
+
+impl FrameCountDiagnosticsPlugin {
+    pub const FRAME_COUNT: DiagnosticPath = DiagnosticPath::const_new("frame_count");
+
+    pub fn diagnostic_system(mut diagnostics: Diagnostics, frame_count: Res<FrameCount>) {
+        diagnostics.add_measurement(&Self::FRAME_COUNT, || frame_count.0 as f64);
     }
 }
 
@@ -79,7 +100,7 @@ mod tests {
     #[test]
     fn frame_counter_update() {
         let mut app = App::new();
-        app.add_plugins(FrameCountPlugin);
+        app.add_plugins(FrameCountDiagnosticsPlugin);
         app.update();
 
         let frame_count = app.world().resource::<FrameCount>();

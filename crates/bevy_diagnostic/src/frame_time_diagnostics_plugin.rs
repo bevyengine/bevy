@@ -1,12 +1,11 @@
 use crate::{
-    Diagnostic, DiagnosticPath, Diagnostics, FrameCount, RegisterDiagnostic,
-    DEFAULT_MAX_HISTORY_LENGTH,
+    Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic, DEFAULT_MAX_HISTORY_LENGTH,
 };
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_time::{Real, Time};
 
-/// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"
+/// Adds "frame time" diagnostic to an App, specifically "frame time" and "fps"
 ///
 /// # See also
 ///
@@ -46,36 +45,21 @@ impl Plugin for FrameTimeDiagnosticsPlugin {
                 .with_max_history_length(self.max_history_length)
                 .with_smoothing_factor(self.smoothing_factor),
         )
-        // An average frame count would be nonsensical, so we set the max history length
-        // to zero and disable smoothing.
-        .register_diagnostic(
-            Diagnostic::new(Self::FRAME_COUNT)
-                .with_smoothing_factor(0.0)
-                .with_max_history_length(0),
-        )
         .add_systems(Update, Self::diagnostic_system);
     }
 }
 
 impl FrameTimeDiagnosticsPlugin {
     pub const FPS: DiagnosticPath = DiagnosticPath::const_new("fps");
-    pub const FRAME_COUNT: DiagnosticPath = DiagnosticPath::const_new("frame_count");
     pub const FRAME_TIME: DiagnosticPath = DiagnosticPath::const_new("frame_time");
 
-    pub fn diagnostic_system(
-        mut diagnostics: Diagnostics,
-        time: Res<Time<Real>>,
-        frame_count: Res<FrameCount>,
-    ) {
-        diagnostics.add_measurement(&Self::FRAME_COUNT, || frame_count.0 as f64);
-
+    pub fn diagnostic_system(mut diagnostics: Diagnostics, time: Res<Time<Real>>) {
         let delta_seconds = time.delta_secs_f64();
         if delta_seconds == 0.0 {
             return;
         }
 
         diagnostics.add_measurement(&Self::FRAME_TIME, || delta_seconds * 1000.0);
-
         diagnostics.add_measurement(&Self::FPS, || 1.0 / delta_seconds);
     }
 }
