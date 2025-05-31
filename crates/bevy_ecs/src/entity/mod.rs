@@ -952,7 +952,7 @@ impl Entities {
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`].
-    /// Note: for pending entities and entities not participating in the ecs (entities with a [`EntityIdLocation`] of `None`), returns `None`.
+    /// Note: for pending entities and entities not participating in the ECS (entities with a [`EntityIdLocation`] of `None`), returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         self.get_id_location(entity).flatten()
