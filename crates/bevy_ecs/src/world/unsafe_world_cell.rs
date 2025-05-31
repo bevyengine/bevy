@@ -6,7 +6,10 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    entity::{
+        ContainsEntity, Entities, EntitiesAllocator, Entity, EntityDoesNotExistError,
+        EntityLocation,
+    },
     error::{DefaultErrorHandler, ErrorHandler},
     observer::Observers,
     prelude::Component,
@@ -257,6 +260,14 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.entities
+    }
+
+    /// Retrieves this world's [`Entities`] collection.
+    #[inline]
+    pub fn entities_allocator(self) -> &'w EntitiesAllocator {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.allocator
     }
 
     /// Retrieves this world's [`Archetypes`] collection.

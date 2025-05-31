@@ -978,8 +978,14 @@ impl Entities {
     }
 }
 
+/// An error that occurs when a specified [`Entity`] can not be constructed.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConstructionError {
+    #[error(
+        "The entity's id was invalid: either erroneously created or with the wrong generation."
+    )]
     InvalidId,
+    #[error("The entity can not be constructed as it already has a location.")]
     AlreadyConstructed,
 }
 

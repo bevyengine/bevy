@@ -267,7 +267,7 @@ impl World {
     #[inline]
     pub fn commands(&mut self) -> Commands {
         // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
+        unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.allocator) }
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -1046,7 +1046,8 @@ impl World {
         // - Command queue access does not conflict with entity access.
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+        let commands =
+            unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities_allocator()) };
 
         (fetcher, commands)
     }
@@ -1090,9 +1091,18 @@ impl World {
         entity: Entity,
         bundle: B,
     ) -> Result<EntityWorldMut<'_>, ConstructionError> {
+        self.construct_with_caller(entity, bundle, MaybeLocation::caller())
+    }
+
+    pub(crate) fn construct_with_caller<B: Bundle>(
+        &mut self,
+        entity: Entity,
+        bundle: B,
+        caller: MaybeLocation,
+    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
         self.entities.validate_construction(entity)?;
         // SAFETY: We just ensured it was valid.
-        Ok(unsafe { self.construct_unchecked(entity, bundle, MaybeLocation::caller()) })
+        Ok(unsafe { self.construct_unchecked(entity, bundle, caller) })
     }
 
     /// Constructs `bundle` on `entity`.
@@ -1127,46 +1137,34 @@ impl World {
         entity
     }
 
-    /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
-    /// to add components to the entity or retrieve its id.
-    ///
-    /// ```
-    /// use bevy_ecs::{component::Component, world::World};
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    /// #[derive(Component)]
-    /// struct Label(&'static str);
-    /// #[derive(Component)]
-    /// struct Num(u32);
-    ///
-    /// let mut world = World::new();
-    /// let entity = world.spawn_empty()
-    ///     .insert(Position { x: 0.0, y: 0.0 }) // add a single component
-    ///     .insert((Num(1), Label("hello"))) // add a bundle of components
-    ///     .id();
-    ///
-    /// let position = world.entity(entity).get::<Position>().unwrap();
-    /// assert_eq!(position.x, 0.0);
-    /// ```
     #[track_caller]
-    pub fn spawn_empty(&mut self) -> EntityWorldMut {
-        self.flush();
-        let entity = self.allocator.alloc();
-        // SAFETY: entity was just allocated
-        unsafe { self.spawn_at_empty_internal(entity, MaybeLocation::caller()) }
+    pub fn construct_empty(
+        &mut self,
+        entity: Entity,
+    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
+        self.construct_empty_with_caller(entity, MaybeLocation::caller())
     }
 
-    /// # Safety
-    /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_empty_internal(
+    pub(crate) fn construct_empty_with_caller(
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> EntityWorldMut {
+    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
+        self.entities.validate_construction(entity)?;
+        // SAFETY: We just ensured it was valid.
+        Ok(unsafe { self.construct_empty_unchecked(entity, caller) })
+    }
+
+    /// Constructs `bundle` on `entity`.
+    ///
+    /// # Safety
+    ///
+    /// `entity` must be valid and have no location.
+    pub(crate) unsafe fn construct_empty_unchecked(
+        &mut self,
+        entity: Entity,
+        caller: MaybeLocation,
+    ) -> EntityWorldMut<'_> {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
@@ -1254,6 +1252,42 @@ impl World {
         let entity = self.spawn_null();
         // SAFETY: This was just spawned from null.
         unsafe { self.construct_unchecked(entity, bundle, caller) }
+    }
+
+    /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
+    /// to add components to the entity or retrieve its id.
+    ///
+    /// ```
+    /// use bevy_ecs::{component::Component, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Num(u32);
+    ///
+    /// let mut world = World::new();
+    /// let entity = world.spawn_empty()
+    ///     .insert(Position { x: 0.0, y: 0.0 }) // add a single component
+    ///     .insert((Num(1), Label("hello"))) // add a bundle of components
+    ///     .id();
+    ///
+    /// let position = world.entity(entity).get::<Position>().unwrap();
+    /// assert_eq!(position.x, 0.0);
+    /// ```
+    #[track_caller]
+    pub fn spawn_empty(&mut self) -> EntityWorldMut {
+        self.spawn_empty_with_caller(MaybeLocation::caller())
+    }
+
+    pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut {
+        let entity = self.allocator.alloc();
+        // SAFETY: entity was just allocated
+        unsafe { self.construct_empty_unchecked(entity, caller) }
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
