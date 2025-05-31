@@ -354,6 +354,36 @@ mod tests {
     }
 
     #[test]
+    fn construct_and_destruct() {
+        let mut world = World::new();
+        let e1 = world.spawn_null();
+        world.construct(e1, (TableStored("abc"), A(123))).unwrap();
+        let e2 = world.spawn_null();
+        assert!(world.destruct(e2).is_some());
+        assert!(world.despawn(e2));
+        let e3 = world.spawn_null();
+        let mut e3 = world.entity_mut(e3);
+        e3.destruct();
+        e3.despawn();
+        let e4 = world.spawn_null();
+        world
+            .entity_mut(e4)
+            .construct((TableStored("junk"), A(0)))
+            .unwrap()
+            .destruct()
+            .construct((TableStored("def"), A(456)))
+            .unwrap();
+
+        assert_eq!(world.entities.count_active(), 2);
+        assert!(world.despawn(e1));
+        assert_eq!(world.entities.count_active(), 1);
+        assert!(world.get::<TableStored>(e1).is_none());
+        assert!(world.get::<A>(e1).is_none());
+        assert_eq!(world.get::<TableStored>(e4).unwrap().0, "def");
+        assert_eq!(world.get::<A>(e4).unwrap().0, 456);
+    }
+
+    #[test]
     fn despawn_table_storage() {
         let mut world = World::new();
         let e = world.spawn((TableStored("abc"), A(123))).id();

@@ -487,7 +487,10 @@ impl EntityCloner {
             #[cfg(not(feature = "bevy_reflect"))]
             let app_registry = Option::<()>::None;
 
-            let archetype = source_entity.archetype();
+            let Some(archetype) = source_entity.archetype() else {
+                // If the source has no archetype, there is nothing to clone.
+                return target;
+            };
             bundle_scratch = BundleScratch::with_capacity(archetype.component_count());
 
             for component in archetype.components() {

@@ -782,20 +782,19 @@ impl Entities {
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`].
-    /// Note: for pending entities and entities not participating in the ECS (entities with a [`EntityIdLocation`] of `None`), returns `None`.
+    /// Note: for non-constructed entities, returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         self.get_id_location(entity).flatten()
     }
 
     /// Returns the [`EntityIdLocation`] of an [`Entity`].
-    /// Note: for pending entities, returns `None`.
     #[inline]
     pub fn get_id_location(&self, entity: Entity) -> Option<EntityIdLocation> {
-        self.meta
-            .get(entity.index() as usize)
-            .filter(|meta| meta.generation == entity.generation)
-            .map(|meta| meta.location)
+        match self.meta.get(entity.index() as usize) {
+            Some(meta) => (meta.generation == entity.generation).then_some(meta.location),
+            None => (entity.generation() == EntityGeneration::FIRST).then_some(None),
+        }
     }
 
     /// Returns true if the entity exists in the world *now*:

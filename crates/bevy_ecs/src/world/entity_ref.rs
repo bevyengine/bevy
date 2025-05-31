@@ -78,13 +78,13 @@ impl<'w> EntityRef<'w> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub fn location(&self) -> EntityIdLocation {
         self.cell.location()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
-    pub fn archetype(&self) -> &Archetype {
+    pub fn archetype(&self) -> Option<&Archetype> {
         self.cell.archetype()
     }
 
@@ -488,13 +488,13 @@ impl<'w> EntityMut<'w> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub fn location(&self) -> EntityIdLocation {
         self.cell.location()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
-    pub fn archetype(&self) -> &Archetype {
+    pub fn archetype(&self) -> Option<&Archetype> {
         self.cell.archetype()
     }
 
@@ -1123,37 +1123,34 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
-        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.read_change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
-            location,
+            self.location,
             last_change_tick,
             change_tick,
         )
     }
     fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
-        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
-            location,
+            self.location,
             last_change_tick,
             change_tick,
         )
     }
     fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
-        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
-            location,
+            self.location,
             last_change_tick,
             change_tick,
         )
@@ -3275,13 +3272,13 @@ impl<'w> FilteredEntityRef<'w> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub fn location(&self) -> EntityIdLocation {
         self.entity.location()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
-    pub fn archetype(&self) -> &Archetype {
+    pub fn archetype(&self) -> Option<&Archetype> {
         self.entity.archetype()
     }
 
@@ -3617,13 +3614,13 @@ impl<'w> FilteredEntityMut<'w> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub fn location(&self) -> EntityIdLocation {
         self.entity.location()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
-    pub fn archetype(&self) -> &Archetype {
+    pub fn archetype(&self) -> Option<&Archetype> {
         self.entity.archetype()
     }
 
@@ -4928,7 +4925,10 @@ mod tests {
         let ent = world.spawn((Marker::<1>, Marker::<2>, Marker::<3>)).id();
 
         world.entity_mut(ent).retain::<()>();
-        assert_eq!(world.entity(ent).archetype().components().next(), None);
+        assert_eq!(
+            world.entity(ent).archetype().unwrap().components().next(),
+            None
+        );
     }
 
     // Test removing some components with `retain`, including components not on the entity.
@@ -4948,6 +4948,7 @@ mod tests {
             world
                 .entity(ent)
                 .archetype()
+                .unwrap()
                 .components()
                 .collect::<Vec<_>>()
                 .len(),

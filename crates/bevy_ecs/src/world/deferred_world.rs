@@ -8,7 +8,7 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
-    query::{QueryData, QueryFilter},
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter},
     relationship::RelationshipHookMode,
     resource::Resource,
     system::{Commands, Query},
@@ -144,7 +144,8 @@ impl<'w> DeferredWorld<'w> {
             return Ok(None);
         }
 
-        let archetype = &raw const *entity_cell.archetype();
+        // SAFETY: If the archetype was none, it would not have the component on it.
+        let archetype = unsafe { &raw const *entity_cell.archetype().debug_checked_unwrap() };
 
         // SAFETY:
         // - DeferredWorld ensures archetype pointer will remain valid as no

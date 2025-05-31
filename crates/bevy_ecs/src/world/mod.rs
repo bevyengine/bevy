@@ -977,7 +977,7 @@ impl World {
                     let cell = UnsafeEntityCell::new(
                         self.as_unsafe_world_cell_readonly(),
                         entity,
-                        location,
+                        Some(location),
                         self.last_change_tick,
                         self.read_change_tick(),
                     );
@@ -1000,7 +1000,7 @@ impl World {
                     let cell = UnsafeEntityCell::new(
                         world_cell,
                         entity,
-                        location,
+                        Some(location),
                         last_change_tick,
                         change_tick,
                     );
