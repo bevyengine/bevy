@@ -722,6 +722,12 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.system_meta.last_run = last_run;
     }
+
+    #[inline]
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        let param_state = &mut self.state.as_mut().expect(Self::ERROR_UNINITIALIZED).param;
+        F::Param::configurate(param_state, &mut self.system_meta, config);
+    }
 }
 
 /// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.

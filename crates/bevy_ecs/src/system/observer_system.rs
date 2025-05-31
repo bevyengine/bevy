@@ -195,7 +195,7 @@ where
 
     #[inline]
     fn configurate(&mut self, config: &mut dyn core::any::Any) {
-        self.observer.configurate(config)
+        self.observer.configurate(config);
     }
 }
 

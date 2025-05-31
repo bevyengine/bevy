@@ -226,7 +226,7 @@ pub unsafe trait SystemParam: Sized {
 
     /// Configurate the system param.
     /// This method will be called by [`System::configurate`](super::System::configurate) in order for all [`SystemParam`]s of a system.
-    /// Implementations should respond to configs that they recognize by calling [`downcast_mut`](<dyn Any>::downcast_mut)
+    /// Implementations should respond to configs that they recognize by calling `downcast_mut`
     fn configurate(_state: &mut Self::State, _meta: &mut SystemMeta, _config: &mut dyn Any) {}
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
