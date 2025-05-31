@@ -1,12 +1,6 @@
 //! Entity handling types.
 //!
 //! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
-//!
-//! **empty entity**: Entity with zero components.
-//! **pending entity**: Entity reserved, but not flushed yet (see [`Entities::flush`] docs for reference).
-//! **reserved entity**: same as **pending entity**.
-//! **invalid entity**: **pending entity** flushed with invalid (see [`Entities::flush_as_invalid`] docs for reference).
-//!
 //! See [`Entity`] to learn more.
 //!
 //! [component]: crate::component::Component
@@ -277,6 +271,20 @@ impl Ord for EntityGeneration {
 /// fetch entity components or metadata from a different world will either fail or return unexpected results.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+///
+/// # Entity ids
+///
+/// It is important to keep in mind that an [`Entity`] is just an id for a conceptual entity.
+/// Conceptual entities are just a collection of zero or more components,
+/// but [`Entity`] ids may or may not correspond to a conceptual entity.
+///
+/// Each [`EntityRow`] corresponds to a potential conceptual entity.
+/// This can happen if, for example, the row has not been allocated, or it has been allocated and has not been [`constructed`](World::construct), or it has been since [destructed](World::destruct).
+/// Entity rows may also be pending reuse, etc.
+///
+/// For a [`Entity`] id to correspond to a conceptual entity, its row must do so, and it must have the most up to date generation of that row.
+/// This can be un-intuitive sometimes, because an allocated [`Entity`] id that is perfectly correct but not constructed yet, still does not correspond to a conceptual entity.
+/// This is why spawning an entity from commands will provide an [`Entity`] that, technically, does not exist yet; it's just that it is *queued* to exist soon.
 ///
 /// # Aliasing
 ///
@@ -899,7 +907,7 @@ impl Entities {
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection.
     /// Returns `None` if this [`Entity`] is outside of the range of currently declared conceptual entities
     ///
-    /// Note: This method may or may not return `None` for rows that have never had their location [`declared`](Self::declare).
+    /// Note: This method may or may not return `None` for rows that have never had their location declared.
     pub fn resolve_from_id(&self, row: EntityRow) -> Option<Entity> {
         self.meta
             .get(row.index() as usize)
