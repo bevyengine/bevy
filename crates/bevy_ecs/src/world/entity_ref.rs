@@ -2440,7 +2440,8 @@ impl<'w> EntityWorldMut<'w> {
         }
         // SAFETY: Since we had a location, and it was valid, this is safe.
         unsafe {
-            self.world.entities.update(self.entity.row(), None);
+            let was_at = self.world.entities.update(self.entity.row(), None);
+            debug_assert_eq!(was_at, Some(location));
             self.world
                 .entities
                 .mark_construct_or_destruct(self.entity.row(), caller, change_tick);

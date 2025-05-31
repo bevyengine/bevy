@@ -1126,7 +1126,12 @@ impl World {
     /// If the entity can not be constructed for any reason, returns an error.
     ///
     /// If it succeeds, this declares the entity to have this bundle.
-    /// It is possible to construct an `entity` that has not been allocated yet.
+    ///
+    /// Note: It is possible to construct an `entity` that has not been allocated yet;
+    /// however, doing so is currently a bad idea as the allocator may hand out this entity row in the future, assuming it to be not constructed.
+    /// This would cause a panic.
+    ///
+    /// Manual construction is a powerful tool, but must be used carefully.
     #[track_caller]
     pub fn construct<B: Bundle>(
         &mut self,
@@ -1143,16 +1148,15 @@ impl World {
         caller: MaybeLocation,
     ) -> Result<EntityWorldMut<'_>, ConstructionError> {
         self.entities.validate_construction(entity)?;
-        // SAFETY: We just ensured it was valid.
-        Ok(unsafe { self.construct_unchecked(entity, bundle, caller) })
+        Ok(self.construct_unchecked(entity, bundle, caller))
     }
 
     /// Constructs `bundle` on `entity`.
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// `entity` must be valid and have no location.
-    pub(crate) unsafe fn construct_unchecked<B: Bundle>(
+    /// Panics if the entity row is already constructed
+    pub(crate) fn construct_unchecked<B: Bundle>(
         &mut self,
         entity: Entity,
         bundle: B,
@@ -1193,32 +1197,38 @@ impl World {
         caller: MaybeLocation,
     ) -> Result<EntityWorldMut<'_>, ConstructionError> {
         self.entities.validate_construction(entity)?;
-        // SAFETY: We just ensured it was valid.
-        Ok(unsafe { self.construct_empty_unchecked(entity, caller) })
+        Ok(self.construct_empty_unchecked(entity, caller))
     }
 
     /// Constructs `bundle` on `entity`.
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// `entity` must be valid and have no location.
-    pub(crate) unsafe fn construct_empty_unchecked(
+    /// Panics if the entity row is already constructed
+    pub(crate) fn construct_empty_unchecked(
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
-        let archetype = self.archetypes.empty_mut();
-        // PERF: consider avoiding allocating entities in the empty archetype unless needed
-        let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
-        // SAFETY: no components are allocated by archetype.allocate() because the archetype is
-        // empty
-        let location = unsafe { archetype.allocate(entity, table_row) };
-        let change_tick = self.change_tick();
-        self.entities.declare(entity.row(), Some(location));
-        self.entities
-            .mark_construct_or_destruct(entity.row(), caller, change_tick);
+        // SAFETY: Locations are immediately made valid
+        unsafe {
+            let archetype = self.archetypes.empty_mut();
+            // PERF: consider avoiding allocating entities in the empty archetype unless needed
+            let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
+            // SAFETY: no components are allocated by archetype.allocate() because the archetype is
+            // empty
+            let location = archetype.allocate(entity, table_row);
+            let change_tick = self.change_tick();
+            let was_at = self.entities.declare(entity.row(), Some(location));
+            assert!(
+                was_at.is_none(),
+                "Attempting to construct an empty entity, but it was already constructed."
+            );
+            self.entities
+                .mark_construct_or_destruct(entity.row(), caller, change_tick);
 
-        EntityWorldMut::new(self, entity, Some(location))
+            EntityWorldMut::new(self, entity, Some(location))
+        }
     }
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
@@ -1292,8 +1302,8 @@ impl World {
         caller: MaybeLocation,
     ) -> EntityWorldMut {
         let entity = self.spawn_null();
-        // SAFETY: This was just spawned from null.
-        unsafe { self.construct_unchecked(entity, bundle, caller) }
+        // This was just spawned from null, so it shouldn't panic.
+        self.construct_unchecked(entity, bundle, caller)
     }
 
     /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
@@ -1327,9 +1337,9 @@ impl World {
     }
 
     pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut {
-        let entity = self.allocator.alloc();
-        // SAFETY: entity was just allocated
-        unsafe { self.construct_empty_unchecked(entity, caller) }
+        let entity = self.spawn_null();
+        // This was just spawned from null, so it shouldn't panic.
+        self.construct_empty_unchecked(entity, caller)
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given

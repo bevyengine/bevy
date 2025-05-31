@@ -1702,7 +1702,11 @@ impl<'w> BundleSpawner<'w> {
     }
 
     /// # Safety
-    /// `entity` must be allocated and have no location. `T` must match this [`BundleInfo`]'s type
+    ///  `T` must match this [`BundleInfo`]'s type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity has already been constructed.
     #[inline]
     #[track_caller]
     pub unsafe fn construct<T: DynamicBundle>(
@@ -1736,7 +1740,16 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.declare(entity.row(), Some(location));
+
+            let was_at = entities.declare(entity.row(), Some(location));
+            // We need to assert here.
+            // Even if we can ensure that this entity is fresh from an allocator,
+            // it does not prevent users constructing arbitrary rows, which may overlap with the allocator.
+            // One alternative would be making `Entity` creation unsafe, but this is a good safety net anyway.
+            assert!(
+                was_at.is_none(),
+                "Constructing an {entity} that was already constructed is not allowed."
+            );
             entities.mark_construct_or_destruct(entity.row(), caller, self.change_tick);
             (location, after_effect)
         };

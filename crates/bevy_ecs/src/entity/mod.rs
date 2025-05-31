@@ -827,30 +827,40 @@ impl Entities {
 
     /// Updates the location of an [`EntityRow`].
     /// This must be called when moving the components of the existing entity around in storage.
+    /// Returns the previous location of the row.
     ///
     /// # Safety
     ///  - The current location of the `row` must already be set. If not, try [`declare`](Self::declare).
     ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn update(&mut self, row: EntityRow, location: EntityIdLocation) {
+    pub(crate) unsafe fn update(
+        &mut self,
+        row: EntityRow,
+        location: EntityIdLocation,
+    ) -> EntityIdLocation {
         // SAFETY: Caller guarantees that `row` already had a location, so `declare` must have made the index valid already.
         let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
-        meta.location = location;
+        mem::replace(&mut meta.location, location)
     }
 
     /// Declares the location of an [`EntityRow`].
     /// This must be called when constructing/spawning entities.
+    /// Returns the previous location of the row.
     ///
     /// # Safety
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn declare(&mut self, row: EntityRow, location: EntityIdLocation) {
+    pub(crate) unsafe fn declare(
+        &mut self,
+        row: EntityRow,
+        location: EntityIdLocation,
+    ) -> EntityIdLocation {
         self.ensure_row(row);
         // SAFETY: We just did `ensure_row`
         let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
-        meta.location = location;
+        mem::replace(&mut meta.location, location)
     }
 
     /// Ensures row is valid.
