@@ -39,7 +39,7 @@ bevy_state = { path = "../bevy_state", version = "0.16.0-dev" }
 serde = { version = "1.0", features = ["derive"], optional = true }
 ron = { version = "0.8.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-dioxus-devtools = { git = "https://github.com/DioxusLabs/dioxus", optional = true }
+dioxus-devtools = { version = "0.7.0-alpha.1", optional = true }
 crossbeam-channel = { version = "0.5.0", optional = true }
 
 [lints]

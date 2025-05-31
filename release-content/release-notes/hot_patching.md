@@ -10,7 +10,7 @@ Enabled with the feature `hotpatching`, every system can now be modified during 
 
 Run `dx serve --hot-patch --example hotpatching_systems --features hotpatching` to test it.
 
-`dx` is the Dioxus CLI, to install it run `cargo install dioxus-cli@0.7.0-alpha.0`
+`dx` is the Dioxus CLI, to install it run `cargo install dioxus-cli@0.7.0-alpha.1`
 TODO: use the fixed version that will match the version of subsecond dependency used in Bevy at release time
 
 Known limitations:
