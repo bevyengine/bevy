@@ -60,7 +60,7 @@ use crate::{
     world::{
         command_queue::RawCommandQueue,
         error::{
-            EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
+            EntityDestructError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
         },
     },
 };
@@ -1086,42 +1086,6 @@ impl World {
         self.allocator.alloc()
     }
 
-    /// This releases the entity to be reused by the allocator.
-    /// It despawns the entity as needed.
-    ///
-    /// This is useful when the entity may not be constructed.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*};
-    /// let mut world = World::new();
-    /// let entity = world.spawn_null();
-    /// // The entity was never constructed.
-    /// world.release(entity);
-    /// ```
-    pub fn release(&mut self, entity: Entity) {
-        let Ok(entity) = self.get_entity_mut(entity) else {
-            return; // Already released then.
-        };
-
-        entity.despawn();
-    }
-
-    /// Releases `entity` to be reused.
-    ///
-    /// # Safety
-    ///
-    /// It must have been destructed.
-    pub(crate) unsafe fn release_generations_unchecked(
-        &mut self,
-        entity: EntityRow,
-        generations: u32,
-    ) {
-        self.allocator
-            .free(self.entities.mark_free(entity, generations));
-    }
-
     /// Constructs the bundle on the entity.
     /// If the entity can not be constructed for any reason, returns an error.
     ///
@@ -1532,7 +1496,7 @@ impl World {
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Components`](Component).
     ///
-    /// Returns an [`EntityDespawnError`] if the entity does not exist.
+    /// Returns an [`EntityDestructError`] if the entity does not exist.
     ///
     /// # Note
     ///
@@ -1540,7 +1504,7 @@ impl World {
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     #[track_caller]
     #[inline]
-    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDespawnError> {
+    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDestructError> {
         self.despawn_with_caller(entity, MaybeLocation::caller())
     }
 
@@ -1549,11 +1513,68 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<(), EntityDespawnError> {
-        self.flush();
+    ) -> Result<(), EntityDestructError> {
         let entity = self.get_entity_mut(entity)?;
         entity.despawn_with_caller(caller);
         Ok(())
+    }
+
+    /// Performs [`try_destruct`](Self::try_destruct), warning on errors.
+    #[track_caller]
+    #[inline]
+    pub fn destruct(&mut self, entity: Entity) -> Option<EntityWorldMut<'_>> {
+        match self.destruct_with_caller(entity, MaybeLocation::caller()) {
+            Ok(entity) => Some(entity),
+            Err(error) => {
+                warn!("{error}");
+                None
+            }
+        }
+    }
+
+    /// Destructs the given `entity`, if it exists. This will also remove all of the entity's
+    /// [`Components`](Component).
+    /// The *only* difference between destructing and despawning an entity is that destructing does not release the `entity` to be reused.
+    /// It is up to the caller to either re-construct or fully despawn the `entity`; otherwise, the [`EntityRow`](crate::entity::EntityRow) will not be able to be reused.
+    ///
+    /// Returns an [`EntityDestructError`] if the entity does not exist.
+    ///
+    /// # Note
+    ///
+    /// This will also *despawn* the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
+    #[track_caller]
+    #[inline]
+    pub fn try_destruct(
+        &mut self,
+        entity: Entity,
+    ) -> Result<EntityWorldMut<'_>, EntityDestructError> {
+        self.destruct_with_caller(entity, MaybeLocation::caller())
+    }
+
+    #[inline]
+    pub(crate) fn destruct_with_caller(
+        &mut self,
+        entity: Entity,
+        caller: MaybeLocation,
+    ) -> Result<EntityWorldMut<'_>, EntityDestructError> {
+        let mut entity = self.get_entity_mut(entity)?;
+        entity.destruct_with_caller(caller);
+        Ok(entity)
+    }
+
+    /// Releases `entity` to be reused.
+    ///
+    /// # Safety
+    ///
+    /// It must have been destructed.
+    pub(crate) unsafe fn release_generations_unchecked(
+        &mut self,
+        entity: EntityRow,
+        generations: u32,
+    ) {
+        self.allocator
+            .free(self.entities.mark_free(entity, generations));
     }
 
     /// Clears the internal component tracker state.
