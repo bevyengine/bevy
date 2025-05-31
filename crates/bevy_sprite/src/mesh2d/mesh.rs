@@ -137,6 +137,26 @@ impl Plugin for Mesh2dRenderPlugin {
     }
 }
 
+/// Describes the layer in which the sprite or mesh should be rendered. Higher values are rendered
+/// on top of lower values, with a default value of 0. This is useful for controlling the rendering
+/// order of sprites and always takes precedence over [`YSort`] or [`SortBias`].
+#[derive(Component, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ZIndex(pub i32);
+
+/// A marker component that enables Y-sorting (depth sorting) for sprites and meshes.
+///
+/// When attached to an entity, this component indicates that the entity should be rendered
+/// in draw order based on its Y position. Entities with lower Y values (higher on screen)
+/// are drawn first, creating a depth illusion where objects lower on the screen appear
+/// in front of objects higher on the screen.
+#[derive(Component, Default, Debug, Clone)]
+pub struct YSort;
+
+/// An arbitrary bias value that can be applied to the sorting order of sprites and meshes and is
+/// applied after the [`ZIndex`] or added to the Y position of the entity if [`YSort`] is enabled.
+#[derive(Component, Deref, DerefMut, Default, Debug, Clone)]
+pub struct SortBias(pub f32);
+
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 
@@ -228,6 +248,9 @@ pub struct RenderMesh2dInstance {
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
     pub tag: u32,
+    pub z_index: i32,
+    pub y_sort: bool,
+    pub sort_bias: Option<f32>,
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
@@ -245,13 +268,16 @@ pub fn extract_mesh2d(
             &GlobalTransform,
             &Mesh2d,
             Option<&MeshTag>,
+            Option<&ZIndex>,
+            Has<YSort>,
+            Option<&SortBias>,
             Has<NoAutomaticBatching>,
         )>,
     >,
 ) {
     render_mesh_instances.clear();
 
-    for (entity, view_visibility, transform, handle, tag, no_automatic_batching) in &query {
+    for (entity, view_visibility, transform, handle, tag, z_index, y_sort, sort_bias, no_automatic_batching) in &query {
         if !view_visibility.get() {
             continue;
         }
@@ -266,6 +292,9 @@ pub fn extract_mesh2d(
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: !no_automatic_batching,
                 tag: tag.map_or(0, |i| **i),
+                z_index: z_index.map(|x| **x).unwrap_or(0),
+                y_sort,
+                sort_bias: sort_bias.cloned().map(|sb| sb.0),
             },
         );
     }

@@ -238,6 +238,9 @@ pub fn extract_text2d_sprite(
                     kind: bevy_sprite::ExtractedSpriteKind::Slices {
                         indices: start..end,
                     },
+                    z_index: 0,
+                    y_sort: false,
+                    sort_bias: None,
                 });
                 start = end;
             }

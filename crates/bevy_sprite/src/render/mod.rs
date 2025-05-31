@@ -1,8 +1,8 @@
-use core::ops::Range;
-
-use crate::{Anchor, ComputedTextureSlices, ScalingMode, Sprite};
+use crate::{Anchor, ComputedTextureSlices, ScalingMode, SortBias, Sprite, YSort, ZIndex};
 use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, Assets, Handle};
+
 use bevy_color::{ColorToComponents, LinearRgba};
+use bevy_core_pipeline::core_2d::Transparent2dSortKey;
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
-use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
+use bevy_math::{Affine3A, Quat, Rect, Vec2, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
@@ -41,6 +41,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
+use core::ops::Range;
 use fixedbitset::FixedBitSet;
 
 #[derive(Resource)]
@@ -343,6 +344,9 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub kind: ExtractedSpriteKind,
+    pub z_index: i32,
+    pub y_sort: bool,
+    pub sort_bias: Option<f32>,
 }
 
 pub enum ExtractedSpriteKind {
@@ -398,13 +402,26 @@ pub fn extract_sprites(
             &GlobalTransform,
             &Anchor,
             Option<&ComputedTextureSlices>,
+            Option<&ZIndex>,
+            Has<YSort>,
+            Option<&SortBias>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
     extracted_slices.slices.clear();
-    for (main_entity, render_entity, view_visibility, sprite, transform, anchor, slices) in
-        sprite_query.iter()
+    for (
+        main_entity,
+        render_entity,
+        view_visibility,
+        sprite,
+        transform,
+        anchor,
+        slices,
+        z_index,
+        y_sort,
+        sort_bias,
+    ) in sprite_query.iter()
     {
         if !view_visibility.get() {
             continue;
@@ -427,6 +444,9 @@ pub fn extract_sprites(
                 kind: ExtractedSpriteKind::Slices {
                     indices: start..end,
                 },
+                z_index: z_index.cloned().map_or(0, |z| z.0),
+                y_sort,
+                sort_bias: sort_bias.cloned().map(|sb| sb.0),
             });
         } else {
             let atlas_rect = sprite
@@ -460,6 +480,9 @@ pub fn extract_sprites(
                     // Pass the custom size
                     custom_size: sprite.custom_size,
                 },
+                z_index: z_index.cloned().map_or(0, |z| z.0),
+                y_sort,
+                sort_bias: sort_bias.cloned().map(|sb| sb.0),
             });
         }
     }
@@ -595,7 +618,14 @@ pub fn queue_sprites(
             }
 
             // These items will be sorted by depth with other phase items
-            let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
+            let sort_key = Transparent2dSortKey::new(
+                extracted_sprite.z_index,
+                extracted_sprite
+                    .y_sort
+                    .then_some(extracted_sprite.transform.translation().y)
+                    .map(|y| y + extracted_sprite.sort_bias.unwrap_or(0.0))
+                    .or(extracted_sprite.sort_bias),
+            );
 
             // Add the item to the render phase
             transparent_phase.add(Transparent2d {

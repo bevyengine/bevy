@@ -18,7 +18,6 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use bevy_math::FloatOrd;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::extract_cameras;
@@ -49,6 +48,7 @@ use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
 use tracing::error;
+use bevy_core_pipeline::core_2d::Transparent2dSortKey;
 
 /// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
@@ -839,7 +839,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
             };
 
             mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
-            let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
 
             // We don't support multidraw yet for 2D meshes, so we use this
             // custom logic to generate the `BinnedRenderPhaseType` instead of
@@ -890,6 +889,17 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     );
                 }
                 AlphaMode2d::Blend => {
+                    let mesh_y = mesh_instance.transforms.world_from_local.translation.y;
+                    let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
+                    let z_bias = material_2d.properties.depth_bias;
+                    let sort_bias = mesh_instance.sort_bias;
+                    let bias = if mesh_instance.y_sort {
+                        mesh_y + z_bias + sort_bias.unwrap_or_default()
+                    } else {
+                        mesh_z + z_bias + sort_bias.unwrap_or_default()
+                    };
+
+                    let sort_key = Transparent2dSortKey::new(mesh_instance.z_index, Some(bias));
                     transparent_phase.add(Transparent2d {
                         entity: (*render_entity, *visible_entity),
                         draw_function: material_2d.properties.draw_function_id,
@@ -898,7 +908,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         // lowest sort key and getting closer should increase. As we have
                         // -z in front of the camera, the largest distance is -far with values increasing toward the
                         // camera. As such we can just use mesh_z as the distance
-                        sort_key: FloatOrd(mesh_z + material_2d.properties.depth_bias),
+                        sort_key,
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
