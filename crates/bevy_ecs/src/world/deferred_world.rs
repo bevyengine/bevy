@@ -23,7 +23,7 @@ use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLAC
 ///
 /// This means that in order to add entities, for example, you will need to use commands instead of the world directly.
 pub struct DeferredWorld<'w> {
-    // SAFETY: Implementors must not use this reference to make structural changes
+    // SAFETY: Implementers must not use this reference to make structural changes
     world: UnsafeWorldCell<'w>,
 }
 
@@ -69,7 +69,7 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
         let command_queue = unsafe { self.world.get_raw_command_queue() };
         // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe { Commands::new_raw_from_entities(command_queue, self.world.entities()) }
+        unsafe { Commands::new_raw_from_entities(command_queue, self.world.entities_allocator()) }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -415,7 +415,8 @@ impl<'w> DeferredWorld<'w> {
         // - Command queue access does not conflict with entity access.
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+        let commands =
+            unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities_allocator()) };
 
         (fetcher, commands)
     }
