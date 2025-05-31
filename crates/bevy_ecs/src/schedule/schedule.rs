@@ -424,6 +424,12 @@ impl Schedule {
         self
     }
 
+    pub fn get_build_pass_mut<T: ScheduleBuildPass>(&mut self) -> Option<&mut T> {
+        self.graph.passes.get_mut(&TypeId::of::<T>()).map(|x| {
+            (x.as_mut() as &mut dyn Any).downcast_mut().unwrap()
+        })
+    }
+
     /// Remove a custom build pass.
     pub fn remove_build_pass<T: ScheduleBuildPass>(&mut self) {
         self.graph.passes.remove(&TypeId::of::<T>());
@@ -783,18 +789,18 @@ impl ScheduleGraph {
     }
 
     /// Returns the set at the given [`NodeId`], if it exists.
-    pub fn get_set_at(&self, id: NodeId) -> Option<&dyn SystemSet> {
+    pub fn get_set_at(&self, id: NodeId) -> Option<InternedSystemSet> {
         if !id.is_set() {
             return None;
         }
-        self.system_sets.get(id.index()).map(|set| &*set.inner)
+        self.system_sets.get(id.index()).map(|set| set.inner)
     }
 
     /// Returns the set at the given [`NodeId`].
     ///
     /// Panics if it doesn't exist.
     #[track_caller]
-    pub fn set_at(&self, id: NodeId) -> &dyn SystemSet {
+    pub fn set_at(&self, id: NodeId) -> InternedSystemSet {
         self.get_set_at(id)
             .ok_or_else(|| format!("set with id {id:?} does not exist in this Schedule"))
             .unwrap()
@@ -834,10 +840,10 @@ impl ScheduleGraph {
 
     /// Returns an iterator over all system sets in this schedule, along with the conditions for each
     /// system set.
-    pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
+    pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, InternedSystemSet, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
-            let set = &*set_node.inner;
+            let set = set_node.inner;
             let conditions = self.system_set_conditions[node_id.index()].as_slice();
             (node_id, set, conditions)
         })
@@ -1249,7 +1255,7 @@ impl ScheduleGraph {
         // check that there are no edges to system-type sets that have multiple instances
         self.check_system_type_set_ambiguity(&set_systems)?;
 
-        let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
+        let mut dependency_flattened = self.get_dependency_flattened(world, &set_systems);
 
         // modify graph with build passes
         let mut passes = core::mem::take(&mut self.passes);
@@ -1329,15 +1335,17 @@ impl ScheduleGraph {
         (set_systems, set_system_bitsets)
     }
 
-    fn get_dependency_flattened(&mut self, set_systems: &HashMap<NodeId, Vec<NodeId>>) -> DiGraph {
+    fn get_dependency_flattened(&mut self, world: &mut World, set_systems: &HashMap<NodeId, Vec<NodeId>>) -> DiGraph {
         // flatten: combine `in_set` with `before` and `after` information
         // have to do it like this to preserve transitivity
         let mut dependency_flattened = self.dependency.graph.clone();
         let mut temp = Vec::new();
         for (&set, systems) in set_systems {
-            for pass in self.passes.values_mut() {
-                pass.collapse_set(set, systems, &dependency_flattened, &mut temp);
+            let mut passes = std::mem::take(&mut self.passes);
+            for pass in passes.values_mut() {
+                pass.collapse_set(set, systems, world, self, &dependency_flattened, &mut temp);
             }
+            self.passes = passes;
             if systems.is_empty() {
                 // collapse dependencies for empty sets
                 for a in dependency_flattened.neighbors_directed(set, Incoming) {
