@@ -469,12 +469,14 @@ impl EntityCloner {
         {
             let world = world.as_unsafe_world_cell();
             let source_entity = world.get_entity(source).expect("Source entity must exist");
-            let target_archetype = (!self.filter_required.is_empty()).then(|| {
-                world
-                    .get_entity(target)
-                    .expect("Target entity must exist")
-                    .archetype()
-            });
+            let target_archetype = (!self.filter_required.is_empty())
+                .then(|| {
+                    world
+                        .get_entity(target)
+                        .expect("Target entity must exist")
+                        .archetype()
+                })
+                .flatten();
 
             #[cfg(feature = "bevy_reflect")]
             // SAFETY: we have unique access to `world`, nothing else accesses the registry at this moment, and we clone
