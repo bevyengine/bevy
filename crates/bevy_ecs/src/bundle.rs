@@ -15,7 +15,7 @@ use crate::{
         RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
-    fragmenting_value::{FragmentingValue, FragmentingValuesBorrowed, FragmentingValuesShared},
+    fragmenting_value::{FragmentingValue, FragmentingValuesBorrowed},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
@@ -666,6 +666,7 @@ impl BundleInfo {
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
+        components: &Components,
         bundle_component_status: &S,
         required_components: impl Iterator<Item = &'a RequiredComponentConstructor>,
         entity: Entity,
@@ -716,6 +717,16 @@ impl BundleInfo {
                                 drop_fn(component_ptr);
                             }
                         }
+                    }
+                }
+                StorageType::Shared => {
+                    // Shared components are inserted earlier during archetype creation by cloning when necessary
+                    // and so we can safely drop them here.
+                    if let Some(drop_fn) = components
+                        .get_info(component_id)
+                        .and_then(|info| info.drop())
+                    {
+                        drop_fn(component_ptr)
                     }
                 }
             }
@@ -775,6 +786,9 @@ impl BundleInfo {
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
                     sparse_set.insert(entity, component_ptr, change_tick, caller);
                 }
+                StorageType::Shared => {
+                    // Nothing needs to be done since Shared components are stored on the archetype
+                }
             }
         }
     }
@@ -796,6 +810,7 @@ impl BundleInfo {
         archetype_id: ArchetypeId,
         value_components: &FragmentingValuesBorrowed,
         current_tick: Tick,
+        caller: MaybeLocation,
     ) -> ArchetypeId {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
@@ -830,6 +845,8 @@ impl BundleInfo {
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
                     StorageType::SparseSet => new_sparse_set_components.push(component_id),
+                    // Shared components are always value components, so there is no reason to store them multiple times
+                    StorageType::Shared => (),
                 }
             }
         }
@@ -847,6 +864,8 @@ impl BundleInfo {
                     StorageType::SparseSet => {
                         new_sparse_set_components.push(component_id);
                     }
+                    // Shared components are always value components, so there is no reason to store them multiple times
+                    StorageType::Shared => (),
                 }
             }
         }
@@ -861,7 +880,7 @@ impl BundleInfo {
                     component_id,
                     storages
                         .shared
-                        .get_or_insert(current_tick, component_id, component_value)
+                        .get_or_insert(current_tick, component_id, component_value, caller)
                         .value()
                         .clone(),
                 ));
@@ -963,7 +982,7 @@ impl BundleInfo {
                             .map(|value| {
                                 storages
                                     .shared
-                                    .get_or_insert(current_tick, component_id, *value)
+                                    .get_or_insert(current_tick, component_id, *value, caller)
                                     .value()
                             })
                             .unwrap_or(value)
@@ -984,7 +1003,7 @@ impl BundleInfo {
                 .edges_mut()
                 .cache_archetype_value_components_after_bundle_insert(
                     self.id,
-                    value_components.to_shared(current_tick, &mut storages.shared),
+                    value_components.to_shared(current_tick, &mut storages.shared, caller),
                     value_archetype_id,
                 );
             value_archetype_id
@@ -1037,6 +1056,7 @@ impl BundleInfo {
                 let current_archetype = &mut archetypes[archetype_id];
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
+                let mut removed_shared_components = Vec::new();
                 for component_id in self.iter_explicit_components() {
                     if current_archetype.contains(component_id) {
                         // SAFETY: bundle components were already initialized by bundles.get_info
@@ -1045,6 +1065,9 @@ impl BundleInfo {
                             StorageType::Table => removed_table_components.push(component_id),
                             StorageType::SparseSet => {
                                 removed_sparse_set_components.push(component_id);
+                            }
+                            StorageType::Shared => {
+                                removed_shared_components.push(component_id);
                             }
                         }
                     } else if !intersection {
@@ -1085,6 +1108,7 @@ impl BundleInfo {
                     .filter(|(id, _)| {
                         removed_sparse_set_components.binary_search(id).is_err()
                             && removed_table_components.binary_search(id).is_err()
+                            && removed_shared_components.binary_search(id).is_err()
                     })
                     .map(|(id, value)| (id, value.clone()))
                     .collect();
@@ -1150,6 +1174,7 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         change_tick: Tick,
         value_components: &FragmentingValuesBorrowed,
+        caller: MaybeLocation,
     ) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
@@ -1165,6 +1190,7 @@ impl<'w> BundleInserter<'w> {
                 bundle_id,
                 change_tick,
                 value_components,
+                caller,
             )
         }
     }
@@ -1180,6 +1206,7 @@ impl<'w> BundleInserter<'w> {
         bundle_id: BundleId,
         change_tick: Tick,
         value_components: &FragmentingValuesBorrowed,
+        caller: MaybeLocation,
     ) -> Self {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
@@ -1192,6 +1219,7 @@ impl<'w> BundleInserter<'w> {
             archetype_id,
             value_components,
             change_tick,
+            caller,
         );
         if new_archetype_id == archetype_id {
             let archetype = &mut world.archetypes[archetype_id];
@@ -1307,14 +1335,15 @@ impl<'w> BundleInserter<'w> {
         let (new_archetype, new_location, after_effect) = match &mut self.archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let sparse_sets = {
+                let (sparse_sets, components) = {
                     let world = self.world.world_mut();
-                    &mut world.storages.sparse_sets
+                    (&mut world.storages.sparse_sets, &world.components)
                 };
 
                 let after_effect = bundle_info.write_components(
                     table,
                     sparse_sets,
+                    components,
                     archetype_after_insert,
                     archetype_after_insert.required_components.iter(),
                     entity,
@@ -1331,9 +1360,13 @@ impl<'w> BundleInserter<'w> {
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (sparse_sets, entities) = {
+                let (sparse_sets, entities, components) = {
                     let world = self.world.world_mut();
-                    (&mut world.storages.sparse_sets, &mut world.entities)
+                    (
+                        &mut world.storages.sparse_sets,
+                        &mut world.entities,
+                        &world.components,
+                    )
                 };
 
                 let result = archetype.swap_remove(location.archetype_row);
@@ -1356,6 +1389,7 @@ impl<'w> BundleInserter<'w> {
                 let after_effect = bundle_info.write_components(
                     table,
                     sparse_sets,
+                    components,
                     archetype_after_insert,
                     archetype_after_insert.required_components.iter(),
                     entity,
@@ -1376,13 +1410,14 @@ impl<'w> BundleInserter<'w> {
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (archetypes_ptr, sparse_sets, entities) = {
+                let (archetypes_ptr, sparse_sets, entities, components) = {
                     let world = self.world.world_mut();
                     let archetype_ptr: *mut Archetype = world.archetypes.archetypes.as_mut_ptr();
                     (
                         archetype_ptr,
                         &mut world.storages.sparse_sets,
                         &mut world.entities,
+                        &world.components,
                     )
                 };
                 let result = archetype.swap_remove(location.archetype_row);
@@ -1438,6 +1473,7 @@ impl<'w> BundleInserter<'w> {
                 let after_effect = bundle_info.write_components(
                     new_table,
                     sparse_sets,
+                    components,
                     archetype_after_insert,
                     archetype_after_insert.required_components.iter(),
                     entity,
@@ -1608,6 +1644,7 @@ impl<'w> BundleRemover<'w> {
 
     /// This can be passed to [`remove`](Self::remove) as the `pre_remove` function if you don't want to do anything before removing.
     pub fn empty_pre_remove(
+        _: &Archetype,
         _: &mut SparseSets,
         _: Option<&mut Table>,
         _: &Components,
@@ -1629,6 +1666,7 @@ impl<'w> BundleRemover<'w> {
         location: EntityLocation,
         caller: MaybeLocation,
         pre_remove: impl FnOnce(
+            &Archetype,
             &mut SparseSets,
             Option<&mut Table>,
             &Components,
@@ -1681,6 +1719,7 @@ impl<'w> BundleRemover<'w> {
         let world = unsafe { self.world.world_mut() };
 
         let (needs_drop, pre_remove_result) = pre_remove(
+            &world.archetypes[location.archetype_id],
             &mut world.storages.sparse_sets,
             self.old_and_new_table
                 .as_ref()
@@ -1803,7 +1842,12 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick, bundle: &T) -> Self {
+    pub fn new<T: Bundle>(
+        world: &'w mut World,
+        change_tick: Tick,
+        bundle: &T,
+        caller: MaybeLocation,
+    ) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
@@ -1812,13 +1856,17 @@ impl<'w> BundleSpawner<'w> {
             .register_info::<T>(&mut registrator, &mut world.storages);
         let value_components = FragmentingValuesBorrowed::from_bundle(&mut registrator, bundle);
         // SAFETY: we initialized this bundle_id in `init_info`
-        unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components) }
+        unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components, caller) }
     }
 
     /// Same as [`BundleSpawner::new`] but doesn't require to pass [`Bundle`] by value and ignores [`FragmentingValue`] components.
     /// This should be used only if it is known that `T` doesn't have fragmenting value components.
     #[inline]
-    pub(crate) fn new_uniform<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+    pub(crate) fn new_uniform<T: Bundle>(
+        world: &'w mut World,
+        change_tick: Tick,
+        caller: MaybeLocation,
+    ) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
@@ -1827,7 +1875,7 @@ impl<'w> BundleSpawner<'w> {
             .register_info::<T>(&mut registrator, &mut world.storages);
         let value_components = [].into_iter().collect();
         // SAFETY: we initialized this bundle_id in `init_info`
-        unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components) }
+        unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components, caller) }
     }
 
     /// Creates a new [`BundleSpawner`].
@@ -1840,6 +1888,7 @@ impl<'w> BundleSpawner<'w> {
         bundle_id: BundleId,
         change_tick: Tick,
         value_components: &FragmentingValuesBorrowed,
+        caller: MaybeLocation,
     ) -> Self {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let new_archetype_id = bundle_info.insert_bundle_into_archetype(
@@ -1850,6 +1899,7 @@ impl<'w> BundleSpawner<'w> {
             ArchetypeId::EMPTY,
             value_components,
             change_tick,
+            caller,
         );
         let archetype = &mut world.archetypes[new_archetype_id];
         let table = &mut world.storages.tables[archetype.table_id()];
@@ -1887,15 +1937,20 @@ impl<'w> BundleSpawner<'w> {
             let archetype = self.archetype.as_mut();
 
             // SAFETY: Mutable references do not alias and will be dropped after this block
-            let (sparse_sets, entities) = {
+            let (sparse_sets, entities, components) = {
                 let world = self.world.world_mut();
-                (&mut world.storages.sparse_sets, &mut world.entities)
+                (
+                    &mut world.storages.sparse_sets,
+                    &mut world.entities,
+                    &world.components,
+                )
             };
             let table_row = table.allocate(entity);
             let location = archetype.allocate(entity, table_row);
             let after_effect = bundle_info.write_components(
                 table,
                 sparse_sets,
+                components,
                 &SpawnBundleStatus,
                 bundle_info.required_components.iter(),
                 entity,

@@ -477,6 +477,7 @@ struct Attrs {
 enum StorageTy {
     Table,
     SparseSet,
+    Shared,
 }
 
 struct Require {
@@ -496,6 +497,7 @@ struct RelationshipTarget {
 // values for `storage` attribute
 const TABLE: &str = "Table";
 const SPARSE_SET: &str = "SparseSet";
+const SHARED: &str = "Shared";
 
 fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let mut attrs = Attrs {
@@ -521,9 +523,10 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
                         s if s == TABLE => StorageTy::Table,
                         s if s == SPARSE_SET => StorageTy::SparseSet,
+                        s if s == SHARED => StorageTy::Shared,
                         s => {
                             return Err(nested.error(format!(
-                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
+                                "Invalid storage type `{s}`, expected '{TABLE}', '{SPARSE_SET}' or '{SHARED}'.",
                             )));
                         }
                     };
@@ -659,6 +662,7 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
     let storage_type = match ty {
         StorageTy::Table => Ident::new("Table", Span::call_site()),
         StorageTy::SparseSet => Ident::new("SparseSet", Span::call_site()),
+        StorageTy::Shared => Ident::new("Shared", Span::call_site()),
     };
 
     quote! { #bevy_ecs_path::component::StorageType::#storage_type }

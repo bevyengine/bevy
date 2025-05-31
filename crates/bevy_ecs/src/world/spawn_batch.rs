@@ -47,7 +47,7 @@ where
             BundleSpawnerOrWorld::World(world)
         } else {
             let change_tick = world.change_tick();
-            let mut spawner = BundleSpawner::new_uniform::<I::Item>(world, change_tick);
+            let mut spawner = BundleSpawner::new_uniform::<I::Item>(world, change_tick, caller);
             spawner.reserve_storage(length);
             BundleSpawnerOrWorld::Spawner(spawner)
         };
@@ -90,7 +90,7 @@ where
         match &mut self.spawner_or_world {
             BundleSpawnerOrWorld::World(world) => {
                 let change_tick = world.change_tick();
-                let mut spawner = BundleSpawner::new(world, change_tick, &bundle);
+                let mut spawner = BundleSpawner::new(world, change_tick, &bundle, self.caller);
                 // SAFETY: bundle matches spawner type
                 unsafe { Some(spawner.spawn(bundle, self.caller).0) }
             }

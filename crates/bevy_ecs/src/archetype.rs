@@ -23,13 +23,13 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
-    fragmenting_value::{FragmentingValue, FragmentingValuesBorrowed, FragmentingValuesShared},
+    fragmenting_value::{FragmentingValuesBorrowed, FragmentingValuesShared},
     observer::Observers,
     storage::{
         ImmutableSparseSet, SharedFragmentingValue, SparseArray, SparseSet, TableId, TableRow,
     },
 };
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::HashMap;
 use core::{
     hash::Hash,
@@ -428,7 +428,7 @@ pub struct Archetype {
 
 impl Archetype {
     /// `table_components` and `sparse_set_components` must be sorted
-    pub(crate) fn new<'a>(
+    pub(crate) fn new(
         components: &Components,
         component_index: &mut ComponentIndex,
         observers: &Observers,
@@ -481,9 +481,17 @@ impl Archetype {
                 .insert(id, ArchetypeRecord { column: None });
         }
 
-        for (component_id, archetype_component_id) in value_components.iter_ids_and_values() {
+        for (component_id, value) in value_components.iter_ids_and_values() {
             if let Some(info) = archetype_components.get_mut(component_id) {
-                info.fragmenting_value = Some(archetype_component_id.clone());
+                info.fragmenting_value = Some(value.clone());
+            } else {
+                archetype_components.insert(
+                    component_id,
+                    ArchetypeComponentInfo {
+                        storage_type: StorageType::Shared,
+                        fragmenting_value: Some(value.clone()),
+                    },
+                );
             }
             flags.insert(ArchetypeFlags::HAS_VALUE_COMPONENTS);
         }
@@ -568,6 +576,14 @@ impl Archetype {
         self.components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::SparseSet)
+            .map(|(id, _)| *id)
+    }
+
+    #[inline]
+    pub fn shared_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.components
+            .iter()
+            .filter(|(_, component)| component.storage_type == StorageType::Shared)
             .map(|(id, _)| *id)
     }
 
@@ -823,7 +839,7 @@ impl ArchetypeGeneration {
 struct ArchetypeComponents {
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
-    value_components: FragmentingValuesOwned,
+    value_components: FragmentingValuesShared,
 }
 
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),

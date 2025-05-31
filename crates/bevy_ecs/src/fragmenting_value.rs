@@ -17,6 +17,7 @@ use indexmap::Equivalent;
 
 use crate::{
     bundle::Bundle,
+    change_detection::MaybeLocation,
     component::{ComponentId, ComponentKey, Components, ComponentsRegistrator, Immutable, Tick},
     storage::{Shared, SharedFragmentingValue},
 };
@@ -139,7 +140,7 @@ impl FromIterator<(ComponentId, SharedFragmentingValue)> for FragmentingValuesSh
 /// Borrowed version is used to query maps with [`FragmentingValuesShared`] keys.
 #[derive(Hash, PartialEq, Eq, Default)]
 pub struct FragmentingValuesBorrowed<'a> {
-    values: Vec<(ComponentId, &'a dyn FragmentingValue)>,
+    values: Box<[(ComponentId, &'a dyn FragmentingValue)]>,
 }
 
 impl<'a> FragmentingValuesBorrowed<'a> {
@@ -149,7 +150,9 @@ impl<'a> FragmentingValuesBorrowed<'a> {
         let mut values = Vec::new();
         bundle.get_fragmenting_values(components, &mut |id, value| values.push((id, value)));
         values.sort_unstable_by_key(|(id, _)| *id);
-        FragmentingValuesBorrowed { values }
+        FragmentingValuesBorrowed {
+            values: values.into_boxed_slice(),
+        }
     }
 
     /// Returns `true` if there are no fragmenting values.
@@ -162,6 +165,7 @@ impl<'a> FragmentingValuesBorrowed<'a> {
         &self,
         current_tick: Tick,
         shared_component_storage: &mut Shared,
+        caller: MaybeLocation,
     ) -> FragmentingValuesShared {
         self.values
             .iter()
@@ -169,7 +173,7 @@ impl<'a> FragmentingValuesBorrowed<'a> {
                 (
                     *id,
                     shared_component_storage
-                        .get_or_insert(current_tick, *id, *v)
+                        .get_or_insert(current_tick, *id, *v, caller)
                         .value()
                         .clone(),
                 )
@@ -192,7 +196,9 @@ impl<'a> FromIterator<(ComponentId, &'a dyn FragmentingValue)> for FragmentingVa
             values.push((id, value));
         }
         values.sort_unstable_by_key(|(id, _)| *id);
-        FragmentingValuesBorrowed { values }
+        FragmentingValuesBorrowed {
+            values: values.into_boxed_slice(),
+        }
     }
 }
 
@@ -374,6 +380,7 @@ mod tests {
     #[component(
         key=Self,
         immutable,
+        storage="Shared",
     )]
     struct Fragmenting(u32);
 

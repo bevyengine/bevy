@@ -1153,7 +1153,7 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick, &bundle);
+        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick, &bundle, caller);
         // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
         let (entity_location, after_effect) =
             unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
@@ -2301,6 +2301,7 @@ impl World {
                             bundle_id,
                             change_tick,
                             &value_components,
+                            caller,
                         )
                     },
                     archetype_id: first_location.archetype_id,
@@ -2335,6 +2336,7 @@ impl World {
                                         bundle_id,
                                         change_tick,
                                         &value_components,
+                                        caller,
                                     )
                                 },
                                 archetype_id: location.archetype_id,
@@ -2463,6 +2465,7 @@ impl World {
                                 bundle_id,
                                 change_tick,
                                 &value_components,
+                                caller,
                             )
                         },
                         archetype_id: first_location.archetype_id,
@@ -2504,6 +2507,7 @@ impl World {
                                     bundle_id,
                                     change_tick,
                                     &value_components,
+                                    caller,
                                 )
                             },
                             archetype_id: location.archetype_id,

@@ -702,6 +702,8 @@ pub enum StorageType {
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
+
+    Shared,
 }
 
 /// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`.

@@ -55,11 +55,11 @@ impl Storages {
     /// ensures that the component has its necessary storage initialize.
     pub fn prepare_component(&mut self, component: &ComponentInfo) {
         match component.storage_type() {
-            StorageType::Table => {
-                // table needs no preparation
-            }
             StorageType::SparseSet => {
                 self.sparse_sets.get_or_insert(component);
+            }
+            StorageType::Shared | StorageType::Table => {
+                // needs no preparation
             }
         }
     }
