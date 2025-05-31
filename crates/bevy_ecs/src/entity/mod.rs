@@ -281,7 +281,7 @@ impl EntityGeneration {
     ///
     /// Because of this, `EntityGeneration` does not implement `Ord`/`PartialOrd`.
     #[inline]
-    pub const fn cmp_approx(self, other: &Self) -> core::cmp::Ordering {
+    pub const fn cmp_approx(&self, other: &Self) -> core::cmp::Ordering {
         use core::cmp::Ordering;
         match self.0.wrapping_sub(other.0) {
             0 => Ordering::Equal,
