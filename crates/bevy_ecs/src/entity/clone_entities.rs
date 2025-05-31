@@ -8,11 +8,13 @@ use crate::{
     archetype::Archetype,
     bundle::Bundle,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
-    entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
+    entity::{hash_map::EntityHashMap, Entity, EntityMapper},
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     world::World,
 };
+
+use super::EntitiesAllocator;
 
 /// Provides read access to the source component (the component being cloned) in a [`ComponentCloneFn`].
 pub struct SourceComponent<'a> {
@@ -76,7 +78,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     target_component_written: bool,
     bundle_scratch: &'a mut BundleScratch<'b>,
     bundle_scratch_allocator: &'b Bump,
-    entities: &'a Entities,
+    allocator: &'a EntitiesAllocator,
     source: Entity,
     target: Entity,
     component_info: &'a ComponentInfo,
@@ -102,7 +104,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         target: Entity,
         bundle_scratch_allocator: &'b Bump,
         bundle_scratch: &'a mut BundleScratch<'b>,
-        entities: &'a Entities,
+        allocator: &'a EntitiesAllocator,
         component_info: &'a ComponentInfo,
         entity_cloner: &'a mut EntityCloner,
         mapper: &'a mut dyn EntityMapper,
@@ -116,7 +118,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             bundle_scratch,
             target_component_written: false,
             bundle_scratch_allocator,
-            entities,
+            allocator,
             mapper,
             component_info,
             entity_cloner,
@@ -268,7 +270,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 
     /// Queues the `entity` to be cloned by the current [`EntityCloner`]
     pub fn queue_entity_clone(&mut self, entity: Entity) {
-        let target = self.entities.reserve_entity();
+        let target = self.allocator.alloc();
         self.mapper.set_mapped(entity, target);
         self.entity_cloner.clone_queue.push_back(entity);
     }
@@ -521,7 +523,7 @@ impl EntityCloner {
                         target,
                         &bundle_scratch_allocator,
                         &mut bundle_scratch,
-                        world.entities(),
+                        world.entities_allocator(),
                         info,
                         self,
                         mapper,
@@ -537,10 +539,6 @@ impl EntityCloner {
 
         for deferred in self.deferred_commands.drain(..) {
             (deferred)(world, mapper);
-        }
-
-        if !world.entities.contains(target) {
-            panic!("Target entity does not exist");
         }
 
         if self.move_components {

@@ -2784,7 +2784,7 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         self.world.flush();
 
-        let entity_clone = self.world.allocator.alloc();
+        let entity_clone = self.world.spawn_empty().id();
 
         let mut builder = EntityCloner::build(self.world);
         config(&mut builder);
