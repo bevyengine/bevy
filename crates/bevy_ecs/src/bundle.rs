@@ -14,7 +14,7 @@ use crate::{
         Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
         RequiredComponents, StorageType, Tick,
     },
-    entity::{Entities, Entity, EntityLocation},
+    entity::{Entities, EntitiesAllocator, Entity, EntityLocation},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
@@ -1782,6 +1782,12 @@ impl<'w> BundleSpawner<'w> {
         (location, after_effect)
     }
 
+    #[inline]
+    pub fn allocator(&self) -> &'w EntitiesAllocator {
+        // SAFETY: No outstanding references to self.world, changes to allocator cannot invalidate our internal pointers
+        unsafe { &self.world.world().allocator }
+    }
+
     /// # Safety
     /// `T` must match this [`BundleInfo`]'s type
     #[inline]
@@ -1790,8 +1796,7 @@ impl<'w> BundleSpawner<'w> {
         bundle: T,
         caller: MaybeLocation,
     ) -> (Entity, T::Effect) {
-        // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
-        let entity = unsafe { self.world.world().allocator.alloc() };
+        let entity = self.allocator().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         let (_, after_effect) = unsafe { self.construct(entity, bundle, caller) };
         (entity, after_effect)

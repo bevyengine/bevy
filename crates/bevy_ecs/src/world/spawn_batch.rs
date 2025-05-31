@@ -1,7 +1,7 @@
 use crate::{
     bundle::{Bundle, BundleSpawner, NoBundleEffect},
     change_detection::MaybeLocation,
-    entity::{Entity, EntitySetIterator},
+    entity::{AllocEntitiesIterator, Entity, EntitySetIterator},
     world::World,
 };
 use core::iter::FusedIterator;
@@ -17,6 +17,7 @@ where
 {
     inner: I,
     spawner: BundleSpawner<'w>,
+    allocator: AllocEntitiesIterator<'w>,
     caller: MaybeLocation,
 }
 
@@ -42,6 +43,7 @@ where
 
         Self {
             inner: iter,
+            allocator: spawner.allocator().alloc_many(length as u32),
             spawner,
             caller,
         }
@@ -71,8 +73,16 @@ where
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle, self.caller).0) }
+        Some(if let Some(bulk) = self.allocator.next() {
+            // SAFETY: bundle matches spawner type and we just allocated it
+            unsafe {
+                self.spawner.construct(bulk, bundle, self.caller);
+            }
+            bulk
+        } else {
+            // SAFETY: bundle matches spawner type
+            unsafe { self.spawner.spawn(bundle, self.caller).0 }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
