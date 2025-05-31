@@ -394,15 +394,15 @@ impl<'a> LoadContext<'a> {
     /// result with [`LoadContext::add_labeled_asset`].
     ///
     /// See [`AssetPath`] for more on labeled assets.
-    pub fn labeled_asset_scope<A: Asset>(
+    pub fn labeled_asset_scope<A: Asset, E>(
         &mut self,
         label: String,
-        load: impl FnOnce(&mut LoadContext) -> A,
-    ) -> Handle<A> {
+        load: impl FnOnce(&mut LoadContext) -> Result<A, E>,
+    ) -> Result<Handle<A>, E> {
         let mut context = self.begin_labeled_asset();
-        let asset = load(&mut context);
+        let asset = load(&mut context)?;
         let loaded_asset = context.finish(asset);
-        self.add_loaded_labeled_asset(label, loaded_asset)
+        Ok(self.add_loaded_labeled_asset(label, loaded_asset))
     }
 
     /// This will add the given `asset` as a "labeled [`Asset`]" with the `label` label.
@@ -416,7 +416,8 @@ impl<'a> LoadContext<'a> {
     ///
     /// See [`AssetPath`] for more on labeled assets.
     pub fn add_labeled_asset<A: Asset>(&mut self, label: String, asset: A) -> Handle<A> {
-        self.labeled_asset_scope(label, |_| asset)
+        self.labeled_asset_scope(label, |_| Ok::<_, ()>(asset))
+            .expect("the closure returns Ok")
     }
 
     /// Add a [`LoadedAsset`] that is a "labeled sub asset" of the root path of this load context.
