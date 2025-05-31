@@ -1354,7 +1354,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// # let invalid_entity = world.spawn_empty().id();
     ///
-    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity, _ => panic!()}, wrong_entity);
+    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
