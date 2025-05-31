@@ -52,7 +52,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
     scratch: Local<'s, TextIterScratch>,
     roots: Query<
         'w,
-        's,
+        'w,
         (
             &'static R,
             &'static TextFont,
@@ -62,7 +62,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
     >,
     spans: Query<
         'w,
-        's,
+        'w,
         (
             &'static TextSpan,
             &'static TextFont,
@@ -222,12 +222,12 @@ impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
 ///
 /// `R` is the root text component, and `S` is the text span component on children.
 #[derive(SystemParam)]
-pub struct TextWriter<'w, 's, R: TextRoot> {
+pub struct TextWriter<'w, R: TextRoot> {
     // This is a resource because two TextWriters can't run in parallel.
     scratch: ResMut<'w, TextIterScratch>,
     roots: Query<
         'w,
-        's,
+        'w,
         (
             &'static mut R,
             &'static mut TextFont,
@@ -237,7 +237,7 @@ pub struct TextWriter<'w, 's, R: TextRoot> {
     >,
     spans: Query<
         'w,
-        's,
+        'w,
         (
             &'static mut TextSpan,
             &'static mut TextFont,
@@ -245,10 +245,10 @@ pub struct TextWriter<'w, 's, R: TextRoot> {
         ),
         Without<R>,
     >,
-    children: Query<'w, 's, &'static Children>,
+    children: Query<'w, 'w, &'static Children>,
 }
 
-impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
+impl<'w, R: TextRoot> TextWriter<'w, R> {
     /// Gets a mutable reference to a text span within a text block at a specific index in the flattened span list.
     pub fn get(
         &mut self,

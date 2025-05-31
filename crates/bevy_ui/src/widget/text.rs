@@ -132,7 +132,7 @@ impl From<String> for Text {
 pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 
 /// UI alias for [`TextWriter`].
-pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
+pub type TextUiWriter<'w> = TextWriter<'w, Text>;
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {

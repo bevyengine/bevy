@@ -150,21 +150,21 @@ pub enum TabNavigationError {
 /// An injectable helper object that provides tab navigation functionality.
 #[doc(hidden)]
 #[derive(SystemParam)]
-pub struct TabNavigation<'w, 's> {
+pub struct TabNavigation<'w> {
     // Query for tab groups.
-    tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static Children)>,
+    tabgroup_query: Query<'w, 'w, (Entity, &'static TabGroup, &'static Children)>,
     // Query for tab indices.
     tabindex_query: Query<
         'w,
-        's,
+        'w,
         (Entity, Option<&'static TabIndex>, Option<&'static Children>),
         Without<TabGroup>,
     >,
     // Query for parents.
-    parent_query: Query<'w, 's, &'static ChildOf>,
+    parent_query: Query<'w, 'w, &'static ChildOf>,
 }
 
-impl TabNavigation<'_, '_> {
+impl TabNavigation<'_> {
     /// Navigate to the desired focusable entity.
     ///
     /// Change the [`NavAction`] to navigate in a different direction.

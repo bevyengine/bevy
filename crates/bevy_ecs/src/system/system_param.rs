@@ -4,10 +4,10 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
-    entity::Entities,
+    entity::{Entities, Entity},
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
-        QueryState, ReadOnlyQueryData,
+        Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter,
+        QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     resource::Resource,
     storage::ResourceData,
@@ -65,7 +65,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # #[derive(SystemParam)]
 /// # struct ParamsExample<'w, 's> {
 /// #    query:
-/// Query<'w, 's, Entity>,
+/// Query<'w, 'w, Entity>,
 /// #    res:
 /// Res<'w, SomeResource>,
 /// #    res_mut:
@@ -171,7 +171,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 ///     #[derive(SystemParam)]
 ///     #[system_param(builder)]
 ///     pub struct CustomParam<'w, 's> {
-///         query: Query<'w, 's, ()>,
+///         query: Query<'w, 'w, ()>,
 ///         local: Local<'s, usize>,
 ///     }
 ///
@@ -321,13 +321,15 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
-    type State = QueryState<D, F>;
-    type Item<'w, 's> = Query<'w, 's, D, F>;
+    type State = (Entity, ComponentId);
+    type Item<'w, 's> = Query<'w, 'w, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let state = QueryState::new(world);
+        let state: QueryState<D, F> = QueryState::new(world);
         init_query_param(world, system_meta, &state);
-        state
+        let e = world.spawn(state).id();
+        let id = world.register_component::<QueryState<D, F>>();
+        (e, id)
     }
 
     #[inline]
@@ -336,11 +338,21 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Self::Item<'w, 'w> {
+        let state = world
+            .storages()
+            .sparse_sets
+            .get(state.1)
+            .debug_checked_unwrap()
+            .get(state.0)
+            .debug_checked_unwrap()
+            .assert_unique()
+            .deref_mut::<QueryState<D, F>>();
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
         // The caller ensures the world matches the one used in init_state.
+
         unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) }
     }
 }
@@ -386,11 +398,11 @@ fn assert_component_access_compatibility(
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Single<'a, D, F> {
-    type State = QueryState<D, F>;
+    type State = (Entity, ComponentId);
     type Item<'w, 's> = Single<'w, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        Query::init_state(world, system_meta)
+        Query::<D, F>::init_state(world, system_meta)
     }
 
     #[inline]
@@ -400,10 +412,8 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
-        // The caller ensures the world matches the one used in init_state.
-        let query =
-            unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) };
+        let query: Query<'_, '_, D, F> = Query::get_param(state, system_meta, world, change_tick);
+
         let single = query
             .single_inner()
             .expect("The query was expected to contain exactly one matching entity.");
@@ -419,12 +429,9 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
-        // and the query is read only.
-        // The caller ensures the world matches the one used in init_state.
-        let query = unsafe {
-            state.query_unchecked_with_ticks(world, system_meta.last_run, world.change_tick())
-        };
+        let query: Query<'_, '_, D, F> =
+            Query::get_param(state, system_meta, world, world.change_tick());
+
         match query.single_inner() {
             Ok(_) => Ok(()),
             Err(QuerySingleError::NoEntities(_)) => Err(
@@ -448,11 +455,11 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOn
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Populated<'_, '_, D, F>
 {
-    type State = QueryState<D, F>;
-    type Item<'w, 's> = Populated<'w, 's, D, F>;
+    type State = (Entity, ComponentId);
+    type Item<'w, 's> = Populated<'w, 'w, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        Query::init_state(world, system_meta)
+        Query::<D, F>::init_state(world, system_meta)
     }
 
     #[inline]
@@ -461,7 +468,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Self::Item<'w, 'w> {
         // SAFETY: Delegate to existing `SystemParam` implementations.
         let query = unsafe { Query::get_param(state, system_meta, world, change_tick) };
         Populated(query)
@@ -473,12 +480,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY:
-        // - We have read-only access to the components accessed by query.
-        // - The caller ensures the world matches the one used in init_state.
-        let query = unsafe {
-            state.query_unchecked_with_ticks(world, system_meta.last_run, world.change_tick())
-        };
+        // SAFETY: Delegate to existing `SystemParam` implementations.
+        let query: Query<'_, '_, D, F> =
+            unsafe { Query::get_param(state, system_meta, world, world.change_tick()) };
         if query.is_empty() {
             Err(SystemParamValidationError::skipped::<Self>(
                 "No matching entities",
@@ -2573,11 +2577,10 @@ mod tests {
         #[derive(SystemParam)]
         pub struct SpecialQuery<
             'w,
-            's,
             D: QueryData + Send + Sync + 'static,
             F: QueryFilter + Send + Sync + 'static = (),
         > {
-            _query: Query<'w, 's, D, F>,
+            _query: Query<'w, 'w, D, F>,
         }
 
         fn my_system(_: SpecialQuery<(), ()>) {}
@@ -2706,11 +2709,11 @@ mod tests {
     #[test]
     fn system_param_where_clause() {
         #[derive(SystemParam)]
-        pub struct WhereParam<'w, 's, D>
+        pub struct WhereParam<'w, D>
         where
             D: 'static + QueryData,
         {
-            _q: Query<'w, 's, D, ()>,
+            _q: Query<'w, 'w, D, ()>,
         }
 
         fn my_system(_: WhereParam<()>) {}

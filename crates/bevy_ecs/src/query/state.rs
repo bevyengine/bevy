@@ -3,7 +3,7 @@ use crate::{
     component::{ComponentId, Tick},
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
-    prelude::FromWorld,
+    prelude::{Component, FromWorld},
     query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
     storage::{SparseSetIndex, TableId},
     system::Query,
@@ -60,6 +60,8 @@ pub(super) union StorageId {
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
 /// [`Table`]: crate::storage::Table
 #[repr(C)]
+#[derive(Component)]
+#[component(storage = "SparseSet")]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
