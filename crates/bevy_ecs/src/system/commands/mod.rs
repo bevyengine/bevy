@@ -506,7 +506,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     // Get the entity if it still exists and store the `EntityCommands`.
     ///     // If it doesn't exist, the `?` operator will propagate the returned error
     ///     // to the system, and the system will pass it to an error handler.
-    ///     let mut entity_commands = commands.get_entity(player.entity)?;
+    ///     let mut entity_commands = commands.get_constructed_entity(player.entity)?;
     ///
     ///     // Add a component to the entity.
     ///     entity_commands.insert(Label("hello world"));
