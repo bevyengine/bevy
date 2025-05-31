@@ -424,10 +424,12 @@ impl Schedule {
         self
     }
 
+    /// Obtain a mutable reference to a schedule build pass with type `T`.
     pub fn get_build_pass_mut<T: ScheduleBuildPass>(&mut self) -> Option<&mut T> {
-        self.graph.passes.get_mut(&TypeId::of::<T>()).map(|x| {
-            (x.as_mut() as &mut dyn Any).downcast_mut().unwrap()
-        })
+        self.graph
+            .passes
+            .get_mut(&TypeId::of::<T>())
+            .map(|x| (x.as_mut() as &mut dyn Any).downcast_mut().unwrap())
     }
 
     /// Remove a custom build pass.
@@ -840,7 +842,9 @@ impl ScheduleGraph {
 
     /// Returns an iterator over all system sets in this schedule, along with the conditions for each
     /// system set.
-    pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, InternedSystemSet, &[BoxedCondition])> {
+    pub fn system_sets(
+        &self,
+    ) -> impl Iterator<Item = (NodeId, InternedSystemSet, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
             let set = set_node.inner;
@@ -1335,7 +1339,11 @@ impl ScheduleGraph {
         (set_systems, set_system_bitsets)
     }
 
-    fn get_dependency_flattened(&mut self, world: &mut World, set_systems: &HashMap<NodeId, Vec<NodeId>>) -> DiGraph {
+    fn get_dependency_flattened(
+        &mut self,
+        world: &mut World,
+        set_systems: &HashMap<NodeId, Vec<NodeId>>,
+    ) -> DiGraph {
         // flatten: combine `in_set` with `before` and `after` information
         // have to do it like this to preserve transitivity
         let mut dependency_flattened = self.dependency.graph.clone();
