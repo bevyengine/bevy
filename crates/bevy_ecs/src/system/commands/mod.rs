@@ -18,7 +18,10 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
-    entity::{Entities, EntitiesAllocator, Entity, EntityClonerBuilder, EntityDoesNotExistError},
+    entity::{
+        ConstructedEntityDoesNotExistError, Entities, EntitiesAllocator, Entity,
+        EntityClonerBuilder, EntityDoesNotExistError,
+    },
     error::{ignore, warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::Event,
     observer::{Observer, TriggerTargets},
@@ -423,11 +426,11 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Returns the [`EntityCommands`] for the requested [`Entity`] if it exists in the world *now*.
-    /// Note that for entities that have not been constructed, like ones from [`spawn`](Self::spawn), this will error.
-    ///
+    /// Returns the [`EntityCommands`] for the requested [`Entity`] if it exists.
     /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
+    /// For example, this does not error when the entity has not been constructed.
+    /// For that behavior, see [`get_constructed_entity`](Self::get_constructed_entity).
     ///
     /// # Errors
     ///
@@ -469,14 +472,65 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         entity: Entity,
     ) -> Result<EntityCommands, EntityDoesNotExistError> {
-        if self.entities.contains(entity) {
-            Ok(EntityCommands {
-                entity,
-                commands: self.reborrow(),
-            })
-        } else {
-            Err(EntityDoesNotExistError::new(entity, self.entities))
-        }
+        let _location = self.entities.get(entity)?;
+        Ok(EntityCommands {
+            entity,
+            commands: self.reborrow(),
+        })
+    }
+
+    /// Returns the [`EntityCommands`] for the requested [`Entity`] if it exists in the world *now*.
+    /// Note that for entities that have not been constructed, like ones from [`spawn`](Self::spawn), this will error.
+    /// If that is not desired, try [`get_entity`](Self::get_entity).
+    ///
+    /// This method does not guarantee that commands queued by the returned `EntityCommands`
+    /// will be successful, since the entity could be despawned before they are executed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityDoesNotExistError`] if the requested entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Resource)]
+    /// struct PlayerEntity {
+    ///     entity: Entity
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    ///
+    /// fn example_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
+    ///     // Get the entity if it still exists and store the `EntityCommands`.
+    ///     // If it doesn't exist, the `?` operator will propagate the returned error
+    ///     // to the system, and the system will pass it to an error handler.
+    ///     let mut entity_commands = commands.get_entity(player.entity)?;
+    ///
+    ///     // Add a component to the entity.
+    ///     entity_commands.insert(Label("hello world"));
+    ///
+    ///     // Return from the system successfully.
+    ///     Ok(())
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`entity`](Self::entity) for the infallible version.
+    #[inline]
+    #[track_caller]
+    pub fn get_constructed_entity(
+        &mut self,
+        entity: Entity,
+    ) -> Result<EntityCommands, ConstructedEntityDoesNotExistError> {
+        let _location = self.entities.get_constructed(entity)?;
+        Ok(EntityCommands {
+            entity,
+            commands: self.reborrow(),
+        })
     }
 
     /// Spawns multiple entities with the same combination of components,

@@ -784,43 +784,107 @@ impl Entities {
     /// Returns the [`EntityLocation`] of an [`Entity`].
     /// Note: for non-constructed entities, returns `None`.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        self.get_id_location(entity).flatten()
+    pub fn get_constructed(
+        &self,
+        entity: Entity,
+    ) -> Result<EntityLocation, ConstructedEntityDoesNotExistError> {
+        match self.meta.get(entity.index() as usize) {
+            Some(meta) => {
+                if meta.generation != entity.generation {
+                    Err(ConstructedEntityDoesNotExistError::DidNotExist(
+                        EntityDoesNotExistError {
+                            entity,
+                            current_generation: EntityGeneration::FIRST,
+                        },
+                    ))
+                } else {
+                    match meta.location {
+                        Some(location) => Ok(location),
+                        None => Err(ConstructedEntityDoesNotExistError::WasNotConstructed(
+                            EntityNotConstructedError {
+                                entity,
+                                location: meta.spawned_or_despawned.by.map(Some),
+                            },
+                        )),
+                    }
+                }
+            }
+            None => {
+                if entity.generation() == EntityGeneration::FIRST {
+                    Err(ConstructedEntityDoesNotExistError::WasNotConstructed(
+                        EntityNotConstructedError {
+                            entity,
+                            location: MaybeLocation::new(None),
+                        },
+                    ))
+                } else {
+                    Err(ConstructedEntityDoesNotExistError::DidNotExist(
+                        EntityDoesNotExistError {
+                            entity,
+                            current_generation: EntityGeneration::FIRST,
+                        },
+                    ))
+                }
+            }
+        }
     }
 
     /// Returns the [`EntityIdLocation`] of an [`Entity`].
     #[inline]
-    pub fn get_id_location(&self, entity: Entity) -> Option<EntityIdLocation> {
+    pub fn get(&self, entity: Entity) -> Result<EntityIdLocation, EntityDoesNotExistError> {
         match self.meta.get(entity.index() as usize) {
-            Some(meta) => (meta.generation == entity.generation).then_some(meta.location),
-            None => (entity.generation() == EntityGeneration::FIRST).then_some(None),
+            Some(meta) => {
+                if meta.generation == entity.generation {
+                    Ok(meta.location)
+                } else {
+                    Err(EntityDoesNotExistError {
+                        entity,
+                        current_generation: meta.generation,
+                    })
+                }
+            }
+            None => {
+                if entity.generation() == EntityGeneration::FIRST {
+                    Ok(None)
+                } else {
+                    Err(EntityDoesNotExistError {
+                        entity,
+                        current_generation: EntityGeneration::FIRST,
+                    })
+                }
+            }
         }
     }
 
-    /// Returns true if the entity exists in the world *now*:
-    /// It has a location, etc.
-    ///
-    /// This will return false if the `entity` is reserved but has not been constructed.
+    /// Get the [`Entity`] for the given [`EntityRow`].
+    /// Note that this entity may not be constructed yet.
+    #[inline]
+    pub fn resolve_from_row(&self, row: EntityRow) -> Entity {
+        self.meta
+            .get(row.index() as usize)
+            .map(|meta| Entity::from_raw_and_generation(row, meta.generation))
+            .unwrap_or(Entity::from_raw(row))
+    }
+
+    /// Returns true if the entity exists.
+    /// This will return true for entities that exist but have not been constructed.
     pub fn contains(&self, entity: Entity) -> bool {
-        self.get(entity).is_some()
+        self.resolve_from_row(entity.row()).generation() == entity.generation()
+    }
+
+    /// Returns true if the entity exists in the world *now*.
+    /// This will return false if the `entity` is not constructed.
+    pub fn contains_constructed(&self, entity: Entity) -> bool {
+        self.get_constructed(entity).is_ok()
     }
 
     /// Provides information regarding if `entity` may be constructed.
     #[inline]
     pub fn validate_construction(&self, entity: Entity) -> Result<(), ConstructionError> {
-        if self
-            .resolve_from_id(entity.row())
-            .is_some_and(|found| found.generation() != entity.generation())
-        {
-            Err(ConstructionError::InvalidId)
-        } else if self
-            .meta
-            .get(entity.index() as usize)
-            .is_some_and(|meta| meta.location.is_some())
-        {
-            Err(ConstructionError::AlreadyConstructed)
-        } else {
-            Ok(())
+        match self.get(entity) {
+            Ok(Some(_)) => Err(ConstructionError::AlreadyConstructed),
+            Ok(None) => Ok(()),
+            Err(err) => Err(ConstructionError::InvalidId(err)),
         }
     }
 
@@ -913,16 +977,6 @@ impl Entities {
         meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
     }
 
-    /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection.
-    /// Returns `None` if this [`Entity`] is outside of the range of currently declared conceptual entities
-    ///
-    /// Note: This method may or may not return `None` for rows that have never had their location declared.
-    pub fn resolve_from_id(&self, row: EntityRow) -> Option<Entity> {
-        self.meta
-            .get(row.index() as usize)
-            .map(|meta| Entity::from_raw_and_generation(row, meta.generation))
-    }
-
     /// Try to get the source code location from which this entity has last been
     /// spawned, despawned or flushed.
     ///
@@ -982,16 +1036,6 @@ impl Entities {
         (meta.spawned_or_despawned.by, meta.spawned_or_despawned.at)
     }
 
-    /// Constructs a message explaining why an entity does not exist, if known.
-    pub(crate) fn entity_does_not_exist_error_details(
-        &self,
-        entity: Entity,
-    ) -> EntityDoesNotExistDetails {
-        EntityDoesNotExistDetails {
-            location: self.entity_get_spawned_or_despawned_by(entity),
-        }
-    }
-
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for meta in &mut self.meta {
@@ -1030,10 +1074,8 @@ impl Entities {
 pub enum ConstructionError {
     /// The [`Entity`] to construct was invalid.
     /// It probably had the wrong generation or was created erroneously.
-    #[error(
-        "The entity's id was invalid: either erroneously created or with the wrong generation."
-    )]
-    InvalidId,
+    #[error("Invalid id: {0}")]
+    InvalidId(EntityDoesNotExistError),
     /// The [`Entity`] to construct was already constructed.
     #[error("The entity can not be constructed as it already has a location.")]
     AlreadyConstructed,
@@ -1041,44 +1083,51 @@ pub enum ConstructionError {
 
 /// An error that occurs when a specified [`Entity`] does not exist.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
-#[error("The entity with ID {entity} {details}")]
+#[error(
+    "The entity with ID {entity} does not exist; its row now has generation {current_generation}."
+)]
 pub struct EntityDoesNotExistError {
     /// The entity's ID.
     pub entity: Entity,
-    /// Details on why the entity does not exist, if available.
-    pub details: EntityDoesNotExistDetails,
+    /// The generation of the [`EntityRow`], which did not match the requested entity.
+    pub current_generation: EntityGeneration,
 }
 
-impl EntityDoesNotExistError {
-    pub(crate) fn new(entity: Entity, entities: &Entities) -> Self {
-        Self {
-            entity,
-            details: entities.entity_does_not_exist_error_details(entity),
-        }
-    }
+/// An error that occurs when a specified [`Entity`] exists but was not constructed when it was expected to be.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EntityNotConstructedError {
+    /// The entity's ID.
+    pub entity: Entity,
+    /// The location of what last destructed the entity.
+    pub location: MaybeLocation<Option<&'static Location<'static>>>,
 }
 
-/// Helper struct that, when printed, will write the appropriate details
-/// regarding an entity that did not exist.
-#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct EntityDoesNotExistDetails {
-    location: MaybeLocation<Option<&'static Location<'static>>>,
-}
-
-impl fmt::Display for EntityDoesNotExistDetails {
+impl fmt::Display for EntityNotConstructedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let entity = self.entity;
         match self.location.into_option() {
-            Some(Some(location)) => write!(f, "was despawned by {location}"),
+            Some(Some(location)) => write!(f, "The entity with ID {entity} is not constructed; its row was last destructed by {location}."),
             Some(None) => write!(
                 f,
-                "does not exist (index has been reused or was never spawned)"
+                "The entity with ID {entity} is not constructed; its row has never been constructed."
             ),
             None => write!(
                 f,
-                "does not exist (enable `track_location` feature for more details)"
+                "The entity with ID {entity} is not constructed; enable `track_location` feature for more details."
             ),
         }
     }
+}
+
+/// Represents an error of either [`EntityDoesNotExistError`] or [`EntityNotConstructedError`].
+#[derive(thiserror::Error, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum ConstructedEntityDoesNotExistError {
+    /// The entity did not exist.
+    #[error("{0}")]
+    DidNotExist(#[from] EntityDoesNotExistError),
+    /// The entity did exist but was not constructed.
+    #[error("{0}")]
+    WasNotConstructed(#[from] EntityNotConstructedError),
 }
 
 #[derive(Copy, Clone, Debug)]

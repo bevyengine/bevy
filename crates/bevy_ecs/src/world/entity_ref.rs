@@ -1110,7 +1110,8 @@ impl<'w> EntityWorldMut<'w> {
             self.entity,
             self.world
                 .entities()
-                .entity_does_not_exist_error_details(self.entity)
+                .get_constructed(self.entity)
+                .unwrap_err()
         );
     }
 
@@ -1168,7 +1169,7 @@ impl<'w> EntityWorldMut<'w> {
         entity: Entity,
         location: EntityIdLocation,
     ) -> Self {
-        debug_assert_eq!(world.entities().get(entity), location);
+        debug_assert_eq!(world.entities().get(entity), Ok(location));
 
         EntityWorldMut {
             world,
@@ -2450,7 +2451,7 @@ impl<'w> EntityWorldMut<'w> {
             let archetype = &mut self.world.archetypes[location.archetype_id];
             let remove_result = archetype.swap_remove(location.archetype_row);
             if let Some(swapped_entity) = remove_result.swapped_entity {
-                let swapped_location = self.world.entities.get(swapped_entity).unwrap();
+                let swapped_location = self.world.entities.get_constructed(swapped_entity).unwrap();
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
@@ -2485,7 +2486,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // Handle displaced entity
         if let Some(moved_entity) = moved_entity {
-            let moved_location = self.world.entities.get(moved_entity).unwrap();
+            let moved_location = self.world.entities.get_constructed(moved_entity).unwrap();
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
@@ -2610,7 +2611,7 @@ impl<'w> EntityWorldMut<'w> {
     /// This is *only* required when using the unsafe function [`EntityWorldMut::world_mut`],
     /// which enables the location to change.
     pub fn update_location(&mut self) {
-        self.location = self.world.entities().get(self.entity);
+        self.location = self.world.entities().get(self.entity).unwrap_or_default();
     }
 
     /// Returns if the entity has been despawned.
@@ -5781,7 +5782,7 @@ mod tests {
         a.trigger(TestEvent); // this adds command to change entity archetype
         a.observe(|_: Trigger<TestEvent>| {}); // this flushes commands implicitly by spawning
         let location = a.location();
-        assert_eq!(world.entities().get(entity), Some(location));
+        assert_eq!(world.entities().get_constructed(entity), Ok(location));
     }
 
     #[test]

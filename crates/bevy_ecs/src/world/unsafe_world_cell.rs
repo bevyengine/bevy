@@ -373,10 +373,7 @@ impl<'w> UnsafeWorldCell<'w> {
         self,
         entity: Entity,
     ) -> Result<UnsafeEntityCell<'w>, EntityDoesNotExistError> {
-        let location = self
-            .entities()
-            .get_id_location(entity)
-            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+        let location = self.entities().get(entity)?;
         Ok(UnsafeEntityCell::new(
             self,
             entity,
@@ -395,10 +392,7 @@ impl<'w> UnsafeWorldCell<'w> {
         last_run: Tick,
         this_run: Tick,
     ) -> Result<UnsafeEntityCell<'w>, EntityDoesNotExistError> {
-        let location = self
-            .entities()
-            .get_id_location(entity)
-            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+        let location = self.entities().get(entity)?;
         Ok(UnsafeEntityCell::new(
             self, entity, location, last_run, this_run,
         ))

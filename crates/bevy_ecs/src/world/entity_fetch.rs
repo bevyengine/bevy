@@ -213,10 +213,7 @@ unsafe impl WorldEntityFetch for Entity {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        let location = cell
-            .entities()
-            .get_id_location(self)
-            .ok_or(EntityDoesNotExistError::new(self, cell.entities()))?;
+        let location = cell.entities().get(self)?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         let world = unsafe { cell.world_mut() };
         // SAFETY: location was fetched from the same world's `Entities`.

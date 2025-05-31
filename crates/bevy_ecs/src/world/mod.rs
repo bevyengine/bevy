@@ -19,7 +19,7 @@ pub use crate::{
     world::command_queue::CommandQueue,
 };
 use crate::{
-    entity::{ConstructionError, EntitiesAllocator, EntityRow},
+    entity::{ConstructedEntityDoesNotExistError, ConstructionError, EntitiesAllocator, EntityRow},
     error::{DefaultErrorHandler, ErrorHandler},
 };
 pub use bevy_ecs_macros::FromWorld;
@@ -720,19 +720,9 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_no_entity(world: &World, entity: Entity) -> ! {
-            panic!(
-                "Entity {entity} {}",
-                world.entities.entity_does_not_exist_error_details(entity)
-            );
-        }
-
         match self.get_entity(entities) {
-            Ok(fetched) => fetched,
-            Err(error) => panic_no_entity(self, error.entity),
+            Ok(res) => res,
+            Err(err) => panic!("{err}"),
         }
     }
 
@@ -874,11 +864,8 @@ impl World {
     pub fn inspect_entity(
         &self,
         entity: Entity,
-    ) -> Result<impl Iterator<Item = &ComponentInfo>, EntityDoesNotExistError> {
-        let entity_location = self
-            .entities()
-            .get(entity)
-            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+    ) -> Result<impl Iterator<Item = &ComponentInfo>, ConstructedEntityDoesNotExistError> {
+        let entity_location = self.entities().get_constructed(entity)?;
 
         let archetype = self
             .archetypes()
@@ -1137,7 +1124,10 @@ impl World {
         // SAFETY: command_queue is not referenced anywhere else
         if !unsafe { self.command_queue.is_empty() } {
             self.flush();
-            entity_location = self.entities().get(entity);
+            entity_location = self
+                .entities()
+                .get(entity)
+                .expect("For this to fail, a queued command would need to despawn the entity.");
         }
 
         // SAFETY: entity and location are valid, as they were just created above
@@ -2456,64 +2446,70 @@ impl World {
         let mut batch_iter = batch.into_iter();
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
-            if let Some(first_location) = self.entities().get(first_entity) {
-                let mut cache = InserterArchetypeCache {
-                    // SAFETY: we initialized this bundle_id in `register_info`
-                    inserter: unsafe {
-                        BundleInserter::new_with_id(
-                            self,
-                            first_location.archetype_id,
-                            bundle_id,
-                            change_tick,
+            match self.entities().get_constructed(first_entity) {
+                Err(err) => {
+                    panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
+                }
+                Ok(first_location) => {
+                    let mut cache = InserterArchetypeCache {
+                        // SAFETY: we initialized this bundle_id in `register_info`
+                        inserter: unsafe {
+                            BundleInserter::new_with_id(
+                                self,
+                                first_location.archetype_id,
+                                bundle_id,
+                                change_tick,
+                            )
+                        },
+                        archetype_id: first_location.archetype_id,
+                    };
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    unsafe {
+                        cache.inserter.insert(
+                            first_entity,
+                            first_location,
+                            first_bundle,
+                            insert_mode,
+                            caller,
+                            RelationshipHookMode::Run,
                         )
-                    },
-                    archetype_id: first_location.archetype_id,
-                };
-                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                unsafe {
-                    cache.inserter.insert(
-                        first_entity,
-                        first_location,
-                        first_bundle,
-                        insert_mode,
-                        caller,
-                        RelationshipHookMode::Run,
-                    )
-                };
+                    };
 
-                for (entity, bundle) in batch_iter {
-                    if let Some(location) = cache.inserter.entities().get(entity) {
-                        if location.archetype_id != cache.archetype_id {
-                            cache = InserterArchetypeCache {
-                                // SAFETY: we initialized this bundle_id in `register_info`
-                                inserter: unsafe {
-                                    BundleInserter::new_with_id(
-                                        self,
-                                        location.archetype_id,
-                                        bundle_id,
-                                        change_tick,
+                    for (entity, bundle) in batch_iter {
+                        match cache.inserter.entities().get_constructed(entity) {
+                            Ok(location) => {
+                                if location.archetype_id != cache.archetype_id {
+                                    cache = InserterArchetypeCache {
+                                        // SAFETY: we initialized this bundle_id in `register_info`
+                                        inserter: unsafe {
+                                            BundleInserter::new_with_id(
+                                                self,
+                                                location.archetype_id,
+                                                bundle_id,
+                                                change_tick,
+                                            )
+                                        },
+                                        archetype_id: location.archetype_id,
+                                    }
+                                }
+                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                                unsafe {
+                                    cache.inserter.insert(
+                                        entity,
+                                        location,
+                                        bundle,
+                                        insert_mode,
+                                        caller,
+                                        RelationshipHookMode::Run,
                                     )
-                                },
-                                archetype_id: location.archetype_id,
+                                };
+                            }
+                            Err(err) => {
+                                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
                             }
                         }
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe {
-                            cache.inserter.insert(
-                                entity,
-                                location,
-                                bundle,
-                                insert_mode,
-                                caller,
-                                RelationshipHookMode::Run,
-                            )
-                        };
-                    } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
                 }
-            } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
             }
         }
     }
@@ -2605,7 +2601,7 @@ impl World {
         // if the first entity is invalid, whereas this method needs to keep going.
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
-                if let Some(first_location) = self.entities().get(first_entity) {
+                if let Ok(first_location) = self.entities().get_constructed(first_entity) {
                     let mut cache = InserterArchetypeCache {
                         // SAFETY: we initialized this bundle_id in `register_info`
                         inserter: unsafe {
@@ -2640,7 +2636,7 @@ impl World {
 
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
-                if let Some(location) = cache.inserter.entities().get(entity) {
+                if let Ok(location) = cache.inserter.entities().get_constructed(entity) {
                     if location.archetype_id != cache.archetype_id {
                         cache = InserterArchetypeCache {
                             // SAFETY: we initialized this bundle_id in `register_info`
