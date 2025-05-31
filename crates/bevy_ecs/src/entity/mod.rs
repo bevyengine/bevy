@@ -886,8 +886,10 @@ impl Entities {
 
     /// Destroy an entity, allowing it to be reused.
     ///
+    /// Returns the `Option<EntityLocation>` of the entity or `None` if the `entity` was not present.
+    ///
     /// Must not be called while reserved entities are awaiting `flush()`.
-    pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
+    pub fn free(&mut self, entity: Entity) -> Option<EntityIdLocation> {
         self.verify_flushed();
 
         let meta = &mut self.meta[entity.index() as usize];
@@ -949,20 +951,21 @@ impl Entities {
         *self.free_cursor.get_mut() = 0;
     }
 
-    /// Returns the location of an [`Entity`].
-    /// Note: for pending entities, returns `None`.
+    /// Returns the [`EntityLocation`] of an [`Entity`].
+    /// Note: for pending entities and entities not participating in the ECS (entities with a [`EntityIdLocation`] of `None`), returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if let Some(meta) = self.meta.get(entity.index() as usize) {
-            if meta.generation != entity.generation
-                || meta.location.archetype_id == ArchetypeId::INVALID
-            {
-                return None;
-            }
-            Some(meta.location)
-        } else {
-            None
-        }
+        self.get_id_location(entity).flatten()
+    }
+
+    /// Returns the [`EntityIdLocation`] of an [`Entity`].
+    /// Note: for pending entities, returns `None`.
+    #[inline]
+    pub fn get_id_location(&self, entity: Entity) -> Option<EntityIdLocation> {
+        self.meta
+            .get(entity.index() as usize)
+            .filter(|meta| meta.generation == entity.generation)
+            .map(|meta| meta.location)
     }
 
     /// Updates the location of an [`Entity`].
@@ -973,7 +976,7 @@ impl Entities {
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
+    pub(crate) unsafe fn set(&mut self, index: u32, location: EntityIdLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
@@ -1001,7 +1004,7 @@ impl Entities {
         }
 
         let meta = &mut self.meta[index as usize];
-        if meta.location.archetype_id == ArchetypeId::INVALID {
+        if meta.location.is_none() {
             meta.generation = meta.generation.after_versions(generations);
             true
         } else {
@@ -1036,6 +1039,8 @@ impl Entities {
     /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
     /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
     ///
+    /// See [`EntityLocation`] for details on its meaning and how to set it.
+    ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
     /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
@@ -1045,7 +1050,7 @@ impl Entities {
     /// to be initialized with the invalid archetype.
     pub unsafe fn flush(
         &mut self,
-        mut init: impl FnMut(Entity, &mut EntityLocation),
+        mut init: impl FnMut(Entity, &mut EntityIdLocation),
         by: MaybeLocation,
         at: Tick,
     ) {
@@ -1090,7 +1095,7 @@ impl Entities {
         unsafe {
             self.flush(
                 |_entity, location| {
-                    location.archetype_id = ArchetypeId::INVALID;
+                    *location = None;
                 },
                 by,
                 at,
@@ -1178,7 +1183,7 @@ impl Entities {
             .filter(|meta|
             // Generation is incremented immediately upon despawn
             (meta.generation == entity.generation)
-            || (meta.location.archetype_id == ArchetypeId::INVALID)
+            || meta.location.is_none()
             && (meta.generation == entity.generation.after_versions(1)))
             .map(|meta| meta.spawned_or_despawned)
     }
@@ -1203,11 +1208,7 @@ impl Entities {
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for meta in &mut self.meta {
-            if meta.generation != EntityGeneration::FIRST
-                || meta.location.archetype_id != ArchetypeId::INVALID
-            {
-                meta.spawned_or_despawned.at.check_tick(change_tick);
-            }
+            meta.spawned_or_despawned.at.check_tick(change_tick);
         }
     }
 
@@ -1267,9 +1268,9 @@ impl fmt::Display for EntityDoesNotExistDetails {
 #[derive(Copy, Clone, Debug)]
 struct EntityMeta {
     /// The current [`EntityGeneration`] of the [`EntityRow`].
-    pub generation: EntityGeneration,
+    generation: EntityGeneration,
     /// The current location of the [`EntityRow`].
-    pub location: EntityLocation,
+    location: EntityIdLocation,
     /// Location and tick of the last spawn, despawn or flush of this entity.
     spawned_or_despawned: SpawnedOrDespawned,
 }
@@ -1284,7 +1285,7 @@ impl EntityMeta {
     /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
         generation: EntityGeneration::FIRST,
-        location: EntityLocation::INVALID,
+        location: None,
         spawned_or_despawned: SpawnedOrDespawned {
             by: MaybeLocation::caller(),
             at: Tick::new(0),
@@ -1316,15 +1317,15 @@ pub struct EntityLocation {
     pub table_row: TableRow,
 }
 
-impl EntityLocation {
-    /// location for **pending entity** and **invalid entity**
-    pub(crate) const INVALID: EntityLocation = EntityLocation {
-        archetype_id: ArchetypeId::INVALID,
-        archetype_row: ArchetypeRow::INVALID,
-        table_id: TableId::INVALID,
-        table_row: TableRow::INVALID,
-    };
-}
+/// An [`Entity`] id may or may not correspond to a valid conceptual entity.
+/// If it does, the conceptual entity may or may not have a location.
+/// If it has no location, the [`EntityLocation`] will be `None`.
+/// An location of `None` means the entity effectively does not exist; it has an id, but is not participating in the ECS.
+/// This is different from a location in the empty archetype, which is participating (queryable, etc) but just happens to have no components.
+///
+/// Setting a location to `None` is often helpful when you want to destruct an entity or yank it from the ECS without allowing another system to reuse the id for something else.
+/// It is also useful for reserving an id; commands will often allocate an `Entity` but not provide it a location until the command is applied.
+pub type EntityIdLocation = Option<EntityLocation>;
 
 #[cfg(test)]
 mod tests {
