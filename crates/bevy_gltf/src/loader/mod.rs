@@ -1280,7 +1280,7 @@ fn load_material(
                 ..Default::default()
             })
         })
-        .expect("closure does not return an error")
+        .unwrap()
 }
 
 /// Loads a glTF node.
