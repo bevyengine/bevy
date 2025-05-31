@@ -23,16 +23,22 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
+    event::Event,
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use core::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
 };
 use nonmax::NonMaxU32;
+
+#[derive(Event)]
+#[allow(dead_code)]
+
+pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 
 /// An opaque location within a [`Archetype`].
 ///
@@ -881,7 +887,7 @@ impl Archetypes {
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
-    ) -> ArchetypeId {
+    ) -> (ArchetypeId, bool) {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),
             table_components: table_components.into_boxed_slice(),
@@ -889,14 +895,13 @@ impl Archetypes {
 
         let archetypes = &mut self.archetypes;
         let component_index = &mut self.by_component;
-        *self
-            .by_components
-            .entry(archetype_identity)
-            .or_insert_with_key(move |identity| {
+        match self.by_components.entry(archetype_identity) {
+            Entry::Occupied(occupied) => (*occupied.get(), false),
+            Entry::Vacant(vacant) => {
                 let ArchetypeComponents {
                     table_components,
                     sparse_set_components,
-                } = identity;
+                } = vacant.key();
                 let id = ArchetypeId::new(archetypes.len());
                 archetypes.push(Archetype::new(
                     components,
@@ -907,8 +912,10 @@ impl Archetypes {
                     table_components.iter().copied(),
                     sparse_set_components.iter().copied(),
                 ));
-                id
-            })
+                vacant.insert(id);
+                (id, true)
+            }
+        }
     }
 
     /// Clears all entities from all archetypes.
