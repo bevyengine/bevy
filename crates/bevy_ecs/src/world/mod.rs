@@ -1525,7 +1525,7 @@ impl World {
     /// Destructs the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Components`](Component).
     /// The *only* difference between destructing and despawning an entity is that destructing does not release the `entity` to be reused.
-    /// It is up to the caller to either re-construct or fully despawn the `entity`; otherwise, the [`EntityRow`](crate::entity::EntityRow) will not be able to be reused.
+    /// It is up to the caller to either re-construct or fully despawn the `entity`; otherwise, the [`EntityRow`] will not be able to be reused.
     ///
     /// Returns an [`EntityDestructError`] if the entity does not exist.
     ///

@@ -279,7 +279,7 @@ impl Ord for EntityGeneration {
 /// but [`Entity`] ids may or may not correspond to a conceptual entity.
 ///
 /// Each [`EntityRow`] corresponds to a potential conceptual entity.
-/// This can happen if, for example, the row has not been allocated, or it has been allocated and has not been [`constructed`](World::construct), or it has been since [destructed](World::destruct).
+/// This can happen if, for example, the row has not been allocated, or it has been allocated and has not been [`constructed`](crate::world::World::construct), or it has been since [destructed](crate::world::World::destruct).
 /// Entity rows may also be pending reuse, etc.
 ///
 /// For a [`Entity`] id to correspond to a conceptual entity, its row must do so, and it must have the most up to date generation of that row.
