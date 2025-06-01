@@ -72,7 +72,14 @@ pub mod prelude {
     };
 }
 use batching::gpu_preprocessing::BatchingPlugin;
+
+#[doc(hidden)]
+pub mod _macro {
+    pub use bevy_asset;
+}
+
 use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
@@ -86,7 +93,8 @@ use render_asset::{
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
-    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
+    despawn_temporary_render_entities, entity_sync_system, MainEntity, RenderEntity,
+    SyncToRenderWorld, SyncWorldPlugin, TemporaryRenderEntity,
 };
 
 use crate::gpu_readback::GpuReadbackPlugin;
@@ -95,19 +103,38 @@ use crate::{
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance, WgpuWrapper},
+    renderer::{render_system, RenderInstance},
     settings::RenderCreation,
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetServer, Handle};
+use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bevy_utils::WgpuWrapper;
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
+
+/// Inline shader as an `embedded_asset` and load it permanently.
+///
+/// This works around a limitation of the shader loader not properly loading
+/// dependencies of shaders.
+#[macro_export]
+macro_rules! load_shader_library {
+    ($asset_server_provider: expr, $path: literal $(, $settings: expr)?) => {
+        $crate::_macro::bevy_asset::embedded_asset!($asset_server_provider, $path);
+        let handle: $crate::_macro::bevy_asset::prelude::Handle<$crate::prelude::Shader> =
+            $crate::_macro::bevy_asset::load_embedded_asset!(
+                $asset_server_provider,
+                $path
+                $(,$settings)?
+            );
+        core::mem::forget(handle);
+    }
+}
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -289,13 +316,6 @@ struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
-pub const MATHS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d94d70d4-746d-49c4-bfc3-27d63f2acda0");
-pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("33a80b2f-aaf7-4c86-b828-e7ae83b72f1a");
-pub const BINDLESS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("13f1baaa-41bf-448e-929e-258f9307a522");
-
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSystems`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
@@ -432,6 +452,9 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>()
+            .register_type::<RenderEntity>()
+            .register_type::<TemporaryRenderEntity>()
+            .register_type::<MainEntity>()
             .register_type::<SyncToRenderWorld>();
     }
 
@@ -443,29 +466,24 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            COLOR_OPERATIONS_SHADER_HANDLE,
-            "color_operations.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            BINDLESS_SHADER_HANDLE,
-            "bindless.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "maths.wgsl");
+        load_shader_library!(app, "color_operations.wgsl");
+        load_shader_library!(app, "bindless.wgsl");
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
             let RenderResources(device, queue, adapter_info, render_adapter, instance) =
                 future_render_resources.0.lock().unwrap().take().unwrap();
 
+            let compressed_image_format_support = CompressedImageFormatSupport(
+                CompressedImageFormats::from_features(device.features()),
+            );
+
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone());
+                .insert_resource(render_adapter.clone())
+                .insert_resource(compressed_image_format_support);
 
             let render_app = app.sub_app_mut(RenderApp);
 

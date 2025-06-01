@@ -30,7 +30,7 @@
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle};
+use bevy_asset::{embedded_asset, Assets, Handle};
 use bevy_color::Color;
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
@@ -48,7 +48,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::{Mesh, Meshable},
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, SpecializedRenderPipelines},
+    render_resource::SpecializedRenderPipelines,
     sync_component::SyncComponentPlugin,
     view::Visibility,
     ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -56,7 +56,6 @@ use bevy_render::{
 use bevy_transform::components::Transform;
 use render::{
     VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
-    VOLUMETRIC_FOG_HANDLE,
 };
 
 use crate::graph::NodePbr;
@@ -189,12 +188,7 @@ pub struct FogVolume {
 
 impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            VOLUMETRIC_FOG_HANDLE,
-            "volumetric_fog.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "volumetric_fog.wgsl");
 
         let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
         meshes.insert(&PLANE_MESH, Plane3d::new(Vec3::Z, Vec2::ONE).mesh().into());

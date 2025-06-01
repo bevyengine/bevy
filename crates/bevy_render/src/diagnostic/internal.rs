@@ -15,7 +15,8 @@ use wgpu::{
     PipelineStatisticsTypes, QuerySet, QuerySetDescriptor, QueryType, RenderPass,
 };
 
-use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper};
+use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue};
+use bevy_utils::WgpuWrapper;
 
 use super::RecordDiagnostics;
 
