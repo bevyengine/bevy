@@ -22,6 +22,7 @@ use bevy_ecs::{
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
+    sync::Arc,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -470,7 +471,7 @@ impl RenderAsset for RenderWireframeMaterial {
     type Param = ();
 
     fn prepare_asset(
-        source_asset: Self::SourceAsset,
+        source_asset: Arc<Self::SourceAsset>,
         _asset_id: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
