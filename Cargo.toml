@@ -978,17 +978,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "healthbar"
-path = "examples/usage/healthbar.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.healthbar]
-name = "Healthbar"
-description = "A scene showcasing world-to-viewport UI"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "fog"
 path = "examples/3d/fog.rs"
 doc-scrape-examples = true
@@ -4410,5 +4399,16 @@ doc-scrape-examples = true
 [package.metadata.example.cooldown]
 name = "Cooldown"
 description = "Example for cooldown on button clicks"
+category = "Usage"
+wasm = true
+
+[[example]]
+name = "healthbar"
+path = "examples/usage/healthbar.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.healthbar]
+name = "Healthbar"
+description = "A scene showcasing world-to-viewport UI"
 category = "Usage"
 wasm = true
