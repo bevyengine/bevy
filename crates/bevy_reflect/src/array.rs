@@ -186,8 +186,7 @@ impl DynamicArray {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Array(_)),
-                "expected TypeInfo::Array but received: {:?}",
-                represented_type
+                "expected TypeInfo::Array but received: {represented_type:?}"
             );
         }
 

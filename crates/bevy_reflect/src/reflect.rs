@@ -575,7 +575,7 @@ impl TypePath for dyn Reflect {
 macro_rules! impl_full_reflect {
     ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
         impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
-            fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
+            fn into_any(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn ::core::any::Any> {
                 self
             }
 
@@ -587,7 +587,7 @@ macro_rules! impl_full_reflect {
                 self
             }
 
-            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
+            fn into_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::Reflect> {
                 self
             }
 
@@ -601,8 +601,8 @@ macro_rules! impl_full_reflect {
 
             fn set(
                 &mut self,
-                value: Box<dyn $crate::Reflect>,
-            ) -> Result<(), Box<dyn $crate::Reflect>> {
+                value: bevy_platform::prelude::Box<dyn $crate::Reflect>,
+            ) -> Result<(), bevy_platform::prelude::Box<dyn $crate::Reflect>> {
                 *self = <dyn $crate::Reflect>::take(value)?;
                 Ok(())
             }

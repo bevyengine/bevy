@@ -74,7 +74,7 @@ std = [
   "bevy_math/std",
   "bevy_reflect?/std",
   "bevy_tasks/std",
-  "bevy_utils/std",
+  "bevy_utils/parallel",
   "serde?/std",
 ]
 

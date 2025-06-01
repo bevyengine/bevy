@@ -520,7 +520,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register_with_name("foo", foo).unwrap();
 
-        let debug = format!("{:?}", registry);
+        let debug = format!("{registry:?}");
         assert_eq!(debug, "{DynamicFunction(fn foo() -> i32)}");
     }
 }

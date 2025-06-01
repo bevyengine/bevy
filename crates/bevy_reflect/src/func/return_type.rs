@@ -129,7 +129,7 @@ macro_rules! impl_into_return {
         )?
         {
             fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
-                $crate::func::Return::Owned(Box::new(self))
+                $crate::func::Return::Owned(bevy_platform::prelude::Box::new(self))
             }
         }
 
