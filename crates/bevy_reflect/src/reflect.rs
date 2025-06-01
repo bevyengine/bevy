@@ -160,7 +160,7 @@ where
     ///   assigned to `self`.
     ///
     /// Note that `Reflect` must be implemented manually for [`List`]s,
-    /// [`Map`]s and [`Set`]s in order to achieve the correct semantics, as derived
+    /// [`Map`]s, and [`Set`]s in order to achieve the correct semantics, as derived
     /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
     /// or none of the above depending on the kind of type. For lists, maps and sets, use the
     /// [`list_apply`], [`map_apply`] and [`set_apply`] helper functions when implementing this method.
