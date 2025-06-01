@@ -30,7 +30,7 @@ fn main() {
         .run();
 }
 
-/// set up a simple 3D scene
+/// set up a 3D scene where the cube will have a health bar
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -42,16 +42,6 @@ fn setup(
         MeshMaterial3d(materials.add(Color::WHITE)),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
-    // cube
-    let entity_spawn = Vec3::new(0.0, 0.5, 0.0);
-    let cube_id = commands
-        .spawn((
-            Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-            MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-            Transform::from_translation(entity_spawn),
-            Health(42.0),
-        ))
-        .id();
     // light
     commands.spawn((
         PointLight {
@@ -65,6 +55,15 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(6.5, 2.5, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+    // cube with a health component
+    let cube_id = commands
+        .spawn((
+            Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+            MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+            Transform::from_xyz(0.0, 0.5, 0.0),
+            Health(42.0),
+        ))
+        .id();
     // Root component for the health bar, this one will be moved to follow the cube
     let health_bar_root = commands
         .spawn((
@@ -103,8 +102,6 @@ fn setup(
         LinearRgba::GREEN,
     ];
 
-    let curve = ColorCurve::new(colors).unwrap();
-
     let health_bar_nodes = commands
         .spawn((
             Node {
@@ -115,7 +112,7 @@ fn setup(
             HealthBar {
                 target: cube_id,
                 health_text_entity: health_text,
-                color_curve: curve,
+                color_curve: ColorCurve::new(colors).unwrap(),
             },
             BackgroundColor(Color::from(GREEN)),
         ))
@@ -126,6 +123,7 @@ fn setup(
         .add_children(&[health_text, health_bar_nodes]);
 }
 
+// Some placeholder system to affect the health in this example.
 fn update_health(time: Res<Time>, mut health_query: Query<&mut Health>) {
     for mut health in health_query.iter_mut() {
         health.0 = (time.elapsed().as_secs_f32().sin() + 1.0) * 50.0;
@@ -163,10 +161,11 @@ fn update_health_bar(
 
         // todo: A width beyond roughly 90% doesn't seem to make a difference
         health_bar_node.width = Val::Percent(hp);
-        health_text.0 = format!("{:.0}", hp);
+        health_text.0 = format!("{:.0}", hp); // Only show rounded numbers
 
         let color_curve = &health_bar_component.color_curve;
-        bg_color.0 = color_curve.sample_clamped(hp / (25.0)).into();
+        let t = hp * 4.0 / (100.0); // 4 is the number of colors, 100 is the max health
+        bg_color.0 = color_curve.sample_clamped(t).into();
     }
 }
 

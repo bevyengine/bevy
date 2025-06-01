@@ -979,7 +979,7 @@ wasm = true
 
 [[example]]
 name = "healthbar"
-path = "examples/3d/healthbar.rs"
+path = "examples/usage/healthbar.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.healthbar]
