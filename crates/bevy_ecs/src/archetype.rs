@@ -145,7 +145,7 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
     /// Required Components.
     pub existing: Vec<ComponentId>,
-    /// Maps this archetype to other component-identical archetypes based on [`FragmentingValue`]s of components.
+    /// Maps this archetype to other component-identical archetypes based on [`FragmentingValue`](crate::fragmenting_value::FragmentingValue)s of components.
     /// All [`Archetype`]s this maps to differ only by their identity due to different [`FragmentingValuesShared`], otherwise they're identical.
     /// We need this map only when inserting bundles since when removing a fragmenting component all versions of the archetype will
     /// point to the same archetype after transition.
@@ -736,7 +736,7 @@ impl Archetype {
             .map(|info| info.storage_type)
     }
 
-    /// Returns [`FragmentingValue`] for this archetype of the requested `component_id`.
+    /// Returns [`FragmentingValue`](crate::fragmenting_value::FragmentingValue) for this archetype of the requested `component_id`.
     ///
     /// This will return `None` if requested component isn't a part of this archetype or isn't fragmenting.
     pub fn get_value_component(
