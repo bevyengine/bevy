@@ -43,11 +43,11 @@ pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
 /// Stops the output component being added to this entity.
 /// Relationship targets will still inherit the component from this entity or its parents.
 #[derive(Component)]
-pub struct PropagateOver<C: Component + Clone + PartialEq>(PhantomData<fn() -> C>);
+pub struct PropagateOver<C>(PhantomData<fn() -> C>);
 
 /// Stops the propagation at this entity. Children will not inherit the component.
 #[derive(Component)]
-pub struct PropagateStop<C: Component + Clone + PartialEq>(PhantomData<fn() -> C>);
+pub struct PropagateStop<C>(PhantomData<fn() -> C>);
 
 /// The set in which propagation systems are added. You can schedule your logic relative to this set.
 #[derive(SystemSet, Clone, PartialEq, PartialOrd, Ord)]
@@ -59,19 +59,21 @@ pub struct PropagateSet<C: Component + Clone + PartialEq> {
 #[derive(Component, Clone, PartialEq)]
 pub struct Inherited<C: Component + Clone + PartialEq>(pub C);
 
-impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship> Default for HierarchyPropagatePlugin<C, F, R> {
+impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship> Default
+    for HierarchyPropagatePlugin<C, F, R>
+{
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<C: Component + Clone + PartialEq> Default for PropagateOver<C> {
+impl<C> Default for PropagateOver<C> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<C: Component + Clone + PartialEq> Default for PropagateStop<C> {
+impl<C> Default for PropagateStop<C> {
     fn default() -> Self {
         Self(Default::default())
     }
