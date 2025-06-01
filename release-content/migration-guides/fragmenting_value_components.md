@@ -1,6 +1,6 @@
 ---
 title: Added support for fragmenting value components
-pull_requests: [19153]
+pull_requests: [19153, 19456]
 ---
 
 Archetypes can now be fragmented by component values. Supporting this required some changes to the public api of archetypes and a new associated type for components.
@@ -11,3 +11,5 @@ Manual impl of `Component` trait now has a new associated type, `Key`, that shou
 
 `Edges::get_archetype_after_bundle_insert` now require an additional argument - `value_components: &FragmentingValuesBorrowed`. These can be
 constructed using `FragmentingValuesBorrowed::from_bundle`.
+
+`StorageType` now has an additional variant - `Shared`.
