@@ -1,15 +1,13 @@
 use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
-use bevy_platform_support::collections::{
-    hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable,
-};
+use bevy_platform::collections::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, generics::impl_generic_info_methods, hash_error,
-    type_info::impl_type_methods, ApplyError, Generics, PartialReflect, Reflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    generics::impl_generic_info_methods, hash_error, type_info::impl_type_methods, ApplyError,
+    Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -69,8 +67,15 @@ pub trait Set: PartialReflect {
     /// After calling this function, `self` will be empty.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Clones the set, producing a [`DynamicSet`].
-    fn clone_dynamic(&self) -> DynamicSet;
+    /// Creates a new [`DynamicSet`] from this set.
+    fn to_dynamic_set(&self) -> DynamicSet {
+        let mut set = DynamicSet::default();
+        set.set_represented_type(self.get_represented_type_info());
+        for value in self.iter() {
+            set.insert_boxed(value.to_dynamic());
+        }
+        set
+    }
 
     /// Inserts a value into the set.
     ///
@@ -153,8 +158,7 @@ impl DynamicSet {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Set(_)),
-                "expected TypeInfo::Set but received: {:?}",
-                represented_type
+                "expected TypeInfo::Set but received: {represented_type:?}"
             );
         }
 
@@ -167,7 +171,7 @@ impl DynamicSet {
     }
 
     fn internal_hash(value: &dyn PartialReflect) -> u64 {
-        value.reflect_hash().expect(hash_error!(value))
+        value.reflect_hash().expect(&hash_error!(value))
     }
 
     fn internal_eq(
@@ -199,23 +203,6 @@ impl Set for DynamicSet {
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
         self.hash_table.drain().collect::<Vec<_>>()
-    }
-
-    fn clone_dynamic(&self) -> DynamicSet {
-        let mut hash_table = HashTable::new();
-        self.hash_table
-            .iter()
-            .map(|value| value.clone_value())
-            .for_each(|value| {
-                hash_table.insert_unique(Self::internal_hash(value.as_ref()), value, |boxed| {
-                    Self::internal_hash(boxed.as_ref())
-                });
-            });
-
-        DynamicSet {
-            represented_type: self.represented_type,
-            hash_table,
-        }
     }
 
     fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
@@ -317,10 +304,6 @@ impl PartialReflect for DynamicSet {
         ReflectOwned::Set(self)
     }
 
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
-    }
-
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         set_partial_eq(self, value)
     }
@@ -377,7 +360,7 @@ impl<T: Reflect> FromIterator<T> for DynamicSet {
 
 impl IntoIterator for DynamicSet {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = bevy_platform_support::collections::hash_table::IntoIter<Self::Item>;
+    type IntoIter = bevy_platform::collections::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.hash_table.into_iter()
@@ -387,7 +370,7 @@ impl IntoIterator for DynamicSet {
 impl<'a> IntoIterator for &'a DynamicSet {
     type Item = &'a dyn PartialReflect;
     type IntoIter = core::iter::Map<
-        bevy_platform_support::collections::hash_table::Iter<'a, Box<dyn PartialReflect>>,
+        bevy_platform::collections::hash_table::Iter<'a, Box<dyn PartialReflect>>,
         fn(&'a Box<dyn PartialReflect>) -> Self::Item,
     >;
 
@@ -467,7 +450,7 @@ pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
     if let ReflectRef::Set(set_value) = b.reflect_ref() {
         for b_value in set_value.iter() {
             if a.get(b_value).is_none() {
-                a.insert_boxed(b_value.clone_value());
+                a.insert_boxed(b_value.to_dynamic());
             }
         }
     } else {
@@ -490,7 +473,7 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
 
     for b_value in set_value.iter() {
         if a.get(b_value).is_none() {
-            a.insert_boxed(b_value.clone_value());
+            a.insert_boxed(b_value.to_dynamic());
         }
     }
 

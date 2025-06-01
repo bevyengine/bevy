@@ -12,7 +12,7 @@ pub fn world_spawn(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in (0..5).map(|i| 10_u32.pow(i)) {
+    for entity_count in [1, 100, 10_000] {
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
             let mut world = World::default();
             bencher.iter(|| {

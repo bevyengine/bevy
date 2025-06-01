@@ -1,7 +1,7 @@
 use core::ops::DerefMut;
 
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
+    entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
@@ -13,8 +13,8 @@ use bevy_render::{
     mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityClass,
-        VisibilityRange, VisibleEntityRanges,
+        InheritedVisibility, NoFrustumCulling, PreviousVisibleEntities, RenderLayers,
+        ViewVisibility, VisibilityClass, VisibilityRange, VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -91,9 +91,20 @@ pub mod light_consts {
     }
 }
 
+/// Controls the resolution of [`PointLight`] shadow maps.
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::PointLightShadowMap;
+/// App::new()
+///     .insert_resource(PointLightShadowMap { size: 2048 });
+/// ```
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[reflect(Resource, Debug, Default, Clone)]
 pub struct PointLightShadowMap {
+    /// The width and height of each of the 6 faces of the cubemap.
+    ///
+    /// Defaults to `1024`.
     pub size: usize,
 }
 
@@ -108,9 +119,19 @@ impl Default for PointLightShadowMap {
 pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::DirectionalLightShadowMap;
+/// App::new()
+///     .insert_resource(DirectionalLightShadowMap { size: 4096 });
+/// ```
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[reflect(Resource, Debug, Default, Clone)]
 pub struct DirectionalLightShadowMap {
+    // The width and height of each cascade.
+    ///
+    /// Defaults to `2048`.
     pub size: usize,
 }
 
@@ -134,7 +155,7 @@ impl Default for DirectionalLightShadowMap {
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -246,27 +267,25 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            // Currently only support one cascade in webgl.
-            Self {
-                num_cascades: 1,
-                minimum_distance: 0.1,
-                maximum_distance: 100.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
-        } else {
-            Self {
-                num_cascades: 4,
-                minimum_distance: 0.1,
-                maximum_distance: 1000.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
+        // The defaults are chosen to be similar to be Unity, Unreal, and Godot.
+        // Unity: first cascade far bound = 10.05, maximum distance = 150.0
+        // Unreal Engine 5: maximum distance = 200.0
+        // Godot: first cascade far bound = 10.0, maximum distance = 100.0
+        Self {
+            // Currently only support one cascade in WebGL 2.
+            num_cascades: if cfg!(all(
+                feature = "webgl",
+                target_arch = "wasm32",
+                not(feature = "webgpu")
+            )) {
+                1
+            } else {
+                4
+            },
+            minimum_distance: 0.1,
+            maximum_distance: 150.0,
+            first_cascade_far_bound: 10.0,
+            overlap_proportion: 0.2,
         }
     }
 }
@@ -278,24 +297,25 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
-    pub(crate) cascades: EntityHashMap<Vec<Cascade>>,
+    pub cascades: EntityHashMap<Vec<Cascade>>,
 }
 
 #[derive(Clone, Debug, Default, Reflect)]
+#[reflect(Clone, Default)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
-    pub(crate) world_from_cascade: Mat4,
+    pub world_from_cascade: Mat4,
     /// The orthographic projection for this cascade.
-    pub(crate) clip_from_cascade: Mat4,
+    pub clip_from_cascade: Mat4,
     /// The view-projection matrix for this cascade, converting world space into light clip space.
     /// Importantly, this is derived and stored separately from `view_transform` and `projection` to
     /// ensure shadow stability.
-    pub(crate) clip_from_world: Mat4,
+    pub clip_from_world: Mat4,
     /// Size of each shadow map texel in world units.
-    pub(crate) texel_size: f32,
+    pub texel_size: f32,
 }
 
 pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &mut Cascades)>) {
@@ -474,7 +494,7 @@ pub struct TransmittedShadowReceiver;
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
 #[derive(Debug, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub enum ShadowFilteringMethod {
     /// Hardware 2x2.
     ///
@@ -493,8 +513,7 @@ pub enum ShadowFilteringMethod {
     Gaussian,
     /// A randomized filter that varies over time, good when TAA is in use.
     ///
-    /// Good quality when used with
-    /// [`TemporalAntiAliasing`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasing)
+    /// Good quality when used with `TemporalAntiAliasing`
     /// and good performance.
     ///
     /// For directional and spot lights, this uses a [method by Jorge Jimenez for
@@ -565,9 +584,13 @@ pub fn update_directional_light_frusta(
 // NOTE: Run this after assign_lights_to_clusters!
 pub fn update_point_light_frusta(
     global_lights: Res<GlobalVisibleClusterableObjects>,
-    mut views: Query<
-        (Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta),
-        Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
+    mut views: Query<(Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta)>,
+    changed_lights: Query<
+        Entity,
+        (
+            With<PointLight>,
+            Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
+        ),
     >,
 ) {
     let view_rotations = CUBE_MAP_FACES
@@ -576,6 +599,12 @@ pub fn update_point_light_frusta(
         .collect::<Vec<_>>();
 
     for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
+        // If this light hasn't changed, and neither has the set of global_lights,
+        // then we can skip this calculation.
+        if !global_lights.is_changed() && !changed_lights.contains(entity) {
+            continue;
+        }
+
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
@@ -816,15 +845,23 @@ pub fn check_dir_light_mesh_visibility(
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
-        let mut query = world.query::<&mut ViewVisibility>();
-        for entities in defer_queue.iter_mut() {
-            let mut iter = query.iter_many_mut(world, entities.iter());
-            while let Some(mut view_visibility) = iter.fetch_next() {
-                if !**view_visibility {
-                    view_visibility.set();
+        world.resource_scope::<PreviousVisibleEntities, _>(
+            |world, mut previous_visible_entities| {
+                let mut query = world.query::<(Entity, &mut ViewVisibility)>();
+                for entities in defer_queue.iter_mut() {
+                    let mut iter = query.iter_many_mut(world, entities.iter());
+                    while let Some((entity, mut view_visibility)) = iter.fetch_next() {
+                        if !**view_visibility {
+                            view_visibility.set();
+                        }
+
+                        // Remove any entities that were discovered to be
+                        // visible from the `PreviousVisibleEntities` resource.
+                        previous_visible_entities.remove(&entity);
+                    }
                 }
-            }
-        }
+            },
+        );
     });
 }
 
@@ -862,6 +899,7 @@ pub fn check_point_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
+    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
     mut checked_lights: Local<EntityHashSet>,
@@ -963,10 +1001,17 @@ pub fn check_point_light_mesh_visibility(
                 );
 
                 for entities in cubemap_visible_entities_queue.iter_mut() {
-                    cubemap_visible_entities
-                        .iter_mut()
-                        .zip(entities.iter_mut())
-                        .for_each(|(dst, source)| dst.entities.append(source));
+                    for (dst, source) in
+                        cubemap_visible_entities.iter_mut().zip(entities.iter_mut())
+                    {
+                        // Remove any entities that were discovered to be
+                        // visible from the `PreviousVisibleEntities` resource.
+                        for entity in source.iter() {
+                            previous_visible_entities.remove(entity);
+                        }
+
+                        dst.entities.append(source);
+                    }
                 }
 
                 for visible_entities in cubemap_visible_entities.iter_mut() {
@@ -1049,6 +1094,12 @@ pub fn check_point_light_mesh_visibility(
 
                 for entities in spot_visible_entities_queue.iter_mut() {
                     visible_entities.append(entities);
+
+                    // Remove any entities that were discovered to be visible
+                    // from the `PreviousVisibleEntities` resource.
+                    for entity in entities {
+                        previous_visible_entities.remove(entity);
+                    }
                 }
 
                 shrink_entities(visible_entities.deref_mut());

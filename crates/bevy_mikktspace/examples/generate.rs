@@ -1,6 +1,11 @@
 //! This example demonstrates how to generate a mesh.
 
-#![allow(clippy::bool_assert_comparison, clippy::useless_conversion)]
+#![allow(
+    clippy::bool_assert_comparison,
+    clippy::useless_conversion,
+    reason = "Crate auto-generated with many non-idiomatic decisions. See #7372 for details."
+)]
+#![expect(clippy::print_stdout, reason = "Allowed in examples.")]
 
 use glam::{Vec2, Vec3};
 

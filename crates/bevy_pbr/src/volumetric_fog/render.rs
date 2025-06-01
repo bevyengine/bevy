@@ -2,7 +2,7 @@
 
 use core::array;
 
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::{load_embedded_asset, weak_handle, AssetId, Handle};
 use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -77,22 +77,19 @@ bitflags! {
     }
 }
 
-/// The volumetric fog shader.
-pub const VOLUMETRIC_FOG_HANDLE: Handle<Shader> = Handle::weak_from_u128(17400058287583986650);
-
 /// The plane mesh, which is used to render a fog volume that the camera is
 /// inside.
 ///
 /// This mesh is simply stretched to the size of the framebuffer, as when the
 /// camera is inside a fog volume it's essentially a full-screen effect.
-pub const PLANE_MESH: Handle<Mesh> = Handle::weak_from_u128(435245126479971076);
+pub const PLANE_MESH: Handle<Mesh> = weak_handle!("92523617-c708-4fd0-b42f-ceb4300c930b");
 
 /// The cube mesh, which is used to render a fog volume that the camera is
 /// outside.
 ///
 /// Note that only the front faces of this cuboid will be rasterized in
 /// hardware. The back faces will be calculated in the shader via raytracing.
-pub const CUBE_MESH: Handle<Mesh> = Handle::weak_from_u128(5023959819001661507);
+pub const CUBE_MESH: Handle<Mesh> = weak_handle!("4a1dd661-2d91-4377-a17a-a914e21e277e");
 
 /// The total number of bind group layouts.
 ///
@@ -120,6 +117,9 @@ pub struct VolumetricFogPipeline {
     ///
     /// Since there aren't too many of these, we precompile them all.
     volumetric_view_bind_group_layouts: [BindGroupLayout; VOLUMETRIC_FOG_BIND_GROUP_LAYOUT_COUNT],
+
+    // The shader asset handle.
+    shader: Handle<Shader>,
 }
 
 /// The two render pipelines that we use for fog volumes: one for when a 3D
@@ -265,6 +265,7 @@ impl FromWorld for VolumetricFogPipeline {
         VolumetricFogPipeline {
             mesh_view_layouts: mesh_view_layouts.clone(),
             volumetric_view_bind_group_layouts: bind_group_layouts,
+            shader: load_embedded_asset!(world, "volumetric_fog.wgsl"),
         }
     }
 }
@@ -563,7 +564,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             layout: vec![mesh_view_layout.clone(), volumetric_view_bind_group_layout],
             push_constant_ranges: vec![],
             vertex: VertexState {
-                shader: VOLUMETRIC_FOG_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs: shader_defs.clone(),
                 entry_point: "vertex".into(),
                 buffers: vec![vertex_format],
@@ -575,7 +576,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             fragment: Some(FragmentState {
-                shader: VOLUMETRIC_FOG_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -627,7 +628,10 @@ pub fn prepare_volumetric_fog_pipelines(
     >,
     meshes: Res<RenderAssets<RenderMesh>>,
 ) {
-    let plane_mesh = meshes.get(&PLANE_MESH).expect("Plane mesh not found!");
+    let Some(plane_mesh) = meshes.get(&PLANE_MESH) else {
+        // There's an off chance that the mesh won't be prepared yet if `RenderAssetBytesPerFrame` limiting is in use.
+        return;
+    };
 
     for (
         entity,
@@ -693,19 +697,19 @@ pub fn prepare_volumetric_fog_uniforms(
     render_queue: Res<RenderQueue>,
     mut local_from_world_matrices: Local<Vec<Mat4>>,
 ) {
-    let Some(mut writer) = volumetric_lighting_uniform_buffer.get_writer(
-        view_targets.iter().len(),
-        &render_device,
-        &render_queue,
-    ) else {
-        return;
-    };
-
     // Do this up front to avoid O(n^2) matrix inversion.
     local_from_world_matrices.clear();
     for (_, _, fog_transform) in fog_volumes.iter() {
         local_from_world_matrices.push(fog_transform.compute_matrix().inverse());
     }
+
+    let uniform_count = view_targets.iter().len() * local_from_world_matrices.len();
+
+    let Some(mut writer) =
+        volumetric_lighting_uniform_buffer.get_writer(uniform_count, &render_device, &render_queue)
+    else {
+        return;
+    };
 
     for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
         let world_from_view = extracted_view.world_from_view.compute_matrix();

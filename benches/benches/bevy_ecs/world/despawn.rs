@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use criterion::Criterion;
+use criterion::{BatchSize, Criterion};
 use glam::*;
 
 #[derive(Component)]
@@ -12,19 +12,24 @@ pub fn world_despawn(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in (0..5).map(|i| 10_u32.pow(i)) {
-        let mut world = World::default();
-        for _ in 0..entity_count {
-            world.spawn((A(Mat4::default()), B(Vec4::default())));
-        }
-
-        let ents = world.iter_entities().map(|e| e.id()).collect::<Vec<_>>();
+    for entity_count in [1, 100, 10_000] {
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
-            bencher.iter(|| {
-                ents.iter().for_each(|e| {
-                    world.despawn(*e);
-                });
-            });
+            bencher.iter_batched_ref(
+                || {
+                    let mut world = World::default();
+                    for _ in 0..entity_count {
+                        world.spawn((A(Mat4::default()), B(Vec4::default())));
+                    }
+                    let ents = world.iter_entities().map(|e| e.id()).collect::<Vec<_>>();
+                    (world, ents)
+                },
+                |(world, ents)| {
+                    ents.iter().for_each(|e| {
+                        world.despawn(*e);
+                    });
+                },
+                BatchSize::SmallInput,
+            );
         });
     }
 

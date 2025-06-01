@@ -43,25 +43,23 @@ fn setup(
     ));
 
     let listener = SpatialListener::new(gap);
-    commands
-        .spawn((
-            Transform::default(),
-            Visibility::default(),
-            listener.clone(),
-        ))
-        .with_children(|parent| {
+    commands.spawn((
+        Transform::default(),
+        Visibility::default(),
+        listener.clone(),
+        children![
             // left ear
-            parent.spawn((
+            (
                 Sprite::from_color(RED, Vec2::splat(20.0)),
                 Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
-            ));
-
+            ),
             // right ear
-            parent.spawn((
+            (
                 Sprite::from_color(LIME, Vec2::splat(20.0)),
                 Transform::from_xyz(gap / 2.0, 0.0, 0.0),
-            ));
-        });
+            )
+        ],
+    ));
 
     // example instructions
     commands.spawn((

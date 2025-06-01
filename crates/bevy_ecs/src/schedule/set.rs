@@ -19,7 +19,39 @@ use crate::{
 };
 
 define_label!(
-    /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
+    /// A strongly-typed class of labels used to identify a [`Schedule`].
+    ///
+    /// Each schedule in a [`World`] has a unique schedule label value, and
+    /// schedules can be automatically created from labels via [`Schedules::add_systems()`].
+    ///
+    /// # Defining new schedule labels
+    ///
+    /// By default, you should use Bevy's premade schedule labels which implement this trait.
+    /// If you are using [`bevy_ecs`] directly or if you need to run a group of systems outside
+    /// the existing schedules, you may define your own schedule labels by using
+    /// `#[derive(ScheduleLabel)]`.
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::schedule::ScheduleLabel;
+    ///
+    /// // Declare a new schedule label.
+    /// #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    /// struct Update;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// // Add a system to the schedule with that label (creating it automatically).
+    /// fn a_system_function() {}
+    /// world.get_resource_or_init::<Schedules>().add_systems(Update, a_system_function);
+    ///
+    /// // Run the schedule, and therefore run the system.
+    /// world.run_schedule(Update);
+    /// ```
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
+    /// [`Schedules::add_systems()`]: crate::schedule::Schedules::add_systems
+    /// [`World`]: crate::world::World
     #[diagnostic::on_unimplemented(
         note = "consider annotating `{Self}` with `#[derive(ScheduleLabel)]`"
     )]
@@ -115,15 +147,6 @@ impl<T> SystemSet for SystemTypeSet<T> {
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
     }
-
-    fn as_dyn_eq(&self) -> &dyn DynEq {
-        self
-    }
-
-    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        TypeId::of::<Self>().hash(&mut state);
-        self.hash(&mut state);
-    }
 }
 
 /// A [`SystemSet`] implicitly created when using
@@ -145,15 +168,6 @@ impl SystemSet for AnonymousSet {
 
     fn dyn_clone(&self) -> Box<dyn SystemSet> {
         Box::new(*self)
-    }
-
-    fn as_dyn_eq(&self) -> &dyn DynEq {
-        self
-    }
-
-    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        TypeId::of::<Self>().hash(&mut state);
-        self.hash(&mut state);
     }
 }
 
@@ -225,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_schedule_label() {
-        use crate::{self as bevy_ecs, world::World};
+        use crate::world::World;
 
         #[derive(Resource)]
         struct Flag(bool);
@@ -257,8 +271,6 @@ mod tests {
 
     #[test]
     fn test_derive_schedule_label() {
-        use crate::{self as bevy_ecs};
-
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
 
@@ -359,8 +371,6 @@ mod tests {
 
     #[test]
     fn test_derive_system_set() {
-        use crate::{self as bevy_ecs};
-
         #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitSet;
 

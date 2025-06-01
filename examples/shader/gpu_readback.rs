@@ -15,7 +15,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
         texture::GpuImage,
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderSystems,
     },
 };
 
@@ -48,7 +48,7 @@ impl Plugin for GpuReadbackPlugin {
         render_app.init_resource::<ComputePipeline>().add_systems(
             Render,
             prepare_bind_group
-                .in_set(RenderSet::PrepareBindGroups)
+                .in_set(RenderSystems::PrepareBindGroups)
                 // We don't need to recreate the bind group every frame
                 .run_if(not(resource_exists::<GpuBufferBindGroup>)),
         );
@@ -86,10 +86,11 @@ fn setup(
         height: 1,
         ..default()
     };
-    let mut image = Image::new_fill(
+    // We create an uninitialized image since this texture will only be used for getting data out
+    // of the compute shader, not getting data in, so there's no reason for it to exist on the CPU
+    let mut image = Image::new_uninit(
         size,
         TextureDimension::D2,
-        &[0, 0, 0, 0],
         TextureFormat::R32Uint,
         RenderAssetUsages::RENDER_WORLD,
     );

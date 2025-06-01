@@ -30,6 +30,7 @@ fn main() {
             level: Level::TRACE,
             filter: "warn,log_layers_ecs=trace".to_string(),
             custom_layer,
+            ..default()
         }))
         .add_systems(Startup, (log_system, setup))
         .add_systems(Update, print_logs)
@@ -54,11 +55,11 @@ fn transfer_log_events(
     mut log_events: EventWriter<LogEvent>,
 ) {
     // Make sure to use `try_iter()` and not `iter()` to prevent blocking.
-    log_events.send_batch(receiver.try_iter());
+    log_events.write_batch(receiver.try_iter());
 }
 
 /// This is the [`Layer`] that we will use to capture log events and then send them to Bevy's
-/// ECS via it's [`mpsc::Sender`].
+/// ECS via its [`mpsc::Sender`].
 struct CaptureLayer {
     sender: mpsc::Sender<LogEvent>,
 }

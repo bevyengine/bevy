@@ -1,8 +1,9 @@
 use alloc::borrow::Cow;
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::sync::Arc;
+use bevy_platform::{
+    collections::HashMap,
+    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 use core::fmt::Debug;
-use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::func::{
     ArgList, DynamicFunction, FunctionRegistrationError, FunctionResult, IntoFunction,
@@ -487,7 +488,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register(add).unwrap();
 
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let result = registry
             .call(core::any::type_name_of_val(&add), args)
             .unwrap();
@@ -519,7 +520,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register_with_name("foo", foo).unwrap();
 
-        let debug = format!("{:?}", registry);
+        let debug = format!("{registry:?}");
         assert_eq!(debug, "{DynamicFunction(fn foo() -> i32)}");
     }
 }

@@ -11,6 +11,8 @@ pub struct CompressedImageSaver;
 pub enum CompressedImageSaverError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error("Cannot compress an uninitialized image")]
+    UninitializedImage,
 }
 
 impl AssetSaver for CompressedImageSaver {
@@ -42,7 +44,10 @@ impl AssetSaver for CompressedImageSaver {
 
             let mut source_image = compressor_params.source_image_mut(0);
             let size = image.size();
-            source_image.init(&image.data, size.x, size.y, 4);
+            let Some(ref data) = image.data else {
+                return Err(CompressedImageSaverError::UninitializedImage);
+            };
+            source_image.init(data, size.x, size.y, 4);
 
             let mut compressor = basis_universal::Compressor::new(4);
             #[expect(

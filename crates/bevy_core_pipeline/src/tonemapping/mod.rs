@@ -1,6 +1,6 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -8,6 +8,7 @@ use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
+    load_shader_library,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
@@ -16,7 +17,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bitflags::bitflags;
 #[cfg(not(feature = "tonemapping_luts"))]
@@ -27,44 +28,22 @@ mod node;
 use bevy_utils::default;
 pub use node::TonemappingNode;
 
-const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
-
-const TONEMAPPING_SHARED_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2499430578245347910);
-
-const TONEMAPPING_LUT_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(8392056472189465073);
-
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
 pub struct TonemappingLuts {
-    blender_filmic: Handle<Image>,
-    agx: Handle<Image>,
-    tony_mc_mapface: Handle<Image>,
+    pub blender_filmic: Handle<Image>,
+    pub agx: Handle<Image>,
+    pub tony_mc_mapface: Handle<Image>,
 }
 
 pub struct TonemappingPlugin;
 
 impl Plugin for TonemappingPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            TONEMAPPING_SHADER_HANDLE,
-            "tonemapping.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            TONEMAPPING_SHARED_SHADER_HANDLE,
-            "tonemapping_shared.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            TONEMAPPING_LUT_BINDINGS_SHADER_HANDLE,
-            "lut_bindings.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "tonemapping_shared.wgsl");
+        load_shader_library!(app, "lut_bindings.wgsl");
+
+        embedded_asset!(app, "tonemapping.wgsl");
 
         if !app.world().is_resource_added::<TonemappingLuts>() {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
@@ -117,7 +96,7 @@ impl Plugin for TonemappingPlugin {
             .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
             .add_systems(
                 Render,
-                prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
+                prepare_view_tonemapping_pipelines.in_set(RenderSystems::Prepare),
             );
     }
 
@@ -133,6 +112,7 @@ impl Plugin for TonemappingPlugin {
 pub struct TonemappingPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
+    shader: Handle<Shader>,
 }
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
@@ -295,7 +275,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             layout: vec![self.texture_bind_group.clone()],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: TONEMAPPING_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -339,6 +319,7 @@ impl FromWorld for TonemappingPipeline {
         TonemappingPipeline {
             texture_bind_group: tonemap_texture_bind_group,
             sampler,
+            shader: load_embedded_asset!(render_world, "tonemapping.wgsl"),
         }
     }
 }
@@ -448,8 +429,6 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         ..default()
     });
     Image::from_buffer(
-        #[cfg(all(debug_assertions, feature = "dds"))]
-        "Tonemapping LUT sampler".to_string(),
         bytes,
         image_type,
         CompressedImageFormats::NONE,
@@ -464,7 +443,7 @@ pub fn lut_placeholder() -> Image {
     let format = TextureFormat::Rgba8Unorm;
     let data = vec![255, 0, 255, 255];
     Image {
-        data,
+        data: Some(data),
         texture_descriptor: TextureDescriptor {
             size: Extent3d {
                 width: 1,

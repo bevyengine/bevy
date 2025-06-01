@@ -105,49 +105,49 @@ fn add_archetypes(world: &mut World, count: u16) {
         e.insert(A::<10>(1.0));
         e.insert(A::<11>(1.0));
         e.insert(A::<12>(1.0));
-        if i & 1 << 1 != 0 {
+        if i & (1 << 1) != 0 {
             e.insert(A::<13>(1.0));
         }
-        if i & 1 << 2 != 0 {
+        if i & (1 << 2) != 0 {
             e.insert(A::<14>(1.0));
         }
-        if i & 1 << 3 != 0 {
+        if i & (1 << 3) != 0 {
             e.insert(A::<15>(1.0));
         }
-        if i & 1 << 4 != 0 {
+        if i & (1 << 4) != 0 {
             e.insert(A::<16>(1.0));
         }
-        if i & 1 << 5 != 0 {
+        if i & (1 << 5) != 0 {
             e.insert(A::<18>(1.0));
         }
-        if i & 1 << 6 != 0 {
+        if i & (1 << 6) != 0 {
             e.insert(A::<19>(1.0));
         }
-        if i & 1 << 7 != 0 {
+        if i & (1 << 7) != 0 {
             e.insert(A::<20>(1.0));
         }
-        if i & 1 << 8 != 0 {
+        if i & (1 << 8) != 0 {
             e.insert(A::<21>(1.0));
         }
-        if i & 1 << 9 != 0 {
+        if i & (1 << 9) != 0 {
             e.insert(A::<22>(1.0));
         }
-        if i & 1 << 10 != 0 {
+        if i & (1 << 10) != 0 {
             e.insert(A::<23>(1.0));
         }
-        if i & 1 << 11 != 0 {
+        if i & (1 << 11) != 0 {
             e.insert(A::<24>(1.0));
         }
-        if i & 1 << 12 != 0 {
+        if i & (1 << 12) != 0 {
             e.insert(A::<25>(1.0));
         }
-        if i & 1 << 13 != 0 {
+        if i & (1 << 13) != 0 {
             e.insert(A::<26>(1.0));
         }
-        if i & 1 << 14 != 0 {
+        if i & (1 << 14) != 0 {
             e.insert(A::<27>(1.0));
         }
-        if i & 1 << 15 != 0 {
+        if i & (1 << 15) != 0 {
             e.insert(A::<28>(1.0));
         }
     }
@@ -155,7 +155,7 @@ fn add_archetypes(world: &mut World, count: u16) {
 
 fn empty_archetypes(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("empty_archetypes");
-    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [10, 100, 1_000, 10_000] {
         let (mut world, mut schedule) = setup(true, |schedule| {
             schedule.add_systems(iter);
         });
@@ -186,7 +186,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             },
         );
     }
-    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [10, 100, 1_000, 10_000] {
         let (mut world, mut schedule) = setup(true, |schedule| {
             schedule.add_systems(for_each);
         });
@@ -217,7 +217,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             },
         );
     }
-    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [10, 100, 1_000, 10_000] {
         let (mut world, mut schedule) = setup(true, |schedule| {
             schedule.add_systems(par_for_each);
         });

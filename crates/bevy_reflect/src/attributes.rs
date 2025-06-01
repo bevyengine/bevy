@@ -178,7 +178,6 @@ pub(crate) use impl_custom_attribute_methods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{type_info::Typed, TypeInfo, VariantInfo};
     use alloc::{format, string::String};
     use core::ops::RangeInclusive;
@@ -214,7 +213,7 @@ mod tests {
     fn should_debug_custom_attributes() {
         let attributes = CustomAttributes::default().with_attribute("My awesome custom attribute!");
 
-        let debug = format!("{:?}", attributes);
+        let debug = format!("{attributes:?}");
 
         assert_eq!(r#"{"My awesome custom attribute!"}"#, debug);
 
@@ -225,7 +224,7 @@ mod tests {
 
         let attributes = CustomAttributes::default().with_attribute(Foo { value: 42 });
 
-        let debug = format!("{:?}", attributes);
+        let debug = format!("{attributes:?}");
 
         assert_eq!(
             r#"{bevy_reflect::attributes::tests::Foo { value: 42 }}"#,

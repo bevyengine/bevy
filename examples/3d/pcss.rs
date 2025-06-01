@@ -3,8 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     core_pipeline::{
-        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         prepass::{DepthPrepass, MotionVectorPrepass},
         Skybox,
     },

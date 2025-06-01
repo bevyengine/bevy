@@ -21,8 +21,8 @@ use core::hash::Hash;
 ///
 /// ```
 /// use bevy_state::prelude::*;
-/// use bevy_ecs::prelude::IntoSystemConfigs;
-/// use bevy_ecs::system::ResMut;
+/// use bevy_ecs::prelude::IntoScheduleConfigs;
+/// use bevy_ecs::system::{ResMut, ScheduleSystem};
 ///
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -46,7 +46,7 @@ use core::hash::Hash;
 ///
 /// # struct AppMock;
 /// # impl AppMock {
-/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoSystemConfigs<M>) {}
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
 /// # }
 /// # struct Update;
 /// # let mut app = AppMock;
@@ -65,7 +65,11 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
     /// `ComputedState` dependencies.
     const DEPENDENCY_DEPTH: usize = 1;
 
-    /// Should [`StateScoped`](crate::state_scoped::StateScoped) be enabled for this state? If set to `true`,
-    /// the `StateScoped` component will be used to remove entities when changing state.
+    /// Should [state scoping](crate::state_scoped) be enabled for this state?
+    /// If set to `true`, the
+    /// [`DespawnOnEnterState`](crate::state_scoped::DespawnOnEnterState) and
+    /// [`DespawnOnExitState`](crate::state_scoped::DespawnOnEnterState)
+    /// components are used to remove entities when entering or exiting the
+    /// state.
     const SCOPED_ENTITIES_ENABLED: bool = false;
 }

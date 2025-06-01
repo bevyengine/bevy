@@ -56,8 +56,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{self, uniform_buffer},
-        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
-        TextureSampleType, TextureView,
+        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, ShaderStages, TextureSampleType,
+        TextureView,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -72,16 +72,12 @@ use crate::{
 
 use super::{LightProbeComponent, RenderViewLightProbes};
 
-/// A handle to the environment map helper shader.
-pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(154476556247605696);
-
 /// A pair of cubemap textures that represent the surroundings of a specific
 /// area in space.
 ///
 /// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,

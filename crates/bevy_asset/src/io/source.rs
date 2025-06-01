@@ -9,7 +9,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::resource::Resource;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use core::{fmt::Display, hash::Hash, time::Duration};
 use thiserror::Error;
 use tracing::{error, warn};
@@ -132,8 +132,11 @@ impl<'a> PartialEq for AssetSourceId<'a> {
 /// and whether or not the source is processed.
 #[derive(Default)]
 pub struct AssetSourceBuilder {
+    /// The [`ErasedAssetReader`] to use on the unprocessed asset.
     pub reader: Option<Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>>,
+    /// The [`ErasedAssetWriter`] to use on the unprocessed asset.
     pub writer: Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
+    /// The [`AssetWatcher`] to use for unprocessed assets, if any.
     pub watcher: Option<
         Box<
             dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
@@ -141,9 +144,12 @@ pub struct AssetSourceBuilder {
                 + Sync,
         >,
     >,
+    /// The [`ErasedAssetReader`] to use for processed assets.
     pub processed_reader: Option<Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>>,
+    /// The [`ErasedAssetWriter`] to use for processed assets.
     pub processed_writer:
         Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
+    /// The [`AssetWatcher`] to use for processed assets, if any.
     pub processed_watcher: Option<
         Box<
             dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
@@ -151,7 +157,9 @@ pub struct AssetSourceBuilder {
                 + Sync,
         >,
     >,
+    /// The warning message to display when watching an unprocessed asset fails.
     pub watch_warning: Option<&'static str>,
+    /// The warning message to display when watching a processed asset fails.
     pub processed_watch_warning: Option<&'static str>,
 }
 

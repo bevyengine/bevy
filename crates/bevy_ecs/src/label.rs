@@ -12,9 +12,6 @@ pub use alloc::boxed::Box;
 /// An object safe version of [`Eq`]. This trait is automatically implemented
 /// for any `'static` type that implements `Eq`.
 pub trait DynEq: Any {
-    /// Casts the type to `dyn Any`.
-    fn as_any(&self) -> &dyn Any;
-
     /// This method tests for `self` and `other` values to be equal.
     ///
     /// Implementers should avoid returning `true` when the underlying types are
@@ -29,12 +26,8 @@ impl<T> DynEq for T
 where
     T: Any + Eq,
 {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn dyn_eq(&self, other: &dyn DynEq) -> bool {
-        if let Some(other) = other.as_any().downcast_ref::<T>() {
+        if let Some(other) = (other as &dyn Any).downcast_ref::<T>() {
             return self == other;
         }
         false
@@ -44,9 +37,6 @@ where
 /// An object safe version of [`Hash`]. This trait is automatically implemented
 /// for any `'static` type that implements `Hash`.
 pub trait DynHash: DynEq {
-    /// Casts the type to `dyn Any`.
-    fn as_dyn_eq(&self) -> &dyn DynEq;
-
     /// Feeds this value into the given [`Hasher`].
     fn dyn_hash(&self, state: &mut dyn Hasher);
 }
@@ -58,10 +48,6 @@ impl<T> DynHash for T
 where
     T: DynEq + Hash,
 {
-    fn as_dyn_eq(&self) -> &dyn DynEq {
-        self
-    }
-
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
         T::hash(self, &mut state);
         self.type_id().hash(&mut state);
@@ -120,7 +106,7 @@ macro_rules! define_label {
     ) => {
 
         $(#[$label_attr])*
-        pub trait $label_trait_name: 'static + Send + Sync + ::core::fmt::Debug {
+        pub trait $label_trait_name: Send + Sync + ::core::fmt::Debug + $crate::label::DynEq + $crate::label::DynHash {
 
             $($trait_extra_methods)*
 
@@ -129,12 +115,6 @@ macro_rules! define_label {
             ///`.
             fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name>;
 
-            /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
-
-            /// Feeds this value into the given [`Hasher`].
-            fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher);
-
             /// Returns an [`Interned`] value corresponding to `self`.
             fn intern(&self) -> $crate::intern::Interned<dyn $label_trait_name>
             where Self: Sized {
@@ -142,21 +122,13 @@ macro_rules! define_label {
             }
         }
 
+        #[diagnostic::do_not_recommend]
         impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
 
             $($interned_extra_methods_impl)*
 
             fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
-            }
-
-            /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq {
-                (**self).as_dyn_eq()
-            }
-
-            fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher) {
-                (**self).dyn_hash(state);
             }
 
             fn intern(&self) -> Self {
@@ -166,7 +138,7 @@ macro_rules! define_label {
 
         impl PartialEq for dyn $label_trait_name {
             fn eq(&self, other: &Self) -> bool {
-                self.as_dyn_eq().dyn_eq(other.as_dyn_eq())
+                self.dyn_eq(other)
             }
         }
 
@@ -180,14 +152,14 @@ macro_rules! define_label {
 
         impl $crate::intern::Internable for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
-                Box::leak(self.dyn_clone())
+                $crate::label::Box::leak(self.dyn_clone())
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
                 use ::core::ptr;
 
                 // Test that both the type id and pointer address are equivalent.
-                self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id()
+                self.type_id() == other.type_id()
                     && ptr::addr_eq(ptr::from_ref::<Self>(self), ptr::from_ref::<Self>(other))
             }
 
@@ -195,7 +167,7 @@ macro_rules! define_label {
                 use ::core::{hash::Hash, ptr};
 
                 // Hash the type id...
-                self.as_dyn_eq().type_id().hash(state);
+                self.type_id().hash(state);
 
                 // ...and the pointer address.
                 // Cast to a unit `()` first to discard any pointer metadata.

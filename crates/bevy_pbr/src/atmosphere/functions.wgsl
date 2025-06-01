@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::atmosphere::functions
 
-#import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_atan2}
+#import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2}
 
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,
@@ -38,12 +38,18 @@
 // CONSTANTS
 
 const FRAC_PI: f32 = 0.3183098862; // 1 / π
-const FRAC_2_PI: f32 = 0.15915494309;
+const FRAC_2_PI: f32 = 0.15915494309;  // 1 / (2π)
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 const ROOT_2: f32 = 1.41421356; // √2
 
-// LUT UV PARAMATERIZATIONS
+// During raymarching, each segment is sampled at a single point. This constant determines
+// where in the segment that sample is taken (0.0 = start, 0.5 = middle, 1.0 = end).
+// We use 0.3 to sample closer to the start of each segment, which better approximates
+// the exponential falloff of atmospheric density.
+const MIDPOINT_RATIO: f32 = 0.3;
+
+// LUT UV PARAMETERIZATIONS
 
 fn unit_to_sub_uvs(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
     return (val + 0.5f / resolution) * (resolution / (resolution + 1.0f));
@@ -71,41 +77,38 @@ fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
 
     let v_horizon = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
     let cos_beta = v_horizon / r;
-    let beta = fast_acos(cos_beta);
+    // Using fast_acos_4 for better precision at small angles
+    // to avoid artifacts at the horizon
+    let beta = fast_acos_4(cos_beta);
     let horizon_zenith = PI - beta;
-    let view_zenith = fast_acos(mu);
+    let view_zenith = fast_acos_4(mu);
 
-    var v: f32;
-    if !ray_intersects_ground(r, mu) {
-        let coord = sqrt(1.0 - view_zenith / horizon_zenith);
-        v = (1.0 - coord) * 0.5;
-    } else {
-        let coord = (view_zenith - horizon_zenith) / beta;
-        v = sqrt(coord) * 0.5 + 0.5;
-    }
+    // Apply non-linear transformation to compress more texels 
+    // near the horizon where high-frequency details matter most
+    // l is latitude in [-π/2, π/2] and v is texture coordinate in [0,1]
+    let l = view_zenith - horizon_zenith;
+    let abs_l = abs(l);
+
+    let v = 0.5 + 0.5 * sign(l) * sqrt(abs_l / HALF_PI);
 
     return unit_to_sub_uvs(vec2(u, v), vec2<f32>(settings.sky_view_lut_size));
 }
 
 fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
-    let adj_uv = sub_uvs_to_unit(uv, vec2<f32>(settings.sky_view_lut_size));
+    let adj_uv = sub_uvs_to_unit(vec2(uv.x, 1.0 - uv.y), vec2<f32>(settings.sky_view_lut_size));
     let azimuth = (adj_uv.x - 0.5) * PI_2;
 
+    // Horizon parameters
     let v_horizon = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
     let cos_beta = v_horizon / r;
-    let beta = fast_acos(cos_beta);
+    let beta = fast_acos_4(cos_beta);
     let horizon_zenith = PI - beta;
 
-    var zenith: f32;
-    if adj_uv.y < 0.5 {
-        let coord = 1.0 - 2.0 * adj_uv.y;
-        zenith = horizon_zenith * (1.0 - coord * coord);
-    } else {
-        let coord = 2.0 * adj_uv.y - 1.0;
-        zenith = horizon_zenith + beta * coord * coord;
-    }
+    // Inverse of horizon-detail mapping to recover original latitude from texture coordinate
+    let t = abs(2.0 * (adj_uv.y - 0.5));
+    let l = sign(adj_uv.y - 0.5) * HALF_PI * t * t;
 
-    return vec2(zenith, azimuth);
+    return vec2(horizon_zenith - l, azimuth);
 }
 
 // LUT SAMPLING
@@ -113,6 +116,27 @@ fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(r, mu);
     return textureSampleLevel(transmittance_lut, transmittance_lut_sampler, uv, 0.0).rgb;
+}
+
+// NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
+// under the license reproduced in bruneton_functions.wgsl (variant of MIT license)
+//
+// FIXME: this function should be in bruneton_functions.wgsl, but because naga_oil doesn't 
+// support cyclic imports it's stuck here
+fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
+    let r_t = get_local_r(r, mu, t);
+    let mu_t = clamp((r * mu + t) / r_t, -1.0, 1.0);
+
+    if ray_intersects_ground(r, mu) {
+        return min(
+            sample_transmittance_lut(r_t, -mu_t) / sample_transmittance_lut(r, -mu),
+            vec3(1.0)
+        );
+    } else {
+        return min(
+            sample_transmittance_lut(r, mu) / sample_transmittance_lut(r_t, mu_t), vec3(1.0)
+        );
+    }
 }
 
 fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
@@ -127,13 +151,31 @@ fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
 
-//RGB channels: total inscattered light along the camera ray to the current sample.
-//A channel: average transmittance across all wavelengths to the current sample.
-fn sample_aerial_view_lut(uv: vec2<f32>, depth: f32) -> vec4<f32> {
-    let view_pos = view.view_from_clip * vec4(uv_to_ndc(uv), depth, 1.0);
-    let dist = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
-    let uvw = vec3(uv, dist / settings.aerial_view_lut_max_distance);
-    return textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
+fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
+    let view_pos = view.view_from_clip * vec4(ndc, 1.0);
+    let t = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
+    return t;
+}
+
+// RGB channels: total inscattered light along the camera ray to the current sample.
+// A channel: average transmittance across all wavelengths to the current sample.
+fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
+    let t_max = settings.aerial_view_lut_max_distance;
+    let num_slices = f32(settings.aerial_view_lut_size.z);
+    // Each texel stores the value of the scattering integral over the whole slice,
+    // which requires us to offset the w coordinate by half a slice. For
+    // example, if we wanted the value of the integral at the boundary between slices,
+    // we'd need to sample at the center of the previous slice, and vice-versa for
+    // sampling in the center of a slice.
+    let uvw = vec3(uv, saturate(t / t_max - 0.5 / num_slices));
+    let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
+    // Since sampling anywhere between w=0 and w=t_slice will clamp to the first slice,
+    // we need to do a linear step over the first slice towards zero at the camera's
+    // position to recover the correct integral value.
+    let t_slice = t_max / num_slices;
+    let fade = saturate(t / t_slice);
+    // Recover the values from log space
+    return exp(sample.rgb) * fade;
 }
 
 // PHASE FUNCTIONS
@@ -235,8 +277,11 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 
 const SUN_ANGULAR_SIZE: f32 = 0.0174533; // angular diameter of sun in radians
 
-fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
-    var sun_illuminance = vec3(0.0);
+fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
+    let r = view_radius();
+    let mu_view = ray_dir_ws.y;
+    let shadow_factor = f32(!ray_intersects_ground(r, mu_view));
+    var sun_radiance = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
@@ -244,9 +289,9 @@ fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> ve
         let pixel_size = fwidth(angle_to_sun);
         let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE * 0.5);
         let sun_solid_angle = (SUN_ANGULAR_SIZE * SUN_ANGULAR_SIZE) * 4.0 * FRAC_PI;
-        sun_illuminance += ((*light).color.rgb / sun_solid_angle) * factor * ray_dir_ws.y;
+        sun_radiance += ((*light).color.rgb / sun_solid_angle) * factor * shadow_factor;
     }
-    return sun_illuminance * transmittance * view.exposure;
+    return sun_radiance;
 }
 
 // TRANSFORM UTILITIES

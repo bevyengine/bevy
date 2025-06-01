@@ -1,4 +1,6 @@
 //! Simple widgets for example UI.
+//!
+//! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 
 use bevy::{ecs::system::EntityCommands, prelude::*};
 
@@ -21,6 +23,18 @@ pub struct RadioButton;
 /// A marker component that we place on all `Text` inside radio buttons.
 #[derive(Clone, Copy, Component)]
 pub struct RadioButtonText;
+
+/// The size of the border that surrounds buttons.
+pub const BUTTON_BORDER: UiRect = UiRect::all(Val::Px(1.0));
+
+/// The color of the border that surrounds buttons.
+pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor::all(Color::WHITE);
+
+/// The amount of rounding to apply to button corners.
+pub const BUTTON_BORDER_RADIUS_SIZE: Val = Val::Px(6.0);
+
+/// The amount of space between the edge of the button and its label.
+pub const BUTTON_PADDING: UiRect = UiRect::axes(Val::Px(12.0), Val::Px(6.0));
 
 /// Returns a [`Node`] appropriate for the outer main UI node.
 ///
@@ -61,20 +75,24 @@ pub fn spawn_option_button<T>(
         .spawn((
             Button,
             Node {
-                border: UiRect::all(Val::Px(1.0)).with_left(if is_first {
-                    Val::Px(1.0)
+                border: BUTTON_BORDER.with_left(if is_first { Val::Px(1.0) } else { Val::Px(0.0) }),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: BUTTON_PADDING,
+                ..default()
+            },
+            BUTTON_BORDER_COLOR,
+            BorderRadius::ZERO
+                .with_left(if is_first {
+                    BUTTON_BORDER_RADIUS_SIZE
+                } else {
+                    Val::Px(0.0)
+                })
+                .with_right(if is_last {
+                    BUTTON_BORDER_RADIUS_SIZE
                 } else {
                     Val::Px(0.0)
                 }),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                ..default()
-            },
-            BorderColor(Color::WHITE),
-            BorderRadius::ZERO
-                .with_left(if is_first { Val::Px(6.0) } else { Val::Px(0.0) })
-                .with_right(if is_last { Val::Px(6.0) } else { Val::Px(0.0) }),
             BackgroundColor(bg_color),
         ))
         .insert(RadioButton)
@@ -155,7 +173,7 @@ pub fn handle_ui_interactions<T>(
 {
     for (interaction, click_event) in interactions.iter_mut() {
         if *interaction == Interaction::Pressed {
-            widget_click_events.send(WidgetClickEvent((**click_event).clone()));
+            widget_click_events.write(WidgetClickEvent((**click_event).clone()));
         }
     }
 }

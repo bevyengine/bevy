@@ -25,6 +25,10 @@
 //! at once is untested, and might not be physically accurate. These may be
 //! integrated into a single module in the future.
 //!
+//! On web platforms, atmosphere rendering will look slightly different. Specifically, when calculating how light travels
+//! through the atmosphere, we use a simpler averaging technique instead of the more
+//! complex blending operations. This difference will be resolved for WebGPU in a future release.
+//!
 //! [Shadertoy]: https://www.shadertoy.com/view/slSXRW
 //!
 //! [Unreal Engine Implementation]: https://github.com/sebh/UnrealEngineSkyAtmosphere
@@ -33,26 +37,28 @@ mod node;
 pub mod resources;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::load_internal_asset;
+use bevy_asset::embedded_asset;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     query::{Changed, QueryItem, With},
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{lifetimeless::Read, Query},
 };
 use bevy_math::{UVec2, UVec3, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
+    load_shader_library,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
+    view::Hdr,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, TextureFormat, TextureUsages},
+    render_resource::{TextureFormat, TextureUsages},
     renderer::RenderAdapter,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
@@ -70,79 +76,21 @@ use self::{
     },
 };
 
-mod shaders {
-    use bevy_asset::Handle;
-    use bevy_render::render_resource::Shader;
-
-    pub const TYPES: Handle<Shader> = Handle::weak_from_u128(0xB4CA686B10FA592B508580CCC2F9558C);
-    pub const FUNCTIONS: Handle<Shader> =
-        Handle::weak_from_u128(0xD5524FD88BDC153FBF256B7F2C21906F);
-    pub const BRUNETON_FUNCTIONS: Handle<Shader> =
-        Handle::weak_from_u128(0x7E896F48B707555DD11985F9C1594459);
-    pub const BINDINGS: Handle<Shader> = Handle::weak_from_u128(0x140EFD89B5D4C8490AB895010DFC42FE);
-
-    pub const TRANSMITTANCE_LUT: Handle<Shader> =
-        Handle::weak_from_u128(0xEECBDEDFEED7F4EAFBD401BFAA5E0EFB);
-    pub const MULTISCATTERING_LUT: Handle<Shader> =
-        Handle::weak_from_u128(0x65915B32C44B6287C0CCE1E70AF2936A);
-    pub const SKY_VIEW_LUT: Handle<Shader> =
-        Handle::weak_from_u128(0x54136D7E6FFCD45BE38399A4E5ED7186);
-    pub const AERIAL_VIEW_LUT: Handle<Shader> =
-        Handle::weak_from_u128(0x6FDEC284AD356B78C3A4D8ED4CBA0BC5);
-    pub const RENDER_SKY: Handle<Shader> =
-        Handle::weak_from_u128(0x1951EB87C8A6129F0B541B1E4B3D4962);
-}
-
 #[doc(hidden)]
 pub struct AtmospherePlugin;
 
 impl Plugin for AtmospherePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, shaders::TYPES, "types.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, shaders::FUNCTIONS, "functions.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            shaders::BRUNETON_FUNCTIONS,
-            "bruneton_functions.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "types.wgsl");
+        load_shader_library!(app, "functions.wgsl");
+        load_shader_library!(app, "bruneton_functions.wgsl");
+        load_shader_library!(app, "bindings.wgsl");
 
-        load_internal_asset!(app, shaders::BINDINGS, "bindings.wgsl", Shader::from_wgsl);
-
-        load_internal_asset!(
-            app,
-            shaders::TRANSMITTANCE_LUT,
-            "transmittance_lut.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            shaders::MULTISCATTERING_LUT,
-            "multiscattering_lut.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            shaders::SKY_VIEW_LUT,
-            "sky_view_lut.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            shaders::AERIAL_VIEW_LUT,
-            "aerial_view_lut.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            shaders::RENDER_SKY,
-            "render_sky.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "transmittance_lut.wgsl");
+        embedded_asset!(app, "multiscattering_lut.wgsl");
+        embedded_asset!(app, "sky_view_lut.wgsl");
+        embedded_asset!(app, "aerial_view_lut.wgsl");
+        embedded_asset!(app, "render_sky.wgsl");
 
         app.register_type::<Atmosphere>()
             .register_type::<AtmosphereSettings>()
@@ -189,11 +137,11 @@ impl Plugin for AtmospherePlugin {
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSet::ManageViews),
-                    queue_render_sky_pipelines.in_set(RenderSet::Queue),
-                    prepare_atmosphere_textures.in_set(RenderSet::PrepareResources),
-                    prepare_atmosphere_transforms.in_set(RenderSet::PrepareResources),
-                    prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    queue_render_sky_pipelines.in_set(RenderSystems::Queue),
+                    prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
+                    prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
@@ -245,7 +193,8 @@ impl Plugin for AtmospherePlugin {
 /// from the planet's surface, ozone only exists in a band centered at a fairly
 /// high altitude.
 #[derive(Clone, Component, Reflect, ShaderType)]
-#[require(AtmosphereSettings)]
+#[require(AtmosphereSettings, Hdr)]
+#[reflect(Clone, Default)]
 pub struct Atmosphere {
     /// Radius of the planet
     ///
@@ -384,6 +333,7 @@ impl ExtractComponent for Atmosphere {
 /// scattered towards the camera at each point (RGB channels), alongside the average
 /// transmittance to that point (A channel).
 #[derive(Clone, Component, Reflect, ShaderType)]
+#[reflect(Clone, Default)]
 pub struct AtmosphereSettings {
     /// The size of the transmittance LUT
     pub transmittance_lut_size: UVec2,

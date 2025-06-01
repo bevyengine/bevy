@@ -1,49 +1,43 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
+    load_shader_library,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
-    render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
+    render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Visibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
-use crate::{
-    irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
-    light_probe::environment_map::{
-        EnvironmentMapIds, EnvironmentMapLight, ENVIRONMENT_MAP_SHADER_HANDLE,
-    },
-};
+use crate::light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight};
 
 use self::irradiance_volume::IrradianceVolume;
-
-pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8954249792581071582);
 
 pub mod environment_map;
 pub mod irradiance_volume;
@@ -105,7 +99,7 @@ pub struct LightProbePlugin;
 /// specific technique but rather to a class of techniques. Developers familiar
 /// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]
 pub struct LightProbe;
 
@@ -343,24 +337,9 @@ pub struct ViewEnvironmentMapUniformOffset(u32);
 
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            LIGHT_PROBE_SHADER_HANDLE,
-            "light_probe.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            ENVIRONMENT_MAP_SHADER_HANDLE,
-            "environment_map.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            IRRADIANCE_VOLUME_SHADER_HANDLE,
-            "irradiance_volume.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "light_probe.wgsl");
+        load_shader_library!(app, "environment_map.wgsl");
+        load_shader_library!(app, "irradiance_volume.wgsl");
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
@@ -382,7 +361,7 @@ impl Plugin for LightProbePlugin {
             .add_systems(
                 Render,
                 (upload_light_probes, prepare_environment_uniform_buffer)
-                    .in_set(RenderSet::PrepareResources),
+                    .in_set(RenderSystems::PrepareResources),
             );
     }
 }
@@ -768,22 +747,22 @@ pub(crate) fn add_cubemap_texture_view<'a>(
 /// (a.k.a. bindless textures). This function checks for these pitfalls:
 ///
 /// 1. If GLSL support is enabled at the feature level, then in debug mode
-///     `naga_oil` will attempt to compile all shader modules under GLSL to check
-///     validity of names, even if GLSL isn't actually used. This will cause a crash
-///     if binding arrays are enabled, because binding arrays are currently
-///     unimplemented in the GLSL backend of Naga. Therefore, we disable binding
-///     arrays if the `shader_format_glsl` feature is present.
+///    `naga_oil` will attempt to compile all shader modules under GLSL to check
+///    validity of names, even if GLSL isn't actually used. This will cause a crash
+///    if binding arrays are enabled, because binding arrays are currently
+///    unimplemented in the GLSL backend of Naga. Therefore, we disable binding
+///    arrays if the `shader_format_glsl` feature is present.
 ///
 /// 2. If there aren't enough texture bindings available to accommodate all the
-///     binding arrays, the driver will panic. So we also bail out if there aren't
-///     enough texture bindings available in the fragment shader.
+///    binding arrays, the driver will panic. So we also bail out if there aren't
+///    enough texture bindings available in the fragment shader.
 ///
 /// 3. If binding arrays aren't supported on the hardware, then we obviously
 ///    can't use them. Adreno <= 610 claims to support bindless, but seems to be
 ///    too buggy to be usable.
 ///
 /// 4. If binding arrays are supported on the hardware, but they can only be
-///     accessed by uniform indices, that's not good enough, and we bail out.
+///    accessed by uniform indices, that's not good enough, and we bail out.
 ///
 /// If binding arrays aren't usable, we disable reflection probes and limit the
 /// number of irradiance volumes in the scene to 1.

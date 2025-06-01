@@ -3,19 +3,21 @@
 mod entity_observer;
 mod runner;
 
-pub use entity_observer::{CloneEntityWithObserversExt, ObservedBy};
+pub use entity_observer::ObservedBy;
 pub use runner::*;
+use variadics_please::all_tuples;
 
 use crate::{
     archetype::ArchetypeFlags,
+    change_detection::MaybeLocation,
     component::ComponentId,
-    entity::hash_map::EntityHashMap,
+    entity::EntityHashMap,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
 use alloc::vec::Vec;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_ptr::Ptr;
 use core::{
     fmt::Debug,
@@ -23,9 +25,6 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use smallvec::SmallVec;
-
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
@@ -143,8 +142,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns the source code location that triggered this observer.
-    #[cfg(feature = "track_location")]
-    pub fn caller(&self) -> &'static Location<'static> {
+    pub fn caller(&self) -> MaybeLocation {
         self.trigger.caller
     }
 }
@@ -180,91 +178,107 @@ impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
 /// will run.
 pub trait TriggerTargets {
     /// The components the trigger should target.
-    fn components(&self) -> &[ComponentId];
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_;
 
     /// The entities the trigger should target.
-    fn entities(&self) -> &[Entity];
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_;
 }
 
-impl TriggerTargets for () {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+impl<T: TriggerTargets + ?Sized> TriggerTargets for &T {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+        (**self).components()
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+        (**self).entities()
     }
 }
 
 impl TriggerTargets for Entity {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+        [].into_iter()
     }
 
-    fn entities(&self) -> &[Entity] {
-        core::slice::from_ref(self)
-    }
-}
-
-impl TriggerTargets for Vec<Entity> {
-    fn components(&self) -> &[ComponentId] {
-        &[]
-    }
-
-    fn entities(&self) -> &[Entity] {
-        self.as_slice()
-    }
-}
-
-impl<const N: usize> TriggerTargets for [Entity; N] {
-    fn components(&self) -> &[ComponentId] {
-        &[]
-    }
-
-    fn entities(&self) -> &[Entity] {
-        self.as_slice()
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+        core::iter::once(*self)
     }
 }
 
 impl TriggerTargets for ComponentId {
-    fn components(&self) -> &[ComponentId] {
-        core::slice::from_ref(self)
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+        core::iter::once(*self)
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+        [].into_iter()
     }
 }
 
-impl TriggerTargets for Vec<ComponentId> {
-    fn components(&self) -> &[ComponentId] {
-        self.as_slice()
+impl<T: TriggerTargets> TriggerTargets for Vec<T> {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+        self.iter().flat_map(T::components)
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+        self.iter().flat_map(T::entities)
     }
 }
 
-impl<const N: usize> TriggerTargets for [ComponentId; N] {
-    fn components(&self) -> &[ComponentId] {
-        self.as_slice()
+impl<const N: usize, T: TriggerTargets> TriggerTargets for [T; N] {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+        self.iter().flat_map(T::components)
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+        self.iter().flat_map(T::entities)
     }
 }
 
-impl TriggerTargets for &Vec<Entity> {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+impl<T: TriggerTargets> TriggerTargets for [T] {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+        self.iter().flat_map(T::components)
     }
 
-    fn entities(&self) -> &[Entity] {
-        self.as_slice()
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+        self.iter().flat_map(T::entities)
     }
 }
+
+macro_rules! impl_trigger_targets_tuples {
+    ($(#[$meta:meta])* $($trigger_targets: ident),*) => {
+        #[expect(clippy::allow_attributes, reason = "can't guarantee violation of non_snake_case")]
+        #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+        $(#[$meta])*
+        impl<$($trigger_targets: TriggerTargets),*> TriggerTargets for ($($trigger_targets,)*)
+        {
+            fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+                let iter = [].into_iter();
+                let ($($trigger_targets,)*) = self;
+                $(
+                    let iter = iter.chain($trigger_targets.components());
+                )*
+                iter
+            }
+
+            fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+                let iter = [].into_iter();
+                let ($($trigger_targets,)*) = self;
+                $(
+                    let iter = iter.chain($trigger_targets.entities());
+                )*
+                iter
+            }
+        }
+    }
+}
+
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_trigger_targets_tuples,
+    0,
+    15,
+    T
+);
 
 /// A description of what an [`Observer`] observes.
 #[derive(Default, Clone)]
@@ -301,11 +315,19 @@ impl ObserverDescriptor {
         self
     }
 
-    pub(crate) fn merge(&mut self, descriptor: &ObserverDescriptor) {
-        self.events.extend(descriptor.events.iter().copied());
-        self.components
-            .extend(descriptor.components.iter().copied());
-        self.entities.extend(descriptor.entities.iter().copied());
+    /// Returns the `events` that the observer is watching.
+    pub fn events(&self) -> &[ComponentId] {
+        &self.events
+    }
+
+    /// Returns the `components` that the observer is watching.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.components
+    }
+
+    /// Returns the `entities` that the observer is watching.
+    pub fn entities(&self) -> &[Entity] {
+        &self.entities
     }
 }
 
@@ -320,10 +342,8 @@ pub struct ObserverTrigger {
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
     pub target: Entity,
-
-    /// The location of the source code that triggered the obserer.
-    #[cfg(feature = "track_location")]
-    pub caller: &'static Location<'static>,
+    /// The location of the source code that triggered the observer.
+    pub caller: MaybeLocation,
 }
 
 impl ObserverTrigger {
@@ -400,7 +420,7 @@ impl Observers {
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
@@ -425,7 +445,6 @@ impl Observers {
                     event_type,
                     components: components.clone().collect(),
                     target,
-                    #[cfg(feature = "track_location")]
                     caller,
                 },
                 data.into(),
@@ -517,6 +536,8 @@ impl World {
     /// Spawns a "global" [`Observer`] which will watch for the given event.
     /// Returns its [`Entity`] as a [`EntityWorldMut`].
     ///
+    /// `system` can be any system whose first parameter is a [`Trigger`].
+    ///
     /// **Calling [`observe`](EntityWorldMut::observe) on the returned
     /// [`EntityWorldMut`] will observe the observer itself, which you very
     /// likely do not want.**
@@ -536,6 +557,10 @@ impl World {
     ///     // ...
     /// });
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given system is an exclusive system.
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
@@ -550,28 +575,14 @@ impl World {
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
     #[track_caller]
     pub fn trigger<E: Event>(&mut self, event: E) {
-        self.trigger_with_caller(
-            event,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        );
+        self.trigger_with_caller(event, MaybeLocation::caller());
     }
 
-    pub(crate) fn trigger_with_caller<E: Event>(
-        &mut self,
-        mut event: E,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) {
+    pub(crate) fn trigger_with_caller<E: Event>(&mut self, mut event: E, caller: MaybeLocation) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe {
-            self.trigger_targets_dynamic_ref_with_caller(
-                event_id,
-                &mut event,
-                (),
-                #[cfg(feature = "track_location")]
-                caller,
-            );
+            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, (), caller);
         }
     }
 
@@ -593,30 +604,19 @@ impl World {
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
     #[track_caller]
     pub fn trigger_targets<E: Event>(&mut self, event: E, targets: impl TriggerTargets) {
-        self.trigger_targets_with_caller(
-            event,
-            targets,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        );
+        self.trigger_targets_with_caller(event, targets, MaybeLocation::caller());
     }
 
     pub(crate) fn trigger_targets_with_caller<E: Event>(
         &mut self,
         mut event: E,
         targets: impl TriggerTargets,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe {
-            self.trigger_targets_dynamic_ref_with_caller(
-                event_id,
-                &mut event,
-                targets,
-                #[cfg(feature = "track_location")]
-                caller,
-            );
+            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, targets, caller);
         }
     }
 
@@ -674,8 +674,7 @@ impl World {
             event_id,
             event_data,
             targets,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
+            MaybeLocation::caller(),
         );
     }
 
@@ -687,10 +686,11 @@ impl World {
         event_id: ComponentId,
         event_data: &mut E,
         targets: Targets,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         let mut world = DeferredWorld::from(self);
-        if targets.entities().is_empty() {
+        let mut entity_targets = targets.entities().peekable();
+        if entity_targets.peek().is_none() {
             // SAFETY: `event_data` is accessible as the type represented by `event_id`
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
@@ -699,21 +699,19 @@ impl World {
                     targets.components(),
                     event_data,
                     false,
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             };
         } else {
-            for target in targets.entities() {
+            for target_entity in entity_targets {
                 // SAFETY: `event_data` is accessible as the type represented by `event_id`
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
                         event_id,
-                        *target,
+                        target_entity,
                         targets.components(),
                         event_data,
                         E::AUTO_PROPAGATE,
-                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 };
@@ -725,11 +723,10 @@ impl World {
     pub(crate) fn register_observer(&mut self, observer_entity: Entity) {
         // SAFETY: References do not alias.
         let (observer_state, archetypes, observers) = unsafe {
-            let observer_state: *const ObserverState =
-                self.get::<ObserverState>(observer_entity).unwrap();
+            let observer_state: *const Observer = self.get::<Observer>(observer_entity).unwrap();
             // Populate ObservedBy for each observed entity.
-            for watched_entity in &(*observer_state).descriptor.entities {
-                let mut entity_mut = self.entity_mut(*watched_entity);
+            for watched_entity in (*observer_state).descriptor.entities.iter().copied() {
+                let mut entity_mut = self.entity_mut(watched_entity);
                 let mut observed_by = entity_mut.entry::<ObservedBy>().or_default().into_mut();
                 observed_by.0.push(observer_entity);
             }
@@ -843,16 +840,14 @@ impl World {
 #[cfg(test)]
 mod tests {
     use alloc::{vec, vec::Vec};
-    #[cfg(feature = "track_location")]
-    use core::panic::Location;
 
-    use bevy_platform_support::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
-    use crate as bevy_ecs;
     use crate::component::ComponentId;
     use crate::{
-        observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},
+        change_detection::MaybeLocation,
+        observer::{Observer, OnReplace},
         prelude::*,
         traversal::Traversal,
     };
@@ -897,14 +892,9 @@ mod tests {
         }
     }
 
-    #[derive(Component)]
+    #[derive(Component, Event)]
+    #[event(traversal = &'static ChildOf, auto_propagate)]
     struct EventPropagating;
-
-    impl Event for EventPropagating {
-        type Traversal = &'static ChildOf;
-
-        const AUTO_PROPAGATE: bool = true;
-    }
 
     #[test]
     fn observer_order_spawn_despawn() {
@@ -1087,7 +1077,7 @@ mod tests {
         world.add_observer(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add_2"));
 
         world.spawn(A).flush();
-        assert_eq!(vec!["add_1", "add_2"], world.resource::<Order>().0);
+        assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
         // Our A entity plus our two observers
         assert_eq!(world.entities().len(), 3);
     }
@@ -1136,11 +1126,10 @@ mod tests {
     fn observer_despawn() {
         let mut world = World::new();
 
-        let observer = world
-            .add_observer(|_: Trigger<OnAdd, A>| {
-                panic!("Observer triggered after being despawned.")
-            })
-            .id();
+        let system: fn(Trigger<OnAdd, A>) = |_| {
+            panic!("Observer triggered after being despawned.");
+        };
+        let observer = world.add_observer(system).id();
         world.despawn(observer);
         world.spawn(A).flush();
     }
@@ -1157,11 +1146,11 @@ mod tests {
             res.observed("remove_a");
         });
 
-        let observer = world
-            .add_observer(|_: Trigger<OnRemove, B>| {
-                panic!("Observer triggered after being despawned.")
-            })
-            .flush();
+        let system: fn(Trigger<OnRemove, B>) = |_: Trigger<OnRemove, B>| {
+            panic!("Observer triggered after being despawned.");
+        };
+
+        let observer = world.add_observer(system).flush();
         world.despawn(observer);
 
         world.despawn(entity);
@@ -1187,9 +1176,10 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world
-            .spawn_empty()
-            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
+        let system: fn(Trigger<EventA>) = |_| {
+            panic!("Trigger routed to non-targeted entity.");
+        };
+        world.spawn_empty().observe(system);
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.target(), Entity::PLACEHOLDER);
             res.observed("event_a");
@@ -1208,9 +1198,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world
-            .spawn_empty()
-            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
+        let system: fn(Trigger<EventA>) = |_| {
+            panic!("Trigger routed to non-targeted entity.");
+        };
+
+        world.spawn_empty().observe(system);
         let entity = world
             .spawn_empty()
             .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
@@ -1226,6 +1218,119 @@ mod tests {
         world.trigger_targets(EventA, entity);
         world.flush();
         assert_eq!(vec!["a_2", "a_1"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn observer_multiple_targets() {
+        #[derive(Resource, Default)]
+        struct R(i32);
+
+        let mut world = World::new();
+        let component_a = world.register_component::<A>();
+        let component_b = world.register_component::<B>();
+        world.init_resource::<R>();
+
+        // targets (entity_1, A)
+        let entity_1 = world
+            .spawn_empty()
+            .observe(|_: Trigger<EventA, A>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+        // targets (entity_2, B)
+        let entity_2 = world
+            .spawn_empty()
+            .observe(|_: Trigger<EventA, B>, mut res: ResMut<R>| res.0 += 10)
+            .id();
+        // targets any entity or component
+        world.add_observer(|_: Trigger<EventA>, mut res: ResMut<R>| res.0 += 100);
+        // targets any entity, and components A or B
+        world.add_observer(|_: Trigger<EventA, (A, B)>, mut res: ResMut<R>| res.0 += 1000);
+        // test all tuples
+        world.add_observer(|_: Trigger<EventA, (A, B, (A, B))>, mut res: ResMut<R>| res.0 += 10000);
+        world.add_observer(
+            |_: Trigger<EventA, (A, B, (A, B), ((A, B), (A, B)))>, mut res: ResMut<R>| {
+                res.0 += 100000;
+            },
+        );
+        world.add_observer(
+            |_: Trigger<EventA, (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))>,
+             mut res: ResMut<R>| res.0 += 1000000,
+        );
+
+        // WorldEntityMut does not automatically flush.
+        world.flush();
+
+        // trigger for an entity and a component
+        world.trigger_targets(EventA, (entity_1, component_a));
+        world.flush();
+        // only observer that doesn't trigger is the one only watching entity_2
+        assert_eq!(1111101, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger for both entities, but no components: trigger once per entity target
+        world.trigger_targets(EventA, (entity_1, entity_2));
+        world.flush();
+        // only the observer that doesn't require components triggers - once per entity
+        assert_eq!(200, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger for both components, but no entities: trigger once
+        world.trigger_targets(EventA, (component_a, component_b));
+        world.flush();
+        // all component observers trigger, entities are not observed
+        assert_eq!(1111100, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger for both entities and both components: trigger once per entity target
+        // we only get 2222211 because a given observer can trigger only once per entity target
+        world.trigger_targets(EventA, ((component_a, component_b), (entity_1, entity_2)));
+        world.flush();
+        assert_eq!(2222211, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger to test complex tuples: (A, B, (A, B))
+        world.trigger_targets(
+            EventA,
+            (component_a, component_b, (component_a, component_b)),
+        );
+        world.flush();
+        // the duplicate components in the tuple don't cause multiple triggers
+        assert_eq!(1111100, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger to test complex tuples: (A, B, (A, B), ((A, B), (A, B)))
+        world.trigger_targets(
+            EventA,
+            (
+                component_a,
+                component_b,
+                (component_a, component_b),
+                ((component_a, component_b), (component_a, component_b)),
+            ),
+        );
+        world.flush();
+        // the duplicate components in the tuple don't cause multiple triggers
+        assert_eq!(1111100, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger to test the most complex tuple: (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))
+        world.trigger_targets(
+            EventA,
+            (
+                component_a,
+                component_b,
+                (component_a, component_b),
+                (component_b, component_a),
+                (
+                    component_a,
+                    component_b,
+                    ((component_a, component_b), (component_b, component_a)),
+                ),
+            ),
+        );
+        world.flush();
+        // the duplicate components in the tuple don't cause multiple triggers
+        assert_eq!(1111100, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
     }
 
     #[test]
@@ -1257,14 +1362,14 @@ mod tests {
         world.init_resource::<Order>();
         let event_a = OnRemove::register_component_id(&mut world);
 
-        world.spawn(ObserverState {
-            // SAFETY: we registered `event_a` above and it matches the type of EventA
-            descriptor: unsafe { ObserverDescriptor::default().with_events(vec![event_a]) },
-            runner: |mut world, _trigger, _ptr, _propagate| {
+        // SAFETY: we registered `event_a` above and it matches the type of EventA
+        let observe = unsafe {
+            Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
-            },
-            ..Default::default()
-        });
+            })
+            .with_event(event_a)
+        };
+        world.spawn(observe);
 
         world.commands().queue(move |world: &mut World| {
             // SAFETY: we registered `event_a` above and it matches the type of EventA
@@ -1541,6 +1646,23 @@ mod tests {
         assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
     }
 
+    // Originally for https://github.com/bevyengine/bevy/issues/18452
+    #[test]
+    fn observer_modifies_relationship() {
+        fn on_add(trigger: Trigger<OnAdd, A>, mut commands: Commands) {
+            commands
+                .entity(trigger.target())
+                .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
+                    rsc.spawn_empty();
+                });
+        }
+
+        let mut world = World::new();
+        world.add_observer(on_add);
+        world.spawn(A);
+        world.flush();
+    }
+
     // Regression test for https://github.com/bevyengine/bevy/issues/14467
     // Fails prior to https://github.com/bevyengine/bevy/pull/15398
     #[test]
@@ -1601,13 +1723,12 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "track_location")]
     #[track_caller]
     fn observer_caller_location_event() {
         #[derive(Event)]
         struct EventA;
 
-        let caller = Location::caller();
+        let caller = MaybeLocation::caller();
         let mut world = World::new();
         world.add_observer(move |trigger: Trigger<EventA>| {
             assert_eq!(trigger.caller(), caller);
@@ -1616,13 +1737,12 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "track_location")]
     #[track_caller]
     fn observer_caller_location_command_archetype_move() {
         #[derive(Component)]
         struct Component;
 
-        let caller = Location::caller();
+        let caller = MaybeLocation::caller();
         let mut world = World::new();
         world.add_observer(move |trigger: Trigger<OnAdd, Component>| {
             assert_eq!(trigger.caller(), caller);

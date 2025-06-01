@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::event::EventParIter;
 use bevy_ecs::{
@@ -17,6 +16,7 @@ use bevy_ecs::{
 #[derive(SystemParam, Debug)]
 pub struct EventReader<'w, 's, E: Event> {
     pub(super) reader: Local<'s, EventCursor<E>>,
+    #[system_param(validation_message = "Event not initialized")]
     events: Res<'w, Events<E>>,
 }
 

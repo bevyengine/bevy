@@ -221,7 +221,7 @@ fn spawn_button(
                 margin: UiRect::horizontal(Val::Px(2.)),
                 ..Default::default()
             },
-            BorderColor(if active {
+            BorderColor::all(if active {
                 ACTIVE_BORDER_COLOR
             } else {
                 INACTIVE_BORDER_COLOR
@@ -269,7 +269,7 @@ fn update_buttons(
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
             Interaction::Pressed => {
-                button_activated_event.send(ButtonActivatedEvent(button_id));
+                button_activated_event.write(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
                         bar_node.flex_basis = value.0;
@@ -345,7 +345,7 @@ fn update_radio_buttons_colors(
                     )
                 };
 
-                border_query.get_mut(id).unwrap().0 = border_color;
+                *border_query.get_mut(id).unwrap() = BorderColor::all(border_color);
                 for &child in children_query.get(id).into_iter().flatten() {
                     color_query.get_mut(child).unwrap().0 = inner_color;
                     for &grandchild in children_query.get(child).into_iter().flatten() {

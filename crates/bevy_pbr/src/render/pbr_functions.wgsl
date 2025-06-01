@@ -241,7 +241,7 @@ fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingIn
     (*lighting_input).layers[LAYER_BASE].R = R;
 }
 
-#endif  // STANDARD_MATERIAL_ANISTROPY
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
 // NOTE: Correctly calculates the view vector depending on whether
 // the projection is orthographic or perspective.
@@ -273,7 +273,7 @@ fn calculate_diffuse_color(
 
 // Remapping [0,1] reflectance to F0
 // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: f32) -> vec3<f32> {
+fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
     return 0.16 * reflectance * reflectance * (1.0 - metallic) + base_color * metallic;
 }
 
@@ -384,9 +384,9 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.clearcoat_strength = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 #ifdef STANDARD_MATERIAL_ANISOTROPY
-    lighting_input.anisotropy = in.anisotropy_strength;
-    lighting_input.Ta = in.anisotropy_T;
-    lighting_input.Ba = in.anisotropy_B;
+    transmissive_lighting_input.anisotropy = in.anisotropy_strength;
+    transmissive_lighting_input.Ta = in.anisotropy_T;
+    transmissive_lighting_input.Ba = in.anisotropy_B;
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 #endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 
@@ -511,9 +511,6 @@ fn apply_pbr_lighting(
         // check if this light should be skipped, which occurs if this light does not intersect with the view
         // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
         let light = &view_bindings::lights.directional_lights[i];
-        if (*light).skip != 0u {
-            continue;
-        }
 
         // If we're lightmapped, disable diffuse contribution from the light if
         // requested, to avoid double-counting light.

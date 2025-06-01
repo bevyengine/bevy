@@ -9,11 +9,35 @@
 //!
 //! [Bevy]: https://bevyengine.org/
 
-#[cfg(feature = "std")]
-extern crate std;
+/// Configuration information for this crate.
+pub mod cfg {
+    pub(crate) use bevy_platform::cfg::*;
 
-#[cfg(feature = "alloc")]
-extern crate alloc;
+    pub use bevy_platform::cfg::{alloc, std};
+
+    define_alias! {
+        #[cfg(feature = "parallel")] => {
+            /// Indicates the `Parallel` type is available.
+            parallel
+        }
+    }
+}
+
+cfg::std! {
+    extern crate std;
+}
+
+cfg::alloc! {
+    extern crate alloc;
+
+    mod map;
+    pub use map::*;
+}
+
+cfg::parallel! {
+    mod parallel_queue;
+    pub use parallel_queue::*;
+}
 
 /// The utilities prelude.
 ///
@@ -22,69 +46,21 @@ pub mod prelude {
     pub use crate::default;
 }
 
-pub mod synccell;
-pub mod syncunsafecell;
+#[cfg(feature = "wgpu_wrapper")]
+mod wgpu_wrapper;
 
 mod default;
 mod once;
-#[cfg(feature = "std")]
-mod parallel_queue;
 
 #[doc(hidden)]
 pub use once::OnceFlag;
 
 pub use default::default;
 
-#[cfg(feature = "std")]
-pub use parallel_queue::*;
+#[cfg(feature = "wgpu_wrapper")]
+pub use wgpu_wrapper::WgpuWrapper;
 
 use core::mem::ManuallyDrop;
-
-#[cfg(feature = "alloc")]
-use {
-    bevy_platform_support::{
-        collections::HashMap,
-        hash::{Hashed, NoOpHash, PassHash},
-    },
-    core::{any::TypeId, hash::Hash},
-};
-
-/// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
-/// Iteration order only depends on the order of insertions and deletions.
-#[cfg(feature = "alloc")]
-pub type PreHashMap<K, V> = HashMap<Hashed<K>, V, PassHash>;
-
-/// Extension methods intended to add functionality to [`PreHashMap`].
-#[cfg(feature = "alloc")]
-pub trait PreHashMapExt<K, V> {
-    /// Tries to get or insert the value for the given `key` using the pre-computed hash first.
-    /// If the [`PreHashMap`] does not already contain the `key`, it will clone it and insert
-    /// the value returned by `func`.
-    fn get_or_insert_with<F: FnOnce() -> V>(&mut self, key: &Hashed<K>, func: F) -> &mut V;
-}
-
-#[cfg(feature = "alloc")]
-impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, V> {
-    #[inline]
-    fn get_or_insert_with<F: FnOnce() -> V>(&mut self, key: &Hashed<K>, func: F) -> &mut V {
-        use bevy_platform_support::collections::hash_map::RawEntryMut;
-        let entry = self
-            .raw_entry_mut()
-            .from_key_hashed_nocheck(key.hash(), key);
-        match entry {
-            RawEntryMut::Occupied(entry) => entry.into_mut(),
-            RawEntryMut::Vacant(entry) => {
-                let (_, value) = entry.insert_hashed_nocheck(key.hash(), key.clone(), func());
-                value
-            }
-        }
-    }
-}
-
-/// A specialized hashmap type with Key of [`TypeId`]
-/// Iteration order only depends on the order of insertions and deletions.
-#[cfg(feature = "alloc")]
-pub type TypeIdMap<V> = HashMap<TypeId, V, NoOpHash>;
 
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
@@ -142,48 +118,5 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use static_assertions::assert_impl_all;
-
-    // Check that the HashMaps are Clone if the key/values are Clone
-    assert_impl_all!(PreHashMap::<u64, usize>: Clone);
-
-    #[test]
-    fn fast_typeid_hash() {
-        struct Hasher;
-
-        impl core::hash::Hasher for Hasher {
-            fn finish(&self) -> u64 {
-                0
-            }
-            fn write(&mut self, _: &[u8]) {
-                panic!("Hashing of core::any::TypeId changed");
-            }
-            fn write_u64(&mut self, _: u64) {}
-        }
-
-        Hash::hash(&TypeId::of::<()>(), &mut Hasher);
-    }
-
-    #[cfg(feature = "alloc")]
-    #[test]
-    fn stable_hash_within_same_program_execution() {
-        use alloc::vec::Vec;
-
-        let mut map_1 = <HashMap<_, _>>::default();
-        let mut map_2 = <HashMap<_, _>>::default();
-        for i in 1..10 {
-            map_1.insert(i, i);
-            map_2.insert(i, i);
-        }
-        assert_eq!(
-            map_1.iter().collect::<Vec<_>>(),
-            map_2.iter().collect::<Vec<_>>()
-        );
     }
 }

@@ -1,11 +1,9 @@
-use crate as bevy_ecs;
+use crate::change_detection::MaybeLocation;
 use crate::component::ComponentId;
 use crate::world::World;
 use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{
     cmp::Ordering,
     fmt,
@@ -20,9 +18,21 @@ use core::{
 ///
 /// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
 ///
-/// This trait can be derived.
-///
 /// Events must be thread-safe.
+///
+/// ## Derive
+/// This trait can be derived.
+/// Adding `auto_propagate` sets [`Self::AUTO_PROPAGATE`] to true.
+/// Adding `traversal = "X"` sets [`Self::Traversal`] to be of type "X".
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Event)]
+/// #[event(auto_propagate)]
+/// struct MyEvent;
+/// ```
+///
 ///
 /// [`World`]: crate::world::World
 /// [`ComponentId`]: crate::component::ComponentId
@@ -83,7 +93,7 @@ pub trait Event: Send + Sync + 'static {
 ///
 /// This exists so we can easily get access to a unique [`ComponentId`] for each [`Event`] type,
 /// without requiring that [`Event`] types implement [`Component`] directly.
-/// [`ComponentId`] is used internally as a unique identitifier for events because they are:
+/// [`ComponentId`] is used internally as a unique identifier for events because they are:
 ///
 /// - Unique to each event type.
 /// - Can be quickly generated and looked up.
@@ -100,15 +110,18 @@ struct EventWrapperComponent<E: Event + ?Sized>(PhantomData<E>);
 /// sent to the point it was processed. `EventId`s increase monotonically by send order.
 ///
 /// [`World`]: crate::world::World
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, Debug, PartialEq, Hash)
+)]
 pub struct EventId<E: Event> {
     /// Uniquely identifies the event associated with this ID.
     // This value corresponds to the order in which each event was added to the world.
     pub id: usize,
     /// The source code location that triggered this event.
-    #[cfg(feature = "track_location")]
-    pub caller: &'static Location<'static>,
-    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
+    pub caller: MaybeLocation,
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     pub(super) _marker: PhantomData<E>,
 }
 

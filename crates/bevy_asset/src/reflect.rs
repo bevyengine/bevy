@@ -247,7 +247,6 @@ mod tests {
     use alloc::{string::String, vec::Vec};
     use core::any::TypeId;
 
-    use crate as bevy_asset;
     use crate::{Asset, AssetApp, AssetPlugin, ReflectAsset, UntypedHandle};
     use bevy_app::App;
     use bevy_ecs::reflect::AppTypeRegistry;

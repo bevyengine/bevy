@@ -315,7 +315,6 @@ where
     /// Prepares the render command to be used. This is called once and only once before the phase
     /// begins. There may be zero or more [`draw`](RenderCommandState::draw) calls following a call to this function.
     fn prepare(&mut self, world: &'_ World) {
-        self.state.update_archetypes(world);
         self.view.update_archetypes(world);
         self.entity.update_archetypes(world);
     }
@@ -328,11 +327,13 @@ where
         view: Entity,
         item: &P,
     ) -> Result<(), DrawError> {
-        let param = self.state.get_manual(world);
+        let param = self.state.get(world);
         let view = match self.view.get_manual(world, view) {
             Ok(view) => view,
             Err(err) => match err {
-                QueryEntityError::NoSuchEntity(_, _) => return Err(DrawError::ViewEntityNotFound),
+                QueryEntityError::EntityDoesNotExist(_) => {
+                    return Err(DrawError::ViewEntityNotFound)
+                }
                 QueryEntityError::QueryDoesNotMatch(_, _)
                 | QueryEntityError::AliasedMutability(_) => {
                     return Err(DrawError::InvalidViewQuery)

@@ -1,24 +1,21 @@
 use crate::{
     extract_resource::ExtractResource,
-    prelude::Shader,
+    load_shader_library,
     render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_time::Time;
 
-pub const GLOBALS_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(17924628719070609599);
-
 pub struct GlobalsPlugin;
 
 impl Plugin for GlobalsPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, GLOBALS_TYPE_HANDLE, "globals.wgsl", Shader::from_wgsl);
+        load_shader_library!(app, "globals.wgsl");
         app.register_type::<GlobalsUniform>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -28,7 +25,7 @@ impl Plugin for GlobalsPlugin {
                 .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
                 .add_systems(
                     Render,
-                    prepare_globals_buffer.in_set(RenderSet::PrepareResources),
+                    prepare_globals_buffer.in_set(RenderSystems::PrepareResources),
                 );
         }
     }
@@ -45,7 +42,7 @@ fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
 /// Contains global values useful when writing shaders.
 /// Currently only contains values related to time.
 #[derive(Default, Clone, Resource, ExtractResource, Reflect, ShaderType)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Clone)]
 pub struct GlobalsUniform {
     /// The time since startup in seconds.
     /// Wraps to 0 after 1 hour.

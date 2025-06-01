@@ -3,10 +3,36 @@ use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 use core::ops::Mul;
 
 #[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, prelude::require};
+use bevy_ecs::component::Component;
 
 #[cfg(feature = "bevy_reflect")]
 use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
+
+/// Checks that a vector with the given squared length is normalized.
+///
+/// Warns for small error with a length threshold of approximately `1e-4`,
+/// and panics for large error with a length threshold of approximately `1e-2`.
+#[cfg(debug_assertions)]
+fn assert_is_normalized(message: &str, length_squared: f32) {
+    use bevy_math::ops;
+    #[cfg(feature = "std")]
+    use std::eprintln;
+
+    let length_error_squared = ops::abs(length_squared - 1.0);
+
+    // Panic for large error and warn for slight error.
+    if length_error_squared > 2e-2 || length_error_squared.is_nan() {
+        // Length error is approximately 1e-2 or more.
+        panic!("Error: {message}",);
+    } else if length_error_squared > 2e-4 {
+        // Length error is approximately 1e-4 or more.
+        #[cfg(feature = "std")]
+        #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+        {
+            eprintln!("Warning: {message}",);
+        }
+    }
+}
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
@@ -14,7 +40,7 @@ use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
+///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -23,12 +49,14 @@ use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+/// [`GlobalTransform`] is updated from [`Transform`] in the [`TransformSystems::Propagate`]
+/// system set.
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform`] of an entity during this set or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
+///
+/// [`TransformSystems::Propagate`]: crate::TransformSystems::Propagate
 ///
 /// # Examples
 ///
@@ -37,11 +65,15 @@ use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy-support", derive(Component), require(GlobalTransform))]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component),
+    require(GlobalTransform, TransformTreeChanged)
+)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, PartialEq, Debug)
+    reflect(Component, Default, PartialEq, Debug, Clone)
 )]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
@@ -178,8 +210,8 @@ impl Transform {
     /// * if `main_axis` or `main_direction` fail converting to `Dir3` (e.g are zero), `Dir3::X` takes their place
     /// * if `secondary_axis` or `secondary_direction` fail converting, `Dir3::Y` takes their place
     /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with `secondary_direction`,
-    ///     a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
-    ///     counterparts
+    ///   a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
+    ///   counterparts
     ///
     /// See [`Transform::align`] for additional details.
     #[inline]
@@ -312,8 +344,21 @@ impl Transform {
     /// Rotates this [`Transform`] around the given `axis` by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the `axis` is relative to the rotation of the parent.
+    ///
+    /// # Warning
+    ///
+    /// If you pass in an `axis` based on the current rotation (e.g. obtained via [`Transform::local_x`]),
+    /// floating point errors can accumulate exponentially when applying rotations repeatedly this way. This will
+    /// result in a denormalized rotation. In this case, it is recommended to normalize the [`Transform::rotation`] after
+    /// each call to this method.
     #[inline]
     pub fn rotate_axis(&mut self, axis: Dir3, angle: f32) {
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The axis given to `Transform::rotate_axis` is not normalized. This may be a result of obtaining \
+            the axis from the transform. See the documentation of `Transform::rotate_axis` for more details.",
+            axis.length_squared(),
+        );
         self.rotate(Quat::from_axis_angle(axis.into(), angle));
     }
 
@@ -350,8 +395,21 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] around its local `axis` by `angle` (in radians).
+    ///
+    /// # Warning
+    ///
+    /// If you pass in an `axis` based on the current rotation (e.g. obtained via [`Transform::local_x`]),
+    /// floating point errors can accumulate exponentially when applying rotations repeatedly this way. This will
+    /// result in a denormalized rotation. In this case, it is recommended to normalize the [`Transform::rotation`] after
+    /// each call to this method.
     #[inline]
     pub fn rotate_local_axis(&mut self, axis: Dir3, angle: f32) {
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The axis given to `Transform::rotate_axis_local` is not normalized. This may be a result of obtaining \
+            the axis from the transform. See the documentation of `Transform::rotate_axis_local` for more details.",
+            axis.length_squared(),
+        );
         self.rotate_local(Quat::from_axis_angle(axis.into(), angle));
     }
 
@@ -431,7 +489,7 @@ impl Transform {
     /// More precisely, the [`Transform::rotation`] produced will be such that:
     /// * applying it to `main_axis` results in `main_direction`
     /// * applying it to `secondary_axis` produces a vector that lies in the half-plane generated by `main_direction` and
-    ///     `secondary_direction` (with positive contribution by `secondary_direction`)
+    ///   `secondary_direction` (with positive contribution by `secondary_direction`)
     ///
     /// [`Transform::look_to`] is recovered, for instance, when `main_axis` is `Dir3::NEG_Z` (the [`Transform::forward`]
     /// direction in the default orientation) and `secondary_axis` is `Dir3::Y` (the [`Transform::up`] direction in the default
@@ -441,8 +499,8 @@ impl Transform {
     /// * if `main_axis` or `main_direction` fail converting to `Dir3` (e.g are zero), `Dir3::X` takes their place
     /// * if `secondary_axis` or `secondary_direction` fail converting, `Dir3::Y` takes their place
     /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with `secondary_direction`,
-    ///     a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
-    ///     counterparts
+    ///   a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
+    ///   counterparts
     ///
     /// Example
     /// ```
@@ -592,3 +650,20 @@ impl Mul<Vec3> for Transform {
         self.transform_point(value)
     }
 }
+
+/// An optimization for transform propagation. This ZST marker component uses change detection to
+/// mark all entities of the hierarchy as "dirty" if any of their descendants have a changed
+/// `Transform`. If this component is *not* marked `is_changed()`, propagation will halt.
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy-support", derive(Component))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, PartialEq, Debug)
+)]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct TransformTreeChanged;

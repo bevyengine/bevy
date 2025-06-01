@@ -1,7 +1,7 @@
 //! Screen space reflections implemented via raymarching.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},
@@ -12,18 +12,17 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::render_graph::RenderGraph;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -37,8 +36,9 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
+use bevy_render::{load_shader_library, render_graph::RenderGraph};
 use bevy_utils::{once, prelude::default};
 use tracing::info;
 
@@ -48,9 +48,6 @@ use crate::{
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
 };
-
-const SSR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10438925299917978850);
-const RAYMARCH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8517409683450840946);
 
 /// Enables screen-space reflections for a camera.
 ///
@@ -81,7 +78,7 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// bug whereby Naga doesn't generate correct GLSL when sampling depth buffers,
 /// which is required for screen-space raymarching.
 #[derive(Clone, Copy, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[require(DepthPrepass, DeferredPrepass)]
 #[doc(alias = "Ssr")]
 pub struct ScreenSpaceReflections {
@@ -158,6 +155,7 @@ pub struct ScreenSpaceReflectionsPipeline {
     depth_nearest_sampler: Sampler,
     bind_group_layout: BindGroupLayout,
     binding_arrays_are_usable: bool,
+    shader: Handle<Shader>,
 }
 
 /// A GPU buffer that stores the screen space reflection settings for each view.
@@ -179,13 +177,8 @@ pub struct ScreenSpaceReflectionsPipelineKey {
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, SSR_SHADER_HANDLE, "ssr.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            RAYMARCH_SHADER_HANDLE,
-            "raymarch.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "ssr.wgsl");
+        load_shader_library!(app, "raymarch.wgsl");
 
         app.register_type::<ScreenSpaceReflections>()
             .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
@@ -196,10 +189,10 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
 
         render_app
             .init_resource::<ScreenSpaceReflectionsBuffer>()
-            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSet::Prepare))
+            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
                 Render,
-                prepare_ssr_settings.in_set(RenderSet::PrepareResources),
+                prepare_ssr_settings.in_set(RenderSystems::PrepareResources),
             )
             .add_render_graph_node::<ViewNodeRunner<ScreenSpaceReflectionsNode>>(
                 Core3d,
@@ -404,6 +397,9 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
             depth_nearest_sampler,
             bind_group_layout,
             binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
+            // Even though ssr was loaded using load_shader_library, we can still access it like a
+            // normal embedded asset (so we can use it as both a library or a kernel).
+            shader: load_embedded_asset!(world, "ssr.wgsl"),
         }
     }
 }
@@ -542,7 +538,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             layout: vec![mesh_view_layout.clone(), self.bind_group_layout.clone()],
             vertex: fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: SSR_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use alloc::vec::Vec;
 use bevy_ecs::{
     change_detection::{DetectChangesMut, MutUntyped},
@@ -82,7 +81,7 @@ impl EventRegistry {
         }
     }
 
-    /// Removes an event from the world and it's associated [`EventRegistry`].
+    /// Removes an event from the world and its associated [`EventRegistry`].
     pub fn deregister_events<T: Event>(world: &mut World) {
         let component_id = world.init_resource::<Events<T>>();
         let mut registry = world.get_resource_or_init::<Self>();

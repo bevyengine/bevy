@@ -3,13 +3,13 @@
 use std::{f32::consts::PI, fmt::Write};
 
 use bevy::{
-    core_pipeline::{
+    anti_aliasing::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
         experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         fxaa::{Fxaa, Sensitivity},
-        prepass::{DepthPrepass, MotionVectorPrepass},
         smaa::{Smaa, SmaaPreset},
     },
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
     image::{ImageSampler, ImageSamplerDescriptor},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
@@ -17,6 +17,7 @@ use bevy::{
         camera::TemporalJitter,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
+        view::Hdr,
     },
 };
 
@@ -300,10 +301,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ContrastAdaptiveSharpening {
             enabled: false,

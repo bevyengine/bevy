@@ -269,6 +269,7 @@ Bevy has a helper to build its examples:
 
 - Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
 - Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+- Debug: `cargo run -p build-wasm-example -- --debug --api webgl2 load_gltf`
 
 This helper will log the command used to build the examples.
 
@@ -304,14 +305,14 @@ may not be worth keeping due to compilation time increases.
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
 
-|profile                           | wasm-opt | no wasm-opt |
-|----------------------------------|----------|-------------|
-|Default                           | 8.5M     | 13.0M       |
-|opt-level = "z"                   | 6.1M     | 12.7M       |
-|"z" + lto = "thin"                | 5.9M     | 12M         |
-|"z" + lto = "fat"                 | 5.1M     | 9.4M        |
-|"z" + "thin" + codegen-units = 1  | 5.3M     | 11M         |
-|"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M        |
+profile                           | wasm-opt | no wasm-opt
+----------------------------------|----------|-------------
+Default                           | 8.5M     | 13.0M
+opt-level = "z"                   | 6.1M     | 12.7M
+"z" + lto = "thin"                | 5.9M     | 12M
+"z" + lto = "fat"                 | 5.1M     | 9.4M
+"z" + "thin" + codegen-units = 1  | 5.3M     | 11M
+"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M
 
 ### Loading Assets
 

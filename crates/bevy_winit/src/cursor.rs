@@ -8,7 +8,7 @@ use crate::{
 use crate::{
     custom_cursor::{
         calculate_effective_rect, extract_and_transform_rgba_pixels, extract_rgba_pixels,
-        CustomCursorPlugin,
+        transform_hotspot, CustomCursorPlugin,
     },
     state::{CustomCursorCache, CustomCursorCacheKey},
     WinitCustomCursor,
@@ -30,7 +30,7 @@ use bevy_ecs::{
 };
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::{SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
@@ -38,6 +38,13 @@ use tracing::warn;
 
 #[cfg(feature = "custom_cursor")]
 pub use crate::custom_cursor::{CustomCursor, CustomCursorImage};
+
+#[cfg(all(
+    feature = "custom_cursor",
+    target_family = "wasm",
+    target_os = "unknown"
+))]
+pub use crate::custom_cursor::CustomCursorUrl;
 
 pub(crate) struct CursorPlugin;
 
@@ -55,7 +62,7 @@ impl Plugin for CursorPlugin {
 
 /// Insert into a window entity to set the cursor for that window.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Debug, Default, PartialEq)]
+#[reflect(Component, Debug, Default, PartialEq, Clone)]
 pub enum CursorIcon {
     #[cfg(feature = "custom_cursor")]
     /// Custom cursor image.
@@ -124,10 +131,13 @@ fn update_cursors(
                     let (rect, needs_sub_image) =
                         calculate_effective_rect(&texture_atlases, image, texture_atlas, rect);
 
-                    let maybe_rgba = if *flip_x || *flip_y || needs_sub_image {
-                        extract_and_transform_rgba_pixels(image, *flip_x, *flip_y, rect)
+                    let (maybe_rgba, hotspot) = if *flip_x || *flip_y || needs_sub_image {
+                        (
+                            extract_and_transform_rgba_pixels(image, *flip_x, *flip_y, rect),
+                            transform_hotspot(*hotspot, *flip_x, *flip_y, rect),
+                        )
                     } else {
-                        extract_rgba_pixels(image)
+                        (extract_rgba_pixels(image), *hotspot)
                     };
 
                     let Some(rgba) = maybe_rgba else {

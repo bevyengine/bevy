@@ -290,7 +290,7 @@ struct MyEvent {
 }
 
 fn writer(mut writer: EventWriter<MyEvent>) {
-    writer.send(MyEvent {
+    writer.write(MyEvent {
         message: "hello!".to_string(),
     });
 }

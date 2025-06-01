@@ -31,12 +31,12 @@ use bevy::{
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
-        view::{ColorGrading, ColorGradingGlobal},
+        view::{ColorGrading, ColorGradingGlobal, Hdr},
     },
 };
 
-#[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
+#[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
+use bevy::anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
 use rand::random;
 
 fn main() {
@@ -55,7 +55,7 @@ fn main() {
     // *Note:* TAA is not _required_ for specular transmission, but
     // it _greatly enhances_ the look of the resulting blur effects.
     // Sadly, it's not available under WebGL.
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     app.add_plugins(TemporalAntiAliasPlugin);
 
     app.run();
@@ -303,10 +303,6 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
         ColorGrading {
             global: ColorGradingGlobal {
@@ -317,9 +313,9 @@ fn setup(
         },
         Tonemapping::TonyMcMapface,
         Exposure { ev100: 6.0 },
-        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         Msaa::Off,
-        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),
         EnvironmentMapLight {
             intensity: 25.0,
@@ -387,11 +383,11 @@ fn example_control_system(
     camera: Single<
         (
             Entity,
-            &mut Camera,
             &mut Camera3d,
             &mut Transform,
             Option<&DepthPrepass>,
             Option<&TemporalJitter>,
+            Has<Hdr>,
         ),
         With<Camera3d>,
     >,
@@ -458,20 +454,18 @@ fn example_control_system(
         }
     }
 
-    let (
-        camera_entity,
-        mut camera,
-        mut camera_3d,
-        mut camera_transform,
-        depth_prepass,
-        temporal_jitter,
-    ) = camera.into_inner();
+    let (camera_entity, mut camera_3d, mut camera_transform, depth_prepass, temporal_jitter, hdr) =
+        camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
-        camera.hdr = !camera.hdr;
+        if hdr {
+            commands.entity(camera_entity).remove::<Hdr>();
+        } else {
+            commands.entity(camera_entity).insert(Hdr);
+        }
     }
 
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyD) {
         if depth_prepass.is_none() {
             commands.entity(camera_entity).insert(DepthPrepass);
@@ -480,7 +474,7 @@ fn example_control_system(
         }
     }
 
-    #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
             commands
@@ -571,8 +565,8 @@ fn example_control_system(
         state.ior,
         state.perceptual_roughness,
         state.reflectance,
-        if camera.hdr { "ON " } else { "OFF" },
-        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+        if hdr { "ON " } else { "OFF" },
+        if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if depth_prepass.is_some() {
                 "ON "
             } else {
@@ -581,7 +575,7 @@ fn example_control_system(
         } else {
             "N/A (WebGL)"
         },
-        if cfg!(any(not(feature = "webgl2"), not(target_arch = "wasm32"))) {
+        if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) {
             if temporal_jitter.is_some() {
                 if depth_prepass.is_some() {
                     "ON "

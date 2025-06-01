@@ -176,12 +176,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         &path,
         &struct_name,
         &visibility,
-        &item_struct_name,
         &fetch_struct_name,
         &field_types,
         &user_impl_generics,
         &user_impl_generics_with_world,
-        &field_idents,
         &user_ty_generics,
         &user_ty_generics_with_world,
         &named_field_idents,
@@ -213,12 +211,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             &path,
             &read_only_struct_name,
             &visibility,
-            &read_only_item_struct_name,
             &read_only_fetch_struct_name,
             &read_only_field_types,
             &user_impl_generics,
             &user_impl_generics_with_world,
-            &field_idents,
             &user_ty_generics,
             &user_ty_generics_with_world,
             &named_field_idents,
@@ -258,18 +254,84 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 /// SAFETY: we assert fields are readonly below
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
+                    const IS_READ_ONLY: bool = true;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
+                    type Item<'__w> = #read_only_item_struct_name #user_ty_generics_with_world;
+
+                    fn shrink<'__wlong: '__wshort, '__wshort>(
+                        item: Self::Item<'__wlong>
+                    ) -> Self::Item<'__wshort> {
+                        #read_only_item_struct_name {
+                            #(
+                                #field_idents: <#read_only_field_types>::shrink(item.#field_idents),
+                            )*
+                        }
+                    }
+
+                    fn provide_extra_access(
+                        state: &mut Self::State,
+                        access: &mut #path::query::Access<#path::component::ComponentId>,
+                        available_access: &#path::query::Access<#path::component::ComponentId>,
+                    ) {
+                        #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
+                    }
+
+                    /// SAFETY: we call `fetch` for each member that implements `Fetch`.
+                    #[inline(always)]
+                    unsafe fn fetch<'__w>(
+                        _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                        _entity: #path::entity::Entity,
+                        _table_row: #path::storage::TableRow,
+                    ) -> Self::Item<'__w> {
+                        Self::Item {
+                            #(#field_idents: <#read_only_field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                        }
+                    }
                 }
             }
         } else {
             quote! {}
         };
 
+        let is_read_only = !attributes.is_mutable;
+
         quote! {
             /// SAFETY: we assert fields are readonly below
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
+                const IS_READ_ONLY: bool = #is_read_only;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
+                type Item<'__w> = #item_struct_name #user_ty_generics_with_world;
+
+                fn shrink<'__wlong: '__wshort, '__wshort>(
+                    item: Self::Item<'__wlong>
+                ) -> Self::Item<'__wshort> {
+                    #item_struct_name {
+                        #(
+                            #field_idents: <#field_types>::shrink(item.#field_idents),
+                        )*
+                    }
+                }
+
+                fn provide_extra_access(
+                    state: &mut Self::State,
+                    access: &mut #path::query::Access<#path::component::ComponentId>,
+                    available_access: &#path::query::Access<#path::component::ComponentId>,
+                ) {
+                    #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
+                }
+
+                /// SAFETY: we call `fetch` for each member that implements `Fetch`.
+                #[inline(always)]
+                unsafe fn fetch<'__w>(
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                    _entity: #path::entity::Entity,
+                    _table_row: #path::storage::TableRow,
+                ) -> Self::Item<'__w> {
+                    Self::Item {
+                        #(#field_idents: <#field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                    }
+                }
             }
 
             #read_only_data_impl

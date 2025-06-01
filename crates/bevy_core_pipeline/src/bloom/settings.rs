@@ -1,8 +1,12 @@
 use super::downsampling_pipeline::BloomUniforms;
-use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
+use bevy_ecs::{
+    prelude::Component,
+    query::{QueryItem, With},
+    reflect::ReflectComponent,
+};
 use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
+use bevy_render::{extract_component::ExtractComponent, prelude::Camera, view::Hdr};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -25,7 +29,8 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
+#[require(Hdr)]
 pub struct Bloom {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///
@@ -193,6 +198,7 @@ impl Default for Bloom {
 /// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
+#[reflect(Clone, Default)]
 pub struct BloomPrefilter {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///
@@ -209,6 +215,7 @@ pub struct BloomPrefilter {
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
+#[reflect(Clone, Hash, PartialEq)]
 pub enum BloomCompositeMode {
     EnergyConserving,
     Additive,
@@ -217,7 +224,7 @@ pub enum BloomCompositeMode {
 impl ExtractComponent for Bloom {
     type QueryData = (&'static Self, &'static Camera);
 
-    type QueryFilter = ();
+    type QueryFilter = With<Hdr>;
     type Out = (Self, BloomUniforms);
 
     fn extract_component((bloom, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
@@ -226,9 +233,8 @@ impl ExtractComponent for Bloom {
             camera.physical_viewport_size(),
             camera.physical_target_size(),
             camera.is_active,
-            camera.hdr,
         ) {
-            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true)
+            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true)
                 if size.x != 0 && size.y != 0 =>
             {
                 let threshold = bloom.prefilter.threshold;

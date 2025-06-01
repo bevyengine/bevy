@@ -3,7 +3,7 @@
 //! Currently, this consists only of chromatic aberration.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, weak_handle, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -11,7 +11,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -20,6 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    load_shader_library,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
@@ -36,7 +37,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::GpuImage,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::prelude::default;
 
@@ -46,18 +47,12 @@ use crate::{
     fullscreen_vertex_shader,
 };
 
-/// The handle to the built-in postprocessing shader `post_process.wgsl`.
-const POST_PROCESSING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(14675654334038973533);
-/// The handle to the chromatic aberration shader `chromatic_aberration.wgsl`.
-const CHROMATIC_ABERRATION_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(10969893303667163833);
-
 /// The handle to the default chromatic aberration lookup texture.
 ///
 /// This is just a 3x1 image consisting of one red pixel, one green pixel, and
 /// one blue pixel, in that order.
 const DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE: Handle<Image> =
-    Handle::weak_from_u128(2199972955136579180);
+    weak_handle!("dc3e3307-40a1-49bb-be6d-e0634e8836b2");
 
 /// The default chromatic aberration intensity amount, in a fraction of the
 /// window size.
@@ -97,7 +92,7 @@ pub struct PostProcessingPlugin;
 ///
 /// [Gjøl & Svendsen 2016]: https://github.com/playdeadgames/publications/blob/master/INSIDE/rendering_inside_gdc2016.pdf
 #[derive(Reflect, Component, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 pub struct ChromaticAberration {
     /// The lookup texture that determines the color gradient.
     ///
@@ -135,6 +130,8 @@ pub struct PostProcessingPipeline {
     source_sampler: Sampler,
     /// Specifies how to sample the chromatic aberration gradient.
     chromatic_aberration_lut_sampler: Sampler,
+    /// The shader asset handle.
+    shader: Handle<Shader>,
 }
 
 /// A key that uniquely identifies a built-in postprocessing pipeline.
@@ -187,18 +184,9 @@ pub struct PostProcessingNode;
 
 impl Plugin for PostProcessingPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            POST_PROCESSING_SHADER_HANDLE,
-            "post_process.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            CHROMATIC_ABERRATION_SHADER_HANDLE,
-            "chromatic_aberration.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "chromatic_aberration.wgsl");
+
+        embedded_asset!(app, "post_process.wgsl");
 
         // Load the default chromatic aberration LUT.
         let mut assets = app.world_mut().resource_mut::<Assets<_>>();
@@ -233,7 +221,7 @@ impl Plugin for PostProcessingPlugin {
                     prepare_post_processing_pipelines,
                     prepare_post_processing_uniforms,
                 )
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderSystems::Prepare),
             )
             .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
                 Core3d,
@@ -320,6 +308,7 @@ impl FromWorld for PostProcessingPipeline {
             bind_group_layout,
             source_sampler,
             chromatic_aberration_lut_sampler,
+            shader: load_embedded_asset!(world, "post_process.wgsl"),
         }
     }
 }
@@ -333,7 +322,7 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
             layout: vec![self.bind_group_layout.clone()],
             vertex: fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: POST_PROCESSING_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs: vec![],
                 entry_point: "fragment_main".into(),
                 targets: vec![Some(ColorTargetState {

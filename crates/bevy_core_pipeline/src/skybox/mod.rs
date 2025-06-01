@@ -1,14 +1,16 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryItem, With},
+    reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_math::{Mat4, Quat};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Exposure,
     extract_component::{
@@ -23,14 +25,12 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::Transform;
-use prepass::{SkyboxPrepassPipeline, SKYBOX_PREPASS_SHADER_HANDLE};
+use prepass::SkyboxPrepassPipeline;
 
 use crate::{core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms};
-
-const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
 
 pub mod prepass;
 
@@ -38,15 +38,10 @@ pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            SKYBOX_PREPASS_SHADER_HANDLE,
-            "skybox_prepass.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "skybox.wgsl");
+        embedded_asset!(app, "skybox_prepass.wgsl");
 
-        app.add_plugins((
+        app.register_type::<Skybox>().add_plugins((
             ExtractComponentPlugin::<Skybox>::default(),
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
@@ -61,11 +56,11 @@ impl Plugin for SkyboxPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_skybox_pipelines.in_set(RenderSet::Prepare),
-                    prepass::prepare_skybox_prepass_pipelines.in_set(RenderSet::Prepare),
-                    prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_skybox_pipelines.in_set(RenderSystems::Prepare),
+                    prepass::prepare_skybox_prepass_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_skybox_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepass::prepare_skybox_prepass_bind_groups
-                        .in_set(RenderSet::PrepareBindGroups),
+                        .in_set(RenderSystems::PrepareBindGroups),
                 ),
             );
     }
@@ -74,9 +69,10 @@ impl Plugin for SkyboxPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+        let shader = load_embedded_asset!(render_app.world(), "skybox.wgsl");
         let render_device = render_app.world().resource::<RenderDevice>().clone();
         render_app
-            .insert_resource(SkyboxPipeline::new(&render_device))
+            .insert_resource(SkyboxPipeline::new(&render_device, shader))
             .init_resource::<SkyboxPrepassPipeline>();
     }
 }
@@ -87,7 +83,8 @@ impl Plugin for SkyboxPlugin {
 /// To do so, use `EnvironmentMapLight` alongside this component.
 ///
 /// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Skybox {
     pub image: Handle<Image>,
     /// Scale factor applied to the skybox image.
@@ -155,10 +152,11 @@ pub struct SkyboxUniforms {
 #[derive(Resource)]
 struct SkyboxPipeline {
     bind_group_layout: BindGroupLayout,
+    shader: Handle<Shader>,
 }
 
 impl SkyboxPipeline {
-    fn new(render_device: &RenderDevice) -> Self {
+    fn new(render_device: &RenderDevice, shader: Handle<Shader>) -> Self {
         Self {
             bind_group_layout: render_device.create_bind_group_layout(
                 "skybox_bind_group_layout",
@@ -173,6 +171,7 @@ impl SkyboxPipeline {
                     ),
                 ),
             ),
+            shader,
         }
     }
 }
@@ -193,7 +192,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: Vec::new(),
             vertex: VertexState {
-                shader: SKYBOX_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs: Vec::new(),
                 entry_point: "skybox_vertex".into(),
                 buffers: Vec::new(),
@@ -221,7 +220,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: Some(FragmentState {
-                shader: SKYBOX_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {

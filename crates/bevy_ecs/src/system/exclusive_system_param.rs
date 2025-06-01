@@ -4,7 +4,7 @@ use crate::{
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_utils::synccell::SyncCell;
+use bevy_platform::cell::SyncCell;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -136,7 +136,6 @@ all_tuples!(
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{schedule::Schedule, system::Local, world::World};
     use alloc::vec::Vec;
     use bevy_ecs_macros::Resource;

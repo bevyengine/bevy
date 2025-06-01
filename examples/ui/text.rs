@@ -38,6 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             font_size: 67.0,
             ..default()
         },
+        TextShadow::default(),
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),
         // Set the style of the Node itself.

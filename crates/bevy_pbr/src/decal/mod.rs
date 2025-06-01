@@ -5,6 +5,7 @@
 
 // TODO: Once other decal types are added, write a paragraph comparing the different types in the module docs.
 
+pub mod clustered;
 mod forward;
 
 pub use forward::*;

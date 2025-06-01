@@ -1,27 +1,25 @@
-use bevy_asset::{Asset, Handle};
-use bevy_ecs::{
-    component::Component,
-    entity::{Entity, VisitEntities, VisitEntitiesMut},
-    prelude::ReflectComponent,
-    reflect::{ReflectMapEntities, ReflectVisitEntities, ReflectVisitEntitiesMut},
-};
+use bevy_asset::{AsAssetId, Asset, AssetId, Handle};
+use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent};
 use bevy_math::Mat4;
 use bevy_reflect::prelude::*;
 use core::ops::Deref;
 
-#[derive(Component, Debug, Default, Clone, Reflect, VisitEntities, VisitEntitiesMut)]
-#[reflect(
-    Component,
-    MapEntities,
-    VisitEntities,
-    VisitEntitiesMut,
-    Default,
-    Debug
-)]
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct SkinnedMesh {
-    #[visit_entities(ignore)]
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
+    #[entities]
     pub joints: Vec<Entity>,
+}
+
+impl AsAssetId for SkinnedMesh {
+    type Asset = SkinnedMeshInverseBindposes;
+
+    // We implement this so that `AssetChanged` will work to pick up any changes
+    // to `SkinnedMeshInverseBindposes`.
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.inverse_bindposes.id()
+    }
 }
 
 #[derive(Asset, TypePath, Debug)]

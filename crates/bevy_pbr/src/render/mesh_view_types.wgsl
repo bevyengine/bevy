@@ -13,8 +13,8 @@ struct ClusterableObject {
     spot_light_tan_angle: f32,
     soft_shadow_size: f32,
     shadow_map_near_z: f32,
-    pad_a: f32,
-    pad_b: f32,
+    texture_index: u32,
+    pad: f32,
 };
 
 const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u;
@@ -40,7 +40,6 @@ struct DirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
-    skip: u32,
 };
 
 const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u;
@@ -172,3 +171,15 @@ struct OrderIndependentTransparencySettings {
   layers_count: i32,
   alpha_threshold: f32,
 };
+
+struct ClusteredDecal {
+    local_from_world: mat4x4<f32>,
+    image_index: i32,
+    tag: u32,
+    pad_a: u32,
+    pad_b: u32,
+}
+
+struct ClusteredDecals {
+    decals: array<ClusteredDecal>,
+}
