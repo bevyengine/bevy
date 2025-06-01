@@ -6,7 +6,7 @@ use bevy_reflect::prelude::*;
 ///
 /// Note: Changing [`GlobalVolume`] does not affect already playing audio.
 #[derive(Resource, Debug, Default, Clone, Copy, Reflect)]
-#[reflect(Resource, Debug, Default)]
+#[reflect(Resource, Debug, Default, Clone)]
 pub struct GlobalVolume {
     /// The global volume of all audio.
     pub volume: Volume,
@@ -32,7 +32,7 @@ impl GlobalVolume {
 ///
 /// To create a new [`Volume`] from decibels, use [`Volume::Decibels`].
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Clone, Debug, PartialEq)]
 pub enum Volume {
     /// Create a new [`Volume`] from the given volume in linear scale.
     ///
@@ -144,7 +144,7 @@ impl Volume {
 
     /// Returns the volume in decibels as a float.
     ///
-    /// If the volume is silent / off / muted, i.e. it's underlying linear scale
+    /// If the volume is silent / off / muted, i.e. its underlying linear scale
     /// is `0.0`, this method returns negative infinity.
     pub fn to_decibels(&self) -> f32 {
         match self {

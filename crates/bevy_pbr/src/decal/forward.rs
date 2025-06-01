@@ -3,36 +3,32 @@ use crate::{
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
-use bevy_ecs::component::{require, Component};
+use bevy_asset::{weak_handle, Asset, Assets, Handle};
+use bevy_ecs::component::Component;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
+use bevy_render::load_shader_library;
+use bevy_render::render_asset::RenderAssets;
+use bevy_render::render_resource::{AsBindGroupShaderType, ShaderType};
+use bevy_render::texture::GpuImage;
 use bevy_render::{
     alpha::AlphaMode,
     mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable},
     render_resource::{
-        AsBindGroup, CompareFunction, RenderPipelineDescriptor, Shader,
-        SpecializedMeshPipelineError,
+        AsBindGroup, CompareFunction, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
     RenderDebugFlags,
 };
 
 const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> =
     weak_handle!("afa817f9-1869-4e0c-ac0d-d8cd1552d38a");
-const FORWARD_DECAL_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("f8dfbef4-d88b-42ae-9af4-d9661e9f1648");
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
 
 impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            FORWARD_DECAL_SHADER_HANDLE,
-            "forward_decal.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "forward_decal.wgsl");
 
         app.register_type::<ForwardDecal>();
 
@@ -63,11 +59,11 @@ impl Plugin for ForwardDecalPlugin {
 /// # Usage Notes
 ///
 /// * Spawn this component on an entity with a [`crate::MeshMaterial3d`] component holding a [`ForwardDecalMaterial`].
-/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::DepthPrepass`] component.
+/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::prepass::DepthPrepass`] component.
 /// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
 ///   texture with extra transparent pixels on the edges.
 #[derive(Component, Reflect)]
-#[require(Mesh3d(|| Mesh3d(FORWARD_DECAL_MESH_HANDLE)))]
+#[require(Mesh3d(FORWARD_DECAL_MESH_HANDLE))]
 pub struct ForwardDecal;
 
 /// Type alias for an extended material with a [`ForwardDecalMaterialExt`] extension.
@@ -86,14 +82,34 @@ pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMat
 /// The `FORWARD_DECAL` shader define will be made available to your shader so that you can gate
 /// the forward decal code behind an ifdef.
 #[derive(Asset, AsBindGroup, TypePath, Clone, Debug)]
+#[uniform(200, ForwardDecalMaterialExtUniform)]
 pub struct ForwardDecalMaterialExt {
-    /// Controls how far away a surface must be before the decal will stop blending with it, and instead render as opaque.
+    /// Controls the distance threshold for decal blending with surfaces.
     ///
-    /// Decreasing this value will cause the decal to blend only to surfaces closer to it.
+    /// This parameter determines how far away a surface can be before the decal no longer blends
+    /// with it and instead renders with full opacity.
+    ///
+    /// Lower values cause the decal to only blend with close surfaces, while higher values allow
+    /// blending with more distant surfaces.
     ///
     /// Units are in meters.
-    #[uniform(200)]
     pub depth_fade_factor: f32,
+}
+
+#[derive(Clone, Default, ShaderType)]
+pub struct ForwardDecalMaterialExtUniform {
+    pub inv_depth_fade_factor: f32,
+}
+
+impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMaterialExt {
+    fn as_bind_group_shader_type(
+        &self,
+        _images: &RenderAssets<GpuImage>,
+    ) -> ForwardDecalMaterialExtUniform {
+        ForwardDecalMaterialExtUniform {
+            inv_depth_fade_factor: 1.0 / self.depth_fade_factor.max(0.001),
+        }
+    }
 }
 
 impl MaterialExtension for ForwardDecalMaterialExt {

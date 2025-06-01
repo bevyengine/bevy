@@ -3,6 +3,7 @@
 use argh::FromArgs;
 use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass},
+    gltf::GltfMeshName,
     pbr::{DefaultOpaqueRendererMethod, Lightmap},
     prelude::*,
 };
@@ -63,7 +64,7 @@ fn add_lightmaps_to_meshes(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     meshes: Query<
-        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (Entity, &GltfMeshName, &MeshMaterial3d<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
     >,
     args: Res<Args>,

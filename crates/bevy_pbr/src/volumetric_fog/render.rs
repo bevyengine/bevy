@@ -2,7 +2,7 @@
 
 use core::array;
 
-use bevy_asset::{weak_handle, AssetId, Handle};
+use bevy_asset::{load_embedded_asset, weak_handle, AssetId, Handle};
 use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -77,10 +77,6 @@ bitflags! {
     }
 }
 
-/// The volumetric fog shader.
-pub const VOLUMETRIC_FOG_HANDLE: Handle<Shader> =
-    weak_handle!("481f474c-2024-44bb-8f79-f7c05ced95ea");
-
 /// The plane mesh, which is used to render a fog volume that the camera is
 /// inside.
 ///
@@ -121,6 +117,9 @@ pub struct VolumetricFogPipeline {
     ///
     /// Since there aren't too many of these, we precompile them all.
     volumetric_view_bind_group_layouts: [BindGroupLayout; VOLUMETRIC_FOG_BIND_GROUP_LAYOUT_COUNT],
+
+    // The shader asset handle.
+    shader: Handle<Shader>,
 }
 
 /// The two render pipelines that we use for fog volumes: one for when a 3D
@@ -266,6 +265,7 @@ impl FromWorld for VolumetricFogPipeline {
         VolumetricFogPipeline {
             mesh_view_layouts: mesh_view_layouts.clone(),
             volumetric_view_bind_group_layouts: bind_group_layouts,
+            shader: load_embedded_asset!(world, "volumetric_fog.wgsl"),
         }
     }
 }
@@ -564,7 +564,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             layout: vec![mesh_view_layout.clone(), volumetric_view_bind_group_layout],
             push_constant_ranges: vec![],
             vertex: VertexState {
-                shader: VOLUMETRIC_FOG_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs: shader_defs.clone(),
                 entry_point: "vertex".into(),
                 buffers: vec![vertex_format],
@@ -576,7 +576,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             fragment: Some(FragmentState {
-                shader: VOLUMETRIC_FOG_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -628,7 +628,10 @@ pub fn prepare_volumetric_fog_pipelines(
     >,
     meshes: Res<RenderAssets<RenderMesh>>,
 ) {
-    let plane_mesh = meshes.get(&PLANE_MESH).expect("Plane mesh not found!");
+    let Some(plane_mesh) = meshes.get(&PLANE_MESH) else {
+        // There's an off chance that the mesh won't be prepared yet if `RenderAssetBytesPerFrame` limiting is in use.
+        return;
+    };
 
     for (
         entity,

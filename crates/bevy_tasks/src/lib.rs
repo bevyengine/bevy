@@ -11,22 +11,20 @@ extern crate std;
 
 extern crate alloc;
 
-#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
-compile_error!("Either of the `async_executor` or the `edge_executor` features must be enabled.");
-
-#[cfg(not(target_arch = "wasm32"))]
 mod conditional_send {
-    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
-    /// futures aren't Send.
-    pub trait ConditionalSend: Send {}
-    impl<T: Send> ConditionalSend for T {}
-}
-
-#[cfg(target_arch = "wasm32")]
-#[expect(missing_docs, reason = "Not all docs are written yet (#3492).")]
-mod conditional_send {
-    pub trait ConditionalSend {}
-    impl<T> ConditionalSend for T {}
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
+            /// futures aren't Send.
+            pub trait ConditionalSend {}
+            impl<T> ConditionalSend for T {}
+        } else {
+            /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
+            /// futures aren't Send.
+            pub trait ConditionalSend: Send {}
+            impl<T: Send> ConditionalSend for T {}
+        }
+    }
 }
 
 pub use conditional_send::*;
@@ -43,44 +41,48 @@ pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Outpu
 
 pub mod futures;
 
-#[cfg(any(feature = "async_executor", feature = "edge_executor"))]
+#[cfg(not(feature = "async_executor"))]
+mod edge_executor;
+
 mod executor;
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
-#[cfg_attr(target_arch = "wasm32", path = "wasm_task.rs")]
+#[cfg_attr(all(target_arch = "wasm32", feature = "web"), path = "wasm_task.rs")]
 mod task;
 
 pub use task::Task;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-mod task_pool;
+cfg_if::cfg_if! {
+    if #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))] {
+        mod task_pool;
+        mod thread_executor;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
+        pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
+        pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
+    } else if #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))] {
+        mod single_threaded_task_pool;
 
-#[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-mod single_threaded_task_pool;
-
-#[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
+        pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
+    }
+}
 
 mod usages;
-#[cfg(not(target_arch = "wasm32"))]
-pub use usages::tick_global_task_pools_on_main_thread;
+pub use futures_lite::future::poll_once;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-mod thread_executor;
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+pub use usages::tick_global_task_pools_on_main_thread;
 
-#[cfg(all(feature = "async-io", feature = "std"))]
-pub use async_io::block_on;
-#[cfg(all(not(feature = "async-io"), feature = "std"))]
-pub use futures_lite::future::block_on;
-pub use futures_lite::future::poll_once;
+#[cfg(feature = "std")]
+cfg_if::cfg_if! {
+    if #[cfg(feature = "async-io")] {
+        pub use async_io::block_on;
+    } else {
+        pub use futures_lite::future::block_on;
+    }
+}
 
 mod iter;
 pub use iter::ParallelIterator;
@@ -103,27 +105,28 @@ pub mod prelude {
     pub use crate::block_on;
 }
 
-#[cfg(feature = "std")]
-use core::num::NonZero;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "std")] {
+        use core::num::NonZero;
 
-/// Gets the logical CPU core count available to the current process.
-///
-/// This is identical to [`std::thread::available_parallelism`], except
-/// it will return a default value of 1 if it internally errors out.
-///
-/// This will always return at least 1.
-#[cfg(feature = "std")]
-pub fn available_parallelism() -> usize {
-    std::thread::available_parallelism()
-        .map(NonZero::<usize>::get)
-        .unwrap_or(1)
-}
-
-/// Gets the logical CPU core count available to the current process.
-///
-/// This will always return at least 1.
-#[cfg(not(feature = "std"))]
-pub fn available_parallelism() -> usize {
-    // Without access to std, assume a single thread is available
-    1
+        /// Gets the logical CPU core count available to the current process.
+        ///
+        /// This is identical to [`std::thread::available_parallelism`], except
+        /// it will return a default value of 1 if it internally errors out.
+        ///
+        /// This will always return at least 1.
+        pub fn available_parallelism() -> usize {
+            std::thread::available_parallelism()
+                .map(NonZero::<usize>::get)
+                .unwrap_or(1)
+        }
+    } else {
+        /// Gets the logical CPU core count available to the current process.
+        ///
+        /// This will always return at least 1.
+        pub fn available_parallelism() -> usize {
+            // Without access to std, assume a single thread is available
+            1
+        }
+    }
 }

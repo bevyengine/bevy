@@ -1,6 +1,6 @@
 use core::borrow::Borrow;
 
-use bevy_ecs::{component::Component, entity::hash_map::EntityHashMap, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 
@@ -29,7 +29,7 @@ use bevy_reflect::prelude::*;
 /// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
 /// [`Mesh3d`]: crate::mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Aabb {
     pub center: Vec3A,
     pub half_extents: Vec3A,
@@ -224,9 +224,9 @@ impl HalfSpace {
 /// [`CameraProjection`]: crate::camera::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct Frustum {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub half_spaces: [HalfSpace; 6],
 }
 
@@ -327,9 +327,9 @@ impl Frustum {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct CubemapFrusta {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub frusta: [Frustum; 6],
 }
 
@@ -343,9 +343,9 @@ impl CubemapFrusta {
 }
 
 #[derive(Component, Debug, Default, Reflect, Clone)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct CascadesFrusta {
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub frusta: EntityHashMap<Vec<Frustum>>,
 }
 

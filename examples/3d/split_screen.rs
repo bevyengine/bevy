@@ -137,7 +137,7 @@ fn setup(
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                BorderColor(Color::WHITE),
+                BorderColor::all(Color::WHITE),
                 BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
             ))
             .with_children(|parent| {

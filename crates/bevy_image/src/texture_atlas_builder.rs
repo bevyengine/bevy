@@ -1,6 +1,6 @@
 use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_math::{URect, UVec2};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
@@ -173,12 +173,11 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// # Usage
     ///
     /// ```rust
-    /// # use bevy_sprite::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::*;
     /// # use bevy_image::prelude::*;
     ///
-    /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
+    /// fn my_system(mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
     ///     // Declare your builder
     ///     let mut builder = TextureAtlasBuilder::default();
     ///     // Customize it
@@ -187,8 +186,6 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     let (atlas_layout, atlas_sources, texture) = builder.build().unwrap();
     ///     let texture = textures.add(texture);
     ///     let layout = layouts.add(atlas_layout);
-    ///     // Spawn your sprite
-    ///     commands.spawn(Sprite::from_atlas_image(texture, TextureAtlas::from(layout)));
     /// }
     /// ```
     ///

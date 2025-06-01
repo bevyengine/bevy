@@ -155,6 +155,42 @@ impl Shader {
         }
     }
 
+    #[cfg(feature = "shader_format_wesl")]
+    pub fn from_wesl(source: impl Into<Cow<'static, str>>, path: impl Into<String>) -> Shader {
+        let source = source.into();
+        let path = path.into();
+        let (import_path, imports) = Shader::preprocess(&source, &path);
+
+        match import_path {
+            ShaderImport::AssetPath(asset_path) => {
+                // Create the shader import path - always starting with "/"
+                let shader_path = std::path::Path::new("/").join(&asset_path);
+
+                // Convert to a string with forward slashes and without extension
+                let import_path_str = shader_path
+                    .with_extension("")
+                    .to_string_lossy()
+                    .replace('\\', "/");
+
+                let import_path = ShaderImport::AssetPath(import_path_str.to_string());
+
+                Shader {
+                    path,
+                    imports,
+                    import_path,
+                    source: Source::Wesl(source),
+                    additional_imports: Default::default(),
+                    shader_defs: Default::default(),
+                    file_dependencies: Default::default(),
+                    validate_shader: ValidateShader::Disabled,
+                }
+            }
+            ShaderImport::Custom(_) => {
+                panic!("Wesl shaders must be imported from an asset path");
+            }
+        }
+    }
+
     pub fn set_import_path<P: Into<String>>(&mut self, import_path: P) {
         self.import_path = ShaderImport::Custom(import_path.into());
     }
@@ -223,6 +259,7 @@ impl<'a> From<&'a Shader> for naga_oil::compose::NagaModuleDescriptor<'a> {
 #[derive(Debug, Clone)]
 pub enum Source {
     Wgsl(Cow<'static, str>),
+    Wesl(Cow<'static, str>),
     Glsl(Cow<'static, str>, naga::ShaderStage),
     SpirV(Cow<'static, [u8]>),
     // TODO: consider the following
@@ -233,7 +270,7 @@ pub enum Source {
 impl Source {
     pub fn as_str(&self) -> &str {
         match self {
-            Source::Wgsl(s) | Source::Glsl(s, _) => s,
+            Source::Wgsl(s) | Source::Wesl(s) | Source::Glsl(s, _) => s,
             Source::SpirV(_) => panic!("spirv not yet implemented"),
         }
     }
@@ -250,6 +287,7 @@ impl From<&Source> for naga_oil::compose::ShaderLanguage {
                 "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
             ),
             Source::SpirV(_) => panic!("spirv not yet implemented"),
+            Source::Wesl(_) => panic!("wesl not yet implemented"),
         }
     }
 }
@@ -269,6 +307,7 @@ impl From<&Source> for naga_oil::compose::ShaderType {
                 "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
             ),
             Source::SpirV(_) => panic!("spirv not yet implemented"),
+            Source::Wesl(_) => panic!("wesl not yet implemented"),
         }
     }
 }
@@ -285,14 +324,21 @@ pub enum ShaderLoaderError {
     Parse(#[from] alloc::string::FromUtf8Error),
 }
 
+/// Settings for loading shaders.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Default)]
+pub struct ShaderSettings {
+    /// The `#define` specified for this shader.
+    pub shader_defs: Vec<ShaderDefVal>,
+}
+
 impl AssetLoader for ShaderLoader {
     type Asset = Shader;
-    type Settings = ();
+    type Settings = ShaderSettings;
     type Error = ShaderLoaderError;
     async fn load(
         &self,
         reader: &mut dyn Reader,
-        _settings: &Self::Settings,
+        settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
         let ext = load_context.path().extension().unwrap().to_str().unwrap();
@@ -302,9 +348,19 @@ impl AssetLoader for ShaderLoader {
         let path = path.replace(std::path::MAIN_SEPARATOR, "/");
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
+        if ext != "wgsl" && !settings.shader_defs.is_empty() {
+            tracing::warn!(
+                "Tried to load a non-wgsl shader with shader defs, this isn't supported: \
+                    The shader defs will be ignored."
+            );
+        }
         let mut shader = match ext {
             "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
-            "wgsl" => Shader::from_wgsl(String::from_utf8(bytes)?, path),
+            "wgsl" => Shader::from_wgsl_with_defs(
+                String::from_utf8(bytes)?,
+                path,
+                settings.shader_defs.clone(),
+            ),
             "vert" => Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Vertex, path),
             "frag" => {
                 Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Fragment, path)
@@ -312,6 +368,8 @@ impl AssetLoader for ShaderLoader {
             "comp" => {
                 Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Compute, path)
             }
+            #[cfg(feature = "shader_format_wesl")]
+            "wesl" => Shader::from_wesl(String::from_utf8(bytes)?, path),
             _ => panic!("unhandled extension: {ext}"),
         };
 
@@ -325,7 +383,7 @@ impl AssetLoader for ShaderLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["spv", "wgsl", "vert", "frag", "comp"]
+        &["spv", "wgsl", "vert", "frag", "comp", "wesl"]
     }
 }
 

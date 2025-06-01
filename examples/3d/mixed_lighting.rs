@@ -1,6 +1,7 @@
 //! Demonstrates how to combine baked and dynamic lighting.
 
 use bevy::{
+    gltf::GltfMeshName,
     pbr::Lightmap,
     picking::{backend::HitData, pointer::PointerInteraction},
     prelude::*,
@@ -221,7 +222,7 @@ fn update_lightmaps(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    meshes: Query<(Entity, &Name, &MeshMaterial3d<StandardMaterial>), With<Mesh3d>>,
+    meshes: Query<(Entity, &GltfMeshName, &MeshMaterial3d<StandardMaterial>), With<Mesh3d>>,
     mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
     app_status: Res<AppStatus>,
 ) {
@@ -432,7 +433,7 @@ fn reset_sphere_position(
 fn move_sphere(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     pointers: Query<&PointerInteraction>,
-    mut meshes: Query<(&Name, &ChildOf), With<Mesh3d>>,
+    mut meshes: Query<(&GltfMeshName, &ChildOf), With<Mesh3d>>,
     mut transforms: Query<&mut Transform>,
     app_status: Res<AppStatus>,
 ) {
@@ -460,7 +461,7 @@ fn move_sphere(
     };
 
     // Grab its transform.
-    let Ok(mut transform) = transforms.get_mut(child_of.parent) else {
+    let Ok(mut transform) = transforms.get_mut(child_of.parent()) else {
         return;
     };
 

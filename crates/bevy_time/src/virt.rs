@@ -70,7 +70,7 @@ use crate::{real::Real, time::Time};
 /// also dictate how big of an FPS drop you can accept without losing time and
 /// falling behind real time.
 #[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub struct Virtual {
     max_delta: Duration,
     paused: bool,

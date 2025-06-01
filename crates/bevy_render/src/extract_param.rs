@@ -2,7 +2,10 @@ use crate::MainWorld;
 use bevy_ecs::{
     component::Tick,
     prelude::*,
-    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
+    system::{
+        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemParamValidationError,
+        SystemState,
+    },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use core::ops::{Deref, DerefMut};
@@ -78,22 +81,23 @@ where
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
+        state: &mut Self::State,
+        _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to world data registered in `init_state`.
         let result = unsafe { world.get_resource_by_id(state.main_world_state) };
         let Some(main_world) = result else {
-            system_meta.try_warn_param::<&World>();
-            return false;
+            return Err(SystemParamValidationError::invalid::<Self>(
+                "`MainWorld` resource does not exist",
+            ));
         };
         // SAFETY: Type is guaranteed by `SystemState`.
         let main_world: &World = unsafe { main_world.deref() };
         // SAFETY: We provide the main world on which this system state was initialized on.
         unsafe {
             SystemState::<P>::validate_param(
-                &state.state,
+                &mut state.state,
                 main_world.as_unsafe_world_cell_readonly(),
             )
         }

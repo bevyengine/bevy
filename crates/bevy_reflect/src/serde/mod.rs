@@ -164,7 +164,7 @@ mod tests {
         let mut registry = TypeRegistry::default();
         registry.register::<TestStruct>();
 
-        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.clone_dynamic();
+        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.to_dynamic_struct();
 
         let serializer = ReflectSerializer::new(&value, &registry);
 
@@ -175,7 +175,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
         let reflect_deserializer = ReflectDeserializer::new(&registry);
 
-        let expected = value.clone_value();
+        let expected = value.to_dynamic();
         let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert!(expected
@@ -190,7 +190,7 @@ mod tests {
         use crate::serde::{ReflectSerializeWithRegistry, SerializeWithRegistry};
         use crate::{ReflectFromReflect, TypePath};
         use alloc::{format, string::String, vec, vec::Vec};
-        use bevy_platform_support::sync::Arc;
+        use bevy_platform::sync::Arc;
         use bevy_reflect_derive::reflect_trait;
         use core::any::TypeId;
         use core::fmt::{Debug, Formatter};
@@ -400,7 +400,7 @@ mod tests {
             };
 
             // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
-            assert_eq!(format!("{:?}", expected), format!("{:?}", output));
+            assert_eq!(format!("{expected:?}"), format!("{output:?}",));
 
             let unexpected = Level {
                 name: String::from("Level 1"),
@@ -414,7 +414,7 @@ mod tests {
             };
 
             // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
-            assert_ne!(format!("{:?}", unexpected), format!("{:?}", output));
+            assert_ne!(format!("{unexpected:?}"), format!("{output:?}"));
         }
 
         #[test]

@@ -1,5 +1,4 @@
 use crate::{
-    archetype::ArchetypeComponentId,
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
     storage::{blob_vec::BlobVec, SparseSet},
@@ -25,7 +24,6 @@ pub struct ResourceData<const SEND: bool> {
         expect(dead_code, reason = "currently only used with the std feature")
     )]
     type_name: String,
-    id: ArchetypeComponentId,
     #[cfg(feature = "std")]
     origin_thread_id: Option<ThreadId>,
     changed_by: MaybeLocation<UnsafeCell<&'static Location<'static>>>,
@@ -67,6 +65,13 @@ impl<const SEND: bool> ResourceData<SEND> {
     #[inline]
     fn validate_access(&self) {
         if SEND {
+            #[cfg_attr(
+                not(feature = "std"),
+                expect(
+                    clippy::needless_return,
+                    reason = "needless until no_std is addressed (see below)",
+                )
+            )]
             return;
         }
 
@@ -84,18 +89,13 @@ impl<const SEND: bool> ResourceData<SEND> {
         // TODO: Handle no_std non-send.
         // Currently, no_std is single-threaded only, so this is safe to ignore.
         // To support no_std multithreading, an alternative will be required.
+        // Remove the #[expect] attribute above when this is addressed.
     }
 
     /// Returns true if the resource is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
         !self.data.is_empty()
-    }
-
-    /// Gets the [`ArchetypeComponentId`] for the resource.
-    #[inline]
-    pub fn id(&self) -> ArchetypeComponentId {
-        self.id
     }
 
     /// Returns a reference to the resource, if it exists.
@@ -363,7 +363,6 @@ impl<const SEND: bool> Resources<SEND> {
         &mut self,
         component_id: ComponentId,
         components: &Components,
-        f: impl FnOnce() -> ArchetypeComponentId,
     ) -> &mut ResourceData<SEND> {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
@@ -387,7 +386,6 @@ impl<const SEND: bool> Resources<SEND> {
                 added_ticks: UnsafeCell::new(Tick::new(0)),
                 changed_ticks: UnsafeCell::new(Tick::new(0)),
                 type_name: String::from(component_info.name()),
-                id: f(),
                 #[cfg(feature = "std")]
                 origin_thread_id: None,
                 changed_by: MaybeLocation::caller().map(UnsafeCell::new),

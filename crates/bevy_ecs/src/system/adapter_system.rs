@@ -1,6 +1,6 @@
 use alloc::{borrow::Cow, vec::Vec};
 
-use super::{IntoSystem, ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, System, SystemParamValidationError};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -131,11 +131,10 @@ where
         self.system.component_access()
     }
 
-    #[inline]
-    fn archetype_component_access(
+    fn component_access_set(
         &self,
-    ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
-        self.system.archetype_component_access()
+    ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
+        self.system.component_access_set()
     }
 
     fn is_send(&self) -> bool {
@@ -163,12 +162,6 @@ where
     }
 
     #[inline]
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut crate::prelude::World) -> Self::Out {
-        self.func
-            .adapt(input, |input| self.system.run(input, world))
-    }
-
-    #[inline]
     fn apply_deferred(&mut self, world: &mut crate::prelude::World) {
         self.system.apply_deferred(world);
     }
@@ -179,18 +172,16 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.system.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {
         self.system.initialize(world);
-    }
-
-    #[inline]
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: crate::component::Tick) {

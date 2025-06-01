@@ -11,11 +11,14 @@ use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
     resource::Resource,
-    system::{Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam},
+    system::{
+        Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
+        SystemParamValidationError,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -131,7 +134,7 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 ///            .add_systems(EndOfMyContext, end_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
 ///            .add_systems(
 ///                Last,
-///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(UpdateGizmoMeshes),
+///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(GizmoMeshSystems),
 ///            );
 ///     }
 /// }
@@ -202,29 +205,20 @@ where
         }
     }
 
-    unsafe fn new_archetype(
-        state: &mut Self::State,
-        archetype: &bevy_ecs::archetype::Archetype,
-        system_meta: &mut SystemMeta,
-    ) {
-        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-        unsafe {
-            GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta);
-        };
-    }
-
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
-    ) -> bool {
+    ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
+        unsafe {
+            GizmosState::<Config, Clear>::validate_param(&mut state.state, system_meta, world)
+        }
     }
 
     #[inline]
@@ -274,6 +268,7 @@ where
 
 /// Buffer for gizmo vertex data.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default)]
 pub struct GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -284,7 +279,7 @@ where
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
-    #[reflect(ignore)]
+    #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }
 

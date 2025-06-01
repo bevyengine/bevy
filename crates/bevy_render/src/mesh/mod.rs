@@ -15,7 +15,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetEvents, AssetId, RenderAssetUsages};
+use bevy_asset::{AssetApp, AssetEventSystems, AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -75,7 +75,7 @@ impl Plugin for MeshPlugin {
                 PostUpdate,
                 mark_3d_meshes_as_changed_if_their_assets_changed
                     .ambiguous_with(VisibilitySystems::CalculateBounds)
-                    .before(AssetEvents),
+                    .before(AssetEventSystems),
             );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

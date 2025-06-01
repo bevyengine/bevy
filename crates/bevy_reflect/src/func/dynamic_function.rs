@@ -11,7 +11,7 @@ use crate::{
     ReflectRef, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, boxed::Box};
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
 
@@ -358,7 +358,7 @@ impl Function for DynamicFunction<'static> {
         self.call(args)
     }
 
-    fn clone_dynamic(&self) -> DynamicFunction<'static> {
+    fn to_dynamic_function(&self) -> DynamicFunction<'static> {
         self.clone()
     }
 }
@@ -395,7 +395,7 @@ impl PartialReflect for DynamicFunction<'static> {
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         match value.reflect_ref() {
             ReflectRef::Function(func) => {
-                *self = func.clone_dynamic();
+                *self = func.to_dynamic_function();
                 Ok(())
             }
             _ => Err(ApplyError::MismatchedTypes {
@@ -419,10 +419,6 @@ impl PartialReflect for DynamicFunction<'static> {
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Function(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone())
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -484,7 +480,7 @@ mod tests {
     use crate::func::{FunctionError, IntoReturn, SignatureInfo};
     use crate::Type;
     use alloc::{format, string::String, vec, vec::Vec};
-    use bevy_platform_support::collections::HashSet;
+    use bevy_platform::collections::HashSet;
     use core::ops::Add;
 
     #[test]
@@ -554,7 +550,7 @@ mod tests {
     fn should_clone_dynamic_function() {
         let hello = String::from("Hello");
 
-        let greet = |name: &String| -> String { format!("{}, {}!", hello, name) };
+        let greet = |name: &String| -> String { format!("{hello}, {name}!") };
 
         let greet = greet.into_function().with_name("greet");
         let clone = greet.clone();
@@ -562,14 +558,14 @@ mod tests {
         assert_eq!(greet.name().unwrap(), "greet");
         assert_eq!(clone.name().unwrap(), "greet");
 
-        let clone_value = clone
+        let cloned_value = clone
             .call(ArgList::default().with_ref(&String::from("world")))
             .unwrap()
             .unwrap_owned()
             .try_take::<String>()
             .unwrap();
 
-        assert_eq!(clone_value, "Hello, world!");
+        assert_eq!(cloned_value, "Hello, world!");
     }
 
     #[test]
@@ -775,18 +771,18 @@ mod tests {
     #[test]
     fn should_debug_dynamic_function() {
         fn greet(name: &String) -> String {
-            format!("Hello, {}!", name)
+            format!("Hello, {name}!")
         }
 
         let function = greet.into_function();
-        let debug = format!("{:?}", function);
+        let debug = format!("{function:?}");
         assert_eq!(debug, "DynamicFunction(fn bevy_reflect::func::dynamic_function::tests::should_debug_dynamic_function::greet(_: &alloc::string::String) -> alloc::string::String)");
     }
 
     #[test]
     fn should_debug_anonymous_dynamic_function() {
         let function = (|a: i32, b: i32| a + b).into_function();
-        let debug = format!("{:?}", function);
+        let debug = format!("{function:?}");
         assert_eq!(debug, "DynamicFunction(fn _(_: i32, _: i32) -> i32)");
     }
 
@@ -796,11 +792,11 @@ mod tests {
             a + b
         }
 
-        let func = add::<i32>
+        let function = add::<i32>
             .into_function()
             .with_overload(add::<f32>)
             .with_name("add");
-        let debug = format!("{:?}", func);
+        let debug = format!("{function:?}");
         assert_eq!(
             debug,
             "DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})"

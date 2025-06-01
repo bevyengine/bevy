@@ -6,7 +6,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut, SystemChangeTick},
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{FromReflect, Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
@@ -496,16 +496,22 @@ impl<A: Asset> Assets<A> {
     /// Removes the [`Asset`] with the given `id`.
     pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
         match self.duplicate_handles.get_mut(&id) {
-            None | Some(0) => {}
+            None => {}
+            Some(0) => {
+                self.duplicate_handles.remove(&id);
+            }
             Some(value) => {
                 *value -= 1;
                 return;
             }
         }
+
         let existed = match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index).is_some(),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).is_some(),
         };
+
+        self.queued_events.push(AssetEvent::Unused { id });
         if existed {
             self.queued_events.push(AssetEvent::Removed { id });
         }
@@ -587,7 +593,6 @@ impl<A: Asset> Assets<A> {
                 }
             }
 
-            assets.queued_events.push(AssetEvent::Unused { id });
             assets.remove_dropped(id);
         }
     }
@@ -683,7 +688,7 @@ impl<A: Asset + FromReflect> Assets<A> {
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
     dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
-    hash_map: bevy_platform_support::collections::hash_map::IterMut<'a, Uuid, Arc<A>>,
+    hash_map: bevy_platform::collections::hash_map::IterMut<'a, Uuid, Arc<A>>,
 }
 
 impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {

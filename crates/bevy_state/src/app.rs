@@ -1,14 +1,14 @@
 use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
-use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
+use bevy_ecs::{event::Events, schedule::IntoScheduleConfigs, world::FromWorld};
 use bevy_utils::once;
 use log::warn;
 
 use crate::{
     state::{
         setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+        StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
     },
-    state_scoped::clear_state_scoped_entities,
+    state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -25,7 +25,7 @@ pub trait AppExtStates {
     /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).
+    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`SystemCondition`](bevy_ecs::prelude::SystemCondition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
@@ -41,7 +41,7 @@ pub trait AppExtStates {
     /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).
+    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`SystemCondition`](bevy_ecs::prelude::SystemCondition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
@@ -59,10 +59,11 @@ pub trait AppExtStates {
 
     /// Enable state-scoped entity clearing for state `S`.
     ///
-    /// If the [`States`] trait was derived with the `#[states(scoped_entities)]` attribute, it
-    /// will be called automatically.
+    /// This is enabled by default. If you don't want this behavior, add the `#[states(scoped_entities = false)]`
+    /// attribute when deriving the [`States`] trait.
     ///
-    /// For more information refer to [`StateScoped`](crate::state_scoped::StateScoped).
+    /// For more information refer to [`crate::state_scoped`].
+    #[doc(hidden)]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_reflect")]
@@ -214,6 +215,7 @@ impl AppExtStates for SubApp {
         self
     }
 
+    #[doc(hidden)]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
         if !self
             .world()
@@ -222,11 +224,20 @@ impl AppExtStates for SubApp {
             let name = core::any::type_name::<S>();
             warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
         }
-        // We work with [`StateTransition`] in set [`StateTransitionSteps::ExitSchedules`] as opposed to [`OnExit`],
-        // because [`OnExit`] only runs for one specific variant of the state.
+
+        // Note: We work with `StateTransition` in set
+        // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
+        // `OnExit` only runs for one specific variant of the state.
         self.add_systems(
             StateTransition,
-            clear_state_scoped_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
+            despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
+        )
+        // Note: We work with `StateTransition` in set
+        // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
+        // `OnEnter` only runs for one specific variant of the state.
+        .add_systems(
+            StateTransition,
+            despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
         )
     }
 
@@ -276,6 +287,7 @@ impl AppExtStates for App {
         self
     }
 
+    #[doc(hidden)]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
         self.main_mut().enable_state_scoped_entities::<S>();
         self

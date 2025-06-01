@@ -1,5 +1,6 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, Handle};
+use bevy_render::load_shader_library;
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
 use bevy_core_pipeline::tonemapping::DebandDither;
@@ -21,7 +22,7 @@ use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
 use bevy_render::mesh::MeshTag;
 use bevy_render::prelude::Msaa;
-use bevy_render::RenderSet::PrepareAssets;
+use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParametersCpuMetadata,
@@ -48,7 +49,7 @@ use bevy_render::{
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::GlobalTransform;
 use nonmax::NonMaxU32;
@@ -57,54 +58,15 @@ use tracing::error;
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 
-pub const MESH2D_VERTEX_OUTPUT: Handle<Shader> =
-    weak_handle!("71e279c7-85a0-46ac-9a76-1586cbf506d0");
-pub const MESH2D_VIEW_TYPES_HANDLE: Handle<Shader> =
-    weak_handle!("01087b0d-91e9-46ac-8628-dfe19a7d4b83");
-pub const MESH2D_VIEW_BINDINGS_HANDLE: Handle<Shader> =
-    weak_handle!("fbdd8b80-503d-4688-bcec-db29ab4620b2");
-pub const MESH2D_TYPES_HANDLE: Handle<Shader> =
-    weak_handle!("199f2089-6e99-4348-9bb1-d82816640a7f");
-pub const MESH2D_BINDINGS_HANDLE: Handle<Shader> =
-    weak_handle!("a7bd44cc-0580-4427-9a00-721cf386b6e4");
-pub const MESH2D_FUNCTIONS_HANDLE: Handle<Shader> =
-    weak_handle!("0d08ff71-68c1-4017-83e2-bfc34d285c51");
-pub const MESH2D_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("91a7602b-df95-4ea3-9d97-076abcb69d91");
-
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(
-            app,
-            MESH2D_VERTEX_OUTPUT,
-            "mesh2d_vertex_output.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_VIEW_TYPES_HANDLE,
-            "mesh2d_view_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_VIEW_BINDINGS_HANDLE,
-            "mesh2d_view_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_TYPES_HANDLE,
-            "mesh2d_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_FUNCTIONS_HANDLE,
-            "mesh2d_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
+        load_shader_library!(app, "mesh2d_vertex_output.wgsl");
+        load_shader_library!(app, "mesh2d_view_types.wgsl");
+        load_shader_library!(app, "mesh2d_view_bindings.wgsl");
+        load_shader_library!(app, "mesh2d_types.wgsl");
+        load_shader_library!(app, "mesh2d_functions.wgsl");
+
+        embedded_asset!(app, "mesh2d.wgsl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -119,20 +81,20 @@ impl Plugin for Mesh2dRenderPlugin {
                             sweep_old_entities::<Opaque2d>,
                             sweep_old_entities::<AlphaMask2d>,
                         )
-                            .in_set(RenderSet::QueueSweep),
+                            .in_set(RenderSystems::QueueSweep),
                         batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResources),
+                            .in_set(RenderSystems::PrepareResources),
                         batch_and_prepare_binned_render_phase::<AlphaMask2d, Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResources),
+                            .in_set(RenderSystems::PrepareResources),
                         batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResources),
+                            .in_set(RenderSystems::PrepareResources),
                         write_batched_instance_buffer::<Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
-                        prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
-                        prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                            .in_set(RenderSystems::PrepareResourcesFlush),
+                        prepare_mesh2d_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                        prepare_mesh2d_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<Mesh2dPipeline>
-                            .in_set(RenderSet::Cleanup)
-                            .after(RenderSet::Render),
+                            .in_set(RenderSystems::Cleanup)
+                            .after(RenderSystems::Render),
                     ),
                 );
         }
@@ -168,13 +130,10 @@ impl Plugin for Mesh2dRenderPlugin {
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
         // whether storage buffers are supported, or the maximum uniform buffer binding size.
-        load_internal_asset!(
-            app,
-            MESH2D_BINDINGS_HANDLE,
-            "mesh2d_bindings.wgsl",
-            Shader::from_wgsl_with_defs,
-            mesh_bindings_shader_defs
-        );
+        load_shader_library!(app, "mesh2d_bindings.wgsl", move |settings| *settings =
+            ShaderSettings {
+                shader_defs: mesh_bindings_shader_defs.clone()
+            });
     }
 }
 
@@ -316,6 +275,7 @@ pub fn extract_mesh2d(
 pub struct Mesh2dPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
     // This dummy white texture is to be used in place of optional textures
     pub dummy_white_gpu_image: GpuImage,
     pub per_object_buffer_batch_size: Option<u32>,
@@ -397,6 +357,7 @@ impl FromWorld for Mesh2dPipeline {
             per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(
                 render_device,
             ),
+            shader: load_embedded_asset!(world, "mesh2d.wgsl"),
         }
     }
 }
@@ -690,13 +651,13 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: MESH2D_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
-                shader: MESH2D_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

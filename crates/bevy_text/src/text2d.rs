@@ -2,15 +2,15 @@ use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
     TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter, YAxisOrientation,
+    TextSpanAccess, TextWriter,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::hash_set::EntityHashSet;
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
-    component::{require, Component},
+    component::Component,
     entity::Entity,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
@@ -26,7 +26,9 @@ use bevy_render::{
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite};
+use bevy_sprite::{
+    Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
+};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
@@ -81,7 +83,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Default, Debug, Clone)]
 #[require(
     TextLayout,
     TextFont,
@@ -136,6 +138,7 @@ pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
@@ -149,8 +152,11 @@ pub fn extract_text2d_sprite(
             &GlobalTransform,
         )>,
     >,
-    text_styles: Extract<Query<(&TextFont, &TextColor)>>,
+    text_colors: Extract<Query<&TextColor>>,
 ) {
+    let mut start = extracted_slices.slices.len();
+    let mut end = start + 1;
+
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .single()
@@ -159,7 +165,7 @@ pub fn extract_text2d_sprite(
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
     for (
-        original_entity,
+        main_entity,
         view_visibility,
         computed_block,
         text_layout_info,
@@ -176,21 +182,25 @@ pub fn extract_text2d_sprite(
             text_bounds.width.unwrap_or(text_layout_info.size.x),
             text_bounds.height.unwrap_or(text_layout_info.size.y),
         );
-        let bottom_left =
-            -(anchor.as_vec() + 0.5) * size + (size.y - text_layout_info.size.y) * Vec2::Y;
+
+        let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
         let transform =
-            *global_transform * GlobalTransform::from_translation(bottom_left.extend(0.)) * scaling;
+            *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
-        for PositionedGlyph {
-            position,
-            atlas_info,
-            span_index,
-            ..
-        } in &text_layout_info.glyphs
+
+        for (
+            i,
+            PositionedGlyph {
+                position,
+                atlas_info,
+                span_index,
+                ..
+            },
+        ) in text_layout_info.glyphs.iter().enumerate()
         {
             if *span_index != current_span {
-                color = text_styles
+                color = text_colors
                     .get(
                         computed_block
                             .entities()
@@ -198,30 +208,41 @@ pub fn extract_text2d_sprite(
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
-                    .map(|(_, text_color)| LinearRgba::from(text_color.0))
+                    .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_span = *span_index;
             }
-            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+            let rect = texture_atlases
+                .get(&atlas_info.texture_atlas)
+                .unwrap()
+                .textures[atlas_info.location.glyph_index]
+                .as_rect();
+            extracted_slices.slices.push(ExtractedSlice {
+                offset: Vec2::new(position.x, -position.y),
+                rect,
+                size: rect.size(),
+            });
 
-            extracted_sprites.sprites.insert(
-                (
-                    commands.spawn(TemporaryRenderEntity).id(),
-                    original_entity.into(),
-                ),
-                ExtractedSprite {
-                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
+            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+            }) {
+                let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                extracted_sprites.sprites.push(ExtractedSprite {
+                    main_entity,
+                    render_entity,
+                    transform,
                     color,
-                    rect: Some(atlas.textures[atlas_info.location.glyph_index].as_rect()),
-                    custom_size: None,
                     image_handle_id: atlas_info.texture.id(),
                     flip_x: false,
                     flip_y: false,
-                    anchor: Anchor::Center.as_vec(),
-                    original_entity: Some(original_entity),
-                    scaling_mode: None,
-                },
-            );
+                    kind: bevy_sprite::ExtractedSpriteKind::Slices {
+                        indices: start..end,
+                    },
+                });
+                start = end;
+            }
+
+            end += 1;
         }
     }
 }
@@ -295,7 +316,6 @@ pub fn update_text2d_layout(
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                YAxisOrientation::BottomToTop,
                 computed.as_mut(),
                 &mut font_system,
                 &mut swash_cache,
@@ -371,7 +391,7 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
 
     use crate::{detect_text_needs_rerender, TextIterScratch};
 

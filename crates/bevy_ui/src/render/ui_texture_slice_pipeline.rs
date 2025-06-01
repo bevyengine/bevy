@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -22,7 +22,7 @@ use bevy_render::{
     sync_world::TemporaryRenderEntity,
     texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
@@ -30,19 +30,11 @@ use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 use widget::ImageNode;
 
-pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");
-
 pub struct UiTextureSlicerPlugin;
 
 impl Plugin for UiTextureSlicerPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            UI_SLICER_SHADER_HANDLE,
-            "ui_texture_slice.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "ui_texture_slice.wgsl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -53,13 +45,13 @@ impl Plugin for UiTextureSlicerPlugin {
                 .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_ui_texture_slices.in_set(RenderUiSystem::ExtractTextureSlice),
+                    extract_ui_texture_slices.in_set(RenderUiSystems::ExtractTextureSlice),
                 )
                 .add_systems(
                     Render,
                     (
-                        queue_ui_slices.in_set(RenderSet::Queue),
-                        prepare_ui_slices.in_set(RenderSet::PrepareBindGroups),
+                        queue_ui_slices.in_set(RenderSystems::Queue),
+                        prepare_ui_slices.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
         }
@@ -116,6 +108,7 @@ pub struct UiTextureSliceImageBindGroups {
 pub struct UiTextureSlicePipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
 }
 
 impl FromWorld for UiTextureSlicePipeline {
@@ -144,6 +137,7 @@ impl FromWorld for UiTextureSlicePipeline {
         UiTextureSlicePipeline {
             view_layout,
             image_layout,
+            shader: load_embedded_asset!(world, "ui_texture_slice.wgsl"),
         }
     }
 }
@@ -180,13 +174,13 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: UI_SLICER_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: UI_SLICER_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -372,9 +366,8 @@ pub fn queue_ui_slices(
             draw_function,
             pipeline,
             entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
-            sort_key: (
-                FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE),
-                extracted_slicer.render_entity.index(),
+            sort_key: FloatOrd(
+                extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE,
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
@@ -649,7 +642,7 @@ pub fn prepare_ui_slices(
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         ui_meta.indices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
-        commands.insert_or_spawn_batch(batches);
+        commands.try_insert_batch(batches);
     }
     extracted_slices.slices.clear();
 }

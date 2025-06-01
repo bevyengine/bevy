@@ -82,7 +82,7 @@ pub trait ReflectCommandExt {
     ///     // use the insert_reflect entity command to insert that component/bundle into an entity.
     ///     commands
     ///         .spawn_empty()
-    ///         .insert_reflect(prefab.data.clone_value());
+    ///         .insert_reflect(prefab.data.reflect_clone().unwrap().into_partial_reflect());
     /// }
     /// ```
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self;
@@ -102,7 +102,7 @@ pub trait ReflectCommandExt {
         component: Box<dyn PartialReflect>,
     ) -> &mut Self;
 
-    /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
+    /// Removes from the entity the component or bundle with the given type path registered in [`AppTypeRegistry`].
     ///
     /// If the type is a bundle, it will remove any components in that bundle regardless if the entity
     /// contains all the components.
@@ -159,12 +159,12 @@ pub trait ReflectCommandExt {
     ///         .remove_reflect(prefab.data.reflect_type_path().to_owned());
     /// }
     /// ```
-    fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;
+    fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self;
     /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as type registry instead of
     /// `AppTypeRegistry`.
     fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component_type_name: impl Into<Cow<'static, str>>,
+        component_type_path: impl Into<Cow<'static, str>>,
     ) -> &mut Self;
 }
 
@@ -263,7 +263,7 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
+    /// Removes from the entity the component or bundle with the given type path registered in [`AppTypeRegistry`].
     ///
     /// If the type is a bundle, it will remove any components in that bundle regardless if the entity
     /// contains all the components.
@@ -442,21 +442,30 @@ mod tests {
 
         let entity = commands.spawn_empty().id();
         let entity2 = commands.spawn_empty().id();
+        let entity3 = commands.spawn_empty().id();
 
         let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect>;
-        let boxed_reflect_component_a_clone = boxed_reflect_component_a.clone_value();
+        let boxed_reflect_component_a_clone = boxed_reflect_component_a.reflect_clone().unwrap();
+        let boxed_reflect_component_a_dynamic = boxed_reflect_component_a.to_dynamic();
 
         commands
             .entity(entity)
             .insert_reflect(boxed_reflect_component_a);
         commands
             .entity(entity2)
-            .insert_reflect(boxed_reflect_component_a_clone);
+            .insert_reflect(boxed_reflect_component_a_clone.into_partial_reflect());
+        commands
+            .entity(entity3)
+            .insert_reflect(boxed_reflect_component_a_dynamic);
         system_state.apply(&mut world);
 
         assert_eq!(
             world.entity(entity).get::<ComponentA>(),
-            world.entity(entity2).get::<ComponentA>()
+            world.entity(entity2).get::<ComponentA>(),
+        );
+        assert_eq!(
+            world.entity(entity).get::<ComponentA>(),
+            world.entity(entity3).get::<ComponentA>(),
         );
     }
 

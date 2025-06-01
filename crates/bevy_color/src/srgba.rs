@@ -15,7 +15,11 @@ use thiserror::Error;
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -173,8 +177,8 @@ impl Srgba {
     pub fn to_hex(&self) -> String {
         let [r, g, b, a] = self.to_u8_array();
         match a {
-            255 => format!("#{:02X}{:02X}{:02X}", r, g, b),
-            _ => format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a),
+            255 => format!("#{r:02X}{g:02X}{b:02X}"),
+            _ => format!("#{r:02X}{g:02X}{b:02X}{a:02X}"),
         }
     }
 

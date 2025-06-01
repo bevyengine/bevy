@@ -1,4 +1,3 @@
-use crate::renderer::WgpuWrapper;
 use crate::{
     define_atomic_id,
     render_asset::RenderAssets,
@@ -9,6 +8,7 @@ use crate::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
+use bevy_utils::WgpuWrapper;
 use core::ops::Deref;
 use encase::ShaderType;
 use thiserror::Error;
@@ -196,15 +196,19 @@ impl Deref for BindGroup {
 ///
 /// ## `storage(BINDING_INDEX, arguments)`
 ///
-/// * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look up the matching [`Buffer`] GPU resource, which
-///   will be bound as a storage buffer in shaders. If the `storage` attribute is used, the field is expected a raw
-///   buffer, and the buffer will be bound as a storage buffer in shaders.
+/// * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look
+///   up the matching [`Buffer`] GPU resource, which will be bound as a storage
+///   buffer in shaders. If the `storage` attribute is used, the field is expected
+///   a raw buffer, and the buffer will be bound as a storage buffer in shaders.
+///   In bindless mode, `binding_array()` argument that specifies the binding
+///   number of the resulting storage buffer binding array must be present.
 ///
-/// | Arguments              | Values                                                                  | Default              |
-/// |------------------------|-------------------------------------------------------------------------|----------------------|
-/// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
-/// | `read_only`            | if present then value is true, otherwise false                          | `false`              |
-/// | `buffer`               | if present then the field will be assumed to be a raw wgpu buffer       |                      |
+/// | Arguments              | Values                                                                  | Default                |
+/// |------------------------|-------------------------------------------------------------------------|------------------------|
+/// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment`   |
+/// | `read_only`            | if present then value is true, otherwise false                          | `false`                |
+/// | `buffer`               | if present then the field will be assumed to be a raw wgpu buffer       |                        |
+/// | `binding_array(...)`   | the binding number of the binding array, for bindless mode              | bindless mode disabled |
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```
@@ -365,12 +369,12 @@ impl Deref for BindGroup {
 ///   available. Because not all platforms support bindless resources, you
 ///   should check for the presence of this definition via `#ifdef` and fall
 ///   back to standard bindings if it isn't present.
-/// * In bindless mode, binding 0 becomes the *bindless index table*, which is
-///   an array of structures, each of which contains as many fields of type `u32`
-///   as the highest binding number in the structure annotated with
-///   `#[derive(AsBindGroup)]`. The *i*th field of the bindless index table
-///   contains the index of the resource with binding *i* within the appropriate
-///   binding array.
+/// * By default, in bindless mode, binding 0 becomes the *bindless index
+///   table*, which is an array of structures, each of which contains as many
+///   fields of type `u32` as the highest binding number in the structure
+///   annotated with `#[derive(AsBindGroup)]`. Again by default, the *i*th field
+///   of the bindless index table contains the index of the resource with binding
+///   *i* within the appropriate binding array.
 /// * In the case of materials, the index of the applicable table within the
 ///   bindless index table list corresponding to the mesh currently being drawn
 ///   can be retrieved with
@@ -380,12 +384,30 @@ impl Deref for BindGroup {
 ///   each slab will have no more than 16 total resources in it. If you don't
 ///   specify a limit, Bevy automatically picks a reasonable one for the current
 ///   platform.
+/// * The `index_table(range(M..N), binding(B))` declaration allows you to
+///   customize the layout of the bindless index table. This is useful for
+///   materials that are composed of multiple bind groups, such as
+///   `ExtendedMaterial`. In such cases, there will be multiple bindless index
+///   tables, so they can't both be assigned to binding 0 or their bindings will
+///   conflict.
+///   - The `binding(B)` attribute of the `index_table` attribute allows you to
+///     customize the binding (`@binding(B)`, in the shader) at which the index
+///     table will be bound.
+///   - The `range(M, N)` attribute of the `index_table` attribute allows you to
+///     change the mapping from the field index in the bindless index table to the
+///     bindless index. Instead of the field at index $i$ being mapped to the
+///     bindless index $i$, with the `range(M, N)` attribute the field at index
+///     $i$ in the bindless index table is mapped to the bindless index $i$ + M.
+///     The size of the index table will be set to N - M. Note that this may
+///     result in the table being too small to contain all the bindless bindings.
 /// * The purpose of bindless mode is to improve performance by reducing
 ///   state changes. By grouping resources together into binding arrays, Bevy
 ///   doesn't have to modify GPU state as often, decreasing API and driver
 ///   overhead.
-/// * See the `shaders/shader_material_bindless` example for an example of
-///   how to use bindless mode.
+/// * See the `shaders/shader_material_bindless` example for an example of how
+///   to use bindless mode. See the `shaders/extended_material_bindless` example
+///   for a more exotic example of bindless mode that demonstrates the
+///   `index_table` attribute.
 /// * The following diagram illustrates how bindless mode works using a subset
 ///   of `StandardMaterial`:
 ///
