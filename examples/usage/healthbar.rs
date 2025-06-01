@@ -5,6 +5,7 @@
 use bevy::color::palettes::css::GREEN;
 use bevy::color::ColorCurve;
 use bevy::prelude::*;
+use bevy::math::ops::{sin, cos};
 
 const BAR_HEIGHT: f32 = 25.0;
 const BAR_WIDTH: f32 = 150.0;
@@ -126,7 +127,7 @@ fn setup(
 // Some placeholder system to affect the health in this example.
 fn update_health(time: Res<Time>, mut health_query: Query<&mut Health>) {
     for mut health in health_query.iter_mut() {
-        health.0 = (time.elapsed().as_secs_f32().sin() + 1.0) * 50.0;
+        health.0 = (sin(time.elapsed().as_secs_f32()) + 1.0) * 50.0;
     }
 }
 
@@ -173,7 +174,7 @@ fn update_health_bar(
 // health bar is correctly following the cube around
 fn move_cube(time: Res<Time>, mut movables: Query<&mut Transform, With<Health>>) {
     for mut transform in movables.iter_mut() {
-        transform.translation.x = time.elapsed_secs().sin() * 2.0;
-        transform.translation.z = time.elapsed_secs().cos() * 2.0;
+        transform.translation.x = sin(time.elapsed_secs()) * 2.0;
+        transform.translation.z = cos(time.elapsed_secs()) * 2.0;
     }
 }
