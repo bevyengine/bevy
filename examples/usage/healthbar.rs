@@ -2,13 +2,13 @@
 //! Using UI nodes is just one way to do this. Alternatively, you can use
 //! a mesh facing the camera to set up your health bar.
 
-use bevy::color::palettes::css::{GREEN, RED};
+use bevy::color::palettes::basic::{BLACK, GREEN};
 use bevy::color::ColorCurve;
+use bevy::math::ops::{cos, sin};
 use bevy::prelude::*;
-use bevy::math::ops::{sin, cos};
 
 const BAR_HEIGHT: f32 = 25.0;
-const BAR_WIDTH: f32 = 150.0;
+const BAR_WIDTH: f32 = 160.0;
 const HALF_BAR_HEIGHT: f32 = BAR_HEIGHT / 2.0;
 const HALF_BAR_WIDTH: f32 = BAR_WIDTH / 2.0;
 
@@ -20,6 +20,7 @@ struct HealthBar {
     /// The target entity that the health bar should follow
     target: Entity,
     health_text_entity: Entity,
+    root_ui_entity: Entity,
     color_curve: ColorCurve<LinearRgba>,
 }
 
@@ -67,16 +68,10 @@ fn setup(
         .id();
     // Root component for the health bar, this one will be moved to follow the cube
     let health_bar_root = commands
-        .spawn((
-            Node {
-                width: Val::Px(BAR_WIDTH),
-                height: Val::Px(2.0 * BAR_HEIGHT),
-                padding: UiRect::all(Val::Px(4.)),
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
-            BackgroundColor(Color::BLACK),
-        ))
+        .spawn((Node {
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },))
         .id();
 
     let health_text = commands
@@ -87,7 +82,17 @@ fn setup(
                 font_size: 14.0,
                 ..default()
             },
-            //BackgroundColor(RED.into()),
+        ))
+        .id();
+
+    let health_bar_background = commands
+        .spawn((
+            Node {
+                width: Val::Px(BAR_WIDTH),
+                height: Val::Px(BAR_HEIGHT),
+                ..default()
+            },
+            BackgroundColor(BLACK.into()),
         ))
         .id();
 
@@ -106,11 +111,13 @@ fn setup(
                 align_items: AlignItems::Stretch,
                 width: Val::Percent(100.),
                 height: Val::Px(BAR_HEIGHT),
+                border: UiRect::all(Val::Px(4.)),
                 ..default()
             },
             HealthBar {
                 target: cube_id,
                 health_text_entity: health_text,
+                root_ui_entity: health_bar_root,
                 color_curve: ColorCurve::new(colors).unwrap(),
             },
             BackgroundColor(Color::from(GREEN)),
@@ -119,7 +126,11 @@ fn setup(
 
     commands
         .entity(health_bar_root)
-        .add_children(&[health_text,health_bar_node]);
+        .add_children(&[health_text, health_bar_background]);
+
+    commands
+        .entity(health_bar_background)
+        .add_child(health_bar_node);
 }
 
 // Some placeholder system to affect the health in this example.
@@ -130,7 +141,7 @@ fn update_health(time: Res<Time>, mut health_query: Query<&mut Health>) {
 }
 
 fn update_health_bar(
-    mut health_bar_query: Query<(&mut Node, &HealthBar, &ChildOf, &mut BackgroundColor)>,
+    mut health_bar_query: Query<(&mut Node, &HealthBar, &mut BackgroundColor)>,
     mut health_bar_root_query: Query<&mut Node, Without<HealthBar>>,
     mut health_bar_text_query: Query<&mut Text, Without<HealthBar>>,
     target_query: Query<(&GlobalTransform, &Health)>,
@@ -139,10 +150,9 @@ fn update_health_bar(
     let camera = camera_query.0;
     let cam_transform = camera_query.1;
 
-    for (mut health_bar_node, health_bar_component, child_of, mut bg_color) in
-        health_bar_query.iter_mut()
-    {
-        let mut root = health_bar_root_query.get_mut(child_of.0).unwrap();
+    for (mut health_bar_node, health_bar_component, mut bg_color) in health_bar_query.iter_mut() {
+        let root_entity = health_bar_component.root_ui_entity;
+        let mut root_node = health_bar_root_query.get_mut(root_entity).unwrap();
         let mut health_text = health_bar_text_query
             .get_mut(health_bar_component.health_text_entity)
             .unwrap();
@@ -153,13 +163,13 @@ fn update_health_bar(
             .world_to_viewport(cam_transform, target_world_position)
             .unwrap();
 
-        root.left = Val::Px(target_viewport_position.x - HALF_BAR_WIDTH);
-        root.top = Val::Px(target_viewport_position.y - HALF_BAR_HEIGHT);
+        root_node.left = Val::Px(target_viewport_position.x - HALF_BAR_WIDTH);
+        root_node.top = Val::Px(target_viewport_position.y - HALF_BAR_HEIGHT);
 
         let hp = target_health.0;
-        
+
         health_bar_node.width = Val::Percent(hp);
-        health_text.0 = format!("Health: {:.0}/100", hp); // Only show rounded numbers
+        health_text.0 = format!("Health: {:.0} / 100", hp); // Only show rounded numbers
 
         let color_curve = &health_bar_component.color_curve;
         let t = hp * 4.0 / (100.0); // 4 is the number of colors, 100 is the max health
