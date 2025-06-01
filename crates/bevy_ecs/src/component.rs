@@ -665,7 +665,11 @@ impl<C> private::Seal for NoKey<C> {}
 impl<C: Component> ComponentKey for NoKey<C> {
     type KeyType = ();
     type ValueType = C;
-    const INVARIANT_ASSERT: () = ();
+    const INVARIANT_ASSERT: () = {
+        if matches!(C::STORAGE_TYPE, StorageType::Shared) {
+            panic!("Shared components must have a key")
+        }
+    };
 }
 
 /// Select other component as the key of this component. Currently this doesn't do anything useful, but in the future it might be
@@ -706,6 +710,8 @@ pub enum StorageType {
     /// This provides addition and removal performance similar to [`StorageType::SparseSet`], but with faster iteration
     /// and lower memory usage as long as there are many entities with the same component value.
     /// The downside is that this storage type is less efficient if the component is expected to have a large number of different values.
+    ///
+    /// Shared components are always immutable.
     Shared,
 }
 
@@ -1199,7 +1205,8 @@ impl ComponentDescriptor {
     /// - if `fragmenting_value_vtable` is not `None`, it must be usable on a pointer with a value of the layout `layout`
     ///
     /// # Panics
-    /// This will panic if `fragmenting_value_vtable` is not `None` and `mutable` is `true`. Fragmenting value components must be immutable.
+    /// - Will panic if `fragmenting_value_vtable` is not `None` and `mutable` is `true`. Fragmenting value components must be immutable.
+    /// - `fragmenting_value_vtable` must not be `None` if `storage_type` is [`StorageType::Shared`].
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
@@ -1209,6 +1216,9 @@ impl ComponentDescriptor {
         clone_behavior: ComponentCloneBehavior,
         fragmenting_value_vtable: Option<FragmentingValueVtable>,
     ) -> Self {
+        if storage_type == StorageType::Shared && fragmenting_value_vtable.is_none() {
+            panic!("Shared components must have valid fragmenting_value_vtable");
+        }
         if fragmenting_value_vtable.is_some() && mutable {
             panic!("Fragmenting value components must be immutable");
         }

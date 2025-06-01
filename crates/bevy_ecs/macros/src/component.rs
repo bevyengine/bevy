@@ -245,9 +245,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         }
     });
 
-    let mutable_type = (attrs.immutable || relationship.is_some())
-        .then_some(quote! { #bevy_ecs_path::component::Immutable })
-        .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
+    let mutable_type =
+        (attrs.immutable || relationship.is_some() || matches!(attrs.storage, StorageTy::Shared))
+            .then_some(quote! { #bevy_ecs_path::component::Immutable })
+            .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
 
     let clone_behavior = if relationship_target.is_some() {
         quote!(#bevy_ecs_path::component::ComponentCloneBehavior::Custom(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
@@ -262,6 +263,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let key = if let Some(key) = attrs.key {
         quote! {#bevy_ecs_path::component::OtherComponentKey<Self, #key>}
+    } else if let StorageTy::Shared = attrs.storage {
+        quote! {#bevy_ecs_path::component::SelfKey<Self>}
     } else {
         quote! {#bevy_ecs_path::component::NoKey<Self>}
     };

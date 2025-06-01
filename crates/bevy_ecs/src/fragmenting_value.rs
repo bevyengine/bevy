@@ -377,11 +377,7 @@ mod tests {
     use core::hash::Hash;
 
     #[derive(Component, Clone, Eq, PartialEq, Hash)]
-    #[component(
-        key=Self,
-        immutable,
-        storage="Shared",
-    )]
+    #[component(storage = "Shared")]
     struct Fragmenting(u32);
 
     #[derive(Component)]

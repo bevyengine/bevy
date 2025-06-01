@@ -190,11 +190,7 @@ mod tests {
     use super::*;
 
     #[derive(Component, Clone, Hash, PartialEq, Eq, Debug)]
-    #[component(
-        key=Self,
-        immutable,
-        storage="Shared"
-    )]
+    #[component(storage = "Shared")]
     struct SharedComponent(Vec<u32>);
 
     #[test]
