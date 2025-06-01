@@ -3,7 +3,7 @@ use criterion::Criterion;
 use glam::*;
 
 #[derive(Component, PartialEq, Eq, Hash, Clone)]
-#[component(immutable, key=Self)]
+#[component(storage = "Shared")]
 struct Fragmenting<const N: usize>(u32);
 
 #[derive(Component)]
