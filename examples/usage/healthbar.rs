@@ -2,7 +2,7 @@
 //! Using UI nodes is just one way to do this. Alternatively, you can use
 //! a mesh facing the camera to set up your health bar.
 
-use bevy::color::palettes::css::{GREEN, RED};
+use bevy::color::palettes::css::GREEN;
 use bevy::color::ColorCurve;
 use bevy::prelude::*;
 
