@@ -1035,7 +1035,7 @@ impl<'w> BundleInserter<'w> {
         change_tick: Tick,
     ) -> Self {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
-        let mut bundle_info = world.bundles.get_unchecked(bundle_id);
+        let bundle_info = world.bundles.get_unchecked(bundle_id);
         let bundle_id = bundle_info.id();
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
@@ -1045,12 +1045,7 @@ impl<'w> BundleInserter<'w> {
             archetype_id,
         );
 
-        if is_new_created {
-            world.trigger(ArchetypeCreated(new_archetype_id));
-            bundle_info = world.bundles.get_unchecked(bundle_id);
-        }
-
-        if new_archetype_id == archetype_id {
+        let inserter = if new_archetype_id == archetype_id {
             let archetype = &mut world.archetypes[archetype_id];
             // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
@@ -1110,7 +1105,15 @@ impl<'w> BundleInserter<'w> {
                     world: world.as_unsafe_world_cell(),
                 }
             }
+        };
+
+        if is_new_created {
+            inserter
+                .world
+                .into_deferred()
+                .trigger(ArchetypeCreated(new_archetype_id));
         }
+        inserter
     }
 
     /// # Safety
@@ -1200,16 +1203,16 @@ impl<'w> BundleInserter<'w> {
                         unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
                     entities.set(
                         swapped_entity.index(),
-                        EntityLocation {
+                        Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
                             table_id: swapped_location.table_id,
                             table_row: swapped_location.table_row,
-                        },
+                        }),
                     );
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                entities.set(entity.index(), new_location);
+                entities.set(entity.index(), Some(new_location));
                 let after_effect = bundle_info.write_components(
                     table,
                     sparse_sets,
@@ -1249,19 +1252,19 @@ impl<'w> BundleInserter<'w> {
                         unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
                     entities.set(
                         swapped_entity.index(),
-                        EntityLocation {
+                        Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
                             table_id: swapped_location.table_id,
                             table_row: swapped_location.table_row,
-                        },
+                        }),
                     );
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
                 let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                entities.set(entity.index(), new_location);
+                entities.set(entity.index(), Some(new_location));
 
                 // If an entity was moved into this entity's table spot, update its table row.
                 if let Some(swapped_entity) = move_result.swapped_entity {
@@ -1271,12 +1274,12 @@ impl<'w> BundleInserter<'w> {
 
                     entities.set(
                         swapped_entity.index(),
-                        EntityLocation {
+                        Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: swapped_location.archetype_row,
                             table_id: swapped_location.table_id,
                             table_row: result.table_row,
-                        },
+                        }),
                     );
 
                     if archetype.id() == swapped_location.archetype_id {
@@ -1426,7 +1429,7 @@ impl<'w> BundleRemover<'w> {
         bundle_id: BundleId,
         require_all: bool,
     ) -> Option<Self> {
-        let mut bundle_info = world.bundles.get_unchecked(bundle_id);
+        let bundle_info = world.bundles.get_unchecked(bundle_id);
         // SAFETY: Caller ensures archetype and bundle ids are correct.
         let (new_archetype_id, is_new_created) = unsafe {
             bundle_info.remove_bundle_from_archetype(
@@ -1444,11 +1447,6 @@ impl<'w> BundleRemover<'w> {
             return None;
         }
 
-        if is_new_created {
-            world.trigger(ArchetypeCreated(new_archetype_id));
-            bundle_info = world.bundles.get_unchecked(bundle_id);
-        }
-
         let (old_archetype, new_archetype) =
             world.archetypes.get_2_mut(archetype_id, new_archetype_id);
 
@@ -1462,13 +1460,20 @@ impl<'w> BundleRemover<'w> {
             Some((old.into(), new.into()))
         };
 
-        Some(Self {
+        let remover = Self {
             bundle_info: bundle_info.into(),
             new_archetype: new_archetype.into(),
             old_archetype: old_archetype.into(),
             old_and_new_table: tables,
             world: world.as_unsafe_world_cell(),
-        })
+        };
+        if is_new_created {
+            remover
+                .world
+                .into_deferred()
+                .trigger(ArchetypeCreated(new_archetype_id));
+        }
+        Some(remover)
     }
 
     /// This can be passed to [`remove`](Self::remove) as the `pre_remove` function if you don't want to do anything before removing.
@@ -1588,12 +1593,12 @@ impl<'w> BundleRemover<'w> {
 
             world.entities.set(
                 swapped_entity.index(),
-                EntityLocation {
+                Some(EntityLocation {
                     archetype_id: swapped_location.archetype_id,
                     archetype_row: location.archetype_row,
                     table_id: swapped_location.table_id,
                     table_row: swapped_location.table_row,
-                },
+                }),
             );
         }
 
@@ -1629,12 +1634,12 @@ impl<'w> BundleRemover<'w> {
 
                 world.entities.set(
                     swapped_entity.index(),
-                    EntityLocation {
+                    Some(EntityLocation {
                         archetype_id: swapped_location.archetype_id,
                         archetype_row: swapped_location.archetype_row,
                         table_id: swapped_location.table_id,
                         table_row: location.table_row,
-                    },
+                    }),
                 );
                 world.archetypes[swapped_location.archetype_id]
                     .set_entity_table_row(swapped_location.archetype_row, location.table_row);
@@ -1650,7 +1655,7 @@ impl<'w> BundleRemover<'w> {
 
         // SAFETY: The entity is valid and has been moved to the new location already.
         unsafe {
-            world.entities.set(entity.index(), new_location);
+            world.entities.set(entity.index(), Some(new_location));
         }
 
         (new_location, pre_remove_result)
@@ -1689,7 +1694,7 @@ impl<'w> BundleSpawner<'w> {
         bundle_id: BundleId,
         change_tick: Tick,
     ) -> Self {
-        let mut bundle_info = world.bundles.get_unchecked(bundle_id);
+        let bundle_info = world.bundles.get_unchecked(bundle_id);
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
@@ -1698,20 +1703,22 @@ impl<'w> BundleSpawner<'w> {
             ArchetypeId::EMPTY,
         );
 
-        if is_new_created {
-            world.trigger(ArchetypeCreated(new_archetype_id));
-            bundle_info = world.bundles.get_unchecked(bundle_id);
-        }
-
         let archetype = &mut world.archetypes[new_archetype_id];
         let table = &mut world.storages.tables[archetype.table_id()];
-        Self {
+        let spawner = Self {
             bundle_info: bundle_info.into(),
             table: table.into(),
             archetype: archetype.into(),
             change_tick,
             world: world.as_unsafe_world_cell(),
+        };
+        if is_new_created {
+            spawner
+                .world
+                .into_deferred()
+                .trigger(ArchetypeCreated(new_archetype_id));
         }
+        spawner
     }
 
     #[inline]
@@ -1757,7 +1764,7 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.set(entity.index(), location);
+            entities.set(entity.index(), Some(location));
             entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
             (location, after_effect)
         };

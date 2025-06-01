@@ -36,8 +36,7 @@ use core::{
 use nonmax::NonMaxU32;
 
 #[derive(Event)]
-#[allow(dead_code)]
-
+#[expect(dead_code, reason = "Prepare for the upcoming Query as Entities")]
 pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 
 /// An opaque location within a [`Archetype`].
