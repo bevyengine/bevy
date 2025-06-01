@@ -5,39 +5,43 @@ use crate::{App, Plugin, Update};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    hierarchy::{ChildOf, Children},
+    hierarchy::ChildOf,
     query::{Changed, Or, QueryFilter, With, Without},
+    relationship::{Relationship, RelationshipTarget},
     removal_detection::RemovedComponents,
-    schedule::{IntoSystemConfigs, SystemSet},
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Local, Query},
 };
 
-/// Plugin to automatically propagate a component value to all descendants of entities with
-/// a `Propagate<C>` component.
+/// Plugin to automatically propagate a component value to all direct and transient relationship
+/// targets (e.g. [`bevy_ecs::hierarchy::Children`]) of entities with a [`Propagate`] component.
 ///
 /// The plugin Will maintain the target component over hierarchy changes, adding or removing
-/// `C` when a child is added or removed from a tree with a `Propagate::<C>` parent, or if the
-/// `Propagate::<C>` component is added, changed or removed.
+/// `C` when a relationship `R` (e.g. [`ChildOf`]) is added to or removed from a
+/// relationship tree with a [`Propagate<C>`] source, or if the [`Propagate<C>`] component
+/// is added, changed or removed.
 ///
 /// Optionally you can include a query filter `F` to restrict the entities that are updated.
-/// Note that the filter is not rechecked dynamically, changes to the filter state will
-/// not be picked up until the `Propagate::<C>` component is touched, or the hierarchy
-/// is changed.
-/// All members of the tree must match the filter for propagation to occur.
-/// Individual entities can be skipped or terminate the propagation with the `PropagateOver<C>`
-/// and `PropagateStop<C>` components.
-pub struct HierarchyPropagatePlugin<C: Component + Clone + PartialEq, F: QueryFilter = ()>(
-    PhantomData<fn() -> (C, F)>,
-);
+/// Note that the filter is not rechecked dynamically: changes to the filter state will not be
+/// picked up until the  [`Propagate`] component is touched, or the hierarchy is changed.
+/// All members of the tree between source and target must match the filter for propagation
+/// to reach a given target.
+/// Individual entities can be skipped or terminate the propagation with the [`PropagateOver`]
+/// and [`PropagateStop`] components.
+pub struct HierarchyPropagatePlugin<
+    C: Component + Clone + PartialEq,
+    F: QueryFilter = (),
+    R: Relationship = ChildOf,
+>(PhantomData<fn() -> (C, F, R)>);
 
-/// Causes the inner component to be added to this entity and all children.
-/// A descendant with a `Propagate::<C>` component of it's own will override propagation
-/// from that point in the tree
+/// Causes the inner component to be added to this entity and all direct and transient relationship
+/// targets. A target with a [`Propagate<C>`] component of its own will override propagation from
+/// that point in the tree.
 #[derive(Component, Clone, PartialEq)]
 pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
 
 /// Stops the output component being added to this entity.
-/// Children will still inherit the component from this entity or its parents
+/// Relationship targets will still inherit the component from this entity or its parents.
 #[derive(Component)]
 pub struct PropagateOver<C: Component + Clone + PartialEq>(PhantomData<fn() -> C>);
 
@@ -55,7 +59,7 @@ pub struct PropagateSet<C: Component + Clone + PartialEq> {
 #[derive(Component, Clone, PartialEq)]
 pub struct Inherited<C: Component + Clone + PartialEq>(pub C);
 
-impl<C: Component + Clone + PartialEq, F: QueryFilter> Default for HierarchyPropagatePlugin<C, F> {
+impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship> Default for HierarchyPropagatePlugin<C, F, R> {
     fn default() -> Self {
         Self(Default::default())
     }
@@ -96,8 +100,8 @@ impl<C: Component + Clone + PartialEq> Default for PropagateSet<C> {
     }
 }
 
-impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static> Plugin
-    for HierarchyPropagatePlugin<C, F>
+impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship> Plugin
+    for HierarchyPropagatePlugin<C, F, R>
 {
     fn build(&self, app: &mut App) {
         app.add_systems(
@@ -105,8 +109,8 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static> Plugin
             (
                 update_source::<C, F>,
                 update_stopped::<C, F>,
-                update_reparented::<C, F>,
-                propagate_inherited::<C, F>,
+                update_reparented::<C, F, R>,
+                propagate_inherited::<C, F, R>,
                 propagate_output::<C, F>,
             )
                 .chain()
@@ -134,7 +138,7 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
     }
 
     for removed in removed.read() {
-        if let Some(mut commands) = commands.get_entity(removed) {
+        if let Ok(mut commands) = commands.get_entity(removed) {
             commands.remove::<(Inherited<C>, C)>();
         }
     }
@@ -151,32 +155,23 @@ pub fn update_stopped<C: Component + Clone + PartialEq, F: QueryFilter>(
     }
 }
 
-/// add/remove `Inherited::<C>` and `C` for entities which have changed parent
-pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter>(
+/// add/remove `Inherited::<C>` and `C` for entities which have changed relationship
+pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     moved: Query<
-        (Entity, &ChildOf, Option<&Inherited<C>>),
+        (Entity, &R, Option<&Inherited<C>>),
         (
-            Changed<ChildOf>,
+            Changed<R>,
             Without<Propagate<C>>,
             Without<PropagateStop<C>>,
             F,
         ),
     >,
-    parents: Query<&Inherited<C>>,
-
-    orphaned: Query<
-        Entity,
-        (
-            With<Inherited<C>>,
-            Without<Propagate<C>>,
-            Without<ChildOf>,
-            F,
-        ),
-    >,
+    relations: Query<&Inherited<C>>,
+    orphaned: Query<Entity, (With<Inherited<C>>, Without<Propagate<C>>, Without<R>, F)>,
 ) {
-    for (entity, parent, maybe_inherited) in &moved {
-        if let Ok(inherited) = parents.get(parent.get()) {
+    for (entity, relation, maybe_inherited) in &moved {
+        if let Ok(inherited) = relations.get(relation.get()) {
             commands.entity(entity).try_insert(inherited.clone());
         } else if maybe_inherited.is_some() {
             commands.entity(entity).remove::<(Inherited<C>, C)>();
@@ -188,39 +183,39 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter>(
     }
 }
 
-/// add/remove `Inherited::<C>` for children of entities with modified `Inherited::<C>`
-pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter>(
+/// add/remove `Inherited::<C>` for targets of entities with modified `Inherited::<C>`
+pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     changed: Query<
-        (&Inherited<C>, &Children),
+        (&Inherited<C>, &R::RelationshipTarget),
         (Changed<Inherited<C>>, Without<PropagateStop<C>>, F),
     >,
     recurse: Query<
-        (Option<&Children>, Option<&Inherited<C>>),
+        (Option<&R::RelationshipTarget>, Option<&Inherited<C>>),
         (Without<Propagate<C>>, Without<PropagateStop<C>>, F),
     >,
     mut removed: RemovedComponents<Inherited<C>>,
     mut to_process: Local<Vec<(Entity, Option<Inherited<C>>)>>,
 ) {
     // gather changed
-    for (inherited, children) in &changed {
+    for (inherited, targets) in &changed {
         to_process.extend(
-            children
+            targets
                 .iter()
-                .map(|child| (*child, Some(inherited.clone()))),
+                .map(|target| (target, Some(inherited.clone()))),
         );
     }
 
     // and removed
     for entity in removed.read() {
-        if let Ok((Some(children), _)) = recurse.get(entity) {
-            to_process.extend(children.iter().map(|child| (*child, None)));
+        if let Ok((Some(targets), _)) = recurse.get(entity) {
+            to_process.extend(targets.iter().map(|target| (target, None)));
         }
     }
 
     // propagate
     while let Some((entity, maybe_inherited)) = (*to_process).pop() {
-        let Ok((maybe_children, maybe_current)) = recurse.get(entity) else {
+        let Ok((maybe_targets, maybe_current)) = recurse.get(entity) else {
             continue;
         };
 
@@ -228,11 +223,11 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter>(
             continue;
         }
 
-        if let Some(children) = maybe_children {
+        if let Some(targets) = maybe_targets {
             to_process.extend(
-                children
+                targets
                     .iter()
-                    .map(|child| (*child, maybe_inherited.clone())),
+                    .map(|target| (target, maybe_inherited.clone())),
             );
         }
 
