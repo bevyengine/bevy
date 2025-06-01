@@ -26,7 +26,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_health, update_health_bar))
+        .add_systems(Update, (update_health, update_health_bar, move_cube))
         .run();
 }
 
@@ -97,7 +97,7 @@ fn setup(
     // Define the control points for the color curve.
     // For more information, please see the cubic curve example.
     let colors = [
-        LinearRgba::RED, // todo reconsider this
+        LinearRgba::RED,
         LinearRgba::RED,
         LinearRgba::rgb(1., 1., 0.), // Yellow
         LinearRgba::GREEN,
@@ -161,7 +161,7 @@ fn update_health_bar(
 
         let hp = target_health.0;
 
-        // todo: the width exceeds the current width, so it doesn't seem to be doing much close to 100 hp.
+        // todo: A width beyond roughly 90% doesn't seem to make a difference
         health_bar_node.width = Val::Percent(hp);
         health_text.0 = format!("{:.0}", hp);
 
