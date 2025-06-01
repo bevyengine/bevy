@@ -2,7 +2,7 @@
 //! Using UI nodes is just one way to do this. Alternatively, you can use
 //! a mesh facing the camera to set up your health bar.
 
-use bevy::color::palettes::css::GREEN;
+use bevy::color::palettes::css::{GREEN, RED};
 use bevy::color::ColorCurve;
 use bevy::prelude::*;
 use bevy::math::ops::{sin, cos};
@@ -70,9 +70,9 @@ fn setup(
         .spawn((
             Node {
                 width: Val::Px(BAR_WIDTH),
-                height: Val::Px(BAR_HEIGHT),
+                height: Val::Px(2.0 * BAR_HEIGHT),
                 padding: UiRect::all(Val::Px(4.)),
-                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
             BackgroundColor(Color::BLACK),
@@ -81,16 +81,13 @@ fn setup(
 
     let health_text = commands
         .spawn((
-            Node {
-                min_width: Val::Px(30.0),
-                margin: UiRect::left(Val::Px(2.0)),
-                ..default()
-            },
+            Node::default(),
             Text::new("42"),
             TextFont {
                 font_size: 14.0,
                 ..default()
             },
+            //BackgroundColor(RED.into()),
         ))
         .id();
 
@@ -103,11 +100,12 @@ fn setup(
         LinearRgba::GREEN,
     ];
 
-    let health_bar_nodes = commands
+    let health_bar_node = commands
         .spawn((
             Node {
                 align_items: AlignItems::Stretch,
                 width: Val::Percent(100.),
+                height: Val::Px(BAR_HEIGHT),
                 ..default()
             },
             HealthBar {
@@ -121,7 +119,7 @@ fn setup(
 
     commands
         .entity(health_bar_root)
-        .add_children(&[health_text, health_bar_nodes]);
+        .add_children(&[health_text,health_bar_node]);
 }
 
 // Some placeholder system to affect the health in this example.
@@ -159,10 +157,9 @@ fn update_health_bar(
         root.top = Val::Px(target_viewport_position.y - HALF_BAR_HEIGHT);
 
         let hp = target_health.0;
-
-        // todo: A width beyond roughly 90% doesn't seem to make a difference
+        
         health_bar_node.width = Val::Percent(hp);
-        health_text.0 = format!("{:.0}", hp); // Only show rounded numbers
+        health_text.0 = format!("Health: {:.0}/100", hp); // Only show rounded numbers
 
         let color_curve = &health_bar_component.color_curve;
         let t = hp * 4.0 / (100.0); // 4 is the number of colors, 100 is the max health
