@@ -4,6 +4,8 @@ use gltf::{Document, Material};
 
 use serde_json::Value;
 
+use crate::loader::LoadedTexture;
+
 #[cfg(feature = "pbr_anisotropy_texture")]
 use {
     crate::loader::gltf_ext::{material::uv_channel, texture::texture_handle_from_info},
@@ -39,6 +41,7 @@ impl AnisotropyExtension {
     )]
     pub(crate) fn parse(
         load_context: &mut LoadContext,
+        loaded_textures: &[LoadedTexture],
         document: &Document,
         material: &Material,
     ) -> Option<AnisotropyExtension> {
@@ -54,7 +57,7 @@ impl AnisotropyExtension {
             .map(|json_info| {
                 (
                     uv_channel(material, "anisotropy", json_info.tex_coord),
-                    texture_handle_from_info(&json_info, document, load_context),
+                    texture_handle_from_info(&json_info, document, load_context, loaded_textures),
                 )
             })
             .unzip();

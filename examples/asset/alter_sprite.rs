@@ -45,29 +45,34 @@ impl Bird {
 #[derive(Component, Debug)]
 struct Left;
 
+// A function that can be passed to `AssetServer::load_with_settings` and sets
+// our desired `RenderAssetUsages`.
+//
+// `RenderAssetUsages::all()` is already the default, so this function could have been
+// omitted and `load_with_settings` replaced with a simple `load`. It's helpful to know it
+// exists, however.
+//
+// `RenderAssetUsages` tells Bevy whether to keep the data around:
+//   - for the GPU (`RenderAssetUsages::RENDER_WORLD`),
+//   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
+//   - or both.
+// `RENDER_WORLD` is necessary to render the image, `MAIN_WORLD` is necessary to inspect
+// and modify the image (via `ResMut<Assets<Image>>`).
+//
+// Since most games will not need to modify textures at runtime, many developers opt to pass
+// only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
+// RAM. For this example however, this would not work, as we need to inspect and modify the
+// image at runtime.
+fn settings(settings: &mut ImageLoaderSettings) {
+    settings.asset_usage = RenderAssetUsages::all();
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let bird_left = Bird::Normal;
     let bird_right = Bird::Normal;
     commands.spawn(Camera2d);
 
-    let texture_left = asset_server.load_with_settings(
-        bird_left.get_texture_path(),
-        // `RenderAssetUsages::all()` is already the default, so the line below could be omitted.
-        // It's helpful to know it exists, however.
-        //
-        // `RenderAssetUsages` tell Bevy whether to keep the data around:
-        //   - for the GPU (`RenderAssetUsages::RENDER_WORLD`),
-        //   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
-        //   - or both.
-        // `RENDER_WORLD` is necessary to render the image, `MAIN_WORLD` is necessary to inspect
-        // and modify the image (via `ResMut<Assets<Image>>`).
-        //
-        // Since most games will not need to modify textures at runtime, many developers opt to pass
-        // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
-        // RAM. For this example however, this would not work, as we need to inspect and modify the
-        // image at runtime.
-        |settings: &mut ImageLoaderSettings| settings.asset_usage = RenderAssetUsages::all(),
-    );
+    let texture_left = asset_server.load_with_settings(bird_left.get_texture_path(), settings);
 
     commands.spawn((
         Name::new("Bird Left"),
@@ -81,8 +86,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         Name::new("Bird Right"),
-        // In contrast to the above, here we rely on the default `RenderAssetUsages` loader setting
-        Sprite::from_image(asset_server.load(bird_right.get_texture_path())),
+        Sprite::from_image(
+            asset_server.load_with_settings(bird_right.get_texture_path(), settings),
+        ),
         Transform::from_xyz(200.0, 0.0, 0.0),
         bird_right,
     ));
@@ -118,7 +124,7 @@ fn alter_handle(
     // Modify the handle associated with the Bird on the right side. Note that we will only
     // have to load the same path from storage media once: repeated attempts will re-use the
     // asset.
-    sprite.image = asset_server.load(bird.get_texture_path());
+    sprite.image = asset_server.load_with_settings(bird.get_texture_path(), settings);
 }
 
 fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Single<&Sprite, With<Left>>) {

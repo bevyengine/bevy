@@ -16,6 +16,7 @@ use super::texture::texture_transform_to_affine2;
 ))]
 use {
     super::texture::texture_handle_from_info,
+    crate::loader::LoadedTexture,
     bevy_asset::{Handle, LoadContext},
     bevy_image::Image,
     gltf::Document,
@@ -31,6 +32,7 @@ use {
 pub(crate) fn parse_material_extension_texture(
     material: &Material,
     load_context: &mut LoadContext,
+    loaded_textures: &[LoadedTexture],
     document: &Document,
     extension: &Map<String, Value>,
     texture_name: &str,
@@ -42,7 +44,12 @@ pub(crate) fn parse_material_extension_texture(
     {
         Some(json_info) => (
             uv_channel(material, texture_kind, json_info.tex_coord),
-            Some(texture_handle_from_info(&json_info, document, load_context)),
+            Some(texture_handle_from_info(
+                &json_info,
+                document,
+                load_context,
+                loaded_textures,
+            )),
         ),
         None => (UvChannel::default(), None),
     }

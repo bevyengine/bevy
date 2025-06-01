@@ -1,18 +1,100 @@
-use crate::io::AssetSourceId;
+use crate::{io::AssetSourceId, meta::Settings};
 use alloc::{
     borrow::ToOwned,
+    boxed::Box,
     string::{String, ToString},
+    sync::Arc,
 };
 use atomicow::CowArc;
+use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
+    any::TypeId,
     fmt::{Debug, Display},
-    hash::Hash,
+    hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+
+/// Identifies an erased settings value. This is used to compare and hash values
+/// without having to read the underlying value.
+///
+/// XXX TODO: Reconsider auto-deriving Hash. This currently means we hash our
+/// own hash + type id. Could be avoided if hash includes the type id. This
+/// also starts to look suspiciously like `bevy_platform::Hashed`.
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+pub struct ErasedSettingsId {
+    // XXX TODO: Should we store the type id separately or just include it in the
+    // hash? Separately might be nicer for debugging.
+    type_id: TypeId,
+    hash: u64,
+}
+
+impl Display for ErasedSettingsId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // XXX TODO: Reconsider formatting. Also we're using Debug for type_id.
+        write!(f, "{:?}/{}", self.type_id, self.hash)
+    }
+}
+
+/// An erased settings value and its id.
+pub struct ErasedSettings {
+    value: Box<dyn Settings>,
+    id: ErasedSettingsId,
+}
+
+impl ErasedSettings {
+    pub fn new<S: Settings + Serialize>(settings: S) -> ErasedSettings {
+        // Hash by serializing to RON. This means settings are not required to
+        // implement Hash.
+        // XXX TODO: Hashing via RON serialization is very debatable.
+        // XXX TODO: Allocating a string is bad. Should consider a small vec or
+        // hashing directly through the serializer.
+        let hash = FixedHasher.hash_one(ron::ser::to_string(&settings).expect("XXX TODO?"));
+
+        ErasedSettings {
+            value: Box::new(settings),
+            id: ErasedSettingsId {
+                type_id: TypeId::of::<S>(),
+                hash,
+            },
+        }
+    }
+}
+
+impl<'a> ErasedSettings {
+    pub fn value(&'a self) -> &'a dyn Settings {
+        // The `deref` means we're returning the underlying type's implementation
+        // of Settings - not Box's wrapper. This is required so that the value
+        // can be downcast by `AssetMeta::apply_settings`.
+        //
+        // XXX TODO: Maybe this should all be done in `AssetMeta::apply_settings`?
+        // Then everything's in one place.
+        self.value.deref()
+    }
+}
+
+impl Hash for ErasedSettings {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for ErasedSettings {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for ErasedSettings {}
+
+impl Display for ErasedSettings {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.id.fmt(f)
+    }
+}
 
 /// Represents a path to an asset in a "virtual filesystem".
 ///
@@ -58,6 +140,10 @@ pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
     label: Option<CowArc<'a, str>>,
+    // XXX TODO: This is an Arc for now to simplify the implementation. Should
+    // consider changing to CowArc, although I'm not sure if that actually has
+    // any benefits.
+    settings: Option<Arc<ErasedSettings>>,
 }
 
 impl<'a> Debug for AssetPath<'a> {
@@ -74,6 +160,11 @@ impl<'a> Display for AssetPath<'a> {
         write!(f, "{}", self.path.display())?;
         if let Some(label) = &self.label {
             write!(f, "#{label}")?;
+        }
+        // XXX TODO: This might need a rethink as I'm not sure if the output
+        // needs to be parseable. Also see comments on ErasedSettingsId::fmt.
+        if let Some(settings) = &self.settings {
+            write!(f, " (settings: {settings})")?;
         }
         Ok(())
     }
@@ -131,6 +222,7 @@ impl<'a> AssetPath<'a> {
             },
             path: CowArc::Borrowed(path),
             label: label.map(CowArc::Borrowed),
+            settings: None, // XXX TODO: Do we need to document this behavior?
         })
     }
 
@@ -240,6 +332,7 @@ impl<'a> AssetPath<'a> {
             path: CowArc::Borrowed(path),
             source: AssetSourceId::Default,
             label: None,
+            settings: None,
         }
     }
 
@@ -268,6 +361,12 @@ impl<'a> AssetPath<'a> {
         self.path.deref()
     }
 
+    /// XXX TODO: Docs.
+    #[inline]
+    pub fn settings(&self) -> Option<&ErasedSettings> {
+        self.settings.as_deref()
+    }
+
     /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
     #[inline]
     pub fn without_label(&self) -> AssetPath<'_> {
@@ -275,6 +374,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.clone(),
             path: self.path.clone(),
             label: None,
+            settings: self.settings.clone(),
         }
     }
 
@@ -298,6 +398,7 @@ impl<'a> AssetPath<'a> {
             source: self.source,
             path: self.path,
             label: Some(label.into()),
+            settings: self.settings,
         }
     }
 
@@ -309,6 +410,32 @@ impl<'a> AssetPath<'a> {
             source: source.into(),
             path: self.path,
             label: self.label,
+            settings: self.settings,
+        }
+    }
+
+    #[inline]
+    pub fn with_settings<S: Settings + Serialize>(self, settings: S) -> AssetPath<'a> {
+        AssetPath {
+            source: self.source,
+            path: self.path,
+            label: self.label,
+            settings: Some(Arc::new(ErasedSettings::new(settings))),
+        }
+    }
+
+    #[inline]
+    pub fn with_settings_fn<S: Settings + Serialize + Default>(
+        self,
+        settings_fn: impl FnOnce(&mut S) + Send + Sync + 'static,
+    ) -> AssetPath<'a> {
+        let mut settings = S::default();
+        settings_fn(&mut settings);
+        AssetPath {
+            source: self.source,
+            path: self.path,
+            label: self.label,
+            settings: Some(Arc::new(ErasedSettings::new(settings))),
         }
     }
 
@@ -323,6 +450,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.clone(),
             label: None,
             path,
+            settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behavior.
         })
     }
 
@@ -336,6 +464,7 @@ impl<'a> AssetPath<'a> {
             source: self.source.into_owned(),
             path: self.path.into_owned(),
             label: self.label.map(CowArc::into_owned),
+            settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behavior.
         }
     }
 
@@ -457,6 +586,7 @@ impl<'a> AssetPath<'a> {
                 },
                 path: CowArc::Owned(result_path.into()),
                 label: rlabel.map(|l| CowArc::Owned(l.into())),
+                settings: self.settings.clone(), // XXX TODO: Reconsider `Arc` behavior.
             })
         }
     }
@@ -543,16 +673,19 @@ impl AssetPath<'static> {
             source,
             path,
             label,
+            settings,
         } = self;
 
         let source = source.as_static();
         let path = path.as_static();
         let label = label.map(CowArc::as_static);
+        let settings = settings.clone();
 
         Self {
             source,
             path,
             label,
+            settings,
         }
     }
 
@@ -572,6 +705,7 @@ impl<'a> From<&'a str> for AssetPath<'a> {
             source: source.into(),
             path: CowArc::Borrowed(path),
             label: label.map(CowArc::Borrowed),
+            settings: None,
         }
     }
 }
@@ -597,6 +731,7 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
             source: AssetSourceId::Default,
             path: CowArc::Borrowed(path),
             label: None,
+            settings: None,
         }
     }
 }
@@ -608,6 +743,7 @@ impl From<PathBuf> for AssetPath<'static> {
             source: AssetSourceId::Default,
             path: path.into(),
             label: None,
+            settings: None,
         }
     }
 }

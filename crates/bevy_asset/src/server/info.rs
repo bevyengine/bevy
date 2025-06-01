@@ -1,8 +1,7 @@
 use crate::{
-    meta::{AssetHash, MetaTransform},
-    Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
-    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
-    UntypedAssetId, UntypedHandle,
+    meta::AssetHash, Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState,
+    ErasedLoadedAsset, Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState,
+    StrongHandle, UntypedAssetId, UntypedHandle,
 };
 use alloc::{
     borrow::ToOwned,
@@ -111,7 +110,6 @@ impl AssetInfos {
                 self.watching_for_changes,
                 type_id,
                 None,
-                None,
                 true,
             ),
             Either::Left(type_name),
@@ -126,7 +124,6 @@ impl AssetInfos {
         watching_for_changes: bool,
         type_id: TypeId,
         path: Option<AssetPath<'static>>,
-        meta_transform: Option<MetaTransform>,
         loading: bool,
     ) -> Result<UntypedHandle, GetOrCreateHandleInternalError> {
         let provider = handle_providers
@@ -143,7 +140,7 @@ impl AssetInfos {
             }
         }
 
-        let handle = provider.reserve_handle_internal(true, path.clone(), meta_transform);
+        let handle = provider.reserve_handle_internal(true, path.clone());
         let mut info = AssetInfo::new(Arc::downgrade(&handle), path);
         if loading {
             info.load_state = LoadState::Loading;
@@ -159,14 +156,9 @@ impl AssetInfos {
         &mut self,
         path: AssetPath<'static>,
         loading_mode: HandleLoadingMode,
-        meta_transform: Option<MetaTransform>,
     ) -> (Handle<A>, bool) {
-        let result = self.get_or_create_path_handle_internal(
-            path,
-            Some(TypeId::of::<A>()),
-            loading_mode,
-            meta_transform,
-        );
+        let result =
+            self.get_or_create_path_handle_internal(path, Some(TypeId::of::<A>()), loading_mode);
         // it is ok to unwrap because TypeId was specified above
         let (handle, should_load) =
             unwrap_with_context(result, Either::Left(core::any::type_name::<A>())).unwrap();
@@ -179,14 +171,8 @@ impl AssetInfos {
         type_id: TypeId,
         type_name: Option<&str>,
         loading_mode: HandleLoadingMode,
-        meta_transform: Option<MetaTransform>,
     ) -> (UntypedHandle, bool) {
-        let result = self.get_or_create_path_handle_internal(
-            path,
-            Some(type_id),
-            loading_mode,
-            meta_transform,
-        );
+        let result = self.get_or_create_path_handle_internal(path, Some(type_id), loading_mode);
         let type_info = match type_name {
             Some(type_name) => Either::Left(type_name),
             None => Either::Right(type_id),
@@ -202,7 +188,6 @@ impl AssetInfos {
         path: AssetPath<'static>,
         type_id: Option<TypeId>,
         loading_mode: HandleLoadingMode,
-        meta_transform: Option<MetaTransform>,
     ) -> Result<(UntypedHandle, bool), GetOrCreateHandleInternalError> {
         let handles = self.path_to_id.entry(path.clone()).or_default();
 
@@ -251,8 +236,7 @@ impl AssetInfos {
                         .handle_providers
                         .get(&type_id)
                         .ok_or(MissingHandleProviderError(type_id))?;
-                    let handle =
-                        provider.get_handle(id.internal(), true, Some(path), meta_transform);
+                    let handle = provider.get_handle(id.internal(), true, Some(path));
                     info.weak_handle = Arc::downgrade(&handle);
                     Ok((UntypedHandle::Strong(handle), should_load))
                 }
@@ -270,7 +254,6 @@ impl AssetInfos {
                     self.watching_for_changes,
                     type_id,
                     Some(path),
-                    meta_transform,
                     should_load,
                 )?;
                 entry.insert(handle.id());
