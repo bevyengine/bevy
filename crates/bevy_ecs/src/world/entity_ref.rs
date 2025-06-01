@@ -2377,15 +2377,16 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn destruct(&mut self) -> &mut Self {
         self.destruct_with_caller(MaybeLocation::caller());
+        self.update_location(); // In case some command re-constructs this entity.
         self
     }
 
     /// Returns whether or not it really did need to destruct.
-    pub(crate) fn destruct_with_caller(&mut self, caller: MaybeLocation) -> bool {
+    pub(crate) fn destruct_with_caller(&mut self, caller: MaybeLocation) {
         // setup
         let Some(location) = self.location else {
             // If there is no location, we are already destructed
-            return false;
+            return;
         };
         let archetype = &self.world.archetypes[location.archetype_id];
 
@@ -2523,8 +2524,6 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: We just destructed it.
         self.entity = unsafe { self.world.entities.mark_free(self.entity.row(), 1) };
         self.world.flush();
-        self.update_location(); // In case some command re-constructs this entity.
-        true
     }
 
     /// Despawns the current entity.
@@ -2541,9 +2540,14 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     pub(crate) fn despawn_with_caller(mut self, caller: MaybeLocation) {
-        if self.destruct_with_caller(caller) {
+        self.destruct_with_caller(caller);
+        if let Ok(None) = self.world.entities.get(self.entity) {
             self.world.allocator.free(self.entity);
         }
+
+        // Otherwise:
+        // A command must have reconstructed it (had a location); don't free
+        // A command must have already despawned it (err) or otherwise made the free unneeded (ex by constructing and destructing in commands); don't free
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
@@ -2626,7 +2630,7 @@ impl<'w> EntityWorldMut<'w> {
     /// This is *only* required when using the unsafe function [`EntityWorldMut::world_mut`],
     /// which enables the location to change.
     pub fn update_location(&mut self) {
-        self.location = self.world.entities().get(self.entity).unwrap_or_default();
+        self.location = self.world.entities().get(self.entity).expect("Commands should not be queued which despawn an entity while an active `EntityWorldMut` is available to do so.");
     }
 
     /// Returns if the entity has been despawned.
