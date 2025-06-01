@@ -185,7 +185,13 @@ impl Hash for SharedFragmentingValue {
 mod tests {
     use alloc::{vec, vec::Vec};
 
-    use crate::{component::Component, world::World};
+    use crate::{
+        change_detection::DetectChanges,
+        component::Component,
+        entity::Entity,
+        query::With,
+        world::{Ref, World},
+    };
 
     use super::*;
 
@@ -201,5 +207,25 @@ mod tests {
         let taken_comp = world.entity_mut(e).take::<SharedComponent>();
         assert_eq!(taken_comp, Some(comp));
         assert!(!world.entity(e).contains::<SharedComponent>());
+    }
+
+    #[test]
+    fn query_shared_components() {
+        let mut world = World::new();
+        let comp1 = SharedComponent(vec![1, 2, 3]);
+        let comp2 = SharedComponent(vec![0]);
+        let e1 = world.spawn(comp1.clone()).id();
+        let e2 = world.spawn(comp2.clone()).id();
+
+        let mut query = world.query::<&SharedComponent>();
+        assert_eq!(query.get(&world, e1), Ok(&comp1));
+        assert_eq!(query.iter(&world).collect::<Vec<_>>(), vec![&comp1, &comp2]);
+
+        let mut query = world.query_filtered::<Entity, With<SharedComponent>>();
+        assert_eq!(query.iter(&world).collect::<Vec<_>>(), vec![e1, e2]);
+
+        let mut query = world.query::<Ref<SharedComponent>>();
+        let comp1_ref = query.get(&world, e1).unwrap();
+        assert_eq!(comp1_ref.added(), Tick::new(1));
     }
 }

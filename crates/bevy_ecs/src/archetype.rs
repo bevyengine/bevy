@@ -492,6 +492,10 @@ impl Archetype {
                         fragmenting_value: Some(value.clone()),
                     },
                 );
+                component_index
+                    .entry(component_id)
+                    .or_default()
+                    .insert(id, ArchetypeRecord { column: None });
             }
             flags.insert(ArchetypeFlags::HAS_VALUE_COMPONENTS);
         }
