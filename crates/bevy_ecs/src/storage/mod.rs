@@ -47,7 +47,7 @@ pub struct Storages {
     pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
-
+    /// Backing storage for [`Shared`] components.
     pub shared: Shared,
 }
 

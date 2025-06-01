@@ -726,7 +726,7 @@ impl BundleInfo {
                         .get_info(component_id)
                         .and_then(|info| info.drop())
                     {
-                        drop_fn(component_ptr)
+                        drop_fn(component_ptr);
                     }
                 }
             }

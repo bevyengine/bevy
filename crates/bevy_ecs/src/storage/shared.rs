@@ -13,6 +13,7 @@ use crate::{
     fragmenting_value::FragmentingValue,
 };
 
+/// Stores data associated with a shared component.
 pub struct SharedComponent {
     component_id: ComponentId,
     added: Cell<Tick>,
@@ -21,22 +22,27 @@ pub struct SharedComponent {
 }
 
 impl SharedComponent {
+    /// Returns [`ComponentId`] of this component.
     pub fn component_id(&self) -> ComponentId {
         self.component_id
     }
 
+    /// Returns the [`Tick`] this component and value combination was first added to the world.
     pub fn added(&self) -> Tick {
         self.added.get()
     }
 
+    /// Returns [`SharedFragmentingValue`] of this component.
     pub fn value(&self) -> &SharedFragmentingValue {
         &self.value
     }
 
+    /// Returns [`MaybeLocation`] of this component.
     pub fn location(&self) -> &MaybeLocation {
         &self.location
     }
 
+    /// Same as [`added`](Self::added), but returns `&Tick` instead.
     pub(crate) fn added_ref(&self) -> &Tick {
         // SAFETY:
         // The only way to obtain a `&SharedComponent` is through `Shared` storage.
@@ -61,12 +67,20 @@ impl Hash for SharedComponent {
     }
 }
 
+/// Stores [`SharedComponent`]s.
+///
+/// There is one [`SharedComponent`] per each [`FragmentingValue`] of a [`Shared`] component.
+/// This acts as a central storage for these components and provides a way to do faster value comparison by
+/// giving access to [`SharedFragmentingValue`], which are faster to compare than `dyn FragmentingValue`s
+///
+/// [`Shared`]: crate::component::StorageType::Shared
 #[derive(Default)]
 pub struct Shared {
     values_set: HashSet<SharedComponent>,
 }
 
 impl Shared {
+    /// Get [`SharedComponent`] for the provided [`FragmentingValue`] or insert one if it doesn't exist yet.
     pub fn get_or_insert(
         &mut self,
         current_tick: Tick,
@@ -83,14 +97,24 @@ impl Shared {
             })
     }
 
+    /// Get [`SharedComponent`] for the provided [`FragmentingValue`].
+    ///
+    /// Returns `None` if it isn't stored.
     pub fn get(&self, value: &dyn FragmentingValue) -> Option<&SharedComponent> {
         self.values_set.get(value)
     }
 
+    /// Get [`SharedComponent`] for the provided [`SharedFragmentingValue`].
+    /// Should be preferred to using [`get`](Self::get) wherever possible.
+    ///
+    /// Returns `None` if it isn't stored.
     pub fn get_shared(&self, value: &SharedFragmentingValue) -> Option<&SharedComponent> {
         self.values_set.get(value)
     }
 
+    /// Clear all the stored values and reset the storage.
+    ///
+    /// Does not remove existing [`SharedFragmentingValue`] if they were cloned once before.
     pub fn clear(&mut self) {
         self.values_set.clear();
     }
@@ -116,10 +140,14 @@ impl Equivalent<SharedComponent> for SharedFragmentingValue {
     }
 }
 
+/// A version of [`FragmentingValue`] that stores the value only once and can be cloned.
+///
+/// Essentially, this is just a wrapper around `Arc<dyn FragmentingValue>` with some additional type safety.
 #[derive(Clone)]
 pub struct SharedFragmentingValue(Arc<dyn FragmentingValue>);
 
 impl SharedFragmentingValue {
+    /// Try to downcast the stored [`FragmentingValue`] to `C`.
     pub fn try_deref<C: 'static>(&self) -> Option<&C> {
         (self.0.as_ref() as &dyn Any).downcast_ref()
     }

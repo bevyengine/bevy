@@ -1594,6 +1594,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
+                // SAFETY: Shared storage is only accessed immutably.
                 || unsafe { (&world.storages().shared, None) },
             ),
             last_run,

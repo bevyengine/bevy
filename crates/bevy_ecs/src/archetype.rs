@@ -579,6 +579,11 @@ impl Archetype {
             .map(|(id, _)| *id)
     }
 
+    /// Gets an iterator of all of the components stored in [`Shared`].
+    ///
+    /// All of the IDs are unique.
+    ///
+    /// [`Shared`]: crate::storage::Shared
     #[inline]
     pub fn shared_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.components

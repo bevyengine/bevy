@@ -736,6 +736,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
+                // SAFETY: Shared storage is only accessed immutably.
                 || unsafe { (&world.storages().shared, None) },
             ),
             last_run,
@@ -981,6 +982,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
+                // SAFETY: Shared storage is only accessed immutably.
                 || unsafe { (&world.storages().shared, None) },
             ),
             last_run,

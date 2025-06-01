@@ -702,7 +702,10 @@ pub enum StorageType {
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
-
+    /// Stores each component type and value combination once for the whole archetype.
+    /// This provides addition and removal performance similar to [`StorageType::SparseSet`], but with faster iteration
+    /// and lower memory usage as long as there are many entities with the same component value.
+    /// The downside is that this storage type is less efficient if the component is expected to have a large number of different values.
     Shared,
 }
 
