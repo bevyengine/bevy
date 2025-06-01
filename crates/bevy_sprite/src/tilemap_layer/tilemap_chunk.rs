@@ -31,7 +31,8 @@ use tracing::error;
 use tracing::warn;
 
 use super::{
-    TileData, TileStorage, TilemapChunkMaterial, TilemapLayer, Tileset, ATTRIBUTE_TILE_INDEX,
+    TileData, TileStorage, TilemapChunkMaterial, TilemapInfo, TilemapLayer, TilemapRenderMode,
+    Tileset, ATTRIBUTE_TILE_INDEX,
 };
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
@@ -47,7 +48,7 @@ impl Plugin for TilemapChunkPlugin {
     }
 }
 
-type TilemapChunkMeshCacheKey = (UVec2, FloatOrd, FloatOrd);
+type TilemapChunkMeshCacheKey = (UVec2, FloatOrd, FloatOrd, TilemapRenderMode);
 
 /// A resource storing the meshes for each tilemap chunk size.
 #[derive(Resource, Default, Deref, DerefMut)]
@@ -144,17 +145,34 @@ fn spawn_missing_tilemap_chunks(
             .iter_dirty_chunk_positions()
             .filter(|pos| !tilemap.chunks.contains_key(*pos))
         {
-            let chunk_world_position = chunk_position.as_vec2() * display_size;
+            let chunk_world_position = match tilemap.render_mode {
+                TilemapRenderMode::Orthogonal => chunk_position.as_vec2() * display_size,
+                TilemapRenderMode::Isometric => {
+                    let chunk_x = chunk_position.x as f32;
+                    let chunk_y = chunk_position.y as f32;
+
+                    // TODO: Don't hardcode these offsets
+                    let iso_x = (chunk_x - chunk_y) * display_size.x * 0.5;
+                    let iso_y = (chunk_x + chunk_y) * display_size.y * 0.25;
+
+                    Vec2::new(iso_x, iso_y)
+                }
+            };
 
             let mesh_key: TilemapChunkMeshCacheKey = (
                 chunk_size,
                 FloatOrd(display_size.x),
                 FloatOrd(display_size.y),
+                tilemap.render_mode,
             );
 
-            let mesh = tilemap_chunk_mesh_cache
-                .entry(mesh_key)
-                .or_insert_with(|| meshes.add(make_chunk_mesh(&chunk_size, &display_size)));
+            let mesh = tilemap_chunk_mesh_cache.entry(mesh_key).or_insert_with(|| {
+                meshes.add(make_chunk_mesh(
+                    &chunk_size,
+                    &display_size,
+                    tilemap.render_mode,
+                ))
+            });
 
             commands.spawn((
                 Name::new(format!("TilemapChunk: {chunk_position}")),
@@ -251,6 +269,12 @@ fn update_visible_tilemap_chunks(
                     alpha_mode: tilemap_layer.alpha_mode,
                     tileset: tileset.image.clone(),
                     tile_data: images.add(tile_data_image),
+                    tilemap_info: TilemapInfo {
+                        tile_size: tileset.tile_size.as_vec2(),
+                        chunk_size,
+                        chunk_position: chunk.location,
+                        layer_z_index: tilemap_layer.z_index,
+                    },
                 });
 
                 *chunk_material = MeshMaterial2d(material);
@@ -284,7 +308,7 @@ fn make_chunk_tile_data_image(size: &UVec2, data: &[PackedTileData]) -> Image {
     }
 }
 
-fn make_chunk_mesh(size: &UVec2, display_size: &Vec2) -> Mesh {
+fn make_chunk_mesh(size: &UVec2, display_size: &Vec2, render_mode: TilemapRenderMode) -> Mesh {
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
@@ -297,29 +321,67 @@ fn make_chunk_mesh(size: &UVec2, display_size: &Vec2) -> Mesh {
     let mut uvs = Vec::with_capacity(4 * num_quads);
     let mut indices = Vec::with_capacity(6 * num_quads);
 
-    for y in 0..size.y {
-        for x in 0..size.x {
-            let i = positions.len() as u32;
+    match render_mode {
+        TilemapRenderMode::Orthogonal => {
+            for y in 0..size.y {
+                for x in 0..size.x {
+                    let i = positions.len() as u32;
 
-            let p0 = quad_size * UVec2::new(x, y).as_vec2();
-            let p1 = p0 + quad_size;
+                    let p0 = quad_size * UVec2::new(x, y).as_vec2();
+                    let p1 = p0 + quad_size;
 
-            positions.extend([
-                Vec3::new(p0.x, p0.y, 0.0),
-                Vec3::new(p1.x, p0.y, 0.0),
-                Vec3::new(p0.x, p1.y, 0.0),
-                Vec3::new(p1.x, p1.y, 0.0),
-            ]);
+                    positions.extend([
+                        Vec3::new(p0.x, p0.y, 0.0),
+                        Vec3::new(p1.x, p0.y, 0.0),
+                        Vec3::new(p0.x, p1.y, 0.0),
+                        Vec3::new(p1.x, p1.y, 0.0),
+                    ]);
 
-            uvs.extend([
-                Vec2::new(0.0, 1.0),
-                Vec2::new(1.0, 1.0),
-                Vec2::new(0.0, 0.0),
-                Vec2::new(1.0, 0.0),
-            ]);
+                    uvs.extend([
+                        Vec2::new(0.0, 1.0),
+                        Vec2::new(1.0, 1.0),
+                        Vec2::new(0.0, 0.0),
+                        Vec2::new(1.0, 0.0),
+                    ]);
 
-            indices.extend([i, i + 2, i + 1]);
-            indices.extend([i + 3, i + 1, i + 2]);
+                    indices.extend([i, i + 2, i + 1]);
+                    indices.extend([i + 3, i + 1, i + 2]);
+                }
+            }
+        }
+        TilemapRenderMode::Isometric => {
+            for y in 0..size.y {
+                for x in 0..size.x {
+                    let i = positions.len() as u32;
+
+                    let tile_x = x as f32;
+                    let tile_y = y as f32;
+
+                    // TODO: Don't hardcode these offsets
+                    let iso_x = (tile_x - tile_y) * quad_size.x * 0.5;
+                    let iso_y = (tile_x + tile_y) * 8.0;
+
+                    let p0 = Vec2::new(iso_x, iso_y);
+                    let p1 = p0 + quad_size;
+
+                    positions.extend([
+                        Vec3::new(p0.x, p0.y, 0.0),
+                        Vec3::new(p1.x, p0.y, 0.0),
+                        Vec3::new(p0.x, p1.y, 0.0),
+                        Vec3::new(p1.x, p1.y, 0.0),
+                    ]);
+
+                    uvs.extend([
+                        Vec2::new(0.0, 1.0),
+                        Vec2::new(1.0, 1.0),
+                        Vec2::new(0.0, 0.0),
+                        Vec2::new(1.0, 0.0),
+                    ]);
+
+                    indices.extend([i, i + 2, i + 1]);
+                    indices.extend([i + 3, i + 1, i + 2]);
+                }
+            }
         }
     }
 

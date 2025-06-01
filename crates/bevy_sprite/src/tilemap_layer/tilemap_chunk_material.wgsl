@@ -19,11 +19,19 @@ struct VertexOutput {
 @group(2) @binding(0) var tileset: texture_2d_array<f32>;
 @group(2) @binding(1) var tileset_sampler: sampler;
 @group(2) @binding(2) var tile_data: texture_2d<u32>;
+@group(2) @binding(3) var<uniform> tilemap_info: TilemapInfo;
 
 struct TileData {
     tileset_index: u32,
     visible: bool,
     color: vec4<f32>,
+}
+
+struct TilemapInfo {
+    tile_size: vec2<f32>,
+    chunk_size: vec2<u32>,
+    chunk_position: vec2<i32>,
+    layer_z_index: i32,
 }
 
 fn getTileData(coord: vec2<u32>) -> TileData {
@@ -52,7 +60,30 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         vec4<f32>(vertex.position, 1.0)
     );
 
-    out.position = mesh_functions::mesh2d_position_world_to_clip(world_position);
+    var clip_position = mesh_functions::mesh2d_position_world_to_clip(world_position);
+
+    // Calculate local tile coordinates within chunk
+    let chunk_size = textureDimensions(tile_data, 0);
+    let local_tile_coord = vec2<i32>(
+        i32(vertex.tile_index % chunk_size.x),
+        i32(vertex.tile_index / chunk_size.x)
+    );
+
+    // Calculate GLOBAL tile coordinates
+    let global_tile_coord = tilemap_info.chunk_position * vec2<i32>(chunk_size) + local_tile_coord;
+
+    // Use global coordinates for cross-chunk depth sorting
+    // Add a large offset to ensure all values are positive
+    let tile_depth = f32(global_tile_coord.x + global_tile_coord.y) + 10000.0;
+
+    // Layer separation
+    let layer_offset = f32(tilemap_info.layer_z_index) * 100000.0;
+    let total_depth = layer_offset - tile_depth;
+
+    // Use a much smaller multiplier and add a small base offset
+    clip_position.z = 0.5 + total_depth * 0.000001; // Base at 0.5, small increments
+
+    out.position = clip_position;
     out.uv = vertex.uv;
     out.tile_index = vertex.tile_index;
 

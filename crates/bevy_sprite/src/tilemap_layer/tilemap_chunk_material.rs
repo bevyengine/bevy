@@ -2,6 +2,7 @@ use crate::{AlphaMode2d, Material2d, Material2dKey, Material2dPlugin};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, Handle};
 use bevy_image::Image;
+use bevy_math::{IVec2, UVec2, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     mesh::{Mesh, MeshVertexAttribute, MeshVertexBufferLayoutRef},
@@ -31,6 +32,14 @@ impl Plugin for TilemapChunkMaterialPlugin {
     }
 }
 
+#[derive(ShaderType, Clone, Copy, Debug)]
+pub struct TilemapInfo {
+    pub tile_size: Vec2,
+    pub chunk_size: UVec2,
+    pub chunk_position: IVec2,
+    pub layer_z_index: i32,
+}
+
 /// Material used for rendering tilemap chunks.
 ///
 /// This material is used internally by the tilemap system to render chunks of tiles
@@ -45,6 +54,9 @@ pub struct TilemapChunkMaterial {
 
     #[texture(2, sample_type = "u_int")]
     pub tile_data: Handle<Image>,
+
+    #[uniform(3)]
+    pub tilemap_info: TilemapInfo,
 }
 
 impl Material2d for TilemapChunkMaterial {
@@ -71,6 +83,13 @@ impl Material2d for TilemapChunkMaterial {
             ATTRIBUTE_TILE_INDEX.at_shader_location(5),
         ])?;
         descriptor.vertex.buffers = vec![vertex_layout];
+
+        // Enable depth testing for proper isometric sorting
+        if let Some(ref mut depth_stencil) = descriptor.depth_stencil {
+            depth_stencil.depth_write_enabled = true;
+            depth_stencil.depth_compare = CompareFunction::GreaterEqual;
+        }
+
         Ok(())
     }
 }

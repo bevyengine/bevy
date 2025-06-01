@@ -36,13 +36,20 @@ pub struct Tileset {
     pub tile_size: UVec2,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
+pub enum TilemapRenderMode {
+    #[default]
+    Orthogonal,
+    Isometric,
+}
+
 #[derive(Component, Clone)]
 #[require(TileStorage, Tileset, Name::new("Tilemap"), Transform, Visibility)]
 pub struct TilemapLayer {
-    chunks: HashMap<IVec2, Entity>,
-
-    /// The alpha mode to use for the tilemap
+    pub chunks: HashMap<IVec2, Entity>,
     pub alpha_mode: AlphaMode2d,
+    pub render_mode: TilemapRenderMode,
+    pub z_index: i32,
 }
 
 impl Default for TilemapLayer {
@@ -50,6 +57,17 @@ impl Default for TilemapLayer {
         Self {
             chunks: HashMap::new(),
             alpha_mode: AlphaMode2d::Blend,
+            render_mode: TilemapRenderMode::default(),
+            z_index: 0,
+        }
+    }
+}
+
+impl TilemapLayer {
+    pub fn isometric() -> Self {
+        Self {
+            render_mode: TilemapRenderMode::Isometric,
+            ..default()
         }
     }
 }
