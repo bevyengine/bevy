@@ -2284,7 +2284,7 @@ impl World {
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
             .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+            .register_static_info::<B>(&mut registrator, &mut self.storages);
 
         let mut batch_iter = batch.into_iter();
 
@@ -2429,7 +2429,7 @@ impl World {
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
             .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+            .register_static_info::<B>(&mut registrator, &mut self.storages);
 
         let mut invalid_entities = Vec::<Entity>::new();
         let mut batch_iter = batch.into_iter();
@@ -3009,7 +3009,7 @@ impl World {
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let id = self
             .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+            .register_static_info::<B>(&mut registrator, &mut self.storages);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }

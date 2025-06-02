@@ -1173,7 +1173,7 @@ impl<'w> BundleInserter<'w> {
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+            .register_static_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
@@ -1566,7 +1566,7 @@ impl<'w> BundleRemover<'w> {
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+            .register_static_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
     }
@@ -1846,7 +1846,7 @@ impl<'w> BundleSpawner<'w> {
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+            .register_static_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
@@ -2010,12 +2010,16 @@ impl<'w> BundleSpawner<'w> {
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
-    /// Cache static [`BundleId`]
+    /// Cache [`BundleId`]s for static bundles
     static_bundle_ids: TypeIdMap<BundleId>,
+    /// Cache [`BundleId`]s for bounded but non-static bundles
+    bounded_bundle_ids: HashMap<(TypeId, u64), BundleId>,
+    /// Cache [`BundleId`]s for dynamic bundles
+    dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
+
     /// Cache bundles, which contains both explicit and required components of [`Bundle`]
     contributed_bundle_ids: TypeIdMap<BundleId>,
-    /// Cache dynamic [`BundleId`] with multiple components
-    dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
+
     dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
     /// Cache optimized dynamic [`BundleId`] with single component
     dynamic_component_bundle_ids: HashMap<ComponentId, BundleId>,
@@ -2056,14 +2060,14 @@ impl Bundles {
     /// Registers a new [`BundleInfo`] for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_info<T: StaticBundle>(
+    pub(crate) fn register_static_info<T: StaticBundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
         *self.static_bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let mut component_ids= Vec::new();
+            let mut component_ids = Vec::new();
             T::component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
@@ -2077,6 +2081,64 @@ impl Bundles {
         })
     }
 
+    pub(crate) fn register_info<T: Bundle>(
+        &mut self,
+        bundle: &T,
+        components: &mut ComponentsRegistrator,
+        storages: &mut Storages,
+    ) -> BundleId {
+        let bundle_infos = &mut self.bundle_infos;
+        if T::IS_STATIC {
+            return *self
+                .static_bundle_ids
+                .entry(TypeId::of::<T>())
+                .or_insert_with(|| {
+                    Self::register_new_bundle(bundle, components, storages, bundle_infos)
+                });
+        }
+
+        if T::IS_BOUNDED {
+            let (key, size) = bundle.cache_key();
+            if size <= 64 {
+                return *self
+                    .bounded_bundle_ids
+                    .entry((TypeId::of::<T>(), key))
+                    .or_insert_with(|| {
+                        Self::register_new_bundle(bundle, components, storages, bundle_infos)
+                    });
+            }
+        }
+
+        let mut component_ids = Vec::new();
+        bundle.component_ids(components, &mut |id| component_ids.push(id));
+
+        *self
+            .dynamic_bundle_ids
+            .entry(component_ids.into_boxed_slice())
+            .or_insert_with(|| {
+                Self::register_new_bundle(bundle, components, storages, bundle_infos)
+            })
+    }
+
+    fn register_new_bundle<T: Bundle>(
+        bundle: &T,
+        components: &mut ComponentsRegistrator,
+        storages: &mut Storages,
+        bundle_infos: &mut Vec<BundleInfo>,
+    ) -> BundleId {
+        let mut component_ids = Vec::new();
+        bundle.component_ids(components, &mut |id| component_ids.push(id));
+        let id = BundleId(bundle_infos.len());
+        let bundle_info =
+            // SAFETY: T::component_ids ensures:
+            // - its info was created
+            // - appropriate storage for it has been initialized.
+            // - it was created in the same order as the components in T
+            unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
+        bundle_infos.push(bundle_info);
+        id
+    }
+
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
     ///
     /// Also registers all the components in the bundle.
@@ -2088,7 +2150,7 @@ impl Bundles {
         if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
             id
         } else {
-            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            let explicit_bundle_id = self.register_static_info::<T>(components, storages);
             // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {

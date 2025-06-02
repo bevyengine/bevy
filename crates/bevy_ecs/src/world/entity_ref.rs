@@ -2158,7 +2158,7 @@ impl<'w> EntityWorldMut<'w> {
         let retained_bundle = self
             .world
             .bundles
-            .register_info::<T>(&mut registrator, storages);
+            .register_static_info::<T>(&mut registrator, storages);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_archetype = &mut archetypes[old_location.archetype_id];
