@@ -190,9 +190,9 @@ pub fn clear() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that removes all components from an entity,
-/// except for those in the given [`Bundle`].
+/// except for those in the given [`StaticBundle`].
 #[track_caller]
-pub fn retain<T: Bundle>() -> impl EntityCommand {
+pub fn retain<T: StaticBundle>() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.retain_with_caller::<T>(caller);

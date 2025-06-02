@@ -2151,12 +2151,15 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub fn retain<T: Bundle>(&mut self) -> &mut Self {
+    pub fn retain<T: StaticBundle>(&mut self) -> &mut Self {
         self.retain_with_caller::<T>(MaybeLocation::caller())
     }
 
     #[inline]
-    pub(crate) fn retain_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
+    pub(crate) fn retain_with_caller<T: StaticBundle>(
+        &mut self,
+        caller: MaybeLocation,
+    ) -> &mut Self {
         let old_location = self.location();
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
@@ -2168,7 +2171,7 @@ impl<'w> EntityWorldMut<'w> {
         let retained_bundle = self
             .world
             .bundles
-            .register_info::<T>(&mut registrator, storages);
+            .register_static_info::<T>(&mut registrator, storages);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_archetype = &mut archetypes[old_location.archetype_id];
