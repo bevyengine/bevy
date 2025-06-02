@@ -39,7 +39,7 @@ pub struct TextEntity {
 
 /// Computed information for a text block.
 ///
-/// See [`TextLayoutSettings`].
+/// See [`ComputedTextLayout`].
 ///
 /// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone, Reflect)]
