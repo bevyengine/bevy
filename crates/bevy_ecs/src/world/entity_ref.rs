@@ -2,7 +2,7 @@ use crate::{
     archetype::Archetype,
     bundle::{
         Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
-        InsertMode,
+        InsertMode, StaticBundle,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{
@@ -3471,7 +3471,7 @@ impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
     }
 }
 
-impl<'a, B: Bundle> From<&'a EntityRefExcept<'_, B>> for FilteredEntityRef<'a> {
+impl<'a, B: StaticBundle> From<&'a EntityRefExcept<'_, B>> for FilteredEntityRef<'a> {
     fn from(value: &'a EntityRefExcept<'_, B>) -> Self {
         // SAFETY:
         // - The FilteredEntityRef has the same component access as the given EntityRefExcept.
@@ -3819,7 +3819,7 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
     }
 }
 
-impl<'a, B: Bundle> From<&'a EntityMutExcept<'_, B>> for FilteredEntityMut<'a> {
+impl<'a, B: StaticBundle> From<&'a EntityMutExcept<'_, B>> for FilteredEntityMut<'a> {
     fn from(value: &'a EntityMutExcept<'_, B>) -> Self {
         // SAFETY:
         // - The FilteredEntityMut has the same component access as the given EntityMutExcept.
@@ -3893,7 +3893,7 @@ pub enum TryFromFilteredError {
 /// for an explicitly-enumerated set.
 pub struct EntityRefExcept<'w, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     entity: UnsafeEntityCell<'w>,
     phantom: PhantomData<B>,
@@ -3901,7 +3901,7 @@ where
 
 impl<'w, B> EntityRefExcept<'w, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must only have mutable access to the components in `B`.
@@ -4062,7 +4062,7 @@ where
 
 impl<'a, B> From<&'a EntityMutExcept<'_, B>> for EntityRefExcept<'a, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     fn from(entity: &'a EntityMutExcept<'_, B>) -> Self {
         // SAFETY: All accesses that `EntityRefExcept` provides are also
@@ -4071,23 +4071,23 @@ where
     }
 }
 
-impl<B: Bundle> Clone for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> Clone for EntityRefExcept<'_, B> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<B: Bundle> Copy for EntityRefExcept<'_, B> {}
+impl<B: StaticBundle> Copy for EntityRefExcept<'_, B> {}
 
-impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> PartialEq for EntityRefExcept<'_, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
+impl<B: StaticBundle> Eq for EntityRefExcept<'_, B> {}
 
-impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> PartialOrd for EntityRefExcept<'_, B> {
     /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -4095,26 +4095,26 @@ impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> Ord for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> Ord for EntityRefExcept<'_, B> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> Hash for EntityRefExcept<'_, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl<B: Bundle> ContainsEntity for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> ContainsEntity for EntityRefExcept<'_, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, B> {}
+unsafe impl<B: StaticBundle> EntityEquivalent for EntityRefExcept<'_, B> {}
 
 /// Provides mutable access to all components of an entity, with the exception
 /// of an explicit set.
@@ -4126,7 +4126,7 @@ unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, B> {}
 /// [`crate::query::Without`] filter.
 pub struct EntityMutExcept<'w, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     entity: UnsafeEntityCell<'w>,
     phantom: PhantomData<B>,
@@ -4134,7 +4134,7 @@ where
 
 impl<'w, B> EntityMutExcept<'w, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must not have access to any components not in `B`.
@@ -4294,15 +4294,15 @@ where
     }
 }
 
-impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> PartialEq for EntityMutExcept<'_, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
+impl<B: StaticBundle> Eq for EntityMutExcept<'_, B> {}
 
-impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> PartialOrd for EntityMutExcept<'_, B> {
     /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -4310,30 +4310,30 @@ impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> Ord for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> Ord for EntityMutExcept<'_, B> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> Hash for EntityMutExcept<'_, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl<B: Bundle> ContainsEntity for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> ContainsEntity for EntityMutExcept<'_, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> EntityEquivalent for EntityMutExcept<'_, B> {}
+unsafe impl<B: StaticBundle> EntityEquivalent for EntityMutExcept<'_, B> {}
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     let mut found = false;
     B::get_component_ids(components, &mut |maybe_id| {
