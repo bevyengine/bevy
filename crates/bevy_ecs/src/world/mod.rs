@@ -3003,7 +3003,7 @@ impl World {
     /// This is largely equivalent to calling [`register_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
-    pub fn register_bundle<B: StaticBundle>(&mut self) -> &BundleInfo {
+    pub fn register_static_bundle<B: StaticBundle>(&mut self) -> &BundleInfo {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };

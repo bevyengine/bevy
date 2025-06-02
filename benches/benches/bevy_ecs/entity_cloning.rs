@@ -69,7 +69,10 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration>(
     // Recursively register all components in the bundle, then save the component IDs to a list.
     // This uses `contributed_components()`, meaning both explicit and required component IDs in
     // this bundle are saved.
-    let component_ids: Vec<_> = world.register_bundle::<B>().contributed_components().into();
+    let component_ids: Vec<_> = world
+        .register_static_bundle::<B>()
+        .contributed_components()
+        .into();
 
     let mut builder = EntityCloner::build(world);
 
