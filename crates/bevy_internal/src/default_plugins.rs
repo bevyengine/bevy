@@ -19,7 +19,7 @@ plugin_group! {
         #[cfg(feature = "bevy_window")]
         bevy_a11y:::AccessibilityPlugin,
         #[cfg(feature = "std")]
-        #[custom(cfg(any(unix, windows)))]
+        #[custom(cfg(any(all(unix, not(target_os = "horizon")), windows)))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,

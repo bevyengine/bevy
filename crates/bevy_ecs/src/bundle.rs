@@ -2312,7 +2312,7 @@ mod tests {
     }
 
     #[test]
-    fn new_archetype_creadted() {
+    fn new_archetype_created() {
         let mut world = World::new();
         #[derive(Resource, Default)]
         struct Count(u32);
