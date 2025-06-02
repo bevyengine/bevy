@@ -46,7 +46,8 @@ fn setup(
             texture: Some(texture_handle.clone()),
             ..default()
         })),
-        Transform::from_xyz(-300.0, 0.0, 1.0),
+        Transform::from_xyz(-300.0, 0.0, 0.0),
+        bevy::sprite::ZIndex(1),
     ));
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
@@ -56,7 +57,8 @@ fn setup(
             texture: Some(texture_handle.clone()),
             ..default()
         })),
-        Transform::from_xyz(-200.0, 0.0, -1.0),
+        Transform::from_xyz(-200.0, 0.0, 0.0),
+        bevy::sprite::ZIndex(-1),
     ));
 
     // Test the interaction between opaque/mask and transparent meshes
@@ -82,7 +84,8 @@ fn setup(
             texture: Some(texture_handle.clone()),
             ..default()
         })),
-        Transform::from_xyz(300.0, 0.0, 1.0),
+        Transform::from_xyz(300.0, 0.0, 0.0),
+        bevy::sprite::ZIndex(1),
     ));
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
@@ -92,6 +95,7 @@ fn setup(
             texture: Some(texture_handle),
             ..default()
         })),
-        Transform::from_xyz(400.0, 0.0, -1.0),
+        Transform::from_xyz(400.0, 0.0, 0.0),
+        bevy::sprite::ZIndex(-1),
     ));
 }

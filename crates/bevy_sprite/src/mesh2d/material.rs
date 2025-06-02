@@ -5,6 +5,7 @@ use crate::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, Handle};
+use bevy_core_pipeline::core_2d::Transparent2dSortKey;
 use bevy_core_pipeline::{
     core_2d::{
         AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
@@ -48,7 +49,6 @@ use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
 use tracing::error;
-use bevy_core_pipeline::core_2d::Transparent2dSortKey;
 
 /// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
@@ -851,8 +851,11 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 BinnedRenderPhaseType::UnbatchableMesh
             };
 
-            match material_2d.properties.alpha_mode {
-                AlphaMode2d::Opaque => {
+            let needs_sort = mesh_instance.z_index.is_some()
+                || mesh_instance.y_sort
+                || mesh_instance.sort_bias.is_some();
+            match (material_2d.properties.alpha_mode, needs_sort) {
+                (AlphaMode2d::Opaque, false) => {
                     let bin_key = Opaque2dBinKey {
                         pipeline: pipeline_id,
                         draw_function: material_2d.properties.draw_function_id,
@@ -870,7 +873,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         current_change_tick,
                     );
                 }
-                AlphaMode2d::Mask(_) => {
+                (AlphaMode2d::Mask(_), false) => {
                     let bin_key = AlphaMask2dBinKey {
                         pipeline: pipeline_id,
                         draw_function: material_2d.properties.draw_function_id,
@@ -888,7 +891,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         current_change_tick,
                     );
                 }
-                AlphaMode2d::Blend => {
+                (AlphaMode2d::Blend, false) | (_, true) => {
                     let mesh_y = mesh_instance.transforms.world_from_local.translation.y;
                     let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
                     let z_bias = material_2d.properties.depth_bias;
@@ -899,7 +902,10 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         mesh_z + z_bias + sort_bias.unwrap_or_default()
                     };
 
-                    let sort_key = Transparent2dSortKey::new(mesh_instance.z_index, Some(bias));
+                    let sort_key = Transparent2dSortKey::new(
+                        mesh_instance.z_index.unwrap_or_default(),
+                        Some(bias),
+                    );
                     transparent_phase.add(Transparent2d {
                         entity: (*render_entity, *visible_entity),
                         draw_function: material_2d.properties.draw_function_id,

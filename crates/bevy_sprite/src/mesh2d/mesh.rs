@@ -248,7 +248,7 @@ pub struct RenderMesh2dInstance {
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
     pub tag: u32,
-    pub z_index: i32,
+    pub z_index: Option<i32>,
     pub y_sort: bool,
     pub sort_bias: Option<f32>,
 }
@@ -292,7 +292,7 @@ pub fn extract_mesh2d(
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: !no_automatic_batching,
                 tag: tag.map_or(0, |i| **i),
-                z_index: z_index.map(|x| **x).unwrap_or(0),
+                z_index: z_index.cloned().map(|x| x.0),
                 y_sort,
                 sort_bias: sort_bias.cloned().map(|sb| sb.0),
             },
