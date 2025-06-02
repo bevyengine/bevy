@@ -18,7 +18,14 @@ use crate::{
 };
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
+use core::{
+    any::TypeId,
+    cell::UnsafeCell,
+    fmt::Debug,
+    marker::PhantomData,
+    panic::Location,
+    ptr::{self, NonNull},
+};
 use thiserror::Error;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
@@ -1236,6 +1243,11 @@ unsafe fn get_component(
             table.get_component(component_id, location.table_row)
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
+        StorageType::Shared => world
+            .archetypes()
+            .get(location.archetype_id)
+            .and_then(|archetype| archetype.get_value_component(component_id))
+            .map(|v| Ptr::new(NonNull::new_unchecked(ptr::from_ref(v.as_ref()) as *mut u8))),
     }
 }
 
@@ -1279,6 +1291,29 @@ unsafe fn get_component_and_ticks(
             ))
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),
+        StorageType::Shared => world
+            .archetypes()
+            .get(location.archetype_id)
+            .and_then(|archetype| archetype.get_value_component(component_id))
+            .and_then(|component| world.storages().shared.get_shared(component))
+            .map(|component| {
+                // All of these transformations are safe as long as component is never accessed mutably,
+                // which should be the case since shared components are always immutable.
+                (
+                    Ptr::new(NonNull::new_unchecked(
+                        ptr::from_ref(component.value().as_ref()) as *mut u8,
+                    )),
+                    TickCells {
+                        added: &*(ptr::from_ref(component.added_ref()).cast::<UnsafeCell<Tick>>()),
+                        changed: &*(ptr::from_ref(component.added_ref())
+                            .cast::<UnsafeCell<Tick>>()),
+                    },
+                    component
+                        .location()
+                        .as_ref()
+                        .map(|l| &*(ptr::from_ref(l).cast::<UnsafeCell<_>>())),
+                )
+            }),
     }
 }
 
@@ -1305,6 +1340,15 @@ unsafe fn get_ticks(
             table.get_ticks_unchecked(component_id, location.table_row)
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
+        StorageType::Shared => world
+            .archetypes()
+            .get(location.archetype_id)
+            .and_then(|archetype| archetype.get_value_component(component_id))
+            .and_then(|component| world.storages().shared.get_shared(component))
+            .map(|component| ComponentTicks {
+                added: component.added(),
+                changed: component.added(),
+            }),
     }
 }
 

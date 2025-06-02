@@ -6,6 +6,11 @@ use crate::{
 };
 use core::iter::FusedIterator;
 
+enum BundleSpawnerOrWorld<'w> {
+    World(&'w mut World),
+    Spawner(BundleSpawner<'w>),
+}
+
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
 ///
@@ -16,7 +21,7 @@ where
     I::Item: Bundle,
 {
     inner: I,
-    spawner: BundleSpawner<'w>,
+    spawner_or_world: BundleSpawnerOrWorld<'w>,
     caller: MaybeLocation,
 }
 
@@ -32,18 +37,23 @@ where
         // necessary
         world.flush();
 
-        let change_tick = world.change_tick();
-
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
         world.entities.reserve(length as u32);
 
-        let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
-        spawner.reserve_storage(length);
-
+        // We cannot reuse the same spawner if the bundle has any fragmenting value components
+        // since the target archetype depends on the bundle value and not just its type.
+        let spawner_or_world = if I::Item::has_fragmenting_values() {
+            BundleSpawnerOrWorld::World(world)
+        } else {
+            let change_tick = world.change_tick();
+            let mut spawner = BundleSpawner::new_uniform::<I::Item>(world, change_tick, caller);
+            spawner.reserve_storage(length);
+            BundleSpawnerOrWorld::Spawner(spawner)
+        };
         Self {
             inner: iter,
-            spawner,
+            spawner_or_world,
             caller,
         }
     }
@@ -58,8 +68,13 @@ where
         // Iterate through self in order to spawn remaining bundles.
         for _ in &mut *self {}
         // Apply any commands from those operations.
-        // SAFETY: `self.spawner` will be dropped immediately after this call.
-        unsafe { self.spawner.flush_commands() };
+        match &mut self.spawner_or_world {
+            BundleSpawnerOrWorld::World(world) => world.flush_commands(),
+            BundleSpawnerOrWorld::Spawner(bundle_spawner) => {
+                // SAFETY: `self.spawner` will be dropped immediately after this call.
+                unsafe { bundle_spawner.flush_commands() }
+            }
+        }
     }
 }
 
@@ -72,8 +87,18 @@ where
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle, self.caller).0) }
+        match &mut self.spawner_or_world {
+            BundleSpawnerOrWorld::World(world) => {
+                let change_tick = world.change_tick();
+                let mut spawner = BundleSpawner::new(world, change_tick, &bundle, self.caller);
+                // SAFETY: bundle matches spawner type
+                unsafe { Some(spawner.spawn(bundle, self.caller).0) }
+            }
+            BundleSpawnerOrWorld::Spawner(spawner) => {
+                // SAFETY: bundle matches spawner type
+                unsafe { Some(spawner.spawn(bundle, self.caller).0) }
+            }
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

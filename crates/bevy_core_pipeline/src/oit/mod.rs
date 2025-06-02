@@ -64,6 +64,7 @@ impl Default for OrderIndependentTransparencySettings {
 impl Component for OrderIndependentTransparencySettings {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
+    type Key = NoKey<Self>;
 
     fn on_add() -> Option<ComponentHook> {
         Some(|world, context| {

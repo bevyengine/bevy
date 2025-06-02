@@ -5,7 +5,7 @@ use crate::{
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, Shared, SharedComponent, Table, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
@@ -1374,6 +1374,8 @@ pub struct ReadFetch<'w, T: Component> {
         Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
         // T::STORAGE_TYPE = StorageType::SparseSet
         Option<&'w ComponentSparseSet>,
+        // T::STORAGE_TYPE = StorageType::Shared
+        Option<&'w T>,
     >,
 }
 
@@ -1414,6 +1416,7 @@ unsafe impl<T: Component> WorldQuery for &T {
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
+                || None,
             ),
         }
     }
@@ -1421,7 +1424,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     const IS_DENSE: bool = {
         match T::STORAGE_TYPE {
             StorageType::Table => true,
-            StorageType::SparseSet => false,
+            StorageType::SparseSet | StorageType::Shared => false,
         }
     };
 
@@ -1429,7 +1432,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadFetch<'w, T>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
@@ -1437,6 +1440,13 @@ unsafe impl<T: Component> WorldQuery for &T {
             unsafe {
                 Self::set_table(fetch, component_id, table);
             }
+        } else if matches!(T::STORAGE_TYPE, StorageType::Shared) {
+            fetch.components.set_shared(|_| {
+                archetype
+                    .get_value_component(*component_id)
+                    .debug_checked_unwrap()
+                    .try_deref()
+            });
         }
     }
 
@@ -1518,6 +1528,7 @@ unsafe impl<T: Component> QueryData for &T {
                 };
                 item.deref()
             },
+            |shared| shared.debug_checked_unwrap(),
         )
     }
 }
@@ -1539,6 +1550,8 @@ pub struct RefFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
+        // T::STORAGE_TYPE = StorageType::Shared
+        (&'w Shared, Option<&'w SharedComponent>),
     >,
     last_run: Tick,
     this_run: Tick,
@@ -1581,6 +1594,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
+                // SAFETY: Shared storage is only accessed immutably.
+                || unsafe { (&world.storages().shared, None) },
             ),
             last_run,
             this_run,
@@ -1590,7 +1605,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     const IS_DENSE: bool = {
         match T::STORAGE_TYPE {
             StorageType::Table => true,
-            StorageType::SparseSet => false,
+            StorageType::SparseSet | StorageType::Shared => false,
         }
     };
 
@@ -1598,7 +1613,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     unsafe fn set_archetype<'w>(
         fetch: &mut RefFetch<'w, T>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
@@ -1606,6 +1621,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             unsafe {
                 Self::set_table(fetch, component_id, table);
             }
+        } else if matches!(T::STORAGE_TYPE, StorageType::Shared) {
+            fetch.components.set_shared(|(shared, _)| {
+                let component_value = archetype
+                    .get_value_component(*component_id)
+                    .debug_checked_unwrap();
+                (shared, shared.get_shared(component_value))
+            });
         }
     }
 
@@ -1717,6 +1739,19 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                     changed_by: caller.map(|caller| caller.deref()),
                 }
             },
+            |(_, shared_component)| {
+                let component = shared_component.debug_checked_unwrap();
+                Ref {
+                    value: component.value().try_deref().debug_checked_unwrap(),
+                    ticks: Ticks {
+                        added: component.added_ref(),
+                        changed: component.added_ref(),
+                        last_run: fetch.last_run,
+                        this_run: fetch.this_run,
+                    },
+                    changed_by: component.location().as_ref(),
+                }
+            },
         )
     }
 }
@@ -1738,6 +1773,9 @@ pub struct WriteFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
+        // T::STORAGE_TYPE = StorageType::Shared
+        // This is always () since only immutable components can be shared
+        (),
     >,
     last_run: Tick,
     this_run: Tick,
@@ -1780,6 +1818,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
+                || {},
             ),
             last_run,
             this_run,
@@ -1789,7 +1828,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     const IS_DENSE: bool = {
         match T::STORAGE_TYPE {
             StorageType::Table => true,
-            StorageType::SparseSet => false,
+            StorageType::SparseSet | StorageType::Shared => false,
         }
     };
 
@@ -1916,6 +1955,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     changed_by: caller.map(|caller| caller.deref_mut()),
                 }
             },
+            |_| unreachable!("Shared components can never be accessed mutably"),
         )
     }
 }
@@ -2251,7 +2291,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     const IS_DENSE: bool = {
         match T::STORAGE_TYPE {
             StorageType::Table => true,
-            StorageType::SparseSet => false,
+            StorageType::SparseSet | StorageType::Shared => false,
         }
     };
 
@@ -2712,23 +2752,30 @@ unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
 
 /// A compile-time checked union of two different types that differs based on the
 /// [`StorageType`] of a given component.
-pub(super) union StorageSwitch<C: Component, T: Copy, S: Copy> {
+pub(super) union StorageSwitch<C: Component, T: Copy, S: Copy, H: Copy> {
     /// The table variant. Requires the component to be a table component.
     table: T,
     /// The sparse set variant. Requires the component to be a sparse set component.
     sparse_set: S,
+
+    shared: H,
     _marker: PhantomData<C>,
 }
 
-impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
+impl<C: Component, T: Copy, S: Copy, H: Copy> StorageSwitch<C, T, S, H> {
     /// Creates a new [`StorageSwitch`] using the given closures to initialize
     /// the variant corresponding to the component's [`StorageType`].
-    pub fn new(table: impl FnOnce() -> T, sparse_set: impl FnOnce() -> S) -> Self {
+    pub fn new(
+        table: impl FnOnce() -> T,
+        sparse_set: impl FnOnce() -> S,
+        shared: impl FnOnce() -> H,
+    ) -> Self {
         match C::STORAGE_TYPE {
             StorageType::Table => Self { table: table() },
             StorageType::SparseSet => Self {
                 sparse_set: sparse_set(),
             },
+            StorageType::Shared => Self { shared: shared() },
         }
     }
 
@@ -2754,9 +2801,26 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
         }
     }
 
+    pub unsafe fn set_shared(&mut self, shared: impl Fn(H) -> H) {
+        match C::STORAGE_TYPE {
+            StorageType::Shared => self.shared = shared(self.shared),
+            _ => {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked()
+            }
+        }
+    }
+
     /// Fetches the internal value from the variant that corresponds to the
     /// component's [`StorageType`].
-    pub fn extract<R>(&self, table: impl FnOnce(T) -> R, sparse_set: impl FnOnce(S) -> R) -> R {
+    pub fn extract<R>(
+        &self,
+        table: impl FnOnce(T) -> R,
+        sparse_set: impl FnOnce(S) -> R,
+        shared: impl FnOnce(H) -> R,
+    ) -> R {
         match C::STORAGE_TYPE {
             StorageType::Table => table(
                 // SAFETY: C::STORAGE_TYPE == StorageType::Table
@@ -2766,17 +2830,21 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
                 // SAFETY: C::STORAGE_TYPE == StorageType::SparseSet
                 unsafe { self.sparse_set },
             ),
+            StorageType::Shared => shared(
+                // SAFETY: C::STORAGE_TYPE == StorageType::Shared
+                unsafe { self.shared },
+            ),
         }
     }
 }
 
-impl<C: Component, T: Copy, S: Copy> Clone for StorageSwitch<C, T, S> {
+impl<C: Component, T: Copy, S: Copy, H: Copy> Clone for StorageSwitch<C, T, S, H> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
+impl<C: Component, T: Copy, S: Copy, H: Copy> Copy for StorageSwitch<C, T, S, H> {}
 
 #[cfg(test)]
 mod tests {

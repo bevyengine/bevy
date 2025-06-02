@@ -14,6 +14,7 @@ use crate::{
         EntityIdLocation, EntityLocation,
     },
     event::Event,
+    fragmenting_value::{DynamicFragmentingValue, FragmentingValuesBorrowed},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData},
     relationship::RelationshipHookMode,
@@ -24,7 +25,7 @@ use crate::{
         ON_DESPAWN, ON_REMOVE, ON_REPLACE,
     },
 };
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
@@ -33,6 +34,7 @@ use core::{
     hash::{Hash, Hasher},
     marker::PhantomData,
     mem::MaybeUninit,
+    ptr::NonNull,
 };
 use thiserror::Error;
 
@@ -1835,8 +1837,21 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         let location = self.location();
         let change_tick = self.world.change_tick();
-        let mut bundle_inserter =
-            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
+
+        let value_components = if T::has_fragmenting_values() {
+            let mut registrator = self.world.components_registrator();
+            FragmentingValuesBorrowed::from_bundle(&mut registrator, &bundle)
+        } else {
+            FragmentingValuesBorrowed::default()
+        };
+
+        let mut bundle_inserter = BundleInserter::new::<T>(
+            self.world,
+            location.archetype_id,
+            change_tick,
+            &value_components,
+            caller,
+        );
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         let (location, after_effect) = unsafe {
             bundle_inserter.insert(
@@ -1905,9 +1920,22 @@ impl<'w> EntityWorldMut<'w> {
             component_id,
         );
         let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
+        let mut dynamic_value_component = DynamicFragmentingValue::default();
+        let value_components = FragmentingValuesBorrowed::from_iter(
+            dynamic_value_component
+                .from_component(&self.world.components, component_id, component.as_ref())
+                .iter()
+                .map(|v| (component_id, *v)),
+        );
 
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
+        let bundle_inserter = BundleInserter::new_with_id(
+            self.world,
+            location.archetype_id,
+            bundle_id,
+            change_tick,
+            &value_components,
+            caller,
+        );
 
         self.location = Some(insert_dynamic_bundle(
             bundle_inserter,
@@ -1965,14 +1993,47 @@ impl<'w> EntityWorldMut<'w> {
         );
         let mut storage_types =
             core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
+        let mut components: Vec<_> = iter_components.collect();
+        let mut dynamic_value_components: Vec<_> = component_ids
+            .iter()
+            .zip(components.iter())
+            .filter_map(|(id, value)| {
+                self.world
+                    .components()
+                    .get_info(*id)?
+                    .value_component_vtable()
+                    .map(|_| (*id, value.as_ref(), DynamicFragmentingValue::default()))
+            })
+            .collect();
+        let value_components = dynamic_value_components
+            .iter_mut()
+            .map(|(id, value, dynamic_value)|
+                 // SAFETY:
+                 // - `id` and `value` match
+                 // - component is always fragmenting since we filtered it beforehand.
+                unsafe {
+                (
+                    *id,
+                    dynamic_value
+                        .from_component(self.world.components(), *id, *value)
+                        .debug_checked_unwrap(),
+                )
+            })
+            .collect();
+        let bundle_inserter = BundleInserter::new_with_id(
+            self.world,
+            location.archetype_id,
+            bundle_id,
+            change_tick,
+            &value_components,
+            MaybeLocation::caller(),
+        );
 
         self.location = Some(insert_dynamic_bundle(
             bundle_inserter,
             self.entity,
             location,
-            iter_components,
+            components.iter_mut().map(|ptr| ptr.as_mut().promote()),
             (*storage_types).iter().cloned(),
             InsertMode::Replace,
             MaybeLocation::caller(),
@@ -2007,31 +2068,56 @@ impl<'w> EntityWorldMut<'w> {
                 entity,
                 location,
                 MaybeLocation::caller(),
-                |sets, table, components, bundle_components| {
+                |archetype, sets, table, components, bundle_components| {
                     let mut bundle_components = bundle_components.iter().copied();
-                    (
+                    let mut shared_components_tmp_ptrs = Vec::new();
+                    let result = (
                         false,
-                        T::from_components(&mut (sets, table), &mut |(sets, table)| {
-                            let component_id = bundle_components.next().unwrap();
-                            // SAFETY: the component existed to be removed, so its id must be valid.
-                            let component_info = components.get_info_unchecked(component_id);
-                            match component_info.storage_type() {
-                                StorageType::Table => {
-                                    table
-                                        .as_mut()
-                                        // SAFETY: The table must be valid if the component is in it.
-                                        .debug_checked_unwrap()
-                                        // SAFETY: The remover is cleaning this up.
-                                        .take_component(component_id, location.table_row)
+                        T::from_components(
+                            &mut (sets, table, &mut shared_components_tmp_ptrs),
+                            &mut |(sets, table, shared_components_tmp_ptrs)| {
+                                let component_id = bundle_components.next().unwrap();
+                                // SAFETY: the component existed to be removed, so its id must be valid.
+                                let component_info = components.get_info_unchecked(component_id);
+                                match component_info.storage_type() {
+                                    StorageType::Table => {
+                                        table
+                                            .as_mut()
+                                            // SAFETY: The table must be valid if the component is in it.
+                                            .debug_checked_unwrap()
+                                            // SAFETY: The remover is cleaning this up.
+                                            .take_component(component_id, location.table_row)
+                                    }
+                                    StorageType::SparseSet => sets
+                                        .get_mut(component_id)
+                                        .unwrap()
+                                        .remove_and_forget(entity)
+                                        .unwrap(),
+                                    StorageType::Shared => {
+                                        // This will leak the box and allow us to create OwningPtr for the cloned data.
+                                        // We'll clean it up later after the value has been created.
+                                        let component_ptr = Box::into_raw(
+                                            archetype
+                                                .get_value_component(component_id)
+                                                .unwrap()
+                                                .as_ref()
+                                                .clone_boxed(),
+                                        )
+                                        .cast::<u8>();
+                                        shared_components_tmp_ptrs
+                                            .push((component_ptr, component_info.layout()));
+                                        OwningPtr::new(NonNull::new_unchecked(component_ptr))
+                                    }
                                 }
-                                StorageType::SparseSet => sets
-                                    .get_mut(component_id)
-                                    .unwrap()
-                                    .remove_and_forget(entity)
-                                    .unwrap(),
-                            }
-                        }),
-                    )
+                            },
+                        ),
+                    );
+                    // T has been created, so the required data was copied over.
+                    // Now we need to dealloc memory for the leaked boxes from which `from_components` copied data.
+                    for (ptr, layout) in shared_components_tmp_ptrs {
+                        alloc::alloc::dealloc(ptr, layout);
+                    }
+                    result
                 },
             )
         };

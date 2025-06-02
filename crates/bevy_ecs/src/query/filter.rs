@@ -3,7 +3,7 @@ use crate::{
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity},
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
-    storage::{ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, Shared, SharedComponent, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -161,7 +161,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     const IS_DENSE: bool = {
         match T::STORAGE_TYPE {
             StorageType::Table => true,
-            StorageType::SparseSet => false,
+            StorageType::SparseSet | StorageType::Shared => false,
         }
     };
 
@@ -261,7 +261,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     const IS_DENSE: bool = {
         match T::STORAGE_TYPE {
             StorageType::Table => true,
-            StorageType::SparseSet => false,
+            StorageType::SparseSet | StorageType::Shared => false,
         }
     };
 
@@ -689,6 +689,8 @@ pub struct AddedFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
+        // T::STORAGE_TYPE = StorageType::Shared
+        (&'w Shared, Option<Tick>),
     >,
     last_run: Tick,
     this_run: Tick,
@@ -734,6 +736,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
+                // SAFETY: Shared storage is only accessed immutably.
+                || unsafe { (&world.storages().shared, None) },
             ),
             last_run,
             this_run,
@@ -743,7 +747,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     const IS_DENSE: bool = {
         match T::STORAGE_TYPE {
             StorageType::Table => true,
-            StorageType::SparseSet => false,
+            StorageType::SparseSet | StorageType::Shared => false,
         }
     };
 
@@ -751,7 +755,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
@@ -759,6 +763,18 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             unsafe {
                 Self::set_table(fetch, component_id, table);
             }
+        } else if matches!(T::STORAGE_TYPE, StorageType::Shared) {
+            fetch.ticks.set_shared(|(shared, _)| {
+                let component_value = archetype
+                    .get_value_component(*component_id)
+                    .debug_checked_unwrap();
+                (
+                    shared,
+                    shared
+                        .get_shared(component_value)
+                        .map(SharedComponent::added),
+                )
+            });
         }
     }
 
@@ -831,6 +847,10 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |(_, tick)| {
+                tick.debug_checked_unwrap()
+                    .is_newer_than(fetch.last_run, fetch.this_run)
             },
         )
     }
@@ -915,6 +935,8 @@ pub struct ChangedFetch<'w, T: Component> {
         Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
+        // T::STORAGE_TYPE = StorageType::Shared
+        (&'w Shared, Option<Tick>),
     >,
     last_run: Tick,
     this_run: Tick,
@@ -960,6 +982,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
+                // SAFETY: Shared storage is only accessed immutably.
+                || unsafe { (&world.storages().shared, None) },
             ),
             last_run,
             this_run,
@@ -969,7 +993,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     const IS_DENSE: bool = {
         match T::STORAGE_TYPE {
             StorageType::Table => true,
-            StorageType::SparseSet => false,
+            StorageType::SparseSet | StorageType::Shared => false,
         }
     };
 
@@ -977,7 +1001,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
@@ -985,6 +1009,18 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             unsafe {
                 Self::set_table(fetch, component_id, table);
             }
+        } else if matches!(T::STORAGE_TYPE, StorageType::Shared) {
+            fetch.ticks.set_shared(|(shared, _)| {
+                let component_value = archetype
+                    .get_value_component(*component_id)
+                    .debug_checked_unwrap();
+                (
+                    shared,
+                    shared
+                        .get_shared(component_value)
+                        .map(SharedComponent::added),
+                )
+            });
         }
     }
 
@@ -1058,6 +1094,10 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |(_, tick)| {
+                tick.debug_checked_unwrap()
+                    .is_newer_than(fetch.last_run, fetch.this_run)
             },
         )
     }

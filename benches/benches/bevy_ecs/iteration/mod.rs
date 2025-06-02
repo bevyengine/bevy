@@ -13,6 +13,7 @@ mod iter_simple_foreach_hybrid;
 mod iter_simple_foreach_sparse_set;
 mod iter_simple_foreach_wide;
 mod iter_simple_foreach_wide_sparse_set;
+mod iter_simple_shared;
 mod iter_simple_sparse_set;
 mod iter_simple_system;
 mod iter_simple_wide;
@@ -46,6 +47,10 @@ fn iter_simple(c: &mut Criterion) {
     });
     group.bench_function("system", |b| {
         let mut bench = iter_simple_system::Benchmark::new();
+        b.iter(move || bench.run());
+    });
+    group.bench_function("shared", |b| {
+        let mut bench = iter_simple_shared::Benchmark::new();
         b.iter(move || bench.run());
     });
     group.bench_function("sparse_set", |b| {
