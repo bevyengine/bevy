@@ -109,6 +109,11 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     fn default_system_sets(&self) -> Vec<crate::schedule::InternedSystemSet> {
         self.0.default_system_sets()
     }
+
+    #[inline(always)]
+    fn yielded(&self) -> bool {
+        self.0.yielded()
+    }
 }
 
 /// See [`IntoSystem::with_input`] for details.

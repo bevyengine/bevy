@@ -231,6 +231,14 @@ where
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
     }
+
+    fn yielded(&self) -> bool {
+        assert!(
+            !self.a.yielded() && !self.b.yielded(),
+            "Combined systems cannot yield"
+        );
+        false
+    }
 }
 
 /// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
@@ -452,6 +460,14 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
+    }
+
+    fn yielded(&self) -> bool {
+        assert!(
+            !self.a.yielded() && !self.b.yielded(),
+            "Piped systems cannot yield"
+        );
+        false
     }
 }
 

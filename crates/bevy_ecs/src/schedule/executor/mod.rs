@@ -578,4 +578,92 @@ mod tests {
         let counter = world.resource::<Counter>();
         assert_eq!(counter.0, 0);
     }
+
+    #[test]
+    fn system_yielding() {
+        for executor in [
+            ExecutorKind::Simple,
+            ExecutorKind::SingleThreaded,
+            ExecutorKind::MultiThreaded,
+        ] {
+            system_yielding_core(executor);
+        }
+    }
+
+    fn system_yielding_core(executor: ExecutorKind) {
+        use crate::system::{System, SystemMeta};
+        use core::sync::atomic::{AtomicU32, Ordering};
+        use alloc::sync::Arc;
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(executor);
+        struct MySystem {
+            count: Arc<AtomicU32>,
+            system_meta: SystemMeta,
+        }
+        impl System for MySystem {
+            type In = ();
+            type Out = ();
+            fn name(&self) -> alloc::borrow::Cow<'static, str> {
+                core::any::type_name::<Self>().into()
+            }
+            fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
+                self.system_meta.component_access_set.combined_access()
+            }
+            fn archetype_component_access(
+                &self,
+            ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
+                &self.system_meta.archetype_component_access
+            }
+            fn is_send(&self) -> bool {
+                true
+            }
+            fn is_exclusive(&self) -> bool {
+                false
+            }
+            fn has_deferred(&self) -> bool {
+                false
+            }
+            unsafe fn run_unsafe(
+                &mut self,
+                _input: crate::prelude::SystemIn<'_, Self>,
+                _world: crate::world::unsafe_world_cell::UnsafeWorldCell,
+            ) -> Self::Out {
+                self.count.fetch_add(1, Ordering::Relaxed);
+            }
+            fn apply_deferred(&mut self, _world: &mut World) {}
+            fn queue_deferred(&mut self, _world: crate::world::DeferredWorld) {}
+            unsafe fn validate_param_unsafe(
+                &mut self,
+                _world: crate::world::unsafe_world_cell::UnsafeWorldCell,
+            ) -> bool {
+                true
+            }
+            fn initialize(&mut self, _world: &mut World) {}
+            fn update_archetype_component_access(
+                &mut self,
+                _world: crate::world::unsafe_world_cell::UnsafeWorldCell,
+            ) {
+            }
+            fn check_change_tick(&mut self, _change_tick: crate::component::Tick) {}
+            fn get_last_run(&self) -> crate::component::Tick {
+                self.system_meta.last_run
+            }
+
+            fn set_last_run(&mut self, last_run: crate::component::Tick) {
+                self.system_meta.last_run = last_run;
+            }
+            fn yielded(&self) -> bool {
+                self.count.load(Ordering::Relaxed) < 3
+            }
+        }
+        schedule.configure_sets(S1.run_if((|_: Res<R1>| true).param_warn_once()));
+        let count = Arc::new(AtomicU32::new(0));
+        schedule.add_systems(MySystem {
+            count: count.clone(),
+            system_meta: SystemMeta::new::<MySystem>(),
+        });
+        schedule.run(&mut world);
+        assert_eq!(count.load(Ordering::Relaxed), 3);
+    }
 }

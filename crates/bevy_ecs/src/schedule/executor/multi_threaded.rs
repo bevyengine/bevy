@@ -78,6 +78,7 @@ struct SystemTaskMetadata {
 /// The result of running a system that is sent across a channel.
 struct SystemResult {
     system_index: usize,
+    yielded: bool,
 }
 
 /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
@@ -336,7 +337,10 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         self.environment
             .executor
             .system_completion
-            .push(SystemResult { system_index })
+            .push(SystemResult {
+                system_index,
+                yielded: system.yielded(),
+            })
             .unwrap_or_else(|error| unreachable!("{}", error));
         if let Err(payload) = res {
             #[cfg(feature = "std")]
@@ -732,7 +736,10 @@ impl ExecutorState {
     }
 
     fn finish_system_and_handle_dependents(&mut self, result: SystemResult) {
-        let SystemResult { system_index, .. } = result;
+        let SystemResult {
+            system_index,
+            yielded,
+        } = result;
 
         if self.system_task_metadata[system_index].is_exclusive {
             self.exclusive_running = false;
@@ -745,10 +752,15 @@ impl ExecutorState {
         debug_assert!(self.num_running_systems >= 1);
         self.num_running_systems -= 1;
         self.running_systems.remove(system_index);
-        self.completed_systems.insert(system_index);
-        self.unapplied_systems.insert(system_index);
 
-        self.signal_dependents(system_index);
+        if yielded {
+            self.ready_systems.insert(system_index);
+        } else {
+            self.completed_systems.insert(system_index);
+            self.unapplied_systems.insert(system_index);
+
+            self.signal_dependents(system_index);
+        }
     }
 
     fn skip_system_and_signal_dependents(&mut self, system_index: usize) {

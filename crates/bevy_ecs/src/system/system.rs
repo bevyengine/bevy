@@ -168,6 +168,27 @@ pub trait System: Send + Sync + 'static {
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn set_last_run(&mut self, last_run: Tick);
+
+    /// This method is designed to be called by the ECS scheduler to determine if a system should continue to be executed
+    /// repeatedly.
+    ///
+    /// - `yielded()` will be called by the scheduler immediately after [`System::run_unsafe`] has been executed.
+    /// - If `yielded()` returns true, the scheduler will schedule this system for execution again
+    ///   after all other systems currently scheduled for execution have been completed
+    /// - While `yielded()` returns true, the system will be executed continuously until it returns false. Dependent systems
+    ///   will not be scheduled for execution.
+    /// - If `yielded()` returns false, the scheduler will stop scheduling this system and proceed to
+    ///   schedule any dependent systems.
+    ///
+    /// This allows for custom implementations of the [`System`] trait to control their own execution flow and
+    /// block dependent systems when the conditions for execution have not been met, or where the same system need
+    /// to be scheduled for execution multiple times per frame.
+    ///
+    /// Careful consideration should be given to the potential for deadlocks when using this mechanism to ensure that
+    /// systems that yield do not indefinitely block other systems from executing.
+    fn yielded(&self) -> bool {
+        false
+    }
 }
 
 /// [`System`] types that do not modify the [`World`] when run.
