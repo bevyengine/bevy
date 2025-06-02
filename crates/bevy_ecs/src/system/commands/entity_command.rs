@@ -254,7 +254,7 @@ pub fn clone_with(
 
 /// An [`EntityCommand`] that clones the specified components of an entity
 /// and inserts them into another entity.
-pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand {
+pub fn clone_components<B: StaticBundle>(target: Entity) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         entity.clone_components::<B>(target);
     }
@@ -262,7 +262,7 @@ pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 
 /// An [`EntityCommand`] that clones the specified components of an entity
 /// and inserts them into another entity, then removes them from the original entity.
-pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
+pub fn move_components<B: StaticBundle>(target: Entity) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         entity.move_components::<B>(target);
     }
