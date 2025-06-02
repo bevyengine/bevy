@@ -3,16 +3,15 @@
 use bevy::{
     color::palettes,
     diagnostic::{
-        DiagnosticPath, EntityCountDiagnosticsPlugin, FrameCountDiagnosticsPlugin,
-        FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin, LogDiagnosticsState,
-        SystemInformationDiagnosticsPlugin,
+        DiagnosticPath, EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin,
+        LogDiagnosticsPlugin, LogDiagnosticsState, SystemInformationDiagnosticsPlugin,
     },
     prelude::*,
 };
 
-const FRAME_COUNT_DIAGNOSTICS: [DiagnosticPath; 1] = [FrameCountDiagnosticsPlugin::FRAME_COUNT];
-const FRAME_TIME_DIAGNOSTICS: [DiagnosticPath; 2] = [
+const FRAME_TIME_DIAGNOSTICS: [DiagnosticPath; 3] = [
     FrameTimeDiagnosticsPlugin::FPS,
+    FrameTimeDiagnosticsPlugin::FRAME_COUNT,
     FrameTimeDiagnosticsPlugin::FRAME_TIME,
 ];
 const ENTITY_COUNT_DIAGNOSTICS: [DiagnosticPath; 1] = [EntityCountDiagnosticsPlugin::ENTITY_COUNT];
@@ -118,9 +117,6 @@ fn filters_inputs(
                 if filters.frame_time {
                     enable_filters(&mut log_state, FRAME_TIME_DIAGNOSTICS);
                 }
-                if filters.frame_count {
-                    enable_filters(&mut log_state, FRAME_COUNT_DIAGNOSTICS);
-                }
                 if filters.entity_count {
                     enable_filters(&mut log_state, ENTITY_COUNT_DIAGNOSTICS);
                 }
@@ -144,16 +140,6 @@ fn filters_inputs(
         }
     }
     if keys.just_pressed(KeyCode::Digit2) {
-        filters.frame_count = !filters.frame_count;
-        if enabled {
-            if filters.frame_count {
-                enable_filters(&mut log_state, FRAME_COUNT_DIAGNOSTICS);
-            } else {
-                disable_filters(&mut log_state, FRAME_COUNT_DIAGNOSTICS);
-            }
-        }
-    }
-    if keys.just_pressed(KeyCode::Digit3) {
         filters.entity_count = !filters.entity_count;
         if enabled {
             if filters.entity_count {
@@ -163,7 +149,7 @@ fn filters_inputs(
             }
         }
     }
-    if keys.just_pressed(KeyCode::Digit4) {
+    if keys.just_pressed(KeyCode::Digit3) {
         filters.system_info = !filters.system_info;
         if enabled {
             if filters.system_info {
@@ -249,23 +235,6 @@ fn update_commands(
                 },
                 children![
                     (
-                        Text::new("[1] Frame count:"),
-                        TextColor(Color::WHITE.with_alpha(alpha))
-                    ),
-                    (
-                        Text::new(format!("{:?}", filters.frame_count)),
-                        TextColor(enabled_color(filters.frame_count).with_alpha(alpha))
-                    )
-                ]
-            ),
-            (
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(5.),
-                    ..default()
-                },
-                children![
-                    (
                         Text::new("[2] Entity count:"),
                         TextColor(Color::WHITE.with_alpha(alpha))
                     ),
@@ -324,7 +293,6 @@ enum LogDiagnosticsStatus {
 #[derive(Default, Resource)]
 struct LogDiagnosticsFilters {
     frame_time: bool,
-    frame_count: bool,
     entity_count: bool,
     system_info: bool,
     #[expect(

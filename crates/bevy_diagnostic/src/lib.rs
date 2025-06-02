@@ -27,9 +27,7 @@ mod system_information_diagnostics_plugin;
 pub use diagnostic::*;
 
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
-pub use frame_count_diagnostics_plugin::{
-    update_frame_count, FrameCount, FrameCountDiagnosticsPlugin,
-};
+pub use frame_count_diagnostics_plugin::{update_frame_count, FrameCount, FrameCountPlugin};
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
 pub use log_diagnostics_plugin::{LogDiagnosticsPlugin, LogDiagnosticsState};
 #[cfg(feature = "sysinfo_plugin")]
