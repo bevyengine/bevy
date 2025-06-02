@@ -223,6 +223,14 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     fn cache_key(&self) -> (u64, usize) {
         (0, 0)
     }
+
+    fn component_ids(
+        &self,
+        components: &mut crate::component::ComponentsRegistrator,
+        ids: &mut impl FnMut(crate::component::ComponentId),
+    ) {
+        <Self as StaticBundle>::component_ids(components, ids);
+    }
 }
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
@@ -299,6 +307,14 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
 
     fn cache_key(&self) -> (u64, usize) {
         (0, 0)
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut crate::component::ComponentsRegistrator,
+        ids: &mut impl FnMut(crate::component::ComponentId),
+    ) {
+        <Self as StaticBundle>::component_ids(components, ids);
     }
 }
 

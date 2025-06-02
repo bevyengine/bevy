@@ -167,6 +167,14 @@ pub unsafe trait Bundle: StaticBundle + DynamicBundle + Send + Sync + 'static {
     /// size exceeds that it should be ignored.
     #[doc(hidden)]
     fn cache_key(&self) -> (u64, usize);
+
+    /// Gets `self`'s component ids, in the order of this bundle's [`Component`]s
+    #[doc(hidden)]
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    );
 }
 
 /// Each `StaticBundle` represents a static set of [`Component`] types.
@@ -300,6 +308,14 @@ unsafe impl<C: Component> Bundle for C {
     fn cache_key(&self) -> (u64, usize) {
         (0, 0)
     }
+
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        <Self as StaticBundle>::component_ids(components, ids);
+    }
 }
 
 // SAFETY:
@@ -399,6 +415,20 @@ macro_rules! tuple_impl {
                 )*
 
                 (key, size)
+            }
+
+            fn component_ids(
+                &self,
+                components: &mut ComponentsRegistrator,
+                ids: &mut impl FnMut(ComponentId),
+            ) {
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                $($name.component_ids(components, ids);)*
             }
         }
 

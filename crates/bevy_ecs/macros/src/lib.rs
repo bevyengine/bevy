@@ -74,14 +74,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
+    let mut field_static_component_ids = Vec::new();
+    let mut field_static_required_components = Vec::new();
+    let mut field_static_get_component_ids = Vec::new();
     let mut field_component_ids = Vec::new();
-    let mut field_get_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_is_static = Vec::new();
     let mut field_is_bounded = Vec::new();
     let mut field_cache_key = Vec::new();
     let mut field_from_components = Vec::new();
-    let mut field_required_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
         .iter()
         .enumerate()
@@ -90,13 +91,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     {
         match field_kind {
             BundleFieldKind::Component => {
-                field_component_ids.push(quote! {
-                <#field_type as #ecs_path::bundle::StaticBundle>::component_ids(components, &mut *ids);
+                field_static_component_ids.push(quote! {
+                    <#field_type as #ecs_path::bundle::StaticBundle>::component_ids(components, &mut *ids);
                 });
-                field_required_components.push(quote! {
+                field_static_required_components.push(quote! {
                     <#field_type as #ecs_path::bundle::StaticBundle>::register_required_components(components, required_components);
                 });
-                field_get_component_ids.push(quote! {
+                field_static_get_component_ids.push(quote! {
                     <#field_type as #ecs_path::bundle::StaticBundle>::get_component_ids(components, &mut *ids);
                 });
                 field_is_static
@@ -105,8 +106,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     .push(quote! { <#field_type as #ecs_path::bundle::Bundle>::IS_BOUNDED });
                 match field {
                     Some(field) => {
+                        field_component_ids.push(quote! {
+                            <#field_type as #ecs_path::bundle::Bundle>::component_ids(&self.#field, components, ids);
+                        });
                         field_get_components.push(quote! {
-                            self.#field.get_components(&mut *func);
+                            <#field_type as #ecs_path::bundle::DynamicBundle>::get_components(self.#field, &mut *func);
                         });
                         field_from_components.push(quote! {
                             #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
@@ -123,8 +127,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     }
                     None => {
                         let index = Index::from(i);
+                        field_component_ids.push(quote! {
+                            <#field_type as #ecs_path::bundle::Bundle>::component_ids(&self.#index, components, ids);
+                        });
                         field_get_components.push(quote! {
-                            self.#index.get_components(&mut *func);
+                            <#field_type as #ecs_path::bundle::DynamicBundle>::get_components(self.#index, &mut *func);
                         });
                         field_from_components.push(quote! {
                             #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
@@ -164,21 +171,21 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
-                #(#field_component_ids)*
+                #(#field_static_component_ids)*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
                 ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
             ){
-                #(#field_get_component_ids)*
+                #(#field_static_get_component_ids)*
             }
 
             fn register_required_components(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #ecs_path::component::RequiredComponents
             ){
-                #(#field_required_components)*
+                #(#field_static_required_components)*
             }
         }
 
@@ -194,6 +201,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(#field_cache_key)*
 
                 (key, size)
+            }
+
+            fn component_ids(
+                &self,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
+                ids: &mut impl FnMut(#ecs_path::component::ComponentId),
+            ) {
+                #(#field_component_ids)*
             }
         }
 
