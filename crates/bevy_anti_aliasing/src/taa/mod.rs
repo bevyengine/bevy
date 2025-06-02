@@ -402,7 +402,7 @@ fn prepare_taa_jitter(
 }
 
 #[derive(Component)]
-struct TemporalAntiAliasHistoryTextures {
+pub struct TemporalAntiAliasHistoryTextures {
     write: CachedTexture,
     read: CachedTexture,
 }
@@ -459,7 +459,7 @@ fn prepare_taa_history_textures(
 }
 
 #[derive(Component)]
-struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
+pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 
 fn prepare_taa_pipelines(
     mut commands: Commands,
