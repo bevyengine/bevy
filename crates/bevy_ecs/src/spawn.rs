@@ -46,7 +46,9 @@ pub trait SpawnableList<R> {
     fn size_hint(&self) -> usize;
 }
 
-impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Vec<B> {
+impl<R: Relationship, B: Bundle<Effect: NoBundleEffect> + StaticBundle> SpawnableList<R>
+    for Vec<B>
+{
     fn spawn(self, world: &mut World, entity: Entity) {
         let mapped_bundles = self.into_iter().map(|b| (R::from(entity), b));
         world.spawn_batch(mapped_bundles);

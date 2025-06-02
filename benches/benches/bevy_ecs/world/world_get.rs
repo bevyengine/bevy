@@ -2,7 +2,7 @@ use core::hint::black_box;
 use nonmax::NonMaxU32;
 
 use bevy_ecs::{
-    bundle::{Bundle, NoBundleEffect},
+    bundle::{Bundle, NoBundleEffect, StaticBundle},
     component::Component,
     entity::{Entity, EntityRow},
     system::{Query, SystemState},
@@ -37,7 +37,9 @@ fn setup<T: Component + Default>(entity_count: u32) -> World {
     black_box(world)
 }
 
-fn setup_wide<T: Bundle<Effect: NoBundleEffect> + Default>(entity_count: u32) -> World {
+fn setup_wide<T: Bundle<Effect: NoBundleEffect> + StaticBundle + Default>(
+    entity_count: u32,
+) -> World {
     let mut world = World::default();
     world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
