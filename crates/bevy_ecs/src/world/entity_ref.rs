@@ -2105,7 +2105,8 @@ impl<'w> EntityWorldMut<'w> {
         let mut registrator = unsafe {
             ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
         };
-        let bundle_id = bundles.register_contributed_bundle_info::<T>(&mut registrator, storages);
+        let bundle_id =
+            bundles.register_static_contributed_bundle_info::<T>(&mut registrator, storages);
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
