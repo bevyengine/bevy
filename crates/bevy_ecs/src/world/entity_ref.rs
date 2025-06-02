@@ -2770,7 +2770,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the target entity does not exist.
-    pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+    pub fn clone_components<B: StaticBundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
         EntityCloner::build(self.world)
@@ -2793,7 +2793,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the target entity does not exist.
-    pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+    pub fn move_components<B: StaticBundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
         EntityCloner::build(self.world)

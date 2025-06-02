@@ -2097,7 +2097,7 @@ impl<'a> EntityCommands<'a> {
     /// # Panics
     ///
     /// The command will panic when applied if the target entity does not exist.
-    pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+    pub fn clone_components<B: StaticBundle>(&mut self, target: Entity) -> &mut Self {
         self.queue(entity_command::clone_components::<B>(target))
     }
 
@@ -2110,7 +2110,7 @@ impl<'a> EntityCommands<'a> {
     /// # Panics
     ///
     /// The command will panic when applied if the target entity does not exist.
-    pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+    pub fn move_components<B: StaticBundle>(&mut self, target: Entity) -> &mut Self {
         self.queue(entity_command::move_components::<B>(target))
     }
 }
