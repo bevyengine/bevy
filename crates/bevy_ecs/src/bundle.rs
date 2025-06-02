@@ -146,7 +146,7 @@ use variadics_please::all_tuples;
     label = "invalid `Bundle`",
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
-pub unsafe trait Bundle: StaticBundle + DynamicBundle + Send + Sync + 'static {
+pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Whether this is a [`StaticBundle`] or not. In case this is a [`StaticBundle`] the associated
     /// [`BundleId`] and [`BundleInfo`] are known to be unique and can be cached by this type's [`TypeId`].
     ///
