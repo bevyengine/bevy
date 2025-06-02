@@ -2011,7 +2011,7 @@ impl<'w> BundleSpawner<'w> {
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     /// Cache static [`BundleId`]
-    bundle_ids: TypeIdMap<BundleId>,
+    static_bundle_ids: TypeIdMap<BundleId>,
     /// Cache bundles, which contains both explicit and required components of [`Bundle`]
     contributed_bundle_ids: TypeIdMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
@@ -2050,7 +2050,7 @@ impl Bundles {
     /// or if `type_id` does not correspond to a type of bundle.
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<BundleId> {
-        self.bundle_ids.get(&type_id).cloned()
+        self.static_bundle_ids.get(&type_id).cloned()
     }
 
     /// Registers a new [`BundleInfo`] for a statically known type.
@@ -2062,7 +2062,7 @@ impl Bundles {
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
+        *self.static_bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
             T::component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
