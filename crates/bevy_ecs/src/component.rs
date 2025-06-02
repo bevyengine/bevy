@@ -599,15 +599,12 @@ pub trait Component: Send + Sync + 'static {
     ///          .collect();
     ///   }
     /// }
-    ///
-    /// # fn main() {
-    /// #   let a = Entity::from_bits(0x1_0000_0001);
-    /// #   let b = Entity::from_bits(0x1_0000_0002);
-    /// #   let mut inv = Inventory { items: Default::default() };
-    /// #   inv.items.insert(a, 10);
-    /// #   <Inventory as Component>::map_entities(&mut inv, &mut (a,b));
-    /// #   assert_eq!(inv.items.get(&b), Some(&10));
-    /// # }
+    /// # let a = Entity::from_bits(0x1_0000_0001);
+    /// # let b = Entity::from_bits(0x1_0000_0002);
+    /// # let mut inv = Inventory { items: Default::default() };
+    /// # inv.items.insert(a, 10);
+    /// # <Inventory as Component>::map_entities(&mut inv, &mut (a,b));
+    /// # assert_eq!(inv.items.get(&b), Some(&10));
     /// ````
     ///
     /// Alternatively, with a syntax similar to component hooks, you can specify either the path to a function with `#[component(map_entities = function_path)]`.
@@ -629,15 +626,12 @@ pub trait Component: Send + Sync + 'static {
     ///        .map(|(id, count)|(entity_mapper.get_mapped(id), count))
     ///        .collect();
     /// }
-    ///
-    /// # fn main() {
-    /// #   let a = Entity::from_bits(0x1_0000_0001);
-    /// #   let b = Entity::from_bits(0x1_0000_0002);
-    /// #   let mut inv = Inventory { items: Default::default() };
-    /// #   inv.items.insert(a, 10);
-    /// #   <Inventory as Component>::map_entities(&mut inv, &mut (a,b));
-    /// #   assert_eq!(inv.items.get(&b), Some(&10));
-    /// # }
+    /// # let a = Entity::from_bits(0x1_0000_0001);
+    /// # let b = Entity::from_bits(0x1_0000_0002);
+    /// # let mut inv = Inventory { items: Default::default() };
+    /// # inv.items.insert(a, 10);
+    /// # <Inventory as Component>::map_entities(&mut inv, &mut (a,b));
+    /// # assert_eq!(inv.items.get(&b), Some(&10));
     /// ````
     ///
     /// You can use the turbofish to specify parameters when a function is generic, using either M or _ for the type of the second parameter.
