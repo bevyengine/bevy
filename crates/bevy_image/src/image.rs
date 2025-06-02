@@ -746,7 +746,9 @@ impl Image {
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::COPY_SRC,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST
+                    | TextureUsages::COPY_SRC,
                 view_formats: &[],
             },
             sampler: ImageSampler::Default,
@@ -891,6 +893,7 @@ impl Image {
         let old_size = self.texture_descriptor.size;
         let pixel_size = self.texture_descriptor.format.pixel_size();
         let byte_len = self.texture_descriptor.format.pixel_size() * new_size.volume();
+        self.texture_descriptor.size = new_size;
 
         let Some(ref mut data) = self.data else {
             self.copy_on_resize = true;
@@ -924,8 +927,6 @@ impl Image {
         }
 
         self.data = Some(new);
-
-        self.texture_descriptor.size = new_size;
     }
 
     /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
@@ -1813,12 +1814,11 @@ mod test {
         }
 
         // Grow image
-        image
-            .resize_in_place(Extent3d {
-                width: 4,
-                height: 4,
-                depth_or_array_layers: 1,
-            });
+        image.resize_in_place(Extent3d {
+            width: 4,
+            height: 4,
+            depth_or_array_layers: 1,
+        });
 
         // After growing, the test pattern should be the same.
         assert!(matches!(
@@ -1839,12 +1839,11 @@ mod test {
         ));
 
         // Shrink
-        image
-            .resize_in_place(Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            });
+        image.resize_in_place(Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        });
 
         // Images outside of the new dimensions should be clipped
         assert!(image.get_color_at(1, 1).is_err());
@@ -1887,12 +1886,11 @@ mod test {
         }
 
         // Grow image
-        image
-            .resize_in_place(Extent3d {
-                width: 4,
-                height: 4,
-                depth_or_array_layers: LAYERS + 1,
-            });
+        image.resize_in_place(Extent3d {
+            width: 4,
+            height: 4,
+            depth_or_array_layers: LAYERS + 1,
+        });
 
         // After growing, the test pattern should be the same.
         assert!(matches!(
@@ -1917,12 +1915,11 @@ mod test {
         }
 
         // Shrink
-        image
-            .resize_in_place(Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            });
+        image.resize_in_place(Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        });
 
         // Images outside of the new dimensions should be clipped
         assert!(image.get_color_at_3d(1, 1, 0).is_err());
@@ -1931,12 +1928,11 @@ mod test {
         assert!(image.get_color_at_3d(0, 0, 1).is_err());
 
         // Grow layers
-        image
-            .resize_in_place(Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 2,
-            });
+        image.resize_in_place(Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 2,
+        });
 
         // Pixels in the newly added layer should be zeroes.
         assert!(matches!(

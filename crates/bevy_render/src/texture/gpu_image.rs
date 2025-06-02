@@ -1,4 +1,3 @@
-use tracing::{info, warn};
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
@@ -8,6 +7,7 @@ use bevy_asset::AssetId;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
 use bevy_math::{AspectRatio, UVec2};
+use tracing::warn;
 use wgpu::{Extent3d, TextureFormat, TextureViewDescriptor};
 
 /// The GPU-representation of an [`Image`].
@@ -58,36 +58,30 @@ impl RenderAsset for GpuImage {
         } else {
             let new_texture = render_device.create_texture(&image.texture_descriptor);
             if image.copy_on_resize {
-                // if let Some(previous) = previous_asset {
-                //     let mut command_encoder = render_device.create_command_encoder(
-                //         &wgpu::CommandEncoderDescriptor {
-                //             label: Some("copy_image_on_resize"),
-                //         },
-                //     );
-                //     // if the new size is bigger than the previous size, we use the previous texture
-                //     // size as the copy size, otherwise we use the new texture size
-                //     let copy_size = if image.texture_descriptor.size.width > previous.size.width
-                //         || image.texture_descriptor.size.height > previous.size.height
-                //     {
-                //         previous.size
-                //     } else {
-                //         image.texture_descriptor.size
-                //     };
-                //
-                //     info!(
-                //         "Copying image texture from {:?} to {:?} with size {:?}",
-                //         previous.texture, new_texture, copy_size
-                //     );
-                //
-                //     command_encoder.copy_texture_to_texture(
-                //         previous.texture.as_image_copy(),
-                //         new_texture.as_image_copy(),
-                //         copy_size,
-                //     );
-                //     render_queue.submit([command_encoder.finish()]);
-                // } else {
-                //     warn!("No previous asset to copy from for image: {:?}", image);
-                // }
+                if let Some(previous) = previous_asset {
+                    let mut command_encoder =
+                        render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("copy_image_on_resize"),
+                        });
+                    // if the new size is bigger than the previous size, we use the previous texture
+                    // size as the copy size, otherwise we use the new texture size
+                    let copy_size = if image.texture_descriptor.size.width > previous.size.width
+                        || image.texture_descriptor.size.height > previous.size.height
+                    {
+                        previous.size
+                    } else {
+                        image.texture_descriptor.size
+                    };
+
+                    command_encoder.copy_texture_to_texture(
+                        previous.texture.as_image_copy(),
+                        new_texture.as_image_copy(),
+                        copy_size,
+                    );
+                    render_queue.submit([command_encoder.finish()]);
+                } else {
+                    warn!("No previous asset to copy from for image: {:?}", image);
+                }
             }
             new_texture
         };
