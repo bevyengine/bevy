@@ -120,7 +120,7 @@ impl Default for TextBuffer {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, TextLayoutSettings, TextFont, TextSpan, TextColor};
+/// # use bevy_text::{Font, TextFont, JustifyText, LineBreak, TextSpan, TextColor};
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -128,7 +128,8 @@ impl Default for TextBuffer {
 /// world.spawn((
 ///     // `Text` or `Text2d` are needed, and will provide default instances
 ///     // of the following components.
-///     TextLayoutSettings::default(),
+///     JustifyText::default(),
+///     LineBreak::default(),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
 ///         font_size: 60.0,
