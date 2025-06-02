@@ -54,9 +54,7 @@ use gradient::GradientPlugin;
 
 use crate::{Display, Node};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_text::{
-    TextBuffer, PositionedGlyph, TextBackgroundColor, TextColor, ComputedTextLayout,
-};
+use bevy_text::{ComputedTextLayout, PositionedGlyph, TextBackgroundColor, TextBuffer, TextColor};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
