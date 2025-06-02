@@ -218,7 +218,7 @@ pub fn despawn() -> impl EntityCommand {
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
 /// listening for events of type `E` targeting an entity
 #[track_caller]
-pub fn observe<E: Event, B: Bundle, M>(
+pub fn observe<E: Event, B: StaticBundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
     let caller = MaybeLocation::caller();

@@ -9,6 +9,7 @@ use variadics_please::all_tuples;
 
 use crate::{
     archetype::ArchetypeFlags,
+    bundle::StaticBundle,
     change_detection::MaybeLocation,
     component::ComponentId,
     entity::EntityHashMap,
@@ -29,14 +30,14 @@ use smallvec::SmallVec;
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`Trigger::propagate`] for more information.
-pub struct Trigger<'w, E, B: Bundle = ()> {
+pub struct Trigger<'w, E, B: StaticBundle = ()> {
     event: &'w mut E,
     propagate: &'w mut bool,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
 }
 
-impl<'w, E, B: Bundle> Trigger<'w, E, B> {
+impl<'w, E, B: StaticBundle> Trigger<'w, E, B> {
     /// Creates a new trigger for the given event and observer information.
     pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
         Self {
@@ -147,7 +148,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
+impl<'w, E: Debug, B: StaticBundle> Debug for Trigger<'w, E, B> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Trigger")
             .field("event", &self.event)
@@ -158,7 +159,7 @@ impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
+impl<'w, E, B: StaticBundle> Deref for Trigger<'w, E, B> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -166,7 +167,7 @@ impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
+impl<'w, E, B: StaticBundle> DerefMut for Trigger<'w, E, B> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
     }
@@ -561,7 +562,7 @@ impl World {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: StaticBundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
