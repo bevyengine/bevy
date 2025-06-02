@@ -78,6 +78,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_static_required_components = Vec::new();
     let mut field_static_get_component_ids = Vec::new();
     let mut field_component_ids = Vec::new();
+    let mut field_required_components = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_is_static = Vec::new();
     let mut field_is_bounded = Vec::new();
@@ -109,6 +110,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         field_component_ids.push(quote! {
                             <#field_type as #ecs_path::bundle::Bundle>::component_ids(&self.#field, components, ids);
                         });
+                        field_required_components.push(quote! {
+                            <#field_type as #ecs_path::bundle::Bundle>::register_required_components(&self.#field, components, required_components);
+                        });
                         field_get_components.push(quote! {
                             <#field_type as #ecs_path::bundle::DynamicBundle>::get_components(self.#field, &mut *func);
                         });
@@ -129,6 +133,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         let index = Index::from(i);
                         field_component_ids.push(quote! {
                             <#field_type as #ecs_path::bundle::Bundle>::component_ids(&self.#index, components, ids);
+                        });
+                        field_required_components.push(quote! {
+                            <#field_type as #ecs_path::bundle::Bundle>::register_required_components(&self.#index, components, required_components);
                         });
                         field_get_components.push(quote! {
                             <#field_type as #ecs_path::bundle::DynamicBundle>::get_components(self.#index, &mut *func);
@@ -209,6 +216,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId),
             ) {
                 #(#field_component_ids)*
+            }
+
+            fn register_required_components(
+                &self,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
+                required_components: &mut #ecs_path::component::RequiredComponents,
+            ) {
+                #(#field_required_components)*
             }
         }
 

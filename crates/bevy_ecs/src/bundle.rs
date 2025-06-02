@@ -175,6 +175,14 @@ pub unsafe trait Bundle: StaticBundle + DynamicBundle + Send + Sync + 'static {
         components: &mut ComponentsRegistrator,
         ids: &mut impl FnMut(ComponentId),
     );
+
+    /// Registers components that are required by the components in this [`Bundle`].
+    #[doc(hidden)]
+    fn register_required_components(
+        &self,
+        _components: &mut ComponentsRegistrator,
+        _required_components: &mut RequiredComponents,
+    );
 }
 
 /// Each `StaticBundle` represents a static set of [`Component`] types.
@@ -316,6 +324,14 @@ unsafe impl<C: Component> Bundle for C {
     ) {
         <Self as StaticBundle>::component_ids(components, ids);
     }
+
+    fn register_required_components(
+        &self,
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        <Self as StaticBundle>::register_required_components(components, required_components);
+    }
 }
 
 // SAFETY:
@@ -429,6 +445,20 @@ macro_rules! tuple_impl {
                 let ($($name,)*) = self;
 
                 $($name.component_ids(components, ids);)*
+            }
+
+            fn register_required_components(
+                &self,
+                components: &mut ComponentsRegistrator,
+                required_components: &mut RequiredComponents,
+            ) {
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                $($name.register_required_components(components, required_components);)*
             }
         }
 
