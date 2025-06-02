@@ -19,7 +19,7 @@ use crate::{
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
     query::{Access, FilteredAccessSet},
-    schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
+    schedule::{BoxedCondition, InternedSystemSet, SystemKey, SystemSetKey, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn, SystemParamValidationError},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
@@ -72,7 +72,7 @@ pub enum ExecutorKind {
 #[derive(Default)]
 pub struct SystemSchedule {
     /// List of system node ids.
-    pub(super) system_ids: Vec<NodeId>,
+    pub(super) system_ids: Vec<SystemKey>,
     /// Indexed by system node id.
     pub(super) systems: Vec<ScheduleSystem>,
     /// Indexed by system node id.
@@ -95,7 +95,7 @@ pub struct SystemSchedule {
     /// List of sets containing the system that have conditions
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
     /// List of system set node ids.
-    pub(super) set_ids: Vec<NodeId>,
+    pub(super) set_ids: Vec<SystemSetKey>,
     /// Indexed by system set node id.
     pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system set node id.
