@@ -874,6 +874,10 @@ impl Archetypes {
     }
 
     /// Gets the archetype id matching the given inputs or inserts a new one if it doesn't exist.
+    ///
+    /// Specifically, it returns a tuple where the first element
+    /// is the [`ArchetypeId`] that the given inputs belong to, and the second element is a boolean indicating whether a new archetype was created.
+    ///
     /// `table_components` and `sparse_set_components` must be sorted
     ///
     /// # Safety
