@@ -6,7 +6,9 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
-use bevy::{core_pipeline::Skybox, prelude::*, render::view::Hdr};
+use bevy::{
+    core_pipeline::Skybox, prelude::*, render::render_resource::TextureUsages, render::view::Hdr,
+};
 
 use std::{
     f32::consts::PI,

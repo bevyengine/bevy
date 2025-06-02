@@ -75,7 +75,10 @@ pub mod prelude {
     pub use crate::{
         fog::{DistanceFog, FogFalloff},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
-        light_probe::{environment_map::EnvironmentMapLight, LightProbe},
+        light_probe::{
+            environment_map::EnvironmentMapLight, generate::GeneratedEnvironmentMapLight,
+            LightProbe,
+        },
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
