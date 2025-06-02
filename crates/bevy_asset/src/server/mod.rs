@@ -1953,6 +1953,14 @@ impl AssetLoaderError {
     pub fn path(&self) -> &AssetPath<'static> {
         &self.path
     }
+
+    /// The error the loader reported when attempting to load the asset.
+    ///
+    /// If you know the type of the error the asset loader returned, you can use
+    /// [`BevyError::downcast_ref()`] to get it.
+    pub fn error(&self) -> &BevyError {
+        &*self.error
+    }
 }
 
 /// An error that occurs while resolving an asset added by `add_async`.
