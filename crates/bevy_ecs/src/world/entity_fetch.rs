@@ -220,7 +220,7 @@ unsafe impl WorldEntityFetch for Entity {
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         let world = unsafe { cell.world_mut() };
         // SAFETY: location was fetched from the same world's `Entities`.
-        Ok(unsafe { EntityWorldMut::new(world, self, location) })
+        Ok(unsafe { EntityWorldMut::new(world, self, Some(location)) })
     }
 
     unsafe fn fetch_deferred_mut(
