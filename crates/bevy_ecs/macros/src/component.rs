@@ -98,7 +98,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Ident::new("this", Span::call_site()),
         relationship.is_some(),
         relationship_target.is_some(),
-        attrs.entities
+        attrs.map_entities
     ).map(|map_entities_impl| quote! {
         fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(this: &mut Self, mapper: &mut M) {
             use #bevy_ecs_path::entity::MapEntities;
@@ -311,13 +311,15 @@ pub(crate) fn map_entities(
     self_ident: Ident,
     is_relationship: bool,
     is_relationship_target: bool,
-    entities_attr_on_type: bool,
+    map_entities_attr: Option<MapEntitiesAttributeKind>,
 ) -> Option<TokenStream2> {
-    if entities_attr_on_type {
-        return Some(
-            quote!(<Self as #bevy_ecs_path::entity::MapEntities>::map_entities(#self_ident, mapper)),
-        );
+    if let Some(map_entities_override) = map_entities_attr {
+        let map_entities_tokens = map_entities_override.to_token_stream(bevy_ecs_path);
+        return Some(quote!(
+            #map_entities_tokens(#self_ident, mapper)
+        ));
     }
+
     match data {
         Data::Struct(DataStruct { fields, .. }) => {
             let mut map = Vec::with_capacity(fields.len());
@@ -405,6 +407,7 @@ pub const ON_INSERT: &str = "on_insert";
 pub const ON_REPLACE: &str = "on_replace";
 pub const ON_REMOVE: &str = "on_remove";
 pub const ON_DESPAWN: &str = "on_despawn";
+pub const MAP_ENTITIES: &str = "map_entities";
 
 pub const IMMUTABLE: &str = "immutable";
 pub const CLONE_BEHAVIOR: &str = "clone_behavior";
@@ -459,6 +462,56 @@ impl Parse for HookAttributeKind {
     }
 }
 
+#[derive(Debug)]
+pub(super) enum MapEntitiesAttributeKind {
+    /// expressions like function or struct names
+    ///
+    /// structs will throw compile errors on the code generation so this is safe
+    Path(ExprPath),
+    /// When no value is specified
+    Default,
+}
+
+impl MapEntitiesAttributeKind {
+    fn from_expr(value: Expr) -> Result<Self> {
+        match value {
+            Expr::Path(path) => Ok(Self::Path(path)),
+            // throw meaningful error on all other expressions
+            _ => Err(syn::Error::new(
+                value.span(),
+                [
+                    "Not supported in this position, please use one of the following:",
+                    "- path to function",
+                    "- nothing to default to MapEntities implementation",
+                ]
+                .join("\n"),
+            )),
+        }
+    }
+
+    fn to_token_stream(&self, bevy_ecs_path: &Path) -> TokenStream2 {
+        match self {
+            MapEntitiesAttributeKind::Path(path) => path.to_token_stream(),
+            MapEntitiesAttributeKind::Default => {
+                quote!(
+                   <Self as #bevy_ecs_path::entity::MapEntities>::map_entities
+                )
+            }
+        }
+    }
+}
+
+impl Parse for MapEntitiesAttributeKind {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            input.parse::<Expr>().and_then(Self::from_expr)
+        } else {
+            Ok(Self::Default)
+        }
+    }
+}
+
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
@@ -471,7 +524,7 @@ struct Attrs {
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
     clone_behavior: Option<Expr>,
-    entities: bool,
+    map_entities: Option<MapEntitiesAttributeKind>,
 }
 
 #[derive(Clone, Copy)]
@@ -511,7 +564,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         relationship_target: None,
         immutable: false,
         clone_behavior: None,
-        entities: false,
+        map_entities: None,
     };
 
     let mut require_paths = HashSet::new();
@@ -550,8 +603,8 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 } else if nested.path.is_ident(CLONE_BEHAVIOR) {
                     attrs.clone_behavior = Some(nested.value()?.parse()?);
                     Ok(())
-                } else if nested.path.is_ident(ENTITIES) {
-                    attrs.entities = true;
+                } else if nested.path.is_ident(MAP_ENTITIES) {
+                    attrs.map_entities = Some(nested.input.parse::<MapEntitiesAttributeKind>()?);
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))

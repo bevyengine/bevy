@@ -198,7 +198,7 @@ pub fn derive_map_entities(input: TokenStream) -> TokenStream {
         Ident::new("self", Span::call_site()),
         false,
         false,
-        false,
+        None,
     );
 
     let struct_name = &ast.ident;
