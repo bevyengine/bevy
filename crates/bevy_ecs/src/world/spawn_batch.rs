@@ -1,5 +1,5 @@
 use crate::{
-    bundle::{Bundle, BundleSpawner, NoBundleEffect},
+    bundle::{Bundle, BundleSpawner, NoBundleEffect, StaticBundle},
     change_detection::MaybeLocation,
     entity::{Entity, EntitySetIterator},
     world::World,
@@ -13,7 +13,7 @@ use core::iter::FusedIterator;
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle + StaticBundle,
 {
     inner: I,
     spawner: BundleSpawner<'w>,
@@ -23,7 +23,7 @@ where
 impl<'w, I> SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle<Effect: NoBundleEffect>,
+    I::Item: Bundle<Effect: NoBundleEffect> + StaticBundle,
 {
     #[inline]
     #[track_caller]
@@ -38,7 +38,7 @@ where
         let length = upper.unwrap_or(lower);
         world.entities.reserve(length as u32);
 
-        let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
+        let mut spawner = BundleSpawner::new_static::<I::Item>(world, change_tick);
         spawner.reserve_storage(length);
 
         Self {
@@ -52,7 +52,7 @@ where
 impl<I> Drop for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle + StaticBundle,
 {
     fn drop(&mut self) {
         // Iterate through self in order to spawn remaining bundles.
@@ -66,7 +66,7 @@ where
 impl<I> Iterator for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle + StaticBundle,
 {
     type Item = Entity;
 
@@ -84,7 +84,7 @@ where
 impl<I, T> ExactSizeIterator for SpawnBatchIter<'_, I>
 where
     I: ExactSizeIterator<Item = T>,
-    T: Bundle,
+    T: Bundle + StaticBundle,
 {
     fn len(&self) -> usize {
         self.inner.len()
@@ -94,7 +94,7 @@ where
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle + StaticBundle,
 {
 }
 
@@ -102,6 +102,6 @@ where
 unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle + StaticBundle,
 {
 }

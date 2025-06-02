@@ -5,7 +5,7 @@
 //! [`Commands`](crate::system::Commands).
 
 use crate::{
-    bundle::{Bundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, InsertMode, NoBundleEffect, StaticBundle},
     change_detection::MaybeLocation,
     entity::Entity,
     error::Result,
@@ -70,7 +70,7 @@ where
 pub fn spawn_batch<I>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator + Send + Sync + 'static,
-    I::Item: Bundle<Effect: NoBundleEffect>,
+    I::Item: Bundle<Effect: NoBundleEffect> + StaticBundle,
 {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
@@ -88,7 +88,7 @@ where
 pub fn insert_batch<I, B>(batch: I, insert_mode: InsertMode) -> impl Command<Result>
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-    B: Bundle<Effect: NoBundleEffect>,
+    B: Bundle<Effect: NoBundleEffect> + StaticBundle,
 {
     let caller = MaybeLocation::caller();
     move |world: &mut World| -> Result {

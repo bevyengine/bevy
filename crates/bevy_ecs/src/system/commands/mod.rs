@@ -15,7 +15,7 @@ use core::marker::PhantomData;
 
 use crate::{
     self as bevy_ecs,
-    bundle::{Bundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, InsertMode, NoBundleEffect, StaticBundle},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
@@ -523,7 +523,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn spawn_batch<I>(&mut self, batch: I)
     where
         I: IntoIterator + Send + Sync + 'static,
-        I::Item: Bundle<Effect: NoBundleEffect>,
+        I::Item: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::spawn_batch(batch));
     }
@@ -671,7 +671,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::insert_batch(batch, InsertMode::Replace));
     }
@@ -702,7 +702,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::insert_batch(batch, InsertMode::Keep));
     }
@@ -732,7 +732,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn try_insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::insert_batch(batch, InsertMode::Replace).handle_error_with(warn));
     }
@@ -763,7 +763,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::insert_batch(batch, InsertMode::Keep).handle_error_with(warn));
     }
