@@ -148,7 +148,7 @@ impl Default for TemporalAntiAliasing {
 
 /// Render [`bevy_render::render_graph::Node`] used by temporal anti-aliasing.
 #[derive(Default)]
-struct TemporalAntiAliasNode;
+pub struct TemporalAntiAliasNode;
 
 impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
