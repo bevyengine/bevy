@@ -91,7 +91,7 @@ impl TextBuffer {
     ///
     /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
     /// If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayoutSettings` and instead manually implement the conversion to
+    /// editor, then you need to not use `TextBuffer` and instead manually implement the conversion to
     /// `ComputedTextLayout`.
     pub fn buffer(&self) -> &CosmicBuffer {
         &self.buffer
@@ -110,10 +110,10 @@ impl Default for TextBuffer {
 
 /// A span of text in a tree of spans.
 ///
-/// `TextSpan` is only valid as a child of an entity with [`TextLayoutSettings`], which is provided by `Text`
+/// `TextSpan` is only valid as a child of an entity with [`TextBuffer`], which is provided by `Text`
 /// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
 ///
-/// Spans are collected in hierarchy traversal order into a [`ComputedTextLayout`] for layout.
+/// Spans are collected in hierarchy traversal order into a [`TextBuffer`] for layout.
 ///
 /// ```
 /// # use bevy_asset::Handle;
@@ -499,7 +499,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
         };
         let mut parent: Entity = span_child_of.parent();
 
-        // Search for the nearest ancestor with ComputedTextLayout.
+        // Search for the nearest ancestor with TextBuffer.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
         // is outweighed by the expense of tracking visited spans.
         loop {
@@ -515,7 +515,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
             }
             if !has_span {
                 once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
-                span component or a ComputedTextLayout component; this warning only prints once",
+                span component or a TextBuffer component; this warning only prints once",
                     entity, parent));
                 break;
             }
