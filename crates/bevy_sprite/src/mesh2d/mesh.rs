@@ -277,7 +277,18 @@ pub fn extract_mesh2d(
 ) {
     render_mesh_instances.clear();
 
-    for (entity, view_visibility, transform, handle, tag, z_index, y_sort, sort_bias, no_automatic_batching) in &query {
+    for (
+        entity,
+        view_visibility,
+        transform,
+        handle,
+        tag,
+        z_index,
+        y_sort,
+        sort_bias,
+        no_automatic_batching,
+    ) in &query
+    {
         if !view_visibility.get() {
             continue;
         }
