@@ -2315,6 +2315,65 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
     });
 }
 
+// SAFETY: TODO
+unsafe impl<T: Bundle> Bundle for Option<T> {
+    const IS_STATIC: bool = false;
+    const IS_BOUNDED: bool = true;
+
+    fn cache_key(&self) -> (u64, usize) {
+        if let Some(this) = self {
+            let (key, len) = this.cache_key();
+            if len >= 64 {
+                return (0, 65);
+            }
+
+            // key ends in 0
+            (key << 1, len + 1)
+        } else {
+            // key ends in 1
+            (1, 1)
+        }
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        if let Some(this) = self {
+            this.component_ids(components, ids);
+        }
+    }
+
+    fn register_required_components(
+        &self,
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        if let Some(this) = self {
+            this.register_required_components(components, required_components);
+        }
+    }
+}
+
+impl<T: DynamicBundle> DynamicBundle for Option<T> {
+    type Effect = Option<T::Effect>;
+
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+        self.map(|this| this.get_components(func))
+    }
+}
+
+impl<T: BundleEffect> BundleEffect for Option<T> {
+    fn apply(self, entity: &mut EntityWorldMut) {
+        if let Some(this) = self {
+            this.apply(entity);
+        }
+    }
+}
+
+impl<T: NoBundleEffect> NoBundleEffect for Option<T> {}
+
 #[cfg(test)]
 mod tests {
     use crate::{
