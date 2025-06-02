@@ -14,7 +14,10 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::error::{DefaultErrorHandler, ErrorHandler};
+use crate::{
+    bundle::StaticBundle,
+    error::{DefaultErrorHandler, ErrorHandler},
+};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -3000,7 +3003,7 @@ impl World {
     /// This is largely equivalent to calling [`register_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
-    pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+    pub fn register_bundle<B: StaticBundle>(&mut self) -> &BundleInfo {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };

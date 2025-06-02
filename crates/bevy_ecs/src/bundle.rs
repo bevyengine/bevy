@@ -1918,7 +1918,7 @@ impl Bundles {
     /// Registers a new [`BundleInfo`] for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_info<T: Bundle>(
+    pub(crate) fn register_info<T: StaticBundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
