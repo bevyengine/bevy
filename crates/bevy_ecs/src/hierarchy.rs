@@ -444,7 +444,7 @@ pub fn validate_parent_has_component<C: Component>(
             caller.map(|c| format!("{c}: ")).unwrap_or_default(),
             ty_name = ShortName::of::<C>(),
             name = name.map_or_else(
-                || format!("Entity {}", entity),
+                || format!("Entity {entity}"),
                 |s| format!("The {s} entity")
             ),
         );

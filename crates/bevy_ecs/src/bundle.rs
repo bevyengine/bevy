@@ -1193,16 +1193,16 @@ impl<'w> BundleInserter<'w> {
                         unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
                     entities.set(
                         swapped_entity.index(),
-                        EntityLocation {
+                        Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
                             table_id: swapped_location.table_id,
                             table_row: swapped_location.table_row,
-                        },
+                        }),
                     );
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                entities.set(entity.index(), new_location);
+                entities.set(entity.index(), Some(new_location));
                 let after_effect = bundle_info.write_components(
                     table,
                     sparse_sets,
@@ -1242,19 +1242,19 @@ impl<'w> BundleInserter<'w> {
                         unsafe { entities.get(swapped_entity).debug_checked_unwrap() };
                     entities.set(
                         swapped_entity.index(),
-                        EntityLocation {
+                        Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
                             table_id: swapped_location.table_id,
                             table_row: swapped_location.table_row,
-                        },
+                        }),
                     );
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
                 let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                entities.set(entity.index(), new_location);
+                entities.set(entity.index(), Some(new_location));
 
                 // If an entity was moved into this entity's table spot, update its table row.
                 if let Some(swapped_entity) = move_result.swapped_entity {
@@ -1264,12 +1264,12 @@ impl<'w> BundleInserter<'w> {
 
                     entities.set(
                         swapped_entity.index(),
-                        EntityLocation {
+                        Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: swapped_location.archetype_row,
                             table_id: swapped_location.table_id,
                             table_row: result.table_row,
-                        },
+                        }),
                     );
 
                     if archetype.id() == swapped_location.archetype_id {
@@ -1573,12 +1573,12 @@ impl<'w> BundleRemover<'w> {
 
             world.entities.set(
                 swapped_entity.index(),
-                EntityLocation {
+                Some(EntityLocation {
                     archetype_id: swapped_location.archetype_id,
                     archetype_row: location.archetype_row,
                     table_id: swapped_location.table_id,
                     table_row: swapped_location.table_row,
-                },
+                }),
             );
         }
 
@@ -1614,12 +1614,12 @@ impl<'w> BundleRemover<'w> {
 
                 world.entities.set(
                     swapped_entity.index(),
-                    EntityLocation {
+                    Some(EntityLocation {
                         archetype_id: swapped_location.archetype_id,
                         archetype_row: swapped_location.archetype_row,
                         table_id: swapped_location.table_id,
                         table_row: location.table_row,
-                    },
+                    }),
                 );
                 world.archetypes[swapped_location.archetype_id]
                     .set_entity_table_row(swapped_location.archetype_row, location.table_row);
@@ -1635,7 +1635,7 @@ impl<'w> BundleRemover<'w> {
 
         // SAFETY: The entity is valid and has been moved to the new location already.
         unsafe {
-            world.entities.set(entity.index(), new_location);
+            world.entities.set(entity.index(), Some(new_location));
         }
 
         (new_location, pre_remove_result)
@@ -1736,7 +1736,8 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.set_spawn_despawn(entity.index(), location, caller, self.change_tick);
+            entities.set(entity.index(), Some(location));
+            entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
             (location, after_effect)
         };
 
