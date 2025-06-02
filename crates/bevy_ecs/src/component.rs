@@ -578,8 +578,8 @@ pub trait Component: Send + Sync + 'static {
     /// ```
     ///
     /// You might need more specialized logic. A likely cause of this is your component contains collections of entities that
-    /// don't implement [`MapEntities`](crate::entity::MapEntities). In that case, you can annotate your collection with
-    /// `#[component(map_entities)]`. If you place the attribute as is, it will expect you to implement `MapEntities` for the
+    /// don't implement [`MapEntities`](crate::entity::MapEntities). In that case, you can annotate your component with
+    /// `#[component(map_entities)]`. Using this attribute, you must implement `MapEntities` for the
     /// component itself, and this method will simply call that implementation.
     ///
     /// ```
@@ -607,8 +607,8 @@ pub trait Component: Send + Sync + 'static {
     /// # assert_eq!(inv.items.get(&b), Some(&10));
     /// ````
     ///
-    /// Alternatively, with a syntax similar to component hooks, you can specify either the path to a function with `#[component(map_entities = function_path)]`.
-    /// In this case, the inputs of the function should mirror the inputs to this method, with the second parameter being generic over M.
+    /// Alternatively, you can specify the path to a function with `#[component(map_entities = function_path)]`, similar to component hooks.
+    /// In this case, the inputs of the function should mirror the inputs to this method, with the second parameter being generic.
     ///
     /// ```
     /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
@@ -634,7 +634,7 @@ pub trait Component: Send + Sync + 'static {
     /// # assert_eq!(inv.items.get(&b), Some(&10));
     /// ````
     ///
-    /// You can use the turbofish to specify parameters when a function is generic, using either M or _ for the type of the second parameter.
+    /// You can use the turbofish (`::<A,B,C>`) to specify parameters when a function is generic, using either M or _ for the type of the mapper parameter.
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
 }
