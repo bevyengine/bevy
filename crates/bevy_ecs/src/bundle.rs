@@ -1430,7 +1430,7 @@ impl<'w> BundleRemover<'w> {
     /// # Safety
     /// Caller must ensure that `archetype_id` is valid
     #[inline]
-    pub(crate) unsafe fn new<T: Bundle>(
+    pub(crate) unsafe fn new<T: StaticBundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         require_all: bool,
@@ -1942,7 +1942,7 @@ impl Bundles {
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_contributed_bundle_info<T: Bundle>(
+    pub(crate) fn register_contributed_bundle_info<T: StaticBundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
