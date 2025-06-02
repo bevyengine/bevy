@@ -15,7 +15,7 @@ use core::marker::PhantomData;
 
 use crate::{
     self as bevy_ecs,
-    bundle::{Bundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, InsertMode, NoBundleEffect, StaticBundle},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
@@ -1114,7 +1114,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Panics if the given system is an exclusive system.
     ///
     /// [`On`]: crate::observer::On
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: StaticBundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
@@ -1968,7 +1968,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: StaticBundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {

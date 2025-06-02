@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 use log::info;
 
 use crate::{
-    bundle::{Bundle, InsertMode},
+    bundle::{Bundle, InsertMode, StaticBundle},
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
@@ -218,7 +218,7 @@ pub fn despawn() -> impl EntityCommand {
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
 /// listening for events of type `E` targeting an entity
 #[track_caller]
-pub fn observe<E: EntityEvent, B: Bundle, M>(
+pub fn observe<E: EntityEvent, B: StaticBundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
