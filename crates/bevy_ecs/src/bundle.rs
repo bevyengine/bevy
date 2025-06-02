@@ -1164,6 +1164,7 @@ pub(crate) enum ArchetypeMoveType {
 impl<'w> BundleInserter<'w> {
     #[inline]
     pub(crate) fn new<T: Bundle>(
+        bundle: &T,
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
@@ -1173,7 +1174,7 @@ impl<'w> BundleInserter<'w> {
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_static_info::<T>(&mut registrator, &mut world.storages);
+            .register_info(bundle, &mut registrator, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
@@ -2010,17 +2011,18 @@ impl<'w> BundleSpawner<'w> {
 #[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
+
     /// Cache [`BundleId`]s for static bundles
     static_bundle_ids: TypeIdMap<BundleId>,
     /// Cache [`BundleId`]s for bounded but non-static bundles
     bounded_bundle_ids: HashMap<(TypeId, u64), BundleId>,
     /// Cache [`BundleId`]s for dynamic bundles
     dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
+    dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
 
     /// Cache bundles, which contains both explicit and required components of [`Bundle`]
     contributed_bundle_ids: TypeIdMap<BundleId>,
 
-    dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
     /// Cache optimized dynamic [`BundleId`] with single component
     dynamic_component_bundle_ids: HashMap<ComponentId, BundleId>,
     dynamic_component_storages: HashMap<BundleId, StorageType>,
@@ -2088,6 +2090,8 @@ impl Bundles {
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
+
+        // Fastest case, we have a static bundle
         if T::IS_STATIC {
             return *self
                 .static_bundle_ids
@@ -2097,6 +2101,8 @@ impl Bundles {
                 });
         }
 
+        // Optimized case for bounded bundles, e.g. those with conditional components whose
+        // key fits in 64 bits.
         if T::IS_BOUNDED {
             let (key, size) = bundle.cache_key();
             if size <= 64 {
@@ -2109,15 +2115,12 @@ impl Bundles {
             }
         }
 
+        // Fallback to registering a dynamic bundle
+
         let mut component_ids = Vec::new();
         bundle.component_ids(components, &mut |id| component_ids.push(id));
 
-        *self
-            .dynamic_bundle_ids
-            .entry(component_ids.into_boxed_slice())
-            .or_insert_with(|| {
-                Self::register_new_bundle(bundle, components, storages, bundle_infos)
-            })
+        self.init_dynamic_info(storages, components, &component_ids)
     }
 
     fn register_new_bundle<T: Bundle>(

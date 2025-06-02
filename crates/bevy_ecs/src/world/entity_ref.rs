@@ -1836,7 +1836,7 @@ impl<'w> EntityWorldMut<'w> {
         let location = self.location();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
-            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
+            BundleInserter::new::<T>(&bundle, self.world, location.archetype_id, change_tick);
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         let (location, after_effect) = unsafe {
             bundle_inserter.insert(
