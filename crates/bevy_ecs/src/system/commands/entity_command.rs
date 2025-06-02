@@ -154,7 +154,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
 
 /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity.
 #[track_caller]
-pub fn remove<T: Bundle>() -> impl EntityCommand {
+pub fn remove<T: StaticBundle>() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.remove_with_caller::<T>(caller);
@@ -164,7 +164,7 @@ pub fn remove<T: Bundle>() -> impl EntityCommand {
 /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity,
 /// as well as the required components for each component removed.
 #[track_caller]
-pub fn remove_with_requires<T: Bundle>() -> impl EntityCommand {
+pub fn remove_with_requires<T: StaticBundle>() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.remove_with_requires_with_caller::<T>(caller);

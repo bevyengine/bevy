@@ -2007,7 +2007,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[must_use]
     #[track_caller]
-    pub fn take<T: Bundle + BundleFromComponents>(&mut self) -> Option<T> {
+    pub fn take<T: StaticBundle + BundleFromComponents>(&mut self) -> Option<T> {
         let location = self.location();
         let entity = self.entity;
 
@@ -2063,12 +2063,15 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub fn remove<T: Bundle>(&mut self) -> &mut Self {
+    pub fn remove<T: StaticBundle>(&mut self) -> &mut Self {
         self.remove_with_caller::<T>(MaybeLocation::caller())
     }
 
     #[inline]
-    pub(crate) fn remove_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
+    pub(crate) fn remove_with_caller<T: StaticBundle>(
+        &mut self,
+        caller: MaybeLocation,
+    ) -> &mut Self {
         let location = self.location();
 
         let Some(mut remover) =
@@ -2100,11 +2103,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
+    pub fn remove_with_requires<T: StaticBundle>(&mut self) -> &mut Self {
         self.remove_with_requires_with_caller::<T>(MaybeLocation::caller())
     }
 
-    pub(crate) fn remove_with_requires_with_caller<T: Bundle>(
+    pub(crate) fn remove_with_requires_with_caller<T: StaticBundle>(
         &mut self,
         caller: MaybeLocation,
     ) -> &mut Self {

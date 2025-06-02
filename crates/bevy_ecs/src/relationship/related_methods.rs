@@ -1,5 +1,5 @@
 use crate::{
-    bundle::Bundle,
+    bundle::{Bundle, StaticBundle},
     entity::{hash_set::EntityHashSet, Entity},
     prelude::Children,
     relationship::{
@@ -339,7 +339,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
-    pub fn remove_recursive<S: RelationshipTarget, B: Bundle>(&mut self) -> &mut Self {
+    pub fn remove_recursive<S: RelationshipTarget, B: StaticBundle>(&mut self) -> &mut Self {
         self.remove::<B>();
         if let Some(relationship_target) = self.get::<S>() {
             let related_vec: Vec<Entity> = relationship_target.iter().collect();
@@ -500,7 +500,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
-    pub fn remove_recursive<S: RelationshipTarget, B: Bundle>(&mut self) -> &mut Self {
+    pub fn remove_recursive<S: RelationshipTarget, B: StaticBundle>(&mut self) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| {
             entity.remove_recursive::<S, B>();
         })

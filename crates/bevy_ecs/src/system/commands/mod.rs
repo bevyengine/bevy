@@ -1622,7 +1622,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn remove<B: Bundle>(&mut self) -> &mut Self {
+    pub fn remove<B: StaticBundle>(&mut self) -> &mut Self {
         self.queue_handled(entity_command::remove::<B>(), warn)
     }
 
@@ -1658,7 +1658,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn remove_if<B: Bundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
+    pub fn remove_if<B: StaticBundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
         if condition() {
             self.remove::<B>()
         } else {
@@ -1675,7 +1675,10 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_remove_if<B: Bundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
+    pub fn try_remove_if<B: StaticBundle>(
+        &mut self,
+        condition: impl FnOnce() -> bool,
+    ) -> &mut Self {
         if condition() {
             self.try_remove::<B>()
         } else {
@@ -1723,7 +1726,7 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
-    pub fn try_remove<B: Bundle>(&mut self) -> &mut Self {
+    pub fn try_remove<B: StaticBundle>(&mut self) -> &mut Self {
         self.queue_handled(entity_command::remove::<B>(), ignore)
     }
 
@@ -1755,7 +1758,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
     /// ```
     #[track_caller]
-    pub fn remove_with_requires<B: Bundle>(&mut self) -> &mut Self {
+    pub fn remove_with_requires<B: StaticBundle>(&mut self) -> &mut Self {
         self.queue(entity_command::remove_with_requires::<B>())
     }
 
