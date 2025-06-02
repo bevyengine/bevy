@@ -217,8 +217,12 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 {
     // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
     // always a `StaticBundle`.
-    const IS_STATIC: bool = true;
-    const IS_BOUNDED: bool = true;
+    const IS_STATIC: bool = <R::RelationshipTarget as Bundle>::IS_STATIC;
+    const IS_BOUNDED: bool = <R::RelationshipTarget as Bundle>::IS_BOUNDED;
+
+    fn cache_key(&self) -> (u64, usize) {
+        (0, 0)
+    }
 }
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
@@ -290,8 +294,12 @@ unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
     // always a `StaticBundle`.
-    const IS_STATIC: bool = true;
-    const IS_BOUNDED: bool = true;
+    const IS_STATIC: bool = <R::RelationshipTarget as Bundle>::IS_STATIC;
+    const IS_BOUNDED: bool = <R::RelationshipTarget as Bundle>::IS_BOUNDED;
+
+    fn cache_key(&self) -> (u64, usize) {
+        (0, 0)
+    }
 }
 
 /// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`DynamicBundle::Effect`] that:

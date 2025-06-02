@@ -162,6 +162,11 @@ pub unsafe trait Bundle: StaticBundle + DynamicBundle + Send + Sync + 'static {
     /// This is a hack to work around the lack of specialization.
     #[doc(hidden)]
     const IS_BOUNDED: bool;
+
+    /// Computes the cache key associated with `self` and its size. The key is limited to 64 bits, and if the
+    /// size exceeds that it should be ignored.
+    #[doc(hidden)]
+    fn cache_key(&self) -> (u64, usize);
 }
 
 /// Each `StaticBundle` represents a static set of [`Component`] types.
@@ -291,6 +296,10 @@ unsafe impl<C: Component> StaticBundle for C {
 unsafe impl<C: Component> Bundle for C {
     const IS_STATIC: bool = true;
     const IS_BOUNDED: bool = true;
+
+    fn cache_key(&self) -> (u64, usize) {
+        (0, 0)
+    }
 }
 
 // SAFETY:
@@ -351,11 +360,46 @@ macro_rules! tuple_impl {
             }
         }
 
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         // SAFETY: see the corresponding implementation of `StaticBundle`
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             const IS_STATIC: bool = true $(&& <$name as Bundle>::IS_STATIC)*;
             const IS_BOUNDED: bool = true $(&& <$name as Bundle>::IS_STATIC)*;
+
+            fn cache_key(&self) -> (u64, usize) {
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                let mut key = 0;
+                let mut size = 0;
+
+                $(
+                    let (sub_key, sub_size) = $name.cache_key();
+
+                    key |= sub_key << size;
+
+                    size += sub_size;
+
+                    // Bail out if size is too big
+                    if size > 64 {
+                        return (0, 65);
+                    }
+                )*
+
+                (key, size)
+            }
         }
 
         #[expect(

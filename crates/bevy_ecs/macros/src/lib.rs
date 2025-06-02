@@ -79,6 +79,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_get_components = Vec::new();
     let mut field_is_static = Vec::new();
     let mut field_is_bounded = Vec::new();
+    let mut field_cache_key = Vec::new();
     let mut field_from_components = Vec::new();
     let mut field_required_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
@@ -110,6 +111,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         field_from_components.push(quote! {
                             #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                         });
+                        field_cache_key.push(quote! {
+                            let (sub_key, sub_size) = <#field_type as #ecs_path::bundle::Bundle>::cache_key(&self.#field);
+                            key |= sub_key << size;
+                            size += sub_size;
+                            // Bail out if size is too big
+                            if size > 64 {
+                                return (0, 65);
+                            }
+                        });
                     }
                     None => {
                         let index = Index::from(i);
@@ -118,6 +128,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         });
                         field_from_components.push(quote! {
                             #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
+                        });
+                        field_cache_key.push(quote! {
+                            let (sub_key, sub_size) = <#field_type as #ecs_path::bundle::Bundle>::cache_key(&self.#index);
+                            key |= sub_key << size;
+                            size += sub_size;
+                            // Bail out if size is too big
+                            if size > 64 {
+                                return (0, 65);
+                            }
                         });
                     }
                 }
@@ -167,6 +186,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             const IS_STATIC: bool = true #(&& #field_is_static)*;
             const IS_BOUNDED: bool = true #(&& #field_is_bounded)*;
+
+            fn cache_key(&self) -> (u64, usize) {
+                let mut key = 0;
+                let mut size = 0;
+
+                #(#field_cache_key)*
+
+                (key, size)
+            }
         }
 
         // SAFETY:
