@@ -1,4 +1,4 @@
-//! Demonstrates sprite rendering order using ZIndex, YSort, and SortBias components.
+//! Demonstrates sprite rendering order using `ZIndex`, `YSort`, and `SortBias` components.
 //!
 //! This example shows how different sorting methods interact:
 //! - `bevy::sprite::ZIndex(i32)`: Absolute rendering order (higher = on top)
