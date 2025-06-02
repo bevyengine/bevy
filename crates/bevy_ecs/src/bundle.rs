@@ -141,25 +141,47 @@ use variadics_please::all_tuples;
 /// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`](derive@Bundle).
 ///
 /// [`Query`]: crate::system::Query
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `Bundle`",
+    label = "invalid `Bundle`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
+)]
+pub unsafe trait Bundle: StaticBundle + DynamicBundle + Send + Sync + 'static {}
+
+/// Each `StaticBundle` represents a static set of [`Component`] types.
+/// Currently, bundles can only contain one of each [`Component`], and will
+/// panic once initialized if this is not met.
+///
+/// Implementers of the `StaticBundle` trait are called 'static bundles'.
+///
+/// See also the [`Bundle`] trait.
+///
+/// # Safety
+///
+/// Manual implementations of this trait are unsupported.
+/// That is, there is no safe way to implement this trait, and you must not do so.
+/// If you want a type to implement [`StaticBundle`], you must use [`derive@Bundle`](derive@Bundle).
 // Some safety points:
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
 // bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a `Bundle`",
-    label = "invalid `Bundle`",
+    message = "`{Self}` is not a `StaticBundle`",
+    label = "invalid `StaticBundle`",
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
-pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
-    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
+pub unsafe trait StaticBundle: Send + Sync + 'static {
+    /// Gets this [`StaticBundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
 
-    /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
+    /// Gets this [`StaticBundle`]'s component ids. This will be [`None`] if the component has not been registered.
+    #[doc(hidden)]
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 
-    /// Registers components that are required by the components in this [`Bundle`].
+    /// Registers components that are required by the components in this [`StaticBundle`].
+    #[doc(hidden)]
     fn register_required_components(
         _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
@@ -225,7 +247,7 @@ pub trait BundleEffect {
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
-unsafe impl<C: Component> Bundle for C {
+unsafe impl<C: Component> StaticBundle for C {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
     }
@@ -248,6 +270,9 @@ unsafe impl<C: Component> Bundle for C {
         ids(components.get_id(TypeId::of::<C>()));
     }
 }
+
+// SAFETY: see the corresponding implementation of `StaticBundle`
+unsafe impl<C: Component> Bundle for C {}
 
 // SAFETY:
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
@@ -285,27 +310,31 @@ macro_rules! tuple_impl {
         )]
         $(#[$meta])*
         // SAFETY:
-        // - `Bundle::component_ids` calls `ids` for each component type in the
+        // - `StaticBundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `DynamicBundle::get_components` is called.
-        // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
-        // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
+        // - `StaticBundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
+        // - `StaticBundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
-        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
+        unsafe impl<$($name: StaticBundle),*> StaticBundle for ($($name,)*) {
             fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, ids);)*
+                $(<$name as StaticBundle>::component_ids(components, ids);)*
             }
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
-                $(<$name as Bundle>::get_component_ids(components, ids);)*
+                $(<$name as StaticBundle>::get_component_ids(components, ids);)*
             }
 
             fn register_required_components(
                 components: &mut ComponentsRegistrator,
                 required_components: &mut RequiredComponents,
             ) {
-                $(<$name as Bundle>::register_required_components(components, required_components);)*
+                $(<$name as StaticBundle>::register_required_components(components, required_components);)*
             }
         }
+
+        $(#[$meta])*
+        // SAFETY: see the corresponding implementation of `StaticBundle`
+        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {}
 
         #[expect(
             clippy::allow_attributes,

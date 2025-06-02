@@ -88,13 +88,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         match field_kind {
             BundleFieldKind::Component => {
                 field_component_ids.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, &mut *ids);
+                <#field_type as #ecs_path::bundle::StaticBundle>::component_ids(components, &mut *ids);
                 });
                 field_required_components.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);
+                    <#field_type as #ecs_path::bundle::StaticBundle>::register_required_components(components, required_components);
                 });
                 field_get_component_ids.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
+                    <#field_type as #ecs_path::bundle::StaticBundle>::get_component_ids(components, &mut *ids);
                 });
                 match field {
                     Some(field) => {
@@ -134,7 +134,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
         #[allow(deprecated)]
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
+        unsafe impl #impl_generics #ecs_path::bundle::StaticBundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
@@ -156,6 +156,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(#field_required_components)*
             }
         }
+
+        // SAFETY: see the corresponding implementation of `StaticBundle`
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {}
 
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
