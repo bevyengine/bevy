@@ -31,7 +31,7 @@ mod plugin_group;
 mod schedule_runner;
 mod sub_app;
 mod task_pool_plugin;
-#[cfg(all(any(unix, windows), feature = "std"))]
+#[cfg(all(any(all(unix, not(target_os = "horizon")), windows), feature = "std"))]
 mod terminal_ctrl_c_handler;
 
 pub use app::*;
@@ -42,7 +42,7 @@ pub use plugin_group::*;
 pub use schedule_runner::*;
 pub use sub_app::*;
 pub use task_pool_plugin::*;
-#[cfg(all(any(unix, windows), feature = "std"))]
+#[cfg(all(any(all(unix, not(target_os = "horizon")), windows), feature = "std"))]
 pub use terminal_ctrl_c_handler::*;
 
 /// The app prelude.
