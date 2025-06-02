@@ -25,15 +25,15 @@ impl Default for CosmicBuffer {
     }
 }
 
-/// A sub-entity of a [`ComputedTextLayout`].
+/// A sub-entity of a [`TextBuffer`].
 ///
-/// Returned by [`ComputedTextLayout::entities`].
+/// Returned by [`TextBuffer::entities`].
 #[derive(Debug, Copy, Clone, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct TextEntity {
     /// The entity.
     pub entity: Entity,
-    /// Records the hierarchy depth of the entity within a `TextLayoutSettings`.
+    /// Records the hierarchy depth of the entity within a `TextBuffer`.
     pub depth: usize,
 }
 
@@ -45,12 +45,11 @@ pub struct TextEntity {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct TextBuffer {
-    /// Buffer for managing text layout and creating [`ComputedTextLayout`].
+    /// Buffer for managing text layout and creating [`ComputedTextLayout`](crate::ComputedTextLayout).
     ///
     /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
     /// `ComputedTextLayout`. If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayoutSettings` and instead manually implement the conversion to
-    /// `ComputedTextLayout`.
+    /// editor, then you need to manually implement the conversion to `ComputedTextLayout`.
     #[reflect(ignore, clone)]
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
@@ -60,7 +59,7 @@ pub struct TextBuffer {
     /// Flag set when any change has been made to this block that should cause it to be rerendered.
     ///
     /// Includes:
-    /// - [`TextLayoutSettings`] changes.
+    /// - Changes to [`JustifyText`] and [`LineBreak`].
     /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
     // TODO: This encompasses both structural changes like font size or justification and non-structural
     // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
@@ -73,13 +72,13 @@ pub struct TextBuffer {
 impl TextBuffer {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`ComputedTextLayout`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`ComputedTextLayout`](crate::ComputedTextLayout) using the `span_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
     }
 
-    /// Indicates if the text needs to be refreshed in [`ComputedTextLayout`].
+    /// Indicates if the text needs to be refreshed in [`ComputedTextLayout`](crate::ComputedTextLayout).
     ///
     /// Updated automatically by [`detect_text_needs_rerender`] and cleared
     /// by [`TextPipeline`](crate::TextPipeline) methods.
@@ -222,7 +221,7 @@ impl From<JustifyText> for cosmic_text::Align {
     }
 }
 
-/// `TextFont` determines the style of a text span within a [`ComputedTextLayout`], specifically
+/// `TextFont` determines the style of a text span within a [`ComputedTextLayout`](crate::ComputedTextLayout), specifically
 /// the font face, the font size, and the color.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
