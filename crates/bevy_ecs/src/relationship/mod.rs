@@ -13,6 +13,7 @@ pub use relationship_source_collection::*;
 use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
+    error::{ignore, CommandWithEntity, HandleError},
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
