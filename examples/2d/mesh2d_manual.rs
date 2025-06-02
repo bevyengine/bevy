@@ -5,6 +5,7 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
+use bevy::core_pipeline::core_2d::Transparent2dSortKey;
 use bevy::{
     asset::weak_handle,
     color::palettes::basic::YELLOW,
@@ -37,7 +38,6 @@ use bevy::{
     },
 };
 use std::f32::consts::PI;
-use bevy::core_pipeline::core_2d::Transparent2dSortKey;
 
 fn main() {
     App::new()
