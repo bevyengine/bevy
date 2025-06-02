@@ -215,6 +215,10 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Static
 unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     for SpawnRelatedBundle<R, L>
 {
+    // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
+    // always a `StaticBundle`.
+    const IS_STATIC: bool = true;
+    const IS_BOUNDED: bool = true;
 }
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
@@ -283,7 +287,12 @@ unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
         );
     }
 }
-unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {}
+unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
+    // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
+    // always a `StaticBundle`.
+    const IS_STATIC: bool = true;
+    const IS_BOUNDED: bool = true;
+}
 
 /// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`DynamicBundle::Effect`] that:
 ///

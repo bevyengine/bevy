@@ -77,6 +77,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
+    let mut field_is_static = Vec::new();
+    let mut field_is_bounded = Vec::new();
     let mut field_from_components = Vec::new();
     let mut field_required_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
@@ -96,6 +98,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 field_get_component_ids.push(quote! {
                     <#field_type as #ecs_path::bundle::StaticBundle>::get_component_ids(components, &mut *ids);
                 });
+                field_is_static
+                    .push(quote! { <#field_type as #ecs_path::bundle::Bundle>::IS_STATIC });
+                field_is_bounded
+                    .push(quote! { <#field_type as #ecs_path::bundle::Bundle>::IS_BOUNDED });
                 match field {
                     Some(field) => {
                         field_get_components.push(quote! {
@@ -158,7 +164,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         }
 
         // SAFETY: see the corresponding implementation of `StaticBundle`
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {}
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
+            const IS_STATIC: bool = true #(&& #field_is_static)*;
+            const IS_BOUNDED: bool = true #(&& #field_is_bounded)*;
+        }
 
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order

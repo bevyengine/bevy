@@ -146,7 +146,23 @@ use variadics_please::all_tuples;
     label = "invalid `Bundle`",
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
-pub unsafe trait Bundle: StaticBundle + DynamicBundle + Send + Sync + 'static {}
+pub unsafe trait Bundle: StaticBundle + DynamicBundle + Send + Sync + 'static {
+    /// Whether this is a [`StaticBundle`] or not. In case this is a [`StaticBundle`] the associated
+    /// [`BundleId`] and [`BundleInfo`] are known to be unique and can be cached by this type's [`TypeId`].
+    ///
+    /// This is a hack to work around the lack of specialization.
+    #[doc(hidden)]
+    const IS_STATIC: bool;
+
+    /// Whether the set of components this bundle includes is bounded or not. In case it is bounded we
+    /// can produce an additional cache key based on which components from the bounded set are included in
+    /// `self` or not, and use that to reuse an existing [`BundleId`] and [`BundleInfo`] associated with the
+    /// dynamic component set of `self`.
+    ///
+    /// This is a hack to work around the lack of specialization.
+    #[doc(hidden)]
+    const IS_BOUNDED: bool;
+}
 
 /// Each `StaticBundle` represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
@@ -272,7 +288,10 @@ unsafe impl<C: Component> StaticBundle for C {
 }
 
 // SAFETY: see the corresponding implementation of `StaticBundle`
-unsafe impl<C: Component> Bundle for C {}
+unsafe impl<C: Component> Bundle for C {
+    const IS_STATIC: bool = true;
+    const IS_BOUNDED: bool = true;
+}
 
 // SAFETY:
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
@@ -334,7 +353,10 @@ macro_rules! tuple_impl {
 
         $(#[$meta])*
         // SAFETY: see the corresponding implementation of `StaticBundle`
-        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {}
+        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
+            const IS_STATIC: bool = true $(&& <$name as Bundle>::IS_STATIC)*;
+            const IS_BOUNDED: bool = true $(&& <$name as Bundle>::IS_STATIC)*;
+        }
 
         #[expect(
             clippy::allow_attributes,
