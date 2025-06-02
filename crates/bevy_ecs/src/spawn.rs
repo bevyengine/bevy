@@ -184,7 +184,7 @@ impl<R: Relationship, L: SpawnableList<R>> BundleEffect for SpawnRelatedBundle<R
     }
 }
 
-// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
+// SAFETY: This internally relies on the RelationshipTarget's StaticBundle implementation, which is sound.
 unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> StaticBundle
     for SpawnRelatedBundle<R, L>
 {
@@ -212,6 +212,8 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Static
         );
     }
 }
+
+// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
 unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     for SpawnRelatedBundle<R, L>
 {
@@ -281,7 +283,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     }
 }
 
-// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
+// SAFETY: This internally relies on the RelationshipTarget's StaticBundle implementation, which is sound.
 unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
@@ -307,6 +309,8 @@ unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
         );
     }
 }
+
+// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
     // always a `StaticBundle`.
