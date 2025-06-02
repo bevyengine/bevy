@@ -630,7 +630,7 @@ impl BundleInfo {
     /// Every ID in `component_ids` must be valid within the World that owns the `BundleInfo`
     /// and must be in the same order as the source bundle type writes its components in.
     unsafe fn new(
-        bundle_type_name: &'static str,
+        bundle_type_name: &str,
         storages: &mut Storages,
         components: &Components,
         mut component_ids: Vec<ComponentId>,
@@ -2120,7 +2120,12 @@ impl Bundles {
         let mut component_ids = Vec::new();
         bundle.component_ids(components, &mut |id| component_ids.push(id));
 
-        self.init_dynamic_info(storages, components, &component_ids)
+        self.init_dynamic_info(
+            core::any::type_name::<T>(),
+            storages,
+            components,
+            &component_ids,
+        )
     }
 
     fn register_new_bundle<T: Bundle>(
@@ -2165,7 +2170,12 @@ impl Bundles {
                 };
                 // SAFETY: this is sound because the contributed_components Vec for explicit_bundle_id will not be accessed mutably as
                 // part of init_dynamic_info. No mutable references will be created and the allocation will remain valid.
-                self.init_dynamic_info(storages, components, core::slice::from_raw_parts(ptr, len))
+                self.init_dynamic_info(
+                    "<dynamic bundle>",
+                    storages,
+                    components,
+                    core::slice::from_raw_parts(ptr, len),
+                )
             };
             self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
             id
@@ -2203,6 +2213,7 @@ impl Bundles {
     /// provided [`Components`].
     pub(crate) fn init_dynamic_info(
         &mut self,
+        name: &str,
         storages: &mut Storages,
         components: &Components,
         component_ids: &[ComponentId],
@@ -2216,6 +2227,7 @@ impl Bundles {
             .from_key(component_ids)
             .or_insert_with(|| {
                 let (id, storages) = initialize_dynamic_bundle(
+                    name,
                     bundle_infos,
                     storages,
                     components,
@@ -2248,6 +2260,7 @@ impl Bundles {
             .entry(component_id)
             .or_insert_with(|| {
                 let (id, storage_type) = initialize_dynamic_bundle(
+                    "<dynamic bundle>",
                     bundle_infos,
                     storages,
                     components,
@@ -2263,6 +2276,7 @@ impl Bundles {
 /// Asserts that all components are part of [`Components`]
 /// and initializes a [`BundleInfo`].
 fn initialize_dynamic_bundle(
+    bundle_name: &str,
     bundle_infos: &mut Vec<BundleInfo>,
     storages: &mut Storages,
     components: &Components,
@@ -2280,7 +2294,7 @@ fn initialize_dynamic_bundle(
     let id = BundleId(bundle_infos.len());
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
-        unsafe { BundleInfo::new("<dynamic bundle>", storages, components, component_ids, id) };
+        unsafe { BundleInfo::new(bundle_name, storages, components, component_ids, id) };
     bundle_infos.push(bundle_info);
 
     (id, storage_types)

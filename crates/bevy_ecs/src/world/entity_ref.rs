@@ -1959,6 +1959,7 @@ impl<'w> EntityWorldMut<'w> {
         let location = self.location();
         let change_tick = self.world.change_tick();
         let bundle_id = self.world.bundles.init_dynamic_info(
+            "<dynamic bundle>",
             &mut self.world.storages,
             &self.world.components,
             component_ids,
@@ -2169,10 +2170,12 @@ impl<'w> EntityWorldMut<'w> {
             .components()
             .filter(|c| !retained_bundle_info.contributed_components().contains(c))
             .collect::<Vec<_>>();
-        let remove_bundle =
-            self.world
-                .bundles
-                .init_dynamic_info(&mut self.world.storages, &registrator, to_remove);
+        let remove_bundle = self.world.bundles.init_dynamic_info(
+            "<dynamic bundle>",
+            &mut self.world.storages,
+            &registrator,
+            to_remove,
+        );
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
@@ -2262,6 +2265,7 @@ impl<'w> EntityWorldMut<'w> {
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_dynamic_info(
+            "<dynamic bundle>",
             &mut self.world.storages,
             components,
             component_ids,
@@ -2307,6 +2311,7 @@ impl<'w> EntityWorldMut<'w> {
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_dynamic_info(
+            "<dynamic bundle>",
             &mut self.world.storages,
             components,
             component_ids.as_slice(),
