@@ -408,7 +408,6 @@ pub fn queue_colored_mesh2d(
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh2d>() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
-                let mesh2d_transforms = &mesh_instance.transforms;
                 // Get our specialized pipeline
                 let mut mesh2d_key = mesh_key;
                 let Some(mesh) = render_meshes.get(mesh2d_handle) else {
