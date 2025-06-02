@@ -158,7 +158,7 @@ fn setup_scene(
                 ..default()
             },
             TextColor::BLACK,
-            TextLayoutSettings::new_with_justify(JustifyText::Center),
+            JustifyText::Center,
         ));
 }
 

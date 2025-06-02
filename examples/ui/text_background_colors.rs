@@ -40,13 +40,7 @@ fn setup(mut commands: Commands) {
         })
         .with_children(|commands| {
             commands
-                .spawn((
-                    Text::default(),
-                    TextLayoutSettings {
-                        justify: JustifyText::Center,
-                        ..Default::default()
-                    },
-                ))
+                .spawn((Text::default(), JustifyText::Center))
                 .with_children(|commands| {
                     for (i, section_str) in message_text.iter().enumerate() {
                         commands.spawn((

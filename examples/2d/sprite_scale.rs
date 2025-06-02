@@ -129,7 +129,7 @@ fn setup_sprites(mut commands: Commands, asset_server: Res<AssetServer>) {
         cmd.with_children(|builder| {
             builder.spawn((
                 Text2d::new(rect.text),
-                TextLayoutSettings::new_with_justify(JustifyText::Center),
+                JustifyText::Center,
                 TextFont::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * rect.size.y - 10., 0.),
                 bevy::sprite::Anchor::TOP_CENTER,
@@ -275,7 +275,7 @@ fn setup_texture_atlas(
         cmd.with_children(|builder| {
             builder.spawn((
                 Text2d::new(sprite_sheet.text),
-                TextLayoutSettings::new_with_justify(JustifyText::Center),
+                JustifyText::Center,
                 TextFont::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * sprite_sheet.size.y - 10., 0.),
                 bevy::sprite::Anchor::TOP_CENTER,

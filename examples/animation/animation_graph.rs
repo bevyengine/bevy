@@ -277,7 +277,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     ..default()
                 },
                 TextColor(ANTIQUE_WHITE.into()),
-                TextLayoutSettings::new_with_justify(JustifyText::Center),
+                JustifyText::Center,
             ))
             .id();
 

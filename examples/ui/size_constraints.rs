@@ -251,7 +251,7 @@ fn spawn_button(
                     } else {
                         UNHOVERED_TEXT_COLOR
                     }),
-                    TextLayoutSettings::new_with_justify(JustifyText::Center),
+                    JustifyText::Center,
                 ));
         });
 }

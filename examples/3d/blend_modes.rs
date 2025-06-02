@@ -207,7 +207,7 @@ fn setup(
                         bottom: Val::ZERO,
                         ..default()
                     },
-                    TextLayoutSettings::default().with_no_wrap(),
+                    LineBreak::NoWrap,
                 ));
             });
     };

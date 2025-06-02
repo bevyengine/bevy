@@ -1,8 +1,8 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
-    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayoutInfo, TextLayoutSettings, TextPipeline, TextReader,
-    TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextLayout, Font, FontAtlasSets, JustifyText, LineBreak, PositionedGlyph, SwashCache,
+    TextBounds, TextBuffer, TextColor, TextError, TextFont, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -39,11 +39,11 @@ use bevy_window::{PrimaryWindow, Window};
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
+/// a [`ComputedTextLayout`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
 ///
-/// With `Text2d` the `justify` field of [`TextLayoutSettings`] only affects the internal alignment of a block of text and not its
+/// With `Text2d` `JustifyText` only affects the internal alignment of a block of text and not its
 /// relative position, which is controlled by the [`Anchor`] component.
-/// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
+/// This means that for a block of text consisting of only one line that doesn't wrap, the `JustifyText` component will have no effect.
 ///
 ///
 /// ```
@@ -51,7 +51,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, Text2d, TextLayoutSettings, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, JustifyText, Text2d, TextFont, TextColor, TextSpan};
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -73,7 +73,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// // With text justification.
 /// world.spawn((
 ///     Text2d::new("hello world\nand bevy!"),
-///     TextLayoutSettings::new_with_justify(JustifyText::Center)
+///     JustifyText::Center
 /// ));
 ///
 /// // With spans
@@ -85,10 +85,11 @@ use bevy_window::{PrimaryWindow, Window};
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
-    TextLayoutSettings,
     TextFont,
     TextColor,
     TextBounds,
+    JustifyText,
+    LineBreak,
     Anchor,
     Visibility,
     VisibilityClass,
@@ -145,8 +146,8 @@ pub fn extract_text2d_sprite(
         Query<(
             Entity,
             &ViewVisibility,
-            &ComputedTextBlock,
-            &TextLayoutInfo,
+            &TextBuffer,
+            &ComputedTextLayout,
             &TextBounds,
             &Anchor,
             &GlobalTransform,
@@ -266,10 +267,11 @@ pub fn update_text2d_layout(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Ref<TextLayoutSettings>,
+        &LineBreak,
+        &JustifyText,
         Ref<TextBounds>,
-        &mut TextLayoutInfo,
-        &mut ComputedTextBlock,
+        &mut ComputedTextLayout,
+        &mut TextBuffer,
     )>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -288,14 +290,14 @@ pub fn update_text2d_layout(
     let factor_changed = *last_scale_factor != Some(scale_factor);
     *last_scale_factor = Some(scale_factor);
 
-    for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
+    for (entity, linebreak, justify, bounds, text_layout_info, mut computed) in &mut text_query {
         if factor_changed
             || computed.needs_rerender()
             || bounds.is_changed()
             || (!queue.is_empty() && queue.remove(&entity))
         {
             let text_bounds = TextBounds {
-                width: if block.linebreak == LineBreak::NoWrap {
+                width: if *linebreak == LineBreak::NoWrap {
                     None
                 } else {
                     bounds.width.map(|width| scale_value(width, scale_factor))
@@ -311,7 +313,8 @@ pub fn update_text2d_layout(
                 &fonts,
                 text_reader.iter(entity),
                 scale_factor.into(),
-                &block,
+                *linebreak,
+                *justify,
                 text_bounds,
                 &mut font_atlas_sets,
                 &mut texture_atlases,
@@ -345,7 +348,7 @@ pub fn scale_value(value: f32, factor: f32) -> f32 {
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with some
-/// [`TextLayoutInfo`] and [`Anchor`] components, and without a [`NoFrustumCulling`] component.
+/// [`ComputedTextLayout`] and [`Anchor`] components, and without a [`NoFrustumCulling`] component.
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`](bevy_render::view::VisibilitySystems::CalculateBounds).
 pub fn calculate_bounds_text2d(
@@ -353,12 +356,12 @@ pub fn calculate_bounds_text2d(
     mut text_to_update_aabb: Query<
         (
             Entity,
-            &TextLayoutInfo,
+            &ComputedTextLayout,
             &Anchor,
             &TextBounds,
             Option<&mut Aabb>,
         ),
-        (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
+        (Changed<ComputedTextLayout>, Without<NoFrustumCulling>),
     >,
 ) {
     for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {

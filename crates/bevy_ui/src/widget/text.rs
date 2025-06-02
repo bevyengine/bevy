@@ -18,9 +18,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayoutInfo, TextLayoutSettings,
-    TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    scale_value, ComputedTextLayout, CosmicFontSystem, Font, FontAtlasSets, JustifyText, LineBreak,
+    SwashCache, TextBounds, TextBuffer, TextColor, TextError, TextFont, TextMeasureInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -51,7 +51,7 @@ impl Default for TextNodeFlags {
 /// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
+/// a [`ComputedTextLayout`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
 ///
 /// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
@@ -61,7 +61,7 @@ impl Default for TextNodeFlags {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, TextLayoutSettings, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, JustifyText, TextFont, TextColor, TextSpan};
 /// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -84,7 +84,7 @@ impl Default for TextNodeFlags {
 /// // With text justification.
 /// world.spawn((
 ///     Text::new("hello world\nand bevy!"),
-///     TextLayoutSettings::new_with_justify(JustifyText::Center)
+///     JustifyText::Center
 /// ));
 ///
 /// // With spans
@@ -97,7 +97,8 @@ impl Default for TextNodeFlags {
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(
     Node,
-    TextLayoutSettings,
+    LineBreak,
+    JustifyText,
     TextFont,
     TextColor,
     TextNodeFlags,
@@ -205,11 +206,12 @@ fn create_text_measure<'a>(
     fonts: &Assets<Font>,
     scale_factor: f64,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
-    layout_settings: Ref<TextLayoutSettings>,
+    linebreak: LineBreak,
+    justify: JustifyText,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextNodeFlags>,
-    mut computed: Mut<ComputedTextBlock>,
+    mut computed: Mut<TextBuffer>,
     font_system: &mut CosmicFontSystem,
 ) {
     match text_pipeline.create_text_measure(
@@ -217,12 +219,13 @@ fn create_text_measure<'a>(
         fonts,
         spans,
         scale_factor,
-        &layout_settings,
+        linebreak,
+        justify,
         computed.as_mut(),
         font_system,
     ) {
         Ok(measure) => {
-            if layout_settings.linebreak == LineBreak::NoWrap {
+            if linebreak == LineBreak::NoWrap {
                 content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
             } else {
                 content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
@@ -247,7 +250,7 @@ fn create_text_measure<'a>(
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 ///
-/// * Measures are regenerated on changes to either [`ComputedTextBlock`] or [`ComputedNodeTarget`].
+/// * Measures are regenerated on changes to either [`ComputedTextLayout`] or [`ComputedNodeTarget`].
 /// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
 ///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
@@ -257,10 +260,11 @@ pub fn measure_text_system(
     mut text_query: Query<
         (
             Entity,
-            Ref<TextLayoutSettings>,
+            &LineBreak,
+            &JustifyText,
             &mut ContentSize,
             &mut TextNodeFlags,
-            &mut ComputedTextBlock,
+            &mut TextBuffer,
             Ref<ComputedNodeTarget>,
         ),
         With<Node>,
@@ -269,10 +273,10 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, layout_settings, content_size, text_flags, computed, computed_target) in
+    for (entity, linebreak, justify, content_size, text_flags, computed, computed_target) in
         &mut text_query
     {
-        // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
+        // Note: the ComputedTextLayout::needs_rerender bool is cleared in create_text_measure().
         if computed_target.is_changed()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
@@ -283,7 +287,8 @@ pub fn measure_text_system(
                 &fonts,
                 computed_target.scale_factor.into(),
                 text_reader.iter(entity),
-                layout_settings,
+                *linebreak,
+                *justify,
                 &mut text_pipeline,
                 content_size,
                 text_flags,
@@ -304,11 +309,12 @@ fn queue_text(
     textures: &mut Assets<Image>,
     scale_factor: f32,
     inverse_scale_factor: f32,
-    layout_settings: &TextLayoutSettings,
+    linebreak: LineBreak,
+    justify: JustifyText,
     node: Ref<ComputedNode>,
     mut text_flags: Mut<TextNodeFlags>,
-    text_layout_info: Mut<TextLayoutInfo>,
-    computed: &mut ComputedTextBlock,
+    text_layout_info: Mut<ComputedTextLayout>,
+    computed: &mut TextBuffer,
     text_reader: &mut TextUiReader,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
@@ -318,7 +324,7 @@ fn queue_text(
         return;
     }
 
-    let physical_node_size = if layout_settings.linebreak == LineBreak::NoWrap {
+    let physical_node_size = if linebreak == LineBreak::NoWrap {
         // With `NoWrap` set, no constraints are placed on the width of the text.
         TextBounds::UNBOUNDED
     } else {
@@ -332,7 +338,8 @@ fn queue_text(
         fonts,
         text_reader.iter(entity),
         scale_factor.into(),
-        layout_settings,
+        linebreak,
+        justify,
         physical_node_size,
         font_atlas_sets,
         texture_atlases,
@@ -358,7 +365,7 @@ fn queue_text(
 
 /// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
 /// or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
-/// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
+/// This information is computed by the [`TextPipeline`] and then stored in [`ComputedTextLayout`].
 ///
 /// ## World Resources
 ///
@@ -373,16 +380,17 @@ pub fn text_system(
     mut text_query: Query<(
         Entity,
         Ref<ComputedNode>,
-        &TextLayoutSettings,
-        &mut TextLayoutInfo,
+        &LineBreak,
+        &JustifyText,
+        &mut ComputedTextLayout,
         &mut TextNodeFlags,
-        &mut ComputedTextBlock,
+        &mut TextBuffer,
     )>,
     mut text_reader: TextUiReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, layout_settings, text_layout_info, text_flags, mut computed) in
+    for (entity, node, linebreak, justify, text_layout_info, text_flags, mut computed) in
         &mut text_query
     {
         if node.is_changed() || text_flags.needs_recompute {
@@ -395,7 +403,8 @@ pub fn text_system(
                 &mut textures,
                 node.inverse_scale_factor.recip(),
                 node.inverse_scale_factor,
-                layout_settings,
+                *linebreak,
+                *justify,
                 node,
                 text_flags,
                 text_layout_info,
