@@ -146,7 +146,7 @@ pub struct ZIndex(pub i32);
 /// A marker component that enables Y-sorting (depth sorting) for sprites and meshes.
 ///
 /// When attached to an entity, this component indicates that the entity should be rendered
-/// in draw order based on its Y position. Entities with lower Y values (higher on screen)
+/// in draw order based on its Y position. Entities with higher Y values (higher on screen)
 /// are drawn first, creating a depth illusion where objects lower on the screen appear
 /// in front of objects higher on the screen.
 #[derive(Component, Default, Debug, Clone)]
