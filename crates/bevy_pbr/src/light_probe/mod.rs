@@ -1,8 +1,11 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::AssetId;
-use bevy_core_pipeline::core_3d::{graph::{Core3d, Node3d}, Camera3d};
+use bevy_asset::{embedded_asset, load_internal_binary_asset, AssetId};
+use bevy_core_pipeline::core_3d::{
+    graph::{Core3d, Node3d},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -18,7 +21,19 @@ use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::ExtractComponentPlugin, extract_instances::ExtractInstancesPlugin, load_shader_library, primitives::{Aabb, Frustum}, render_asset::RenderAssets, render_graph::RenderGraphApp, render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView}, renderer::{RenderAdapter, RenderDevice, RenderQueue}, settings::WgpuFeatures, sync_world::RenderEntity, texture::{FallbackImage, GpuImage}, view::{ExtractedView, Visibility}, Extract, ExtractSchedule, Render, RenderApp, RenderSystems
+    extract_component::ExtractComponentPlugin,
+    extract_instances::ExtractInstancesPlugin,
+    load_shader_library,
+    primitives::{Aabb, Frustum},
+    render_asset::RenderAssets,
+    render_graph::RenderGraphApp,
+    render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    settings::WgpuFeatures,
+    sync_world::RenderEntity,
+    texture::{FallbackImage, GpuImage},
+    view::{ExtractedView, Visibility},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use generate::{
@@ -30,7 +45,13 @@ use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
-use crate::{generate::{GeneratorBindGroupLayouts, GeneratorNode, GeneratorSamplers, IrradianceMapNode, RadianceMapNode}, light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight}};
+use crate::{
+    generate::{
+        GeneratorBindGroupLayouts, GeneratorNode, GeneratorSamplers, IrradianceMapNode,
+        RadianceMapNode,
+    },
+    light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight},
+};
 
 use self::irradiance_volume::IrradianceVolume;
 
@@ -337,6 +358,38 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "environment_map.wgsl");
         load_shader_library!(app, "irradiance_volume.wgsl");
 
+        embedded_asset!(app, "environment_filter.wgsl");
+        embedded_asset!(app, "spd.wgsl");
+
+        load_internal_binary_asset!(
+            app,
+            STBN_SPHERE,
+            "noise/sphere_coshemi_gauss1_0.png",
+            |bytes, _: String| Image::from_buffer(
+                bytes,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Png),
+                bevy_image::CompressedImageFormats::NONE,
+                false,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
+            )
+            .expect("Failed to load sphere cosine weighted blue noise texture")
+        );
+        load_internal_binary_asset!(
+            app,
+            STBN_VEC2,
+            "noise/vector2_uniform_gauss1_0.png",
+            |bytes, _: String| Image::from_buffer(
+                bytes,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Png),
+                bevy_image::CompressedImageFormats::NONE,
+                false,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
+            )
+            .expect("Failed to load vector2 uniform blue noise texture")
+        );
+
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
             .register_type::<IrradianceVolume>()
@@ -378,7 +431,15 @@ impl Plugin for LightProbePlugin {
             )
             .add_systems(
                 Render,
-                (upload_light_probes, prepare_environment_uniform_buffer)
+                prepare_generator_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+            )
+            .add_systems(
+                Render,
+                (
+                    upload_light_probes,
+                    prepare_environment_uniform_buffer,
+                    prepare_intermediate_textures,
+                )
                     .in_set(RenderSystems::PrepareResources),
             );
     }

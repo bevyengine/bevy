@@ -1,4 +1,4 @@
-use bevy_asset::{weak_handle, Assets, Handle};
+use bevy_asset::{load_embedded_asset, weak_handle, Assets, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -18,7 +18,7 @@ use bevy_render::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
+        SamplerBindingType, SamplerDescriptor, ShaderDefVal, ShaderStages, ShaderType,
         StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
         TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
         TextureViewDimension, UniformBuffer,
@@ -31,13 +31,6 @@ use bevy_render::{
 };
 
 use crate::light_probe::environment_map::EnvironmentMapLight;
-
-/// Single Pass Downsampling (SPD) shader handle
-pub const SPD_SHADER_HANDLE: Handle<Shader> = weak_handle!("5dcf400c-bcb3-49b9-8b7e-80f4117eaf82");
-
-/// Environment Filter shader handle
-pub const ENVIRONMENT_FILTER_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
 
 /// Sphere Cosine Weighted Irradiance shader handle
 pub const STBN_SPHERE: Handle<Image> = weak_handle!("3110b545-78e0-48fc-b86e-8bc0ea50fc67");
@@ -271,7 +264,7 @@ impl FromWorld for GeneratorPipelines {
             label: Some("spd_first_pipeline".into()),
             layout: vec![layouts.spd.clone()],
             push_constant_ranges: vec![],
-            shader: SPD_SHADER_HANDLE,
+            shader: load_embedded_asset!(world, "spd.wgsl"),
             shader_defs: shader_defs.clone(),
             entry_point: "spd_downsample_first".into(),
             zero_initialize_workgroup_memory: false,
@@ -282,7 +275,7 @@ impl FromWorld for GeneratorPipelines {
             label: Some("spd_second_pipeline".into()),
             layout: vec![layouts.spd.clone()],
             push_constant_ranges: vec![],
-            shader: SPD_SHADER_HANDLE,
+            shader: load_embedded_asset!(world, "spd.wgsl"),
             shader_defs,
             entry_point: "spd_downsample_second".into(),
             zero_initialize_workgroup_memory: false,
@@ -293,7 +286,7 @@ impl FromWorld for GeneratorPipelines {
             label: Some("radiance_pipeline".into()),
             layout: vec![layouts.radiance.clone()],
             push_constant_ranges: vec![],
-            shader: ENVIRONMENT_FILTER_SHADER_HANDLE,
+            shader: load_embedded_asset!(world, "environment_filter.wgsl"),
             shader_defs: vec![],
             entry_point: "generate_radiance_map".into(),
             zero_initialize_workgroup_memory: false,
@@ -304,7 +297,7 @@ impl FromWorld for GeneratorPipelines {
             label: Some("irradiance_pipeline".into()),
             layout: vec![layouts.irradiance.clone()],
             push_constant_ranges: vec![],
-            shader: ENVIRONMENT_FILTER_SHADER_HANDLE,
+            shader: load_embedded_asset!(world, "environment_filter.wgsl"),
             shader_defs: vec![],
             entry_point: "generate_irradiance_map".into(),
             zero_initialize_workgroup_memory: false,

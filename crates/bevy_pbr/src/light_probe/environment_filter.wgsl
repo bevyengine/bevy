@@ -276,14 +276,14 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
 // and golden angle to get a uniform distribution
 fn uniform_sample_sphere(i: u32, normal: vec3f) -> vec3f {
     // Get stratified sample index
-    let strat_i = i % constants.sample_count;
+    let index = i % constants.sample_count;
     
     let golden_angle = 2.4;
     let full_sphere = f32(constants.sample_count) * 2.0;
-    let z = 1.0 - (2.0 * f32(strat_i) + 1.0) / full_sphere;
+    let z = 1.0 - (2.0 * f32(index) + 1.0) / full_sphere;
     let r = fast_sqrt(1.0 - z * z);
     
-    let phi = f32(strat_i) * golden_angle;
+    let phi = f32(index) * golden_angle;
     
     // Create the direction vector
     let dir_uniform = vec3f(
