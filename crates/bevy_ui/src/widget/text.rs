@@ -97,6 +97,8 @@ impl Default for TextNodeFlags {
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(
     Node,
+    TextBuffer,
+    ComputedTextLayout,
     LineBreak,
     JustifyText,
     TextFont,
