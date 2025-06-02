@@ -10,7 +10,7 @@ use bevy::{
     asset::weak_handle,
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
-    math::{ops, FloatOrd},
+    math::ops,
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute, RenderMesh},
@@ -419,7 +419,6 @@ pub fn queue_colored_mesh2d(
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
-                let mesh_z = mesh2d_transforms.world_from_local.translation.z;
                 transparent_phase.add(Transparent2d {
                     entity: (*render_entity, *visible_entity),
                     draw_function: draw_colored_mesh2d,
