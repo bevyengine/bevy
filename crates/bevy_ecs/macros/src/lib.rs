@@ -242,7 +242,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .as_ref()
             .map(|f| quote! { #f })
             .unwrap_or_else(|| quote! { #i });
-        field_names.push(format!("::{}", field_value));
+        field_names.push(format!("::{field_value}"));
         fields.push(field_value);
         field_types.push(&field.ty);
         let mut field_message = None;
@@ -432,11 +432,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                unsafe fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                    unsafe { <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta) }
-                }
-
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
@@ -447,7 +442,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
                 #[inline]
                 unsafe fn validate_param<'w, 's>(
-                    state: &'s Self::State,
+                    state: &'s mut Self::State,
                     _system_meta: &#path::system::SystemMeta,
                     _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                 ) -> Result<(), #path::system::SystemParamValidationError> {

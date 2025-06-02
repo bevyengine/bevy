@@ -548,7 +548,7 @@ rand_chacha = "0.3.1"
 ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = "1.0.140"
 bytemuck = "1.7"
 bevy_render = { path = "crates/bevy_render", version = "0.16.0-dev", default-features = false }
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
@@ -581,6 +581,17 @@ ureq = { version = "3.0.8", features = ["json"] }
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
+
+[[example]]
+name = "context_menu"
+path = "examples/usages/context_menu.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.context_menu]
+name = "Context Menu"
+description = "Example of a context menu"
+category = "Usage"
+wasm = true
 
 [[example]]
 name = "hello_world"
@@ -3441,17 +3452,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "radial_gradients"
-path = "examples/ui/radial_gradients.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.radial_gradients]
-name = "Radial Gradients"
-description = "An example demonstrating radial gradients"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "scroll"
 path = "examples/ui/scroll.rs"
 doc-scrape-examples = true
@@ -4390,3 +4390,14 @@ name = "Extended Bindless Material"
 description = "Demonstrates bindless `ExtendedMaterial`"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "cooldown"
+path = "examples/usage/cooldown.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.cooldown]
+name = "Cooldown"
+description = "Example for cooldown on button clicks"
+category = "Usage"
+wasm = true

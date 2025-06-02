@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{color::palettes::css::WHITE, core_pipeline::Skybox, prelude::*};
+use bevy::{color::palettes::css::WHITE, core_pipeline::Skybox, prelude::*, render::view::Hdr};
 
 /// The camera rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.005;
@@ -82,10 +82,7 @@ fn setup(
     // Spawns a camera.
     commands.spawn((
         Transform::from_xyz(-2.0, 0.0, 3.5).looking_at(Vec3::ZERO, Vec3::Y),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         Camera3d::default(),
         Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),

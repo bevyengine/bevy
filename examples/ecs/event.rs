@@ -42,7 +42,7 @@ fn deal_damage_over_time(
     mut state: ResMut<DamageTimer>,
     mut events: EventWriter<DealDamage>,
 ) {
-    if state.tick(time.delta()).finished() {
+    if state.tick(time.delta()).is_finished() {
         // Events can be sent with 'write' and constructed just like any other object.
         events.write(DealDamage { amount: 10 });
     }
