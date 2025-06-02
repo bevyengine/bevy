@@ -1,9 +1,6 @@
 mod compositor;
-pub mod manual_texture_view;
-mod render;
-mod render_target;
+pub mod render_target;
 mod view;
-pub mod window;
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
@@ -15,36 +12,66 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 
 pub use compositor::*;
-use manual_texture_view::ManualTextureViews;
-pub use render_target::*;
+use render_target::{ManualTextureViews, RenderTargetPlugin};
 use tracing::warn;
 pub use view::*;
 
 use crate::{
-    extract_resource::ExtractResourcePlugin,
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{InternedRenderSubGraph, RenderGraphApp, RenderSubGraph},
-    RenderApp,
+    ExtractSchedule, RenderApp,
 };
+
+// TODO:
+// - [ ] setup compositor graph structure, and defer to view render graph
+// - [ ] extraction and such
+// - [x] module structure. This all probably shouldn't still live in `Camera`.
+// - [x] move `ComputedCameraValues` around. merge with Frustum?
+// - [ ] investigate utility camera query data
+// - [ ] fix event dispatch
+// - [ ] fix relationship hooks
+// - [ ] fix everything else oh god
 
 pub struct CompositionPlugin;
 
 impl Plugin for CompositionPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<RenderGraphDriver>()
-            .init_resource::<ManualTextureViews>();
-
-        app.add_plugins(ExtractResourcePlugin::<ManualTextureViews>::default());
+            .register_type::<View>()
+            .register_type::<Viewport>()
+            .add_plugins((
+                RenderTargetPlugin,
+                ExtractComponentPlugin::<RenderGraphDriver>::default(),
+            ))
+            .add_observer(handle_compositor_events);
     }
 
     fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
-        render_app.add_render_sub_graph(NoopRenderGraph);
+
+        render_app.add_systems(ExtractSchedule, (extract_compositors, extract_views));
+
+        render_app
+            .add_render_sub_graph(NoopRenderGraph)
+            .add_render_sub_graph(CompositorGraph);
+
+        render_app
+            .add_render_graph_node::<RunViewsNode>(CompositorGraph, CompositorNodes::RunViews)
+            .add_render_graph_node::<BlitToSurfaceNode>(
+                CompositorGraph,
+                CompositorNodes::BlitToSurface,
+            )
+            .add_render_graph_edge(
+                CompositorGraph,
+                CompositorNodes::RunViews,
+                CompositorNodes::BlitToSurface,
+            );
     }
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given entity.
 /// This component does nothing on its own, and should be used alongside a [`View`], [`Camera`], or [`Compositor`].
-#[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
+#[derive(Component, Debug, Deref, DerefMut, Reflect, Clone, ExtractComponent)]
 #[component(on_add = warn_on_noop_view_render_graph)]
 #[reflect(opaque)]
 #[reflect(Component, Debug, Clone)]

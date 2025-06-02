@@ -81,6 +81,9 @@ pub mod _macro {
 use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_utils::prelude::default;
+use bevy_utils::WgpuWrapper;
+use camera::ViewPlugin;
+use composition::render_target::WindowRenderPlugin;
 pub use extract_param::Extract;
 
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
@@ -106,13 +109,11 @@ use crate::{
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
     storage::StoragePlugin,
-    view::{ViewPlugin, WindowRenderPlugin},
 };
 use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bevy_utils::WgpuWrapper;
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
@@ -560,7 +561,7 @@ unsafe fn initialize_render_app(app: &mut App) {
 
     render_app.set_extract(|main_world, render_world| {
         {
-            #[cfg(feature = "trace")]
+            let _stage_span = tracing::info_span!("entity_sync").entered();
             let _stage_span = tracing::info_span!("entity_sync").entered();
             entity_sync_system(main_world, render_world);
         }

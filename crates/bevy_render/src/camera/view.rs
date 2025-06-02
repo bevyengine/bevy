@@ -1,21 +1,21 @@
-pub mod visibility;
-pub mod window;
-
 use bevy_diagnostic::FrameCount;
-pub use visibility::*;
-pub use window::*;
+use bevy_platform::collections::HashMap;
 
 use crate::{
     camera::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
-        ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
+        InheritedVisibility, MipBias, NoFrustumCulling, RenderLayers, TemporalJitter,
+        ViewVisibility, Visibility, VisibilityPlugin, VisibilityRangePlugin, VisibleEntities,
+    },
+    composition::{
+        render_target::{ExtractedWindows, ManualTextureViews, NormalizedRenderTarget},
+        ViewTarget,
     },
     extract_component::ExtractComponentPlugin,
     load_shader_library,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::InternedRenderSubGraph,
-    render_phase::Rangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
@@ -34,7 +34,6 @@ use bevy_image::BevyDefault as _;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec2, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
-use bevy_transform::components::GlobalTransform;
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
@@ -99,6 +98,7 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "view.wgsl");
 
+        //TODO: move most of these to composition
         app.register_type::<InheritedVisibility>()
             .register_type::<ViewVisibility>()
             .register_type::<Msaa>()
@@ -116,25 +116,26 @@ impl Plugin for ViewPlugin {
             ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                Render,
-                (
-                    // `TextureView`s need to be dropped before reconfiguring window surfaces.
-                    clear_view_attachments
-                        .in_set(RenderSystems::ManageViews)
-                        .before(create_surfaces),
-                    prepare_view_attachments
-                        .in_set(RenderSystems::ManageViews)
-                        .before(prepare_view_targets)
-                        .after(prepare_windows),
-                    prepare_view_targets
-                        .in_set(RenderSystems::ManageViews)
-                        .after(prepare_windows)
-                        .after(crate::render_asset::prepare_assets::<GpuImage>)
-                        .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
-                    prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
-                ),
-            );
+            //TODO: make sure all systems here get used
+            // render_app.add_systems(
+            //     Render,
+            //     (
+            //         // `TextureView`s need to be dropped before reconfiguring window surfaces.
+            //         clear_view_attachments
+            //             .in_set(RenderSystems::ManageViews)
+            //             .before(create_surfaces),
+            //         prepare_view_attachments
+            //             .in_set(RenderSystems::ManageViews)
+            //             .before(prepare_view_targets)
+            //             .after(prepare_windows),
+            //         prepare_view_targets
+            //             .in_set(RenderSystems::ManageViews)
+            //             .after(prepare_windows)
+            //             .after(crate::render_asset::prepare_assets::<GpuImage>)
+            //             .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
+            //         prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
+            //     ),
+            // );
         }
     }
 
@@ -766,7 +767,7 @@ impl MainCameraTextures {
     /// Returns `true` if and only if the main texture is [`Self::TEXTURE_FORMAT_HDR`]
     #[inline]
     pub fn is_hdr(&self) -> bool {
-        self.main_texture_format == ViewTarget::TEXTURE_FORMAT_HDR
+        self.main_texture_format == MainCameraTextures::TEXTURE_FORMAT_HDR
     }
 
     /// The final texture this view will render to.
@@ -851,63 +852,63 @@ pub fn prepare_view_uniforms(
         Option<&MipBias>,
     )>,
 ) {
-    let view_iter = views.iter();
-    let view_count = view_iter.len();
-    let Some(mut writer) =
-        view_uniforms
-            .uniforms
-            .get_writer(view_count, &render_device, &render_queue)
-    else {
-        return;
-    };
-    for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
-        let viewport = extracted_view.viewport.as_vec4();
-        let unjittered_projection = extracted_view.clip_from_view;
-        let mut clip_from_view = unjittered_projection;
-
-        if let Some(temporal_jitter) = temporal_jitter {
-            temporal_jitter.jitter_projection(&mut clip_from_view, viewport.zw());
-        }
-
-        let view_from_clip = clip_from_view.inverse();
-        let world_from_view = extracted_view.world_from_view.compute_matrix();
-        let view_from_world = world_from_view.inverse();
-
-        let clip_from_world = if temporal_jitter.is_some() {
-            clip_from_view * view_from_world
-        } else {
-            extracted_view
-                .clip_from_world
-                .unwrap_or_else(|| clip_from_view * view_from_world)
-        };
-
-        // Map Frustum type to shader array<vec4<f32>, 6>
-        let frustum = frustum
-            .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
-            .unwrap_or([Vec4::ZERO; 6]);
-
-        let view_uniforms = ViewUniformOffset {
-            offset: writer.write(&ViewUniform {
-                clip_from_world,
-                unjittered_clip_from_world: unjittered_projection * view_from_world,
-                world_from_clip: world_from_view * view_from_clip,
-                world_from_view,
-                view_from_world,
-                clip_from_view,
-                view_from_clip,
-                world_position: extracted_view.world_from_view.translation(),
-                exposure: extracted_camera
-                    .map(|c| c.exposure)
-                    .unwrap_or_else(|| Exposure::default().exposure()),
-                viewport,
-                frustum,
-                color_grading: extracted_view.color_grading.clone().into(),
-                mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-            }),
-        };
-
-        commands.entity(entity).insert(view_uniforms);
-    }
+    // let view_iter = views.iter();
+    // let view_count = view_iter.len();
+    // let Some(mut writer) =
+    //     view_uniforms
+    //         .uniforms
+    //         .get_writer(view_count, &render_device, &render_queue)
+    // else {
+    //     return;
+    // };
+    // for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
+    //     let viewport = extracted_view.viewport.as_vec4();
+    //     let unjittered_projection = extracted_view.clip_from_view;
+    //     let mut clip_from_view = unjittered_projection;
+    //
+    //     if let Some(temporal_jitter) = temporal_jitter {
+    //         temporal_jitter.jitter_projection(&mut clip_from_view, viewport.zw());
+    //     }
+    //
+    //     let view_from_clip = clip_from_view.inverse();
+    //     let world_from_view = extracted_view.world_from_view.compute_matrix();
+    //     let view_from_world = world_from_view.inverse();
+    //
+    //     let clip_from_world = if temporal_jitter.is_some() {
+    //         clip_from_view * view_from_world
+    //     } else {
+    //         extracted_view
+    //             .clip_from_world
+    //             .unwrap_or_else(|| clip_from_view * view_from_world)
+    //     };
+    //
+    //     // Map Frustum type to shader array<vec4<f32>, 6>
+    //     let frustum = frustum
+    //         .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
+    //         .unwrap_or([Vec4::ZERO; 6]);
+    //
+    //     let view_uniforms = ViewUniformOffset {
+    //         offset: writer.write(&ViewUniform {
+    //             clip_from_world,
+    //             unjittered_clip_from_world: unjittered_projection * view_from_world,
+    //             world_from_clip: world_from_view * view_from_clip,
+    //             world_from_view,
+    //             view_from_world,
+    //             clip_from_views
+    //             view_from_clip,
+    //             world_position: extracted_view.world_from_view.translation(),
+    //             exposure: extracted_camera
+    //                 .map(|c| c.exposure)
+    //                 .unwrap_or_else(|| Exposure::default().exposure()),
+    //             viewport,
+    //             frustum,
+    //             color_grading: extracted_view.color_grading.clone().into(),
+    //             mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
+    //         }),
+    //     };
+    //
+    //     commands.entity(entity).insert(view_uniforms);
+    // }
 }
 
 #[derive(Clone)]
@@ -927,28 +928,28 @@ pub fn prepare_view_attachments(
     cameras: Query<&ExtractedCamera>,
     mut view_target_attachments: ResMut<ViewTargetAttachments>,
 ) {
-    for camera in cameras.iter() {
-        let Some(target) = &camera.target else {
-            continue;
-        };
-
-        match view_target_attachments.entry(target.clone()) {
-            Entry::Occupied(_) => {}
-            Entry::Vacant(entry) => {
-                let Some(attachment) = target
-                    .get_texture_view(&windows, &images, &manual_texture_views)
-                    .cloned()
-                    .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-                    .map(|(view, format)| {
-                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-                    })
-                else {
-                    continue;
-                };
-                entry.insert(attachment);
-            }
-        };
-    }
+    // for camera in cameras.iter() {
+    //     let Some(target) = &camera.target else {
+    //         continue;
+    //     };
+    //
+    //     match view_target_attachments.entry(target.clone()) {
+    //         Entry::Occupied(_) => {}
+    //         Entry::Vacant(entry) => {
+    //             let Some(attachment) = target
+    //                 .get_texture_view(&windows, &images, &manual_texture_views)
+    //                 .cloned()
+    //                 .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
+    //                 .map(|(view, format)| {
+    //                     OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
+    //                 })
+    //             else {
+    //                 continue;
+    //             };
+    //             entry.insert(attachment);
+    //         }
+    //     };
+    // }
 }
 
 /// Clears the view target [`OutputColorAttachment`]s.
@@ -970,101 +971,101 @@ pub fn prepare_view_targets(
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
 ) {
-    let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
-        else {
-            continue;
-        };
-
-        let Some(out_attachment) = view_target_attachments.get(target) else {
-            continue;
-        };
-
-        let size = Extent3d {
-            width: target_size.x,
-            height: target_size.y,
-            depth_or_array_layers: 1,
-        };
-
-        let main_texture_format = if view.hdr {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
-        let clear_color = match camera.clear_color {
-            ClearColorConfig::Custom(color) => Some(color),
-            ClearColorConfig::None => None,
-            _ => Some(clear_color_global.0),
-        };
-
-        let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), view.hdr, msaa))
-            .or_insert_with(|| {
-                let descriptor = TextureDescriptor {
-                    label: None,
-                    size,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: main_texture_format,
-                    usage: texture_usage.0,
-                    view_formats: match main_texture_format {
-                        TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-                        TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-                        _ => &[],
-                    },
-                };
-                let a = texture_cache.get(
-                    &render_device,
-                    TextureDescriptor {
-                        label: Some("main_texture_a"),
-                        ..descriptor
-                    },
-                );
-                let b = texture_cache.get(
-                    &render_device,
-                    TextureDescriptor {
-                        label: Some("main_texture_b"),
-                        ..descriptor
-                    },
-                );
-                let sampled = if msaa.samples() > 1 {
-                    let sampled = texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("main_texture_sampled"),
-                            size,
-                            mip_level_count: 1,
-                            sample_count: msaa.samples(),
-                            dimension: TextureDimension::D2,
-                            format: main_texture_format,
-                            usage: TextureUsages::RENDER_ATTACHMENT,
-                            view_formats: descriptor.view_formats,
-                        },
-                    );
-                    Some(sampled)
-                } else {
-                    None
-                };
-                let main_texture = Arc::new(AtomicUsize::new(0));
-                (a, b, sampled, main_texture)
-            });
-
-        let converted_clear_color = clear_color.map(Into::into);
-
-        let main_textures = MainTargetTextures {
-            a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
-            b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
-            main_texture: main_texture.clone(),
-        };
-
-        commands.entity(entity).insert(ViewTarget {
-            main_texture: main_textures.main_texture.clone(),
-            main_textures,
-            main_texture_format,
-            out_texture: out_attachment.clone(),
-        });
-    }
+    // let mut textures = <HashMap<_, _>>::default();
+    // for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
+    //     let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
+    //     else {
+    //         continue;
+    //     };
+    //
+    //     let Some(out_attachment) = view_target_attachments.get(target) else {
+    //         continue;
+    //     };
+    //
+    //     let size = Extent3d {
+    //         width: target_size.x,
+    //         height: target_size.y,
+    //         depth_or_array_layers: 1,
+    //     };
+    //
+    //     let main_texture_format = if view.hdr {
+    //         ViewTarget::TEXTURE_FORMAT_HDR
+    //     } else {
+    //         TextureFormat::bevy_default()
+    //     };
+    //
+    //     let clear_color = match camera.clear_color {
+    //         ClearColorConfig::Custom(color) => Some(color),
+    //         ClearColorConfig::None => None,
+    //         _ => Some(clear_color_global.0),
+    //     };
+    //
+    //     let (a, b, sampled, main_texture) = textures
+    //         .entry((camera.target.clone(), view.hdr, msaa))
+    //         .or_insert_with(|| {
+    //             let descriptor = TextureDescriptor {
+    //                 label: None,
+    //                 size,
+    //                 mip_level_count: 1,
+    //                 sample_count: 1,
+    //                 dimension: TextureDimension::D2,
+    //                 format: main_texture_format,
+    //                 usage: texture_usage.0,
+    //                 view_formats: match main_texture_format {
+    //                     TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
+    //                     TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
+    //                     _ => &[],
+    //                 },
+    //             };
+    //             let a = texture_cache.get(
+    //                 &render_device,
+    //                 TextureDescriptor {
+    //                     label: Some("main_texture_a"),
+    //                     ..descriptor
+    //                 },
+    //             );
+    //             let b = texture_cache.get(
+    //                 &render_device,
+    //                 TextureDescriptor {
+    //                     label: Some("main_texture_b"),
+    //                     ..descriptor
+    //                 },
+    //             );
+    //             let sampled = if msaa.samples() > 1 {
+    //                 let sampled = texture_cache.get(
+    //                     &render_device,
+    //                     TextureDescriptor {
+    //                         label: Some("main_texture_sampled"),
+    //                         size,
+    //                         mip_level_count: 1,
+    //                         sample_count: msaa.samples(),
+    //                         dimension: TextureDimension::D2,
+    //                         format: main_texture_format,
+    //                         usage: TextureUsages::RENDER_ATTACHMENT,
+    //                         view_formats: descriptor.view_formats,
+    //                     },
+    //                 );
+    //                 Some(sampled)
+    //             } else {
+    //                 None
+    //             };
+    //             let main_texture = Arc::new(AtomicUsize::new(0));
+    //             (a, b, sampled, main_texture)
+    //         });
+    //
+    //     let converted_clear_color = clear_color.map(Into::into);
+    //
+    //     let main_textures = MainTargetTextures {
+    //         a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
+    //         b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
+    //         main_texture: main_texture.clone(),
+    //     };
+    //
+    //     commands.entity(entity).insert(ViewTarget {
+    //         main_texture: main_textures.main_texture.clone(),
+    //         main_textures,
+    //         main_texture_format,
+    //         out_texture: out_attachment.clone(),
+    //     });
+    // }
 }

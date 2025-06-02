@@ -11,7 +11,7 @@ use tracing::{error, info, info_span, warn};
 
 use crate::{
     camera::MainCameraTextures,
-    composition::{screenshot, ExtractedWindows},
+    composition::render_target::{screenshot, ExtractedWindows},
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
     gpu_readback,
     render_graph::RenderGraph,

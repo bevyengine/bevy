@@ -43,7 +43,7 @@ use derive_more::derive::From;
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, Visibility, VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<Mesh2d>)]
+#[component(on_add = crate::camera::add_visibility_class::<Mesh2d>)]
 pub struct Mesh2d(pub Handle<Mesh>);
 
 impl From<Mesh2d> for AssetId<Mesh> {
@@ -99,7 +99,7 @@ impl AsAssetId for Mesh2d {
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, Visibility, VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<Mesh3d>)]
+#[component(on_add = camera::add_visibility_class::<Mesh3d>)]
 pub struct Mesh3d(pub Handle<Mesh>);
 
 impl From<Mesh3d> for AssetId<Mesh> {

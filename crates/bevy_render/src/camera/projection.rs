@@ -1,6 +1,9 @@
 use core::fmt::Debug;
 
-use crate::primitives::{Frustum, SubRect};
+use crate::{
+    composition::ViewTarget,
+    primitives::{Frustum, SubRect},
+};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::AssetEventSystems;
 use bevy_derive::{Deref, DerefMut};
@@ -28,19 +31,20 @@ impl Plugin for CameraProjectionPlugin {
             .add_systems(
                 PostStartup,
                 crate::camera::camera_system.in_set(CameraUpdateSystems),
-            )
-            .add_systems(
-                PostUpdate,
-                (
-                    crate::camera::camera_system
-                        .in_set(CameraUpdateSystems)
-                        .before(AssetEventSystems),
-                    crate::view::update_frusta
-                        .in_set(VisibilitySystems::UpdateFrusta)
-                        .after(crate::camera::camera_system)
-                        .after(TransformSystems::Propagate),
-                ),
             );
+        /* TODO: ORDERING CONSTRAINTS
+        .add_systems(
+            PostUpdate,
+            (
+                crate::camera::camera_system
+                    .in_set(CameraUpdateSystems)
+                    .before(AssetEventSystems),
+                crate::view::update_frusta
+                    .in_set(VisibilitySystems::UpdateFrusta)
+                    .after(crate::camera::camera_system)
+                    .after(TransformSystems::Propagate),
+            ),
+        );*/
     }
 }
 
@@ -269,15 +273,37 @@ pub struct ComputedProjection {
     clip_from_view: Mat4,
 }
 
-fn update_projections(cameras: Query<(&Camera, &Projection, &mut ComputedProjection)>) {}
+fn update_projections(
+    cameras: Query<(
+        &Camera,
+        &ViewTarget,
+        &mut Projection,
+        &mut ComputedProjection,
+    )>,
+) {
+    for (camera, view_target, mut projection, mut computed_projection) in cameras {
+        let size = view_target.logical_viewport_size();
+        //TODO: ensure that view_target always contains a valid viewport. `Viewport` as a refined
+        //type?
+        projection.update(size.x, size.y);
+        if camera.crop != computed_projection.prev_crop {
+            computed_projection.prev_crop = camera.crop;
+            computed_projection.clip_from_view = camera
+                .crop
+                .map(|crop| projection.get_clip_from_view_for_sub(&crop))
+                .unwrap_or_else(|| projection.get_clip_from_view());
+        }
+    }
+}
 
 //TODO: add observers to handle updating projection on views changing
 // or, since all parts of cameras can be mutated freely, maybe this part is better to keep in a
 // post-update system? still, want to split up camera_system.
 
 impl ComputedProjection {
-    pub fn clip_from_view(&self) -> Mat4 {
-        self.clip_from_view
+    #[inline]
+    pub fn clip_from_view(&self) -> &Mat4 {
+        &self.clip_from_view
     }
 }
 

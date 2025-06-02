@@ -24,6 +24,7 @@ use tracing::{error, info};
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
+    camera::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
     experimental::occlusion_culling::OcclusionCulling,
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSet,

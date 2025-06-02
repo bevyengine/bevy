@@ -4,21 +4,13 @@ mod projection;
 mod view;
 mod visibility;
 
-use bevy_derive::{Deref, DerefMut};
-use bevy_reflect::Reflect;
 pub use camera::*;
 pub use clear_color::*;
 pub use projection::*;
-use tracing::warn;
 pub use view::*;
 pub use visibility::*;
 
-use crate::{
-    extract_component::ExtractComponentPlugin,
-    extract_resource::ExtractResourcePlugin,
-    render_graph::{InternedRenderSubGraph, RenderGraph, RenderGraphApp, RenderSubGraph},
-    ExtractSchedule, RenderApp,
-};
+use crate::{extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin};
 use bevy_app::{App, Plugin};
 
 #[derive(Default)]
@@ -40,12 +32,14 @@ impl Plugin for CameraPlugin {
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
             ));
 
+        /* TODO: replacement for CameraDriverNode
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_cameras);
             let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
             let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
             render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
         }
+        */
     }
 
     fn finish(&self, app: &mut App) {}
