@@ -335,7 +335,7 @@ impl Default for GeneratedEnvironmentMapLight {
             intensity: 0.0,
             rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: true,
-            white_point: 2.0,
+            white_point: 1.0,
         }
     }
 }
@@ -568,20 +568,10 @@ pub fn prepare_generator_bind_groups(
         let mut radiance_bind_groups = Vec::with_capacity(num_mips);
 
         for mip in 0..num_mips {
-            let roughness = mip as f32 / (num_mips - 1) as f32;
-
-            // For higher roughness values, use importance sampling with optimized sample count
-            let sample_count = if roughness < 0.01 {
-                1 // Mirror reflection
-            } else if roughness < 0.25 {
-                16
-            } else if roughness < 0.5 {
-                32
-            } else if roughness < 0.75 {
-                64
-            } else {
-                128
-            };
+            // Calculate roughness from 0.0 (mip 0) to 0.889 (mip 8)
+            // We don't need roughness=1.0 as a mip level because it's handled by the separate diffuse irradiance map
+            let roughness = mip as f32 / num_mips as f32;
+            let sample_count = 32u32 * 2u32.pow((roughness * 4.0) as u32);
 
             let radiance_constants = FilteringConstants {
                 mip_level: mip as f32,

@@ -167,6 +167,15 @@ fn spawn_generated_environment_map(commands: &mut Commands, cubemaps: &Cubemaps)
         },
         Transform::from_scale(Vec3::splat(2.0)),
     ));
+
+    // spawn directional light
+    commands.spawn((
+        DirectionalLight {
+            illuminance: 30_000.0,
+            ..default()
+        },
+        Transform::from_xyz(1.0, 0.5, 0.6).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // Spawns the help text.
@@ -209,6 +218,7 @@ fn change_reflection_type(
     light_probe_query: Query<Entity, With<LightProbe>>,
     sky_box_query: Query<Entity, With<Skybox>>,
     camera_query: Query<Entity, With<Camera3d>>,
+    directional_light_query: Query<Entity, With<DirectionalLight>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
     cubemaps: Res<Cubemaps>,
@@ -228,6 +238,9 @@ fn change_reflection_type(
     }
     for skybox in sky_box_query.iter() {
         commands.entity(skybox).remove::<Skybox>();
+    }
+    for directional_light in directional_light_query.iter() {
+        commands.entity(directional_light).despawn();
     }
     match app_status.reflection_mode {
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
@@ -369,7 +382,8 @@ impl FromWorld for Cubemaps {
             specular_reflection_probe: world
                 .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
             specular_environment_map: specular_map.clone(),
-            unfiltered_environment_map: world.load_asset("environment_maps/goegap_road_2k.ktx2"),
+            unfiltered_environment_map: world
+                .load_asset("environment_maps/spiaggia_di_mondello_2k_skybox.ktx2"),
             skybox: specular_map,
         }
     }

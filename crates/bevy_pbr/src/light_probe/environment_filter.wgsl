@@ -140,7 +140,7 @@ fn importance_sample_ggx(xi: vec2f, roughness: f32, normal: vec3f) -> vec3f {
     let a = roughness * roughness;
     
     // Sample in spherical coordinates
-    let phi = 2.0 * PI * xi.x;
+    let phi = PI_2 * xi.x;
     
     // GGX mapping from uniform random to GGX distribution
     let cos_theta = fast_sqrt((1.0 - xi.y) / (1.0 + (a * a - 1.0) * xi.y));
@@ -342,9 +342,6 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     
     // Normalize by total weight
     irradiance = irradiance / total_weight;
-    
-    // Scale by PI to account for the Lambert BRDF normalization factor
-    irradiance *= PI;
     
     // Reverse tonemap to restore HDR range
     irradiance = reverse_tonemap(irradiance);
