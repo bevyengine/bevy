@@ -1931,7 +1931,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn retain<B: Bundle>(&mut self) -> &mut Self {
+    pub fn retain<B: StaticBundle>(&mut self) -> &mut Self {
         self.queue(entity_command::retain::<B>())
     }
 
