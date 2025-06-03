@@ -12,7 +12,7 @@ use alloc::{
     vec::Vec,
 };
 use atomicow::CowArc;
-use bevy_ecs::world::World;
+use bevy_ecs::{error::BevyError, world::World};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
@@ -34,7 +34,7 @@ pub trait AssetLoader: Send + Sync + 'static {
     /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
-    type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
+    type Error: Into<BevyError>;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
     fn load(
         &self,
@@ -58,10 +58,7 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
         reader: &'a mut dyn Reader,
         meta: &'a dyn AssetMetaDyn,
         load_context: LoadContext<'a>,
-    ) -> BoxedFuture<
-        'a,
-        Result<ErasedLoadedAsset, Box<dyn core::error::Error + Send + Sync + 'static>>,
-    >;
+    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>>;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
@@ -89,10 +86,7 @@ where
         reader: &'a mut dyn Reader,
         meta: &'a dyn AssetMetaDyn,
         mut load_context: LoadContext<'a>,
-    ) -> BoxedFuture<
-        'a,
-        Result<ErasedLoadedAsset, Box<dyn core::error::Error + Send + Sync + 'static>>,
-    > {
+    ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>> {
         Box::pin(async move {
             let settings = meta
                 .loader_settings()
