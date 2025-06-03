@@ -199,6 +199,220 @@ pub unsafe trait ReadOnlySystem: System {
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
+/// A convenience type alias for a boxed [`ReadOnlySystem`] trait object.
+pub type BoxedReadOnlySystem<In = (), Out = ()> = Box<dyn ReadOnlySystem<In = In, Out = Out>>;
+
+impl<In, Out> System for Box<dyn System<In = In, Out = Out>>
+where
+    In: SystemInput + 'static,
+    Out: 'static,
+{
+    type In = In;
+    type Out = Out;
+
+    fn type_id(&self) -> TypeId {
+        (**self).type_id()
+    }
+
+    fn name(&self) -> Cow<'static, str> {
+        (**self).name()
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        (**self).component_access()
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        (**self).archetype_component_access()
+    }
+
+    fn is_send(&self) -> bool {
+        (**self).is_send()
+    }
+
+    fn is_exclusive(&self) -> bool {
+        (**self).is_exclusive()
+    }
+
+    fn has_deferred(&self) -> bool {
+        (**self).has_deferred()
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
+        (**self).run_unsafe(input, world)
+    }
+
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        (**self).run(input, world)
+    }
+
+    fn run_without_applying_deferred(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Self::Out {
+        (**self).run_without_applying_deferred(input, world)
+    }
+
+    fn apply_deferred(&mut self, world: &mut World) {
+        (**self).apply_deferred(world);
+    }
+
+    fn queue_deferred(&mut self, world: DeferredWorld) {
+        (**self).queue_deferred(world);
+    }
+
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        (**self).validate_param_unsafe(world)
+    }
+
+    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
+        (**self).validate_param(world)
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        (**self).initialize(world);
+    }
+
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+        (**self).update_archetype_component_access(world);
+    }
+
+    fn check_change_tick(&mut self, change_tick: Tick) {
+        (**self).check_change_tick(change_tick);
+    }
+
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        (**self).default_system_sets()
+    }
+
+    fn get_last_run(&self) -> Tick {
+        (**self).get_last_run()
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        (**self).set_last_run(last_run);
+    }
+}
+
+/// SAFETY: The boxed trait is [`ReadOnlySystem`], so this system will only read from the world.
+unsafe impl<In, Out> ReadOnlySystem for Box<dyn ReadOnlySystem<In = In, Out = Out>>
+where
+    In: SystemInput + 'static,
+    Out: 'static,
+{
+    fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Self::Out {
+        (**self).run_readonly(input, world)
+    }
+}
+
+impl<In, Out> System for Box<dyn ReadOnlySystem<In = In, Out = Out>>
+where
+    In: SystemInput + 'static,
+    Out: 'static,
+{
+    type In = In;
+    type Out = Out;
+
+    fn type_id(&self) -> TypeId {
+        (**self).type_id()
+    }
+
+    fn name(&self) -> Cow<'static, str> {
+        (**self).name()
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        (**self).component_access()
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        (**self).archetype_component_access()
+    }
+
+    fn is_send(&self) -> bool {
+        (**self).is_send()
+    }
+
+    fn is_exclusive(&self) -> bool {
+        (**self).is_exclusive()
+    }
+
+    fn has_deferred(&self) -> bool {
+        (**self).has_deferred()
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
+        (**self).run_unsafe(input, world)
+    }
+
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        (**self).run(input, world)
+    }
+
+    fn run_without_applying_deferred(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Self::Out {
+        (**self).run_without_applying_deferred(input, world)
+    }
+
+    fn apply_deferred(&mut self, world: &mut World) {
+        (**self).apply_deferred(world);
+    }
+
+    fn queue_deferred(&mut self, world: DeferredWorld) {
+        (**self).queue_deferred(world);
+    }
+
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        (**self).validate_param_unsafe(world)
+    }
+
+    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
+        (**self).validate_param(world)
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        (**self).initialize(world);
+    }
+
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+        (**self).update_archetype_component_access(world);
+    }
+
+    fn check_change_tick(&mut self, change_tick: Tick) {
+        (**self).check_change_tick(change_tick);
+    }
+
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        (**self).default_system_sets()
+    }
+
+    fn get_last_run(&self) -> Tick {
+        (**self).get_last_run()
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        (**self).set_last_run(last_run);
+    }
+}
+
 pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
     if last_run.check_tick(this_run) {
         let age = this_run.relative_to(*last_run).get();
@@ -405,6 +619,10 @@ mod tests {
         counter.0 += 1;
     }
 
+    fn read_count(counter: Res<Counter>) -> u8 {
+        counter.0
+    }
+
     #[test]
     fn run_two_systems() {
         let mut world = World::new();
@@ -454,5 +672,44 @@ mod tests {
         assert!(matches!(result, Err(RunSystemError::InvalidParams { .. })));
         let expected = "System bevy_ecs::system::system::tests::run_system_once_invalid_params::system did not run due to failed parameter validation: Parameter `Res<T>` failed validation: Resource does not exist";
         assert_eq!(expected, result.unwrap_err().to_string());
+    }
+
+    #[test]
+    fn run_boxed_systems() {
+        let mut world = World::new();
+
+        world.init_resource::<Counter>();
+
+        fn count_up_boxed() -> BoxedSystem {
+            Box::new(IntoSystem::into_system(count_up))
+        }
+
+        fn read_count_boxed() -> BoxedReadOnlySystem<(), u8> {
+            Box::new(IntoSystem::into_system(read_count))
+        }
+
+        let _ = IntoSystem::into_system(count_up_boxed());
+        let _ = IntoSystem::into_system(read_count_boxed());
+
+        assert_eq!(*world.resource::<Counter>(), Counter(0));
+
+        world.run_system_once(count_up).unwrap();
+        assert_eq!(*world.resource::<Counter>(), Counter(1));
+        world.run_system_once(count_up).unwrap();
+        assert_eq!(*world.resource::<Counter>(), Counter(2));
+
+        world.run_system_once(count_up_boxed()).unwrap();
+        assert_eq!(*world.resource::<Counter>(), Counter(3));
+        world.run_system_once(count_up_boxed()).unwrap();
+        assert_eq!(*world.resource::<Counter>(), Counter(4));
+
+        assert_eq!(world.run_system_once(read_count_boxed()).unwrap(), 4);
+
+        assert_eq!(
+            world
+                .run_system_once(count_up_boxed().pipe(read_count_boxed()))
+                .unwrap(),
+            5
+        );
     }
 }
