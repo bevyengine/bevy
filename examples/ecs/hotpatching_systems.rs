@@ -85,7 +85,7 @@ fn start_thread(receiver: crossbeam_channel::Receiver<()>) {
 
             // You can also make any part outside of a system hot patchable by wrapping it
             // In this part, only the duration is hot patchable:
-            let duration = bevy::dev_tools::hotpatch::call(|| Duration::from_secs(2));
+            let duration = bevy::app::hotpatch::call(|| Duration::from_secs(2));
 
             std::thread::sleep(duration);
             info!("done after {:?}", start.elapsed());
