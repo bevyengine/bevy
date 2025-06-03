@@ -6,6 +6,7 @@
 [![Docs](https://docs.rs/bevy/badge.svg)](https://docs.rs/bevy/latest/bevy/)
 [![CI](https://github.com/bevyengine/bevy/workflows/CI/badge.svg)](https://github.com/bevyengine/bevy/actions)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/bevyengine/bevy)
 
 ## What is Bevy?
 
