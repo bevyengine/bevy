@@ -2634,4 +2634,46 @@ mod tests {
 
         assert_eq!(world.resource::<Count>().0, 3);
     }
+
+    #[derive(Bundle)]
+    #[bundle(dynamic)]
+    struct WithOptionalField {
+        a: A,
+        b: Option<B>,
+        v: Option<V>,
+    }
+
+    #[test]
+    fn optional_bundle() {
+        let mut w = World::new();
+
+        let e = w.spawn(None::<A>);
+        assert!(!e.contains::<A>());
+
+        let e = w.spawn(Some(A));
+        assert!(e.contains::<A>());
+
+        let e = w.spawn((None::<B>, Some(V("Some"))));
+        assert!(!e.contains::<B>());
+        assert!(e.contains::<V>());
+        assert!(e.get::<V>() == Some(&V("Some")));
+
+        let e = w.spawn((Some(B), Some(V("Some2"))));
+        assert!(e.contains::<B>());
+        assert!(e.contains::<V>());
+        assert!(e.get::<V>() == Some(&V("Some2")));
+
+        let e = w.spawn((Some(B), None::<V>));
+        assert!(e.contains::<B>());
+        assert!(!e.contains::<V>());
+
+        let e = w.spawn(WithOptionalField {
+            a: A,
+            b: None,
+            v: Some(V("V")),
+        });
+        assert!(e.contains::<A>());
+        assert!(!e.contains::<B>());
+        assert!(e.get::<V>() == Some(&V("V")));
+    }
 }
