@@ -9,7 +9,7 @@ use bevy_reflect::prelude::*;
 pub struct PlaneMeshBuilder {
     /// The [`Plane3d`] shape.
     pub plane: Plane3d,
-    /// The number of subdivisions in the mesh.
+    /// The number of subdivisions along the X axis.
     ///
     /// 0 - is the original plane geometry, the 4 points in the XZ plane.
     ///
@@ -20,7 +20,7 @@ pub struct PlaneMeshBuilder {
     /// and so on...
     pub subdivisions_x: u32,
 
-    /// The number of subdivisions in the mesh.
+    /// The number of subdivisions along the Z axis.
     ///
     /// 0 - is the original plane geometry, the 4 points in the XZ plane.
     ///
@@ -108,7 +108,7 @@ impl PlaneMeshBuilder {
     }
 
     #[inline]
-    /// The number of subdivisions in the mesh.
+    /// The number of subdivisions along the X axis.
     ///
     /// 0 - is the original plane geometry, the 4 points in the XZ plane.
     ///
@@ -123,7 +123,7 @@ impl PlaneMeshBuilder {
     }
 
     #[inline]
-    /// The number of subdivisions in the mesh.
+    /// The number of subdivisions along the Z axis.
     ///
     /// 0 - is the original plane geometry, the 4 points in the XZ plane.
     ///
