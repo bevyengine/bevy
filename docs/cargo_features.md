@@ -85,6 +85,8 @@ The default feature set enables most of the expected features of a game engine, 
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
+|http_source|Enables using assets from HTTP sources|
+|http_source_cache|Assets downloaded from HTTP sources are cached|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
