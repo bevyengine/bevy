@@ -217,9 +217,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
     fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> (Entity, ComponentId) {
         self.validate_world(world.id());
         init_query_param(world, system_meta, &self);
-        let id = world.register_component::<QueryState<D, F>>();
-        let e = world.spawn(self).id();
-        (e, id)
+        self.cached(world)
     }
 }
 
@@ -300,9 +298,7 @@ unsafe impl<
         (self.0)(&mut builder);
         let state = builder.build();
         init_query_param(world, system_meta, &state);
-        let id = world.register_component::<QueryState<D, F>>();
-        let e = world.spawn(state).id();
-        (e, id)
+        state.cached(world)
     }
 }
 
@@ -971,9 +967,9 @@ mod tests {
 
     #[derive(SystemParam)]
     #[system_param(builder)]
-    struct CustomParam<'w> {
+    struct CustomParam<'w, 's> {
         query: Query<'w, 'w, ()>,
-        local: Local<usize>,
+        local: Local<'s, usize>,
     }
 
     #[test]

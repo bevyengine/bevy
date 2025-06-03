@@ -14,7 +14,8 @@ use crate::{
 use crate::entity::UniqueEntityEquivalentSlice;
 
 use alloc::vec::Vec;
-use core::{fmt, ptr};
+use core::{fmt, ops::DerefMut, ptr};
+use derive_more::derive::{Deref, DerefMut};
 use fixedbitset::FixedBitSet;
 use log::warn;
 #[cfg(feature = "trace")]
@@ -24,6 +25,12 @@ use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
     QueryManyUniqueIter, QuerySingleError, ROQueryItem, ReadOnlyQueryData,
 };
+
+#[repr(C)]
+#[derive(Component, Deref, DerefMut)]
+#[component(storage = "SparseSet")]
+/// A Internal Wrapper of [`QueryState`] for safety reasons.
+pub(crate) struct InternalQueryState<D: QueryData, F: QueryFilter>(QueryState<D, F>);
 
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
@@ -60,8 +67,6 @@ pub(super) union StorageId {
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
 /// [`Table`]: crate::storage::Table
 #[repr(C)]
-#[derive(Component)]
-#[component(storage = "SparseSet")]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
@@ -1753,6 +1758,31 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 }
 
+impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryState<D, F> {
+    /// cache a [`QueryState`] into world.
+    pub(crate) fn cached(self, world: &mut World) -> (Entity, ComponentId) {
+        let id = world.register_component::<InternalQueryState<D, F>>();
+        let e = world.spawn(InternalQueryState(self)).id();
+        (e, id)
+    }
+
+    /// fetch a cached [`QueryState`] from world
+    pub(crate) unsafe fn fetch_mut_from_cached<'w>(
+        cached: (Entity, ComponentId),
+        w: UnsafeWorldCell<'w>,
+    ) -> Option<&'w mut QueryState<D, F>> {
+        w.storages()
+            .sparse_sets
+            .get(cached.1)
+            .map(|s| s.get(cached.0))
+            .flatten()
+            .map(|ptr| {
+                ptr.assert_unique()
+                    .deref_mut::<InternalQueryState<D, F>>()
+                    .deref_mut()
+            })
+    }
+}
 impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D, F> {
     fn from(mut value: QueryBuilder<D, F>) -> Self {
         QueryState::from_builder(&mut value)

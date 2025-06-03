@@ -6,8 +6,8 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::{Entities, Entity},
     query::{
-        Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter,
-        QuerySingleError, QueryState, ReadOnlyQueryData,
+        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
+        QueryState, ReadOnlyQueryData,
     },
     resource::Resource,
     storage::ResourceData,
@@ -327,9 +327,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state: QueryState<D, F> = QueryState::new(world);
         init_query_param(world, system_meta, &state);
-        let e = world.spawn(state).id();
-        let id = world.register_component::<QueryState<D, F>>();
-        (e, id)
+        state.cached(world)
     }
 
     #[inline]
@@ -339,15 +337,8 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 'w> {
-        let state = world
-            .storages()
-            .sparse_sets
-            .get(state.1)
-            .debug_checked_unwrap()
-            .get(state.0)
-            .debug_checked_unwrap()
-            .assert_unique()
-            .deref_mut::<QueryState<D, F>>();
+        let state = QueryState::fetch_mut_from_cached(*state, world)
+            .expect("cached querystate entity not found");
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
