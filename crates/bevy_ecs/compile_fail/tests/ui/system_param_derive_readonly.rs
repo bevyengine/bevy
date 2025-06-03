@@ -6,7 +6,7 @@ struct Foo;
 
 #[derive(SystemParam)]
 struct Mutable<'w> {
-    a: Query<'w, &'static mut Foo>,
+    a: Query<'w, 'w, &'static mut Foo>,
 }
 
 fn main() {
