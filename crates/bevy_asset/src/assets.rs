@@ -422,6 +422,11 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    #[inline]
+    pub fn get_many<const N: usize>(&self, ids: [AssetId<A>; N]) -> [Option<&A>; N] {
+        ids.map(|id| self.get(id))
+    }
+
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
@@ -435,6 +440,39 @@ impl<A: Asset> Assets<A> {
             self.queued_events.push(AssetEvent::Modified { id });
         }
         result
+    }
+
+    #[inline]
+    #[allow(unsafe_code)]
+    pub fn get_many_mut<const N: usize>(
+        &mut self,
+        ids: [AssetId<A>; N],
+    ) -> Option<[Option<&mut A>; N]> {
+        use std::mem::MaybeUninit;
+
+        // SAFETY: Verify that all entities are unique
+        for i in 0..N {
+            for j in 0..i {
+                if ids[i] == ids[j] {
+                    return None;
+                }
+            }
+        }
+
+        let mut values = [(); N].map(|_| MaybeUninit::uninit());
+
+        for (value, asset) in core::iter::zip(&mut values, ids) {
+            let item: Option<*mut _> = match self.get_mut(asset) {
+                Some(asset) => Some(asset),
+                None => None,
+            };
+
+            *value = MaybeUninit::new(item);
+        }
+
+        // SAFETY: Each value has been fully initialized.
+        let values = values.map(|x| unsafe { x.assume_init().map(|raw| std::mem::transmute(raw)) });
+        Some(values)
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
