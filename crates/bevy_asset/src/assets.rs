@@ -699,16 +699,13 @@ mod test {
 
     #[test]
     fn get_many_mut_no_aliases() {
-        let mut assets = Assets::default();
+        let mut assets: Assets<SubText> = Assets::default();
 
         let one = "One";
         let two = "Two";
 
-        let v = AssetIndex::from_bits(1);
-        let w = AssetIndex::from_bits(3);
-
-        assets.insert(v, SubText { text: one.into() });
-        assets.insert(w, SubText { text: two.into() });
+        let v = assets.add(SubText { text: one.into() }).id();
+        let w = assets.add(SubText { text: two.into() }).id();
 
         let [x, y] = assets.get_many_mut([v.into(), w.into()]).unwrap();
         assert_eq!(x.unwrap().text, one);
@@ -717,13 +714,10 @@ mod test {
 
     #[test]
     fn get_many_mut_aliases() {
-        let mut assets = Assets::default();
+        let mut assets: Assets<TestAsset> = Assets::default();
 
-        let v = AssetIndex::from_bits(1);
-        assets.insert(v, TestAsset);
-        let v = v.into();
-
-        let result = assets.get_many_mut([v, v]);
+        let id = assets.add(TestAsset).id();
+        let result = assets.get_many_mut([id, id]);
         assert!(result.is_none());
     }
 }
