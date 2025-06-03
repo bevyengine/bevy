@@ -170,7 +170,11 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             sink.set_speed(settings.speed);
-            sink.set_volume(settings.volume * global_volume.volume);
+            sink.set_volume(
+                settings
+                    .volume
+                    .adjust_by_linear(global_volume.volume.to_linear()),
+            );
 
             if settings.paused {
                 sink.pause();
@@ -210,7 +214,11 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             sink.set_speed(settings.speed);
-            sink.set_volume(settings.volume * global_volume.volume);
+            sink.set_volume(
+                settings
+                    .volume
+                    .adjust_by_linear(global_volume.volume.to_linear()),
+            );
 
             if settings.paused {
                 sink.pause();
