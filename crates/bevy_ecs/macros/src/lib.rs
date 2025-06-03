@@ -27,12 +27,33 @@ enum BundleFieldKind {
 }
 
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
+const BUNDLE_ATTRIBUTE_DYNAMIC: &str = "dynamic";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
+
+    let mut is_dynamic = false;
+    for attr in ast
+        .attrs
+        .iter()
+        .filter(|a| a.path().is_ident(BUNDLE_ATTRIBUTE_NAME))
+    {
+        if let Err(error) = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident(BUNDLE_ATTRIBUTE_DYNAMIC) {
+                is_dynamic = true;
+                Ok(())
+            } else {
+                Err(meta.error(format!(
+                    "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_DYNAMIC}`"
+                )))
+            }
+        }) {
+            return error.into_compile_error().into();
+        }
+    }
 
     let named_fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
         Ok(fields) => fields,
@@ -111,7 +132,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
-    TokenStream::from(quote! {
+    let static_bundle_impl = (!is_dynamic).then(|| quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
@@ -139,7 +160,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(<#active_field_types as #ecs_path::bundle::StaticBundle>::register_required_components(components, &mut *required_components);)*
             }
         }
+    });
 
+    let bundle_impl = quote! {
         // SAFETY: see the corresponding implementation of `StaticBundle`
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             const IS_STATIC: bool = true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::IS_STATIC)*;
@@ -178,7 +201,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(<#active_field_types as #ecs_path::bundle::Bundle>::register_required_components(&self.#active_field_tokens, components, required_components);)*
             }
         }
+    };
 
+    let bundle_from_components_impl = (!is_dynamic).then(|| quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
         #[allow(deprecated)]
@@ -193,7 +218,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 }
             }
         }
+    });
 
+    let dynamic_bundle_impl = quote! {
         #[allow(deprecated)]
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
@@ -206,6 +233,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(<#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(self.#active_field_tokens, &mut *func);)*
             }
         }
+    };
+
+    TokenStream::from(quote! {
+        #static_bundle_impl
+        #bundle_impl
+        #bundle_from_components_impl
+        #dynamic_bundle_impl
     })
 }
 
