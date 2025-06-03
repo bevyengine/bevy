@@ -444,7 +444,7 @@ impl<A: Asset> Assets<A> {
     }
 
     #[inline]
-    #[allow(unsafe_code)]
+    #[expect(unsafe_code, reason = "Required to get several mutable references")]
     /// Retrieves may mutable references to the [`Asset`]s with the given `id`s, if they exists.
     /// Will return `None` if any `id`s alias.
     pub fn get_many_mut<const N: usize>(
