@@ -3,6 +3,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
+use bevy_transform::components::Transform;
 
 /// The way Bevy manages the sound playback.
 #[derive(Debug, Clone, Copy, Reflect)]
@@ -10,10 +11,10 @@ use bevy_reflect::prelude::*;
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
     ///
-    /// Note: It is not possible to reuse an `AudioPlayer` after it has finished playing and
-    /// the underlying `AudioSink` or `SpatialAudioSink` has been drained.
+    /// Note: It is not possible to reuse an [`AudioPlayer`] after it has finished playing and
+    /// the underlying [`AudioSink`] or [`SpatialAudioSink`] has been drained.
     ///
-    /// To replay a sound, the audio components provided by `AudioPlayer` must be removed and
+    /// To replay a sound, the audio components provided by [`AudioPlayer`] must be removed and
     /// added again.
     Once,
     /// Repeat the sound forever.
@@ -68,10 +69,10 @@ impl Default for PlaybackSettings {
 impl PlaybackSettings {
     /// Will play the associated audio source once.
     ///
-    /// Note: It is not possible to reuse an `AudioPlayer` after it has finished playing and
-    /// the underlying `AudioSink` or `SpatialAudioSink` has been drained.
+    /// Note: It is not possible to reuse an [`AudioPlayer`] after it has finished playing and
+    /// the underlying [`AudioSink`] or [`SpatialAudioSink`] has been drained.
     ///
-    /// To replay a sound, the audio components provided by `AudioPlayer` must be removed and
+    /// To replay a sound, the audio components provided by [`AudioPlayer`] must be removed and
     /// added again.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Once,
@@ -140,15 +141,15 @@ impl PlaybackSettings {
 
 /// Settings for the listener for spatial audio sources.
 ///
-/// This is accompanied by `Transform` and `GlobalTransform`.
-/// Only one entity with a `SpatialListener` should be present at any given time.
+/// This is accompanied by [`Transform`] and [`GlobalTransform`].
+/// Only one entity with a [`SpatialListener`] should be present at any given time.
 #[derive(Component, Clone, Debug, Reflect)]
-#[require(bevy_transform::components::Transform)]
+#[require(Transform)]
 #[reflect(Clone, Default, Component, Debug)]
 pub struct SpatialListener {
-    /// Left ear position relative to the `GlobalTransform`.
+    /// Left ear position relative to the [`GlobalTransform`].
     pub left_ear_offset: Vec3,
-    /// Right ear position relative to the `GlobalTransform`.
+    /// Right ear position relative to the [`GlobalTransform`].
     pub right_ear_offset: Vec3,
 }
 
@@ -159,7 +160,7 @@ impl Default for SpatialListener {
 }
 
 impl SpatialListener {
-    /// Creates a new `SpatialListener` component.
+    /// Creates a new [`SpatialListener`] component.
     ///
     /// `gap` is the distance between the left and right "ears" of the listener. Ears are
     /// positioned on the x axis.
@@ -180,12 +181,12 @@ impl SpatialListener {
 pub struct SpatialScale(pub Vec3);
 
 impl SpatialScale {
-    /// Create a new `SpatialScale` with the same value for all 3 dimensions.
+    /// Create a new [`SpatialScale`] with the same value for all 3 dimensions.
     pub const fn new(scale: f32) -> Self {
         Self(Vec3::splat(scale))
     }
 
-    /// Create a new `SpatialScale` with the same value for `x` and `y`, and `0.0`
+    /// Create a new [`SpatialScale`] with the same value for `x` and `y`, and `0.0`
     /// for `z`.
     pub const fn new_2d(scale: f32) -> Self {
         Self(Vec3::new(scale, scale, 0.0))
@@ -219,7 +220,7 @@ pub struct DefaultSpatialScale(pub SpatialScale);
 /// added to the entity. You can use that component to control the audio settings during playback.
 ///
 /// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
-/// `PlaybackSettings` component will *not* affect already-playing audio.
+/// [`PlaybackSettings`] component will *not* affect already-playing audio.
 #[derive(Component, Reflect)]
 #[reflect(Component, Clone)]
 #[require(PlaybackSettings)]
