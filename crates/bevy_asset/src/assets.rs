@@ -707,7 +707,7 @@ mod test {
         let v = assets.add(SubText { text: one.into() }).id();
         let w = assets.add(SubText { text: two.into() }).id();
 
-        let [x, y] = assets.get_many_mut([v.into(), w.into()]).unwrap();
+        let [x, y] = assets.get_many_mut([v, w]).unwrap();
         assert_eq!(x.unwrap().text, one);
         assert_eq!(y.unwrap().text, two);
     }
