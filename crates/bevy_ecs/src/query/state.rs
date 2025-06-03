@@ -1773,9 +1773,8 @@ impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryState<D, F> {
     ) -> Option<&'w mut QueryState<D, F>> {
         w.storages()
             .sparse_sets
-            .get(cached.1)
-            .map(|s| s.get(cached.0))
-            .flatten()
+            .get(cached.1)?
+            .get(cached.0)
             .map(|ptr| {
                 ptr.assert_unique()
                     .deref_mut::<InternalQueryState<D, F>>()
