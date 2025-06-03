@@ -27,8 +27,6 @@ use variadics_please::all_tuples;
 ///   This enables a single `Query` to access multiple components.
 ///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
 ///   but nesting of tuples allows infinite `WorldQuery`s.
-/// - **[`Mut`].**
-///   Mutable component access, with change detection data.
 /// - **[`Entity`].**
 ///   Gets the identifier of the queried entity.
 /// - **[`EntityLocation`].**
@@ -49,6 +47,8 @@ use variadics_please::all_tuples;
 /// - **[`Ref`].**
 ///   Similar to change detection filters but it is used as a query fetch parameter.
 ///   It exposes methods to check for changes to the wrapped component.
+/// - **[`Mut`].**
+///   Mutable component access, with change detection data.
 /// - **[`Has`].**
 ///   Returns a bool indicating whether the entity has the specified component.
 ///
