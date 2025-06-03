@@ -28,18 +28,21 @@ enum BundleFieldKind {
 }
 
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
+const BUNDLE_ATTRIBUTE_DYNAMIC: &str = "dynamic";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 const BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS: &str = "ignore_from_components";
 
 #[derive(Debug)]
 struct BundleAttributes {
     impl_from_components: bool,
+    dynamic: bool,
 }
 
 impl Default for BundleAttributes {
     fn default() -> Self {
         Self {
             impl_from_components: true,
+            dynamic: false,
         }
     }
 }
@@ -61,8 +64,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     attributes.impl_from_components = false;
                     return Ok(());
                 }
+                if meta.path.is_ident(BUNDLE_ATTRIBUTE_DYNAMIC) {
+                    attributes.dynamic = true;
+                    return Ok(());
+                }
 
-                Err(meta.error(format!("Invalid bundle container attribute. Allowed attributes: `{BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS}`")))
+                Err(meta.error(format!("Invalid bundle container attribute. Allowed attributes: `{BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS}`, `{BUNDLE_ATTRIBUTE_DYNAMIC}`")))
             });
 
             if let Err(error) = parsing {
@@ -139,7 +146,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
-    let static_bundle_impl = quote! {
+    let static_bundle_impl = (!attributes.dynamic).then(|| quote! {
         // SAFETY:
         // - all the active fields must implement `StaticBundle` for the function bodies to compile, and hence
         //   this bundle also represents a static set of components;
@@ -168,7 +175,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(<#active_field_types as #ecs_path::bundle::StaticBundle>::register_required_components(components, &mut *required_components);)*
             }
         }
-    };
+    });
 
     let bundle_impl = quote! {
         // SAFETY:
@@ -215,7 +222,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         }
     };
 
-    let from_components_impl = attributes.impl_from_components.then(|| quote! {
+    let from_components_impl = (attributes.impl_from_components && !attributes.dynamic).then(|| quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
         #[allow(deprecated)]
