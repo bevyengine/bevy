@@ -712,7 +712,7 @@ mod tests {
 
     #[derive(Asset, TypePath, Debug)]
     pub struct SubText {
-        text: String,
+        pub text: String,
     }
 
     #[derive(Serialize, Deserialize)]

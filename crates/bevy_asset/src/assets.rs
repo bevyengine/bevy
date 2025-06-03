@@ -460,18 +460,13 @@ impl<A: Asset> Assets<A> {
         }
 
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
-
         for (value, asset) in core::iter::zip(&mut values, ids) {
-            let item: Option<*mut _> = match self.get_mut(asset) {
-                Some(asset) => Some(asset),
-                None => None,
-            };
-
-            *value = MaybeUninit::new(item);
+            let asset = self.get_mut(asset).map(|asset| asset as *mut _);
+            *value = MaybeUninit::new(asset);
         }
 
         // SAFETY: Each value has been fully initialized.
-        let values = values.map(|x| unsafe { x.assume_init().map(|raw| std::mem::transmute(raw)) });
+        let values = values.map(|x| unsafe { x.assume_init().map(|raw| &mut *raw) });
         Some(values)
     }
 
@@ -685,6 +680,8 @@ pub struct InvalidGenerationError {
 
 #[cfg(test)]
 mod test {
+    use crate::prelude::*;
+    use crate::tests::{SubText, TestAsset};
     use crate::AssetIndex;
 
     #[test]
@@ -695,5 +692,35 @@ mod test {
         };
         let roundtripped = AssetIndex::from_bits(asset_index.to_bits());
         assert_eq!(asset_index, roundtripped);
+    }
+
+    #[test]
+    fn get_many_mut_no_aliases() {
+        let mut assets = Assets::default();
+
+        let one = "One";
+        let two = "Two";
+
+        let v = AssetIndex::from_bits(1);
+        let w = AssetIndex::from_bits(3);
+
+        assets.insert(v, SubText { text: one.into() });
+        assets.insert(w, SubText { text: two.into() });
+
+        let [x, y] = assets.get_many_mut([v.into(), w.into()]).unwrap();
+        assert_eq!(x.unwrap().text, one);
+        assert_eq!(y.unwrap().text, two);
+    }
+
+    #[test]
+    fn get_many_mut_aliases() {
+        let mut assets = Assets::default();
+
+        let v = AssetIndex::from_bits(1);
+        assets.insert(v, TestAsset);
+        let v = v.into();
+
+        let result = assets.get_many_mut([v, v]);
+        assert!(result.is_none());
     }
 }
