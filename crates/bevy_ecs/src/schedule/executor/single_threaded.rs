@@ -64,7 +64,7 @@ impl SystemExecutor for SingleThreadedExecutor {
 
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
-            let name = schedule.systems[system_index].name();
+            let name = schedule.systems[system_index].system.name();
             #[cfg(feature = "trace")]
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 

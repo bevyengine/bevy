@@ -42,7 +42,7 @@ pub struct SystemName(Cow<'static, str>);
 impl SystemName {
     /// Gets the name of the system.
     pub fn name(&self) -> &str {
-        &*self.0
+        &self.0
     }
 }
 

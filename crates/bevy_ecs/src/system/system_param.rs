@@ -345,7 +345,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
             &system_meta.name,
             core::any::type_name::<D>(),
             core::any::type_name::<F>(),
-            &component_access_set,
+            component_access_set,
             &state.component_access,
             world,
         );
@@ -474,7 +474,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         component_access_set: &mut FilteredAccessSet<ComponentId>,
         world: &mut World,
     ) {
-        Query::init_access(state, system_meta, component_access_set, world)
+        Query::init_access(state, system_meta, component_access_set, world);
     }
 
     #[inline]
@@ -2722,7 +2722,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         world: &mut World,
     ) {
         let combined_access = component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(&access);
+        let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
             let accesses = conflicts.format_conflict_list(world);
             let system_name = &system_meta.name;
