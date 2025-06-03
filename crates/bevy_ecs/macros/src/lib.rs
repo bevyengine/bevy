@@ -42,6 +42,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_kind = Vec::with_capacity(named_fields.len());
 
     for field in named_fields {
+        let mut kind = BundleFieldKind::Component;
+
         for attr in field
             .attrs
             .iter()
@@ -49,7 +51,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         {
             if let Err(error) = attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
-                    field_kind.push(BundleFieldKind::Ignore);
+                    kind = BundleFieldKind::Ignore;
                     Ok(())
                 } else {
                     Err(meta.error(format!(
@@ -61,7 +63,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        field_kind.push(BundleFieldKind::Component);
+        field_kind.push(kind);
     }
 
     let field = named_fields
@@ -83,13 +85,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .zip(field_kind.iter())
         .zip(field.iter())
     {
+        let field_tokens = match field {
+            Some(field) => field.to_token_stream(),
+            None => Index::from(i).to_token_stream(),
+        };
+
         match field_kind {
             BundleFieldKind::Component => {
-                let field_tokens = match field {
-                    Some(field) => field.to_token_stream(),
-                    None => Index::from(i).to_token_stream(),
-                };
-
                 field_from_components.push(quote! {
                     #field_tokens: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                 });
@@ -100,7 +102,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
             BundleFieldKind::Ignore => {
                 field_from_components.push(quote! {
-                    #field: ::core::default::Default::default(),
+                    #field_tokens: ::core::default::Default::default(),
                 });
             }
         }
