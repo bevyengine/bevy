@@ -126,6 +126,13 @@ pub mod __macro_exports {
     pub use alloc::vec::Vec;
 }
 
+/// Event sent when a hotpatch happens.
+///
+/// Systems should refresh their inner pointers.
+#[cfg(feature = "hotpatching")]
+#[derive(Event, Default)]
+pub struct HotPatched;
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -2762,10 +2769,3 @@ mod tests {
         fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
     }
 }
-
-/// Event sent when a hotpatch happens.
-///
-/// Systems should refresh their inner pointers.
-#[cfg(feature = "hotpatching")]
-#[derive(Event, Default)]
-pub struct HotPatched;
