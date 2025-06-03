@@ -423,6 +423,7 @@ impl<A: Asset> Assets<A> {
     }
 
     #[inline]
+    /// Retrieves many references to the [`Asset`] with the given `id`s, if they exists.
     pub fn get_many<const N: usize>(&self, ids: [AssetId<A>; N]) -> [Option<&A>; N] {
         ids.map(|id| self.get(id))
     }
@@ -444,13 +445,15 @@ impl<A: Asset> Assets<A> {
 
     #[inline]
     #[allow(unsafe_code)]
+    /// Retrieves may mutable references to the [`Asset`]s with the given `id`s, if they exists.
+    /// Will return `None` if any `id`s alias.
     pub fn get_many_mut<const N: usize>(
         &mut self,
         ids: [AssetId<A>; N],
     ) -> Option<[Option<&mut A>; N]> {
         use std::mem::MaybeUninit;
 
-        // SAFETY: Verify that all entities are unique
+        // SAFETY: Verify that all indices are unique
         for i in 0..N {
             for j in 0..i {
                 if ids[i] == ids[j] {
