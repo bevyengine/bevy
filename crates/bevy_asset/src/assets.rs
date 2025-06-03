@@ -451,7 +451,7 @@ impl<A: Asset> Assets<A> {
         &mut self,
         ids: [AssetId<A>; N],
     ) -> Option<[Option<&mut A>; N]> {
-        use std::mem::MaybeUninit;
+        use core::mem::MaybeUninit;
 
         // SAFETY: Verify that all indices are unique
         for i in 0..N {
@@ -464,7 +464,7 @@ impl<A: Asset> Assets<A> {
 
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
         for (value, asset) in core::iter::zip(&mut values, ids) {
-            let asset = self.get_mut(asset).map(|asset| asset as *mut _);
+            let asset = self.get_mut(asset).map(|asset| core::ptr::from_mut(asset));
             *value = MaybeUninit::new(asset);
         }
 
