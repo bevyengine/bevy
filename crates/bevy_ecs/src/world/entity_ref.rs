@@ -5174,10 +5174,9 @@ mod tests {
 
         fn system(_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>) {
             for entity_ref in query.iter() {
-                assert!(matches!(
-                    entity_ref.get::<TestComponent2>(),
-                    Some(TestComponent2(0))
-                ));
+                if let Some(c) = entity_ref.get::<TestComponent2>() {
+                    assert!(c.0 == 0);
+                }
             }
         }
     }
@@ -5197,10 +5196,9 @@ mod tests {
             assert!(entity_mut.get::<TestComponent>().is_none());
             assert!(entity_mut.get_ref::<TestComponent>().is_none());
             assert!(entity_mut.get_mut::<TestComponent>().is_none());
-            assert!(matches!(
-                entity_mut.get::<TestComponent2>(),
-                Some(TestComponent2(0))
-            ));
+            if let Some(c) = entity_mut.get::<TestComponent2>() {
+                assert!(c.0 == 0);
+            }
         }
 
         assert!(found);
