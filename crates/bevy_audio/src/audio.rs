@@ -12,7 +12,7 @@ pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
     ///
     /// Note: It is not possible to reuse an [`AudioPlayer`] after it has finished playing and
-    /// the underlying [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink] has been drained.
+    /// the underlying [`AudioSink`](crate::AudioSink) or [`SpatialAudioSink`](crate::SpatialAudioSink) has been drained.
     ///
     /// To replay a sound, the audio components provided by [`AudioPlayer`] must be removed and
     /// added again.
@@ -28,7 +28,7 @@ pub enum PlaybackMode {
 /// Initial settings to be used when audio starts playing.
 ///
 /// If you would like to control the audio while it is playing, query for the
-/// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
+/// [`AudioSink`](crate::AudioSink) or [`SpatialAudioSink`](crate::SpatialAudioSink)
 /// components. Changes to this component will *not* be applied to already-playing audio.
 #[derive(Component, Clone, Copy, Debug, Reflect)]
 #[reflect(Clone, Default, Component, Debug)]
@@ -70,7 +70,7 @@ impl PlaybackSettings {
     /// Will play the associated audio source once.
     ///
     /// Note: It is not possible to reuse an [`AudioPlayer`] after it has finished playing and
-    /// the underlying [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink] has been drained.
+    /// the underlying [`AudioSink`](crate::AudioSink) or [`SpatialAudioSink`](crate::SpatialAudioSink) has been drained.
     ///
     /// To replay a sound, the audio components provided by [`AudioPlayer`] must be removed and
     /// added again.
@@ -216,7 +216,7 @@ pub struct DefaultSpatialScale(pub SpatialScale);
 /// If the handle refers to an unavailable asset (such as if it has not finished loading yet),
 /// the audio will not begin playing immediately. The audio will play when the asset is ready.
 ///
-/// When Bevy begins the audio playback, an [`AudioSink`][crate::AudioSink] component will be
+/// When Bevy begins the audio playback, an [`AudioSink`](crate::AudioSink) component will be
 /// added to the entity. You can use that component to control the audio settings during playback.
 ///
 /// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
