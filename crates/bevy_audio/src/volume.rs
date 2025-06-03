@@ -251,7 +251,7 @@ impl Volume {
     /// assert_eq!(decreased.to_linear(), 0.5);
     /// ```
     pub fn decrease_by_percentage(&self, percentage: f32) -> Self {
-        let factor = 1.0 - (percentage / 100.0).min(1.0).max(0.0);
+        let factor = 1.0 - (percentage / 100.0).clamp(0.0, 1.0);
         self.adjust_by_linear(factor)
     }
 
