@@ -219,49 +219,6 @@ impl Volume {
         Volume::Linear(self.to_linear() * factor)
     }
 
-    /// Adjusts the volume to reach a target linear volume level.
-    ///
-    /// This method calculates the necessary adjustment factor and applies it.
-    ///
-    /// # Arguments
-    /// * `target_linear` - The desired linear volume level
-    ///
-    /// # Examples
-    /// ```
-    /// use bevy_audio::Volume;
-    ///
-    /// let volume = Volume::Linear(0.5);
-    /// let adjusted = volume.adjust_to_linear_target(1.0);
-    /// assert_eq!(adjusted.to_linear(), 1.0);
-    /// ```
-    pub fn adjust_to_linear_target(&self, target_linear: f32) -> Self {
-        let current_linear = self.to_linear();
-        if current_linear == 0.0 {
-            return Volume::Linear(target_linear.abs());
-        }
-        let factor = target_linear.abs() / current_linear;
-        Volume::Linear(self.to_linear() * factor)
-    }
-
-    /// Adjusts the volume to reach a target decibel level.
-    ///
-    /// This method calculates the necessary decibel offset and applies it.
-    ///
-    /// # Arguments
-    /// * `target_db` - The desired decibel level
-    ///
-    /// # Examples
-    /// ```
-    /// use bevy_audio::Volume;
-    ///
-    /// let volume = Volume::Decibels(-6.0);
-    /// let adjusted = volume.adjust_to_decibel_target(0.0);
-    /// assert!((adjusted.to_decibels() - 0.0).abs() < 0.01);
-    /// ```
-    pub fn adjust_to_decibel_target(&self, target_db: f32) -> Self {
-        Volume::Decibels(target_db)
-    }
-
     /// Creates a fade effect by interpolating between current volume and target volume.
     ///
     /// This method performs linear interpolation in the linear domain, which
@@ -478,19 +435,6 @@ mod tests {
         let volume = Linear(0.8);
         let scaled = volume.scale_to_factor(1.25);
         assert_eq!(scaled.to_linear(), 1.0);
-    }
-
-    #[test]
-    fn test_adjust_to_targets() {
-        // Test linear target
-        let volume = Linear(0.5);
-        let adjusted = volume.adjust_to_linear_target(1.0);
-        assert_eq!(adjusted.to_linear(), 1.0);
-
-        // Test decibel target
-        let volume = Decibels(-6.0);
-        let adjusted = volume.adjust_to_decibel_target(0.0);
-        assert_approx_eq(adjusted, Decibels(0.0));
     }
 
     #[test]
