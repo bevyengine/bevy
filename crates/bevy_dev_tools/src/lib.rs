@@ -13,9 +13,6 @@ use bevy_app::prelude::*;
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
 
-#[cfg(feature = "hotpatching")]
-pub mod hotpatch;
-
 pub mod fps_overlay;
 
 pub mod picking_debug;

@@ -344,11 +344,7 @@ web = [
   "bevy_tasks/web",
 ]
 
-hotpatching = [
-  "bevy_dev_tools",
-  "bevy_dev_tools/hotpatching",
-  "bevy_ecs/hotpatching",
-]
+hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
 [dependencies]
 # bevy (no_std)

@@ -34,6 +34,9 @@ mod task_pool_plugin;
 #[cfg(all(any(unix, windows), feature = "std"))]
 mod terminal_ctrl_c_handler;
 
+#[cfg(feature = "hotpatching")]
+pub mod hotpatch;
+
 pub use app::*;
 pub use main_schedule::*;
 pub use panic_handler::*;
