@@ -196,6 +196,7 @@ pub fn bevy_main(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Adds `enum_variant_index` and `enum_variant_name` functions to enums.
+///
 /// # Example
 ///
 /// ```
