@@ -12,7 +12,7 @@ pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
     ///
     /// Note: It is not possible to reuse an [`AudioPlayer`] after it has finished playing and
-    /// the underlying [`AudioSink`] or [`SpatialAudioSink`] has been drained.
+    /// the underlying [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink] has been drained.
     ///
     /// To replay a sound, the audio components provided by [`AudioPlayer`] must be removed and
     /// added again.
@@ -70,7 +70,7 @@ impl PlaybackSettings {
     /// Will play the associated audio source once.
     ///
     /// Note: It is not possible to reuse an [`AudioPlayer`] after it has finished playing and
-    /// the underlying [`AudioSink`] or [`SpatialAudioSink`] has been drained.
+    /// the underlying [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink] has been drained.
     ///
     /// To replay a sound, the audio components provided by [`AudioPlayer`] must be removed and
     /// added again.
@@ -141,15 +141,15 @@ impl PlaybackSettings {
 
 /// Settings for the listener for spatial audio sources.
 ///
-/// This is accompanied by [`Transform`] and [`GlobalTransform`].
+/// This is accompanied by [`Transform`] and [`GlobalTransform`](bevy_transform::prelude::GlobalTransform).
 /// Only one entity with a [`SpatialListener`] should be present at any given time.
 #[derive(Component, Clone, Debug, Reflect)]
 #[require(Transform)]
 #[reflect(Clone, Default, Component, Debug)]
 pub struct SpatialListener {
-    /// Left ear position relative to the [`GlobalTransform`].
+    /// Left ear position relative to the [`GlobalTransform`](bevy_transform::prelude::GlobalTransform).
     pub left_ear_offset: Vec3,
-    /// Right ear position relative to the [`GlobalTransform`].
+    /// Right ear position relative to the [`GlobalTransform`](bevy_transform::prelude::GlobalTransform).
     pub right_ear_offset: Vec3,
 }
 
