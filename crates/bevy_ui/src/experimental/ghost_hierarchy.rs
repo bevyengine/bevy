@@ -29,19 +29,19 @@ pub struct GhostNode;
 ///
 /// A UI root node is either a [`Node`] without a [`ChildOf`], or with only [`GhostNode`] ancestors.
 #[derive(SystemParam)]
-pub struct UiRootNodes<'w, 's> {
-    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>,
-    root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<ChildOf>)>,
-    all_nodes_query: Query<'w, 's, Entity, With<Node>>,
-    ui_children: UiChildren<'w, 's>,
+pub struct UiRootNodes<'w> {
+    root_node_query: Query<'w, 'w, Entity, (With<Node>, Without<ChildOf>)>,
+    root_ghost_node_query: Query<'w, 'w, Entity, (With<GhostNode>, Without<ChildOf>)>,
+    all_nodes_query: Query<'w, 'w, Entity, With<Node>>,
+    ui_children: UiChildren<'w>,
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>;
+pub type UiRootNodes<'w> = Query<'w, 'w, Entity, (With<Node>, Without<ChildOf>)>;
 
 #[cfg(feature = "ghost_nodes")]
-impl<'w, 's> UiRootNodes<'w, 's> {
-    pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
+impl<'w> UiRootNodes<'w> {
+    pub fn iter(&'w self) -> impl Iterator<Item = Entity> + 'w {
         self.root_node_query
             .iter()
             .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
@@ -54,17 +54,17 @@ impl<'w, 's> UiRootNodes<'w, 's> {
 #[cfg(feature = "ghost_nodes")]
 /// System param that gives access to UI children utilities, skipping over [`GhostNode`].
 #[derive(SystemParam)]
-pub struct UiChildren<'w, 's> {
+pub struct UiChildren<'w> {
     ui_children_query: Query<
         'w,
-        's,
+        'w,
         (Option<&'static Children>, Has<GhostNode>),
         Or<(With<Node>, With<GhostNode>)>,
     >,
-    changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
-    children_query: Query<'w, 's, &'static Children>,
-    ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
-    parents_query: Query<'w, 's, &'static ChildOf>,
+    changed_children_query: Query<'w, 'w, Entity, Changed<Children>>,
+    children_query: Query<'w, 'w, &'static Children>,
+    ghost_nodes_query: Query<'w, 'w, Entity, With<GhostNode>>,
+    parents_query: Query<'w, 'w, &'static ChildOf>,
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
@@ -85,7 +85,7 @@ impl<'w> UiChildren<'w> {
     /// # Performance
     ///
     /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
-    pub fn iter_ui_children(&'w self, entity: Entity) -> UiChildrenIter<'w, 's> {
+    pub fn iter_ui_children(&'w self, entity: Entity) -> UiChildrenIter<'w> {
         UiChildrenIter {
             stack: self
                 .ui_children_query
@@ -105,7 +105,7 @@ impl<'w> UiChildren<'w> {
     }
 
     /// Iterates the [`GhostNode`]s between this entity and its UI children.
-    pub fn iter_ghost_nodes(&'w self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
+    pub fn iter_ghost_nodes(&'w self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 'w> {
         Box::new(
             self.children_query
                 .get(entity)
