@@ -1767,6 +1767,9 @@ impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryState<D, F> {
     }
 
     /// fetch a cached [`QueryState`] from world
+    ///
+    /// Safety:
+    /// - Must not mutably alias the returned [`QueryState`].
     pub(crate) unsafe fn fetch_mut_from_cached<'w>(
         cached: (Entity, ComponentId),
         w: UnsafeWorldCell<'w>,
