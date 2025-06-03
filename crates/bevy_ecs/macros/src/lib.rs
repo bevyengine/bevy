@@ -15,7 +15,7 @@ use crate::{
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
     ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
@@ -74,15 +74,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
-    let mut field_static_component_ids = Vec::new();
-    let mut field_static_required_components = Vec::new();
-    let mut field_static_get_component_ids = Vec::new();
-    let mut field_component_ids = Vec::new();
-    let mut field_required_components = Vec::new();
-    let mut field_get_components = Vec::new();
-    let mut field_is_static = Vec::new();
-    let mut field_is_bounded = Vec::new();
-    let mut field_cache_key = Vec::new();
+    let mut active_field_types = Vec::new();
+    let mut active_field_tokens = Vec::new();
     let mut field_from_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
         .iter()
@@ -92,68 +85,17 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     {
         match field_kind {
             BundleFieldKind::Component => {
-                field_static_component_ids.push(quote! {
-                    <#field_type as #ecs_path::bundle::StaticBundle>::component_ids(components, &mut *ids);
+                let field_tokens = match field {
+                    Some(field) => field.to_token_stream(),
+                    None => Index::from(i).to_token_stream(),
+                };
+
+                field_from_components.push(quote! {
+                    #field_tokens: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                 });
-                field_static_required_components.push(quote! {
-                    <#field_type as #ecs_path::bundle::StaticBundle>::register_required_components(components, required_components);
-                });
-                field_static_get_component_ids.push(quote! {
-                    <#field_type as #ecs_path::bundle::StaticBundle>::get_component_ids(components, &mut *ids);
-                });
-                field_is_static
-                    .push(quote! { <#field_type as #ecs_path::bundle::Bundle>::IS_STATIC });
-                field_is_bounded
-                    .push(quote! { <#field_type as #ecs_path::bundle::Bundle>::IS_BOUNDED });
-                match field {
-                    Some(field) => {
-                        field_component_ids.push(quote! {
-                            <#field_type as #ecs_path::bundle::Bundle>::component_ids(&self.#field, components, ids);
-                        });
-                        field_required_components.push(quote! {
-                            <#field_type as #ecs_path::bundle::Bundle>::register_required_components(&self.#field, components, required_components);
-                        });
-                        field_get_components.push(quote! {
-                            <#field_type as #ecs_path::bundle::DynamicBundle>::get_components(self.#field, &mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                        field_cache_key.push(quote! {
-                            let (sub_key, sub_size) = <#field_type as #ecs_path::bundle::Bundle>::cache_key(&self.#field);
-                            key |= sub_key << size;
-                            size += sub_size;
-                            // Bail out if size is too big
-                            if size > 64 {
-                                return (0, 65);
-                            }
-                        });
-                    }
-                    None => {
-                        let index = Index::from(i);
-                        field_component_ids.push(quote! {
-                            <#field_type as #ecs_path::bundle::Bundle>::component_ids(&self.#index, components, ids);
-                        });
-                        field_required_components.push(quote! {
-                            <#field_type as #ecs_path::bundle::Bundle>::register_required_components(&self.#index, components, required_components);
-                        });
-                        field_get_components.push(quote! {
-                            <#field_type as #ecs_path::bundle::DynamicBundle>::get_components(self.#index, &mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                        field_cache_key.push(quote! {
-                            let (sub_key, sub_size) = <#field_type as #ecs_path::bundle::Bundle>::cache_key(&self.#index);
-                            key |= sub_key << size;
-                            size += sub_size;
-                            // Bail out if size is too big
-                            if size > 64 {
-                                return (0, 65);
-                            }
-                        });
-                    }
-                }
+
+                active_field_types.push(field_type);
+                active_field_tokens.push(field_tokens);
             }
 
             BundleFieldKind::Ignore => {
@@ -178,34 +120,42 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
-                #(#field_static_component_ids)*
+                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::component_ids(components, &mut *ids);)*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
                 ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
             ){
-                #(#field_static_get_component_ids)*
+                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::get_component_ids(components, &mut *ids);)*
             }
 
             fn register_required_components(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #ecs_path::component::RequiredComponents
             ){
-                #(#field_static_required_components)*
+                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::register_required_components(components, &mut *required_components);)*
             }
         }
 
         // SAFETY: see the corresponding implementation of `StaticBundle`
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
-            const IS_STATIC: bool = true #(&& #field_is_static)*;
-            const IS_BOUNDED: bool = true #(&& #field_is_bounded)*;
+            const IS_STATIC: bool = true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::IS_STATIC)*;
+            const IS_BOUNDED: bool = true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::IS_BOUNDED)*;
 
             fn cache_key(&self) -> (u64, usize) {
                 let mut key = 0;
                 let mut size = 0;
 
-                #(#field_cache_key)*
+                #(
+                    let (sub_key, sub_size) = <#active_field_types as #ecs_path::bundle::Bundle>::cache_key(&self.#active_field_tokens);
+                    key |= sub_key << size;
+                    size += sub_size;
+                    // Bail out if size is too big
+                    if size > 64 {
+                        return (0, 65);
+                    }
+                )*
 
                 (key, size)
             }
@@ -215,7 +165,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId),
             ) {
-                #(#field_component_ids)*
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(&self.#active_field_tokens, components, ids);)*
             }
 
             fn register_required_components(
@@ -223,7 +173,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #ecs_path::component::RequiredComponents,
             ) {
-                #(#field_required_components)*
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::register_required_components(&self.#active_field_tokens, components, required_components);)*
             }
         }
 
@@ -251,7 +201,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 self,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                #(#field_get_components)*
+                #(<#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(self.#active_field_tokens, &mut *func);)*
             }
         }
     })
