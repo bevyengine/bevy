@@ -169,7 +169,9 @@ pub enum TypeInfoError {
     /// [kind]: ReflectKind
     #[error("kind mismatch: expected {expected:?}, received {received:?}")]
     KindMismatch {
+        /// TODO
         expected: ReflectKind,
+        /// TODO
         received: ReflectKind,
     },
 }
@@ -199,14 +201,23 @@ pub enum TypeInfoError {
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
+    /// TODO
     Struct(StructInfo),
+    /// TODO
     TupleStruct(TupleStructInfo),
+    /// TODO
     Tuple(TupleInfo),
+    /// TODO
     List(ListInfo),
+    /// TODO
     Array(ArrayInfo),
+    /// TODO
     Map(MapInfo),
+    /// TODO
     Set(SetInfo),
+    /// TODO
     Enum(EnumInfo),
+    /// TODO
     Opaque(OpaqueInfo),
 }
 
@@ -557,6 +568,7 @@ pub struct OpaqueInfo {
 }
 
 impl OpaqueInfo {
+    /// TODO
     pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),

@@ -134,7 +134,9 @@ macro_rules! impl_reflect_kind_conversions {
 #[derive(Debug, Error)]
 #[error("kind mismatch: expected {expected:?}, received {received:?}")]
 pub struct ReflectKindMismatchError {
+    /// Expected kind.
     pub expected: ReflectKind,
+    /// Received kind.
     pub received: ReflectKind,
 }
 
@@ -176,16 +178,26 @@ macro_rules! impl_cast_method {
 ///
 /// ["kinds"]: ReflectKind
 pub enum ReflectRef<'a> {
+    /// TODO
     Struct(&'a dyn Struct),
+    /// TODO
     TupleStruct(&'a dyn TupleStruct),
+    /// TODO
     Tuple(&'a dyn Tuple),
+    /// TODO
     List(&'a dyn List),
+    /// TODO
     Array(&'a dyn Array),
+    /// TODO
     Map(&'a dyn Map),
+    /// TODO
     Set(&'a dyn Set),
+    /// TODO
     Enum(&'a dyn Enum),
     #[cfg(feature = "functions")]
+    /// TODO
     Function(&'a dyn Function),
+    /// TODO
     Opaque(&'a dyn PartialReflect),
 }
 impl_reflect_kind_conversions!(ReflectRef<'_>);
@@ -211,16 +223,26 @@ impl<'a> ReflectRef<'a> {
 ///
 /// ["kinds"]: ReflectKind
 pub enum ReflectMut<'a> {
+    /// TODO
     Struct(&'a mut dyn Struct),
+    /// TODO
     TupleStruct(&'a mut dyn TupleStruct),
+    /// TODO
     Tuple(&'a mut dyn Tuple),
+    /// TODO
     List(&'a mut dyn List),
+    /// TODO
     Array(&'a mut dyn Array),
+    /// TODO
     Map(&'a mut dyn Map),
+    /// TODO
     Set(&'a mut dyn Set),
+    /// TODO
     Enum(&'a mut dyn Enum),
     #[cfg(feature = "functions")]
+    /// TODO
     Function(&'a mut dyn Function),
+    /// TODO
     Opaque(&'a mut dyn PartialReflect),
 }
 impl_reflect_kind_conversions!(ReflectMut<'_>);
@@ -246,16 +268,26 @@ impl<'a> ReflectMut<'a> {
 ///
 /// ["kinds"]: ReflectKind
 pub enum ReflectOwned {
+    /// TODO
     Struct(Box<dyn Struct>),
+    /// TODO
     TupleStruct(Box<dyn TupleStruct>),
+    /// TODO
     Tuple(Box<dyn Tuple>),
+    /// TODO
     List(Box<dyn List>),
+    /// TODO
     Array(Box<dyn Array>),
+    /// TODO
     Map(Box<dyn Map>),
+    /// TODO
     Set(Box<dyn Set>),
+    /// TODO
     Enum(Box<dyn Enum>),
     #[cfg(feature = "functions")]
+    /// TODO
     Function(Box<dyn Function>),
+    /// TODO
     Opaque(Box<dyn PartialReflect>),
 }
 impl_reflect_kind_conversions!(ReflectOwned);

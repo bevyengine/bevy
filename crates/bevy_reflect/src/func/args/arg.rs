@@ -196,8 +196,11 @@ impl<'a> Arg<'a> {
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub enum ArgValue<'a> {
+    /// TODO
     Owned(Box<dyn PartialReflect>),
+    /// TODO
     Ref(&'a dyn PartialReflect),
+    /// TODO
     Mut(&'a mut dyn PartialReflect),
 }
 

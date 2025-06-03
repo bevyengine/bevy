@@ -12,15 +12,21 @@ pub enum ArgError {
     /// The argument is not the expected type.
     #[error("expected `{expected}` but received `{received}` (@ argument index {index})")]
     UnexpectedType {
+        /// TODO
         index: usize,
+        /// TODO
         expected: Cow<'static, str>,
+        /// TODO
         received: Cow<'static, str>,
     },
     /// The argument has the wrong ownership.
     #[error("expected {expected} value but received {received} value (@ argument index {index})")]
     InvalidOwnership {
+        /// TODO
         index: usize,
+        /// TODO
         expected: Ownership,
+        /// TODO
         received: Ownership,
     },
     /// Occurs when attempting to access an argument from an empty [`ArgList`].

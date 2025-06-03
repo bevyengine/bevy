@@ -11,14 +11,20 @@ pub enum ReflectCloneError {
     ///
     /// [`PartialReflect::reflect_clone`]: crate::PartialReflect::reflect_clone
     #[error("`PartialReflect::reflect_clone` not implemented for `{type_path}`")]
-    NotImplemented { type_path: Cow<'static, str> },
+    NotImplemented {
+        /// TODO
+        type_path: Cow<'static, str>
+    },
     /// The type cannot be cloned via [`PartialReflect::reflect_clone`].
     ///
     /// This type should be returned when a type is intentionally opting out of reflection cloning.
     ///
     /// [`PartialReflect::reflect_clone`]: crate::PartialReflect::reflect_clone
     #[error("`{type_path}` cannot be made cloneable for `PartialReflect::reflect_clone`")]
-    NotCloneable { type_path: Cow<'static, str> },
+    NotCloneable {
+        /// TODO
+        type_path: Cow<'static, str>
+    },
     /// The field cannot be cloned via [`PartialReflect::reflect_clone`].
     ///
     /// When [deriving `Reflect`], this usually means that a field marked with `#[reflect(ignore)]`
@@ -33,8 +39,11 @@ pub enum ReflectCloneError {
         full_path(.field, .variant.as_deref(), .container_type_path)
     )]
     FieldNotCloneable {
+        /// TODO
         field: FieldId,
+        /// TODO
         variant: Option<Cow<'static, str>>,
+        /// TODO
         container_type_path: Cow<'static, str>,
     },
     /// Could not downcast to the expected type.
@@ -44,7 +53,9 @@ pub enum ReflectCloneError {
     /// [`Reflect`]: crate::Reflect
     #[error("expected downcast to `{expected}`, but received `{received}`")]
     FailedDowncast {
+        /// TODO
         expected: Cow<'static, str>,
+        /// TODO
         received: Cow<'static, str>,
     },
 }

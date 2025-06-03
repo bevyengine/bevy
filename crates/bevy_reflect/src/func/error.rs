@@ -18,11 +18,18 @@ pub enum FunctionError {
     ArgError(#[from] ArgError),
     /// The number of arguments provided does not match the expected number.
     #[error("received {received} arguments but expected one of {expected:?}")]
-    ArgCountMismatch { expected: ArgCount, received: usize },
+    ArgCountMismatch {
+        /// TODO
+        expected: ArgCount,
+        /// TODO
+        received: usize
+    },
     /// No overload was found for the given set of arguments.
     #[error("no overload found for arguments with signature `{received:?}`, expected one of `{expected:?}`")]
     NoOverload {
+        /// TODO
         expected: HashSet<ArgumentSignature>,
+        /// TODO
         received: ArgumentSignature,
     },
 }
@@ -47,6 +54,7 @@ pub enum FunctionOverloadError {
     /// An error that occurs when attempting to add a function overload with a duplicate signature.
     #[error("could not add function overload: duplicate found for signature `{0:?}`")]
     DuplicateSignature(ArgumentSignature),
+    /// TODO
     #[error(
         "argument signature `{:?}` has too many arguments (max {})",
         0,

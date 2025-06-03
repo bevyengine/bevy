@@ -3,7 +3,9 @@ use core::ops::Deref;
 
 /// A type-erased serializable value.
 pub enum Serializable<'a> {
+    /// TODO
     Owned(Box<dyn erased_serde::Serialize + 'a>),
+    /// TODO
     Borrowed(&'a dyn erased_serde::Serialize),
 }
 

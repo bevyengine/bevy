@@ -263,6 +263,7 @@ pub struct VariantFieldIter<'a> {
 }
 
 impl<'a> VariantFieldIter<'a> {
+    /// TODO
     pub fn new(container: &'a dyn Enum) -> Self {
         Self {
             container,
@@ -295,12 +296,16 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 
+/// TODO
 pub enum VariantField<'a> {
+    /// TODO
     Struct(&'a str, &'a dyn PartialReflect),
+    /// TODO
     Tuple(&'a dyn PartialReflect),
 }
 
 impl<'a> VariantField<'a> {
+    /// TODO
     pub fn name(&self) -> Option<&'a str> {
         if let Self::Struct(name, ..) = self {
             Some(*name)
@@ -309,6 +314,7 @@ impl<'a> VariantField<'a> {
         }
     }
 
+    /// TODO
     pub fn value(&self) -> &'a dyn PartialReflect {
         match *self {
             Self::Struct(_, value) | Self::Tuple(value) => value,

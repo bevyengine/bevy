@@ -38,6 +38,7 @@ pub struct TypeRegistry {
 /// A synchronized wrapper around a [`TypeRegistry`].
 #[derive(Clone, Default)]
 pub struct TypeRegistryArc {
+    /// TODO
     pub internal: Arc<RwLock<TypeRegistry>>,
 }
 
@@ -313,6 +314,7 @@ impl TypeRegistry {
         data.insert(D::from_type());
     }
 
+    /// TODO
     pub fn contains(&self, type_id: TypeId) -> bool {
         self.registrations.contains_key(&type_id)
     }
@@ -684,6 +686,7 @@ impl Clone for TypeRegistration {
 ///
 /// [crate-level documentation]: crate
 pub trait TypeData: Downcast + Send + Sync {
+    /// TODO
     fn clone_type_data(&self) -> Box<dyn TypeData>;
 }
 impl_downcast!(TypeData);
@@ -702,6 +705,7 @@ where
 /// This is used by the `#[derive(Reflect)]` macro to generate an implementation
 /// of [`TypeData`] to pass to [`TypeRegistration::insert`].
 pub trait FromType<T> {
+    /// TODO
     fn from_type() -> Self;
 }
 
@@ -746,6 +750,7 @@ impl ReflectSerialize {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectDeserialize {
+    /// TODO
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,

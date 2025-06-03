@@ -47,7 +47,9 @@ pub enum VariantInfoError {
     /// [type]: VariantType
     #[error("variant type mismatch: expected {expected:?}, received {received:?}")]
     TypeMismatch {
+        /// TODO
         expected: VariantType,
+        /// TODO
         received: VariantType,
     },
 }
@@ -84,6 +86,7 @@ pub enum VariantInfo {
 }
 
 impl VariantInfo {
+    /// TODO
     pub fn name(&self) -> &'static str {
         match self {
             Self::Struct(info) => info.name(),

@@ -146,6 +146,7 @@ pub struct TupleStructFieldIter<'a> {
 }
 
 impl<'a> TupleStructFieldIter<'a> {
+    /// TODO
     pub fn new(value: &'a dyn TupleStruct) -> Self {
         TupleStructFieldIter {
             tuple_struct: value,

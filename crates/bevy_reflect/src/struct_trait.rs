@@ -71,6 +71,7 @@ pub trait Struct: PartialReflect {
     /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter;
 
+    /// TODO
     fn to_dynamic_struct(&self) -> DynamicStruct {
         let mut dynamic_struct = DynamicStruct::default();
         dynamic_struct.set_represented_type(self.get_represented_type_info());
@@ -192,6 +193,7 @@ pub struct FieldIter<'a> {
 }
 
 impl<'a> FieldIter<'a> {
+    /// TODO
     pub fn new(value: &'a dyn Struct) -> Self {
         FieldIter {
             struct_val: value,

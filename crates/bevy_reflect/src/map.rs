@@ -192,6 +192,7 @@ impl MapInfo {
     impl_generic_info_methods!(generics);
 }
 
+/// TODO
 #[macro_export]
 macro_rules! hash_error {
     ( $key:expr ) => {{

@@ -235,6 +235,7 @@ impl<const N: usize> TryFrom<[SignatureInfo; N]> for FunctionInfo {
     }
 }
 
+/// TODO
 #[derive(Debug, Clone)]
 pub struct SignatureInfo {
     name: Option<Cow<'static, str>>,

@@ -1,3 +1,5 @@
+//! TODO
+
 use crate::Reflect;
 use alloc::boxed::Box;
 use bevy_utils::TypeIdMap;
@@ -98,16 +100,19 @@ struct CustomAttribute {
 }
 
 impl CustomAttribute {
+    /// TODO
     pub fn new<T: Reflect>(value: T) -> Self {
         Self {
             value: Box::new(value),
         }
     }
 
+    /// TODO
     pub fn value<T: Reflect>(&self) -> Option<&T> {
         self.value.downcast_ref()
     }
 
+    /// TODO
     pub fn reflect_value(&self) -> &dyn Reflect {
         &*self.value
     }
