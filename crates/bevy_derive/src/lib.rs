@@ -189,7 +189,7 @@ pub fn derive_deref_mut(input: TokenStream) -> TokenStream {
     derefs::derive_deref_mut(input)
 }
 
-/// Generates the required boilerplate for main functions on Android.
+/// Generates the required main function boilerplate for Android.
 #[proc_macro_attribute]
 pub fn bevy_main(attr: TokenStream, item: TokenStream) -> TokenStream {
     bevy_main::bevy_main(attr, item)
