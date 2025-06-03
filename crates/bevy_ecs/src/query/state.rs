@@ -28,7 +28,7 @@ use super::{
 
 #[repr(C)]
 #[derive(Component, Deref, DerefMut)]
-#[component(storage = "SparseSet")]
+#[component(storage = "SparseSet", immutable)]
 /// A Internal Wrapper of [`QueryState`] for safety reasons.
 pub(crate) struct InternalQueryState<D: QueryData, F: QueryFilter>(QueryState<D, F>);
 
