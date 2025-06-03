@@ -342,7 +342,7 @@ pub type QueryItem<'w, Q> = <Q as QueryData>::Item<'w>;
 pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
 
 /// SAFETY:
-/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// `update_component_access` does nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for Entity {
     type Fetch<'w> = ();
@@ -414,7 +414,7 @@ unsafe impl QueryData for Entity {
 unsafe impl ReadOnlyQueryData for Entity {}
 
 /// SAFETY:
-/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// `update_component_access` does nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for EntityLocation {
     type Fetch<'w> = &'w Entities;
@@ -662,7 +662,7 @@ pub struct EntityFetch<'w> {
 
 /// SAFETY:
 /// `fetch` accesses all components in a readonly way.
-/// This is sound because `update_component_access` and `update_archetype_component_access` set read access for all components and panic when appropriate.
+/// This is sound because `update_component_access` sets read access for all components and panic when appropriate.
 /// Filters are unchanged.
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
     type Fetch<'w> = EntityFetch<'w>;
@@ -1289,7 +1289,7 @@ where
 }
 
 /// SAFETY:
-/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// `update_component_access` does nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for &Archetype {
     type Fetch<'w> = (&'w Entities, &'w Archetypes);
@@ -1388,7 +1388,7 @@ impl<T: Component> Copy for ReadFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
+/// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for &T {
@@ -1411,7 +1411,7 @@ unsafe impl<T: Component> WorldQuery for &T {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // which we are allowed to access since we registered it in `update_component_access`.
                     // Note that we do not actually access any components in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
@@ -1507,7 +1507,7 @@ unsafe impl<T: Component> QueryData for &T {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: Caller ensures `table_row` is in range.
-                let item = unsafe { table.get(table_row.as_usize()) };
+                let item = unsafe { table.get(table_row.index()) };
                 item.deref()
             },
             |sparse_set| {
@@ -1555,7 +1555,7 @@ impl<T: Component> Copy for RefFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
+/// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
@@ -1578,7 +1578,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // which we are allowed to access since we registered it in `update_component_access`.
                     // Note that we do not actually access any components in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
@@ -1619,11 +1619,15 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         let table_data = Some((
-            column.get_data_slice(table.entity_count()).into(),
-            column.get_added_ticks_slice(table.entity_count()).into(),
-            column.get_changed_ticks_slice(table.entity_count()).into(),
+            column.get_data_slice(table.entity_count() as usize).into(),
             column
-                .get_changed_by_slice(table.entity_count())
+                .get_added_ticks_slice(table.entity_count() as usize)
+                .into(),
+            column
+                .get_changed_ticks_slice(table.entity_count() as usize)
+                .into(),
+            column
+                .get_changed_by_slice(table.entity_count() as usize)
                 .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -1681,13 +1685,13 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.as_usize()) };
+                let component = unsafe { table_components.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.as_usize()) };
+                let added = unsafe { added_ticks.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
+                let changed = unsafe { changed_ticks.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
+                let caller = callers.map(|callers| unsafe { callers.get(table_row.index()) });
 
                 Ref {
                     value: component.deref(),
@@ -1750,7 +1754,7 @@ impl<T: Component> Copy for WriteFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component mutably.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
+/// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
@@ -1773,7 +1777,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // which we are allowed to access since we registered it in `update_component_access`.
                     // Note that we do not actually access any components in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
@@ -1814,11 +1818,15 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         let table_data = Some((
-            column.get_data_slice(table.entity_count()).into(),
-            column.get_added_ticks_slice(table.entity_count()).into(),
-            column.get_changed_ticks_slice(table.entity_count()).into(),
+            column.get_data_slice(table.entity_count() as usize).into(),
             column
-                .get_changed_by_slice(table.entity_count())
+                .get_added_ticks_slice(table.entity_count() as usize)
+                .into(),
+            column
+                .get_changed_ticks_slice(table.entity_count() as usize)
+                .into(),
+            column
+                .get_changed_by_slice(table.entity_count() as usize)
                 .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -1876,13 +1884,13 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.as_usize()) };
+                let component = unsafe { table_components.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.as_usize()) };
+                let added = unsafe { added_ticks.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
+                let changed = unsafe { changed_ticks.get(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
+                let caller = callers.map(|callers| unsafe { callers.get(table_row.index()) });
 
                 Mut {
                     value: component.deref_mut(),
@@ -1920,7 +1928,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
 ///
 /// SAFETY:
 /// `fetch` accesses a single component mutably.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
+/// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
@@ -2037,7 +2045,7 @@ impl<T: WorldQuery> Clone for OptionFetch<'_, T> {
 
 /// SAFETY:
 /// `fetch` might access any components that `T` accesses.
-/// This is sound because `update_component_access` and `update_archetype_component_access` add the same accesses as `T`.
+/// This is sound because `update_component_access` adds the same accesses as `T`.
 /// Filters are unchanged.
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch<'w> = OptionFetch<'w, T>;
@@ -2222,7 +2230,7 @@ impl<T> core::fmt::Debug for Has<T> {
 }
 
 /// SAFETY:
-/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// `update_component_access` does nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl<T: Component> WorldQuery for Has<T> {
     type Fetch<'w> = bool;
@@ -2400,7 +2408,7 @@ macro_rules! impl_anytuple_fetch {
         )]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
-        /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
+        /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
@@ -2566,7 +2574,7 @@ all_tuples!(
 pub(crate) struct NopWorldQuery<D: QueryData>(PhantomData<D>);
 
 /// SAFETY:
-/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// `update_component_access` does nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     type Fetch<'w> = ();
@@ -2636,7 +2644,7 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
 unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
 
 /// SAFETY:
-/// `update_component_access` and `update_archetype_component_access` do nothing.
+/// `update_component_access` does nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     type Fetch<'a> = ();

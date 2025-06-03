@@ -115,7 +115,7 @@ use core::{
 /// ```
 ///
 /// Note that the filter is `With<ComponentB>`, not `With<&ComponentB>`. Unlike query data, `With`
-/// does require components to be behind a reference.
+/// does not require components to be behind a reference.
 ///
 /// ## `QueryData` or `QueryFilter` tuples
 ///
@@ -209,7 +209,7 @@ use core::{
 /// # #[derive(Component)]
 /// # struct ComponentB;
 /// #
-/// // A queried items must contain `ComponentA`. If they also contain `ComponentB`, its value will
+/// // Queried items must contain `ComponentA`. If they also contain `ComponentB`, its value will
 /// // be fetched as well.
 /// fn optional_component_query(query: Query<(&ComponentA, Option<&ComponentB>)>) {
 ///     // ...
@@ -2624,6 +2624,36 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Populated<'w, 's, D, F> {
     /// Returns the inner item with ownership.
     pub fn into_inner(self) -> Query<'w, 's, D, F> {
         self.0
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Populated<'w, 's, D, F> {
+    type Item = <Query<'w, 's, D, F> as IntoIterator>::Item;
+
+    type IntoIter = <Query<'w, 's, D, F> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a, 'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'a Populated<'w, 's, D, F> {
+    type Item = <&'a Query<'w, 's, D, F> as IntoIterator>::Item;
+
+    type IntoIter = <&'a Query<'w, 's, D, F> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref().into_iter()
+    }
+}
+
+impl<'a, 'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'a mut Populated<'w, 's, D, F> {
+    type Item = <&'a mut Query<'w, 's, D, F> as IntoIterator>::Item;
+
+    type IntoIter = <&'a mut Query<'w, 's, D, F> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref_mut().into_iter()
     }
 }
 

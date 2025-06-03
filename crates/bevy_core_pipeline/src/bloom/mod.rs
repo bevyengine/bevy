@@ -9,7 +9,7 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::embedded_asset;
 use bevy_color::{Gray, LinearRgba};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::{ops, UVec2};
@@ -36,15 +36,13 @@ use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
 
-const BLOOM_SHADER_HANDLE: Handle<Shader> = weak_handle!("c9190ddc-573b-4472-8b21-573cab502b73");
-
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Ufloat;
 
 pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "bloom.wgsl");
 
         app.register_type::<Bloom>();
         app.register_type::<BloomPrefilter>();

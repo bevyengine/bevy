@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, ArchetypeId},
+    archetype::Archetype,
     bundle::{
         Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
         InsertMode,
@@ -10,7 +10,8 @@ use crate::{
         StorageType, Tick,
     },
     entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent, EntityLocation,
+        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
+        EntityIdLocation, EntityLocation,
     },
     event::Event,
     observer::Observer,
@@ -1096,7 +1097,7 @@ unsafe impl EntityEquivalent for EntityMut<'_> {}
 pub struct EntityWorldMut<'w> {
     world: &'w mut World,
     entity: Entity,
-    location: EntityLocation,
+    location: EntityIdLocation,
 }
 
 impl<'w> EntityWorldMut<'w> {
@@ -1116,43 +1117,43 @@ impl<'w> EntityWorldMut<'w> {
     #[inline(always)]
     #[track_caller]
     pub(crate) fn assert_not_despawned(&self) {
-        if self.location.archetype_id == ArchetypeId::INVALID {
-            self.panic_despawned();
+        if self.location.is_none() {
+            self.panic_despawned()
         }
     }
 
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
-        self.assert_not_despawned();
+        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.read_change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
-            self.location,
+            location,
             last_change_tick,
             change_tick,
         )
     }
     fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
-        self.assert_not_despawned();
+        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
-            self.location,
+            location,
             last_change_tick,
             change_tick,
         )
     }
     fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
-        self.assert_not_despawned();
+        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
-            self.location,
+            location,
             last_change_tick,
             change_tick,
         )
@@ -1168,10 +1169,10 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
-        location: EntityLocation,
+        location: Option<EntityLocation>,
     ) -> Self {
         debug_assert!(world.entities().contains(entity));
-        debug_assert_eq!(world.entities().get(entity), Some(location));
+        debug_assert_eq!(world.entities().get(entity), location);
 
         EntityWorldMut {
             world,
@@ -1216,8 +1217,10 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn location(&self) -> EntityLocation {
-        self.assert_not_despawned();
-        self.location
+        match self.location {
+            Some(loc) => loc,
+            None => self.panic_despawned(),
+        }
     }
 
     /// Returns the archetype that the current entity belongs to.
@@ -1227,8 +1230,8 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        self.assert_not_despawned();
-        &self.world.archetypes[self.location.archetype_id]
+        let location = self.location();
+        &self.world.archetypes[location.archetype_id]
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -1830,22 +1833,22 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
-        self.assert_not_despawned();
+        let location = self.location();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
-            BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
+            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         let (location, after_effect) = unsafe {
             bundle_inserter.insert(
                 self.entity,
-                self.location,
+                location,
                 bundle,
                 mode,
                 caller,
                 relationship_hook_mode,
             )
         };
-        self.location = location;
+        self.location = Some(location);
         self.world.flush();
         self.update_location();
         after_effect.apply(self);
@@ -1894,7 +1897,7 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> &mut Self {
-        self.assert_not_despawned();
+        let location = self.location();
         let change_tick = self.world.change_tick();
         let bundle_id = self.world.bundles.init_component_info(
             &mut self.world.storages,
@@ -1903,23 +1906,19 @@ impl<'w> EntityWorldMut<'w> {
         );
         let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
 
-        let bundle_inserter = BundleInserter::new_with_id(
-            self.world,
-            self.location.archetype_id,
-            bundle_id,
-            change_tick,
-        );
+        let bundle_inserter =
+            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
 
-        self.location = insert_dynamic_bundle(
+        self.location = Some(insert_dynamic_bundle(
             bundle_inserter,
             self.entity,
-            self.location,
+            location,
             Some(component).into_iter(),
             Some(storage_type).iter().cloned(),
             mode,
             caller,
             relationship_hook_insert_mode,
-        );
+        ));
         self.world.flush();
         self.update_location();
         self
@@ -1957,7 +1956,7 @@ impl<'w> EntityWorldMut<'w> {
         iter_components: I,
         relationship_hook_insert_mode: RelationshipHookMode,
     ) -> &mut Self {
-        self.assert_not_despawned();
+        let location = self.location();
         let change_tick = self.world.change_tick();
         let bundle_id = self.world.bundles.init_dynamic_info(
             &mut self.world.storages,
@@ -1966,23 +1965,19 @@ impl<'w> EntityWorldMut<'w> {
         );
         let mut storage_types =
             core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
-        let bundle_inserter = BundleInserter::new_with_id(
-            self.world,
-            self.location.archetype_id,
-            bundle_id,
-            change_tick,
-        );
+        let bundle_inserter =
+            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
 
-        self.location = insert_dynamic_bundle(
+        self.location = Some(insert_dynamic_bundle(
             bundle_inserter,
             self.entity,
-            self.location,
+            location,
             iter_components,
             (*storage_types).iter().cloned(),
             InsertMode::Replace,
             MaybeLocation::caller(),
             relationship_hook_insert_mode,
-        );
+        ));
         *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
         self.world.flush();
         self.update_location();
@@ -2000,13 +1995,12 @@ impl<'w> EntityWorldMut<'w> {
     #[must_use]
     #[track_caller]
     pub fn take<T: Bundle + BundleFromComponents>(&mut self) -> Option<T> {
-        self.assert_not_despawned();
+        let location = self.location();
         let entity = self.entity;
-        let location = self.location;
 
         let mut remover =
             // SAFETY: The archetype id must be valid since this entity is in it.
-            unsafe { BundleRemover::new::<T>(self.world, self.location.archetype_id, true) }?;
+            unsafe { BundleRemover::new::<T>(self.world, location.archetype_id, true) }?;
         // SAFETY: The passed location has the sane archetype as the remover, since they came from the same location.
         let (new_location, result) = unsafe {
             remover.remove(
@@ -2041,7 +2035,7 @@ impl<'w> EntityWorldMut<'w> {
                 },
             )
         };
-        self.location = new_location;
+        self.location = Some(new_location);
 
         self.world.flush();
         self.update_location();
@@ -2062,11 +2056,11 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline]
     pub(crate) fn remove_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
-        self.assert_not_despawned();
+        let location = self.location();
 
         let Some(mut remover) =
             // SAFETY: The archetype id must be valid since this entity is in it.
-            (unsafe { BundleRemover::new::<T>(self.world, self.location.archetype_id, false) })
+            (unsafe { BundleRemover::new::<T>(self.world, location.archetype_id, false) })
         else {
             return self;
         };
@@ -2074,14 +2068,14 @@ impl<'w> EntityWorldMut<'w> {
         let new_location = unsafe {
             remover.remove(
                 self.entity,
-                self.location,
+                location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
         }
         .0;
 
-        self.location = new_location;
+        self.location = Some(new_location);
         self.world.flush();
         self.update_location();
         self
@@ -2101,7 +2095,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         caller: MaybeLocation,
     ) -> &mut Self {
-        self.assert_not_despawned();
+        let location = self.location();
         let storages = &mut self.world.storages;
         let bundles = &mut self.world.bundles;
         // SAFETY: These come from the same world.
@@ -2112,7 +2106,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(self.world, self.location.archetype_id, bundle_id, false)
+            BundleRemover::new_with_id(self.world, location.archetype_id, bundle_id, false)
         }) else {
             return self;
         };
@@ -2120,14 +2114,14 @@ impl<'w> EntityWorldMut<'w> {
         let new_location = unsafe {
             remover.remove(
                 self.entity,
-                self.location,
+                location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
         }
         .0;
 
-        self.location = new_location;
+        self.location = Some(new_location);
         self.world.flush();
         self.update_location();
         self
@@ -2147,7 +2141,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline]
     pub(crate) fn retain_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
-        self.assert_not_despawned();
+        let old_location = self.location();
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         // SAFETY: These come from the same world.
@@ -2161,7 +2155,6 @@ impl<'w> EntityWorldMut<'w> {
             .register_info::<T>(&mut registrator, storages);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
-        let old_location = self.location;
         let old_archetype = &mut archetypes[old_location.archetype_id];
 
         // PERF: this could be stored in an Archetype Edge
@@ -2176,7 +2169,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(self.world, self.location.archetype_id, remove_bundle, false)
+            BundleRemover::new_with_id(self.world, old_location.archetype_id, remove_bundle, false)
         }) else {
             return self;
         };
@@ -2184,14 +2177,14 @@ impl<'w> EntityWorldMut<'w> {
         let new_location = unsafe {
             remover.remove(
                 self.entity,
-                self.location,
+                old_location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
         }
         .0;
 
-        self.location = new_location;
+        self.location = Some(new_location);
         self.world.flush();
         self.update_location();
         self
@@ -2216,7 +2209,7 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         caller: MaybeLocation,
     ) -> &mut Self {
-        self.assert_not_despawned();
+        let location = self.location();
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_component_info(
@@ -2227,7 +2220,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(self.world, self.location.archetype_id, bundle_id, false)
+            BundleRemover::new_with_id(self.world, location.archetype_id, bundle_id, false)
         }) else {
             return self;
         };
@@ -2235,14 +2228,14 @@ impl<'w> EntityWorldMut<'w> {
         let new_location = unsafe {
             remover.remove(
                 self.entity,
-                self.location,
+                location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
         }
         .0;
 
-        self.location = new_location;
+        self.location = Some(new_location);
         self.world.flush();
         self.update_location();
         self
@@ -2258,7 +2251,7 @@ impl<'w> EntityWorldMut<'w> {
     /// entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn remove_by_ids(&mut self, component_ids: &[ComponentId]) -> &mut Self {
-        self.assert_not_despawned();
+        let location = self.location();
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_dynamic_info(
@@ -2269,7 +2262,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(self.world, self.location.archetype_id, bundle_id, false)
+            BundleRemover::new_with_id(self.world, location.archetype_id, bundle_id, false)
         }) else {
             return self;
         };
@@ -2277,14 +2270,14 @@ impl<'w> EntityWorldMut<'w> {
         let new_location = unsafe {
             remover.remove(
                 self.entity,
-                self.location,
+                location,
                 MaybeLocation::caller(),
                 BundleRemover::empty_pre_remove,
             )
         }
         .0;
 
-        self.location = new_location;
+        self.location = Some(new_location);
         self.world.flush();
         self.update_location();
         self
@@ -2302,7 +2295,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline]
     pub(crate) fn clear_with_caller(&mut self, caller: MaybeLocation) -> &mut Self {
-        self.assert_not_despawned();
+        let location = self.location();
         let component_ids: Vec<ComponentId> = self.archetype().components().collect();
         let components = &mut self.world.components;
 
@@ -2314,7 +2307,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
-            BundleRemover::new_with_id(self.world, self.location.archetype_id, bundle_id, false)
+            BundleRemover::new_with_id(self.world, location.archetype_id, bundle_id, false)
         }) else {
             return self;
         };
@@ -2322,14 +2315,14 @@ impl<'w> EntityWorldMut<'w> {
         let new_location = unsafe {
             remover.remove(
                 self.entity,
-                self.location,
+                location,
                 caller,
                 BundleRemover::empty_pre_remove,
             )
         }
         .0;
 
-        self.location = new_location;
+        self.location = Some(new_location);
         self.world.flush();
         self.update_location();
         self
@@ -2353,9 +2346,9 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {
-        self.assert_not_despawned();
+        let location = self.location();
         let world = self.world;
-        let archetype = &world.archetypes[self.location.archetype_id];
+        let archetype = &world.archetypes[location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
         let (archetype, mut deferred_world) = unsafe {
@@ -2422,30 +2415,32 @@ impl<'w> EntityWorldMut<'w> {
         let location = world
             .entities
             .free(self.entity)
+            .flatten()
             .expect("entity should exist at this point.");
         let table_row;
         let moved_entity;
         let change_tick = world.change_tick();
 
         {
-            let archetype = &mut world.archetypes[self.location.archetype_id];
+            let archetype = &mut world.archetypes[location.archetype_id];
             let remove_result = archetype.swap_remove(location.archetype_row);
             if let Some(swapped_entity) = remove_result.swapped_entity {
                 let swapped_location = world.entities.get(swapped_entity).unwrap();
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
-                    world.entities.set_spawn_despawn(
+                    world.entities.set(
                         swapped_entity.index(),
-                        EntityLocation {
+                        Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
                             table_id: swapped_location.table_id,
                             table_row: swapped_location.table_row,
-                        },
-                        caller,
-                        change_tick,
+                        }),
                     );
+                    world
+                        .entities
+                        .mark_spawn_despawn(swapped_entity.index(), caller, change_tick);
                 }
             }
             table_row = remove_result.table_row;
@@ -2466,17 +2461,18 @@ impl<'w> EntityWorldMut<'w> {
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
-                world.entities.set_spawn_despawn(
+                world.entities.set(
                     moved_entity.index(),
-                    EntityLocation {
+                    Some(EntityLocation {
                         archetype_id: moved_location.archetype_id,
                         archetype_row: moved_location.archetype_row,
                         table_id: moved_location.table_id,
                         table_row,
-                    },
-                    caller,
-                    change_tick,
+                    }),
                 );
+                world
+                    .entities
+                    .mark_spawn_despawn(moved_entity.index(), caller, change_tick);
             }
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
@@ -2564,11 +2560,7 @@ impl<'w> EntityWorldMut<'w> {
     /// This is *only* required when using the unsafe function [`EntityWorldMut::world_mut`],
     /// which enables the location to change.
     pub fn update_location(&mut self) {
-        self.location = self
-            .world
-            .entities()
-            .get(self.entity)
-            .unwrap_or(EntityLocation::INVALID);
+        self.location = self.world.entities().get(self.entity);
     }
 
     /// Returns if the entity has been despawned.
@@ -2580,7 +2572,7 @@ impl<'w> EntityWorldMut<'w> {
     /// to avoid panicking when calling further methods.
     #[inline]
     pub fn is_despawned(&self) -> bool {
-        self.location.archetype_id == ArchetypeId::INVALID
+        self.location.is_none()
     }
 
     /// Gets an Entry into the world for this entity and component for in-place manipulation.
