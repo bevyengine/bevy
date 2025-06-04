@@ -1,8 +1,8 @@
 use crate::{
     archetype::Archetype,
     bundle::{
-        Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
-        InsertMode, StaticBundle,
+        Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover,
+        ComponentsFromBundle, InsertMode, StaticBundle,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{
@@ -4344,7 +4344,7 @@ unsafe fn insert_dynamic_bundle<
         components: I,
     }
 
-    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
+    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> ComponentsFromBundle
         for DynamicInsertBundle<'a, I>
     {
         type Effect = ();

@@ -2,7 +2,7 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, BundleEffect, DynamicBundle, NoBundleEffect, StaticBundle},
+    bundle::{Bundle, BundleEffect, ComponentsFromBundle, NoBundleEffect, StaticBundle},
     entity::Entity,
     relationship::{RelatedSpawner, Relationship, RelationshipTarget},
     world::{EntityWorldMut, World},
@@ -246,7 +246,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
         <Self as StaticBundle>::register_required_components(components, required_components);
     }
 }
-impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
+impl<R: Relationship, L: SpawnableList<R>> ComponentsFromBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
 
     fn get_components(
@@ -275,7 +275,7 @@ impl<R: Relationship, B: Bundle> BundleEffect for SpawnOneRelated<R, B> {
     }
 }
 
-impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
+impl<R: Relationship, B: Bundle> ComponentsFromBundle for SpawnOneRelated<R, B> {
     type Effect = Self;
 
     fn get_components(
@@ -346,7 +346,7 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     }
 }
 
-/// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`DynamicBundle::Effect`] that:
+/// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`ComponentsFromBundle::Effect`] that:
 ///
 /// 1. Contains the [`RelationshipTarget`] component, pre-allocated with the necessary space for spawned entities.
 /// 2. Spawns an entity (or a list of entities) that relate to the entity the [`Bundle`] is added to via the [`RelationshipTarget::Relationship`].

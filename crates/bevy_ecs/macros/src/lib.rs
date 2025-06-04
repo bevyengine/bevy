@@ -226,7 +226,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let dynamic_bundle_impl = quote! {
         #[allow(deprecated)]
-        impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
+        impl #impl_generics #ecs_path::bundle::ComponentsFromBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
             #[inline]
@@ -234,7 +234,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 self,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                #(<#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(self.#active_field_tokens, &mut *func);)*
+                #(<#active_field_types as #ecs_path::bundle::ComponentsFromBundle>::get_components(self.#active_field_tokens, &mut *func);)*
             }
         }
     };

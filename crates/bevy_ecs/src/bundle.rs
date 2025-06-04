@@ -146,7 +146,7 @@ use variadics_please::all_tuples;
     label = "invalid `Bundle`",
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
-pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
+pub unsafe trait Bundle: ComponentsFromBundle + Send + Sync + 'static {
     /// Whether this is a [`StaticBundle`] or not. In case this is a [`StaticBundle`] the associated
     /// [`BundleId`] and [`BundleInfo`] are known to be unique and can be cached by this type's [`TypeId`].
     ///
@@ -200,7 +200,7 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
 /// If you want a type to implement [`StaticBundle`], you must use [`derive@Bundle`](derive@Bundle).
 // Some safety points:
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
-// bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
+// bundle, in the _exact_ order that [`ComponentsFromBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
 #[diagnostic::on_unimplemented(
@@ -236,7 +236,7 @@ pub unsafe trait StaticBundle: Send + Sync + 'static {
 /// [`Query`]: crate::system::Query
 // Some safety points:
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
-// bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
+// bundle, in the _exact_ order that [`ComponentsFromBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
 pub unsafe trait BundleFromComponents {
@@ -255,7 +255,7 @@ pub unsafe trait BundleFromComponents {
 }
 
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
-pub trait DynamicBundle {
+pub trait ComponentsFromBundle {
     /// An operation on the entity that happens _after_ inserting this bundle.
     type Effect: BundleEffect;
     // SAFETY:
@@ -275,7 +275,7 @@ pub trait DynamicBundle {
 /// 2. Relevant Hooks are run for the insert, then Observers
 /// 3. The [`BundleEffect`] is run.
 ///
-/// See [`DynamicBundle::Effect`].
+/// See [`ComponentsFromBundle::Effect`].
 pub trait BundleEffect {
     /// Applies this effect to the given `entity`.
     fn apply(self, entity: &mut EntityWorldMut);
@@ -353,7 +353,7 @@ unsafe impl<C: Component> BundleFromComponents for C {
     }
 }
 
-impl<C: Component> DynamicBundle for C {
+impl<C: Component> ComponentsFromBundle for C {
     type Effect = ();
     #[inline]
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
@@ -375,7 +375,7 @@ macro_rules! tuple_impl {
         $(#[$meta])*
         // SAFETY:
         // - `StaticBundle::component_ids` calls `ids` for each component type in the
-        // bundle, in the exact order that `DynamicBundle::get_components` is called.
+        // bundle, in the exact order that `ComponentsFromBundle::get_components` is called.
         // - `StaticBundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         // - `StaticBundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
@@ -482,7 +482,7 @@ macro_rules! tuple_impl {
         $(#[$meta])*
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
-        // bundle, in the exact order that `DynamicBundle::get_components` is called.
+        // bundle, in the exact order that `ComponentsFromBundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
@@ -515,7 +515,7 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
-        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
+        impl<$($name: Bundle),*> ComponentsFromBundle for ($($name,)*) {
             type Effect = ($($name::Effect,)*);
             #[allow(
                 clippy::unused_unit,
@@ -545,7 +545,7 @@ all_tuples!(
 );
 
 /// A trait implemented for [`BundleEffect`] implementations that do nothing. This is used as a type constraint for
-/// [`Bundle`] APIs that do not / cannot run [`DynamicBundle::Effect`], such as "batch spawn" APIs.
+/// [`Bundle`] APIs that do not / cannot run [`ComponentsFromBundle::Effect`], such as "batch spawn" APIs.
 pub trait NoBundleEffect {}
 
 macro_rules! after_effect_impl {
@@ -778,7 +778,7 @@ impl BundleInfo {
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
-    unsafe fn write_components<'a, T: DynamicBundle, S: BundleComponentStatus>(
+    unsafe fn write_components<'a, T: ComponentsFromBundle, S: BundleComponentStatus>(
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
@@ -1284,7 +1284,7 @@ impl<'w> BundleInserter<'w> {
     /// `entity` must currently exist in the source archetype for this inserter. `location`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub(crate) unsafe fn insert<T: DynamicBundle>(
+    pub(crate) unsafe fn insert<T: ComponentsFromBundle>(
         &mut self,
         entity: Entity,
         location: EntityLocation,
@@ -1909,7 +1909,7 @@ impl<'w> BundleSpawner<'w> {
     /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
     #[inline]
     #[track_caller]
-    pub unsafe fn spawn_non_existent<T: DynamicBundle>(
+    pub unsafe fn spawn_non_existent<T: ComponentsFromBundle>(
         &mut self,
         entity: Entity,
         bundle: T,
@@ -2368,7 +2368,7 @@ unsafe impl<T: Bundle> Bundle for Option<T> {
     }
 }
 
-impl<T: DynamicBundle> DynamicBundle for Option<T> {
+impl<T: ComponentsFromBundle> ComponentsFromBundle for Option<T> {
     type Effect = Option<T::Effect>;
 
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
