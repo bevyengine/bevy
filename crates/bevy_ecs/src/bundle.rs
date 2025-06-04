@@ -299,7 +299,7 @@ impl<B: Bundle> BundleDyn for B {
         components: &mut ComponentsRegistrator,
         ids: &mut dyn FnMut(ComponentId),
     ) {
-        self.component_ids(components, &mut |id| ids(id))
+        self.component_ids(components, &mut |id| ids(id));
     }
 
     fn get_components_dyn(
@@ -310,6 +310,7 @@ impl<B: Bundle> BundleDyn for B {
     }
 }
 
+// Safety: TODO
 unsafe impl Bundle for Box<dyn Bundle> {
     fn is_static() -> bool {
         false
@@ -328,7 +329,7 @@ unsafe impl Bundle for Box<dyn Bundle> {
         components: &mut ComponentsRegistrator,
         ids: &mut impl FnMut(ComponentId),
     ) {
-        (**self).component_ids_dyn(components, ids)
+        (**self).component_ids_dyn(components, ids);
     }
 
     fn register_required_components(
@@ -369,13 +370,13 @@ pub trait BundleEffectDyn {
 
 impl<E: BundleEffect> BundleEffectDyn for E {
     fn apply_dyn(self: Box<Self>, entity: &mut EntityWorldMut) {
-        self.apply(entity)
+        self.apply(entity);
     }
 }
 
 impl BundleEffect for Box<dyn BundleEffect> {
     fn apply(self, entity: &mut EntityWorldMut) {
-        self.apply_dyn(entity)
+        self.apply_dyn(entity);
     }
 }
 
