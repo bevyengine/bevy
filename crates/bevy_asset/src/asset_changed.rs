@@ -92,9 +92,9 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 ///
 /// Unlike `Changed<A>`, this is true whenever the asset for the `A`
 /// in `ResMut<Assets<A>>` changed. For example, when a mesh changed through the
-/// [`Assets<Mesh>::get_mut`] method, `AssetChanged<Mesh>` will iterate over all
-/// entities with the `Handle<Mesh>` for that mesh. Meanwhile, `Changed<Handle<Mesh>>`
-/// will iterate over no entities.
+/// [`Assets<Mesh>::get_cloned_mut`] method, `AssetChanged<Mesh>` will iterate
+/// over all entities with the `Handle<Mesh>` for that mesh. Meanwhile,
+/// `Changed<Handle<Mesh>>` will iterate over no entities.
 ///
 /// Swapping the actual `A` component is a common pattern. So you
 /// should check for _both_ `AssetChanged<A>` and `Changed<A>` with
@@ -120,7 +120,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 /// If no `A` asset updated since the last time the system ran, then no lookups occur.
 ///
 /// [`AssetEventSystems`]: crate::AssetEventSystems
-/// [`Assets<Mesh>::get_mut`]: crate::Assets::get_mut
+/// [`Assets<Mesh>::get_cloned_mut`]: crate::Assets::get_cloned_mut
 pub struct AssetChanged<A: AsAssetId>(PhantomData<A>);
 
 /// [`WorldQuery`] fetch for [`AssetChanged`].
@@ -355,7 +355,7 @@ mod tests {
                 .iter()
                 .find_map(|(h, a)| (a.0 == i).then_some(h))
                 .unwrap();
-            let asset = assets.get_mut(id).unwrap();
+            let asset = assets.get_in_place_mut(id).unwrap();
             println!("setting new value for {}", asset.0);
             asset.1 = "new_value";
         };

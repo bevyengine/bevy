@@ -243,6 +243,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Access Asset from Async](../examples/asset/access_asset_from_async.rs) | Demonstrates how to access and use assets in an async context
 [Alter Mesh](../examples/asset/alter_mesh.rs) | Shows how to modify the underlying asset of a Mesh after spawning.
 [Alter Sprite](../examples/asset/alter_sprite.rs) | Shows how to modify texture assets after spawning.
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset

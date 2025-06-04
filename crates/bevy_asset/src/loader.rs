@@ -276,7 +276,9 @@ impl_downcast!(AssetContainer);
 
 impl<A: Asset> AssetContainer for A {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World) {
-        world.resource_mut::<Assets<A>>().insert(id.typed(), *self);
+        world
+            .resource_mut::<Assets<A>>()
+            .insert_arc(id.typed(), self);
     }
 
     fn asset_type_name(&self) -> &'static str {

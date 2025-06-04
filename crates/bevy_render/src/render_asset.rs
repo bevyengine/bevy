@@ -2,6 +2,7 @@ use crate::{
     render_resource::AsBindGroupError, Extract, ExtractSchedule, MainWorld, Render, RenderApp,
     RenderSystems, Res,
 };
+use alloc::sync::Arc;
 use bevy_app::{App, Plugin, SubApp};
 pub use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
@@ -20,7 +21,7 @@ use tracing::{debug, error};
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
     #[error("Failed to prepare asset")]
-    RetryNextUpdate(E),
+    RetryNextUpdate(Arc<E>),
     #[error("Failed to build bind group: {0}")]
     AsBindGroupError(AsBindGroupError),
 }
@@ -68,9 +69,10 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
 
     /// Prepares the [`RenderAsset::SourceAsset`] for the GPU by transforming it into a [`RenderAsset`].
     ///
-    /// ECS data may be accessed via `param`.
+    /// ECS data may be accessed via `param`. If you want to move the `source_asset`s fields,
+    /// consider using [`Arc::try_unwrap`] (and falling back to cloning the asset otherwise).
     fn prepare_asset(
-        source_asset: Self::SourceAsset,
+        source_asset: Arc<Self::SourceAsset>,
         asset_id: AssetId<Self::SourceAsset>,
         param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
@@ -157,7 +159,7 @@ pub struct ExtractedAssets<A: RenderAsset> {
     /// The assets extracted this frame.
     ///
     /// These are assets that were either added or modified this frame.
-    pub extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
+    pub extracted: Vec<(AssetId<A::SourceAsset>, Arc<A::SourceAsset>)>,
 
     /// IDs of the assets that were removed this frame.
     ///
@@ -280,8 +282,8 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             let mut extracted_assets = Vec::new();
             let mut added = <HashSet<_>>::default();
             for id in needs_extracting.drain() {
-                if let Some(asset) = assets.get(id) {
-                    let asset_usage = A::asset_usage(asset);
+                if let Some(asset) = assets.get_arc(id) {
+                    let asset_usage = A::asset_usage(&asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
                             if let Some(asset) = assets.remove(id) {
@@ -311,7 +313,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
 /// All assets that should be prepared next frame.
 #[derive(Resource)]
 pub struct PrepareNextFrameAssets<A: RenderAsset> {
-    assets: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
+    assets: Vec<(AssetId<A::SourceAsset>, Arc<A::SourceAsset>)>,
 }
 
 impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {

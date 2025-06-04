@@ -75,7 +75,7 @@ fn change_material(
         if let Some(material) = mesh_materials
             .get(descendants)
             .ok()
-            .and_then(|id| asset_materials.get_mut(id.id()))
+            .and_then(|id| asset_materials.get_cloned_mut(id.id()))
         {
             // Create a copy of the material and override base color
             // If you intend on creating multiple models with the same tint, it

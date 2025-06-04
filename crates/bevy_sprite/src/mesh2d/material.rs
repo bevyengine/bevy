@@ -2,6 +2,7 @@ use crate::{
     DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
     SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
 };
+use alloc::sync::Arc;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, Handle};
@@ -957,7 +958,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     );
 
     fn prepare_asset(
-        material: Self::SourceAsset,
+        material: Arc<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         (
             render_device,

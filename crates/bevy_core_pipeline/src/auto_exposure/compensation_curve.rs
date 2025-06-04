@@ -1,3 +1,5 @@
+use alloc::sync::Arc;
+
 use bevy_asset::prelude::*;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::{cubic_splines::CubicGenerator, FloatExt, Vec2};
@@ -193,7 +195,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
     }
 
     fn prepare_asset(
-        source: Self::SourceAsset,
+        source: Arc<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, bevy_render::render_asset::PrepareAssetError<Self::SourceAsset>> {

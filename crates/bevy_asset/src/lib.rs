@@ -1133,7 +1133,7 @@ mod tests {
 
         {
             let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-            let a = texts.get_mut(a_id).unwrap();
+            let a = texts.get_in_place_mut(a_id).unwrap();
             a.text = "Changed".to_string();
         }
 

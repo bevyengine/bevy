@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Res, ResMut, SystemChangeTick},
 };
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{FromReflect, Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -107,7 +107,10 @@ enum Entry<A: Asset> {
     #[default]
     None,
     /// Some is an indicator that there is a live handle active for the entry at this [`AssetIndex`]
-    Some { value: Option<A>, generation: u32 },
+    Some {
+        value: Option<Arc<A>>,
+        generation: u32,
+    },
 }
 
 /// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex`].
@@ -142,7 +145,7 @@ impl<A: Asset> DenseAssetStorage<A> {
     pub(crate) fn insert(
         &mut self,
         index: AssetIndex,
-        asset: A,
+        asset: Arc<A>,
     ) -> Result<bool, InvalidGenerationError> {
         self.flush();
         let entry = &mut self.storage[index.index as usize];
@@ -167,7 +170,7 @@ impl<A: Asset> DenseAssetStorage<A> {
 
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will recycle the id and allow new entries to be inserted.
-    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<Arc<A>> {
         self.remove_internal(index, |dense_storage| {
             dense_storage.storage[index.index as usize] = Entry::None;
             dense_storage.allocator.recycle(index);
@@ -177,7 +180,7 @@ impl<A: Asset> DenseAssetStorage<A> {
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will _not_ recycle the id. New values with the current ID can still be inserted. The ID will
     /// not be reused until [`DenseAssetStorage::remove_dropped`] is called.
-    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<Arc<A>> {
         self.remove_internal(index, |_| {})
     }
 
@@ -185,7 +188,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         &mut self,
         index: AssetIndex,
         removed_action: impl FnOnce(&mut Self),
-    ) -> Option<A> {
+    ) -> Option<Arc<A>> {
         self.flush();
         let value = match &mut self.storage[index.index as usize] {
             Entry::None => return None,
@@ -201,7 +204,8 @@ impl<A: Asset> DenseAssetStorage<A> {
         value
     }
 
-    pub(crate) fn get(&self, index: AssetIndex) -> Option<&A> {
+    /// Gets a borrow to the [`Arc`]d asset.
+    pub(crate) fn get_arc(&self, index: AssetIndex) -> Option<&Arc<A>> {
         let entry = self.storage.get(index.index as usize)?;
         match entry {
             Entry::None => None,
@@ -215,18 +219,19 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Option<&mut A> {
+    /// Gets a mutable borrow to the [`Arc`]d asset.
+    ///
+    /// Returns [`None`] if the asset is missing, or has a different generation.
+    pub(crate) fn get_arc_mut(&mut self, index: AssetIndex) -> Option<&mut Arc<A>> {
         let entry = self.storage.get_mut(index.index as usize)?;
-        match entry {
-            Entry::None => None,
-            Entry::Some { value, generation } => {
-                if *generation == index.generation {
-                    value.as_mut()
-                } else {
-                    None
-                }
-            }
+        let Entry::Some { value, generation } = entry else {
+            return None;
+        };
+
+        if *generation != index.generation {
+            return None;
         }
+        value.as_mut()
     }
 
     pub(crate) fn flush(&mut self) {
@@ -286,7 +291,7 @@ impl<A: Asset> DenseAssetStorage<A> {
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
-    hash_map: HashMap<Uuid, A>,
+    hash_map: HashMap<Uuid, Arc<A>>,
     handle_provider: AssetHandleProvider,
     queued_events: Vec<AssetEvent<A>>,
     /// Assets managed by the `Assets` struct with live strong `Handle`s
@@ -321,8 +326,16 @@ impl<A: Asset> Assets<A> {
         self.handle_provider.reserve_handle().typed::<A>()
     }
 
-    /// Inserts the given `asset`, identified by the given `id`. If an asset already exists for `id`, it will be replaced.
+    /// Inserts the given `asset`, identified by the given `id`. If an asset already exists for
+    /// `id`, it will be replaced.
     pub fn insert(&mut self, id: impl Into<AssetId<A>>, asset: A) {
+        self.insert_arc(id, asset);
+    }
+
+    /// Inserts the given [`Arc`]d `asset`, identified by the given `id`. If an asset already exists
+    /// for `id`, it will be replaced.
+    pub fn insert_arc(&mut self, id: impl Into<AssetId<A>>, asset: impl Into<Arc<A>>) {
+        let asset = asset.into();
         match id.into() {
             AssetId::Index { index, .. } => {
                 self.insert_with_index(index, asset).unwrap();
@@ -333,29 +346,15 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will be inserted using `insert_fn`.
-    // PERF: Optimize this or remove it
-    pub fn get_or_insert_with(
-        &mut self,
-        id: impl Into<AssetId<A>>,
-        insert_fn: impl FnOnce() -> A,
-    ) -> &mut A {
-        let id: AssetId<A> = id.into();
-        if self.get(id).is_none() {
-            self.insert(id, insert_fn());
-        }
-        self.get_mut(id).unwrap()
-    }
-
     /// Returns `true` if the `id` exists in this collection. Otherwise it returns `false`.
     pub fn contains(&self, id: impl Into<AssetId<A>>) -> bool {
         match id.into() {
-            AssetId::Index { index, .. } => self.dense_storage.get(index).is_some(),
+            AssetId::Index { index, .. } => self.dense_storage.get_arc(index).is_some(),
             AssetId::Uuid { uuid } => self.hash_map.contains_key(&uuid),
         }
     }
 
-    pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> Option<A> {
+    pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: Arc<A>) -> Option<Arc<A>> {
         let result = self.hash_map.insert(uuid, asset);
         if result.is_some() {
             self.queued_events
@@ -369,7 +368,7 @@ impl<A: Asset> Assets<A> {
     pub(crate) fn insert_with_index(
         &mut self,
         index: AssetIndex,
-        asset: A,
+        asset: Arc<A>,
     ) -> Result<bool, InvalidGenerationError> {
         let replaced = self.dense_storage.insert(index, asset)?;
         if replaced {
@@ -385,6 +384,12 @@ impl<A: Asset> Assets<A> {
     /// Adds the given `asset` and allocates a new strong [`Handle`] for it.
     #[inline]
     pub fn add(&mut self, asset: impl Into<A>) -> Handle<A> {
+        self.add_arc(asset.into())
+    }
+
+    /// Adds the given [`Arc`]d `asset` and allocates a new strong [`Handle`] for it.
+    #[inline]
+    pub fn add_arc(&mut self, asset: impl Into<Arc<A>>) -> Handle<A> {
         let index = self.dense_storage.allocator.reserve();
         self.insert_with_index(index, asset.into()).unwrap();
         Handle::Strong(
@@ -417,29 +422,58 @@ impl<A: Asset> Assets<A> {
     #[inline]
     pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<&A> {
         match id.into() {
-            AssetId::Index { index, .. } => self.dense_storage.get(index),
-            AssetId::Uuid { uuid } => self.hash_map.get(&uuid),
+            AssetId::Index { index, .. } => self.dense_storage.get_arc(index).map(|a| &**a),
+            AssetId::Uuid { uuid } => self.hash_map.get(&uuid).map(|a| &**a),
         }
     }
 
-    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    /// Retrieves the [`Arc`] of an [`Asset`] with the given `id`, if it exists.
+    ///
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes
+    /// [`Handle`] and [`AssetId`]. Be careful with holding the Arc indefinitely: holding the
+    /// [`Arc`] (or a [`Weak`]) prevents the asset from being mutated in place. This can incur
+    /// clones when using `get_cloned_mut`, or can just entirely block mutation when using
+    /// `get_in_place_mut`.
+    ///
+    /// [`Weak`]: std::sync::Weak
     #[inline]
-    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
-        let id: AssetId<A> = id.into();
-        let result = match id {
-            AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
+    pub fn get_arc(&self, id: impl Into<AssetId<A>>) -> Option<Arc<A>> {
+        match id.into() {
+            AssetId::Index { index, .. } => self.dense_storage.get_arc(index).cloned(),
+            AssetId::Uuid { uuid } => self.hash_map.get(&uuid).cloned(),
+        }
+    }
+
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id` if it exists.
+    ///
+    /// If the asset is currently aliased (another [`Arc`] or [`Weak`] to this asset exists),
+    /// returns an error.
+    ///
+    /// [`Weak`]: std::sync::Weak
+    pub fn get_in_place_mut(
+        &mut self,
+        id: impl Into<AssetId<A>>,
+    ) -> Result<&mut A, MutableAssetError> {
+        let id = id.into();
+        let arc = match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_arc_mut(index),
             AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
         };
-        if result.is_some() {
-            self.queued_events.push(AssetEvent::Modified { id });
-        }
-        result
+
+        let Some(arc) = arc else {
+            return Err(MutableAssetError::Missing);
+        };
+        let Some(asset_mut) = Arc::get_mut(arc) else {
+            return Err(MutableAssetError::Aliased);
+        };
+
+        self.queued_events.push(AssetEvent::Modified { id });
+        Ok(asset_mut)
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<Arc<A>> {
         let id: AssetId<A> = id.into();
         let result = self.remove_untracked(id);
         if result.is_some() {
@@ -450,7 +484,7 @@ impl<A: Asset> Assets<A> {
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists. This skips emitting [`AssetEvent::Removed`].
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<Arc<A>> {
         let id: AssetId<A> = id.into();
         self.duplicate_handles.remove(&id);
         match id {
@@ -502,7 +536,7 @@ impl<A: Asset> Assets<A> {
 
     /// Returns an iterator over the [`AssetId`] and [`Asset`] ref of every asset in this collection.
     // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
-    pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A)> {
+    pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, Arc<A>)> + '_ {
         self.dense_storage
             .storage
             .iter()
@@ -517,13 +551,13 @@ impl<A: Asset> Assets<A> {
                         },
                         marker: PhantomData,
                     };
-                    (id, v)
+                    (id, v.clone())
                 }),
             })
             .chain(
                 self.hash_map
                     .iter()
-                    .map(|(i, v)| (AssetId::Uuid { uuid: *i }, v)),
+                    .map(|(i, v)| (AssetId::Uuid { uuid: *i }, v.clone())),
             )
     }
 
@@ -596,15 +630,69 @@ impl<A: Asset> Assets<A> {
     }
 }
 
+impl<A: Asset + Clone> Assets<A> {
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id` if it exists.
+    ///
+    /// If the asset is currently aliased (another [`Arc`] or [`Weak`] to this asset exists), the
+    /// asset is cloned.
+    ///
+    /// [`Weak`]: std::sync::Weak
+    pub fn get_cloned_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id = id.into();
+        let arc = match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_arc_mut(index)?,
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid)?,
+        };
+
+        self.queued_events.push(AssetEvent::Modified { id });
+        // This clones the asset if the asset is aliased.
+        Some(Arc::make_mut(arc))
+    }
+}
+
+impl<A: Asset + FromReflect> Assets<A> {
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id` if it exists.
+    ///
+    /// If the asset is currently aliased (another [`Arc`] or [`Weak`] to this asset exists), the
+    /// asset is "cloned" using reflection.
+    ///
+    /// [`Weak`]: std::sync::Weak
+    pub fn get_reflect_cloned_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id = id.into();
+        let arc = match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_arc_mut(index)?,
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid)?,
+        };
+
+        self.queued_events.push(AssetEvent::Modified { id });
+        if Arc::get_mut(arc).is_some() {
+            // This is a workaround to the lack of polonius (the problem described at
+            // https://rust-lang.github.io/rfcs/2094-nll.html#problem-case-3-conditional-control-flow-across-functions)
+            // Since we can get mutable access to the `Arc` and the value inside the `Arc`, it is
+            // impossible for us to "lose" access in between these calls.
+            return Some(
+                Arc::get_mut(arc)
+                    .expect("the Arc is aliased somehow even though we just got it mutably in `Assets::get_reflect_cloned_mut`."),
+            );
+        }
+
+        let cloned_asset = FromReflect::from_reflect(arc.as_ref()).expect(
+            "could not call `FromReflect::from_reflect` in `Assets::get_reflect_cloned_mut`",
+        );
+        *arc = Arc::new(cloned_asset);
+        Some(Arc::get_mut(arc).expect("the Arc is aliased somehow even though we just cloned it in `Assets::get_reflect_cloned_mut`."))
+    }
+}
+
 /// A mutable iterator over [`Assets`].
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
     dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
-    hash_map: bevy_platform::collections::hash_map::IterMut<'a, Uuid, A>,
+    hash_map: bevy_platform::collections::hash_map::IterMut<'a, Uuid, Arc<A>>,
 }
 
 impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
-    type Item = (AssetId<A>, &'a mut A);
+    type Item = (AssetId<A>, &'a mut Arc<A>);
 
     fn next(&mut self) -> Option<Self::Item> {
         for (i, entry) in &mut self.dense_storage {
@@ -643,6 +731,14 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
 pub struct InvalidGenerationError {
     index: AssetIndex,
     current_generation: u32,
+}
+
+#[derive(Error, Debug)]
+pub enum MutableAssetError {
+    #[error("asset is not present or has an invalid generation")]
+    Missing,
+    #[error("asset `Arc` is aliased (there is another `Arc` or `Weak` to this asset), so it is not safe to mutate")]
+    Aliased,
 }
 
 #[cfg(test)]

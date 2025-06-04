@@ -8,7 +8,7 @@
 //!
 //! See `cargo run --example many_cubes --release -- --help` for more options.
 
-use std::{f64::consts::PI, str::FromStr};
+use std::{f64::consts::PI, str::FromStr, sync::Arc};
 
 use argh::FromArgs;
 use bevy::{
@@ -489,7 +489,7 @@ fn update_materials(mut materials: ResMut<Assets<StandardMaterial>>, time: Res<T
         let hue = (elapsed + i as f32 * 0.005).rem_euclid(1.0);
         // This is much faster than using base_color.set_hue(hue), and in a tight loop it shows.
         let color = fast_hue_to_rgb(hue);
-        material.base_color = Color::linear_rgb(color.x, color.y, color.z);
+        Arc::make_mut(material).base_color = Color::linear_rgb(color.x, color.y, color.z);
     }
 }
 

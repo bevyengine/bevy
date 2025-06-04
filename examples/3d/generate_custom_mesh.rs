@@ -79,7 +79,7 @@ fn input_handler(
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         let mesh_handle = mesh_query.single().expect("Query not successful");
-        let mesh = meshes.get_mut(mesh_handle).unwrap();
+        let mesh = meshes.get_cloned_mut(mesh_handle).unwrap();
         toggle_texture(mesh);
     }
     if keyboard_input.pressed(KeyCode::KeyX) {

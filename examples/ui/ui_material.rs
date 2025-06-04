@@ -93,7 +93,7 @@ fn animate(
 ) {
     let duration = 2.0;
     for handle in &q {
-        if let Some(material) = materials.get_mut(handle) {
+        if let Some(material) = materials.get_cloned_mut(handle) {
             // rainbow color effect
             let new_color = Color::hsl((time.elapsed_secs() * 60.0) % 360.0, 1., 0.5);
             let border_color = Color::hsl((time.elapsed_secs() * 60.0) % 360.0, 0.75, 0.75);

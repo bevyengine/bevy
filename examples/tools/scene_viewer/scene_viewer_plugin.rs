@@ -113,7 +113,9 @@ fn scene_load_check(
                                 scene_handle.scene_index
                             )
                         });
-                let scene = scenes.get_mut(gltf_scene_handle).unwrap();
+                let scene = scenes
+                    .get_in_place_mut(gltf_scene_handle)
+                    .expect("The asset is missing or is aliased.");
 
                 let mut query = scene
                     .world

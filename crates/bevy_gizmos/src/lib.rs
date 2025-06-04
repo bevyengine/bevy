@@ -129,6 +129,9 @@ use {
     bytemuck::cast_slice,
 };
 
+extern crate alloc;
+
+use alloc::sync::Arc;
 #[cfg(all(
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite"),
@@ -391,7 +394,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
         handles.handles.insert(TypeId::of::<Config>(), None);
     } else if let Some(handle) = handles.handles.get_mut(&TypeId::of::<Config>()) {
         if let Some(handle) = handle {
-            let gizmo = gizmo_assets.get_mut(handle.id()).unwrap();
+            let gizmo = gizmo_assets.get_cloned_mut(handle.id()).unwrap();
 
             gizmo.buffer.list_positions = mem::take(&mut storage.list_positions);
             gizmo.buffer.list_colors = mem::take(&mut storage.list_colors);
@@ -551,7 +554,7 @@ impl RenderAsset for GpuLineGizmo {
     type Param = SRes<RenderDevice>;
 
     fn prepare_asset(
-        gizmo: Self::SourceAsset,
+        gizmo: Arc<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {

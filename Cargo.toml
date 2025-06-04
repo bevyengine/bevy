@@ -1756,6 +1756,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "access_asset_from_async"
+path = "examples/asset/access_asset_from_async.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.access_asset_from_async]
+name = "Access Asset from Async"
+description = "Demonstrates how to access and use assets in an async context"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_settings"
 path = "examples/asset/asset_settings.rs"
 doc-scrape-examples = true

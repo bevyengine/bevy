@@ -258,7 +258,7 @@ fn update_lightmaps(
             }
 
             // Lightmap exposure defaults to zero, so we need to set it.
-            if let Some(ref mut material) = materials.get_mut(material) {
+            if let Some(ref mut material) = materials.get_cloned_mut(material) {
                 material.lightmap_exposure = LIGHTMAP_EXPOSURE;
             }
 
@@ -281,7 +281,7 @@ fn update_lightmaps(
         // Add lightmaps to or remove lightmaps from the sphere.
         if &**name == "Sphere" {
             // Lightmap exposure defaults to zero, so we need to set it.
-            if let Some(ref mut material) = materials.get_mut(material) {
+            if let Some(ref mut material) = materials.get_cloned_mut(material) {
                 material.lightmap_exposure = LIGHTMAP_EXPOSURE;
             }
 

@@ -1,3 +1,4 @@
+use alloc::sync::Arc;
 use core::{hash::Hash, marker::PhantomData, ops::Range};
 
 use crate::*;
@@ -579,7 +580,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     type Param = (SRes<RenderDevice>, SRes<UiMaterialPipeline<M>>, M::Param);
 
     fn prepare_asset(
-        material: Self::SourceAsset,
+        material: Arc<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {

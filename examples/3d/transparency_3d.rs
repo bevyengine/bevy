@@ -2,6 +2,8 @@
 //! Shows the effects of different blend modes.
 //! The `fade_transparency` system smoothly changes the transparency over time.
 
+use std::sync::Arc;
+
 use bevy::{math::ops, prelude::*};
 
 fn main() {
@@ -110,6 +112,6 @@ fn setup(
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let alpha = (ops::sin(time.elapsed_secs()) / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {
-        material.base_color.set_alpha(alpha);
+        Arc::make_mut(material).base_color.set_alpha(alpha);
     }
 }
