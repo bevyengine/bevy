@@ -32,11 +32,12 @@ use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};
 use variadics_please::all_tuples;
 
-/// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
+/// The `Bundle` trait enables insertion of [`Component`]s to an entity.
+/// For the removal of [`Component`]s from an entity see the [`StaticBundle`]`trait`.
 ///
 /// Implementers of the `Bundle` trait are called 'bundles'.
 ///
-/// Each bundle represents a static set of [`Component`] types.
+/// Each bundle represents a possibly dynamic set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
 /// panic once initialized if this is not met.
 ///
@@ -66,15 +67,6 @@ use variadics_please::all_tuples;
 /// contains the components of a bundle.
 /// Queries should instead only select the components they logically operate on.
 ///
-/// ## Removal
-///
-/// Bundles are also used when removing components from an entity.
-///
-/// Removing a bundle from an entity will remove any of its components attached
-/// to the entity from the entity.
-/// That is, if the entity does not have all the components of the bundle, those
-/// which are present will be removed.
-///
 /// # Implementers
 ///
 /// Every type which implements [`Component`] also implements `Bundle`, since
@@ -97,7 +89,23 @@ use variadics_please::all_tuples;
 /// implement `Bundle`.
 /// As explained above, this includes any [`Component`] type, and other derived bundles.
 ///
+/// [`Option`]s containing bundles also implement `Bundle`, and will insert the contained value if they
+/// are `Some`, otherwise they will insert nothing.
+///
+/// Fully ynamic bundles (`Box<dyn Bundle>`) are also supported, and will insert the components held
+/// by the underlying concrete bundle type.
+///
+/// # Deriving `Bundle`
+///
+/// The `Bundle`, [`StaticBundle`] and [`BundleFromComponents`] traits can be automatically implemented
+/// for structs holding other bundles by using the [`derive@Bundle`] derive macro.
+///
+/// In case some of your contained bundles are dynamic, like `Option` bundles and `Box<dyn Bundle>`,
+/// you can use the `#[bundle(dynamic)]` attribute to opt out of deriving [`StaticBundle`] and
+/// [`BundleFromComponents`].
+///
 /// If you want to add `PhantomData` to your `Bundle` you have to mark it with `#[bundle(ignore)]`.
+///
 /// ```
 /// # use std::marker::PhantomData;
 /// use bevy_ecs::{component::Component, bundle::Bundle};
@@ -110,6 +118,18 @@ use variadics_please::all_tuples;
 /// #[derive(Bundle)]
 /// struct PositionBundle {
 ///     // A bundle can contain components
+///     x: XPosition,
+///     y: YPosition,
+/// }
+///
+/// #[derive(Bundle)]
+/// #[bundle(dynamic)]
+/// struct DynamicBundle {
+///     // A bundle needs to use #[bundle(dynamic)]
+///     name: Option<PointName>,
+///     // or if it contains fully dynamic bundles
+///     extra: Box<dyn Bundle>,
+///
 ///     x: XPosition,
 ///     y: YPosition,
 /// }
@@ -141,13 +161,24 @@ use variadics_please::all_tuples;
 /// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`](derive@Bundle).
 ///
 /// [`Query`]: crate::system::Query
+// Some safety points:
+// - [`Bundle::is_static`] must be pure and return `true` only if the set of components contained
+//   in this bundle type is fixed and always the same for every instance;
+// - [`Bundle::is_bounded`] must be pure and return `true` only if the set of components contained
+//   in this bundle type's instances is a subset of a statically known set of components;
+// - [`Bundle::cache_key`] must be pure and return an unique key for each combination of components
+//   contained in this bundle's instance;
+// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
+// bundle, in the _exact_ order that [`ComponentsFromBundle::get_components`] is called.
+// - [`ComponentsFromBundle::get_components`] must call `func` exactly once for each [`ComponentId`] returned by
+//   [`Bundle::component_ids`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Bundle`",
     label = "invalid `Bundle`",
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
 pub unsafe trait Bundle: BundleDyn + ComponentsFromBundle + Send + Sync + 'static {
-    /// Whether this is a [`StaticBundle`] or not. In case this is a [`StaticBundle`] the associated
+    /// Whether this is a static bundle or not. In case this is a static bundle the associated
     /// [`BundleId`] and [`BundleInfo`] are known to be unique and can be cached by this type's [`TypeId`].
     ///
     /// This is a hack to work around the lack of specialization.
@@ -190,13 +221,19 @@ pub unsafe trait Bundle: BundleDyn + ComponentsFromBundle + Send + Sync + 'stati
     );
 }
 
-/// Each `StaticBundle` represents a static set of [`Component`] types.
-/// Currently, bundles can only contain one of each [`Component`], and will
-/// panic once initialized if this is not met.
+/// Each bundle represents a static and fixed set of [`Component`] types.
+/// See the [`Bundle`] trait for a possibly dynamic set of [`Component`] types.
 ///
-/// Implementers of the `StaticBundle` trait are called 'static bundles'.
+/// Implementers of the `Bundle` trait are called 'static bundles'.
 ///
-/// See also the [`Bundle`] trait.
+/// ## Removal
+///
+/// Static bundles are used when removing components from an entity.
+///
+/// Removing a bundle from an entity will remove any of its components attached
+/// to the entity from the entity.
+/// That is, if the entity does not have all the components of the bundle, those
+/// which are present will be removed.
 ///
 /// # Safety
 ///
@@ -204,10 +241,7 @@ pub unsafe trait Bundle: BundleDyn + ComponentsFromBundle + Send + Sync + 'stati
 /// That is, there is no safe way to implement this trait, and you must not do so.
 /// If you want a type to implement [`StaticBundle`], you must use [`derive@Bundle`](derive@Bundle).
 // Some safety points:
-// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
-// bundle, in the _exact_ order that [`ComponentsFromBundle::get_components`] is called.
-// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
-//   [`Bundle::component_ids`].
+// - [`StaticBundle::component_ids`] and [`StaticBundle::get_component_ids`] must match the behaviour of [`Bundle::component_ids`]
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `StaticBundle`",
     label = "invalid `StaticBundle`",
@@ -230,21 +264,17 @@ pub unsafe trait StaticBundle: Send + Sync + 'static {
     );
 }
 
-/// Creates a [`Bundle`] by taking it from internal storage.
+/// Creates a bundle by taking it from the internal storage.
 ///
 /// # Safety
 ///
 /// Manual implementations of this trait are unsupported.
 /// That is, there is no safe way to implement this trait, and you must not do so.
 /// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`](derive@Bundle).
-///
-/// [`Query`]: crate::system::Query
 // Some safety points:
-// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
-// bundle, in the _exact_ order that [`ComponentsFromBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
-pub unsafe trait BundleFromComponents {
+pub unsafe trait BundleFromComponents: StaticBundle {
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's [`Component`]s
     ///
@@ -277,8 +307,10 @@ pub trait ComponentsFromBundle {
         Self: Sized;
 }
 
-/// TODO
+/// The dyn-compatible version of [`Bundle`]. This is used to support `Box<dyn Bundle>`.
+#[doc(hidden)]
 pub trait BundleDyn {
+    /// This is the dyn-compatible version of [`Bundle::component_ids`].
     #[doc(hidden)]
     fn component_ids_dyn(
         &self,
@@ -286,6 +318,7 @@ pub trait BundleDyn {
         ids: &mut dyn FnMut(ComponentId),
     );
 
+    /// This is the dyn-compatible version of [`ComponentsFromBundle::get_components`].
     #[doc(hidden)]
     fn get_components_dyn(
         self: Box<Self>,
@@ -310,7 +343,11 @@ impl<B: Bundle> BundleDyn for B {
     }
 }
 
-// Safety: TODO
+// Safety:
+// - `is_static` and `is_bounded` are false because `Box<dyn Bundle>` could represent any bundle at runtime;
+// - `cache_key` is irrelevant because `is_bounded` is false;
+// - `component_ids` and `get_components` are implemented coherently because `component_ids_dyn` and
+//   `get_components_dyn` are implemented in terms of the underlying bundle's `component_ids` and `get_components`.
 unsafe impl Bundle for Box<dyn Bundle> {
     fn is_static() -> bool {
         false
@@ -362,7 +399,8 @@ pub trait BundleEffect: BundleEffectDyn {
     fn apply(self, entity: &mut EntityWorldMut);
 }
 
-/// TODO
+/// The dyn-compatible version of [`BundleEffect`]. This is used to support `Box<dyn BundleEffect>`.
+#[doc(hidden)]
 pub trait BundleEffectDyn {
     #[doc(hidden)]
     fn apply_dyn(self: Box<Self>, entity: &mut EntityWorldMut);
@@ -381,11 +419,15 @@ impl BundleEffect for Box<dyn BundleEffect> {
 }
 
 // SAFETY:
-// - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
-// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
+// - `C` always represents the set of components containing just `C`
+// - `component_ids` and `get_component_ids` both call `ids` just once for C's component id (and nothing else).
 unsafe impl<C: Component> StaticBundle for C {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
+    }
+
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+        ids(components.get_id(TypeId::of::<C>()));
     }
 
     fn register_required_components(
@@ -401,13 +443,13 @@ unsafe impl<C: Component> StaticBundle for C {
             &mut Vec::new(),
         );
     }
-
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
-        ids(components.get_id(TypeId::of::<C>()));
-    }
 }
 
-// SAFETY: see the corresponding implementation of `StaticBundle`
+// SAFETY:
+// - C is a static bundle, hence both `is_static` and `is_bounded` are true;
+// - `cache_key` doesn't matter because `is_static` is true;
+// - `component_ids` calls `ids` for C's component id (and nothing else)
+// - `get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
     fn is_static() -> bool {
         true
@@ -473,11 +515,9 @@ macro_rules! tuple_impl {
         )]
         $(#[$meta])*
         // SAFETY:
-        // - `StaticBundle::component_ids` calls `ids` for each component type in the
-        // bundle, in the exact order that `ComponentsFromBundle::get_components` is called.
-        // - `StaticBundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
-        // - `StaticBundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
-        //   `StorageType` into the callback.
+        // - all the sub-bundles are static, and hence their combination is static too;
+        // - `component_ids` and `get_component_ids` both delegate to the sub-bundle's methods
+        //   exactly once per sub-bundle, hence they are coherent.
         unsafe impl<$($name: StaticBundle),*> StaticBundle for ($($name,)*) {
             fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
                 $(<$name as StaticBundle>::component_ids(components, ids);)*
@@ -505,7 +545,14 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
-        // SAFETY: see the corresponding implementation of `StaticBundle`
+        // SAFETY:
+        // - if all sub-bundles are static then this bundle is static too;
+        // - if all sub-bundles are bounded by some sets then this bundle is bounded by their union;
+        // - `cache_key` ORs together the keys of the sub-bundles in order to compute a combined key; since
+        //   no bits is overlapped and the original keys were associated to unique combinations, this new key
+        //   is also associated with an unique combination;
+        // - `component_ids` calls `ids` for each component type in the bundle, in the exact order that
+        //   `get_components` is called.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             fn is_static() -> bool {
                 true $(&& <$name as Bundle>::is_static())*
@@ -526,12 +573,12 @@ macro_rules! tuple_impl {
 
                 $(
                     let (sub_key, sub_size) = $name.cache_key();
-
                     key |= sub_key << size;
-
                     size += sub_size;
-
-                    // Bail out if size is too big
+                    // Bail out if size is too big, this avoids overflow errors when shifting
+                    // left by the size.
+                    // Returning anything with a size bigger than 64 is fine because that
+                    // signals that the key could not be compute.
                     if size > 64 {
                         return (0, 65);
                     }
@@ -2422,13 +2469,22 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
     });
 }
 
-// SAFETY: TODO
+// SAFETY:
+// - `is_static` is false because `Option<T>` could either include all the components in `T`
+//   or none of them
+// - `is_bounded` is the same as the underlying `T`, since `Option<T>` adds the possibility
+//   of having none of the components in the bounding set, but doesn't change the bound.
+// - `cache_key` returns either the key of the underlying bundle with a 0 appended to the right
+//   or a 1, and hence are different for every combination.
+// - `component_ids` either calls `ids` for all components in the underlying bundle or none at all;
+//   if it calls it it means `self` is `Some` and hence `get_components` will also call `func` for
+//   all of them in the same order.
 unsafe impl<T: Bundle> Bundle for Option<T> {
     fn is_static() -> bool {
         false
     }
     fn is_bounded() -> bool {
-        true
+        T::is_bounded()
     }
 
     fn cache_key(&self) -> (u64, usize) {

@@ -316,8 +316,6 @@ unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
-    // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
-    // always a `StaticBundle`.
     fn is_static() -> bool {
         <R::RelationshipTarget as Bundle>::is_static()
     }
@@ -326,6 +324,9 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     }
 
     fn cache_key(&self) -> (u64, usize) {
+        // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
+        // always a `StaticBundle`. However we don't have an instance yet, so we can't delegate
+        // cache_key to it.
         (0, 0)
     }
 

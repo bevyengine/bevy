@@ -1995,7 +1995,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[must_use]
     #[track_caller]
-    pub fn take<T: StaticBundle + BundleFromComponents>(&mut self) -> Option<T> {
+    pub fn take<T: BundleFromComponents>(&mut self) -> Option<T> {
         let location = self.location();
         let entity = self.entity;
 

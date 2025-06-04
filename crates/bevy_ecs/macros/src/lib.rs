@@ -134,9 +134,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let static_bundle_impl = (!is_dynamic).then(|| quote! {
         // SAFETY:
-        // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
-        // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
-        //   the correct `StorageType` into the callback.
+        // - all the active fields must implement `StaticBundle` for the function bodies to compile, and hence
+        //   this bundle also represents a static set of components;
+        // - `component_ids` and `get_component_ids` delegate to the underlying implementation in the same order
+        //   and hence are coherent;
         #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::StaticBundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
@@ -163,7 +164,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     });
 
     let bundle_impl = quote! {
-        // SAFETY: see the corresponding implementation of `StaticBundle`
+        // SAFETY:
+        // - if all sub-bundles are static then this bundle is static too;
+        // - if all sub-bundles are bounded by some sets then this bundle is bounded by their union;
+        // - `cache_key` ORs together the keys of the sub-bundles in order to compute a combined key; since
+        //   no bits is overlapped and the original keys were associated to unique combinations, this new key
+        //   is also associated with an unique combination;
+        // - `component_ids` calls `ids` for each component type in the bundle, in the exact order that
+        //   `get_components` is called.
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn is_static() -> bool {
                 true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::is_static())*
@@ -180,7 +188,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     let (sub_key, sub_size) = <#active_field_types as #ecs_path::bundle::Bundle>::cache_key(&self.#active_field_tokens);
                     key |= sub_key << size;
                     size += sub_size;
-                    // Bail out if size is too big
+                    // Bail out if size is too big, this avoids overflow errors when shifting
+                    // left by the size.
+                    // Returning anything with a size bigger than 64 is fine because that
+                    // signals that the key could not be compute.
                     if size > 64 {
                         return (0, 65);
                     }
