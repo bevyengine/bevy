@@ -96,7 +96,7 @@ fn calculate_emissive_mesh_contribution(light_sample: LightSample, instance_id: 
     let light_distance = distance(ray_origin, triangle_data.world_position);
     let ray_direction = (triangle_data.world_position - ray_origin) / light_distance;
     let cos_theta_origin = saturate(dot(ray_direction, origin_world_normal));
-    let cos_theta_light = dot(-ray_direction, triangle_data.world_normal);
+    let cos_theta_light = saturate(dot(-ray_direction, triangle_data.world_normal));
     let light_distance_squared = light_distance * light_distance;
 
     let radiance = triangle_data.material.emissive.rgb * cos_theta_origin * (cos_theta_light / light_distance_squared);
