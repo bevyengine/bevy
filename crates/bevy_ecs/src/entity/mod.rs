@@ -184,7 +184,47 @@ impl SparseSetIndex for EntityRow {
 /// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityRow`].
 ///
 /// This should be treated as a opaque identifier, and its internal representation may be subject to change.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display)]
+///
+/// # Ordering
+///
+/// [`EntityGeneration`] implements [`Ord`].
+/// Generations that are later will be [`Greater`](core::cmp::Ordering::Greater) than earlier ones.
+///
+/// ```
+/// # use bevy_ecs::entity::EntityGeneration;
+/// assert!(EntityGeneration::FIRST < EntityGeneration::FIRST.after_versions(400));
+/// let (aliased, did_alias) = EntityGeneration::FIRST.after_versions(400).after_versions_and_could_alias(u32::MAX);
+/// assert!(did_alias);
+/// assert!(EntityGeneration::FIRST < aliased);
+/// ```
+///
+/// Ordering will be incorrect for distant generations:
+///
+/// ```
+/// # use bevy_ecs::entity::EntityGeneration;
+/// // This ordering is wrong!
+/// assert!(EntityGeneration::FIRST > EntityGeneration::FIRST.after_versions(400 + (1u32 << 31)));
+/// ```
+///
+/// This strange behavior needed to account for aliasing.
+///
+/// # Aliasing
+///
+/// Internally [`EntityGeneration`] wraps a `u32`, so it can't represent *every* possible generation.
+/// Eventually, generations can (and do) wrap or alias.
+/// This can cause [`Entity`] and [`EntityGeneration`] values to be equal while still referring to different conceptual entities.
+/// This can cause some surprising behavior:
+///
+/// ```
+/// # use bevy_ecs::entity::EntityGeneration;
+/// let (aliased, did_alias) = EntityGeneration::FIRST.after_versions(1u32 << 31).after_versions_and_could_alias(1u32 << 31);
+/// assert!(did_alias);
+/// assert!(EntityGeneration::FIRST == aliased);
+/// ```
+///
+/// This can cause some unintended side effects.
+/// See [`Entity`] docs for practical concerns and how to minimize any risks.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Display)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
@@ -228,15 +268,41 @@ impl EntityGeneration {
     }
 }
 
+impl PartialOrd for EntityGeneration {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for EntityGeneration {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        let diff = self.0.wrapping_sub(other.0);
+        (1u32 << 31).cmp(&diff)
+    }
+}
+
 /// Lightweight identifier of an [entity](crate::entity).
 ///
-/// The identifier is implemented using a [generational index]: a combination of an index and a generation.
+/// The identifier is implemented using a [generational index]: a combination of an index ([`EntityRow`]) and a generation ([`EntityGeneration`]).
 /// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
 ///
 /// These identifiers are only valid on the [`World`] it's sourced from. Attempting to use an `Entity` to
 /// fetch entity components or metadata from a different world will either fail or return unexpected results.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+///
+/// # Aliasing
+///
+/// Once an entity is despawned, it ceases to exist.
+/// However, its [`Entity`] id is still present, and may still be contained in some data.
+/// This becomes problematic because it is possible for a later entity to be spawned at the exact same id!
+/// If this happens, which is rare but very possible, it will be logged.
+///
+/// Aliasing can happen without warning.
+/// Holding onto a [`Entity`] id corresponding to an entity well after that entity was despawned can cause un-intuitive behavior for both ordering, and comparing in general.
+/// To prevent these bugs, it is generally best practice to stop holding an [`Entity`] or [`EntityGeneration`] value as soon as you know it has been despawned.
+/// If you must do otherwise, do not assume the [`Entity`] corresponds to the same conceptual entity it originally did.
+/// See [`EntityGeneration`]'s docs for more information about aliasing and why it occurs.
 ///
 /// # Stability warning
 /// For all intents and purposes, `Entity` should be treated as an opaque identifier. The internal bit
@@ -820,8 +886,10 @@ impl Entities {
 
     /// Destroy an entity, allowing it to be reused.
     ///
+    /// Returns the `Option<EntityLocation>` of the entity or `None` if the `entity` was not present.
+    ///
     /// Must not be called while reserved entities are awaiting `flush()`.
-    pub fn free(&mut self, entity: Entity) -> Option<EntityLocation> {
+    pub fn free(&mut self, entity: Entity) -> Option<EntityIdLocation> {
         self.verify_flushed();
 
         let meta = &mut self.meta[entity.index() as usize];
@@ -883,20 +951,21 @@ impl Entities {
         *self.free_cursor.get_mut() = 0;
     }
 
-    /// Returns the location of an [`Entity`].
-    /// Note: for pending entities, returns `None`.
+    /// Returns the [`EntityLocation`] of an [`Entity`].
+    /// Note: for pending entities and entities not participating in the ECS (entities with a [`EntityIdLocation`] of `None`), returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        if let Some(meta) = self.meta.get(entity.index() as usize) {
-            if meta.generation != entity.generation
-                || meta.location.archetype_id == ArchetypeId::INVALID
-            {
-                return None;
-            }
-            Some(meta.location)
-        } else {
-            None
-        }
+        self.get_id_location(entity).flatten()
+    }
+
+    /// Returns the [`EntityIdLocation`] of an [`Entity`].
+    /// Note: for pending entities, returns `None`.
+    #[inline]
+    pub fn get_id_location(&self, entity: Entity) -> Option<EntityIdLocation> {
+        self.meta
+            .get(entity.index() as usize)
+            .filter(|meta| meta.generation == entity.generation)
+            .map(|meta| meta.location)
     }
 
     /// Updates the location of an [`Entity`].
@@ -907,7 +976,7 @@ impl Entities {
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
+    pub(crate) unsafe fn set(&mut self, index: u32, location: EntityIdLocation) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
         meta.location = location;
@@ -935,7 +1004,7 @@ impl Entities {
         }
 
         let meta = &mut self.meta[index as usize];
-        if meta.location.archetype_id == ArchetypeId::INVALID {
+        if meta.location.is_none() {
             meta.generation = meta.generation.after_versions(generations);
             true
         } else {
@@ -970,6 +1039,8 @@ impl Entities {
     /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
     /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
     ///
+    /// See [`EntityLocation`] for details on its meaning and how to set it.
+    ///
     /// # Safety
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
     /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
@@ -979,7 +1050,7 @@ impl Entities {
     /// to be initialized with the invalid archetype.
     pub unsafe fn flush(
         &mut self,
-        mut init: impl FnMut(Entity, &mut EntityLocation),
+        mut init: impl FnMut(Entity, &mut EntityIdLocation),
         by: MaybeLocation,
         at: Tick,
     ) {
@@ -1024,7 +1095,7 @@ impl Entities {
         unsafe {
             self.flush(
                 |_entity, location| {
-                    location.archetype_id = ArchetypeId::INVALID;
+                    *location = None;
                 },
                 by,
                 at,
@@ -1112,7 +1183,7 @@ impl Entities {
             .filter(|meta|
             // Generation is incremented immediately upon despawn
             (meta.generation == entity.generation)
-            || (meta.location.archetype_id == ArchetypeId::INVALID)
+            || meta.location.is_none()
             && (meta.generation == entity.generation.after_versions(1)))
             .map(|meta| meta.spawned_or_despawned)
     }
@@ -1137,11 +1208,7 @@ impl Entities {
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for meta in &mut self.meta {
-            if meta.generation != EntityGeneration::FIRST
-                || meta.location.archetype_id != ArchetypeId::INVALID
-            {
-                meta.spawned_or_despawned.at.check_tick(change_tick);
-            }
+            meta.spawned_or_despawned.at.check_tick(change_tick);
         }
     }
 
@@ -1201,9 +1268,9 @@ impl fmt::Display for EntityDoesNotExistDetails {
 #[derive(Copy, Clone, Debug)]
 struct EntityMeta {
     /// The current [`EntityGeneration`] of the [`EntityRow`].
-    pub generation: EntityGeneration,
+    generation: EntityGeneration,
     /// The current location of the [`EntityRow`].
-    pub location: EntityLocation,
+    location: EntityIdLocation,
     /// Location and tick of the last spawn, despawn or flush of this entity.
     spawned_or_despawned: SpawnedOrDespawned,
 }
@@ -1218,7 +1285,7 @@ impl EntityMeta {
     /// meta for **pending entity**
     const EMPTY: EntityMeta = EntityMeta {
         generation: EntityGeneration::FIRST,
-        location: EntityLocation::INVALID,
+        location: None,
         spawned_or_despawned: SpawnedOrDespawned {
             by: MaybeLocation::caller(),
             at: Tick::new(0),
@@ -1250,15 +1317,15 @@ pub struct EntityLocation {
     pub table_row: TableRow,
 }
 
-impl EntityLocation {
-    /// location for **pending entity** and **invalid entity**
-    pub(crate) const INVALID: EntityLocation = EntityLocation {
-        archetype_id: ArchetypeId::INVALID,
-        archetype_row: ArchetypeRow::INVALID,
-        table_id: TableId::INVALID,
-        table_row: TableRow::INVALID,
-    };
-}
+/// An [`Entity`] id may or may not correspond to a valid conceptual entity.
+/// If it does, the conceptual entity may or may not have a location.
+/// If it has no location, the [`EntityLocation`] will be `None`.
+/// An location of `None` means the entity effectively does not exist; it has an id, but is not participating in the ECS.
+/// This is different from a location in the empty archetype, which is participating (queryable, etc) but just happens to have no components.
+///
+/// Setting a location to `None` is often helpful when you want to destruct an entity or yank it from the ECS without allowing another system to reuse the id for something else.
+/// It is also useful for reserving an id; commands will often allocate an `Entity` but not provide it a location until the command is applied.
+pub type EntityIdLocation = Option<EntityLocation>;
 
 #[cfg(test)]
 mod tests {

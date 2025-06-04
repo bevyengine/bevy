@@ -182,7 +182,7 @@ impl Plugin for UiPlugin {
             .register_type::<TextShadow>()
             .register_type::<ColorStop>()
             .register_type::<AngularColorStop>()
-            .register_type::<Position>()
+            .register_type::<UiPosition>()
             .register_type::<RadialGradientShape>()
             .register_type::<Gradient>()
             .register_type::<BackgroundGradient>()

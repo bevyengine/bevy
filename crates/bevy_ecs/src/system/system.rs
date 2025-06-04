@@ -76,6 +76,10 @@ pub trait System: Send + Sync + 'static {
     unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
         -> Self::Out;
 
+    /// Refresh the inner pointer based on the latest hot patch jump table
+    #[cfg(feature = "hotpatching")]
+    fn refresh_hotpatch(&mut self);
+
     /// Runs the system with the given input in the world.
     ///
     /// For [read-only](ReadOnlySystem) systems, see [`run_readonly`], which can be called using `&World`.
