@@ -140,15 +140,18 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle + use<>
 
 fn toggle_disabled(
     input: Res<ButtonInput<KeyCode>>,
-    mut interaction_query: Query<&mut InteractionDisabled, With<CoreButton>>,
+    mut interaction_query: Query<(Entity, &InteractionDisabled), With<CoreButton>>,
+    mut commands: Commands,
 ) {
     if input.just_pressed(KeyCode::KeyD) {
-        for mut disabled in &mut interaction_query {
-            disabled.0 = !disabled.0;
+        for (entity, disabled) in &mut interaction_query {
+            // disabled.0 = !disabled.0;
             if disabled.get() {
                 info!("Button enabled");
+                commands.entity(entity).insert(InteractionDisabled(false));
             } else {
                 info!("Button disabled");
+                commands.entity(entity).insert(InteractionDisabled(true));
             }
         }
     }
