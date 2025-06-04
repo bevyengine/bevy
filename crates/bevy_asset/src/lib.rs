@@ -677,7 +677,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
+        AssetPlugin, AssetServer, Assets, LoadDirectError, LoadState, UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -1840,7 +1840,7 @@ mod tests {
 
         impl AssetLoader for NestedLoadOfSubassetLoader {
             type Asset = TestAsset;
-            type Error = crate::loader::LoadDirectError;
+            type Error = LoadDirectError;
             type Settings = ();
 
             async fn load(
@@ -1985,6 +1985,96 @@ mod tests {
                 // TODO: Check the error message matches here.
                 Some(())
             }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+    }
+
+    #[test]
+    fn no_error_for_diamond_duplicate_subasset_names_in_immediate_nested_assets() {
+        // While we want to ban duplicate subasset names within an asset, having two nested assets
+        // that reuse a subasset name should be supported (since these subasset names are not owned
+        // by the root asset).
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new("a.root"), "");
+        dir.insert_asset_text(Path::new("b.nest"), "");
+        dir.insert_asset_text(Path::new("c.nest"), "");
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+        )
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+
+        struct NestedAssetLoader;
+
+        impl AssetLoader for NestedAssetLoader {
+            type Asset = TestAsset;
+            type Error = std::io::Error;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                load_context.add_labeled_asset("Duplicate".into(), TestAsset);
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["nest"]
+            }
+        }
+
+        struct DiamondDuplicateSubassetLoader;
+
+        impl AssetLoader for DiamondDuplicateSubassetLoader {
+            type Asset = TestAsset;
+            type Error = LoadDirectError;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let b = load_context
+                    .loader()
+                    .immediate()
+                    .load::<TestAsset>("b.nest")
+                    .await?;
+                let c = load_context
+                    .loader()
+                    .immediate()
+                    .load::<TestAsset>("c.nest")
+                    .await?;
+
+                load_context.add_loaded_labeled_asset("B", b);
+                load_context.add_loaded_labeled_asset("C", c);
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["root"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .init_asset::<SubText>()
+            .register_asset_loader(NestedAssetLoader)
+            .register_asset_loader(DiamondDuplicateSubassetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<TestAsset>("a.root");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Loaded => Some(()),
             state => panic!("Unexpected asset state: {state:?}"),
         });
     }
