@@ -2560,6 +2560,8 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
 /// This will cause the system to fail, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
 ///
+/// Use [`Option<Single<D, F>>`] instead to run the system but get `None` when there are zero or multiple matching entities.
+///
 /// Use [`When<Single<D, F>>`](crate::system::When) instead to skip the system when there are zero or multiple matching entities.
 ///
 /// See [`Query`] for more details.
