@@ -3,7 +3,7 @@ use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
     component::Component,
     observer::Trigger,
-    world::{DeferredWorld, OnAdd, OnRemove, OnReplace},
+    world::{DeferredWorld, OnInsert, OnRemove},
 };
 
 /// A component indicating that a widget is disabled and should be "grayed out".
@@ -15,6 +15,7 @@ use bevy_ecs::{
 /// same entity that contains the `AccessibilityNode` component. This will ensure that
 /// the a11y tree is updated correctly.
 #[derive(Component, Debug, Clone, Copy, Default)]
+#[component(immutable)]
 pub struct InteractionDisabled(pub bool);
 
 impl InteractionDisabled {
@@ -24,13 +25,22 @@ impl InteractionDisabled {
     }
 }
 
-pub(crate) fn on_add_disabled(
-    trigger: Trigger<OnAdd, InteractionDisabled>,
+pub(crate) fn on_insert_disabled(
+    trigger: Trigger<OnInsert, InteractionDisabled>,
     mut world: DeferredWorld,
 ) {
+    let is_disabled = world
+        .entity(trigger.target())
+        .get::<InteractionDisabled>()
+        .map(InteractionDisabled::get)
+        .unwrap_or_default();
     let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
-        accessibility.set_disabled();
+        if is_disabled {
+            accessibility.set_disabled();
+        } else {
+            accessibility.clear_disabled();
+        }
     }
 }
 
@@ -68,18 +78,7 @@ impl Checked {
     }
 }
 
-pub(crate) fn on_add_checked(trigger: Trigger<OnAdd, Checked>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target());
-    let checked = entity.get::<Checked>().unwrap().get();
-    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
-        accessibility.set_toggled(match checked {
-            true => accesskit::Toggled::True,
-            false => accesskit::Toggled::False,
-        });
-    }
-}
-
-pub(crate) fn on_replace_checked(trigger: Trigger<OnReplace, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_insert_checked(trigger: Trigger<OnInsert, Checked>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(trigger.target());
     let checked = entity.get::<Checked>().unwrap().get();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {

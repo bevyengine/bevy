@@ -321,11 +321,10 @@ fn build_text_interop(app: &mut App) {
 
     app.add_plugins(accessibility::AccessibilityPlugin);
 
-    app.add_observer(interaction_states::on_add_disabled)
+    app.add_observer(interaction_states::on_insert_disabled)
         .add_observer(interaction_states::on_remove_disabled)
-        .add_observer(interaction_states::on_add_checked)
-        .add_observer(interaction_states::on_remove_checked)
-        .add_observer(interaction_states::on_replace_checked);
+        .add_observer(interaction_states::on_insert_checked)
+        .add_observer(interaction_states::on_remove_checked);
 
     app.configure_sets(
         PostUpdate,
