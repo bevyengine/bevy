@@ -3019,7 +3019,7 @@ impl World {
     /// Note that the components need to be registered first, this function only creates a bundle combining them. Components
     /// can be registered with [`World::register_component`]/[`_with_descriptor`](World::register_component_with_descriptor).
     ///
-    /// **You should prefer to use the typed API [`World::register_bundle`] where possible and only use this in cases where
+    /// **You should prefer to use the typed API [`World::register_static_bundle`] where possible and only use this in cases where
     /// not all of the actual types are known at compile time.**
     ///
     /// # Panics

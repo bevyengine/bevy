@@ -1,7 +1,7 @@
 use core::hint::black_box;
 
 use benches::bench;
-use bevy_ecs::bundle::Bundle;
+use bevy_ecs::bundle::{Bundle, StaticBundle};
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::entity::EntityCloner;
 use bevy_ecs::hierarchy::ChildOf;
@@ -53,7 +53,7 @@ type ComplexBundle = (C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
 
 /// Sets the [`ComponentCloneHandler`] for all explicit and required components in a bundle `B` to
 /// use the [`Reflect`] trait instead of [`Clone`].
-fn reflection_cloner<B: Bundle + GetTypeRegistration>(
+fn reflection_cloner<B: StaticBundle + GetTypeRegistration>(
     world: &mut World,
     linked_cloning: bool,
 ) -> EntityCloner {
@@ -95,7 +95,7 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration>(
 /// components (which is usually [`ComponentCloneHandler::clone_handler()`]). If `clone_via_reflect`
 /// is true, it will overwrite the handler for all components in the bundle to be
 /// [`ComponentCloneHandler::reflect_handler()`].
-fn bench_clone<B: Bundle + Default + GetTypeRegistration>(
+fn bench_clone<B: Bundle + StaticBundle + Default + GetTypeRegistration>(
     b: &mut Bencher,
     clone_via_reflect: bool,
 ) {
@@ -127,7 +127,7 @@ fn bench_clone<B: Bundle + Default + GetTypeRegistration>(
 /// For example, setting `height` to 5 and `children` to 1 creates a single chain of entities with
 /// no siblings. Alternatively, setting `height` to 1 and `children` to 5 will spawn 5 direct
 /// children of the root entity.
-fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
+fn bench_clone_hierarchy<B: Bundle + StaticBundle + Default + GetTypeRegistration>(
     b: &mut Bencher,
     height: usize,
     children: usize,
