@@ -1,4 +1,4 @@
-#import bevy_core_pipeline::tonemapping::tonemapping_luminance
+#import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
@@ -62,7 +62,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             throughput *= (diffuse_brdf * cos_theta) / cosine_hemisphere_pdf;
 
             // Russian roulette for early termination
-            let p = tonemapping_luminance(throughput);
+            let p = luminance(throughput);
             if rand_f(&rng) > p { break; }
             throughput /= p;
         } else { break; }
