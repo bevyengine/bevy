@@ -241,7 +241,7 @@ pub unsafe trait Bundle: BundleDyn + ComponentsFromBundle + Send + Sync + 'stati
 /// That is, there is no safe way to implement this trait, and you must not do so.
 /// If you want a type to implement [`StaticBundle`], you must use [`derive@Bundle`](derive@Bundle).
 // Some safety points:
-// - [`StaticBundle::component_ids`] and [`StaticBundle::get_component_ids`] must match the behaviour of [`Bundle::component_ids`]
+// - [`StaticBundle::component_ids`] and [`StaticBundle::get_component_ids`] must match the behavior of [`Bundle::component_ids`]
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `StaticBundle`",
     label = "invalid `StaticBundle`",
