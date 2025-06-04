@@ -99,7 +99,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let mut active_field_types = Vec::new();
     let mut active_field_tokens = Vec::new();
-    let mut field_from_components = Vec::new();
+    let mut inactive_field_tokens = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
         .iter()
         .enumerate()
@@ -110,21 +110,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             Some(field) => field.to_token_stream(),
             None => Index::from(i).to_token_stream(),
         };
-
         match field_kind {
             BundleFieldKind::Component => {
-                field_from_components.push(quote! {
-                    #field_tokens: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                });
-
                 active_field_types.push(field_type);
                 active_field_tokens.push(field_tokens);
             }
-
             BundleFieldKind::Ignore => {
-                field_from_components.push(quote! {
-                    #field_tokens: ::core::default::Default::default(),
-                });
+                inactive_field_tokens.push(field_tokens);
             }
         }
     }
@@ -229,7 +221,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
             {
                 Self{
-                    #(#field_from_components)*
+                    #(#active_field_tokens: <#active_field_types as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),)*
+                    #(#inactive_field_tokens: ::core::default::Default::default(),)*
                 }
             }
         }
