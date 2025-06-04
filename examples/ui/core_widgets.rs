@@ -20,7 +20,10 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, (button_system, toggle_disabled))
+        .add_systems(
+            Update,
+            (update_button_style, update_button_style2, toggle_disabled),
+        )
         .run();
 }
 
@@ -28,12 +31,12 @@ const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
-fn button_system(
+fn update_button_style(
     mut buttons: Query<
         (
             &Depressed,
             &IsHovered,
-            &InteractionDisabled,
+            Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
@@ -42,7 +45,7 @@ fn button_system(
             Or<(
                 Changed<Depressed>,
                 Changed<IsHovered>,
-                Changed<InteractionDisabled>,
+                Added<InteractionDisabled>,
             )>,
             With<CoreButton>,
         ),
@@ -51,34 +54,85 @@ fn button_system(
 ) {
     for (depressed, hovered, disabled, mut color, mut border_color, children) in &mut buttons {
         let mut text = text_query.get_mut(children[0]).unwrap();
-        match (disabled.get(), hovered.get(), depressed.0) {
-            // Disabled button
-            (true, _, _) => {
-                **text = "Disabled".to_string();
-                *color = NORMAL_BUTTON.into();
-                border_color.0 = GRAY.into();
-            }
+        set_button_style(
+            disabled,
+            hovered.get(),
+            depressed.get(),
+            &mut color,
+            &mut border_color,
+            &mut text,
+        );
+    }
+}
 
-            // Pressed and hovered button
-            (false, true, true) => {
-                **text = "Press".to_string();
-                *color = PRESSED_BUTTON.into();
-                border_color.0 = RED.into();
-            }
+/// Supplementary system to detect removed marker components
+fn update_button_style2(
+    mut buttons: Query<
+        (
+            &Depressed,
+            &IsHovered,
+            Has<InteractionDisabled>,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        (With<CoreButton>,),
+    >,
+    mut removed_disabled: RemovedComponents<InteractionDisabled>,
+    mut text_query: Query<&mut Text>,
+) {
+    removed_disabled.read().for_each(|entity| {
+        if let Ok((depressed, hovered, disabled, mut color, mut border_color, children)) =
+            buttons.get_mut(entity)
+        {
+            let mut text = text_query.get_mut(children[0]).unwrap();
+            set_button_style(
+                disabled,
+                hovered.get(),
+                depressed.get(),
+                &mut color,
+                &mut border_color,
+                &mut text,
+            );
+        }
+    });
+}
 
-            // Hovered, unpressed button
-            (false, true, false) => {
-                **text = "Hover".to_string();
-                *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
-            }
+fn set_button_style(
+    disabled: bool,
+    hovered: bool,
+    depressed: bool,
+    color: &mut BackgroundColor,
+    border_color: &mut BorderColor,
+    text: &mut Text,
+) {
+    match (disabled, hovered, depressed) {
+        // Disabled button
+        (true, _, _) => {
+            **text = "Disabled".to_string();
+            *color = NORMAL_BUTTON.into();
+            border_color.0 = GRAY.into();
+        }
 
-            // Unhovered button (either pressed or not).
-            (false, false, _) => {
-                **text = "Button".to_string();
-                *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
-            }
+        // Pressed and hovered button
+        (false, true, true) => {
+            **text = "Press".to_string();
+            *color = PRESSED_BUTTON.into();
+            border_color.0 = RED.into();
+        }
+
+        // Hovered, unpressed button
+        (false, true, false) => {
+            **text = "Hover".to_string();
+            *color = HOVERED_BUTTON.into();
+            border_color.0 = Color::WHITE;
+        }
+
+        // Unhovered button (either pressed or not).
+        (false, false, _) => {
+            **text = "Button".to_string();
+            *color = NORMAL_BUTTON.into();
+            border_color.0 = Color::BLACK;
         }
     }
 }
@@ -140,18 +194,18 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle + use<>
 
 fn toggle_disabled(
     input: Res<ButtonInput<KeyCode>>,
-    mut interaction_query: Query<(Entity, &InteractionDisabled), With<CoreButton>>,
+    mut interaction_query: Query<(Entity, Has<InteractionDisabled>), With<CoreButton>>,
     mut commands: Commands,
 ) {
     if input.just_pressed(KeyCode::KeyD) {
         for (entity, disabled) in &mut interaction_query {
             // disabled.0 = !disabled.0;
-            if disabled.get() {
+            if disabled {
                 info!("Button enabled");
-                commands.entity(entity).insert(InteractionDisabled(false));
+                commands.entity(entity).remove::<InteractionDisabled>();
             } else {
                 info!("Button disabled");
-                commands.entity(entity).insert(InteractionDisabled(true));
+                commands.entity(entity).insert(InteractionDisabled);
             }
         }
     }

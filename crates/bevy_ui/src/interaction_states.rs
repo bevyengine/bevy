@@ -15,32 +15,15 @@ use bevy_ecs::{
 /// same entity that contains the `AccessibilityNode` component. This will ensure that
 /// the a11y tree is updated correctly.
 #[derive(Component, Debug, Clone, Copy, Default)]
-#[component(immutable)]
-pub struct InteractionDisabled(pub bool);
-
-impl InteractionDisabled {
-    /// Returns whether the widget is currently disabled.
-    pub fn get(&self) -> bool {
-        self.0
-    }
-}
+pub struct InteractionDisabled;
 
 pub(crate) fn on_insert_disabled(
     trigger: Trigger<OnInsert, InteractionDisabled>,
     mut world: DeferredWorld,
 ) {
-    let is_disabled = world
-        .entity(trigger.target())
-        .get::<InteractionDisabled>()
-        .map(InteractionDisabled::get)
-        .unwrap_or_default();
     let mut entity = world.entity_mut(trigger.target());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
-        if is_disabled {
-            accessibility.set_disabled();
-        } else {
-            accessibility.clear_disabled();
-        }
+        accessibility.set_disabled();
     }
 }
 
