@@ -343,4 +343,19 @@ mod tests {
         // The SceneEntityMapper should leave `Entities` in a flushed state.
         assert!(!world.entities.needs_flush());
     }
+
+    #[test]
+    #[ignore = "todo"]
+    fn entity_mapper_macro_on_tuple_struct() {
+        todo!()
+    }
+
+    #[test]
+    #[ignore = "todo"]
+    fn entity_mapper_macro_on_enum() {
+        // check named variant
+        // check unnamed variant
+        // include #[skip_mapping]
+        todo!()
+    }
 }
