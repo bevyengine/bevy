@@ -332,6 +332,16 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
 
+    /// Remove the relationship between this entity and its last child.
+    pub fn pop_last_child(&mut self) -> &mut Self {
+        self.pop_last_related::<Children, ChildOf>()
+    }
+
+    /// Remove the relationship between this entity and its first child.
+    pub fn pop_first_child(&mut self) -> &mut Self {
+        self.pop_first_related::<Children, ChildOf>()
+    }
+
     /// Spawns the passed bundle and adds it to this entity as a child.
     ///
     /// For efficient spawning of multiple children, use [`with_children`].
@@ -381,6 +391,16 @@ impl<'a> EntityCommands<'a> {
     /// Removes the relationship between this entity and the given entities.
     pub fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         self.remove_related::<ChildOf>(children)
+    }
+
+    /// Remove the relationship between this entity and its last child.
+    pub fn pop_last_child(&mut self) -> &mut Self {
+        self.pop_last_related::<Children, ChildOf>()
+    }
+
+    /// Remove the relationship between this entity and its first child.
+    pub fn pop_first_child(&mut self) -> &mut Self {
+        self.pop_first_related::<Children, ChildOf>()
     }
 
     /// Replaces the children on this entity with a new list of children.
@@ -695,6 +715,23 @@ mod tests {
             hierarchy,
             Node::new_with(root, vec![Node::new(child1), Node::new(child4)])
         );
+    }
+
+    #[test]
+    fn pop_first_and_last_child() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+
+        let mut root = world.spawn_empty();
+        root.add_children(&[child1, child2, child3]);
+        root.pop_first_child();
+        root.pop_last_child();
+        let root = root.id();
+
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(hierarchy, Node::new_with(root, vec![Node::new(child2)]));
     }
 
     #[test]
