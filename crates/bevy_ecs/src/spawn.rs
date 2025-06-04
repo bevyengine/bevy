@@ -219,8 +219,12 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 {
     // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
     // always a `StaticBundle`.
-    const IS_STATIC: bool = <R::RelationshipTarget as Bundle>::IS_STATIC;
-    const IS_BOUNDED: bool = <R::RelationshipTarget as Bundle>::IS_BOUNDED;
+    fn is_static() -> bool {
+        <R::RelationshipTarget as Bundle>::is_static()
+    }
+    fn is_bounded() -> bool {
+        <R::RelationshipTarget as Bundle>::is_bounded()
+    }
 
     fn cache_key(&self) -> (u64, usize) {
         (0, 0)
@@ -314,8 +318,12 @@ unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
     // always a `StaticBundle`.
-    const IS_STATIC: bool = <R::RelationshipTarget as Bundle>::IS_STATIC;
-    const IS_BOUNDED: bool = <R::RelationshipTarget as Bundle>::IS_BOUNDED;
+    fn is_static() -> bool {
+        <R::RelationshipTarget as Bundle>::is_static()
+    }
+    fn is_bounded() -> bool {
+        <R::RelationshipTarget as Bundle>::is_bounded()
+    }
 
     fn cache_key(&self) -> (u64, usize) {
         (0, 0)

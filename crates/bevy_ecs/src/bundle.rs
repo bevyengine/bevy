@@ -152,7 +152,7 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     ///
     /// This is a hack to work around the lack of specialization.
     #[doc(hidden)]
-    const IS_STATIC: bool;
+    fn is_static() -> bool;
 
     /// Whether the set of components this bundle includes is bounded or not. In case it is bounded we
     /// can produce an additional cache key based on which components from the bounded set are included in
@@ -161,7 +161,7 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     ///
     /// This is a hack to work around the lack of specialization.
     #[doc(hidden)]
-    const IS_BOUNDED: bool;
+    fn is_bounded() -> bool;
 
     /// Computes the cache key associated with `self` and its size. The key is limited to 64 bits, and if the
     /// size exceeds that it should be ignored.
@@ -310,8 +310,12 @@ unsafe impl<C: Component> StaticBundle for C {
 
 // SAFETY: see the corresponding implementation of `StaticBundle`
 unsafe impl<C: Component> Bundle for C {
-    const IS_STATIC: bool = true;
-    const IS_BOUNDED: bool = true;
+    fn is_static() -> bool {
+        true
+    }
+    fn is_bounded() -> bool {
+        true
+    }
 
     fn cache_key(&self) -> (u64, usize) {
         (0, 0)
@@ -404,8 +408,12 @@ macro_rules! tuple_impl {
         $(#[$meta])*
         // SAFETY: see the corresponding implementation of `StaticBundle`
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            const IS_STATIC: bool = true $(&& <$name as Bundle>::IS_STATIC)*;
-            const IS_BOUNDED: bool = true $(&& <$name as Bundle>::IS_STATIC)*;
+            fn is_static() -> bool {
+                true $(&& <$name as Bundle>::is_static())*
+            }
+            fn is_bounded() -> bool {
+                true $(&& <$name as Bundle>::is_bounded())*
+            }
 
             fn cache_key(&self) -> (u64, usize) {
                 #[allow(
@@ -2092,7 +2100,7 @@ impl Bundles {
         let bundle_infos = &mut self.bundle_infos;
 
         // Fastest case, we have a static bundle
-        if T::IS_STATIC {
+        if T::is_static() {
             return *self
                 .static_bundle_ids
                 .entry(TypeId::of::<T>())
@@ -2103,7 +2111,7 @@ impl Bundles {
 
         // Optimized case for bounded bundles, e.g. those with conditional components whose
         // key fits in 64 bits.
-        if T::IS_BOUNDED {
+        if T::is_bounded() {
             let (key, size) = bundle.cache_key();
             if size <= 64 {
                 return *self
@@ -2317,8 +2325,12 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 
 // SAFETY: TODO
 unsafe impl<T: Bundle> Bundle for Option<T> {
-    const IS_STATIC: bool = false;
-    const IS_BOUNDED: bool = true;
+    fn is_static() -> bool {
+        false
+    }
+    fn is_bounded() -> bool {
+        true
+    }
 
     fn cache_key(&self) -> (u64, usize) {
         if let Some(this) = self {

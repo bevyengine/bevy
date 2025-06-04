@@ -165,8 +165,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let bundle_impl = quote! {
         // SAFETY: see the corresponding implementation of `StaticBundle`
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
-            const IS_STATIC: bool = true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::IS_STATIC)*;
-            const IS_BOUNDED: bool = true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::IS_BOUNDED)*;
+            fn is_static() -> bool {
+                true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::is_static())*
+            }
+            fn is_bounded() -> bool {
+                true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::is_bounded())*
+            }
 
             fn cache_key(&self) -> (u64, usize) {
                 let mut key = 0;
