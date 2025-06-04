@@ -34,7 +34,7 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 fn update_button_style(
     mut buttons: Query<
         (
-            &Depressed,
+            Has<Depressed>,
             &IsHovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
@@ -57,7 +57,7 @@ fn update_button_style(
         set_button_style(
             disabled,
             hovered.get(),
-            depressed.get(),
+            depressed,
             &mut color,
             &mut border_color,
             &mut text,
@@ -69,18 +69,34 @@ fn update_button_style(
 fn update_button_style2(
     mut buttons: Query<
         (
-            &Depressed,
+            Has<Depressed>,
             &IsHovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
         ),
-        (With<CoreButton>,),
+        With<CoreButton>,
     >,
+    mut removed_depressed: RemovedComponents<Depressed>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut text_query: Query<&mut Text>,
 ) {
+    removed_depressed.read().for_each(|entity| {
+        if let Ok((depressed, hovered, disabled, mut color, mut border_color, children)) =
+            buttons.get_mut(entity)
+        {
+            let mut text = text_query.get_mut(children[0]).unwrap();
+            set_button_style(
+                disabled,
+                hovered.get(),
+                depressed,
+                &mut color,
+                &mut border_color,
+                &mut text,
+            );
+        }
+    });
     removed_disabled.read().for_each(|entity| {
         if let Ok((depressed, hovered, disabled, mut color, mut border_color, children)) =
             buttons.get_mut(entity)
@@ -89,7 +105,7 @@ fn update_button_style2(
             set_button_style(
                 disabled,
                 hovered.get(),
-                depressed.get(),
+                depressed,
                 &mut color,
                 &mut border_color,
                 &mut text,

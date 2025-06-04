@@ -40,18 +40,11 @@ pub(crate) fn on_remove_disabled(
 /// Component that indicates whether a button or widget is currently in a pressed or "held down"
 /// state.
 #[derive(Component, Default, Debug)]
-#[component(immutable)]
-pub struct Depressed(pub bool);
-
-impl Depressed {
-    /// Returns whether the button is currently depressed.
-    pub fn get(&self) -> bool {
-        self.0
-    }
-}
+pub struct Depressed;
 
 /// Component that indicates whether a checkbox or radio button is in a checked state.
 #[derive(Component, Default, Debug)]
+#[component(immutable)]
 pub struct Checked(pub bool);
 
 impl Checked {
