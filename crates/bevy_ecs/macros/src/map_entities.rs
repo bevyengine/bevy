@@ -54,7 +54,7 @@ fn map_enum(
 ) -> proc_macro2::TokenStream {
     let variants = variants.iter().map(|variant| {
         let variant_name = &variant.ident;
-        let pattern = get_enum_variant_pattern(&variant.fields);
+        let pattern = get_enum_pattern(&variant.fields);
         let map_entities = map_enum_variant(&variant.fields);
 
         quote! {
@@ -66,9 +66,11 @@ fn map_enum(
 
     quote! {
         impl MapEntities for #name {
-            fn map_entities<M: bevy_ecs::entity::EntityMapper>(&mut self, entity_mapper:&mut M) {
+            fn map_entities<M: bevy_ecs::entity::EntityMapper>(&mut self, entity_mapper: &mut M) {
                 match self {
                     #(#variants)*
+                    // allows empty enums to derive aswell
+                    _ => unreachable!()
                 }
             }
         }
@@ -78,7 +80,7 @@ fn map_enum(
 /// Generates the match pattern for unnamed fields (e.g., `(field_0, field_1)`)
 ///
 /// Or named fields (e.g., `(item, quantity)`)
-fn get_enum_variant_pattern(fields: &Fields) -> proc_macro2::TokenStream {
+fn get_enum_pattern(fields: &Fields) -> proc_macro2::TokenStream {
     match fields {
         Fields::Named(named_fields) => {
             let field_vars = named_fields.named.iter().map(|field| {
@@ -108,7 +110,8 @@ fn map_enum_variant(fields: &Fields) -> proc_macro2::TokenStream {
             continue;
         }
 
-        let map_field = match &field.ident {
+        let ty = &field.ty;
+        let member = match &field.ident {
             // named field
             Some(field_name) => field_name.clone(),
             // Unnamed field
@@ -116,7 +119,7 @@ fn map_enum_variant(fields: &Fields) -> proc_macro2::TokenStream {
         };
 
         let map_field = quote! {
-            #map_field.map_entities(entity_mapper);
+            <#ty as bevy_ecs::entity::MapEntities>::map_entities(#member, entity_mapper);
         };
 
         map_entities.push(map_field);

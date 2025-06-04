@@ -63,7 +63,7 @@ pub use bevy_ecs_macros::MapEntities;
 ///
 /// # #[derive(MapEntities)]
 /// # struct TestTuple(A);
-///
+/// #
 /// /* the above derive macro is equivalent to this
 /// impl MapEntities for MyStruct {
 ///     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
@@ -73,8 +73,6 @@ pub use bevy_ecs_macros::MapEntities;
 /// }
 /// */
 /// ```
-///
-///
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
@@ -278,7 +276,7 @@ impl<'m> SceneEntityMapper<'m> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::{hash_map::EntityHashMap, Entity, EntityMapper, SceneEntityMapper},
+        entity::{hash_map::EntityHashMap, Entity, EntityMapper, MapEntities, SceneEntityMapper},
         world::World,
     };
 
@@ -345,17 +343,23 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "todo"]
-    fn entity_mapper_macro_on_tuple_struct() {
-        todo!()
-    }
-
-    #[test]
-    #[ignore = "todo"]
+    #[expect(dead_code, reason = "just test if it compiles")]
     fn entity_mapper_macro_on_enum() {
-        // check named variant
-        // check unnamed variant
-        // include #[skip_mapping]
-        todo!()
+        #[derive(MapEntities)]
+        enum EmptyEnum {}
+
+        #[derive(MapEntities)]
+        struct A;
+        struct B;
+
+        #[derive(MapEntities)]
+        enum TestEnum {
+            Unnamed(A, #[skip_mapping] B),
+            Named {
+                a: A,
+                #[skip_mapping]
+                _b: B,
+            },
+        }
     }
 }
