@@ -143,7 +143,7 @@ pub struct SpecializedMeshPipelines<S: SpecializedMeshPipeline> {
     vertex_layout_cache: VertexLayoutCache<S>,
 }
 
-pub type VertexLayoutCache<S> = HashMap<
+type VertexLayoutCache<S> = HashMap<
     VertexBufferLayout,
     HashMap<<S as SpecializedMeshPipeline>::Key, CachedRenderPipelineId>,
 >;
