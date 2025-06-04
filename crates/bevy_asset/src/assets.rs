@@ -215,6 +215,19 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
+    pub(crate) fn get_many<const N: usize>(&self, indices: [AssetIndex; N]) -> [Option<&A>; N] {
+        indices.map(|index| match self.storage.get(index.index as usize)? {
+            Entry::None => None,
+            Entry::Some { value, generation } => {
+                if *generation == index.generation {
+                    value.as_ref()
+                } else {
+                    None
+                }
+            }
+        })
+    }
+
     pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Option<&mut A> {
         let entry = self.storage.get_mut(index.index as usize)?;
         match entry {
@@ -227,6 +240,13 @@ impl<A: Asset> DenseAssetStorage<A> {
                 }
             }
         }
+    }
+
+    pub(crate) fn get_many_mut<const N: usize>(
+        &mut self,
+        indices: [AssetIndex; N],
+    ) -> [Option<&mut A>; N] {
+        todo!()
     }
 
     pub(crate) fn flush(&mut self) {
