@@ -146,13 +146,15 @@ use variadics_please::all_tuples;
     label = "invalid `Bundle`",
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
-pub unsafe trait Bundle: ComponentsFromBundle + Send + Sync + 'static {
+pub unsafe trait Bundle: BundleDyn + ComponentsFromBundle + Send + Sync + 'static {
     /// Whether this is a [`StaticBundle`] or not. In case this is a [`StaticBundle`] the associated
     /// [`BundleId`] and [`BundleInfo`] are known to be unique and can be cached by this type's [`TypeId`].
     ///
     /// This is a hack to work around the lack of specialization.
     #[doc(hidden)]
-    fn is_static() -> bool;
+    fn is_static() -> bool
+    where
+        Self: Sized;
 
     /// Whether the set of components this bundle includes is bounded or not. In case it is bounded we
     /// can produce an additional cache key based on which components from the bounded set are included in
@@ -161,7 +163,9 @@ pub unsafe trait Bundle: ComponentsFromBundle + Send + Sync + 'static {
     ///
     /// This is a hack to work around the lack of specialization.
     #[doc(hidden)]
-    fn is_bounded() -> bool;
+    fn is_bounded() -> bool
+    where
+        Self: Sized;
 
     /// Computes the cache key associated with `self` and its size. The key is limited to 64 bits, and if the
     /// size exceeds that it should be ignored.
@@ -174,7 +178,8 @@ pub unsafe trait Bundle: ComponentsFromBundle + Send + Sync + 'static {
         &self,
         components: &mut ComponentsRegistrator,
         ids: &mut impl FnMut(ComponentId),
-    );
+    ) where
+        Self: Sized;
 
     /// Registers components that are required by the components in this [`Bundle`].
     #[doc(hidden)]
@@ -257,7 +262,9 @@ pub unsafe trait BundleFromComponents {
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
 pub trait ComponentsFromBundle {
     /// An operation on the entity that happens _after_ inserting this bundle.
-    type Effect: BundleEffect;
+    type Effect: BundleEffect
+    where
+        Self: Sized;
     // SAFETY:
     // The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
     // component being fetched.
@@ -265,7 +272,80 @@ pub trait ComponentsFromBundle {
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect
+    where
+        Self: Sized;
+}
+
+/// TODO
+pub trait BundleDyn {
+    #[doc(hidden)]
+    fn component_ids_dyn(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut dyn FnMut(ComponentId),
+    );
+
+    #[doc(hidden)]
+    fn get_components_dyn(
+        self: Box<Self>,
+        func: &mut dyn FnMut(StorageType, OwningPtr<'_>),
+    ) -> Box<dyn BundleEffect>;
+}
+
+impl<B: Bundle> BundleDyn for B {
+    fn component_ids_dyn(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut dyn FnMut(ComponentId),
+    ) {
+        self.component_ids(components, &mut |id| ids(id))
+    }
+
+    fn get_components_dyn(
+        self: Box<Self>,
+        func: &mut dyn FnMut(StorageType, OwningPtr<'_>),
+    ) -> Box<dyn BundleEffect> {
+        Box::new(self.get_components(&mut |storage_type, ptr| func(storage_type, ptr)))
+    }
+}
+
+unsafe impl Bundle for Box<dyn Bundle> {
+    fn is_static() -> bool {
+        false
+    }
+
+    fn is_bounded() -> bool {
+        false
+    }
+
+    fn cache_key(&self) -> (u64, usize) {
+        (0, 0)
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        (**self).component_ids_dyn(components, ids)
+    }
+
+    fn register_required_components(
+        &self,
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        (**self).register_required_components(components, required_components);
+    }
+}
+
+impl ComponentsFromBundle for Box<dyn Bundle> {
+    type Effect = Box<dyn BundleEffect>;
+
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+        self.get_components_dyn(func)
+    }
 }
 
 /// An operation on an [`Entity`] that occurs _after_ inserting the [`Bundle`] that defined this bundle effect.
@@ -276,9 +356,27 @@ pub trait ComponentsFromBundle {
 /// 3. The [`BundleEffect`] is run.
 ///
 /// See [`ComponentsFromBundle::Effect`].
-pub trait BundleEffect {
+pub trait BundleEffect: BundleEffectDyn {
     /// Applies this effect to the given `entity`.
     fn apply(self, entity: &mut EntityWorldMut);
+}
+
+/// TODO
+pub trait BundleEffectDyn {
+    #[doc(hidden)]
+    fn apply_dyn(self: Box<Self>, entity: &mut EntityWorldMut);
+}
+
+impl<E: BundleEffect> BundleEffectDyn for E {
+    fn apply_dyn(self: Box<Self>, entity: &mut EntityWorldMut) {
+        self.apply(entity)
+    }
+}
+
+impl BundleEffect for Box<dyn BundleEffect> {
+    fn apply(self, entity: &mut EntityWorldMut) {
+        self.apply_dyn(entity)
+    }
 }
 
 // SAFETY:
