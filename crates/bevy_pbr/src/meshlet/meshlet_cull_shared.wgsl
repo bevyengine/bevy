@@ -19,9 +19,6 @@ fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, 
 
     let projection = view.clip_from_view;
     if projection[3][3] == 1.0 {
-        // let world_sphere_radius = lod_sphere.w * world_scale;
-        // let norm_error = simplification_error / world_sphere_radius * 0.25;
-        // return norm_error * view.viewport.w < 1.0;
         let world_error = simplification_error * world_scale;
         let proj = projection[1][1];
         let height = 2.0 / proj;
@@ -144,8 +141,9 @@ fn sample_hzb_row(sx: vec4<u32>, sy: u32, mip: i32) -> f32 {
     return min(min(a, b), min(c, d));
 }
 
+// TODO: We should probably be using a POT HZB texture?
 fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
-    let hzb_size = ceil(screen);
+    let hzb_size = ceil(screen * 0.5);
     let aabb_min = aabb.min.xy * hzb_size;
     let aabb_max = aabb.max.xy * hzb_size;
 
@@ -156,7 +154,9 @@ fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
 
     // note: add 1 before max because the unsigned overflow behavior is intentional
     // it wraps around firstLeadingBit(0) = ~0 to 0
-    var mip = max(firstLeadingBit(max_size) + 1u, 2u) - 1u;
+    // TODO: we actually sample a 4x4 block, so ideally this would be `max(..., 3u) - 3u`.
+    // However, since our HZB is not a power of two, we need to be extra-conservative to not over-cull, so we go up a mip.
+    var mip = max(firstLeadingBit(max_size) + 1u, 2u) - 2u;
     
     if any((max_texel >> vec2(mip)) > (min_texel >> vec2(mip)) + 3) {
         mip += 1u;
@@ -164,8 +164,6 @@ fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
 
     let smin = min_texel >> vec2<u32>(mip);
     let smax = max_texel >> vec2<u32>(mip);
-
-    mip -= 1;
     
     let curr_depth = sample_hzb(smin, smax, i32(mip));
     return aabb.max.z <= curr_depth;
