@@ -185,7 +185,7 @@ impl UiSurface {
         &mut self,
         ui_root_entity: Entity,
         render_target_resolution: UVec2,
-        buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
+        buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::TextBuffer>,
         font_system: &'a mut CosmicFontSystem,
     ) {
         let implicit_viewport_node = self.get_or_insert_taffy_viewport_node(ui_root_entity);
@@ -286,8 +286,8 @@ impl UiSurface {
 pub fn get_text_buffer<'a>(
     needs_buffer: bool,
     ctx: &mut NodeMeasure,
-    query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
-) -> Option<&'a mut bevy_text::ComputedTextBlock> {
+    query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::TextBuffer>,
+) -> Option<&'a mut bevy_text::TextBuffer> {
     // We avoid a query lookup whenever the buffer is not required.
     if !needs_buffer {
         return None;

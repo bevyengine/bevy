@@ -131,11 +131,11 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                 Text2d(random_text(&mut rng, &args)),
                 random_text_font(&mut rng, &args, font.0.clone()),
                 TextColor(color.into()),
-                TextLayout::new_with_justify(if args.center {
+                if args.center {
                     JustifyText::Center
                 } else {
                     JustifyText::Left
-                }),
+                },
                 Transform {
                     translation,
                     rotation,

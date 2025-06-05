@@ -379,7 +379,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         children![(
             Text::default(),
             HeaderText,
-            TextLayout::new_with_justify(JustifyText::Center),
+            JustifyText::Center,
             children![
                 TextSpan::new("Primitive: "),
                 TextSpan(format!("{text}", text = PrimitiveSelected::default())),

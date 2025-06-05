@@ -19,7 +19,7 @@ use thiserror::Error;
 use tracing::warn;
 use ui_surface::UiSurface;
 
-use bevy_text::ComputedTextBlock;
+use bevy_text::TextBuffer;
 
 use bevy_text::CosmicFontSystem;
 
@@ -90,7 +90,7 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
-    mut buffer_query: Query<&mut ComputedTextBlock>,
+    mut buffer_query: Query<&mut TextBuffer>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
@@ -1050,7 +1050,7 @@ mod tests {
         fn test_system(
             params: In<TestSystemParam>,
             mut ui_surface: ResMut<UiSurface>,
-            mut computed_text_block_query: Query<&mut bevy_text::ComputedTextBlock>,
+            mut computed_text_block_query: Query<&mut bevy_text::TextBuffer>,
             mut font_system: ResMut<bevy_text::CosmicFontSystem>,
         ) {
             ui_surface.upsert_node(
