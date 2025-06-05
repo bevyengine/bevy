@@ -47,6 +47,8 @@ use variadics_please::all_tuples;
 /// - **[`Ref`].**
 ///   Similar to change detection filters but it is used as a query fetch parameter.
 ///   It exposes methods to check for changes to the wrapped component.
+/// - **[`Mut`].**
+///   Mutable component access, with change detection data.
 /// - **[`Has`].**
 ///   Returns a bool indicating whether the entity has the specified component.
 ///
