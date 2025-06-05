@@ -1418,8 +1418,8 @@ impl ScheduleGraph {
             if system_a.is_exclusive() || system_b.is_exclusive() {
                 conflicting_systems.push((a, b, Vec::new()));
             } else {
-                let access_a = system_a.component_access();
-                let access_b = system_b.component_access();
+                let access_a = system_a.component_access_set().combined_access();
+                let access_b = system_b.component_access_set().combined_access();
                 if !access_a.is_compatible(access_b) {
                     match access_a.get_conflicts(access_b) {
                         AccessConflicts::Individual(conflicts) => {

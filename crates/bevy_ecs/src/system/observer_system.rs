@@ -6,7 +6,7 @@ use crate::{
     error::Result,
     never::Never,
     prelude::{Bundle, Trigger},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{Fallible, Infallible},
     system::{input::SystemIn, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -114,11 +114,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.observer.name()
-    }
-
-    #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.observer.component_access()
     }
 
     #[inline]
