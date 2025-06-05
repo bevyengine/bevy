@@ -4,6 +4,7 @@ pull_requests: [ 19423 ]
 ---
 
 Linear volumes are like percentages, and it does not make sense to add or subtract percentages.
+As such, use the new `increase_by_percentage` function instead of addition or subtraction.
 
 ```rust
 // 0.16
