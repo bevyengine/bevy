@@ -151,7 +151,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// let mut world = World::new();
 /// let err = world.run_system_cached(|param: MyParam| {}).unwrap_err();
 /// let expected = "Parameter `MyParam::foo` failed validation: Custom Message";
-/// assert!(err.to_string().ends_with(expected));
+/// assert!(err.to_string().contains(expected));
 /// ```
 ///
 /// ## Builders
@@ -2557,7 +2557,11 @@ impl Display for SystemParamValidationError {
             ShortName(&self.param),
             self.field,
             self.message
-        )
+        )?;
+        if !self.skipped {
+            write!(fmt, "\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `When<T>` to skip the system when it happens.")?;
+        }
+        Ok(())
     }
 }
 

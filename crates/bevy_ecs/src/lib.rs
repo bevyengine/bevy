@@ -59,6 +59,9 @@ pub mod world;
 
 pub use bevy_ptr as ptr;
 
+#[cfg(feature = "hotpatching")]
+use event::Event;
+
 /// The ECS prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
@@ -122,6 +125,13 @@ pub mod __macro_exports {
     // to `Vec` in `no_std` and `std` contexts.
     pub use alloc::vec::Vec;
 }
+
+/// Event sent when a hotpatch happens.
+///
+/// Systems should refresh their inner pointers.
+#[cfg(feature = "hotpatching")]
+#[derive(Event, Default)]
+pub struct HotPatched;
 
 #[cfg(test)]
 mod tests {
