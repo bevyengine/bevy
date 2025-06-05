@@ -20,10 +20,12 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (update_button_style, update_button_style2, toggle_disabled),
-        )
+        .add_observer(on_insert_pressed)
+        .add_observer(on_remove_pressed)
+        .add_observer(on_insert_disabled)
+        .add_observer(on_remove_disabled)
+        .add_observer(on_change_hover)
+        .add_systems(Update, toggle_disabled)
         .run();
 }
 
@@ -35,31 +37,84 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 #[derive(Component)]
 struct DemoButton;
 
-fn update_button_style(
+fn on_insert_pressed(
+    trigger: Trigger<OnInsert, Depressed>,
     mut buttons: Query<
         (
-            Has<Depressed>,
             &IsHovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
         ),
-        (
-            Or<(
-                Changed<Depressed>,
-                Changed<IsHovered>,
-                Added<InteractionDisabled>,
-            )>,
-            With<DemoButton>,
-        ),
+        With<DemoButton>,
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (depressed, hovered, disabled, mut color, mut border_color, children) in &mut buttons {
+    if let Ok((hovered, disabled, mut color, mut border_color, children)) =
+        buttons.get_mut(trigger.target())
+    {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
             disabled,
+            hovered.get(),
+            true,
+            &mut color,
+            &mut border_color,
+            &mut text,
+        );
+    }
+}
+
+fn on_remove_pressed(
+    trigger: Trigger<OnRemove, Depressed>,
+    mut buttons: Query<
+        (
+            &IsHovered,
+            Has<InteractionDisabled>,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        With<DemoButton>,
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    if let Ok((hovered, disabled, mut color, mut border_color, children)) =
+        buttons.get_mut(trigger.target())
+    {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        set_button_style(
+            disabled,
+            hovered.get(),
+            false,
+            &mut color,
+            &mut border_color,
+            &mut text,
+        );
+    }
+}
+
+fn on_insert_disabled(
+    trigger: Trigger<OnInsert, InteractionDisabled>,
+    mut buttons: Query<
+        (
+            Has<Depressed>,
+            &IsHovered,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        With<DemoButton>,
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    if let Ok((depressed, hovered, mut color, mut border_color, children)) =
+        buttons.get_mut(trigger.target())
+    {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        set_button_style(
+            true,
             hovered.get(),
             depressed,
             &mut color,
@@ -69,8 +124,37 @@ fn update_button_style(
     }
 }
 
-/// Supplementary system to detect removed marker components
-fn update_button_style2(
+fn on_remove_disabled(
+    trigger: Trigger<OnRemove, InteractionDisabled>,
+    mut buttons: Query<
+        (
+            Has<Depressed>,
+            &IsHovered,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        With<DemoButton>,
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    if let Ok((depressed, hovered, mut color, mut border_color, children)) =
+        buttons.get_mut(trigger.target())
+    {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        set_button_style(
+            false,
+            hovered.get(),
+            depressed,
+            &mut color,
+            &mut border_color,
+            &mut text,
+        );
+    }
+}
+
+fn on_change_hover(
+    trigger: Trigger<OnInsert, IsHovered>,
     mut buttons: Query<
         (
             Has<Depressed>,
@@ -82,40 +166,26 @@ fn update_button_style2(
         ),
         With<DemoButton>,
     >,
-    mut removed_depressed: RemovedComponents<Depressed>,
-    mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut text_query: Query<&mut Text>,
 ) {
-    removed_depressed.read().for_each(|entity| {
-        if let Ok((depressed, hovered, disabled, mut color, mut border_color, children)) =
-            buttons.get_mut(entity)
-        {
-            let mut text = text_query.get_mut(children[0]).unwrap();
-            set_button_style(
-                disabled,
-                hovered.get(),
-                depressed,
-                &mut color,
-                &mut border_color,
-                &mut text,
-            );
+    if let Ok((depressed, hovered, disabled, mut color, mut border_color, children)) =
+        buttons.get_mut(trigger.target())
+    {
+        if children.len() == 0 {
+            return;
         }
-    });
-    removed_disabled.read().for_each(|entity| {
-        if let Ok((depressed, hovered, disabled, mut color, mut border_color, children)) =
-            buttons.get_mut(entity)
-        {
-            let mut text = text_query.get_mut(children[0]).unwrap();
-            set_button_style(
-                disabled,
-                hovered.get(),
-                depressed,
-                &mut color,
-                &mut border_color,
-                &mut text,
-            );
-        }
-    });
+        let Ok(mut text) = text_query.get_mut(children[0]) else {
+            return;
+        };
+        set_button_style(
+            disabled,
+            hovered.get(),
+            depressed,
+            &mut color,
+            &mut border_color,
+            &mut text,
+        );
+    }
 }
 
 fn set_button_style(

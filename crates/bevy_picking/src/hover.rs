@@ -296,6 +296,7 @@ fn merge_interaction_states(
 /// linear in the number of entities that have the `IsHovered` component inserted.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[component(immutable)]
 pub struct IsHovered(pub bool);
 
 impl IsHovered {
@@ -313,6 +314,7 @@ impl IsHovered {
 /// hover state.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[component(immutable)]
 pub struct IsDirectlyHovered(pub bool);
 
 impl IsDirectlyHovered {
@@ -325,8 +327,9 @@ impl IsDirectlyHovered {
 /// Uses [`HoverMap`] changes to update [`IsHovered`] components.
 pub fn update_is_hovered(
     hover_map: Option<Res<HoverMap>>,
-    mut hovers: Query<(Entity, &mut IsHovered)>,
+    mut hovers: Query<(Entity, &IsHovered)>,
     parent_query: Query<&ChildOf>,
+    mut commands: Commands,
 ) {
     // Don't do any work if there's no hover map.
     let Some(hover_map) = hover_map else { return };
@@ -355,16 +358,19 @@ pub fn update_is_hovered(
     }
 
     // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
-    for (entity, mut hoverable) in hovers.iter_mut() {
+    for (entity, hoverable) in hovers.iter_mut() {
         let is_hovering = hover_ancestors.contains(&entity);
-        hoverable.set_if_neq(IsHovered(is_hovering));
+        if hoverable.0 != is_hovering {
+            commands.entity(entity).insert(IsHovered(is_hovering));
+        }
     }
 }
 
 /// Uses [`HoverMap`] changes to update [`IsDirectlyHovered`] components.
 pub fn update_is_directly_hovered(
     hover_map: Option<Res<HoverMap>>,
-    mut hovers: Query<(Entity, &mut IsDirectlyHovered)>,
+    hovers: Query<(Entity, &IsDirectlyHovered)>,
+    mut commands: Commands,
 ) {
     // Don't do any work if there's no hover map.
     let Some(hover_map) = hover_map else { return };
@@ -375,14 +381,21 @@ pub fn update_is_directly_hovered(
     }
 
     if let Some(map) = hover_map.get(&PointerId::Mouse) {
-        // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
-        for (entity, mut hoverable) in hovers.iter_mut() {
-            hoverable.set_if_neq(IsDirectlyHovered(map.contains_key(&entity)));
+        // It's hovering if it's in the HoverMap.
+        for (entity, hoverable) in hovers.iter() {
+            let is_hovering = map.contains_key(&entity);
+            if hoverable.0 != is_hovering {
+                commands
+                    .entity(entity)
+                    .insert(IsDirectlyHovered(is_hovering));
+            }
         }
     } else {
-        // For each hovered entity, it is considered "hovering" if it's in the set of hovered ancestors.
-        for (_, mut hoverable) in hovers.iter_mut() {
-            hoverable.set_if_neq(IsDirectlyHovered(false));
+        // No hovered entity, reset all hovers.
+        for (entity, hoverable) in hovers.iter() {
+            if hoverable.0 {
+                commands.entity(entity).insert(IsDirectlyHovered(false));
+            }
         }
     }
 }
@@ -421,7 +434,7 @@ mod tests {
         assert!(world.run_system_cached(update_is_hovered).is_ok());
 
         // Check to insure that the hovered entity has the IsHovered component set to true
-        let hover = world.get_mut::<IsHovered>(hovered_entity).unwrap();
+        let hover = world.entity(hovered_entity).get_ref::<IsHovered>().unwrap();
         assert!(hover.get());
         assert!(hover.is_changed());
 
@@ -429,7 +442,7 @@ mod tests {
         world.increment_change_tick();
 
         assert!(world.run_system_cached(update_is_hovered).is_ok());
-        let hover = world.get_mut::<IsHovered>(hovered_entity).unwrap();
+        let hover = world.entity(hovered_entity).get_ref::<IsHovered>().unwrap();
         assert!(hover.get());
 
         // Should not be changed
@@ -441,7 +454,7 @@ mod tests {
         world.increment_change_tick();
 
         assert!(world.run_system_cached(update_is_hovered).is_ok());
-        let hover = world.get_mut::<IsHovered>(hovered_entity).unwrap();
+        let hover = world.entity(hovered_entity).get_ref::<IsHovered>().unwrap();
         assert!(!hover.get());
         assert!(hover.is_changed());
     }
@@ -473,7 +486,10 @@ mod tests {
         assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
 
         // Check to insure that the hovered entity has the IsDirectlyHovered component set to true
-        let hover = world.get_mut::<IsDirectlyHovered>(hovered_entity).unwrap();
+        let hover = world
+            .entity(hovered_entity)
+            .get_ref::<IsDirectlyHovered>()
+            .unwrap();
         assert!(hover.get());
         assert!(hover.is_changed());
 
@@ -481,7 +497,10 @@ mod tests {
         world.increment_change_tick();
 
         assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
-        let hover = world.get_mut::<IsDirectlyHovered>(hovered_entity).unwrap();
+        let hover = world
+            .entity(hovered_entity)
+            .get_ref::<IsDirectlyHovered>()
+            .unwrap();
         assert!(hover.get());
 
         // Should not be changed
@@ -493,7 +512,10 @@ mod tests {
         world.increment_change_tick();
 
         assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
-        let hover = world.get_mut::<IsDirectlyHovered>(hovered_entity).unwrap();
+        let hover = world
+            .entity(hovered_entity)
+            .get_ref::<IsDirectlyHovered>()
+            .unwrap();
         assert!(!hover.get());
         assert!(hover.is_changed());
     }
@@ -529,7 +551,10 @@ mod tests {
         assert!(world.run_system_cached(update_is_directly_hovered).is_ok());
 
         // Check to insure that the IsDirectlyHovered component is still false
-        let hover = world.get_mut::<IsDirectlyHovered>(hovered_entity).unwrap();
+        let hover = world
+            .entity(hovered_entity)
+            .get_ref::<IsDirectlyHovered>()
+            .unwrap();
         assert!(!hover.get());
         assert!(hover.is_changed());
     }
