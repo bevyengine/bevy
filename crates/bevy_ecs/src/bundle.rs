@@ -2541,6 +2541,65 @@ impl<T: BundleEffect> BundleEffect for Option<T> {
 
 impl<T: NoBundleEffect> NoBundleEffect for Option<T> {}
 
+// SAFETY:
+// - `is_static` and `is_bounded` ares false because a `Vec<Box<dyn Bundle>>` could contain
+//   any bundle at runtime;
+// - `cache_key` is irrelevant because this bundle is not bounded;
+// - `component_ids` calls `component_ids` for all bundles in self, and `get_components` calls
+//   `get_components` for the bundle in the same order. Each bundle individually guarantees it
+//   will call `component_ids` and `get_components` in a matching way.
+unsafe impl Bundle for Vec<Box<dyn Bundle>> {
+    fn is_static() -> bool {
+        false
+    }
+
+    fn is_bounded() -> bool {
+        false
+    }
+
+    fn cache_key(&self) -> (u64, usize) {
+        (0, 0)
+    }
+
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        for bundle in self {
+            bundle.component_ids(components, ids);
+        }
+    }
+
+    fn register_required_components(
+        &self,
+        components: &mut ComponentsRegistrator,
+        required_components: &mut RequiredComponents,
+    ) {
+        for bundle in self {
+            bundle.register_required_components(components, required_components);
+        }
+    }
+}
+
+impl ComponentsFromBundle for Vec<Box<dyn Bundle>> {
+    type Effect = Vec<Box<dyn BundleEffect>>;
+
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+        self.into_iter()
+            .map(|bundle| bundle.get_components(func))
+            .collect()
+    }
+}
+
+impl<E: BundleEffect> BundleEffect for Vec<E> {
+    fn apply(self, entity: &mut EntityWorldMut) {
+        for effect in self {
+            effect.apply(entity);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
