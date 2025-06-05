@@ -348,9 +348,11 @@ fn insert_reflect_with_registry_ref(
         .get_represented_type_info()
         .expect("component should represent a type.");
     let type_path = type_info.type_path();
-    let Ok(mut entity) = world.get_entity_mut(entity) else {
-        panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003",
-        world.entities().entity_does_not_exist_error_details(entity));
+    let mut entity = match world.get_entity_mut(entity) {
+        Ok(entity) => entity,
+        Err(err) => {
+            panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity}, which {err}. See: https://bevyengine.org/learn/errors/b0003");
+        }
     };
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
         panic!("`{type_path}` should be registered in type registry via `App::register_type<{type_path}>`");

@@ -14,10 +14,13 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::error::{DefaultErrorHandler, ErrorHandler};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
+};
+use crate::{
+    entity::{ConstructedEntityDoesNotExistError, ConstructionError, EntitiesAllocator},
+    error::{DefaultErrorHandler, ErrorHandler},
 };
 pub use bevy_ecs_macros::FromWorld;
 pub use component_constants::*;
@@ -57,7 +60,7 @@ use crate::{
     world::{
         command_queue::RawCommandQueue,
         error::{
-            EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
+            EntityDestructError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
         },
     },
 };
@@ -89,6 +92,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
+    pub(crate) allocator: EntitiesAllocator,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
     pub(crate) archetypes: Archetypes,
@@ -108,6 +112,7 @@ impl Default for World {
         let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
+            allocator: EntitiesAllocator::default(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
@@ -262,7 +267,13 @@ impl World {
     #[inline]
     pub fn commands(&mut self) -> Commands {
         // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
+        unsafe {
+            Commands::new_raw_from_entities(
+                self.command_queue.clone(),
+                &self.allocator,
+                &self.entities,
+            )
+        }
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -709,19 +720,9 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_no_entity(world: &World, entity: Entity) -> ! {
-            panic!(
-                "Entity {entity} {}",
-                world.entities.entity_does_not_exist_error_details(entity)
-            );
-        }
-
         match self.get_entity(entities) {
-            Ok(fetched) => fetched,
-            Err(error) => panic_no_entity(self, error.entity),
+            Ok(res) => res,
+            Err(err) => panic!("{err}"),
         }
     }
 
@@ -863,11 +864,8 @@ impl World {
     pub fn inspect_entity(
         &self,
         entity: Entity,
-    ) -> Result<impl Iterator<Item = &ComponentInfo>, EntityDoesNotExistError> {
-        let entity_location = self
-            .entities()
-            .get(entity)
-            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+    ) -> Result<impl Iterator<Item = &ComponentInfo>, ConstructedEntityDoesNotExistError> {
+        let entity_location = self.entities().get_constructed(entity)?;
 
         let archetype = self
             .archetypes()
@@ -966,7 +964,7 @@ impl World {
                     let cell = UnsafeEntityCell::new(
                         self.as_unsafe_world_cell_readonly(),
                         entity,
-                        location,
+                        Some(location),
                         self.last_change_tick,
                         self.read_change_tick(),
                     );
@@ -989,7 +987,7 @@ impl World {
                     let cell = UnsafeEntityCell::new(
                         world_cell,
                         entity,
-                        location,
+                        Some(location),
                         last_change_tick,
                         change_tick,
                     );
@@ -1041,42 +1039,150 @@ impl World {
         // - Command queue access does not conflict with entity access.
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe { Commands::new_raw_from_entities(raw_queue, cell.entities()) };
+        let commands = unsafe {
+            Commands::new_raw_from_entities(raw_queue, cell.entities_allocator(), cell.entities())
+        };
 
         (fetcher, commands)
     }
 
-    /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
-    /// to add components to the entity or retrieve its id.
+    /// Spawns an [`Entity`] that is void/null.
+    /// The returned entity id is valid and unique, but it does not correspond to any conceptual entity yet.
+    /// The conceptual entity does not exist, and using the id as if it did may produce errors.
+    /// It can not be queried, and it has no [`EntityLocation`](crate::entity::EntityLocation).
+    ///
+    /// This is different from empty entities, which do exist in the world;
+    /// they just happen to have no components.
+    ///
+    /// This is particularly useful when spawning entities in special ways.
+    /// For example, commands uses this to allocate an entity and [`construct`](Self::construct) it later.
+    /// Note that since this entity is not queryable and its id is not discoverable, loosing the returned [`Entity`] effectively leaks it, never to be used again!
+    ///
+    /// # Example
     ///
     /// ```
-    /// use bevy_ecs::{component::Component, world::World};
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    /// #[derive(Component)]
-    /// struct Label(&'static str);
-    /// #[derive(Component)]
-    /// struct Num(u32);
-    ///
+    /// # use bevy_ecs::{prelude::*};
     /// let mut world = World::new();
-    /// let entity = world.spawn_empty()
-    ///     .insert(Position { x: 0.0, y: 0.0 }) // add a single component
-    ///     .insert((Num(1), Label("hello"))) // add a bundle of components
-    ///     .id();
-    ///
-    /// let position = world.entity(entity).get::<Position>().unwrap();
-    /// assert_eq!(position.x, 0.0);
+    /// let entity = world.spawn_null();
+    /// // wait as long as you like
+    /// let entity_access = world.construct_empty(entity).unwrap();
+    /// // treat it as a normal entity
+    /// entity_access.despawn();
     /// ```
+    pub fn spawn_null(&self) -> Entity {
+        self.allocator.alloc()
+    }
+
+    /// Constructs the bundle on the entity.
+    /// If the entity can not be constructed for any reason, returns an error.
+    ///
+    /// If it succeeds, this declares the entity to have this bundle.
+    ///
+    /// Note: It is possible to construct an `entity` that has not been allocated yet;
+    /// however, doing so is currently a bad idea as the allocator may hand out this entity row in the future, assuming it to be not constructed.
+    /// This would cause a panic.
+    ///
+    /// Manual construction is a powerful tool, but must be used carefully.
     #[track_caller]
-    pub fn spawn_empty(&mut self) -> EntityWorldMut {
-        self.flush();
-        let entity = self.entities.alloc();
-        // SAFETY: entity was just allocated
-        unsafe { self.spawn_at_empty_internal(entity, MaybeLocation::caller()) }
+    pub fn construct<B: Bundle>(
+        &mut self,
+        entity: Entity,
+        bundle: B,
+    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
+        self.construct_with_caller(entity, bundle, MaybeLocation::caller())
+    }
+
+    pub(crate) fn construct_with_caller<B: Bundle>(
+        &mut self,
+        entity: Entity,
+        bundle: B,
+        caller: MaybeLocation,
+    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
+        self.entities.validate_construction(entity)?;
+        Ok(self.construct_unchecked(entity, bundle, caller))
+    }
+
+    /// Constructs `bundle` on `entity`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity row is already constructed
+    pub(crate) fn construct_unchecked<B: Bundle>(
+        &mut self,
+        entity: Entity,
+        bundle: B,
+        caller: MaybeLocation,
+    ) -> EntityWorldMut<'_> {
+        let change_tick = self.change_tick();
+        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
+        let (entity_location, after_effect) =
+            unsafe { bundle_spawner.construct(entity, bundle, caller) };
+
+        let mut entity_location = Some(entity_location);
+
+        // SAFETY: command_queue is not referenced anywhere else
+        if !unsafe { self.command_queue.is_empty() } {
+            self.flush();
+            entity_location = self
+                .entities()
+                .get(entity)
+                .expect("For this to fail, a queued command would need to despawn the entity.");
+        }
+
+        // SAFETY: entity and location are valid, as they were just created above
+        let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
+        after_effect.apply(&mut entity);
+        entity
+    }
+
+    /// A faster version of [`construct`](Self::construct) for the empty bundle.
+    #[track_caller]
+    pub fn construct_empty(
+        &mut self,
+        entity: Entity,
+    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
+        self.construct_empty_with_caller(entity, MaybeLocation::caller())
+    }
+
+    pub(crate) fn construct_empty_with_caller(
+        &mut self,
+        entity: Entity,
+        caller: MaybeLocation,
+    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
+        self.entities.validate_construction(entity)?;
+        Ok(self.construct_empty_unchecked(entity, caller))
+    }
+
+    /// Constructs `bundle` on `entity`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity row is already constructed
+    pub(crate) fn construct_empty_unchecked(
+        &mut self,
+        entity: Entity,
+        caller: MaybeLocation,
+    ) -> EntityWorldMut<'_> {
+        // SAFETY: Locations are immediately made valid
+        unsafe {
+            let archetype = self.archetypes.empty_mut();
+            // PERF: consider avoiding allocating entities in the empty archetype unless needed
+            let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
+            // SAFETY: no components are allocated by archetype.allocate() because the archetype is
+            // empty
+            let location = archetype.allocate(entity, table_row);
+            let change_tick = self.change_tick();
+            let was_at = self.entities.declare(entity.row(), Some(location));
+            assert!(
+                was_at.is_none(),
+                "Attempting to construct an empty entity, but it was already constructed."
+            );
+            self.entities
+                .mark_construct_or_destruct(entity.row(), caller, change_tick);
+
+            EntityWorldMut::new(self, entity, Some(location))
+        }
     }
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
@@ -1149,47 +1255,45 @@ impl World {
         bundle: B,
         caller: MaybeLocation,
     ) -> EntityWorldMut {
-        self.flush();
-        let change_tick = self.change_tick();
-        let entity = self.entities.alloc();
-        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-        let (entity_location, after_effect) =
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
-
-        let mut entity_location = Some(entity_location);
-
-        // SAFETY: command_queue is not referenced anywhere else
-        if !unsafe { self.command_queue.is_empty() } {
-            self.flush();
-            entity_location = self.entities().get(entity);
-        }
-
-        // SAFETY: entity and location are valid, as they were just created above
-        let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
-        after_effect.apply(&mut entity);
-        entity
+        let entity = self.spawn_null();
+        // This was just spawned from null, so it shouldn't panic.
+        self.construct_unchecked(entity, bundle, caller)
     }
 
-    /// # Safety
-    /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_empty_internal(
-        &mut self,
-        entity: Entity,
-        caller: MaybeLocation,
-    ) -> EntityWorldMut {
-        let archetype = self.archetypes.empty_mut();
-        // PERF: consider avoiding allocating entities in the empty archetype unless needed
-        let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
-        // SAFETY: no components are allocated by archetype.allocate() because the archetype is
-        // empty
-        let location = unsafe { archetype.allocate(entity, table_row) };
-        let change_tick = self.change_tick();
-        self.entities.set(entity.index(), Some(location));
-        self.entities
-            .mark_spawn_despawn(entity.index(), caller, change_tick);
+    /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
+    /// to add components to the entity or retrieve its id.
+    ///
+    /// ```
+    /// use bevy_ecs::{component::Component, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Num(u32);
+    ///
+    /// let mut world = World::new();
+    /// let entity = world.spawn_empty()
+    ///     .insert(Position { x: 0.0, y: 0.0 }) // add a single component
+    ///     .insert((Num(1), Label("hello"))) // add a bundle of components
+    ///     .id();
+    ///
+    /// let position = world.entity(entity).get::<Position>().unwrap();
+    /// assert_eq!(position.x, 0.0);
+    /// ```
+    #[track_caller]
+    pub fn spawn_empty(&mut self) -> EntityWorldMut {
+        self.spawn_empty_with_caller(MaybeLocation::caller())
+    }
 
-        EntityWorldMut::new(self, entity, Some(location))
+    pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut {
+        let entity = self.spawn_null();
+        // This was just spawned from null, so it shouldn't panic.
+        self.construct_empty_unchecked(entity, caller)
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
@@ -1382,7 +1486,7 @@ impl World {
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Components`](Component).
     ///
-    /// Returns an [`EntityDespawnError`] if the entity does not exist.
+    /// Returns an [`EntityDestructError`] if the entity does not exist.
     ///
     /// # Note
     ///
@@ -1390,7 +1494,7 @@ impl World {
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     #[track_caller]
     #[inline]
-    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDespawnError> {
+    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDestructError> {
         self.despawn_with_caller(entity, MaybeLocation::caller())
     }
 
@@ -1399,11 +1503,54 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<(), EntityDespawnError> {
-        self.flush();
+    ) -> Result<(), EntityDestructError> {
         let entity = self.get_entity_mut(entity)?;
         entity.despawn_with_caller(caller);
         Ok(())
+    }
+
+    /// Performs [`try_destruct`](Self::try_destruct), warning on errors.
+    #[track_caller]
+    #[inline]
+    pub fn destruct(&mut self, entity: Entity) -> Option<EntityWorldMut<'_>> {
+        match self.destruct_with_caller(entity, MaybeLocation::caller()) {
+            Ok(entity) => Some(entity),
+            Err(error) => {
+                warn!("{error}");
+                None
+            }
+        }
+    }
+
+    /// Destructs the given `entity`, if it exists. This will also remove all of the entity's
+    /// [`Components`](Component).
+    /// The *only* difference between destructing and despawning an entity is that destructing does not release the `entity` to be reused.
+    /// It is up to the caller to either re-construct or fully despawn the `entity`; otherwise, the [`EntityRow`](crate::entity::EntityRow) will not be able to be reused.
+    ///
+    /// Returns an [`EntityDestructError`] if the entity does not exist.
+    ///
+    /// # Note
+    ///
+    /// This will also *despawn* the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
+    #[track_caller]
+    #[inline]
+    pub fn try_destruct(
+        &mut self,
+        entity: Entity,
+    ) -> Result<EntityWorldMut<'_>, EntityDestructError> {
+        self.destruct_with_caller(entity, MaybeLocation::caller())
+    }
+
+    #[inline]
+    pub(crate) fn destruct_with_caller(
+        &mut self,
+        entity: Entity,
+        caller: MaybeLocation,
+    ) -> Result<EntityWorldMut<'_>, EntityDestructError> {
+        let mut entity = self.get_entity_mut(entity)?;
+        entity.destruct_with_caller(caller);
+        Ok(entity)
     }
 
     /// Clears the internal component tracker state.
@@ -2274,7 +2421,6 @@ impl World {
             archetype_id: ArchetypeId,
         }
 
-        self.flush();
         let change_tick = self.change_tick();
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
@@ -2286,64 +2432,70 @@ impl World {
         let mut batch_iter = batch.into_iter();
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
-            if let Some(first_location) = self.entities().get(first_entity) {
-                let mut cache = InserterArchetypeCache {
-                    // SAFETY: we initialized this bundle_id in `register_info`
-                    inserter: unsafe {
-                        BundleInserter::new_with_id(
-                            self,
-                            first_location.archetype_id,
-                            bundle_id,
-                            change_tick,
+            match self.entities().get_constructed(first_entity) {
+                Err(err) => {
+                    panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
+                }
+                Ok(first_location) => {
+                    let mut cache = InserterArchetypeCache {
+                        // SAFETY: we initialized this bundle_id in `register_info`
+                        inserter: unsafe {
+                            BundleInserter::new_with_id(
+                                self,
+                                first_location.archetype_id,
+                                bundle_id,
+                                change_tick,
+                            )
+                        },
+                        archetype_id: first_location.archetype_id,
+                    };
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    unsafe {
+                        cache.inserter.insert(
+                            first_entity,
+                            first_location,
+                            first_bundle,
+                            insert_mode,
+                            caller,
+                            RelationshipHookMode::Run,
                         )
-                    },
-                    archetype_id: first_location.archetype_id,
-                };
-                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                unsafe {
-                    cache.inserter.insert(
-                        first_entity,
-                        first_location,
-                        first_bundle,
-                        insert_mode,
-                        caller,
-                        RelationshipHookMode::Run,
-                    )
-                };
+                    };
 
-                for (entity, bundle) in batch_iter {
-                    if let Some(location) = cache.inserter.entities().get(entity) {
-                        if location.archetype_id != cache.archetype_id {
-                            cache = InserterArchetypeCache {
-                                // SAFETY: we initialized this bundle_id in `register_info`
-                                inserter: unsafe {
-                                    BundleInserter::new_with_id(
-                                        self,
-                                        location.archetype_id,
-                                        bundle_id,
-                                        change_tick,
+                    for (entity, bundle) in batch_iter {
+                        match cache.inserter.entities().get_constructed(entity) {
+                            Ok(location) => {
+                                if location.archetype_id != cache.archetype_id {
+                                    cache = InserterArchetypeCache {
+                                        // SAFETY: we initialized this bundle_id in `register_info`
+                                        inserter: unsafe {
+                                            BundleInserter::new_with_id(
+                                                self,
+                                                location.archetype_id,
+                                                bundle_id,
+                                                change_tick,
+                                            )
+                                        },
+                                        archetype_id: location.archetype_id,
+                                    }
+                                }
+                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                                unsafe {
+                                    cache.inserter.insert(
+                                        entity,
+                                        location,
+                                        bundle,
+                                        insert_mode,
+                                        caller,
+                                        RelationshipHookMode::Run,
                                     )
-                                },
-                                archetype_id: location.archetype_id,
+                                };
+                            }
+                            Err(err) => {
+                                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
                             }
                         }
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe {
-                            cache.inserter.insert(
-                                entity,
-                                location,
-                                bundle,
-                                insert_mode,
-                                caller,
-                                RelationshipHookMode::Run,
-                            )
-                        };
-                    } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
                 }
-            } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
             }
         }
     }
@@ -2419,7 +2571,6 @@ impl World {
             archetype_id: ArchetypeId,
         }
 
-        self.flush();
         let change_tick = self.change_tick();
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
@@ -2436,7 +2587,7 @@ impl World {
         // if the first entity is invalid, whereas this method needs to keep going.
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
-                if let Some(first_location) = self.entities().get(first_entity) {
+                if let Ok(first_location) = self.entities().get_constructed(first_entity) {
                     let mut cache = InserterArchetypeCache {
                         // SAFETY: we initialized this bundle_id in `register_info`
                         inserter: unsafe {
@@ -2471,7 +2622,7 @@ impl World {
 
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
-                if let Some(location) = cache.inserter.entities().get(entity) {
+                if let Ok(location) = cache.inserter.entities().get_constructed(entity) {
                     if location.archetype_id != cache.archetype_id {
                         cache = InserterArchetypeCache {
                             // SAFETY: we initialized this bundle_id in `register_info`
@@ -2708,30 +2859,6 @@ impl World {
             .initialize_with(component_id, &self.components)
     }
 
-    /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
-    /// This should be called before doing operations that might operate on queued entities,
-    /// such as inserting a [`Component`].
-    #[track_caller]
-    pub(crate) fn flush_entities(&mut self) {
-        let by = MaybeLocation::caller();
-        let at = self.change_tick();
-        let empty_archetype = self.archetypes.empty_mut();
-        let table = &mut self.storages.tables[empty_archetype.table_id()];
-        // PERF: consider pre-allocating space for flushed entities
-        // SAFETY: entity is set to a valid location
-        unsafe {
-            self.entities.flush(
-                |entity, location| {
-                    // SAFETY: no components are allocated by archetype.allocate() because the archetype
-                    // is empty
-                    *location = Some(empty_archetype.allocate(entity, table.allocate(entity)));
-                },
-                by,
-                at,
-            );
-        }
-    }
-
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
     ///
@@ -2765,7 +2892,6 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn flush(&mut self) {
-        self.flush_entities();
         self.flush_components();
         self.flush_commands();
     }
@@ -2980,6 +3106,7 @@ impl World {
         self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
+        self.allocator.restart();
     }
 
     /// Clears all resources in this [`World`].
@@ -3531,7 +3658,7 @@ impl fmt::Debug for World {
         // Accessing any data stored in the world would be unsound.
         f.debug_struct("World")
             .field("id", &self.id)
-            .field("entity_count", &self.entities.len())
+            .field("entity_count", &self.entities.count_constructed())
             .field("archetype_count", &self.archetypes.len())
             .field("component_count", &self.components.len())
             .field("resource_count", &self.storages.resources.len())
@@ -4235,6 +4362,7 @@ mod tests {
             .is_ok());
 
         world.entity_mut(e1).despawn();
+        assert!(world.get_entity_mut(e2).is_ok());
 
         assert!(matches!(
             world.get_entity_mut(e1).map(|_| {}),
