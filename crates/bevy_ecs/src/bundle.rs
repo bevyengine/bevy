@@ -2605,7 +2605,7 @@ mod tests {
     use crate::{
         archetype::ArchetypeCreated, component::HookContext, prelude::*, world::DeferredWorld,
     };
-    use alloc::vec;
+    use alloc::{boxed::Box, vec};
 
     #[derive(Component)]
     struct A;
@@ -2901,5 +2901,70 @@ mod tests {
         assert!(e.contains::<A>());
         assert!(!e.contains::<B>());
         assert!(e.get::<V>() == Some(&V("V")));
+    }
+
+    #[derive(Bundle)]
+    #[bundle(dynamic)]
+    struct WithBoxDynBundleField {
+        a: A,
+        b: Box<dyn Bundle>,
+        c: Box<dyn Bundle>,
+    }
+
+    #[test]
+    fn dyn_bundle() {
+        let mut w = World::new();
+
+        let e = w.spawn(Box::new(A) as Box<dyn Bundle>);
+        assert!(e.contains::<A>());
+
+        let e = w.spawn(Box::new((A, B)) as Box<dyn Bundle>);
+        assert!(e.contains::<A>());
+        assert!(e.contains::<B>());
+
+        let e = w.spawn((
+            Box::new(A) as Box<dyn Bundle>,
+            Box::new(B) as Box<dyn Bundle>,
+        ));
+        assert!(e.contains::<A>());
+        assert!(e.contains::<B>());
+
+        let e = w.spawn(WithBoxDynBundleField {
+            a: A,
+            b: Box::new(B),
+            c: Box::new((C, D)),
+        });
+        assert!(e.contains::<A>());
+        assert!(e.contains::<B>());
+        assert!(e.contains::<C>());
+        assert!(e.contains::<D>());
+    }
+
+    #[test]
+    fn vec_dyn_bundle() {
+        let mut w = World::new();
+
+        let e = w.spawn(vec![Box::new(A) as Box<dyn Bundle>]);
+        assert!(e.contains::<A>());
+
+        let e = w.spawn(vec![Box::new(A) as Box<dyn Bundle>, Box::new(B)]);
+        assert!(e.contains::<A>());
+        assert!(e.contains::<B>());
+    }
+
+    #[test]
+    fn mixed_dynamic_bundles() {
+        let mut w = World::new();
+
+        let e = w.spawn(Some(vec![
+            Box::new(A) as Box<dyn Bundle>,
+            Box::new(None::<B>),
+            Box::new(vec![Box::new(C) as Box<dyn Bundle>, Box::new(Some(D))]),
+        ]));
+
+        assert!(e.contains::<A>());
+        assert!(!e.contains::<B>());
+        assert!(e.contains::<C>());
+        assert!(e.contains::<D>());
     }
 }
