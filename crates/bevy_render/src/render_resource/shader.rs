@@ -324,14 +324,21 @@ pub enum ShaderLoaderError {
     Parse(#[from] alloc::string::FromUtf8Error),
 }
 
+/// Settings for loading shaders.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Default)]
+pub struct ShaderSettings {
+    /// The `#define` specified for this shader.
+    pub shader_defs: Vec<ShaderDefVal>,
+}
+
 impl AssetLoader for ShaderLoader {
     type Asset = Shader;
-    type Settings = ();
+    type Settings = ShaderSettings;
     type Error = ShaderLoaderError;
     async fn load(
         &self,
         reader: &mut dyn Reader,
-        _settings: &Self::Settings,
+        settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
         let ext = load_context.path().extension().unwrap().to_str().unwrap();
@@ -341,9 +348,19 @@ impl AssetLoader for ShaderLoader {
         let path = path.replace(std::path::MAIN_SEPARATOR, "/");
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
+        if ext != "wgsl" && !settings.shader_defs.is_empty() {
+            tracing::warn!(
+                "Tried to load a non-wgsl shader with shader defs, this isn't supported: \
+                    The shader defs will be ignored."
+            );
+        }
         let mut shader = match ext {
             "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
-            "wgsl" => Shader::from_wgsl(String::from_utf8(bytes)?, path),
+            "wgsl" => Shader::from_wgsl_with_defs(
+                String::from_utf8(bytes)?,
+                path,
+                settings.shader_defs.clone(),
+            ),
             "vert" => Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Vertex, path),
             "frag" => {
                 Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Fragment, path)

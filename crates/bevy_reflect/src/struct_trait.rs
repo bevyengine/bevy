@@ -71,12 +71,6 @@ pub trait Struct: PartialReflect {
     /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter;
 
-    /// Clones the struct into a [`DynamicStruct`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_struct` instead")]
-    fn clone_dynamic(&self) -> DynamicStruct {
-        self.to_dynamic_struct()
-    }
-
     fn to_dynamic_struct(&self) -> DynamicStruct {
         let mut dynamic_struct = DynamicStruct::default();
         dynamic_struct.set_represented_type(self.get_represented_type_info());
@@ -298,8 +292,7 @@ impl DynamicStruct {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Struct(_)),
-                "expected TypeInfo::Struct but received: {:?}",
-                represented_type
+                "expected TypeInfo::Struct but received: {represented_type:?}"
             );
         }
 

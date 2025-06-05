@@ -3,7 +3,7 @@ name = "bevy_a11y"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Provides accessibility support for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "accessibility", "a11y"]
@@ -42,7 +42,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = fa
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
 
 # other
-accesskit = { version = "0.18", default-features = false }
+accesskit = { version = "0.19", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",
 ], optional = true }

@@ -290,7 +290,7 @@ struct MyEvent {
 }
 
 fn writer(mut writer: EventWriter<MyEvent>) {
-    writer.send(MyEvent {
+    writer.write(MyEvent {
         message: "hello!".to_string(),
     });
 }
@@ -349,4 +349,4 @@ world.flush();
 world.trigger_targets(Explode, entity);
 ```
 
-[bevy]: https://bevyengine.org/
+[bevy]: https://bevy.org/

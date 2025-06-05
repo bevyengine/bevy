@@ -3,7 +3,7 @@ name = "bevy_state"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Finite state machines for Bevy"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -28,13 +28,12 @@ bevy_app = ["dep:bevy_app"]
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
-std = ["bevy_ecs/std", "bevy_utils/std", "bevy_app?/std", "bevy_platform/std"]
+std = ["bevy_ecs/std", "bevy_app?/std", "bevy_platform/std"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
   "bevy_ecs/critical-section",
-  "bevy_utils/critical-section",
   "bevy_app?/critical-section",
   "bevy_platform/critical-section",
 ]

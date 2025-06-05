@@ -15,7 +15,6 @@ pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
@@ -123,17 +122,6 @@ impl SystemSchedule {
     }
 }
 
-/// See [`ApplyDeferred`].
-#[deprecated(
-    since = "0.16.0",
-    note = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."
-)]
-#[expect(
-    non_upper_case_globals,
-    reason = "This item is deprecated; as such, its previous name needs to stay."
-)]
-pub const apply_deferred: ApplyDeferred = ApplyDeferred;
-
 /// A special [`System`] that instructs the executor to call
 /// [`System::apply_deferred`] on the systems that have run but not applied
 /// their [`Deferred`] system parameters (like [`Commands`]) or other system buffers.
@@ -183,11 +171,6 @@ impl System for ApplyDeferred {
         const { &FilteredAccessSet::new() }
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        // This system accesses no archetype components.
-        const { &Access::new() }
-    }
-
     fn is_send(&self) -> bool {
         // Although this system itself does nothing on its own, the system
         // executor uses it to apply deferred commands. Commands must be allowed
@@ -220,6 +203,10 @@ impl System for ApplyDeferred {
         Ok(())
     }
 
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {}
+
     fn run(&mut self, _input: SystemIn<'_, Self>, _world: &mut World) -> Self::Out {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
@@ -240,8 +227,6 @@ impl System for ApplyDeferred {
     }
 
     fn initialize(&mut self, _world: &mut World) {}
-
-    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
 
     fn check_change_tick(&mut self, _change_tick: Tick) {}
 
@@ -381,7 +366,7 @@ mod tests {
     #[expect(clippy::print_stdout, reason = "std and println are allowed in tests")]
     fn single_and_populated_skipped_and_run() {
         for executor in EXECUTORS {
-            std::println!("Testing executor: {:?}", executor);
+            std::println!("Testing executor: {executor:?}");
 
             let mut world = World::new();
             world.init_resource::<TestState>();

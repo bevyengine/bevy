@@ -1,3 +1,4 @@
+use crate::shader_flags;
 use crate::ui_node::ComputedNodeTarget;
 use crate::CalculatedClip;
 use crate::ComputedNode;
@@ -106,7 +107,7 @@ pub fn extract_debug_overlay(
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
                 border_radius: uinode.border_radius(),
-                node_type: NodeType::Border,
+                node_type: NodeType::Border(shader_flags::BORDER_ALL),
             },
             main_entity: entity.into(),
         });

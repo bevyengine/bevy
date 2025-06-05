@@ -23,7 +23,7 @@ crate::cfg::debug_stack! {
 pub(super) fn make_custom_error<E: Error>(msg: impl Display) -> E {
     crate::cfg::switch! {
         crate::cfg::debug_stack => {
-            TYPE_INFO_STACK.with_borrow(|stack| E::custom(format_args!("{} (stack: {:?})", msg, stack)))
+            TYPE_INFO_STACK.with_borrow(|stack| E::custom(format_args!("{msg} (stack: {stack:?})")))
         }
         _ => {
             E::custom(msg)

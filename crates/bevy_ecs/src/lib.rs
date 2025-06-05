@@ -13,8 +13,8 @@
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -39,7 +39,6 @@ pub mod entity_disabling;
 pub mod error;
 pub mod event;
 pub mod hierarchy;
-pub mod identifier;
 pub mod intern;
 pub mod label;
 pub mod name;
@@ -60,14 +59,13 @@ pub mod world;
 
 pub use bevy_ptr as ptr;
 
+#[cfg(feature = "hotpatching")]
+use event::Event;
+
 /// The ECS prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(
-        deprecated,
-        reason = "`crate::schedule::apply_deferred` is considered deprecated; however, it may still be used by crates which consume `bevy_ecs`, so its removal here may cause confusion. It is intended to be removed in the Bevy 0.17 cycle."
-    )]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -86,8 +84,8 @@ pub mod prelude {
         removal_detection::RemovedComponents,
         resource::Resource,
         schedule::{
-            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoScheduleConfigs,
-            IntoSystemSet, Schedule, Schedules, SystemSet,
+            common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
+            Schedules, SystemCondition, SystemSet,
         },
         spawn::{Spawn, SpawnRelated},
         system::{
@@ -127,6 +125,13 @@ pub mod __macro_exports {
     // to `Vec` in `no_std` and `std` contexts.
     pub use alloc::vec::Vec;
 }
+
+/// Event sent when a hotpatch happens.
+///
+/// Systems should refresh their inner pointers.
+#[cfg(feature = "hotpatching")]
+#[derive(Event, Default)]
+pub struct HotPatched;
 
 #[cfg(test)]
 mod tests {
@@ -488,10 +493,9 @@ mod tests {
                 results.lock().unwrap().push((e, i));
             });
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
@@ -509,10 +513,9 @@ mod tests {
             .par_iter(&world)
             .for_each(|(e, &SparseStored(i))| results.lock().unwrap().push((e, i)));
         results.lock().unwrap().sort();
-        assert_eq!(
-            &*results.lock().unwrap(),
-            &[(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)]
-        );
+        let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
+        expected.sort();
+        assert_eq!(&*results.lock().unwrap(), &expected);
     }
 
     #[test]
@@ -1235,7 +1238,6 @@ mod tests {
             .components()
             .get_resource_id(TypeId::of::<Num>())
             .unwrap();
-        let archetype_component_id = world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(world.resource::<Num>().0, 123);
         assert!(world.contains_resource::<Num>());
@@ -1296,14 +1298,6 @@ mod tests {
         assert_eq!(
             resource_id, current_resource_id,
             "resource id does not change after removing / re-adding"
-        );
-
-        let current_archetype_component_id =
-            world.storages().resources.get(resource_id).unwrap().id();
-
-        assert_eq!(
-            archetype_component_id, current_archetype_component_id,
-            "resource archetype component id does not change after removing / re-adding"
         );
     }
 
@@ -1542,8 +1536,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        let _ = query.get(&world_a, Entity::from_raw(0));
-        let _ = query.get(&world_b, Entity::from_raw(0));
+        let _ = query.get(&world_a, Entity::from_raw_u32(0).unwrap());
+        let _ = query.get(&world_b, Entity::from_raw_u32(0).unwrap());
     }
 
     #[test]
@@ -1784,7 +1778,7 @@ mod tests {
     fn try_insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -1808,7 +1802,7 @@ mod tests {
     fn try_insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
+        let e1 = Entity::from_raw_u32(1).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 

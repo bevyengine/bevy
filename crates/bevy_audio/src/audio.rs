@@ -57,6 +57,16 @@ pub struct PlaybackSettings {
     /// Optional scale factor applied to the positions of this audio source and the listener,
     /// overriding the default value configured on [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
     pub spatial_scale: Option<SpatialScale>,
+    /// The point in time in the audio clip where playback should start. If set to `None`, it will
+    /// play from the beginning of the clip.
+    ///
+    /// If the playback mode is set to `Loop`, each loop will start from this position.
+    pub start_position: Option<core::time::Duration>,
+    /// How long the audio should play before stopping. If set, the clip will play for at most
+    /// the specified duration. If set to `None`, it will play for as long as it can.
+    ///
+    /// If the playback mode is set to `Loop`, each loop will last for this duration.
+    pub duration: Option<core::time::Duration>,
 }
 
 impl Default for PlaybackSettings {
@@ -81,6 +91,8 @@ impl PlaybackSettings {
         muted: false,
         spatial: false,
         spatial_scale: None,
+        start_position: None,
+        duration: None,
     };
 
     /// Will play the associated audio source in a loop.
@@ -134,6 +146,18 @@ impl PlaybackSettings {
     /// Helper to use a custom spatial scale.
     pub const fn with_spatial_scale(mut self, spatial_scale: SpatialScale) -> Self {
         self.spatial_scale = Some(spatial_scale);
+        self
+    }
+
+    /// Helper to use a custom playback start position.
+    pub const fn with_start_position(mut self, start_position: core::time::Duration) -> Self {
+        self.start_position = Some(start_position);
+        self
+    }
+
+    /// Helper to use a custom playback duration.
+    pub const fn with_duration(mut self, duration: core::time::Duration) -> Self {
+        self.duration = Some(duration);
         self
     }
 }

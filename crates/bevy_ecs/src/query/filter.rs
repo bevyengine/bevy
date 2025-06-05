@@ -1,7 +1,7 @@
 use crate::{
     archetype::Archetype,
     component::{Component, ComponentId, Components, StorageType, Tick},
-    entity::Entity,
+    entity::{Entities, Entity},
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -17,6 +17,8 @@ use variadics_please::all_tuples;
 ///   [`With`] and [`Without`] filters can be applied to check if the queried entity does or does not contain a particular component.
 /// - **Change detection filters.**
 ///   [`Added`] and [`Changed`] filters can be applied to detect component changes to an entity.
+/// - **Spawned filter.**
+///   [`Spawned`] filter can be applied to check if the queried entity was spawned recently.
 /// - **`QueryFilter` tuples.**
 ///   If every element of a tuple implements `QueryFilter`, then the tuple itself also implements the same trait.
 ///   This enables a single `Query` to filter over multiple conditions.
@@ -624,8 +626,8 @@ unsafe impl<T: Component> QueryFilter for Allows<T> {
 /// # Deferred
 ///
 /// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
-/// are visible only after deferred operations are applied,
-/// typically at the end of the schedule iteration.
+/// are visible only after deferred operations are applied, typically after the system
+/// that queued them.
 ///
 /// # Time complexity
 ///
@@ -727,7 +729,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // which we are allowed to access since we registered it in `update_component_access`.
                     // Note that we do not actually access any components' ticks in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
@@ -815,7 +817,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.as_usize()) };
+                let tick = unsafe { table.get(table_row.index()) };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
@@ -849,9 +851,8 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 /// # Deferred
 ///
 /// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
-/// (like entity creation or entity component addition or removal)
-/// are visible only after deferred operations are applied,
-/// typically at the end of the schedule iteration.
+/// (like entity creation or entity component addition or removal) are visible only
+/// after deferred operations are applied, typically after the system that queued them.
 ///
 /// # Time complexity
 ///
@@ -954,7 +955,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                 || None,
                 || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // which we are allowed to access since we registered it in `update_component_access`.
                     // Note that we do not actually access any components' ticks in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(id) }
@@ -1043,7 +1044,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.as_usize()) };
+                let tick = unsafe { table.get(table_row.index()) };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
@@ -1062,6 +1063,146 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
     }
 }
 
+/// A filter that only retains results the first time after the entity has been spawned.
+///
+/// A common use for this filter is one-time initialization.
+///
+/// To retain all results without filtering but still check whether they were spawned after the
+/// system last ran, use [`SpawnDetails`](crate::query::SpawnDetails) instead.
+///
+/// **Note** that this includes entities that spawned before the first time this Query was run.
+///
+/// # Deferred
+///
+/// Note, that entity spawns issued with [`Commands`](crate::system::Commands)
+/// are visible only after deferred operations are applied, typically after the
+/// system that queued them.
+///
+/// # Time complexity
+///
+/// `Spawned` is not [`ArchetypeFilter`], which practically means that if query matches million
+/// entities, `Spawned` filter will iterate over all of them even if none of them were spawned.
+///
+/// For example, these two systems are roughly equivalent in terms of performance:
+///
+/// ```
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::query::Spawned;
+/// # use bevy_ecs::query::SpawnDetails;
+///
+/// fn system1(query: Query<Entity, Spawned>) {
+///     for entity in &query { /* entity spawned */ }
+/// }
+///
+/// fn system2(query: Query<(Entity, SpawnDetails)>) {
+///     for (entity, spawned) in &query {
+///         if spawned.is_spawned() { /* entity spawned */ }
+///     }
+/// }
+/// ```
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::query::Spawned;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component, Debug)]
+/// # struct Name {};
+///
+/// fn print_spawning_entities(query: Query<&Name, Spawned>) {
+///     for name in &query {
+///         println!("Entity spawned: {:?}", name);
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(print_spawning_entities);
+/// ```
+pub struct Spawned;
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct SpawnedFetch<'w> {
+    entities: &'w Entities,
+    last_run: Tick,
+    this_run: Tick,
+}
+
+// SAFETY: WorldQuery impl accesses no components or component ticks
+unsafe impl WorldQuery for Spawned {
+    type Fetch<'w> = SpawnedFetch<'w>;
+    type State = ();
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _state: &(),
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        SpawnedFetch {
+            entities: world.entities(),
+            last_run,
+            this_run,
+        }
+    }
+
+    const IS_DENSE: bool = true;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &(),
+        _archetype: &'w Archetype,
+        _table: &'w Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &(), _table: &'w Table) {}
+
+    #[inline]
+    fn update_component_access(_state: &(), _access: &mut FilteredAccess<ComponentId>) {}
+
+    fn init_state(_world: &mut World) {}
+
+    fn get_state(_components: &Components) -> Option<()> {
+        Some(())
+    }
+
+    fn matches_component_set(_state: &(), _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        true
+    }
+}
+
+// SAFETY: WorldQuery impl accesses no components or component ticks
+unsafe impl QueryFilter for Spawned {
+    const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        // SAFETY: only living entities are queried
+        let spawned = unsafe {
+            fetch
+                .entities
+                .entity_get_spawned_or_despawned_unchecked(entity)
+                .1
+        };
+        spawned.is_newer_than(fetch.last_run, fetch.this_run)
+    }
+}
+
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
 /// This is needed to implement [`ExactSizeIterator`] for
@@ -1072,7 +1213,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 /// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
 /// also implement the same trait.
 ///
-/// [`Added`] and [`Changed`] works with entities, and therefore are not archetypal. As such
+/// [`Added`], [`Changed`] and [`Spawned`] work with entities, and therefore are not archetypal. As such
 /// they do not implement [`ArchetypeFilter`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid `Query` filter based on archetype information",

@@ -55,12 +55,6 @@ pub trait TupleStruct: PartialReflect {
     /// Returns an iterator over the values of the tuple struct's fields.
     fn iter_fields(&self) -> TupleStructFieldIter;
 
-    /// Clones the struct into a [`DynamicTupleStruct`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_tuple_struct` instead")]
-    fn clone_dynamic(&self) -> DynamicTupleStruct {
-        self.to_dynamic_tuple_struct()
-    }
-
     /// Creates a new [`DynamicTupleStruct`] from this tuple struct.
     fn to_dynamic_tuple_struct(&self) -> DynamicTupleStruct {
         DynamicTupleStruct {
@@ -248,8 +242,7 @@ impl DynamicTupleStruct {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::TupleStruct(_)),
-                "expected TypeInfo::TupleStruct but received: {:?}",
-                represented_type
+                "expected TypeInfo::TupleStruct but received: {represented_type:?}"
             );
         }
 

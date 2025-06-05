@@ -135,34 +135,37 @@ where
 
     /// Applies a reflected value to this value.
     ///
-    /// If a type implements an [introspection subtrait], then the semantics of this
+    /// If `Self` implements a [reflection subtrait], then the semantics of this
     /// method are as follows:
-    /// - If `T` is a [`Struct`], then the value of each named field of `value` is
+    /// - If `Self` is a [`Struct`], then the value of each named field of `value` is
     ///   applied to the corresponding named field of `self`. Fields which are
     ///   not present in both structs are ignored.
-    /// - If `T` is a [`TupleStruct`] or [`Tuple`], then the value of each
+    /// - If `Self` is a [`TupleStruct`] or [`Tuple`], then the value of each
     ///   numbered field is applied to the corresponding numbered field of
     ///   `self.` Fields which are not present in both values are ignored.
-    /// - If `T` is an [`Enum`], then the variant of `self` is `updated` to match
+    /// - If `Self` is an [`Enum`], then the variant of `self` is `updated` to match
     ///   the variant of `value`. The corresponding fields of that variant are
     ///   applied from `value` onto `self`. Fields which are not present in both
     ///   values are ignored.
-    /// - If `T` is a [`List`] or [`Array`], then each element of `value` is applied
+    /// - If `Self` is a [`List`] or [`Array`], then each element of `value` is applied
     ///   to the corresponding element of `self`. Up to `self.len()` items are applied,
     ///   and excess elements in `value` are appended to `self`.
-    /// - If `T` is a [`Map`], then for each key in `value`, the associated
+    /// - If `Self` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
     ///   Keys which are not present in `self` are inserted.
-    /// - If `T` is none of these, then `value` is downcast to `T`, cloned, and
+    /// - If `Self` is a [`Set`], then each element of `value` is applied to the corresponding
+    ///   element of `Self`. If an element of `value` does not exist in `Self` then it is
+    ///   cloned and inserted.
+    /// - If `Self` is none of these, then `value` is downcast to `Self`, cloned, and
     ///   assigned to `self`.
     ///
-    /// Note that `Reflect` must be implemented manually for [`List`]s and
-    /// [`Map`]s in order to achieve the correct semantics, as derived
+    /// Note that `Reflect` must be implemented manually for [`List`]s,
+    /// [`Map`]s, and [`Set`]s in order to achieve the correct semantics, as derived
     /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
-    /// or none of the above depending on the kind of type. For lists and maps, use the
-    /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
+    /// or none of the above depending on the kind of type. For lists, maps, and sets, use the
+    /// [`list_apply`], [`map_apply`], and [`set_apply`] helper functions when implementing this method.
     ///
-    /// [introspection subtrait]: crate#the-introspection-subtraits
+    /// [reflection subtrait]: crate#the-reflection-subtraits
     /// [`Struct`]: crate::Struct
     /// [`TupleStruct`]: crate::TupleStruct
     /// [`Tuple`]: crate::Tuple
@@ -170,17 +173,19 @@ where
     /// [`List`]: crate::List
     /// [`Array`]: crate::Array
     /// [`Map`]: crate::Map
+    /// [`Set`]: crate::Set
     /// [`list_apply`]: crate::list_apply
     /// [`map_apply`]: crate::map_apply
+    /// [`set_apply`]: crate::set_apply
     ///
     /// # Panics
     ///
     /// Derived implementations of this method will panic:
-    /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is
+    /// - If the type of `value` is not of the same kind as `Self` (e.g. if `Self` is
     ///   a `List`, while `value` is a `Struct`).
-    /// - If `T` is any complex type and the corresponding fields or elements of
+    /// - If `Self` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
-    /// - If `T` is an opaque type and `self` cannot be downcast to `T`
+    /// - If `Self` is an opaque type and `value` cannot be downcast to `Self`
     fn apply(&mut self, value: &dyn PartialReflect) {
         PartialReflect::try_apply(self, value).unwrap();
     }
@@ -217,42 +222,6 @@ where
     ///
     /// See [`ReflectOwned`].
     fn reflect_owned(self: Box<Self>) -> ReflectOwned;
-
-    /// Clones `Self` into its dynamic representation.
-    ///
-    /// For value types or types marked with `#[reflect_value]`,
-    /// this will simply return a clone of `Self`.
-    ///
-    /// Otherwise the associated dynamic type will be returned.
-    ///
-    /// For example, a [`List`] type will invoke [`List::clone_dynamic`], returning [`DynamicList`].
-    /// A [`Struct`] type will invoke [`Struct::clone_dynamic`], returning [`DynamicStruct`].
-    /// And so on.
-    ///
-    /// If the dynamic behavior is not desired, a concrete clone can be obtained using [`PartialReflect::reflect_clone`].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_reflect::{PartialReflect};
-    /// let value = (1, true, 3.14);
-    /// let cloned = value.clone_value();
-    /// assert!(cloned.is_dynamic())
-    /// ```
-    ///
-    /// [`List`]: crate::List
-    /// [`List::clone_dynamic`]: crate::List::clone_dynamic
-    /// [`DynamicList`]: crate::DynamicList
-    /// [`Struct`]: crate::Struct
-    /// [`Struct::clone_dynamic`]: crate::Struct::clone_dynamic
-    /// [`DynamicStruct`]: crate::DynamicStruct
-    #[deprecated(
-        since = "0.16.0",
-        note = "to clone reflected values, prefer using `reflect_clone`. To convert reflected values to dynamic ones, use `to_dynamic`."
-    )]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        self.to_dynamic()
-    }
 
     /// Converts this reflected value into its dynamic representation based on its [kind].
     ///
@@ -606,7 +575,7 @@ impl TypePath for dyn Reflect {
 macro_rules! impl_full_reflect {
     ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
         impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
-            fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
+            fn into_any(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn ::core::any::Any> {
                 self
             }
 
@@ -618,7 +587,7 @@ macro_rules! impl_full_reflect {
                 self
             }
 
-            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
+            fn into_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::Reflect> {
                 self
             }
 
@@ -632,8 +601,8 @@ macro_rules! impl_full_reflect {
 
             fn set(
                 &mut self,
-                value: Box<dyn $crate::Reflect>,
-            ) -> Result<(), Box<dyn $crate::Reflect>> {
+                value: bevy_platform::prelude::Box<dyn $crate::Reflect>,
+            ) -> Result<(), bevy_platform::prelude::Box<dyn $crate::Reflect>> {
                 *self = <dyn $crate::Reflect>::take(value)?;
                 Ok(())
             }

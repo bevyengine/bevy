@@ -8,8 +8,8 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Reflection in Rust.
@@ -521,7 +521,7 @@
 //! and displaying it in error messages.
 //!
 //! [Reflection]: https://en.wikipedia.org/wiki/Reflective_programming
-//! [Bevy]: https://bevyengine.org/
+//! [Bevy]: https://bevy.org/
 //! [limitations]: #limitations
 //! [`bevy_reflect`]: crate
 //! [introspection]: https://en.wikipedia.org/wiki/Type_introspection
@@ -654,18 +654,19 @@ mod type_path;
 mod type_registry;
 
 mod impls {
-    // This simplifies implementations by consolidating conditional compilation.
-    crate::cfg::switch! {
-        crate::cfg::functions => {
-            use crate::func::macros::impl_function_traits as maybe_impl_functions_traits;
-        }
-        _ => {
-            use bevy_platform::cfg::disabled as maybe_impl_functions_traits;
-        }
+    mod alloc;
+    mod bevy_platform;
+    mod core;
+    mod foldhash;
+    mod macros;
+
+    crate::cfg::std! {
+        mod std;
     }
 
-    mod foldhash;
-    mod std;
+    crate::cfg::hashbrown! {
+        mod hashbrown;
+    }
 
     crate::cfg::glam! {
         mod glam;
@@ -2683,7 +2684,7 @@ bevy_reflect::tests::Test {
         let foo = Foo { a: 1 };
         let foo: &dyn Reflect = &foo;
 
-        assert_eq!("123", format!("{:?}", foo));
+        assert_eq!("123", format!("{foo:?}"));
     }
 
     #[test]
@@ -2936,7 +2937,7 @@ bevy_reflect::tests::Test {
         test_unknown_tuple_struct.insert(14);
         test_struct.insert("unknown_tuplestruct", test_unknown_tuple_struct);
         assert_eq!(
-            format!("{:?}", test_struct),
+            format!("{test_struct:?}"),
             "DynamicStruct(bevy_reflect::tests::TestStruct { \
                 tuple: DynamicTuple((0, 1)), \
                 tuple_struct: DynamicTupleStruct(bevy_reflect::tests::TestTupleStruct(8)), \
