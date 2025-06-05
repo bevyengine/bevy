@@ -4,7 +4,7 @@ use bevy::{
     log::{
         tracing::{self, Subscriber},
         tracing_subscriber::Layer,
-        BoxedFmtLayer, BoxedLayer,
+        BoxedLayer,
     },
     prelude::*,
 };
@@ -41,12 +41,13 @@ fn custom_layer(_app: &mut App) -> Option<BoxedLayer> {
 // `fmt_layer` option.
 //
 // In this example, we're disabling the timestamp in the log output.
-fn fmt_layer(_app: &mut App) -> Option<BoxedFmtLayer> {
-    Some(Box::new(
+fn fmt_layer(_app: &mut App) -> Option<BoxedLayer> {
+    Some(
         bevy::log::tracing_subscriber::fmt::Layer::default()
             .without_time()
-            .with_writer(std::io::stderr),
-    ))
+            .with_writer(std::io::stderr)
+            .boxed(),
+    )
 }
 
 fn main() {
