@@ -17,6 +17,7 @@ mod render;
 mod sprite;
 mod texture_slice;
 
+pub mod light;
 /// The sprite prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
@@ -28,12 +29,14 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use crate::{
+        light::point_light_2d::{FalloffType, PointLight2D},
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, MeshMaterial2d, ScalingMode,
     };
 }
 
+pub use light::point_light_2d::{FalloffType, PointLight2D};
 pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
@@ -57,6 +60,7 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
+use crate::render::light::*;
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
 pub struct SpritePlugin;
@@ -87,6 +91,8 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<Mesh2d>()
+            .register_type::<PointLight2D>()
+            .register_type::<FalloffType>()
             .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
@@ -111,12 +117,15 @@ impl Plugin for SpritePlugin {
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<ExtractedSlices>()
                 .init_resource::<SpriteAssetEvents>()
+                .init_resource::<ExtractedPointLights2D>()
+                .add_systems(Render, setup_gpu_lights)
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_systems(
                     ExtractSchedule,
                     (
                         extract_sprites.in_set(SpriteSystems::ExtractSprites),
                         extract_sprite_events,
+                        extract_point_lights_2d,
                     ),
                 )
                 .add_systems(
@@ -127,6 +136,7 @@ impl Plugin for SpritePlugin {
                             .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
                         prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                        prepare_point_lights_2d.in_set(RenderSystems::PrepareBindGroups),
                         sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),
                         sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSystems::PhaseSort),
                     ),
