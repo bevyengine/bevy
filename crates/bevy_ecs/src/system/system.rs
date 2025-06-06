@@ -24,11 +24,11 @@ bitflags! {
     /// Bitflags representing system states and requirements.
     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct SystemStateFlags: u8 {
-        // Set if system cannot be sent across threads
+        /// Set if system cannot be sent across threads
         const NON_SEND       = 1 << 0;
-        // Set if system requires exclusive World access
+        /// Set if system requires exclusive World access
         const EXCLUSIVE      = 1 << 1;
-        // Set if system has deferred buffers.
+        /// Set if system has deferred buffers.
         const DEFERRED       = 1 << 2;
     }
 }
