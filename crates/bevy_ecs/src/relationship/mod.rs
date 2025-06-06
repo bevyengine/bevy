@@ -110,16 +110,20 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(entity).remove::<Self>();
             return;
         }
-        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
-            if let Some(mut relationship_target) =
-                target_entity_mut.get_mut::<Self::RelationshipTarget>()
-            {
-                relationship_target.collection_mut_risky().add(entity);
-            } else {
-                let mut target = <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-                target.collection_mut_risky().add(entity);
-                world.commands().entity(target_entity).insert(target);
-            }
+        if world.get_entity(target_entity).is_ok() {
+            world
+                .commands()
+                .entity(target_entity)
+                .entry::<Self::RelationshipTarget>()
+                .and_modify(move |mut relationship_target| {
+                    relationship_target.collection_mut_risky().add(entity);
+                })
+                .or_insert({
+                    let mut target =
+                        <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
+                    target.collection_mut_risky().add(entity);
+                    target
+                });
         } else {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
@@ -457,5 +461,32 @@ mod tests {
 
         assert!(world.get_entity(child).is_err());
         assert!(!world.entity(parent).contains::<RelTarget>());
+    }
+
+    // Spawn a batch of entities in relationship with a target entity
+    #[test]
+    fn spawn_batch_with_relationship() {
+        use crate::relationship::{Relationship, RelationshipTarget};
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let target = world.spawn_empty().id();
+        let rel_entities = world
+            .spawn_batch((0..10).map(|_| Rel(target)))
+            .collect::<Vec<_>>();
+
+        for &entity in &rel_entities {
+            assert!(world.get::<Rel>(entity).is_some_and(|r| r.get() == target));
+        }
+        assert!(world
+            .get::<RelTarget>(target)
+            .is_some_and(|rt| rt.len() == 10));
     }
 }
