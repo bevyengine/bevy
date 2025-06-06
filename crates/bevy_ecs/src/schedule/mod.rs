@@ -874,7 +874,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "Known failing but fix is non-trivial: https://github.com/bevyengine/bevy/issues/4381"]
         fn filtered_components() {
             let mut world = World::new();
             world.spawn(A);
