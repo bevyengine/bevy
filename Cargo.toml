@@ -903,6 +903,17 @@ description = "Simple 3D scene with basic shapes and lighting"
 category = "3D Rendering"
 wasm = true
 
+[[example]] 
+name = "gltf_viewer_main"
+path = "examples/3d/gltf_viewer_main.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_viewer_main]
+name = "GLTF Viewer"
+description = "Demonstrates loading and playing multiple animations from a GLTF file."
+category = "3D Rendering"
+wasm = true
+
 [[example]]
 name = "3d_shapes"
 path = "examples/3d/3d_shapes.rs"
