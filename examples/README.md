@@ -805,7 +805,7 @@ In browsers, audio is not authorized to start without being triggered by an user
 
 On the web, it's useful to reduce the size of the files that are distributed.
 With rust, there are many ways to improve your executable sizes, starting with
-the steps described in [the quick-start guide](https://bevyengine.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
+the steps described in [the quick-start guide](https://bevy.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:
 
