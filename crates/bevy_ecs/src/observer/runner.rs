@@ -371,6 +371,11 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     //   and is never exclusive
     // - system is the same type erased system from above
     unsafe {
+        // Always refresh hotpatch pointers
+        // There's no guarantee that the `HotPatched` event would still be there once the observer is triggered.
+        #[cfg(feature = "hotpatching")]
+        (*system).refresh_hotpatch();
+
         if let Err(RunSystemError::Failed(err)) = (*system)
             .validate_param_unsafe(world)
             .map_err(From::from)

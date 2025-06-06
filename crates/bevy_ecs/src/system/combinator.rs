@@ -187,6 +187,13 @@ where
         )
     }
 
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.a.refresh_hotpatch();
+        self.b.refresh_hotpatch();
+    }
+
     #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
@@ -402,6 +409,13 @@ where
         // but we still need to validate the second system once the first one runs.
         self.b.validate_param_unsafe(world)?;
         self.b.run_unsafe(value, world)
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.a.refresh_hotpatch();
+        self.b.refresh_hotpatch();
     }
 
     fn apply_deferred(&mut self, world: &mut World) {

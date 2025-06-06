@@ -13,6 +13,8 @@ use crate::{
     system::RunSystemError,
     world::World,
 };
+#[cfg(feature = "hotpatching")]
+use crate::{event::Events, HotPatched};
 
 use super::__rust_begin_short_backtrace;
 
@@ -61,6 +63,12 @@ impl SystemExecutor for SingleThreadedExecutor {
             self.completed_systems |= skipped_systems;
         }
 
+        #[cfg(feature = "hotpatching")]
+        let should_update_hotpatch = !world
+            .get_resource::<Events<HotPatched>>()
+            .map(Events::is_empty)
+            .unwrap_or(true);
+
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
@@ -102,6 +110,11 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
+
+            #[cfg(feature = "hotpatching")]
+            if should_update_hotpatch {
+                system.refresh_hotpatch();
+            }
 
             // system has either been skipped or will run
             self.completed_systems.insert(system_index);
@@ -186,6 +199,12 @@ fn evaluate_and_fold_conditions(
     world: &mut World,
     error_handler: ErrorHandler,
 ) -> bool {
+    #[cfg(feature = "hotpatching")]
+    let should_update_hotpatch = !world
+        .get_resource::<Events<HotPatched>>()
+        .map(Events::is_empty)
+        .unwrap_or(true);
+
     #[expect(
         clippy::unnecessary_fold,
         reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
@@ -193,6 +212,10 @@ fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|condition| {
+            #[cfg(feature = "hotpatching")]
+            if should_update_hotpatch {
+                condition.refresh_hotpatch();
+            }
             __rust_begin_short_backtrace::readonly_run(&mut **condition, world).unwrap_or_else(
                 |err| {
                     if let RunSystemError::Failed(err) = err {

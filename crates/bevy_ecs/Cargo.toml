@@ -3,7 +3,7 @@ name = "bevy_ecs"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Bevy Engine's entity component system"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
@@ -83,6 +83,8 @@ critical-section = [
   "bevy_reflect?/critical-section",
 ]
 
+hotpatching = ["dep:subsecond"]
+
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
@@ -117,6 +119,7 @@ variadics_please = { version = "1.1", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
+subsecond = { version = "0.7.0-alpha.1", optional = true }
 
 concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]

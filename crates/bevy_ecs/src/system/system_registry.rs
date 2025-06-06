@@ -877,7 +877,7 @@ mod tests {
 
         assert!(matches!(result, Err(RegisteredSystemError::Failed { .. })));
         let expected = "System returned error: Parameter `Res<T>` failed validation: Resource does not exist\n";
-        assert!(result.unwrap_err().to_string().starts_with(expected));
+        assert!(result.unwrap_err().to_string().contains(expected));
     }
 
     #[test]

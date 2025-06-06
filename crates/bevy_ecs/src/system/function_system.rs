@@ -310,6 +310,9 @@ impl<Param: SystemParam> SystemState<Param> {
     {
         FunctionSystem {
             func: FallibleFunctionSystem::new(func),
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
             state: Some(FunctionSystemState {
                 param: self.param_state,
                 world_id: self.world_id,
@@ -523,6 +526,8 @@ where
     F: SystemParamFunction<Marker>,
 {
     func: F,
+    #[cfg(feature = "hotpatching")]
+    current_ptr: subsecond::HotFnPtr,
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
@@ -562,6 +567,9 @@ where
     fn clone(&self) -> Self {
         Self {
             func: self.func.clone(),
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
@@ -585,6 +593,9 @@ where
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func: FallibleFunctionSystem::new(func),
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
             state: None,
             system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
@@ -759,9 +770,33 @@ where
         //   will ensure that there are no data access conflicts.
         let params =
             unsafe { F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick) };
+
+        #[cfg(feature = "hotpatching")]
+        let out = {
+            let mut hot_fn = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run);
+            // SAFETY:
+            // - pointer used to call is from the current jump table
+            unsafe {
+                hot_fn
+                    .try_call_with_ptr(self.current_ptr, (&mut self.func, input, params))
+                    .expect("Error calling hotpatched system. Run a full rebuild")
+            }
+        };
+        #[cfg(not(feature = "hotpatching"))]
         let out = self.func.run(input, params);
+
         self.system_meta.last_run = change_tick;
         out
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        let new = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run).ptr_address();
+        if new != self.current_ptr {
+            log::debug!("system {} hotpatched", self.name());
+        }
+        self.current_ptr = new;
     }
 
     #[inline]

@@ -579,15 +579,15 @@ mod radial_gradient {
                     (RadialGradientShape::FarthestCorner, "FarthestCorner"),
                 ] {
                     for (position, position_label) in [
-                        (Position::TOP_LEFT, "TOP_LEFT"),
-                        (Position::LEFT, "LEFT"),
-                        (Position::BOTTOM_LEFT, "BOTTOM_LEFT"),
-                        (Position::TOP, "TOP"),
-                        (Position::CENTER, "CENTER"),
-                        (Position::BOTTOM, "BOTTOM"),
-                        (Position::TOP_RIGHT, "TOP_RIGHT"),
-                        (Position::RIGHT, "RIGHT"),
-                        (Position::BOTTOM_RIGHT, "BOTTOM_RIGHT"),
+                        (UiPosition::TOP_LEFT, "TOP_LEFT"),
+                        (UiPosition::LEFT, "LEFT"),
+                        (UiPosition::BOTTOM_LEFT, "BOTTOM_LEFT"),
+                        (UiPosition::TOP, "TOP"),
+                        (UiPosition::CENTER, "CENTER"),
+                        (UiPosition::BOTTOM, "BOTTOM"),
+                        (UiPosition::TOP_RIGHT, "TOP_RIGHT"),
+                        (UiPosition::RIGHT, "RIGHT"),
+                        (UiPosition::BOTTOM_RIGHT, "BOTTOM_RIGHT"),
                     ] {
                         for (w, h) in [(CELL_SIZE, CELL_SIZE), (CELL_SIZE, CELL_SIZE / 2.)] {
                             commands
