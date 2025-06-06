@@ -82,7 +82,7 @@ pub struct UnnamedField {
 }
 
 impl UnnamedField {
-    /// TODO
+    /// Create a new [`UnnamedField`].
     pub fn new<T: PartialReflect + MaybeTyped + TypePath>(index: usize) -> Self {
         Self {
             index,
@@ -136,9 +136,9 @@ impl UnnamedField {
 /// A representation of a field's accessor.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FieldId {
-    /// TODO
+    /// Access a field by name.
     Named(Cow<'static, str>),
-    /// TODO
+    /// Access a field by index.
     Unnamed(usize),
 }
 

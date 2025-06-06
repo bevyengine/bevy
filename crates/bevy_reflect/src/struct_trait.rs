@@ -193,7 +193,7 @@ pub struct FieldIter<'a> {
 }
 
 impl<'a> FieldIter<'a> {
-    /// TODO
+    /// Creates a new [`FieldIter`].
     pub fn new(value: &'a dyn Struct) -> Self {
         FieldIter {
             struct_val: value,

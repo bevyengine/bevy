@@ -1,4 +1,4 @@
-//! TODO
+//! Module containing the [`ReflectDefault`] type.
 
 use crate::{FromType, Reflect};
 use alloc::boxed::Box;
@@ -12,7 +12,7 @@ pub struct ReflectDefault {
 }
 
 impl ReflectDefault {
-    /// TODO
+    /// Returns the default value for a type.
     pub fn default(&self) -> Box<dyn Reflect> {
         (self.default)()
     }

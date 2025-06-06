@@ -1,4 +1,4 @@
-//! TODO
+//! Types and functions for creating, manipulating and querying [`CustomAttributes`].
 
 use crate::Reflect;
 use alloc::boxed::Box;
@@ -100,19 +100,19 @@ struct CustomAttribute {
 }
 
 impl CustomAttribute {
-    /// TODO
+    /// Creates a new [`CustomAttribute`] containing `value`.
     pub fn new<T: Reflect>(value: T) -> Self {
         Self {
             value: Box::new(value),
         }
     }
 
-    /// TODO
+    /// Returns a reference to the attribute's value if it is of type `T`, or [`None`] if not.
     pub fn value<T: Reflect>(&self) -> Option<&T> {
         self.value.downcast_ref()
     }
 
-    /// TODO
+    /// Returns a reference to the attribute's value as a [`Reflect`] trait object.
     pub fn reflect_value(&self) -> &dyn Reflect {
         &*self.value
     }
