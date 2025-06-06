@@ -14,17 +14,19 @@ pub mod core_3d;
 pub mod deferred;
 pub mod dof;
 pub mod experimental;
-pub mod fullscreen_vertex_shader;
 pub mod motion_blur;
 pub mod msaa_writeback;
 pub mod oit;
 pub mod post_process;
 pub mod prepass;
-mod skybox;
 pub mod tonemapping;
 pub mod upscaling;
 
+pub use fullscreen_vertex_shader::FullscreenShader;
 pub use skybox::Skybox;
+
+mod fullscreen_vertex_shader;
+mod skybox;
 
 /// The core pipeline prelude.
 ///
@@ -42,7 +44,6 @@ use crate::{
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
     dof::DepthOfFieldPlugin,
     experimental::mip_generation::MipGenerationPlugin,
-    fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     motion_blur::MotionBlurPlugin,
     msaa_writeback::MsaaWritebackPlugin,
     post_process::PostProcessingPlugin,
@@ -51,8 +52,8 @@ use crate::{
     upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::load_internal_asset;
-use bevy_render::prelude::Shader;
+use bevy_asset::embedded_asset;
+use bevy_render::RenderApp;
 use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
@@ -60,17 +61,13 @@ pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            FULLSCREEN_SHADER_HANDLE,
-            "fullscreen_vertex_shader/fullscreen.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "fullscreen_vertex_shader/fullscreen.wgsl");
 
         app.register_type::<DepthPrepass>()
             .register_type::<NormalPrepass>()
             .register_type::<MotionVectorPrepass>()
             .register_type::<DeferredPrepass>()
+            .init_resource::<FullscreenShader>()
             .add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
             .add_plugins((
                 BlitPlugin,
@@ -84,5 +81,12 @@ impl Plugin for CorePipelinePlugin {
                 OrderIndependentTransparencyPlugin,
                 MipGenerationPlugin,
             ));
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app.init_resource::<FullscreenShader>();
     }
 }

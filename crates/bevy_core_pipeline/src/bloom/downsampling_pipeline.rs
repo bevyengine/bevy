@@ -1,5 +1,6 @@
+use crate::FullscreenShader;
+
 use super::{Bloom, BLOOM_TEXTURE_FORMAT};
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -27,8 +28,10 @@ pub struct BloomDownsamplingPipeline {
     /// Layout with a texture, a sampler, and uniforms
     pub bind_group_layout: BindGroupLayout,
     pub sampler: Sampler,
-    /// The shader asset handle.
-    pub shader: Handle<Shader>,
+    /// The asset handle for the fullscreen vertex shader.
+    pub fullscreen_shader: FullscreenShader,
+    /// The fragment shader asset handle.
+    pub fragment_shader: Handle<Shader>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -81,7 +84,8 @@ impl FromWorld for BloomDownsamplingPipeline {
         BloomDownsamplingPipeline {
             bind_group_layout,
             sampler,
-            shader: load_embedded_asset!(world, "bloom.wgsl"),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(world, "bloom.wgsl"),
         }
     }
 }
@@ -122,9 +126,9 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
                 .into(),
             ),
             layout,
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
                 entry_point,
                 targets: vec![Some(ColorTargetState {

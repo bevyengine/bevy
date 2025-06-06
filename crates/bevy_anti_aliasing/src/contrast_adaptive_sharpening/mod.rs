@@ -3,7 +3,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    FullscreenShader,
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
@@ -163,7 +163,8 @@ impl Plugin for CasPlugin {
 pub struct CasPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
-    shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 impl FromWorld for CasPipeline {
@@ -187,7 +188,11 @@ impl FromWorld for CasPipeline {
         CasPipeline {
             texture_bind_group,
             sampler,
-            shader: load_embedded_asset!(render_world, "robust_contrast_adaptive_sharpening.wgsl"),
+            fullscreen_shader: render_world.resource::<FullscreenShader>().clone(),
+            fragment_shader: load_embedded_asset!(
+                render_world,
+                "robust_contrast_adaptive_sharpening.wgsl"
+            ),
         }
     }
 }
@@ -209,9 +214,9 @@ impl SpecializedRenderPipeline for CasPipeline {
         RenderPipelineDescriptor {
             label: Some("contrast_adaptive_sharpening".into()),
             layout: vec![self.texture_bind_group.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

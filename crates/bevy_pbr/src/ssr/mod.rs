@@ -7,8 +7,8 @@ use bevy_core_pipeline::{
         graph::{Core3d, Node3d},
         DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
-    fullscreen_vertex_shader,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    FullscreenShader,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -155,7 +155,8 @@ pub struct ScreenSpaceReflectionsPipeline {
     depth_nearest_sampler: Sampler,
     bind_group_layout: BindGroupLayout,
     binding_arrays_are_usable: bool,
-    shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 /// A GPU buffer that stores the screen space reflection settings for each view.
@@ -397,9 +398,10 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
             depth_nearest_sampler,
             bind_group_layout,
             binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
+            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
             // Even though ssr was loaded using load_shader_library, we can still access it like a
             // normal embedded asset (so we can use it as both a library or a kernel).
-            shader: load_embedded_asset!(world, "ssr.wgsl"),
+            fragment_shader: load_embedded_asset!(world, "ssr.wgsl"),
         }
     }
 }
@@ -536,9 +538,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),
             layout: vec![mesh_view_layout.clone(), self.bind_group_layout.clone()],
-            vertex: fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
+                shader: self.fragment_shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
