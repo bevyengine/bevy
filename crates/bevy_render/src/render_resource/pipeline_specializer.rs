@@ -18,11 +18,29 @@ use core::{fmt::Debug, hash::Hash};
 use thiserror::Error;
 use tracing::error;
 
+/// A trait that allows constructing different variants of a render pipeline from a key.
+///
+/// Note: If your key is a ZST, you do not need to "specialize" anything. Just create the render
+/// pipeline once and store its ID.
+///
+/// See [`SpecializedRenderPipelines`] for more info.
 pub trait SpecializedRenderPipeline {
+    /// The key that defines each "variant" of the render pipeline.
     type Key: Clone + Hash + PartialEq + Eq;
+
+    /// Construct a new render pipeline based on the provided key.
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor;
 }
 
+/// A convenience cache for creating different variants of a render pipeline based on some key.
+///
+/// Some render pipelines may need to be configured differently depending on the exact situation.
+/// This cache allows constructing different render pipelines for each situation based on a key,
+/// making it easy to A) construct the necessary pipelines, and B) reuse already constructed
+/// pipelines.
+///
+/// Note: If your key is a ZST, you do not need to "specialize" anything. Just create the render
+/// pipeline once and store its ID.
 #[derive(Resource)]
 pub struct SpecializedRenderPipelines<S: SpecializedRenderPipeline> {
     cache: HashMap<S::Key, CachedRenderPipelineId>,
@@ -35,24 +53,43 @@ impl<S: SpecializedRenderPipeline> Default for SpecializedRenderPipelines<S> {
 }
 
 impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
+    /// Get or create a specialized instance of the pipeline corresponding to `key`.
     pub fn specialize(
         &mut self,
         cache: &PipelineCache,
-        specialize_pipeline: &S,
+        pipeline_specializer: &S,
         key: S::Key,
     ) -> CachedRenderPipelineId {
         *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
+            let descriptor = pipeline_specializer.specialize(key);
             cache.queue_render_pipeline(descriptor)
         })
     }
 }
 
+/// A trait that allows constructing different variants of a compute pipeline from a key.
+///
+/// Note: If your key is a ZST, you do not need to "specialize" anything. Just create the compute
+/// pipeline once and store its ID.
+///
+/// See [`SpecializedComputePipelines`] for more info.
 pub trait SpecializedComputePipeline {
+    /// The key that defines each "variant" of the compute pipeline.
     type Key: Clone + Hash + PartialEq + Eq;
+
+    /// Construct a new compute pipeline based on the provided key.
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor;
 }
 
+/// A convenience cache for creating different variants of a compute pipeline based on some key.
+///
+/// Some compute pipelines may need to be configured differently depending on the exact situation.
+/// This cache allows constructing different compute pipelines for each situation based on a key,
+/// making it easy to A) construct the necessary pipelines, and B) reuse already constructed
+/// pipelines.
+///
+/// Note: If your key is a ZST, you do not need to "specialize" anything. Just create the compute
+/// pipeline once and store its ID.
 #[derive(Resource)]
 pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
     cache: HashMap<S::Key, CachedComputePipelineId>,
@@ -65,6 +102,7 @@ impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
 }
 
 impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
+    /// Get or create a specialized instance of the pipeline corresponding to `key`.
     pub fn specialize(
         &mut self,
         cache: &PipelineCache,
@@ -78,8 +116,18 @@ impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
     }
 }
 
+/// A trait that allows constructing different variants of a render pipeline from a key and the
+/// particular mesh's vertex buffer layout.
+///
+/// See [`SpecializedMeshPipelines`] for more info.
 pub trait SpecializedMeshPipeline {
+    /// The key that defines each "variant" of the render pipeline.
     type Key: Clone + Hash + PartialEq + Eq;
+
+    /// Construct a new render pipeline based on the provided key and vertex layout.
+    ///
+    /// The returned pipeline descriptor should have a single vertex buffer, which is derived from
+    /// `layout`.
     fn specialize(
         &self,
         key: Self::Key,
@@ -87,13 +135,15 @@ pub trait SpecializedMeshPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError>;
 }
 
+/// A cache of different variants of a render pipeline based on a key and the particular mesh's
+/// vertex buffer layout.
 #[derive(Resource)]
 pub struct SpecializedMeshPipelines<S: SpecializedMeshPipeline> {
     mesh_layout_cache: HashMap<(MeshVertexBufferLayoutRef, S::Key), CachedRenderPipelineId>,
     vertex_layout_cache: VertexLayoutCache<S>,
 }
 
-pub type VertexLayoutCache<S> = HashMap<
+type VertexLayoutCache<S> = HashMap<
     VertexBufferLayout,
     HashMap<<S as SpecializedMeshPipeline>::Key, CachedRenderPipelineId>,
 >;
@@ -108,11 +158,13 @@ impl<S: SpecializedMeshPipeline> Default for SpecializedMeshPipelines<S> {
 }
 
 impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
+    /// Construct a new render pipeline based on the provided key and the mesh's vertex buffer
+    /// layout.
     #[inline]
     pub fn specialize(
         &mut self,
         cache: &PipelineCache,
-        specialize_pipeline: &S,
+        pipeline_specializer: &S,
         key: S::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
@@ -121,7 +173,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             Entry::Vacant(entry) => specialize_slow(
                 &mut self.vertex_layout_cache,
                 cache,
-                specialize_pipeline,
+                pipeline_specializer,
                 key,
                 layout,
                 entry,
