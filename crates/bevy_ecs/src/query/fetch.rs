@@ -847,7 +847,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         fetch
     }
 
-    const IS_DENSE: bool = false;
+    const IS_DENSE: bool = true;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -968,7 +968,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         fetch
     }
 
-    const IS_DENSE: bool = false;
+    const IS_DENSE: bool = true;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
