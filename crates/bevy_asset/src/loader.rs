@@ -19,7 +19,10 @@ use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 use thiserror::Error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
@@ -320,7 +323,7 @@ pub struct LoadContext<'a> {
     pub(crate) dependencies: HashSet<UntypedAssetId>,
     /// Direct dependencies used by this loader.
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
+    pub(crate) labeled_assets: &'a Mutex<HashMap<CowArc<'static, str>, LabeledAsset>>,
 }
 
 impl<'a> LoadContext<'a> {
@@ -330,6 +333,7 @@ impl<'a> LoadContext<'a> {
         asset_path: AssetPath<'static>,
         should_load_dependencies: bool,
         populate_hashes: bool,
+        labeled_assets: &'a Mutex<HashMap<CowArc<'static, str>, LabeledAsset>>,
     ) -> Self {
         Self {
             asset_server,
@@ -338,7 +342,7 @@ impl<'a> LoadContext<'a> {
             should_load_dependencies,
             dependencies: HashSet::default(),
             loader_dependencies: HashMap::default(),
-            labeled_assets: HashMap::default(),
+            labeled_assets,
         }
     }
 
@@ -377,6 +381,7 @@ impl<'a> LoadContext<'a> {
             self.asset_path.clone(),
             self.should_load_dependencies,
             self.populate_hashes,
+            self.labeled_assets,
         )
     }
 
@@ -392,11 +397,11 @@ impl<'a> LoadContext<'a> {
         &mut self,
         label: String,
         load: impl FnOnce(&mut LoadContext) -> Result<A, E>,
-    ) -> Result<Handle<A>, E> {
+    ) -> Result<Handle<A>, LabeledAssetScopeError<E>> {
         let mut context = self.begin_labeled_asset();
-        let asset = load(&mut context)?;
+        let asset = load(&mut context).map_err(|e| LabeledAssetScopeError::ScopeError(e))?;
         let loaded_asset = context.finish(asset);
-        Ok(self.add_loaded_labeled_asset(label, loaded_asset))
+        Ok(self.add_loaded_labeled_asset(label, loaded_asset)?)
     }
 
     /// This will add the given `asset` as a "labeled [`Asset`]" with the `label` label.
@@ -409,9 +414,16 @@ impl<'a> LoadContext<'a> {
     /// new [`LoadContext`] to track the dependencies for the labeled asset.
     ///
     /// See [`AssetPath`] for more on labeled assets.
-    pub fn add_labeled_asset<A: Asset>(&mut self, label: String, asset: A) -> Handle<A> {
+    pub fn add_labeled_asset<A: Asset>(
+        &mut self,
+        label: String,
+        asset: A,
+    ) -> Result<Handle<A>, DuplicateLabelError> {
         self.labeled_asset_scope(label, |_| Ok::<_, ()>(asset))
-            .expect("the closure returns Ok")
+            .map_err(|err| match err {
+                LabeledAssetScopeError::ScopeError(_) => unreachable!(),
+                LabeledAssetScopeError::DuplicateLabel(err) => err,
+            })
     }
 
     /// Add a [`LoadedAsset`] that is a "labeled sub asset" of the root path of this load context.
@@ -423,21 +435,29 @@ impl<'a> LoadContext<'a> {
         &mut self,
         label: impl Into<CowArc<'static, str>>,
         loaded_asset: LoadedAsset<A>,
-    ) -> Handle<A> {
+    ) -> Result<Handle<A>, DuplicateLabelError> {
         let label = label.into();
         let loaded_asset: ErasedLoadedAsset = loaded_asset.into();
         let labeled_path = self.asset_path.clone().with_label(label.clone());
         let handle = self
             .asset_server
             .get_or_create_path_handle(labeled_path, None);
-        self.labeled_assets.insert(
-            label,
-            LabeledAsset {
-                asset: loaded_asset,
-                handle: handle.clone().untyped(),
-            },
-        );
-        handle
+        if self
+            .labeled_assets
+            .lock()
+            .unwrap()
+            .insert(
+                label.clone(),
+                LabeledAsset {
+                    asset: loaded_asset,
+                    handle: handle.clone().untyped(),
+                },
+            )
+            .is_some()
+        {
+            return Err(DuplicateLabelError(label));
+        }
+        Ok(handle)
     }
 
     /// Returns `true` if an asset with the label `label` exists in this context.
@@ -454,7 +474,7 @@ impl<'a> LoadContext<'a> {
             value,
             dependencies: self.dependencies,
             loader_dependencies: self.loader_dependencies,
-            labeled_assets: self.labeled_assets,
+            labeled_assets: Default::default(),
         }
     }
 
@@ -584,4 +604,21 @@ pub enum ReadAssetBytesError {
     },
     #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
+}
+
+#[derive(Error, Debug)]
+#[error("The subasset label \"{0}\" is already in use")]
+pub struct DuplicateLabelError(pub CowArc<'static, str>);
+
+#[derive(Error, Debug)]
+pub enum LabeledAssetScopeError<E> {
+    #[error(transparent)]
+    DuplicateLabel(DuplicateLabelError),
+    ScopeError(E),
+}
+
+impl<E> From<DuplicateLabelError> for LabeledAssetScopeError<E> {
+    fn from(value: DuplicateLabelError) -> Self {
+        Self::DuplicateLabel(value)
+    }
 }
