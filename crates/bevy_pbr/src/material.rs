@@ -1182,10 +1182,6 @@ pub fn queue_material_meshes<M: Material>(
                 continue;
             };
             if let None = pipeline_cache.get_render_pipeline(pipeline_id) {
-                warn!(
-                    "Material {:?} for mesh {:?} has no pipeline {:?}",
-                    material_asset_id, mesh_instance.mesh_asset_id, pipeline_id
-                );
                 view_specialized_material_pipeline_cache.remove(visible_entity);
                 continue;
             }
