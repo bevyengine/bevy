@@ -457,6 +457,7 @@ impl<'w> EntityMut<'w> {
     /// - `cell` must have permission to mutate every component of the entity.
     /// - No accesses to any of the entity's components may exist
     ///   at the same time as the returned [`EntityMut`].
+    #[inline]
     pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
         Self { cell }
     }
@@ -1010,6 +1011,7 @@ impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
 }
 
 impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
+    #[inline]
     fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe { EntityMut::new(entity.as_unsafe_entity_cell()) }
@@ -1122,6 +1124,7 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
+    #[inline(always)]
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
         let location = self.location();
         let last_change_tick = self.world.last_change_tick;
@@ -1134,6 +1137,8 @@ impl<'w> EntityWorldMut<'w> {
             change_tick,
         )
     }
+
+    #[inline(always)]
     fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         let location = self.location();
         let last_change_tick = self.world.last_change_tick;
@@ -1146,6 +1151,8 @@ impl<'w> EntityWorldMut<'w> {
             change_tick,
         )
     }
+
+    #[inline(always)]
     fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
         let location = self.location();
         let last_change_tick = self.world.last_change_tick;
@@ -1188,6 +1195,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Gets read-only access to all of the entity's components.
+    #[inline]
     pub fn as_readonly(&self) -> EntityRef<'_> {
         EntityRef::from(self)
     }
@@ -1199,6 +1207,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Gets non-structural mutable access to all of the entity's components.
+    #[inline]
     pub fn as_mutable(&mut self) -> EntityMut<'_> {
         EntityMut::from(self)
     }
