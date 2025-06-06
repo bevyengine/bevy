@@ -129,7 +129,7 @@ impl Default for ImageLoaderSettings {
 #[derive(Debug, Error)]
 pub enum ImageLoaderError {
     /// An error occurred while trying to load the image bytes.
-    #[error("Could load shader: {0}")]
+    #[error("Failed to load image bytes: {0}")]
     Io(#[from] std::io::Error),
     /// An error occurred while trying to decode the image bytes.
     #[error("Could not load texture file: {0}")]
