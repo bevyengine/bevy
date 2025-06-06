@@ -17,7 +17,9 @@ use variadics_please::all_tuples;
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
-use super::{IntoSystem, ReadOnlySystem, SystemParamBuilder, SystemParamValidationError};
+use super::{
+    IntoSystem, ReadOnlySystem, SystemParamBuilder, SystemParamValidationError, SystemStateFlags,
+};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -29,8 +31,7 @@ pub struct SystemMeta {
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
-    is_send: bool,
-    has_deferred: bool,
+    flags: SystemStateFlags,
     pub(crate) last_run: Tick,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -44,8 +45,7 @@ impl SystemMeta {
         Self {
             name: name.into(),
             component_access_set: FilteredAccessSet::default(),
-            is_send: true,
-            has_deferred: false,
+            flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -78,7 +78,7 @@ impl SystemMeta {
     /// Returns true if the system is [`Send`].
     #[inline]
     pub fn is_send(&self) -> bool {
-        self.is_send
+        !self.flags.intersects(SystemStateFlags::NON_SEND)
     }
 
     /// Sets the system to be not [`Send`].
@@ -86,20 +86,20 @@ impl SystemMeta {
     /// This is irreversible.
     #[inline]
     pub fn set_non_send(&mut self) {
-        self.is_send = false;
+        self.flags = self.flags | SystemStateFlags::NON_SEND;
     }
 
     /// Returns true if the system has deferred [`SystemParam`]'s
     #[inline]
     pub fn has_deferred(&self) -> bool {
-        self.has_deferred
+        self.flags.intersects(SystemStateFlags::DEFERRED)
     }
 
     /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
     /// This lets the scheduler insert [`ApplyDeferred`](`crate::prelude::ApplyDeferred`) systems automatically.
     #[inline]
     pub fn set_has_deferred(&mut self) {
-        self.has_deferred = true;
+        self.flags = self.flags | SystemStateFlags::DEFERRED;
     }
 
     /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
@@ -631,18 +631,8 @@ where
     }
 
     #[inline]
-    fn is_send(&self) -> bool {
-        self.system_meta.is_send
-    }
-
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        false
-    }
-
-    #[inline]
-    fn has_deferred(&self) -> bool {
-        self.system_meta.has_deferred
+    fn flags(&self) -> SystemStateFlags {
+        self.system_meta.flags
     }
 
     #[inline]
