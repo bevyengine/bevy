@@ -250,6 +250,16 @@ impl<E: Event> Events<E> {
             .map(|i| i.event)
     }
 
+    /// Drains all events, resending any that pass the specified predicate back into the event buffer.
+    pub fn retain<T: Fn(&E) -> bool>(&mut self, predicate: T) -> impl Iterator<Item = E> + '_ {
+        // Utilize the existing drain, then partition the resulting iterator with the passed predicate
+        let (kept, drained): (Vec<E>, Vec<E>) = self.drain().partition(predicate);
+        // Resend any retained events as a batch
+        self.send_batch(kept);
+        // Return the drained events as an iterator matching Events::drain
+        drained.into_iter()
+    }
+
     /// Iterates over events that happened since the last "update" call.
     /// WARNING: You probably don't want to use this call. In most cases you should use an
     /// [`EventReader`]. You should only use this if you know you only need to consume events
