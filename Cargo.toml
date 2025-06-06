@@ -903,7 +903,7 @@ description = "Simple 3D scene with basic shapes and lighting"
 category = "3D Rendering"
 wasm = true
 
-[[example]] 
+[[example]]
 name = "gltf_viewer_main"
 path = "examples/3d/gltf_viewer_main.rs"
 doc-scrape-examples = true
