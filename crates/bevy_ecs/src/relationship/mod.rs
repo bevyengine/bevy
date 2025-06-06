@@ -458,4 +458,31 @@ mod tests {
         assert!(world.get_entity(child).is_err());
         assert!(!world.entity(parent).contains::<RelTarget>());
     }
+
+    // Spawn a batch of entities in relationship with a target entity
+    #[test]
+    fn spawn_batch_with_relationship() {
+        use crate::relationship::{Relationship, RelationshipTarget};
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let target = world.spawn_empty().id();
+        let rel_entities = world
+            .spawn_batch((0..10).map(|_| Rel(target)))
+            .collect::<Vec<_>>();
+
+        for &entity in &rel_entities {
+            assert!(world.get::<Rel>(entity).is_some_and(|r| r.get() == target));
+        }
+        assert!(world
+            .get::<RelTarget>(target)
+            .is_some_and(|rt| rt.len() == 10));
+    }
 }
