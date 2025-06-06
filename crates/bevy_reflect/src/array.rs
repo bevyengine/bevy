@@ -167,7 +167,7 @@ pub struct DynamicArray {
 }
 
 impl DynamicArray {
-    /// TODO
+    /// Creates a new [`DynamicArray`].
     #[inline]
     pub fn new(values: Box<[Box<dyn PartialReflect>]>) -> Self {
         Self {
