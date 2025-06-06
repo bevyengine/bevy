@@ -208,18 +208,6 @@ pub fn update_interactions(
     mut pointers: Query<(&PointerId, &PointerPress, &mut PointerInteraction)>,
     mut interact: Query<&mut PickingInteraction>,
 ) {
-    // Clear all previous hover data from pointers and entities
-    for (pointer, _, mut pointer_interaction) in &mut pointers {
-        pointer_interaction.sorted_entities.clear();
-        if let Some(previously_hovered_entities) = previous_hover_map.get(pointer) {
-            for entity in previously_hovered_entities.keys() {
-                if let Ok(mut interaction) = interact.get_mut(*entity) {
-                    *interaction = PickingInteraction::None;
-                }
-            }
-        }
-    }
-
     // Create a map to hold the aggregated interaction for each entity. This is needed because we
     // need to be able to insert the interaction component on entities if they do not exist. To do
     // so we need to know the final aggregated interaction state to avoid the scenario where we set
@@ -239,11 +227,27 @@ pub fn update_interactions(
     }
 
     // Take the aggregated entity states and update or insert the component if missing.
-    for (hovered_entity, new_interaction) in new_interaction_state.drain() {
+    for (&hovered_entity, &new_interaction) in new_interaction_state.iter() {
         if let Ok(mut interaction) = interact.get_mut(hovered_entity) {
-            *interaction = new_interaction;
+            interaction.set_if_neq(new_interaction);
         } else if let Ok(mut entity_commands) = commands.get_entity(hovered_entity) {
             entity_commands.try_insert(new_interaction);
+        }
+    }
+
+    // Clear all previous hover data from pointers that are no longer hovering any entities.
+    // We do this last to preserve change detection for picking interactions.
+    for (pointer, _, _) in &mut pointers {
+        let Some(previously_hovered_entities) = previous_hover_map.get(pointer) else {
+            continue;
+        };
+
+        for entity in previously_hovered_entities.keys() {
+            if !new_interaction_state.contains_key(entity) {
+                if let Ok(mut interaction) = interact.get_mut(*entity) {
+                    interaction.set_if_neq(PickingInteraction::None);
+                }
+            }
         }
     }
 }
