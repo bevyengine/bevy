@@ -85,7 +85,7 @@ impl ImageLoader {
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub enum ImageFormatSetting {
     /// Determine the image format from its file extension.
-    /// 
+    ///
     /// This is the default.
     #[default]
     FromExtension,
