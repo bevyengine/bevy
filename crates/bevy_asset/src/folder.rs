@@ -1,7 +1,8 @@
 use alloc::vec::Vec;
 
-use crate::{Asset, UntypedHandle};
 use bevy_reflect::TypePath;
+
+use crate::{Asset, UntypedHandle};
 
 /// A "loaded folder" containing handles for all assets stored in a given [`AssetPath`].
 ///

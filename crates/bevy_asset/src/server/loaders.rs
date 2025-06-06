@@ -2,14 +2,14 @@ use crate::{
     loader::{AssetLoader, ErasedAssetLoader},
     path::AssetPath,
 };
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use async_broadcast::RecvError;
-use bevy_platform::collections::HashMap;
+use bevy_platform::{collections::HashMap, sync::Arc};
 use bevy_tasks::IoTaskPool;
 use bevy_utils::TypeIdMap;
 use core::any::TypeId;
+use log::warn;
 use thiserror::Error;
-use tracing::warn;
 
 #[cfg(feature = "trace")]
 use {

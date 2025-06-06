@@ -12,10 +12,7 @@ path = "../../../"
 default-features = false
 # We're free to enable any features our library needs.
 # Note that certain Bevy features rely on `std`.
-features = [
-  # "bevy_color",
-  # "bevy_state",
-]
+features = ["bevy_color", "bevy_state", "bevy_asset"]
 
 [features]
 # `no_std` is relatively niche, so we choose defaults to cater for the majority of our users.

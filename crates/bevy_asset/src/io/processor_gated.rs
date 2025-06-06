@@ -1,14 +1,15 @@
 use crate::{
-    io::{AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader},
+    io::{AssetReader, AssetReaderError, PathStream, Reader},
     processor::{AssetProcessorData, ProcessStatus},
-    AssetPath,
+    AssetPath, AssetSourceId,
 };
-use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use async_lock::RwLockReadGuardArc;
+use bevy_platform::sync::Arc;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
+use log::trace;
 use std::path::Path;
-use tracing::trace;
 
 use super::{AsyncSeekForward, ErasedAssetReader};
 

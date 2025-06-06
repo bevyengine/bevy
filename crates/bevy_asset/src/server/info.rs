@@ -4,21 +4,19 @@ use crate::{
     Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
     UntypedAssetId, UntypedHandle,
 };
-use alloc::{
-    borrow::ToOwned,
-    boxed::Box,
-    sync::{Arc, Weak},
-    vec::Vec,
-};
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use bevy_ecs::world::World;
-use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform::{
+    collections::{hash_map::Entry, HashMap, HashSet},
+    sync::{Arc, Weak},
+};
 use bevy_tasks::Task;
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
 use either::Either;
+use log::warn;
 use thiserror::Error;
-use tracing::warn;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
@@ -727,7 +725,7 @@ impl AssetInfos {
     /// [`Assets`]: crate::Assets
     pub(crate) fn consume_handle_drop_events(&mut self) {
         for provider in self.handle_providers.values() {
-            while let Ok(drop_event) = provider.drop_receiver.try_recv() {
+            while let Ok(drop_event) = provider.drop.pop() {
                 let id = drop_event.id;
                 if drop_event.asset_server_managed {
                     Self::process_handle_drop_internal(

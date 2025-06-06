@@ -7,9 +7,9 @@ use alloc::{
 use async_fs::File;
 use bevy_platform::collections::HashSet;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
+use log::error;
 use std::path::PathBuf;
 use thiserror::Error;
-use tracing::error;
 
 /// An in-memory representation of a single [`ProcessorTransactionLog`] entry.
 #[derive(Debug)]
