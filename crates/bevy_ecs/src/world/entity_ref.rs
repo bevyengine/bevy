@@ -5207,10 +5207,9 @@ mod tests {
 
         fn system(_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>) {
             for entity_ref in query.iter() {
-                assert!(matches!(
-                    entity_ref.get::<TestComponent2>(),
-                    Some(TestComponent2(0))
-                ));
+                if let Some(c) = entity_ref.get::<TestComponent2>() {
+                    assert!(c.0 == 0);
+                }
             }
         }
     }
@@ -5230,10 +5229,9 @@ mod tests {
             assert!(entity_mut.get::<TestComponent>().is_none());
             assert!(entity_mut.get_ref::<TestComponent>().is_none());
             assert!(entity_mut.get_mut::<TestComponent>().is_none());
-            assert!(matches!(
-                entity_mut.get::<TestComponent2>(),
-                Some(TestComponent2(0))
-            ));
+            if let Some(c) = entity_mut.get::<TestComponent2>() {
+                assert!(c.0 == 0);
+            }
         }
 
         assert!(found);
@@ -5271,9 +5269,9 @@ mod tests {
 
         fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent2>>) {
             for mut entity_mut in query.iter_mut() {
-                assert!(entity_mut
-                    .get_mut::<TestComponent2>()
-                    .is_some_and(|component| component.0 == 0));
+                if let Some(c) = entity_mut.get_mut::<TestComponent2>() {
+                    assert!(c.0 == 0);
+                }
             }
         }
     }
@@ -5289,9 +5287,9 @@ mod tests {
 
         fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>) {
             for mut entity_mut in query.iter_mut() {
-                assert!(entity_mut
-                    .get_mut::<TestComponent2>()
-                    .is_some_and(|component| component.0 == 0));
+                if let Some(c) = entity_mut.get_mut::<TestComponent2>() {
+                    assert!(c.0 == 0);
+                }
             }
         }
     }

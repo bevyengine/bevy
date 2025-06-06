@@ -17,12 +17,12 @@ use crate::components::{GlobalTransform, Transform};
 /// a [`GlobalTransform`] that reflects the changes made to any [`Transform`]s since
 /// the last time the transform propagation systems ran.
 #[derive(SystemParam)]
-pub struct TransformHelper<'w, 's> {
-    parent_query: Query<'w, 's, &'static ChildOf>,
-    transform_query: Query<'w, 's, &'static Transform>,
+pub struct TransformHelper<'w> {
+    parent_query: Query<'w, 'w, &'static ChildOf>,
+    transform_query: Query<'w, 'w, &'static Transform>,
 }
 
-impl<'w, 's> TransformHelper<'w, 's> {
+impl<'w> TransformHelper<'w> {
     /// Computes the [`GlobalTransform`] of the given entity from the [`Transform`] component on it and its ancestors.
     pub fn compute_global_transform(
         &self,

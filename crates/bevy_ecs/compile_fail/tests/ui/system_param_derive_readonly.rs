@@ -5,12 +5,11 @@ use bevy_ecs::system::{ReadOnlySystemParam, SystemParam, SystemState};
 struct Foo;
 
 #[derive(SystemParam)]
-struct Mutable<'w, 's> {
-    a: Query<'w, 's, &'static mut Foo>,
+struct Mutable<'w> {
+    a: Query<'w, 'w, &'static mut Foo>,
 }
 
 fn main() {
-
     let mut world = World::default();
     let state = SystemState::<Mutable>::new(&mut world);
     state.get(&world);
