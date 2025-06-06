@@ -2600,14 +2600,14 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
-    pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
+    pub fn entry<'a, T: Component>(&'a mut self) -> ComponentEntry<'w, 'a, T> {
         if self.contains::<T>() {
-            Entry::Occupied(OccupiedEntry {
+            ComponentEntry::Occupied(OccupiedComponentEntry {
                 entity_world: self,
                 _marker: PhantomData,
             })
         } else {
-            Entry::Vacant(VacantEntry {
+            ComponentEntry::Vacant(VacantComponentEntry {
                 entity_world: self,
                 _marker: PhantomData,
             })
@@ -2850,14 +2850,14 @@ impl<'w> EntityWorldMut<'w> {
 /// This `enum` can only be constructed from the [`entry`] method on [`EntityWorldMut`].
 ///
 /// [`entry`]: EntityWorldMut::entry
-pub enum Entry<'w, 'a, T: Component> {
+pub enum ComponentEntry<'w, 'a, T: Component> {
     /// An occupied entry.
-    Occupied(OccupiedEntry<'w, 'a, T>),
+    Occupied(OccupiedComponentEntry<'w, 'a, T>),
     /// A vacant entry.
-    Vacant(VacantEntry<'w, 'a, T>),
+    Vacant(VacantComponentEntry<'w, 'a, T>),
 }
 
-impl<'w, 'a, T: Component<Mutability = Mutable>> Entry<'w, 'a, T> {
+impl<'w, 'a, T: Component<Mutability = Mutable>> ComponentEntry<'w, 'a, T> {
     /// Provides in-place mutable access to an occupied entry.
     ///
     /// # Examples
@@ -2876,16 +2876,16 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> Entry<'w, 'a, T> {
     #[inline]
     pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
         match self {
-            Entry::Occupied(mut entry) => {
+            ComponentEntry::Occupied(mut entry) => {
                 f(entry.get_mut());
-                Entry::Occupied(entry)
+                ComponentEntry::Occupied(entry)
             }
-            Entry::Vacant(entry) => Entry::Vacant(entry),
+            ComponentEntry::Vacant(entry) => ComponentEntry::Vacant(entry),
         }
     }
 }
 
-impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
+impl<'w, 'a, T: Component> ComponentEntry<'w, 'a, T> {
     /// Replaces the component of the entry, and returns an [`OccupiedEntry`].
     ///
     /// # Examples
@@ -2905,13 +2905,13 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// assert_eq!(entry.get(), &Comp(2));
     /// ```
     #[inline]
-    pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
+    pub fn insert_entry(self, component: T) -> OccupiedComponentEntry<'w, 'a, T> {
         match self {
-            Entry::Occupied(mut entry) => {
+            ComponentEntry::Occupied(mut entry) => {
                 entry.insert(component);
                 entry
             }
-            Entry::Vacant(entry) => entry.insert(component),
+            ComponentEntry::Vacant(entry) => entry.insert(component),
         }
     }
 
@@ -2937,10 +2937,10 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 8);
     /// ```
     #[inline]
-    pub fn or_insert(self, default: T) -> OccupiedEntry<'w, 'a, T> {
+    pub fn or_insert(self, default: T) -> OccupiedComponentEntry<'w, 'a, T> {
         match self {
-            Entry::Occupied(entry) => entry,
-            Entry::Vacant(entry) => entry.insert(default),
+            ComponentEntry::Occupied(entry) => entry,
+            ComponentEntry::Vacant(entry) => entry.insert(default),
         }
     }
 
@@ -2961,15 +2961,15 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 4);
     /// ```
     #[inline]
-    pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> OccupiedEntry<'w, 'a, T> {
+    pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> OccupiedComponentEntry<'w, 'a, T> {
         match self {
-            Entry::Occupied(entry) => entry,
-            Entry::Vacant(entry) => entry.insert(default()),
+            ComponentEntry::Occupied(entry) => entry,
+            ComponentEntry::Vacant(entry) => entry.insert(default()),
         }
     }
 }
 
-impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
+impl<'w, 'a, T: Component + Default> ComponentEntry<'w, 'a, T> {
     /// Ensures the entry has this component by inserting the default value if empty, and
     /// returns a mutable reference to this component in the entry.
     ///
@@ -2987,10 +2987,10 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 0);
     /// ```
     #[inline]
-    pub fn or_default(self) -> OccupiedEntry<'w, 'a, T> {
+    pub fn or_default(self) -> OccupiedComponentEntry<'w, 'a, T> {
         match self {
-            Entry::Occupied(entry) => entry,
-            Entry::Vacant(entry) => entry.insert(Default::default()),
+            ComponentEntry::Occupied(entry) => entry,
+            ComponentEntry::Vacant(entry) => entry.insert(Default::default()),
         }
     }
 }
@@ -2998,12 +2998,12 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
 /// A view into an occupied entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
 ///
 /// The contained entity must have the component type parameter if we have this struct.
-pub struct OccupiedEntry<'w, 'a, T: Component> {
+pub struct OccupiedComponentEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
     _marker: PhantomData<T>,
 }
 
-impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
+impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
     /// Gets a reference to the component in the entry.
     ///
     /// # Examples
@@ -3074,7 +3074,7 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     }
 }
 
-impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
+impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, T> {
     /// Gets a mutable reference to the component in the entry.
     ///
     /// If you need a reference to the `OccupiedEntry` which may outlive the destruction of
@@ -3139,12 +3139,12 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
 }
 
 /// A view into a vacant entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
-pub struct VacantEntry<'w, 'a, T: Component> {
+pub struct VacantComponentEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
     _marker: PhantomData<T>,
 }
 
-impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
+impl<'w, 'a, T: Component> VacantComponentEntry<'w, 'a, T> {
     /// Inserts the component into the `VacantEntry` and returns an `OccupiedEntry`.
     ///
     /// # Examples
@@ -3164,9 +3164,9 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).unwrap().0, 10);
     /// ```
     #[inline]
-    pub fn insert(self, component: T) -> OccupiedEntry<'w, 'a, T> {
+    pub fn insert(self, component: T) -> OccupiedComponentEntry<'w, 'a, T> {
         self.entity_world.insert(component);
-        OccupiedEntry {
+        OccupiedComponentEntry {
             entity_world: self.entity_world,
             _marker: PhantomData,
         }

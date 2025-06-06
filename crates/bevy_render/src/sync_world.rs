@@ -219,10 +219,10 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                 EntityRecord::Added(e) => {
                     if let Ok(mut main_entity) = world.get_entity_mut(e) {
                         match main_entity.entry::<RenderEntity>() {
-                            bevy_ecs::world::Entry::Occupied(_) => {
+                            bevy_ecs::world::ComponentEntry::Occupied(_) => {
                                 panic!("Attempting to synchronize an entity that has already been synchronized!");
                             }
-                            bevy_ecs::world::Entry::Vacant(entry) => {
+                            bevy_ecs::world::ComponentEntry::Vacant(entry) => {
                                 let id = render_world.spawn(MainEntity(e)).id();
 
                                 entry.insert(RenderEntity(id));
