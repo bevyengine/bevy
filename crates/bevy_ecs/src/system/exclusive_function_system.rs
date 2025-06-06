@@ -1,6 +1,6 @@
 use crate::{
     component::{ComponentId, Tick},
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
@@ -85,11 +85,6 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
-    }
-
-    #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system_meta.component_access_set.combined_access()
     }
 
     #[inline]
