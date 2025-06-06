@@ -1145,7 +1145,7 @@ pub fn queue_material_meshes<M: Material>(
         };
 
         let Some(view_specialized_material_pipeline_cache) =
-            specialized_material_pipeline_cache.get(&view.retained_view_entity)
+            specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
@@ -1154,7 +1154,8 @@ pub fn queue_material_meshes<M: Material>(
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
             let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
-                .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
+                .cloned()
+                .map(|(current_change_tick, pipeline_id)| (current_change_tick, pipeline_id))
             else {
                 continue;
             };
@@ -1185,9 +1186,7 @@ pub fn queue_material_meshes<M: Material>(
                     "Material {:?} for mesh {:?} has no pipeline {:?}",
                     material_asset_id, mesh_instance.mesh_asset_id, pipeline_id
                 );
-                specialized_material_pipeline_cache
-                    .get_mut(&view.retained_view_entity)
-                    .and_then(|cache| cache.remove(visible_entity));
+                view_specialized_material_pipeline_cache.remove(visible_entity);
                 continue;
             }
 
