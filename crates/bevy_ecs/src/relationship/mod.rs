@@ -110,16 +110,20 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(entity).remove::<Self>();
             return;
         }
-        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
-            if let Some(mut relationship_target) =
-                target_entity_mut.get_mut::<Self::RelationshipTarget>()
-            {
-                relationship_target.collection_mut_risky().add(entity);
-            } else {
-                let mut target = <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-                target.collection_mut_risky().add(entity);
-                world.commands().entity(target_entity).insert(target);
-            }
+        if world.get_entity(target_entity).is_ok() {
+            world
+                .commands()
+                .entity(target_entity)
+                .entry::<Self::RelationshipTarget>()
+                .and_modify(move |mut relationship_target| {
+                    relationship_target.collection_mut_risky().add(entity);
+                })
+                .or_insert({
+                    let mut target =
+                        <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
+                    target.collection_mut_risky().add(entity);
+                    target
+                });
         } else {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
