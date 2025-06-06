@@ -115,7 +115,9 @@ fn fade_in(
 ) {
     for (mut audio, entity) in audio_sink.iter_mut() {
         let current_volume = audio.volume();
-        audio.set_volume(current_volume + Volume::Linear(time.delta_secs() / FADE_TIME));
+        audio.set_volume(
+            current_volume.fade_towards(Volume::Linear(1.0), time.delta_secs() / FADE_TIME),
+        );
         if audio.volume().to_linear() >= 1.0 {
             audio.set_volume(Volume::Linear(1.0));
             commands.entity(entity).remove::<FadeIn>();
@@ -132,7 +134,9 @@ fn fade_out(
 ) {
     for (mut audio, entity) in audio_sink.iter_mut() {
         let current_volume = audio.volume();
-        audio.set_volume(current_volume - Volume::Linear(time.delta_secs() / FADE_TIME));
+        audio.set_volume(
+            current_volume.fade_towards(Volume::Linear(0.0), time.delta_secs() / FADE_TIME),
+        );
         if audio.volume().to_linear() <= 0.0 {
             commands.entity(entity).despawn();
         }

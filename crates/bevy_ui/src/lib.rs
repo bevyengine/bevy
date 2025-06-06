@@ -1,8 +1,8 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
@@ -175,13 +175,14 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
+            .register_type::<GlobalZIndex>()
             .register_type::<Outline>()
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
             .register_type::<ColorStop>()
             .register_type::<AngularColorStop>()
-            .register_type::<Position>()
+            .register_type::<UiPosition>()
             .register_type::<RadialGradientShape>()
             .register_type::<Gradient>()
             .register_type::<BackgroundGradient>()

@@ -115,7 +115,7 @@ impl TargetScale {
     }
 
     fn already_completed(&self) -> bool {
-        self.target_time.finished() && !self.target_time.just_finished()
+        self.target_time.is_finished() && !self.target_time.just_finished()
     }
 }
 

@@ -81,7 +81,7 @@ where
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -97,7 +97,7 @@ where
         // SAFETY: We provide the main world on which this system state was initialized on.
         unsafe {
             SystemState::<P>::validate_param(
-                &state.state,
+                &mut state.state,
                 main_world.as_unsafe_world_cell_readonly(),
             )
         }

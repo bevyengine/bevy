@@ -236,8 +236,7 @@ impl DynamicMap {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Map(_)),
-                "expected TypeInfo::Map but received: {:?}",
-                represented_type
+                "expected TypeInfo::Map but received: {represented_type:?}"
             );
         }
 
