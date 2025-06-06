@@ -86,7 +86,7 @@ impl SystemMeta {
     /// This is irreversible.
     #[inline]
     pub fn set_non_send(&mut self) {
-        self.flags = self.flags | SystemStateFlags::NON_SEND;
+        self.flags |= SystemStateFlags::NON_SEND;
     }
 
     /// Returns true if the system has deferred [`SystemParam`]'s
@@ -99,7 +99,7 @@ impl SystemMeta {
     /// This lets the scheduler insert [`ApplyDeferred`](`crate::prelude::ApplyDeferred`) systems automatically.
     #[inline]
     pub fn set_has_deferred(&mut self) {
-        self.flags = self.flags | SystemStateFlags::DEFERRED;
+        self.flags |= SystemStateFlags::DEFERRED;
     }
 
     /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
