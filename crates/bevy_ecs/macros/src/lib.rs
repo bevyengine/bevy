@@ -432,6 +432,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     }
                 }
 
+                fn configurate(state: &mut Self::State, meta: &mut #path::system::SystemMeta, config: &mut dyn core::any::Any) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::configurate(&mut state.state, meta, config)
+                }
+
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
