@@ -3,7 +3,7 @@ use crate::io::{
     memory::Dir,
     AssetSourceEvent, AssetWatcher,
 };
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, string::ToString, sync::Arc, vec::Vec};
 use bevy_platform::collections::HashMap;
 use core::time::Duration;
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
@@ -39,7 +39,14 @@ impl EmbeddedWatcher {
             root_paths,
             last_event: None,
         };
-        let watcher = new_asset_event_debouncer(root, debounce_wait_time, handler).unwrap();
+        let watcher = new_asset_event_debouncer(
+            root.to_str()
+                .expect("non UTF-8 characters found in path")
+                .to_string(),
+            debounce_wait_time,
+            handler,
+        )
+        .unwrap();
         Self { _watcher: watcher }
     }
 }
