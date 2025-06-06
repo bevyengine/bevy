@@ -7,8 +7,8 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Reflection in Rust.
@@ -520,7 +520,7 @@
 //! and displaying it in error messages.
 //!
 //! [Reflection]: https://en.wikipedia.org/wiki/Reflective_programming
-//! [Bevy]: https://bevyengine.org/
+//! [Bevy]: https://bevy.org/
 //! [limitations]: #limitations
 //! [`bevy_reflect`]: crate
 //! [introspection]: https://en.wikipedia.org/wiki/Type_introspection
