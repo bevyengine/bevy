@@ -568,7 +568,7 @@ pub struct OpaqueInfo {
 }
 
 impl OpaqueInfo {
-    /// TODO
+    /// Creates a new [`OpaqueInfo`].
     pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),

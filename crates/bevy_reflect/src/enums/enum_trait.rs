@@ -263,7 +263,7 @@ pub struct VariantFieldIter<'a> {
 }
 
 impl<'a> VariantFieldIter<'a> {
-    /// TODO
+    /// Creates a new [`VariantFieldIter`].
     pub fn new(container: &'a dyn Enum) -> Self {
         Self {
             container,

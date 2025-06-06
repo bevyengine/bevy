@@ -15,7 +15,7 @@ pub struct TypeRegistrationDeserializer<'a> {
 }
 
 impl<'a> TypeRegistrationDeserializer<'a> {
-    /// TODO
+    /// Creates a new [`TypeRegistrationDeserializer`].
     pub fn new(registry: &'a TypeRegistry) -> Self {
         Self { registry }
     }

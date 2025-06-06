@@ -19,9 +19,9 @@ pub enum FunctionError {
     /// The number of arguments provided does not match the expected number.
     #[error("received {received} arguments but expected one of {expected:?}")]
     ArgCountMismatch {
-        /// TODO
+        /// Expected argument count. [`ArgCount`] for overloaded functions will contain multiple possible counts.
         expected: ArgCount,
-        /// TODO
+        /// Number of arguments received.
         received: usize
     },
     /// No overload was found for the given set of arguments.
