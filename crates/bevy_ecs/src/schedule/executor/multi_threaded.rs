@@ -466,7 +466,8 @@ impl ExecutorState {
                 debug_assert!(!self.running_systems.contains(system_index));
                 // SAFETY: Caller assured that these systems are not running.
                 // Therefore, no other reference to this system exists and there is no aliasing.
-                let system = unsafe { &mut *context.environment.systems[system_index].get() };
+                let system =
+                    &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
 
                 #[cfg(feature = "hotpatching")]
                 if should_update_hotpatch {
@@ -488,7 +489,7 @@ impl ExecutorState {
                 if unsafe {
                     !self.should_run(
                         system_index,
-                        &mut system.system,
+                        system,
                         conditions,
                         context.environment.world_cell,
                         context.error_handler,
