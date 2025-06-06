@@ -54,7 +54,7 @@ use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap}
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
-use tracing::error;
+use tracing::{error, warn};
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -1123,7 +1123,8 @@ pub fn queue_material_meshes<M: Material>(
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
-    specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
+    pipeline_cache: Res<PipelineCache>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1179,6 +1180,16 @@ pub fn queue_material_meshes<M: Material>(
             let Some(material) = render_materials.get(material_asset_id) else {
                 continue;
             };
+            if let None = pipeline_cache.get_render_pipeline(pipeline_id) {
+                warn!(
+                    "Material {:?} for mesh {:?} has no pipeline {:?}",
+                    material_asset_id, mesh_instance.mesh_asset_id, pipeline_id
+                );
+                specialized_material_pipeline_cache
+                    .get_mut(&view.retained_view_entity)
+                    .and_then(|cache| cache.remove(visible_entity));
+                continue;
+            }
 
             // Fetch the slabs that this mesh resides in.
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
