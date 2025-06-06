@@ -1,5 +1,5 @@
 use super::resource_manager::ResourceManager;
-use bevy_asset::{weak_handle, Handle};
+use bevy_asset::load_embedded_asset;
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DOWNSAMPLE_DEPTH_SHADER_HANDLE,
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -9,21 +9,6 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::render_resource::*;
-
-pub const MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("a4bf48e4-5605-4d1c-987e-29c7b1ec95dc");
-pub const MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("80ccea4a-8234-4ee0-af74-77b3cad503cf");
-pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("d71c5879-97fa-49d1-943e-ed9162fe8adb");
-pub const MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("68cc6826-8321-43d1-93d5-4f61f0456c13");
-pub const MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("4b4e3020-748f-4baf-b011-87d9d2a12796");
-pub const MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("c218ce17-cf59-4268-8898-13ecf384f133");
-pub const MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("f5b7edfc-2eac-4407-8f5c-1265d4d795c2");
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
@@ -49,6 +34,19 @@ pub struct MeshletPipelines {
 
 impl FromWorld for MeshletPipelines {
     fn from_world(world: &mut World) -> Self {
+        let clear_visibility_buffer_shader =
+            load_embedded_asset!(world, "clear_visibility_buffer.wgsl");
+        let fill_cluster_buffers_shader = load_embedded_asset!(world, "fill_cluster_buffers.wgsl");
+        let cull_clusters_shader = load_embedded_asset!(world, "cull_clusters.wgsl");
+        let visibility_buffer_software_raster_shader =
+            load_embedded_asset!(world, "visibility_buffer_software_raster.wgsl");
+        let visibility_buffer_hardware_raster_shader =
+            load_embedded_asset!(world, "visibility_buffer_hardware_raster.wgsl");
+        let resolve_render_targets_shader =
+            load_embedded_asset!(world, "resolve_render_targets.wgsl");
+        let remap_1d_to_2d_dispatch_shader =
+            load_embedded_asset!(world, "remap_1d_to_2d_dispatch.wgsl");
+
         let resource_manager = world.resource::<ResourceManager>();
         let fill_cluster_buffers_bind_group_layout = resource_manager
             .fill_cluster_buffers_bind_group_layout
@@ -91,7 +89,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
+                    shader: fill_cluster_buffers_shader,
                     shader_defs: vec!["MESHLET_FILL_CLUSTER_BUFFERS_PASS".into()],
                     entry_point: "fill_cluster_buffers".into(),
                     zero_initialize_workgroup_memory: false,
@@ -106,7 +104,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
+                    shader: clear_visibility_buffer_shader.clone(),
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
                     entry_point: "clear_visibility_buffer".into(),
                     zero_initialize_workgroup_memory: false,
@@ -121,7 +119,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
+                    shader: clear_visibility_buffer_shader.clone(),
                     shader_defs: vec![],
                     entry_point: "clear_visibility_buffer".into(),
                     zero_initialize_workgroup_memory: false,
@@ -135,7 +133,7 @@ impl FromWorld for MeshletPipelines {
                     stages: ShaderStages::COMPUTE,
                     range: 0..8,
                 }],
-                shader: MESHLET_CULLING_SHADER_HANDLE,
+                shader: cull_clusters_shader.clone(),
                 shader_defs: vec![
                     "MESHLET_CULLING_PASS".into(),
                     "MESHLET_FIRST_CULLING_PASS".into(),
@@ -151,7 +149,7 @@ impl FromWorld for MeshletPipelines {
                     stages: ShaderStages::COMPUTE,
                     range: 0..8,
                 }],
-                shader: MESHLET_CULLING_SHADER_HANDLE,
+                shader: cull_clusters_shader,
                 shader_defs: vec![
                     "MESHLET_CULLING_PASS".into(),
                     "MESHLET_SECOND_CULLING_PASS".into(),
@@ -231,7 +229,7 @@ impl FromWorld for MeshletPipelines {
                     label: Some("meshlet_visibility_buffer_software_raster_pipeline".into()),
                     layout: vec![visibility_buffer_raster_layout.clone()],
                     push_constant_ranges: vec![],
-                    shader: MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
+                    shader: visibility_buffer_software_raster_shader.clone(),
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
@@ -254,7 +252,7 @@ impl FromWorld for MeshletPipelines {
                     ),
                     layout: vec![visibility_buffer_raster_shadow_view_layout.clone()],
                     push_constant_ranges: vec![],
-                    shader: MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
+                    shader: visibility_buffer_software_raster_shader,
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                         if remap_1d_to_2d_dispatch_layout.is_some() {
@@ -278,7 +276,7 @@ impl FromWorld for MeshletPipelines {
                         range: 0..4,
                     }],
                     vertex: VertexState {
-                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
+                        shader: visibility_buffer_hardware_raster_shader.clone(),
                         shader_defs: vec![
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
@@ -298,7 +296,7 @@ impl FromWorld for MeshletPipelines {
                     depth_stencil: None,
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
-                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
+                        shader: visibility_buffer_hardware_raster_shader.clone(),
                         shader_defs: vec![
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
@@ -325,7 +323,7 @@ impl FromWorld for MeshletPipelines {
                         range: 0..4,
                     }],
                     vertex: VertexState {
-                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
+                        shader: visibility_buffer_hardware_raster_shader.clone(),
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "vertex".into(),
                         buffers: vec![],
@@ -342,7 +340,7 @@ impl FromWorld for MeshletPipelines {
                     depth_stencil: None,
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
-                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
+                        shader: visibility_buffer_hardware_raster_shader.clone(),
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "fragment".into(),
                         targets: vec![Some(ColorTargetState {
@@ -367,7 +365,7 @@ impl FromWorld for MeshletPipelines {
                         range: 0..4,
                     }],
                     vertex: VertexState {
-                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
+                        shader: visibility_buffer_hardware_raster_shader.clone(),
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "vertex".into(),
                         buffers: vec![],
@@ -384,7 +382,7 @@ impl FromWorld for MeshletPipelines {
                     depth_stencil: None,
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
-                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
+                        shader: visibility_buffer_hardware_raster_shader,
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "fragment".into(),
                         targets: vec![Some(ColorTargetState {
@@ -411,7 +409,7 @@ impl FromWorld for MeshletPipelines {
                 }),
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
-                    shader: MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
+                    shader: resolve_render_targets_shader.clone(),
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
                     entry_point: "resolve_depth".into(),
                     targets: vec![],
@@ -435,7 +433,7 @@ impl FromWorld for MeshletPipelines {
                     }),
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
-                        shader: MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
+                        shader: resolve_render_targets_shader.clone(),
                         shader_defs: vec![],
                         entry_point: "resolve_depth".into(),
                         targets: vec![],
@@ -460,7 +458,7 @@ impl FromWorld for MeshletPipelines {
                     }),
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
-                        shader: MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
+                        shader: resolve_render_targets_shader,
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
                         entry_point: "resolve_material_depth".into(),
                         targets: vec![],
@@ -477,7 +475,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
                     }],
-                    shader: MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
+                    shader: remap_1d_to_2d_dispatch_shader,
                     shader_defs: vec![],
                     entry_point: "remap_dispatch".into(),
                     zero_initialize_workgroup_memory: false,
