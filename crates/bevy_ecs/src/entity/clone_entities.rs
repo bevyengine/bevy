@@ -705,7 +705,7 @@ impl<'w> EntityClonerBuilder<'w> {
     /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
     pub fn allow_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
         for type_id in ids {
-            if let Some(id) = self.world.components().get_id(type_id) {
+            if let Some(id) = self.world.components().get_valid_id(type_id) {
                 self.filter_allow(id);
             }
         }
@@ -740,7 +740,7 @@ impl<'w> EntityClonerBuilder<'w> {
     /// Extends the list of components that shouldn't be cloned by type ids.
     pub fn deny_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
         for type_id in ids {
-            if let Some(id) = self.world.components().get_id(type_id) {
+            if let Some(id) = self.world.components().get_valid_id(type_id) {
                 self.filter_deny(id);
             }
         }

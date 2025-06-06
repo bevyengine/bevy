@@ -826,7 +826,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get<T: Component>(self) -> Option<&'w T> {
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
         // - `location` is valid
@@ -852,7 +852,7 @@ impl<'w> UnsafeEntityCell<'w> {
     pub unsafe fn get_ref<T: Component>(self) -> Option<Ref<'w, T>> {
         let last_change_tick = self.last_run;
         let change_tick = self.this_run;
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
@@ -884,7 +884,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks<T: Component>(self) -> Option<ComponentTicks> {
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - entity location is valid
@@ -968,7 +968,7 @@ impl<'w> UnsafeEntityCell<'w> {
     ) -> Option<Mut<'w, T>> {
         self.world.assert_allows_mutable_access();
 
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - `storage_type` is correct
