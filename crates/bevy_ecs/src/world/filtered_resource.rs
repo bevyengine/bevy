@@ -148,7 +148,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
     /// Returns `true` if the `FilteredResources` has access to the given resource.
     /// Note that [`Self::get()`] may still return `Err` if the resource does not exist.
     pub fn has_read<R: Resource>(&self) -> bool {
-        let component_id = self.world.components().resource_id::<R>();
+        let component_id = self.world.components().valid_resource_id::<R>();
         component_id.is_some_and(|component_id| self.access.has_resource_read(component_id))
     }
 
@@ -157,7 +157,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
         let component_id = self
             .world
             .components()
-            .resource_id::<R>()
+            .valid_resource_id::<R>()
             .ok_or(ResourceFetchError::NotRegistered)?;
         if !self.access.has_resource_read(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
@@ -416,14 +416,14 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// Returns `true` if the `FilteredResources` has read access to the given resource.
     /// Note that [`Self::get()`] may still return `Err` if the resource does not exist.
     pub fn has_read<R: Resource>(&self) -> bool {
-        let component_id = self.world.components().resource_id::<R>();
+        let component_id = self.world.components().valid_resource_id::<R>();
         component_id.is_some_and(|component_id| self.access.has_resource_read(component_id))
     }
 
     /// Returns `true` if the `FilteredResources` has write access to the given resource.
     /// Note that [`Self::get_mut()`] may still return `Err` if the resource does not exist.
     pub fn has_write<R: Resource>(&self) -> bool {
-        let component_id = self.world.components().resource_id::<R>();
+        let component_id = self.world.components().valid_resource_id::<R>();
         component_id.is_some_and(|component_id| self.access.has_resource_write(component_id))
     }
 
@@ -474,7 +474,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         let component_id = self
             .world
             .components()
-            .resource_id::<R>()
+            .valid_resource_id::<R>()
             .ok_or(ResourceFetchError::NotRegistered)?;
         // SAFETY: THe caller ensures that there are no conflicting borrows.
         unsafe { self.get_mut_by_id_unchecked(component_id) }

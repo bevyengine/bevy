@@ -531,7 +531,7 @@ impl World {
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
     pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
-        let id = self.components().component_id::<C>()?;
+        let id = self.components().valid_component_id::<C>()?;
         let component_info = self.components().get_info(id)?;
         Some(component_info.required_components())
     }

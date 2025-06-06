@@ -762,7 +762,7 @@ impl<'w> EntityClonerBuilder<'w> {
         &mut self,
         clone_behavior: ComponentCloneBehavior,
     ) -> &mut Self {
-        if let Some(id) = self.world.components().component_id::<T>() {
+        if let Some(id) = self.world.components().valid_component_id::<T>() {
             self.entity_cloner
                 .clone_behavior_overrides
                 .insert(id, clone_behavior);
@@ -787,7 +787,7 @@ impl<'w> EntityClonerBuilder<'w> {
 
     /// Removes a previously set override of [`ComponentCloneBehavior`] for a component in this builder.
     pub fn remove_clone_behavior_override<T: Component>(&mut self) -> &mut Self {
-        if let Some(id) = self.world.components().component_id::<T>() {
+        if let Some(id) = self.world.components().valid_component_id::<T>() {
             self.entity_cloner.clone_behavior_overrides.remove(&id);
         }
         self
