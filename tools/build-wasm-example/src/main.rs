@@ -89,7 +89,9 @@ fn main() {
             sh,
             "cargo build {parameters...} --target wasm32-unknown-unknown --example {example}"
         );
-        cmd.run().expect("Error building example");
+        cmd.env("RUSTFLAGS", "--cfg getrandom_backend=\"wasm_js\"")
+            .run()
+            .expect("Error building example");
 
         cmd!(
             sh,
