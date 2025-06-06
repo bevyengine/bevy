@@ -7,8 +7,8 @@
 //! - Display animation information in the UI
 //! cargo run --example gltf_viewer_main
 
-use bevy::prelude::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -58,10 +58,7 @@ impl Default for CameraController {
 #[derive(Component)]
 struct AnimationEntityLink;
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera positioned to see the model with orbit controls
     commands.spawn((
         Camera3d::default(),
@@ -92,7 +89,7 @@ fn setup(
 
     // Load the GLTF file
     let gltf_handle: Handle<Scene> = asset_server.load("models/GLTFfold/main.gltf#Scene0");
-    
+
     commands.spawn((
         SceneRoot(gltf_handle),
         Transform::from_scale(Vec3::splat(1.0)), // Ensure proper scale
@@ -103,7 +100,7 @@ fn setup(
     // Load animation clips using the actual names from your GLTF file
     let animations = vec![
         asset_server.load("models/GLTFfold/main.gltf#Animation0"),
-        asset_server.load("models/GLTFfold/main.gltf#Animation1"), 
+        asset_server.load("models/GLTFfold/main.gltf#Animation1"),
         asset_server.load("models/GLTFfold/main.gltf#Animation2"),
     ];
 
@@ -163,7 +160,9 @@ fn setup_scene_once_loaded(
         });
 
         // Add the animation graph handle using the proper component
-        commands.entity(entity).insert(AnimationGraphHandle(graph_handle));
+        commands
+            .entity(entity)
+            .insert(AnimationGraphHandle(graph_handle));
 
         // Start the first animation automatically
         if let Some(&first_animation) = animation_indices.first() {
@@ -209,7 +208,9 @@ fn keyboard_animation_control(
 
         // Reset animation
         if keyboard_input.just_pressed(KeyCode::KeyR) {
-            if let Some(&current_animation) = animations_loaded.animations.get(animations_res.current) {
+            if let Some(&current_animation) =
+                animations_loaded.animations.get(animations_res.current)
+            {
                 player.start(current_animation).repeat();
             }
         }
@@ -238,7 +239,10 @@ fn keyboard_animation_control(
         if changed {
             if let Some(&new_animation) = animations_loaded.animations.get(animations_res.current) {
                 player.start(new_animation).repeat();
-                println!("Switched to animation {}: {:?}", animations_res.current, new_animation);
+                println!(
+                    "Switched to animation {}: {:?}",
+                    animations_res.current, new_animation
+                );
             }
         }
     }
@@ -314,9 +318,10 @@ fn camera_controller(
     // Calculate new camera position
     let rotation_quat = Quat::from_axis_angle(Vec3::Y, controller.orbit_rotation.x)
         * Quat::from_axis_angle(Vec3::X, controller.orbit_rotation.y);
-    
-    let camera_pos = controller.orbit_focus + rotation_quat * Vec3::new(0.0, 0.0, controller.orbit_distance);
-    
+
+    let camera_pos =
+        controller.orbit_focus + rotation_quat * Vec3::new(0.0, 0.0, controller.orbit_distance);
+
     transform.translation = camera_pos;
     transform.look_at(controller.orbit_focus, Vec3::Y);
 }
@@ -332,21 +337,22 @@ fn update_ui(
                 .animations
                 .get(animations.current)
                 .copied();
-            
-            let (current_time, speed, is_paused) = if let Some(animation_index) = current_animation_index {
-                if let Some(animation) = player.animation(animation_index) {
-                    (
-                        animation.seek_time(),
-                        animation.speed(),
-                        animation.is_paused(),
-                    )
+
+            let (current_time, speed, is_paused) =
+                if let Some(animation_index) = current_animation_index {
+                    if let Some(animation) = player.animation(animation_index) {
+                        (
+                            animation.seek_time(),
+                            animation.speed(),
+                            animation.is_paused(),
+                        )
+                    } else {
+                        (0.0, 1.0, true)
+                    }
                 } else {
                     (0.0, 1.0, true)
-                }
-            } else {
-                (0.0, 1.0, true)
-            };
-            
+                };
+
             // In Bevy 0.16, Text is now a simple string wrapper
             *text = Text::new(format!(
                 "GLTF Multi-Animation Example\n\
@@ -371,11 +377,16 @@ fn update_ui(
                 Available Animations:\n\
                 {}",
                 animations.current + 1,
-                animations.names.get(animations.current).unwrap_or(&"Unknown".to_string()),
+                animations
+                    .names
+                    .get(animations.current)
+                    .unwrap_or(&"Unknown".to_string()),
                 current_time,
                 speed,
                 if is_paused { "Paused" } else { "Playing" },
-                animations.names.iter()
+                animations
+                    .names
+                    .iter()
                     .enumerate()
                     .map(|(i, name)| format!("{}. {}", i + 1, name))
                     .collect::<Vec<_>>()
