@@ -358,7 +358,10 @@ mod tests {
         // Next allocated entity should be a further generation on the same index
         let entity = world.spawn_empty().id();
         assert_eq!(entity.index(), dead_ref.index());
-        assert!(entity.generation() > dead_ref.generation());
+        assert!(entity
+            .generation()
+            .cmp_approx(&dead_ref.generation())
+            .is_gt());
     }
 
     #[test]
@@ -373,7 +376,10 @@ mod tests {
         // Next allocated entity should be a further generation on the same index
         let entity = world.spawn_empty().id();
         assert_eq!(entity.index(), dead_ref.index());
-        assert!(entity.generation() > dead_ref.generation());
+        assert!(entity
+            .generation()
+            .cmp_approx(&dead_ref.generation())
+            .is_gt());
     }
 
     #[test]
