@@ -1172,7 +1172,7 @@ impl<'w> EntityWorldMut<'w> {
     ///  - `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`
     ///
     ///  The above is trivially satisfied if `location` was sourced from `world.entities().get(entity)`.
-    #[inline(always)]
+    #[inline]
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
