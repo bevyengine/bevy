@@ -151,7 +151,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// let mut world = World::new();
 /// let err = world.run_system_cached(|param: MyParam| {}).unwrap_err();
 /// let expected = "Parameter `MyParam::foo` failed validation: Custom Message";
-/// assert!(err.to_string().ends_with(expected));
+/// assert!(err.to_string().contains(expected));
 /// ```
 ///
 /// ## Builders
@@ -384,7 +384,7 @@ fn assert_component_access_compatibility(
     if !accesses.is_empty() {
         accesses.push(' ');
     }
-    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
+    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
 }
 
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
@@ -764,7 +764,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         let combined_access = component_access_set.combined_access();
         assert!(
             !combined_access.has_resource_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             core::any::type_name::<T>(),
             system_meta.name,
         );
@@ -840,11 +840,11 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         let combined_access = component_access_set.combined_access();
         if combined_access.has_resource_write(component_id) {
             panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 core::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_resource_read(component_id) {
             panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 core::any::type_name::<T>(), system_meta.name);
         }
         component_access_set.add_unfiltered_resource_write(component_id);
@@ -1432,7 +1432,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         let combined_access = component_access_set.combined_access();
         assert!(
             !combined_access.has_resource_write(component_id),
-            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             core::any::type_name::<T>(),
             system_meta.name,
         );
@@ -1508,11 +1508,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         let combined_access = component_access_set.combined_access();
         if combined_access.has_component_write(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 core::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_component_read(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 core::any::type_name::<T>(), system_meta.name);
         }
         component_access_set.add_unfiltered_resource_write(component_id);
@@ -2677,7 +2677,7 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         if !conflicts.is_empty() {
             let accesses = conflicts.format_conflict_list(world);
             let system_name = &system_meta.name;
-            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
+            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
@@ -2726,7 +2726,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         if !conflicts.is_empty() {
             let accesses = conflicts.format_conflict_list(world);
             let system_name = &system_meta.name;
-            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
+            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
@@ -2830,7 +2830,11 @@ impl Display for SystemParamValidationError {
             ShortName(&self.param),
             self.field,
             self.message
-        )
+        )?;
+        if !self.skipped {
+            write!(fmt, "\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `When<T>` to skip the system when it happens.")?;
+        }
+        Ok(())
     }
 }
 

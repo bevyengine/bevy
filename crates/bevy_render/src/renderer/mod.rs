@@ -163,7 +163,7 @@ pub async fn initialize_renderer(
     if adapter_info.device_type == DeviceType::Cpu {
         warn!(
             "The selected adapter is using a driver that only supports software rendering. \
-             This is likely to be very slow. See https://bevyengine.org/learn/errors/b0006/"
+             This is likely to be very slow. See https://bevy.org/learn/errors/b0006/"
         );
     }
 

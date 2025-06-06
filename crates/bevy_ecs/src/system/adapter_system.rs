@@ -151,6 +151,12 @@ where
         })
     }
 
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
+    }
+
     #[inline]
     fn apply_deferred(&mut self, world: &mut crate::prelude::World) {
         self.system.apply_deferred(world);

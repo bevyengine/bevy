@@ -172,6 +172,13 @@ where
         )
     }
 
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.a.refresh_hotpatch();
+        self.b.refresh_hotpatch();
+    }
+
     #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
@@ -364,6 +371,13 @@ where
     ) -> Self::Out {
         let value = self.a.run_unsafe(input, world);
         self.b.run_unsafe(value, world)
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.a.refresh_hotpatch();
+        self.b.refresh_hotpatch();
     }
 
     fn apply_deferred(&mut self, world: &mut World) {
