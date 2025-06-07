@@ -629,35 +629,43 @@ pub enum InterpolationColorSpace {
     OkLchLong,
     /// Interpolates in sRGB space.
     Srgb,
-    /// Interpolates in the linear sRGB space.
+    /// Interpolates in linear sRGB space.
     LinearRgb,
 }
 
+/// Set the color space used for interpolation.
 pub trait InColorSpace: Sized {
+    /// Interpolate in the given `color_space`.
     fn in_color_space(self, color_space: InterpolationColorSpace) -> Self;
 
+    /// Interpolate in OKLab space.
     fn in_oklab(self) -> Self {
         self.in_color_space(InterpolationColorSpace::OkLab)
     }
 
+    /// Interpolate in OKLCH space (short hue path).
     fn in_oklch(self) -> Self {
         self.in_color_space(InterpolationColorSpace::OkLch)
     }
 
+    /// Interpolate in OKLCH space (long hue path).
     fn in_oklch_long(self) -> Self {
         self.in_color_space(InterpolationColorSpace::OkLchLong)
     }
 
+    /// Interpolate in sRGB space.
     fn in_srgb(self) -> Self {
         self.in_color_space(InterpolationColorSpace::Srgb)
     }
 
+    /// Interpolate in linear sRGB space.
     fn in_linear_rgb(self) -> Self {
         self.in_color_space(InterpolationColorSpace::LinearRgb)
     }
 }
 
 impl InColorSpace for LinearGradient {
+    /// Interpolate in the given `color_space`.
     fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
         self.color_space = color_space;
         self
@@ -665,6 +673,7 @@ impl InColorSpace for LinearGradient {
 }
 
 impl InColorSpace for RadialGradient {
+    /// Interpolate in the given `color_space`.
     fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
         self.color_space = color_space;
         self
@@ -672,6 +681,7 @@ impl InColorSpace for RadialGradient {
 }
 
 impl InColorSpace for ConicGradient {
+    /// Interpolate in the given `color_space`.
     fn in_color_space(mut self, color_space: InterpolationColorSpace) -> Self {
         self.color_space = color_space;
         self
