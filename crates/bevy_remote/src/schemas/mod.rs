@@ -59,7 +59,7 @@ impl SchemaTypesMetadata {
         self.has_data_type_by_id(TypeId::of::<T>(), types_string_slice)
     }
 
-    /// checks if slice contains string value that matches checked `TypeData` by id.
+    /// Checks if slice contains string value that matches checked `TypeData` by id.
     pub fn has_data_type_by_id(&self, id: TypeId, types_string_slice: &[String]) -> bool {
         self.data_types
             .get(&id)
