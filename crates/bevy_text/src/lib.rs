@@ -117,19 +117,25 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    remove_dropped_font_atlas_sets.before(AssetEventSystems),
-                    detect_text_needs_rerender::<Text2d>,
-                    update_text2d_layout
-                        // Potential conflict: `Assets<Image>`
-                        // In practice, they run independently since `bevy_render::camera_update_system`
-                        // will only ever observe its own render target, and `update_text2d_layout`
-                        // will never modify a pre-existing `Image` asset.
-                        .ambiguous_with(CameraUpdateSystems),
-                    calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
-                )
-                    .chain()
-                    .in_set(Text2dUpdateSystems)
-                    .after(AnimationSystems),
+                    (
+                        remove_dropped_font_atlas_sets.before(AssetEventSystems),
+                        detect_text_root_needs_rerender::<Text2d>,
+                        update_text2d_layout
+                            // Potential conflict: `Assets<Image>`
+                            // In practice, they run independently since `bevy_render::camera_update_system`
+                            // will only ever observe its own render target, and `update_text2d_layout`
+                            // will never modify a pre-existing `Image` asset.
+                            .ambiguous_with(CameraUpdateSystems),
+                        calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
+                    )
+                        .chain()
+                        .in_set(Text2dUpdateSystems)
+                        .after(AnimationSystems),
+                    detect_text_span_needs_rerender
+                        .before(Text2dUpdateSystems)
+                        .ambiguous_with(CameraUpdateSystems)
+                        .after(AnimationSystems),
+                ),
             )
             .add_systems(Last, trim_cosmic_cache);
 
