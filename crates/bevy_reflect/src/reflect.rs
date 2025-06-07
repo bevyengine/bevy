@@ -51,7 +51,7 @@ pub enum ApplyError {
         /// Size of the value we attempted to apply.
         from_size: usize,
         /// Size of the type we attempted to apply the value to.
-        to_size: usize
+        to_size: usize,
     },
 
     #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]

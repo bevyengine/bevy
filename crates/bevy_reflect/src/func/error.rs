@@ -22,7 +22,7 @@ pub enum FunctionError {
         /// Expected argument count. [`ArgCount`] for overloaded functions will contain multiple possible counts.
         expected: ArgCount,
         /// Number of arguments received.
-        received: usize
+        received: usize,
     },
     /// No overload was found for the given set of arguments.
     #[error("no overload found for arguments with signature `{received:?}`, expected one of `{expected:?}`")]

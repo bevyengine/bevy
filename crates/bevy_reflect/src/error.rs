@@ -13,7 +13,7 @@ pub enum ReflectCloneError {
     #[error("`PartialReflect::reflect_clone` not implemented for `{type_path}`")]
     NotImplemented {
         /// The fully qualified path of the type that [`PartialReflect::reflect_clone`](crate::PartialReflect::reflect_clone) is not implemented for.
-        type_path: Cow<'static, str>
+        type_path: Cow<'static, str>,
     },
     /// The type cannot be cloned via [`PartialReflect::reflect_clone`].
     ///
@@ -23,7 +23,7 @@ pub enum ReflectCloneError {
     #[error("`{type_path}` cannot be made cloneable for `PartialReflect::reflect_clone`")]
     NotCloneable {
         /// The fully qualified path of the type that cannot be cloned via [`PartialReflect::reflect_clone`](crate::PartialReflect::reflect_clone).
-        type_path: Cow<'static, str>
+        type_path: Cow<'static, str>,
     },
     /// The field cannot be cloned via [`PartialReflect::reflect_clone`].
     ///
