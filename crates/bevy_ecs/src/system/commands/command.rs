@@ -234,6 +234,6 @@ pub fn send_event<E: Event>(event: E) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
         let mut events = world.resource_mut::<Events<E>>();
-        events.send_with_caller(event, caller);
+        events.write_with_caller(event, caller);
     }
 }
