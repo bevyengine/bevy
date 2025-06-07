@@ -705,7 +705,7 @@ impl<'w> EntityClonerBuilder<'w> {
     /// [`deny_all`](`Self::deny_all`) before calling any of the `allow` methods.
     pub fn allow_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
         for type_id in ids {
-            if let Some(id) = self.world.components().get_id(type_id) {
+            if let Some(id) = self.world.components().get_valid_id(type_id) {
                 self.filter_allow(id);
             }
         }
@@ -740,7 +740,7 @@ impl<'w> EntityClonerBuilder<'w> {
     /// Extends the list of components that shouldn't be cloned by type ids.
     pub fn deny_by_type_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
         for type_id in ids {
-            if let Some(id) = self.world.components().get_id(type_id) {
+            if let Some(id) = self.world.components().get_valid_id(type_id) {
                 self.filter_deny(id);
             }
         }
@@ -762,7 +762,7 @@ impl<'w> EntityClonerBuilder<'w> {
         &mut self,
         clone_behavior: ComponentCloneBehavior,
     ) -> &mut Self {
-        if let Some(id) = self.world.components().component_id::<T>() {
+        if let Some(id) = self.world.components().valid_component_id::<T>() {
             self.entity_cloner
                 .clone_behavior_overrides
                 .insert(id, clone_behavior);
@@ -787,7 +787,7 @@ impl<'w> EntityClonerBuilder<'w> {
 
     /// Removes a previously set override of [`ComponentCloneBehavior`] for a component in this builder.
     pub fn remove_clone_behavior_override<T: Component>(&mut self) -> &mut Self {
-        if let Some(id) = self.world.components().component_id::<T>() {
+        if let Some(id) = self.world.components().valid_component_id::<T>() {
             self.entity_cloner.clone_behavior_overrides.remove(&id);
         }
         self
