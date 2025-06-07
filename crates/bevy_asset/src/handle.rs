@@ -138,6 +138,20 @@ pub enum Handle<A: Asset> {
     Weak(AssetId<A>),
 }
 
+/// Serialize `Handle`s as `AssetPath`s.
+impl<A: Asset> serde::Serialize for Handle<A> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self.path() {
+            Some(asset_path) => asset_path.serialize(serializer),
+            // Maybe this should be an error?
+            None => AssetPath::default().serialize(serializer),
+        }
+    }
+}
+
 impl<T: Asset> Clone for Handle<T> {
     fn clone(&self) -> Self {
         match self {
