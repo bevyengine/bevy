@@ -638,7 +638,7 @@ pub trait InColorSpace: Sized {
     /// Interpolate in the given `color_space`.
     fn in_color_space(self, color_space: InterpolationColorSpace) -> Self;
 
-    /// Interpolate in OKLab space.
+    /// Interpolate in `OKLab` space.
     fn in_oklab(self) -> Self {
         self.in_color_space(InterpolationColorSpace::OkLab)
     }
