@@ -44,7 +44,7 @@ fn setup(mut commands: Commands) {
                     .into(),
                     ConicGradient {
                         start: 0.,
-                        position: Position::CENTER,
+                        position: UiPosition::CENTER,
                         stops: vec![
                             AngularColorStop::auto(YELLOW.with_alpha(0.)),
                             AngularColorStop::auto(YELLOW.with_alpha(0.)),
@@ -56,7 +56,7 @@ fn setup(mut commands: Commands) {
                     }
                     .into(),
                     RadialGradient {
-                        position: Position::TOP.at_x(Val::Percent(5.)),
+                        position: UiPosition::TOP.at_x(Val::Percent(5.)),
                         shape: RadialGradientShape::Circle(Val::Vh(30.)),
                         stops: vec![
                             ColorStop::auto(Color::WHITE),

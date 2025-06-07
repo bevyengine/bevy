@@ -32,19 +32,13 @@ use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-pub const UI_GRADIENT_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("10116113-aac4-47fa-91c8-35cbe80dddcb");
+use super::shader_flags::BORDER_ALL;
 
 pub struct GradientPlugin;
 
 impl Plugin for GradientPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            UI_GRADIENT_SHADER_HANDLE,
-            "gradient.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "gradient.wgsl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -101,6 +95,7 @@ impl Default for GradientMeta {
 #[derive(Resource)]
 pub struct GradientPipeline {
     pub view_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
 }
 
 impl FromWorld for GradientPipeline {
@@ -115,7 +110,10 @@ impl FromWorld for GradientPipeline {
             ),
         );
 
-        GradientPipeline { view_layout }
+        GradientPipeline {
+            view_layout,
+            shader: load_embedded_asset!(world, "gradient.wgsl"),
+        }
     }
 }
 
@@ -199,13 +197,13 @@ impl SpecializedRenderPipeline for GradientPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: UI_GRADIENT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: UI_GRADIENT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -398,7 +396,7 @@ pub fn extract_gradients(
 
         for (gradients, node_type) in [
             (gradient.map(|g| &g.0), NodeType::Rect),
-            (gradient_border.map(|g| &g.0), NodeType::Border),
+            (gradient_border.map(|g| &g.0), NodeType::Border(BORDER_ALL)),
         ]
         .iter()
         .filter_map(|(g, n)| g.map(|g| (g, *n)))
@@ -762,8 +760,8 @@ pub fn prepare_gradient(
 
                     let uvs = { [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y] };
 
-                    let mut flags = if gradient.node_type == NodeType::Border {
-                        shader_flags::BORDER
+                    let mut flags = if let NodeType::Border(borders) = gradient.node_type {
+                        borders
                     } else {
                         0
                     };

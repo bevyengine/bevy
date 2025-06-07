@@ -199,13 +199,13 @@ impl<'w> UnsafeWorldCell<'w> {
     ///
     /// # Safety
     /// - must have permission to access the whole world immutably
-    /// - there must be no live exclusive borrows on world data
+    /// - there must be no live exclusive borrows of world data
     /// - there must be no live exclusive borrow of world
     #[inline]
     pub unsafe fn world(self) -> &'w World {
         // SAFETY:
         // - caller ensures there is no `&mut World` this makes it okay to make a `&World`
-        // - caller ensures there is no mutable borrows of world data, this means the caller cannot
+        // - caller ensures there are no mutable borrows of world data, this means the caller cannot
         //   misuse the returned `&World`
         unsafe { self.unsafe_world() }
     }
@@ -234,7 +234,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ///
     /// # Safety
     /// - must not be used in a way that would conflict with any
-    ///   live exclusive borrows on world data
+    ///   live exclusive borrows of world data
     #[inline]
     unsafe fn unsafe_world(self) -> &'w World {
         // SAFETY:
@@ -396,12 +396,12 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Gets a reference to the resource of the given type if it exists
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource<R: Resource>(self) -> Option<&'w R> {
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY: caller ensures `self` has permission to access the resource
         //  caller also ensure that no mutable reference to the resource exists
         unsafe {
@@ -414,15 +414,15 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Gets a reference including change detection to the resource of the given type if it exists.
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Ref<'w, R>> {
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
 
         // SAFETY: caller ensures `self` has permission to access the resource
-        // caller also ensure that no mutable reference to the resource exists
+        // caller also ensures that no mutable reference to the resource exists
         let (ptr, ticks, caller) = unsafe { self.get_resource_with_ticks(component_id)? };
 
         // SAFETY: `component_id` was obtained from the type ID of `R`
@@ -450,7 +450,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
@@ -466,12 +466,12 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Gets a reference to the non-send resource of the given type if it exists
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_non_send_resource<R: 'static>(self) -> Option<&'w R> {
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY: caller ensures that `self` has permission to access `R`
         //  caller ensures that no mutable reference exists to `R`
         unsafe {
@@ -492,7 +492,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
@@ -508,13 +508,13 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Gets a mutable reference to the resource of the given type if it exists
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_resource_mut<R: Resource>(self) -> Option<Mut<'w, R>> {
         self.assert_allows_mutable_access();
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY:
         // - caller ensures `self` has permission to access the resource mutably
         // - caller ensures no other references to the resource exist
@@ -533,7 +533,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
@@ -572,13 +572,13 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Gets a mutable reference to the non-send resource of the given type if it exists
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_non_send_resource_mut<R: 'static>(self) -> Option<Mut<'w, R>> {
         self.assert_allows_mutable_access();
-        let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components().get_valid_resource_id(TypeId::of::<R>())?;
         // SAFETY:
         // - caller ensures that `self` has permission to access the resource
         // - caller ensures that the resource is unaliased
@@ -600,7 +600,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
@@ -634,7 +634,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
     // Shorthand helper function for getting the data and change ticks for a resource.
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no mutable references to the resource exist at the same time
     #[inline]
@@ -661,7 +661,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
     /// - no mutable references to the resource exist at the same time
     #[inline]
@@ -685,7 +685,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
     // Returns a mutable reference to the underlying world's [`CommandQueue`].
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the queue mutably
     /// - no mutable references to the queue exist at the same time
     pub(crate) unsafe fn get_raw_command_queue(self) -> RawCommandQueue {
@@ -697,7 +697,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     /// # Safety
-    /// It is the callers responsibility to ensure that there are no outstanding
+    /// It is the caller's responsibility to ensure that there are no outstanding
     /// references to `last_trigger_id`.
     pub(crate) unsafe fn increment_trigger_id(self) {
         self.assert_allows_mutable_access();
@@ -727,7 +727,7 @@ impl Debug for UnsafeWorldCell<'_> {
     }
 }
 
-/// A interior-mutable reference to a particular [`Entity`] and all of its components
+/// An interior-mutable reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
 pub struct UnsafeEntityCell<'w> {
     world: UnsafeWorldCell<'w>,
@@ -821,12 +821,12 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get<T: Component>(self) -> Option<&'w T> {
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
         // - `location` is valid
@@ -845,14 +845,14 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_ref<T: Component>(self) -> Option<Ref<'w, T>> {
         let last_change_tick = self.last_run;
         let change_tick = self.this_run;
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
@@ -879,12 +879,12 @@ impl<'w> UnsafeEntityCell<'w> {
     /// detection in custom runtimes.
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks<T: Component>(self) -> Option<ComponentTicks> {
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - entity location is valid
@@ -908,7 +908,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// compile time.**
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
@@ -933,7 +933,7 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
@@ -945,7 +945,7 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     /// - the component `T` is mutable
@@ -956,7 +956,7 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     /// - The component `T` is mutable
@@ -968,7 +968,7 @@ impl<'w> UnsafeEntityCell<'w> {
     ) -> Option<Mut<'w, T>> {
         self.world.assert_allows_mutable_access();
 
-        let component_id = self.world.components().get_id(TypeId::of::<T>())?;
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - `storage_type` is correct
@@ -995,7 +995,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// or `None` if the entity does not have the components required by the query `Q`.
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
     /// - no mutable references to the queried data exist at the same time
     pub(crate) unsafe fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
@@ -1044,7 +1044,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// which is only valid while the `'w` borrow of the lifetime is active.
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
@@ -1069,7 +1069,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
@@ -1117,7 +1117,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// It is the callers responsibility to ensure that
+    /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     /// - the component `T` is mutable

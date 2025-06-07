@@ -14,7 +14,6 @@ use crate::{
     component::{Component, HookContext, Mutable},
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     error::{ignore, CommandWithEntity, HandleError},
-    system::entity_command::{self},
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
@@ -158,19 +157,21 @@ pub trait Relationship: Component + Sized {
             {
                 relationship_target.collection_mut_risky().remove(entity);
                 if relationship_target.len() == 0 {
-                    if let Ok(mut entity) = world.commands().get_entity(target_entity) {
+                    let command = |mut entity: EntityWorldMut| {
                         // this "remove" operation must check emptiness because in the event that an identical
                         // relationship is inserted on top, this despawn would result in the removal of that identical
                         // relationship ... not what we want!
-                        entity.queue(|mut entity: EntityWorldMut| {
-                            if entity
-                                .get::<Self::RelationshipTarget>()
-                                .is_some_and(RelationshipTarget::is_empty)
-                            {
-                                entity.remove::<Self::RelationshipTarget>();
-                            }
-                        });
-                    }
+                        if entity
+                            .get::<Self::RelationshipTarget>()
+                            .is_some_and(RelationshipTarget::is_empty)
+                        {
+                            entity.remove::<Self::RelationshipTarget>();
+                        }
+                    };
+
+                    world
+                        .commands()
+                        .queue(command.with_entity(target_entity).handle_error_with(ignore));
                 }
             }
         }
@@ -221,50 +222,24 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_replace(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
-                commands.queue(
-                    entity_command::remove::<Self::Relationship>()
-                        .with_entity(source_entity)
-                        .handle_error_with(ignore),
-                );
-            } else {
-                warn!(
-                    "{}Tried to despawn non-existent entity {}",
-                    caller
-                        .map(|location| format!("{location}: "))
-                        .unwrap_or_default(),
-                    source_entity
-                );
-            }
+            commands
+                .entity(source_entity)
+                .remove::<Self::Relationship>();
         }
     }
 
     /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipTarget`] when
     /// that entity is despawned.
     // note: think of this as "on_drop"
-    fn on_despawn(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_despawn(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
-                commands.queue(
-                    entity_command::despawn()
-                        .with_entity(source_entity)
-                        .handle_error_with(ignore),
-                );
-            } else {
-                warn!(
-                    "{}Tried to despawn non-existent entity {}",
-                    caller
-                        .map(|location| format!("{location}: "))
-                        .unwrap_or_default(),
-                    source_entity
-                );
-            }
+            commands.entity(source_entity).despawn();
         }
     }
 
@@ -423,5 +398,64 @@ mod tests {
         }
 
         // No assert necessary, looking to make sure compilation works with the macros
+    }
+
+    #[test]
+    fn parent_child_relationship_with_custom_relationship() {
+        use crate::prelude::ChildOf;
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Entity);
+
+        let mut world = World::new();
+
+        // Rel on Parent
+        // Despawn Parent
+        let mut commands = world.commands();
+        let child = commands.spawn_empty().id();
+        let parent = commands.spawn(Rel(child)).add_child(child).id();
+        commands.entity(parent).despawn();
+        world.flush();
+
+        assert!(world.get_entity(child).is_err());
+        assert!(world.get_entity(parent).is_err());
+
+        // Rel on Parent
+        // Despawn Child
+        let mut commands = world.commands();
+        let child = commands.spawn_empty().id();
+        let parent = commands.spawn(Rel(child)).add_child(child).id();
+        commands.entity(child).despawn();
+        world.flush();
+
+        assert!(world.get_entity(child).is_err());
+        assert!(!world.entity(parent).contains::<Rel>());
+
+        // Rel on Child
+        // Despawn Parent
+        let mut commands = world.commands();
+        let parent = commands.spawn_empty().id();
+        let child = commands.spawn((ChildOf(parent), Rel(parent))).id();
+        commands.entity(parent).despawn();
+        world.flush();
+
+        assert!(world.get_entity(child).is_err());
+        assert!(world.get_entity(parent).is_err());
+
+        // Rel on Child
+        // Despawn Child
+        let mut commands = world.commands();
+        let parent = commands.spawn_empty().id();
+        let child = commands.spawn((ChildOf(parent), Rel(parent))).id();
+        commands.entity(child).despawn();
+        world.flush();
+
+        assert!(world.get_entity(child).is_err());
+        assert!(!world.entity(parent).contains::<RelTarget>());
     }
 }

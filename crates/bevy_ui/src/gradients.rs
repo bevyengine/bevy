@@ -1,4 +1,4 @@
-use crate::{Position, Val};
+use crate::{UiPosition, Val};
 use bevy_color::{Color, Srgba};
 use bevy_ecs::component::Component;
 use bevy_math::Vec2;
@@ -44,7 +44,7 @@ impl ColorStop {
         }
     }
 
-    // Set the interpolation midpoint between this and and the following stop
+    // Set the interpolation midpoint between this and the following stop
     pub fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
@@ -156,7 +156,7 @@ impl AngularColorStop {
         }
     }
 
-    // Set the interpolation midpoint between this and and the following stop
+    // Set the interpolation midpoint between this and the following stop
     pub fn with_hint(mut self, hint: f32) -> Self {
         self.hint = hint;
         self
@@ -216,8 +216,8 @@ impl Default for AngularColorStop {
 pub struct LinearGradient {
     /// The color space used for interpolation.
     pub color_space: InterpolationColorSpace,
-    /// The direction of the gradient.
-    /// An angle of `0.` points upward, angles increasing clockwise.
+    /// The direction of the gradient in radians.
+    /// An angle of `0.` points upward, with the value increasing in the clockwise direction.
     pub angle: f32,
     /// The list of color stops
     pub stops: Vec<ColorStop>,
@@ -351,7 +351,7 @@ pub struct RadialGradient {
     /// The color space used for interpolation.
     pub color_space: InterpolationColorSpace,
     /// The center of the radial gradient
-    pub position: Position,
+    pub position: UiPosition,
     /// Defines the end shape of the radial gradient
     pub shape: RadialGradientShape,
     /// The list of color stops
@@ -360,7 +360,7 @@ pub struct RadialGradient {
 
 impl RadialGradient {
     /// Create a new radial gradient
-    pub fn new(position: Position, shape: RadialGradientShape, stops: Vec<ColorStop>) -> Self {
+    pub fn new(position: UiPosition, shape: RadialGradientShape, stops: Vec<ColorStop>) -> Self {
         Self {
             color_space: default(),
             position,
@@ -378,10 +378,10 @@ impl RadialGradient {
 impl Default for RadialGradient {
     fn default() -> Self {
         Self {
-            color_space: default(),
-            position: Position::CENTER,
+            position: UiPosition::CENTER,
             shape: RadialGradientShape::ClosestCorner,
             stops: Vec::new(),
+            color_space: default(),
         }
     }
 }
@@ -402,14 +402,14 @@ pub struct ConicGradient {
     /// The starting angle of the gradient in radians
     pub start: f32,
     /// The center of the conic gradient
-    pub position: Position,
+    pub position: UiPosition,
     /// The list of color stops
     pub stops: Vec<AngularColorStop>,
 }
 
 impl ConicGradient {
-    /// create a new conic gradient
-    pub fn new(position: Position, stops: Vec<AngularColorStop>) -> Self {
+    /// Create a new conic gradient
+    pub fn new(position: UiPosition, stops: Vec<AngularColorStop>) -> Self {
         Self {
             color_space: default(),
             start: 0.,
@@ -418,14 +418,14 @@ impl ConicGradient {
         }
     }
 
-    /// Sets the starting angle of the gradient
+    /// Sets the starting angle of the gradient in radians
     pub fn with_start(mut self, start: f32) -> Self {
         self.start = start;
         self
     }
 
     /// Sets the position of the gradient
-    pub fn with_position(mut self, position: Position) -> Self {
+    pub fn with_position(mut self, position: UiPosition) -> Self {
         self.position = position;
         self
     }
@@ -468,7 +468,7 @@ impl Gradient {
         }
     }
 
-    /// If the gradient has only a single color stop `get_single` returns its color.
+    /// If the gradient has only a single color stop, `get_single` returns its color.
     pub fn get_single(&self) -> Option<Color> {
         match self {
             Gradient::Linear(gradient) => gradient
