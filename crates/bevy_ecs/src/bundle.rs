@@ -166,8 +166,8 @@ use variadics_please::all_tuples;
 //   in this bundle type is fixed and always the same for every instance;
 // - [`Bundle::is_bounded`] must be pure and return `true` only if the set of components contained
 //   in this bundle type's instances is a subset of a statically known set of components;
-// - [`Bundle::cache_key`] must be pure and return an unique key for each combination of components
-//   contained in this bundle's instance;
+// - if this bundle is bounded then [`Bundle::cache_key`] must be pure and return an unique key for
+//   each combination of components contained in this bundle's instance;
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
 // bundle, in the _exact_ order that [`ComponentsFromBundle::get_components`] is called.
 // - [`ComponentsFromBundle::get_components`] must call `func` exactly once for each [`ComponentId`] returned by
@@ -201,7 +201,7 @@ pub unsafe trait Bundle: BundleDyn + ComponentsFromBundle + Send + Sync + 'stati
     /// Computes the cache key associated with `self` and its size. The key is limited to 64 bits, and if the
     /// size exceeds that it should be ignored.
     #[doc(hidden)]
-    fn cache_key(&self) -> (u64, usize);
+    fn cache_key(&self) -> BoundedBundleKey;
 
     /// Gets `self`'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
@@ -357,8 +357,8 @@ unsafe impl Bundle for Box<dyn Bundle> {
         false
     }
 
-    fn cache_key(&self) -> (u64, usize) {
-        (0, 0)
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
     }
 
     fn component_ids(
@@ -458,8 +458,8 @@ unsafe impl<C: Component> Bundle for C {
         true
     }
 
-    fn cache_key(&self) -> (u64, usize) {
-        (0, 0)
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
     }
 
     fn component_ids(
@@ -561,7 +561,7 @@ macro_rules! tuple_impl {
                 true $(&& <$name as Bundle>::is_bounded())*
             }
 
-            fn cache_key(&self) -> (u64, usize) {
+            fn cache_key(&self) -> BoundedBundleKey {
                 #[allow(
                     non_snake_case,
                     reason = "The names of these variables are provided by the caller, not by us."
@@ -571,20 +571,8 @@ macro_rules! tuple_impl {
                 let mut key = 0;
                 let mut size = 0;
 
-                $(
-                    let (sub_key, sub_size) = $name.cache_key();
-                    key |= sub_key << size;
-                    size += sub_size;
-                    // Bail out if size is too big, this avoids overflow errors when shifting
-                    // left by the size.
-                    // Returning anything with a size bigger than 64 is fine because that
-                    // signals that the key could not be compute.
-                    if size > 64 {
-                        return (0, 65);
-                    }
-                )*
-
-                (key, size)
+                BoundedBundleKey::empty()
+                    $( .merge($name.cache_key()) )*
             }
 
             fn component_ids(
@@ -720,6 +708,70 @@ macro_rules! after_effect_impl {
 }
 
 all_tuples!(after_effect_impl, 0, 15, P);
+
+#[doc(hidden)]
+#[derive(Clone, Copy)]
+pub struct BoundedBundleKey {
+    key: u64,
+    len_bits: u32,
+}
+
+impl BoundedBundleKey {
+    /// Creates an empty `BoundedBundleKey`. This should be used for static bundles as
+    /// there's only one subset of components it can represent. This can also be used
+    /// as a dummy key in dynamic bundles, since it is not used for them.
+    #[inline]
+    pub const fn empty() -> Self {
+        Self {
+            key: 0,
+            len_bits: 0,
+        }
+    }
+
+    /// Returns whether this bundle key is valid. Currently this is the case if
+    /// it fits in 64 bits.
+    #[inline]
+    pub const fn is_valid(&self) -> bool {
+        self.len_bits <= 64
+    }
+
+    /// Merge two `BoundedBundleKey`s by appending `other` to the right of `self`
+    /// and producing a new `BoundedBundleKey` representing both of them.
+    ///
+    /// Note that for there can be multiple combinations of `self` and `other` that will
+    /// produce the same output, so care should be taken to avoid them.
+    /// A way this can be achieved is by ensuring that there exists a way to compute back
+    /// the length of the key given the key itself and the type it is for.
+    #[inline]
+    pub const fn merge(self, other: Self) -> Self {
+        let len_bits = self.len_bits + other.len_bits;
+        let key = self.key.wrapping_shl(other.len_bits) | other.key;
+        let merged = Self { key, len_bits };
+        if merged.is_valid() {
+            merged
+        } else {
+            // Normalize invalid keys so that `len_bits` never overflows
+            Self {
+                key: 0,
+                len_bits: 65,
+            }
+        }
+    }
+
+    /// Creates a new `BoundedBundleKey` from a literal key and its bits length.
+    /// It's suggested to run this in a `const` block to run the asserts at compile time.
+    ///
+    /// # Panics
+    ///
+    /// This panics if the given key requires more than `len_bits` to be represented
+    /// or if `len_bits` is more than 64.
+    #[inline]
+    pub const fn literal(key: u64, len_bits: u32) -> Self {
+        assert!(len_bits <= 64);
+        assert!(u64::BITS - key.leading_zeros() <= len_bits);
+        Self { key, len_bits }
+    }
+}
 
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
 ///
@@ -2258,11 +2310,11 @@ impl Bundles {
         // Optimized case for bounded bundles, e.g. those with conditional components whose
         // key fits in 64 bits.
         if T::is_bounded() {
-            let (key, size) = bundle.cache_key();
-            if size <= 64 {
+            let cache_key = bundle.cache_key();
+            if cache_key.is_valid() {
                 return *self
                     .bounded_bundle_ids
-                    .entry((TypeId::of::<T>(), key))
+                    .entry((TypeId::of::<T>(), cache_key.key))
                     .or_insert_with(|| {
                         Self::register_new_bundle(bundle, components, storages, bundle_infos)
                     });
@@ -2487,18 +2539,12 @@ unsafe impl<T: Bundle> Bundle for Option<T> {
         T::is_bounded()
     }
 
-    fn cache_key(&self) -> (u64, usize) {
+    fn cache_key(&self) -> BoundedBundleKey {
         if let Some(this) = self {
-            let (key, len) = this.cache_key();
-            if len >= 64 {
-                return (0, 65);
-            }
-
-            // key ends in 0
-            (key << 1, len + 1)
+            this.cache_key()
+                .merge(const { BoundedBundleKey::literal(1, 1) })
         } else {
-            // key ends in 1
-            (1, 1)
+            const { BoundedBundleKey::literal(0, 1) }
         }
     }
 
@@ -2557,8 +2603,8 @@ unsafe impl Bundle for Vec<Box<dyn Bundle>> {
         false
     }
 
-    fn cache_key(&self) -> (u64, usize) {
-        (0, 0)
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
     }
 
     fn component_ids(

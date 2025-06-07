@@ -2,7 +2,9 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, BundleEffect, ComponentsFromBundle, NoBundleEffect, StaticBundle},
+    bundle::{
+        BoundedBundleKey, Bundle, BundleEffect, ComponentsFromBundle, NoBundleEffect, StaticBundle,
+    },
     entity::Entity,
     relationship::{RelatedSpawner, Relationship, RelationshipTarget},
     world::{EntityWorldMut, World},
@@ -226,8 +228,8 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
         <R::RelationshipTarget as Bundle>::is_bounded()
     }
 
-    fn cache_key(&self) -> (u64, usize) {
-        (0, 0)
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
     }
 
     fn component_ids(
@@ -316,6 +318,8 @@ unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
+    // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
+    // always a `StaticBundle`.
     fn is_static() -> bool {
         <R::RelationshipTarget as Bundle>::is_static()
     }
@@ -323,11 +327,8 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
         <R::RelationshipTarget as Bundle>::is_bounded()
     }
 
-    fn cache_key(&self) -> (u64, usize) {
-        // We are inserting `R::RelationshipTarget`, which is a `Component` and thus
-        // always a `StaticBundle`. However we don't have an instance yet, so we can't delegate
-        // cache_key to it.
-        (0, 0)
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
     }
 
     fn component_ids(

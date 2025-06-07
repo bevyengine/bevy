@@ -172,24 +172,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::is_bounded())*
             }
 
-            fn cache_key(&self) -> (u64, usize) {
-                let mut key = 0;
-                let mut size = 0;
-
-                #(
-                    let (sub_key, sub_size) = <#active_field_types as #ecs_path::bundle::Bundle>::cache_key(&self.#active_field_tokens);
-                    key |= sub_key << size;
-                    size += sub_size;
-                    // Bail out if size is too big, this avoids overflow errors when shifting
-                    // left by the size.
-                    // Returning anything with a size bigger than 64 is fine because that
-                    // signals that the key could not be compute.
-                    if size > 64 {
-                        return (0, 65);
-                    }
-                )*
-
-                (key, size)
+            fn cache_key(&self) -> #ecs_path::bundle::BoundedBundleKey {
+                #ecs_path::bundle::BoundedBundleKey::empty()
+                    #(
+                        .merge(<#active_field_types as #ecs_path::bundle::Bundle>::cache_key(&self.#active_field_tokens))
+                    )*
             }
 
             fn component_ids(

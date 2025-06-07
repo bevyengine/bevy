@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    bundle::{Bundle, ComponentsFromBundle},
+    bundle::{BoundedBundleKey, Bundle, ComponentsFromBundle},
     component::{ComponentId, ComponentsRegistrator, RequiredComponents, StorageType},
     ptr::OwningPtr,
 };
@@ -30,8 +30,8 @@ unsafe impl<B: Bundle> Bundle for MakeDynamic<B> {
         false
     }
 
-    fn cache_key(&self) -> (u64, usize) {
-        (0, 0)
+    fn cache_key(&self) -> BoundedBundleKey {
+        BoundedBundleKey::empty()
     }
 
     fn component_ids(
