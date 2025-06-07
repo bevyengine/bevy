@@ -183,7 +183,8 @@ fn keyboard_animation_control(
         let mut changed = false;
 
         // Switch animations with number keys
-        if keyboard_input.just_pressed(KeyCode::Digit1) && !animations_loaded.animations.is_empty() {
+        if keyboard_input.just_pressed(KeyCode::Digit1) && !animations_loaded.animations.is_empty()
+        {
             animations_res.current = 0;
             changed = true;
         }
