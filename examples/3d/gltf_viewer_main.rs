@@ -5,7 +5,7 @@
 //! - Switch between different animation clips
 //! - Control animation playback (play, pause, loop)
 //! - Display animation information in the UI
-//! cargo run --example gltf_viewer_main
+//! cargo run --example 'gltf_viewer_main'
 
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
@@ -142,7 +142,7 @@ fn setup_scene_once_loaded(
         return;
     }
 
-    for (entity, mut player) in &mut players {
+    if let Some((entity, mut player)) = (&mut players).into_iter().next() {
         let mut graph = AnimationGraph::new();
         let mut animation_indices = Vec::new();
 
@@ -171,7 +171,6 @@ fn setup_scene_once_loaded(
         }
 
         *done = true;
-        break;
     }
 }
 
@@ -184,7 +183,7 @@ fn keyboard_animation_control(
         let mut changed = false;
 
         // Switch animations with number keys
-        if keyboard_input.just_pressed(KeyCode::Digit1) && animations_loaded.animations.len() > 0 {
+        if keyboard_input.just_pressed(KeyCode::Digit1) && !animations_loaded.animations.is_empty() {
             animations_res.current = 0;
             changed = true;
         }
