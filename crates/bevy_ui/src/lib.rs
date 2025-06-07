@@ -18,6 +18,7 @@ pub mod widget;
 pub mod gradients;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
+pub mod ui_transform;
 
 use bevy_derive::{Deref, DerefMut};
 #[cfg(feature = "bevy_ui_picking_backend")]
@@ -42,6 +43,7 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
+pub use ui_transform::*;
 
 use widget::{ImageNode, ImageNodeSize, ViewportNode};
 
@@ -64,6 +66,7 @@ pub mod prelude {
             gradients::*,
             ui_material::*,
             ui_node::*,
+            ui_transform::*,
             widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },

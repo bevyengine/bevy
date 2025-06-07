@@ -17,8 +17,9 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{
     ops::{cos, sin},
-    FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles,
+    FloatOrd, Rect, Vec2,
 };
+use bevy_math::{Affine2, Vec2Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::*,
@@ -29,7 +30,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
 use super::shader_flags::BORDER_ALL;
@@ -238,7 +238,7 @@ pub enum ResolvedGradient {
 
 pub struct ExtractedGradient {
     pub stack_index: u32,
-    pub transform: Mat4,
+    pub transform: Affine2,
     pub rect: Rect,
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
@@ -354,7 +354,7 @@ pub fn extract_gradients(
             Entity,
             &ComputedNode,
             &ComputedNodeTarget,
-            &GlobalTransform,
+            &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             AnyOf<(&BackgroundGradient, &BorderGradient)>,
@@ -414,7 +414,7 @@ pub fn extract_gradients(
                             border_radius: uinode.border_radius,
                             border: uinode.border,
                             node_type,
-                            transform: transform.compute_matrix(),
+                            transform: transform.into(),
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -439,7 +439,7 @@ pub fn extract_gradients(
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
-                            transform: transform.compute_matrix(),
+                            transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
                                 min: Vec2::ZERO,
@@ -487,7 +487,7 @@ pub fn extract_gradients(
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
-                            transform: transform.compute_matrix(),
+                            transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
                                 min: Vec2::ZERO,
@@ -541,7 +541,7 @@ pub fn extract_gradients(
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
-                            transform: transform.compute_matrix(),
+                            transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
                                 min: Vec2::ZERO,
@@ -675,12 +675,16 @@ pub fn prepare_gradient(
                     *item.batch_range_mut() = item_index as u32..item_index as u32 + 1;
                     let uinode_rect = gradient.rect;
 
-                    let rect_size = uinode_rect.size().extend(1.0);
+                    let rect_size = uinode_rect.size();
 
                     // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| (gradient.transform * (pos * rect_size).extend(1.)).xyz());
-                    let corner_points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
+                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                        gradient
+                            .transform
+                            .transform_point2(pos * rect_size)
+                            .extend(0.)
+                    });
+                    let corner_points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -721,7 +725,7 @@ pub fn prepare_gradient(
                         corner_points[3] + positions_diff[3],
                     ];
 
-                    let transformed_rect_size = gradient.transform.transform_vector3(rect_size);
+                    let transformed_rect_size = gradient.transform.transform_vector2(rect_size);
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
