@@ -29,9 +29,10 @@ impl BevyManifest {
 
         if let Ok(manifest) =
             RwLockReadGuard::try_map(MANIFESTS.read(), |manifests| manifests.get(&manifest_path))
-            && manifest.modified_time == modified_time
         {
-            return manifest;
+            if manifest.modified_time == modified_time {
+                return manifest;
+            }
         }
 
         let manifest = BevyManifest {
