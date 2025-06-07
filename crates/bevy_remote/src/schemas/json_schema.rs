@@ -11,7 +11,7 @@ use serde_json::{json, Map, Value};
 
 use crate::schemas::SchemaTypesMetadata;
 
-/// Helper trait for converting TypeRegistration to JsonSchemaBevyType
+/// Helper trait for converting `TypeRegistration` to `JsonSchemaBevyType`
 pub trait TypeRegistrySchemaReader {
     /// Export type JSON Schema.
     fn export_type_json_schema<T: GetTypeRegistration>(
@@ -371,6 +371,7 @@ mod tests {
     use super::*;
     use bevy_ecs::prelude::ReflectComponent;
     use bevy_ecs::prelude::ReflectResource;
+
     use bevy_ecs::{component::Component, reflect::AppTypeRegistry, resource::Resource};
     use bevy_reflect::prelude::ReflectDefault;
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -488,6 +489,62 @@ mod tests {
     }
 
     #[test]
+    fn reflect_struct_with_custom_type_data() {
+        #[derive(Reflect, Default, Deserialize, Serialize)]
+        #[reflect(Default)]
+        enum EnumComponent {
+            ValueOne(i32),
+            ValueTwo {
+                test: i32,
+            },
+            #[default]
+            NoValue,
+        }
+
+        #[derive(Clone)]
+        pub struct ReflectCustomData;
+
+        impl<T: Reflect> bevy_reflect::FromType<T> for ReflectCustomData {
+            fn from_type() -> Self {
+                ReflectCustomData
+            }
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<EnumComponent>();
+            register.register_type_data::<EnumComponent, ReflectCustomData>();
+        }
+        let mut metadata = SchemaTypesMetadata::default();
+        metadata.register_type::<ReflectCustomData>("CustomData");
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<EnumComponent>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration, &metadata);
+        assert!(
+            !metadata.has_data_type::<ReflectComponent>(&schema.reflect_types),
+            "Should not be a component"
+        );
+        assert!(
+            !metadata.has_data_type::<ReflectResource>(&schema.reflect_types),
+            "Should not be a resource"
+        );
+        assert!(
+            metadata.has_data_type::<ReflectDefault>(&schema.reflect_types),
+            "Should have default"
+        );
+        assert!(
+            metadata.has_data_type::<ReflectCustomData>(&schema.reflect_types),
+            "Should have CustomData"
+        );
+        assert!(schema.properties.is_empty(), "Should not have any field");
+        assert!(schema.one_of.len() == 3, "Should have 3 possible schemas");
+    }
+
+    #[test]
     fn reflect_export_tuple_struct() {
         #[derive(Reflect, Component, Default, Deserialize, Serialize)]
         #[reflect(Component, Default, Serialize, Deserialize)]
@@ -569,14 +626,14 @@ mod tests {
         normalize_json(&mut two);
         assert_eq!(one, two);
 
-        /// Recursively sorts arrays in a serde_json::Value
+        /// Recursively sorts arrays in a `serde_json::Value`
         fn normalize_json(value: &mut Value) {
             match value {
                 Value::Array(arr) => {
                     for v in arr.iter_mut() {
                         normalize_json(v);
                     }
-                    arr.sort_by(|a, b| a.to_string().cmp(&b.to_string())); // Sort by stringified version
+                    arr.sort_by_key(ToString::to_string); // Sort by stringified version
                 }
                 Value::Object(map) => {
                     for (_k, v) in map.iter_mut() {

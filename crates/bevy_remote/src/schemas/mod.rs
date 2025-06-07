@@ -10,7 +10,7 @@ use bevy_reflect::{
     prelude::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize, TypeData,
     TypeRegistration,
 };
-use std::any::TypeId;
+use core::any::TypeId;
 
 pub mod json_schema;
 pub mod open_rpc;
@@ -41,7 +41,7 @@ impl Default for SchemaTypesMetadata {
 }
 
 impl SchemaTypesMetadata {
-    /// Map TypeId of TypeData to string
+    /// Map `TypeId` of `TypeData` to string
     pub fn register_type<T: TypeData>(&mut self, name: impl Into<String>) {
         self.data_types.insert(TypeId::of::<T>(), name.into());
     }
@@ -52,5 +52,17 @@ impl SchemaTypesMetadata {
             .iter()
             .flat_map(|(id, name)| reg.data_by_id(*id).and(Some(name.clone())))
             .collect()
+    }
+
+    /// checks if slice contains string value that matches checked `TypeData`
+    pub fn has_data_type<T: TypeData>(&self, types_string_slice: &[String]) -> bool {
+        self.has_data_type_by_id(TypeId::of::<T>(), types_string_slice)
+    }
+
+    /// checks if slice contains string value that matches checked `TypeData` by id.
+    pub fn has_data_type_by_id(&self, id: TypeId, types_string_slice: &[String]) -> bool {
+        self.data_types
+            .get(&id)
+            .is_some_and(|data_s| types_string_slice.iter().any(|e| e.eq(data_s)))
     }
 }
