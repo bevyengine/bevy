@@ -15,7 +15,7 @@ use core::any::TypeId;
 pub mod json_schema;
 pub mod open_rpc;
 
-/// Holds mapping of reflect data types to strings,
+/// Holds mapping of reflect [type data](TypeData) to strings,
 /// later on used in Bevy Json Schema.
 #[derive(Debug, Resource, Reflect)]
 #[reflect(Resource)]
