@@ -5,7 +5,6 @@
 //! - Switch between different animation clips
 //! - Control animation playback (play, pause, loop)
 //! - Display animation information in the UI
-//! cargo run --example 'gltf_viewer_main'
 
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
