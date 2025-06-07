@@ -11,10 +11,11 @@ use crate::{
     },
     change_detection::MaybeLocation,
     component::{
-        Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
-        RequiredComponents, StorageType, Tick,
+        Component, ComponentId, ComponentKey, Components, ComponentsRegistrator,
+        RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
+    fragmenting_value::{FragmentingValue, FragmentingValuesBorrowed},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
@@ -29,7 +30,10 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::TypeIdMap;
-use core::{any::TypeId, ptr::NonNull};
+use core::{
+    any::{Any, TypeId},
+    ptr::NonNull,
+};
 use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
@@ -164,6 +168,16 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
         _components: &mut ComponentsRegistrator,
         _required_components: &mut RequiredComponents,
     );
+
+    /// Returns all component values that can fragment the archetype.
+    fn get_fragmenting_values<'a>(
+        &'a self,
+        components: &mut ComponentsRegistrator,
+        values: &mut impl FnMut(ComponentId, &'a dyn FragmentingValue),
+    );
+
+    /// Returns `true` if this bundle contains any components that can fragment the archetype by value.
+    fn has_fragmenting_values() -> bool;
 }
 
 /// Creates a [`Bundle`] by taking it from internal storage.
@@ -247,6 +261,22 @@ unsafe impl<C: Component> Bundle for C {
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
         ids(components.get_id(TypeId::of::<C>()));
     }
+
+    #[inline]
+    fn get_fragmenting_values<'a>(
+        &'a self,
+        components: &mut ComponentsRegistrator,
+        values: &mut impl FnMut(ComponentId, &'a dyn FragmentingValue),
+    ) {
+        if let Some(key) = (self as &dyn Any).downcast_ref::<<C::Key as ComponentKey>::KeyType>() {
+            C::component_ids(components, &mut |id| values(id, key));
+        }
+    }
+
+    #[inline(always)]
+    fn has_fragmenting_values() -> bool {
+        C::is_fragmenting_value_component()
+    }
 }
 
 // SAFETY:
@@ -304,6 +334,23 @@ macro_rules! tuple_impl {
                 required_components: &mut RequiredComponents,
             ) {
                 $(<$name as Bundle>::register_required_components(components, required_components);)*
+            }
+
+            fn get_fragmenting_values<'a>(&'a self, components: &mut ComponentsRegistrator, values: &mut impl FnMut(ComponentId, &'a dyn FragmentingValue)) {
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = &self;
+                $(
+                    $name.get_fragmenting_values(components, &mut *values);
+                )*
+
+            }
+
+            #[inline(always)]
+            fn has_fragmenting_values() -> bool {
+                false $(|| <$name as Bundle>::has_fragmenting_values())*
             }
         }
 
@@ -747,14 +794,22 @@ impl BundleInfo {
         components: &Components,
         observers: &Observers,
         archetype_id: ArchetypeId,
+        value_components: &FragmentingValuesBorrowed,
     ) -> (ArchetypeId, bool) {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
-            .get_archetype_after_bundle_insert(self.id)
+            .get_archetype_after_bundle_insert(self.id, value_components)
         {
             return (archetype_after_insert_id, false);
         }
+        let base_archetype_cached = archetypes[archetype_id]
+            .edges()
+            .get_archetype_after_bundle_insert_internal(self.id)
+            .map(|bundle| bundle.archetype_id);
+
         let mut new_table_components = Vec::new();
+        let mut replaced_value_components = HashMap::new();
+        let mut new_value_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.explicit_components_len);
         let mut added_required_components = Vec::new();
@@ -795,73 +850,132 @@ impl BundleInfo {
             }
         }
 
-        if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
-            let edges = current_archetype.edges_mut();
-            // The archetype does not change when we insert this bundle.
-            edges.cache_archetype_after_bundle_insert(
-                self.id,
-                archetype_id,
-                bundle_status,
-                added_required_components,
-                added,
-                existing,
-            );
-            (archetype_id, false)
-        } else {
-            let table_id;
-            let table_components;
-            let sparse_set_components;
-            // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
-            {
-                let current_archetype = &archetypes[archetype_id];
-                table_components = if new_table_components.is_empty() {
-                    // If there are no new table components, we can keep using this table.
-                    table_id = current_archetype.table_id();
-                    current_archetype.table_components().collect()
-                } else {
-                    new_table_components.extend(current_archetype.table_components());
-                    // Sort to ignore order while hashing.
-                    new_table_components.sort_unstable();
-                    // SAFETY: all component ids in `new_table_components` exist
-                    table_id = unsafe {
-                        storages
-                            .tables
-                            .get_id_or_insert(&new_table_components, components)
+        for (component_id, component_value) in value_components.iter_ids_and_values() {
+            if let Some(old_value) = current_archetype.get_value_component(component_id) {
+                if *old_value != *component_value {
+                    replaced_value_components.insert(component_id, component_value);
+                }
+            } else {
+                new_value_components.push((component_id, component_value));
+            }
+        }
+
+        let (base_archetype_id, is_new_archetype) =
+            if let Some(base_archetype_id) = base_archetype_cached {
+                // This path will be taken if bundle is already cached for the base archetype, but some value components are not.
+                (base_archetype_id, false)
+            } else if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
+                // The archetype does not change when we insert this bundle.
+                current_archetype
+                    .edges_mut()
+                    .cache_archetype_after_bundle_insert(
+                        self.id,
+                        archetype_id,
+                        bundle_status,
+                        added_required_components,
+                        added,
+                        existing,
+                    );
+
+                (archetype_id, false)
+            } else {
+                let table_id;
+                let table_components;
+                let sparse_set_components;
+                // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
+                {
+                    let current_archetype = &archetypes[archetype_id];
+                    table_components = if new_table_components.is_empty() {
+                        // If there are no new table components, we can keep using this table.
+                        table_id = current_archetype.table_id();
+                        current_archetype.table_components().collect()
+                    } else {
+                        new_table_components.extend(current_archetype.table_components());
+                        // Sort to ignore order while hashing.
+                        new_table_components.sort_unstable();
+                        // SAFETY: all component ids in `new_table_components` exist
+                        table_id = unsafe {
+                            storages
+                                .tables
+                                .get_id_or_insert(&new_table_components, components)
+                        };
+
+                        new_table_components
                     };
 
-                    new_table_components
+                    sparse_set_components = if new_sparse_set_components.is_empty() {
+                        current_archetype.sparse_set_components().collect()
+                    } else {
+                        new_sparse_set_components.extend(current_archetype.sparse_set_components());
+                        // Sort to ignore order while hashing.
+                        new_sparse_set_components.sort_unstable();
+                        new_sparse_set_components
+                    };
                 };
+                // This crates (or retrieves) "base" archetype (without value components). It should always exist for edges to point towards.
+                // SAFETY: ids in self must be valid
+                let (new_base_archetype_id, is_new_created) = archetypes.get_id_or_insert(
+                    components,
+                    observers,
+                    table_id,
+                    table_components.clone(),
+                    sparse_set_components.clone(),
+                    Default::default(),
+                );
 
-                sparse_set_components = if new_sparse_set_components.is_empty() {
-                    current_archetype.sparse_set_components().collect()
-                } else {
-                    new_sparse_set_components.extend(current_archetype.sparse_set_components());
-                    // Sort to ignore order while hashing.
-                    new_sparse_set_components.sort_unstable();
-                    new_sparse_set_components
-                };
+                // Add an edge from the old archetype to the new archetype.
+                archetypes[archetype_id]
+                    .edges_mut()
+                    .cache_archetype_after_bundle_insert(
+                        self.id,
+                        new_base_archetype_id,
+                        bundle_status,
+                        added_required_components,
+                        added,
+                        existing,
+                    );
+
+                (new_base_archetype_id, is_new_created)
             };
-            // SAFETY: ids in self must be valid
-            let (new_archetype_id, is_new_created) = archetypes.get_id_or_insert(
+
+        if value_components.is_empty() {
+            (base_archetype_id, is_new_archetype)
+        } else {
+            // Cache new archetype based on the value components. This new archetype shares pretty much everything with the base archetype
+            // except for identity based on fragmenting values.
+            let current_archetype = &archetypes[base_archetype_id];
+            let table_id = current_archetype.table_id();
+            let table_components = current_archetype.table_components().collect();
+            let sparse_set_components = current_archetype.sparse_set_components().collect();
+            let fragmenting_value_components = current_archetype
+                .components_with_fragmenting_values()
+                .map(|(component_id, value)| {
+                    (
+                        component_id,
+                        replaced_value_components
+                            .get(&component_id)
+                            .copied()
+                            .unwrap_or(value),
+                    )
+                })
+                .chain(new_value_components)
+                .collect();
+            let (value_archetype_id, is_new_archetype) = archetypes.get_id_or_insert(
                 components,
                 observers,
                 table_id,
                 table_components,
                 sparse_set_components,
+                fragmenting_value_components,
             );
-
-            // Add an edge from the old archetype to the new archetype.
             archetypes[archetype_id]
                 .edges_mut()
-                .cache_archetype_after_bundle_insert(
+                .cache_archetype_value_components_after_bundle_insert(
                     self.id,
-                    new_archetype_id,
-                    bundle_status,
-                    added_required_components,
-                    added,
-                    existing,
+                    value_components.to_owned(),
+                    value_archetype_id,
                 );
-            (new_archetype_id, is_new_created)
+            (value_archetype_id, is_new_archetype)
         }
     }
 
@@ -905,6 +1019,7 @@ impl BundleInfo {
         } else {
             let mut next_table_components;
             let mut next_sparse_set_components;
+            let next_value_components;
             let next_table_id;
             {
                 let current_archetype = &mut archetypes[archetype_id];
@@ -952,6 +1067,14 @@ impl BundleInfo {
                             .get_id_or_insert(&next_table_components, components)
                     }
                 };
+
+                next_value_components = current_archetype
+                    .components_with_fragmenting_values()
+                    .filter(|(id, _)| {
+                        removed_sparse_set_components.binary_search(id).is_err()
+                            && removed_table_components.binary_search(id).is_err()
+                    })
+                    .collect();
             }
 
             let (new_archetype_id, is_new_created) = archetypes.get_id_or_insert(
@@ -960,6 +1083,7 @@ impl BundleInfo {
                 next_table_id,
                 next_table_components,
                 next_sparse_set_components,
+                next_value_components,
             );
             (Some(new_archetype_id), is_new_created)
         };
@@ -1012,6 +1136,7 @@ impl<'w> BundleInserter<'w> {
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
+        value_components: &FragmentingValuesBorrowed,
     ) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
@@ -1020,7 +1145,15 @@ impl<'w> BundleInserter<'w> {
             .bundles
             .register_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
-        unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
+        unsafe {
+            Self::new_with_id(
+                world,
+                archetype_id,
+                bundle_id,
+                change_tick,
+                value_components,
+            )
+        }
     }
 
     /// Creates a new [`BundleInserter`].
@@ -1033,6 +1166,7 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         bundle_id: BundleId,
         change_tick: Tick,
+        value_components: &FragmentingValuesBorrowed,
     ) -> Self {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
@@ -1043,6 +1177,7 @@ impl<'w> BundleInserter<'w> {
             &world.components,
             &world.observers,
             archetype_id,
+            value_components,
         );
 
         let inserter = if new_archetype_id == archetype_id {
@@ -1673,15 +1808,31 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick, bundle: &T) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
             .register_info::<T>(&mut registrator, &mut world.storages);
+        let value_components = FragmentingValuesBorrowed::from_bundle(&mut registrator, bundle);
         // SAFETY: we initialized this bundle_id in `init_info`
-        unsafe { Self::new_with_id(world, bundle_id, change_tick) }
+        unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components) }
+    }
+
+    /// Same as [`BundleSpawner::new`] but doesn't require to pass [`Bundle`] by value and ignores [`FragmentingValue`] components.
+    /// This should be used only if it is known that `T` doesn't have fragmenting value components.
+    #[inline]
+    pub(crate) fn new_uniform<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+        let bundle_id = world
+            .bundles
+            .register_info::<T>(&mut registrator, &mut world.storages);
+        let value_components = [].into_iter().collect();
+        // SAFETY: we initialized this bundle_id in `init_info`
+        unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components) }
     }
 
     /// Creates a new [`BundleSpawner`].
@@ -1693,6 +1844,7 @@ impl<'w> BundleSpawner<'w> {
         world: &'w mut World,
         bundle_id: BundleId,
         change_tick: Tick,
+        value_components: &FragmentingValuesBorrowed,
     ) -> Self {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
@@ -1701,6 +1853,7 @@ impl<'w> BundleSpawner<'w> {
             &world.components,
             &world.observers,
             ArchetypeId::EMPTY,
+            value_components,
         );
 
         let archetype = &mut world.archetypes[new_archetype_id];

@@ -89,6 +89,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                 // SAFETY:
                 // * We don't implement a drop function
                 // * u8 is Sync and Send
+                // * fragmenting_value_vtable is None
                 unsafe {
                     ComponentDescriptor::new_with_layout(
                         format!("Component{}", i).to_string(),
@@ -97,6 +98,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                         None,
                         true, // is mutable
                         ComponentCloneBehavior::Default,
+                        None,
                     )
                 },
             )

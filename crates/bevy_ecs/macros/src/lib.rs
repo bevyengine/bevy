@@ -77,6 +77,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
+    let mut field_get_fragmenting_values = Vec::new();
+    let mut field_has_fragmenting_values = Vec::new();
     let mut field_from_components = Vec::new();
     let mut field_required_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
@@ -96,6 +98,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 field_get_component_ids.push(quote! {
                     <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
                 });
+                field_has_fragmenting_values.push(quote! {
+                    <#field_type as #ecs_path::bundle::Bundle>::has_fragmenting_values()
+                });
                 match field {
                     Some(field) => {
                         field_get_components.push(quote! {
@@ -103,6 +108,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         });
                         field_from_components.push(quote! {
                             #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
+                        });
+                        field_get_fragmenting_values.push(quote! {
+                            self.#field.get_fragmenting_values(components, &mut *values);
                         });
                     }
                     None => {
@@ -112,6 +120,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         });
                         field_from_components.push(quote! {
                             #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
+                        });
+                        field_get_fragmenting_values.push(quote! {
+                            self.#index.get_fragmenting_values(components, &mut *values);
                         });
                     }
                 }
@@ -154,6 +165,21 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 required_components: &mut #ecs_path::component::RequiredComponents
             ){
                 #(#field_required_components)*
+            }
+
+            #[allow(unused_variables)]
+            #[inline]
+            fn get_fragmenting_values<'a>(
+                &'a self,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
+                values: &mut impl FnMut(#ecs_path::component::ComponentId, &'a dyn #ecs_path::fragmenting_value::FragmentingValue)
+            ) {
+                #(#field_get_fragmenting_values)*
+            }
+
+            #[inline(always)]
+            fn has_fragmenting_values() -> bool {
+                false #(|| #field_has_fragmenting_values)*
             }
         }
 
