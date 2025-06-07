@@ -169,9 +169,9 @@ pub enum TypeInfoError {
     /// [kind]: ReflectKind
     #[error("kind mismatch: expected {expected:?}, received {received:?}")]
     KindMismatch {
-        /// TODO
+        /// Expected kind.
         expected: ReflectKind,
-        /// TODO
+        /// Received kind.
         received: ReflectKind,
     },
 }
@@ -201,23 +201,40 @@ pub enum TypeInfoError {
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
-    /// TODO
+    /// Type information for a [struct-like] type.
+    ///
+    /// [struct-like]: crate::Struct
     Struct(StructInfo),
-    /// TODO
+    /// Type information for a [tuple-struct-like] type.
+    ///
+    /// [tuple-struct-like]: crate::TupleStruct
     TupleStruct(TupleStructInfo),
-    /// TODO
+    /// Type information for a [tuple-like] type.
+    ///
+    /// [tuple-like]: crate::Tuple
     Tuple(TupleInfo),
-    /// TODO
+    /// Type information for a [list-like] type.
+    ///
+    /// [list-like]: crate::List
     List(ListInfo),
-    /// TODO
+    /// Type information for an [array-like] type.
+    ///
+    /// [array-like]: crate::Array
     Array(ArrayInfo),
-    /// TODO
+    /// Type information for a [map-like] type.
+    ///
+    /// [map-like]: crate::Map
     Map(MapInfo),
-    /// TODO
+    /// Type information for a [set-like] type.
+    ///
+    /// [set-like]: crate::Set
     Set(SetInfo),
-    /// TODO
+    /// Type information for an [enum-like] type.
+    ///
+    /// [enum-like]: crate::Enum
     Enum(EnumInfo),
-    /// TODO
+    /// Type information for an opaque type - see the [`OpaqueInfo`] docs for
+    /// a discussion of opaque types.
     Opaque(OpaqueInfo),
 }
 

@@ -16,7 +16,7 @@ use core::{
 ///
 /// [`Non`]: NonGenericTypeCell
 pub trait TypedProperty: sealed::Sealed {
-    /// TODO
+    /// The type of the value stored in [`GenericTypeCell`].
     type Stored: 'static;
 }
 
