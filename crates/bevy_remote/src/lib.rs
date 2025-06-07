@@ -99,8 +99,7 @@
 //! ## Built-in methods
 //!
 //! The Bevy Remote Protocol includes a number of built-in methods for accessing and modifying data
-//! in the ECS. Each of these methods uses the `` prefix, which is a namespace reserved for
-//! BRP built-in methods.
+//! in the ECS.
 //!
 //! ### `world.get_components`
 //!

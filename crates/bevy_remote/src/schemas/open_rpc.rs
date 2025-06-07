@@ -69,6 +69,10 @@ pub struct ServerObject {
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MethodObject {
+    #[expect(
+        clippy::doc_markdown,
+        reason = "In this case, we are referring to a string, so using quotes instead of backticks makes sense."
+    )]
     /// The method name (e.g., "world.get_components")
     pub name: String,
     /// An optional short summary of the method.
