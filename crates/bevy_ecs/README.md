@@ -349,4 +349,4 @@ world.flush();
 world.trigger_targets(Explode, entity);
 ```
 
-[bevy]: https://bevyengine.org/
+[bevy]: https://bevy.org/
