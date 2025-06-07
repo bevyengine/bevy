@@ -2,7 +2,8 @@
 //!  It tries to follow this standard: <https://json-schema.org/specification>
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
-     GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo
+    GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration, TypeRegistry,
+    VariantInfo,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
@@ -10,19 +11,16 @@ use serde_json::{json, Map, Value};
 
 use crate::schemas::SchemaTypesMetadata;
 
-
 /// Helper trait for converting TypeRegistration to JsonSchemaBevyType
 pub trait TypeRegistrySchemaReader {
-    /// Export type JSON Schema with definitions.
-    /// It can be useful for generating schemas for assets validation.
+    /// Export type JSON Schema.
     fn export_type_json_schema<T: GetTypeRegistration>(
         &self,
         extra_info: &SchemaTypesMetadata,
     ) -> Option<JsonSchemaBevyType> {
         self.export_type_json_schema_for_id(extra_info, T::get_type_registration().type_id())
     }
-    /// Export type JSON Schema with definitions.
-    /// It can be useful for generating schemas for assets validation.
+    /// Export type JSON Schema.
     fn export_type_json_schema_for_id(
         &self,
         extra_info: &SchemaTypesMetadata,
@@ -37,13 +35,19 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         type_id: TypeId,
     ) -> Option<JsonSchemaBevyType> {
         let type_reg = self.get(type_id)?;
-        Some((type_reg,extra_info).into())
+        Some((type_reg, extra_info).into())
     }
 }
 
 /// Exports schema info for a given type
-pub fn export_type(reg: &TypeRegistration, metadata: &SchemaTypesMetadata) -> (String, JsonSchemaBevyType) {
-    (reg.type_info().type_path().to_owned(), (reg,metadata).into())
+pub fn export_type(
+    reg: &TypeRegistration,
+    metadata: &SchemaTypesMetadata,
+) -> (String, JsonSchemaBevyType) {
+    (
+        reg.type_info().type_path().to_owned(),
+        (reg, metadata).into(),
+    )
 }
 
 impl From<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
@@ -365,11 +369,11 @@ impl SchemaJsonReference for &NamedField {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_ecs::prelude::ReflectComponent;
     use bevy_ecs::prelude::ReflectResource;
     use bevy_ecs::{component::Component, reflect::AppTypeRegistry, resource::Resource};
     use bevy_reflect::prelude::ReflectDefault;
-    use bevy_ecs::prelude::ReflectComponent;
-    use bevy_reflect::{Reflect,ReflectSerialize, ReflectDeserialize};
+    use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 
     #[test]
     fn reflect_export_struct() {
@@ -435,7 +439,7 @@ mod tests {
             .get(TypeId::of::<EnumComponent>())
             .expect("SHOULD BE REGISTERED")
             .clone();
-        let (_, schema) = export_type(&foo_registration,&SchemaTypesMetadata::default());
+        let (_, schema) = export_type(&foo_registration, &SchemaTypesMetadata::default());
         assert!(
             schema.reflect_types.contains(&"Component".to_owned()),
             "Should be a component"
@@ -470,7 +474,7 @@ mod tests {
             .get(TypeId::of::<EnumComponent>())
             .expect("SHOULD BE REGISTERED")
             .clone();
-        let (_, schema) = export_type(&foo_registration,&SchemaTypesMetadata::default());
+        let (_, schema) = export_type(&foo_registration, &SchemaTypesMetadata::default());
         assert!(
             !schema.reflect_types.contains(&"Component".to_owned()),
             "Should not be a component"
@@ -558,12 +562,12 @@ mod tests {
         assert_normalized_values(schema_as_value, value);
     }
 
-    fn assert_normalized_values(one: Value, two: Value){
+    fn assert_normalized_values(one: Value, two: Value) {
         let mut one = one.clone();
         normalize_json(&mut one);
         let mut two = two.clone();
         normalize_json(&mut two);
-        assert_eq!(one,two);
+        assert_eq!(one, two);
 
         /// Recursively sorts arrays in a serde_json::Value
         fn normalize_json(value: &mut Value) {

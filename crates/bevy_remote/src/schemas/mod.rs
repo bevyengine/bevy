@@ -1,17 +1,22 @@
 //! Module with schemas used for various BRP endpoints
 
-use std::any::TypeId;
 use bevy_asset::{ReflectAsset, ReflectHandle};
-use bevy_ecs::{reflect::{ReflectComponent, ReflectResource}, resource::Resource};
+use bevy_ecs::{
+    reflect::{ReflectComponent, ReflectResource},
+    resource::Resource,
+};
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{prelude::ReflectDefault,  Reflect, ReflectDeserialize, ReflectSerialize, TypeData, TypeRegistration};
+use bevy_reflect::{
+    prelude::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize, TypeData,
+    TypeRegistration,
+};
+use std::any::TypeId;
 
 pub mod json_schema;
 pub mod open_rpc;
 
-
-/// Holds mapping of reflect data types to strings, 
-/// later on used in Bevy Json Schema. 
+/// Holds mapping of reflect data types to strings,
+/// later on used in Bevy Json Schema.
 #[derive(Debug, Resource, Reflect)]
 #[reflect(Resource)]
 pub struct SchemaTypesMetadata {

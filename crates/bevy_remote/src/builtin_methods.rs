@@ -24,7 +24,10 @@ use serde_json::{Map, Value};
 
 use crate::{
     error_codes,
-    schemas::{json_schema::{export_type, JsonSchemaBevyType}, open_rpc::OpenRpcDocument},
+    schemas::{
+        json_schema::{export_type, JsonSchemaBevyType},
+        open_rpc::OpenRpcDocument,
+    },
     BrpError, BrpResult,
 };
 
@@ -1229,17 +1232,6 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
     let schemas = types
         .iter()
         .filter(|type_reg| {
-            // EXTRA FILTER, not decided yet if gonna make it in the end
-            match type_reg.type_info() {
-                bevy_reflect::TypeInfo::Tuple(_) => return false,
-                bevy_reflect::TypeInfo::TupleStruct(_) => return false,
-                bevy_reflect::TypeInfo::List(_) => return false,
-                bevy_reflect::TypeInfo::Array(_) => return false,
-                bevy_reflect::TypeInfo::Map(_) => return false,
-                bevy_reflect::TypeInfo::Set(_) => return false,
-                _ => {}
-            }
-
             let path_table = type_reg.type_info().type_path_table();
             if let Some(crate_name) = &path_table.crate_name() {
                 if !filter.with_crates.is_empty()
