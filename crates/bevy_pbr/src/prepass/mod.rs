@@ -13,6 +13,7 @@ use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
     alpha::AlphaMode,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
+    load_shader_library,
     mesh::{allocator::MeshAllocator, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::prepare_assets,
     render_resource::binding_types::uniform_buffer,
@@ -23,7 +24,7 @@ use bevy_render::{
 };
 pub use prepass_bindings::*;
 
-use bevy_asset::{load_internal_asset, weak_handle, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
@@ -63,18 +64,6 @@ use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSystems::{PrepareAssets, PrepareResources};
 use core::{hash::Hash, marker::PhantomData};
 
-pub const PREPASS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("ce810284-f1ae-4439-ab2e-0d6b204b6284");
-
-pub const PREPASS_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("3e83537e-ae17-489c-a18a-999bc9c1d252");
-
-pub const PREPASS_UTILS_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("02e4643a-a14b-48eb-a339-0c47aeab0d7e");
-
-pub const PREPASS_IO_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("1c065187-c99b-4b7c-ba59-c1575482d2c9");
-
 /// Sets up everything required to use the prepass pipeline.
 ///
 /// This does not add the actual prepasses, see [`PrepassPlugin`] for that.
@@ -91,33 +80,11 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            PREPASS_SHADER_HANDLE,
-            "prepass.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "prepass.wgsl");
 
-        load_internal_asset!(
-            app,
-            PREPASS_BINDINGS_SHADER_HANDLE,
-            "prepass_bindings.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            PREPASS_UTILS_SHADER_HANDLE,
-            "prepass_utils.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            PREPASS_IO_SHADER_HANDLE,
-            "prepass_io.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "prepass_bindings.wgsl");
+        load_shader_library!(app, "prepass_utils.wgsl");
+        load_shader_library!(app, "prepass_io.wgsl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -305,6 +272,7 @@ pub struct PrepassPipelineInternal {
     pub prepass_material_fragment_shader: Option<Handle<Shader>>,
     pub deferred_material_vertex_shader: Option<Handle<Shader>>,
     pub deferred_material_fragment_shader: Option<Handle<Shader>>,
+    pub default_prepass_shader: Handle<Shader>,
 
     /// Whether skins will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
@@ -403,6 +371,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
+            default_prepass_shader: load_embedded_asset!(world, "prepass.wgsl"),
             material_layout: M::bind_group_layout(render_device),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(render_device),
             depth_clip_control_supported,
@@ -610,12 +579,12 @@ impl PrepassPipelineInternal {
             let frag_shader_handle = if mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
                 match self.deferred_material_fragment_shader.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
-                    _ => PREPASS_SHADER_HANDLE,
+                    None => self.default_prepass_shader.clone(),
                 }
             } else {
                 match self.prepass_material_fragment_shader.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
-                    _ => PREPASS_SHADER_HANDLE,
+                    None => self.default_prepass_shader.clone(),
                 }
             };
 
@@ -632,12 +601,12 @@ impl PrepassPipelineInternal {
             if let Some(handle) = &self.deferred_material_vertex_shader {
                 handle.clone()
             } else {
-                PREPASS_SHADER_HANDLE
+                self.default_prepass_shader.clone()
             }
         } else if let Some(handle) = &self.prepass_material_vertex_shader {
             handle.clone()
         } else {
-            PREPASS_SHADER_HANDLE
+            self.default_prepass_shader.clone()
         };
         let descriptor = RenderPipelineDescriptor {
             vertex: VertexState {

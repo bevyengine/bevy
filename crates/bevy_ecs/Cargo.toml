@@ -3,12 +3,12 @@ name = "bevy_ecs"
 version = "0.16.0-dev"
 edition = "2024"
 description = "Bevy Engine's entity component system"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
-rust-version = "1.85.0"
+rust-version = "1.86.0"
 
 [features]
 default = ["std", "bevy_reflect", "async_executor", "backtrace"]
@@ -20,12 +20,7 @@ default = ["std", "bevy_reflect", "async_executor", "backtrace"]
 multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
 
 ## Adds serialization support through `serde`.
-serialize = [
-  "dep:serde",
-  "bevy_utils/serde",
-  "bevy_platform/serialize",
-  "indexmap/serde",
-]
+serialize = ["dep:serde", "bevy_platform/serialize", "indexmap/serde"]
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = ["dep:bevy_reflect"]
@@ -67,7 +62,7 @@ async_executor = ["std", "bevy_tasks/async_executor"]
 std = [
   "bevy_reflect?/std",
   "bevy_tasks/std",
-  "bevy_utils/std",
+  "bevy_utils/parallel",
   "bitflags/std",
   "concurrent-queue/std",
   "disqualified/alloc",
@@ -88,15 +83,15 @@ critical-section = [
   "bevy_reflect?/critical-section",
 ]
 
+hotpatching = ["dep:subsecond"]
+
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "smallvec",
 ], default-features = false, optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
-  "alloc",
-] }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_ecs_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
@@ -124,6 +119,7 @@ variadics_please = { version = "1.1", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
+subsecond = { version = "0.7.0-alpha.1", optional = true }
 
 concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]

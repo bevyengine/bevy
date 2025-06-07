@@ -208,6 +208,11 @@ pub struct Move {
     /// Information about the picking intersection.
     pub hit: HitData,
     /// The change in position since the last move event.
+    ///
+    /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
+    /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
+    /// using methods on [`Camera`](bevy_render::camera::Camera) to convert from screen-space to
+    /// world-space.
     pub delta: Vec2,
 }
 
@@ -228,8 +233,18 @@ pub struct Drag {
     /// Pointer button pressed and moved to trigger this event.
     pub button: PointerButton,
     /// The total distance vector of a drag, measured from drag start to the current position.
+    ///
+    /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
+    /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
+    /// using methods on [`Camera`](bevy_render::camera::Camera) to convert from screen-space to
+    /// world-space.
     pub distance: Vec2,
     /// The change in position since the last drag event.
+    ///
+    /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
+    /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
+    /// using methods on [`Camera`](bevy_render::camera::Camera) to convert from screen-space to
+    /// world-space.
     pub delta: Vec2,
 }
 
@@ -240,6 +255,11 @@ pub struct DragEnd {
     /// Pointer button pressed, moved, and released to trigger this event.
     pub button: PointerButton,
     /// The vector of drag movement measured from start to final pointer position.
+    ///
+    /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
+    /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
+    /// using methods on [`Camera`](bevy_render::camera::Camera) to convert from screen-space to
+    /// world-space.
     pub distance: Vec2,
 }
 
@@ -296,8 +316,20 @@ pub struct DragDrop {
 #[reflect(Clone, PartialEq)]
 pub struct DragEntry {
     /// The position of the pointer at drag start.
+    ///
+    /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
+    /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
+    /// using [`Camera::viewport_to_world`](bevy_render::camera::Camera::viewport_to_world) or
+    /// [`Camera::viewport_to_world_2d`](bevy_render::camera::Camera::viewport_to_world_2d) to
+    /// convert from screen-space to world-space.
     pub start_pos: Vec2,
     /// The latest position of the pointer during this drag, used to compute deltas.
+    ///
+    /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
+    /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
+    /// using [`Camera::viewport_to_world`](bevy_render::camera::Camera::viewport_to_world) or
+    /// [`Camera::viewport_to_world_2d`](bevy_render::camera::Camera::viewport_to_world_2d) to
+    /// convert from screen-space to world-space.
     pub latest_pos: Vec2,
 }
 
@@ -527,11 +559,7 @@ pub fn pointer_events(
             for button in PointerButton::iter() {
                 let state = pointer_state.get_mut(pointer_id, button);
 
-                for drag_target in state
-                    .dragging
-                    .keys()
-                    .filter(|&&drag_target| hovered_entity != drag_target)
-                {
+                for drag_target in state.dragging.keys() {
                     state.dragging_over.insert(hovered_entity, hit.clone());
                     let drag_enter_event = Pointer::new(
                         pointer_id,

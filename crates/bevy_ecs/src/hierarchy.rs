@@ -19,6 +19,8 @@ use crate::{
 use alloc::{format, string::String, vec::Vec};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
@@ -96,9 +98,14 @@ use log::warn;
     feature = "bevy_reflect",
     reflect(Component, PartialEq, Debug, FromWorld, Clone)
 )]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[relationship(relationship_target = Children)]
 #[doc(alias = "IsChild", alias = "Parent")]
-pub struct ChildOf(pub Entity);
+pub struct ChildOf(#[entities] pub Entity);
 
 impl ChildOf {
     /// The parent entity of this child entity.
@@ -433,11 +440,11 @@ pub fn validate_parent_has_component<C: Component>(
         let name: Option<String> = None;
         warn!(
             "warning[B0004]: {}{name} with the {ty_name} component has a parent without {ty_name}.\n\
-            This will cause inconsistent behaviors! See: https://bevyengine.org/learn/errors/b0004",
+            This will cause inconsistent behaviors! See: https://bevy.org/learn/errors/b0004",
             caller.map(|c| format!("{c}: ")).unwrap_or_default(),
             ty_name = ShortName::of::<C>(),
             name = name.map_or_else(
-                || format!("Entity {}", entity),
+                || format!("Entity {entity}"),
                 |s| format!("The {s} entity")
             ),
         );
