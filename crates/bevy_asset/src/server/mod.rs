@@ -1959,7 +1959,7 @@ impl AssetLoaderError {
     /// If you know the type of the error the asset loader returned, you can use
     /// [`BevyError::downcast_ref()`] to get it.
     pub fn error(&self) -> &BevyError {
-        &*self.error
+        &self.error
     }
 }
 
