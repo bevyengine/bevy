@@ -8,6 +8,9 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+serialize = ["dep:serde", "wgpu-types/serde"]
+
 [dependencies]
 # bevy
 bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
@@ -29,8 +32,8 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 # other
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
-wgpu-types = { version = "24", features = ["serde"], default-features = false }
-serde = { version = "1", features = ["derive"] }
+wgpu-types = { version = "24", default-features = false }
+serde = { version = "1", features = ["derive"], optional = true }
 hexasphere = "15.0"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }

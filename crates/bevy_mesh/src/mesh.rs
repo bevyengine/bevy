@@ -11,7 +11,9 @@ use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
-use bevy_reflect::{Reflect, ReflectSerialize};
+use bevy_reflect::Reflect;
+#[cfg(feature = "serialize")]
+use bevy_reflect::ReflectSerialize;
 use bytemuck::cast_slice;
 use thiserror::Error;
 use tracing::warn;
@@ -104,8 +106,14 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
 ///   which means that Bevy would *only* render the "front" of each triangle, which
 ///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
-#[derive(Asset, Debug, Clone, serde::Serialize, Reflect)]
-#[reflect(Clone, Serialize)]
+///
+/// Note that, when serialization is enabled, a `Mesh` cannot be deserialized without special
+/// handling of `Handle`s. See [`ReflectDeserializerProcessor`]. The serialized format should not be
+/// considered stable, and may not be compatible between versions.
+#[derive(Asset, Debug, Clone, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+#[reflect(Clone)]
+#[cfg_attr(feature = "serialize", reflect(Serialize))]
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)

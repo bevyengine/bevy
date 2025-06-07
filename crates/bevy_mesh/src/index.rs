@@ -1,4 +1,6 @@
 use bevy_reflect::Reflect;
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use core::iter;
 use core::iter::FusedIterator;
 use thiserror::Error;
@@ -69,8 +71,13 @@ pub enum MeshTrianglesError {
 /// An array of indices into the [`VertexAttributeValues`](super::VertexAttributeValues) for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Reflect)]
-#[reflect(Clone)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),
