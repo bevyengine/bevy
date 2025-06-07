@@ -14,7 +14,10 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::error::{DefaultErrorHandler, ErrorHandler};
+use crate::{
+    bundle::StaticBundle,
+    error::{DefaultErrorHandler, ErrorHandler},
+};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -1152,7 +1155,7 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        let mut bundle_spawner = BundleSpawner::new(&bundle, self, change_tick);
         // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
         let (entity_location, after_effect) =
             unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
@@ -1218,7 +1221,7 @@ impl World {
     pub fn spawn_batch<I>(&mut self, iter: I) -> SpawnBatchIter<'_, I::IntoIter>
     where
         I: IntoIterator,
-        I::Item: Bundle<Effect: NoBundleEffect>,
+        I::Item: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         SpawnBatchIter::new(self, iter.into_iter(), MaybeLocation::caller())
     }
@@ -2223,7 +2226,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.insert_batch_with_caller(batch, InsertMode::Replace, MaybeLocation::caller());
     }
@@ -2248,7 +2251,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.insert_batch_with_caller(batch, InsertMode::Keep, MaybeLocation::caller());
     }
@@ -2267,7 +2270,7 @@ impl World {
     ) where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         struct InserterArchetypeCache<'w> {
             inserter: BundleInserter<'w>,
@@ -2281,7 +2284,7 @@ impl World {
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
             .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+            .register_static_info::<B>(&mut registrator, &mut self.storages);
 
         let mut batch_iter = batch.into_iter();
 
@@ -2366,7 +2369,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.try_insert_batch_with_caller(batch, InsertMode::Replace, MaybeLocation::caller())
     }
@@ -2388,7 +2391,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.try_insert_batch_with_caller(batch, InsertMode::Keep, MaybeLocation::caller())
     }
@@ -2412,7 +2415,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         struct InserterArchetypeCache<'w> {
             inserter: BundleInserter<'w>,
@@ -2426,7 +2429,7 @@ impl World {
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let bundle_id = self
             .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+            .register_static_info::<B>(&mut registrator, &mut self.storages);
 
         let mut invalid_entities = Vec::<Entity>::new();
         let mut batch_iter = batch.into_iter();
@@ -3000,13 +3003,13 @@ impl World {
     /// This is largely equivalent to calling [`register_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
-    pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+    pub fn register_static_bundle<B: StaticBundle>(&mut self) -> &BundleInfo {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
         let id = self
             .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+            .register_static_info::<B>(&mut registrator, &mut self.storages);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
@@ -3016,16 +3019,19 @@ impl World {
     /// Note that the components need to be registered first, this function only creates a bundle combining them. Components
     /// can be registered with [`World::register_component`]/[`_with_descriptor`](World::register_component_with_descriptor).
     ///
-    /// **You should prefer to use the typed API [`World::register_bundle`] where possible and only use this in cases where
+    /// **You should prefer to use the typed API [`World::register_static_bundle`] where possible and only use this in cases where
     /// not all of the actual types are known at compile time.**
     ///
     /// # Panics
     /// This function will panic if any of the provided component ids do not belong to a component known to this [`World`].
     #[inline]
     pub fn register_dynamic_bundle(&mut self, component_ids: &[ComponentId]) -> &BundleInfo {
-        let id =
-            self.bundles
-                .init_dynamic_info(&mut self.storages, &self.components, component_ids);
+        let id = self.bundles.init_dynamic_info(
+            "<dynamic bundle>",
+            &mut self.storages,
+            &self.components,
+            component_ids,
+        );
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }

@@ -1,8 +1,8 @@
 use crate::{
     archetype::Archetype,
     bundle::{
-        Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
-        InsertMode,
+        Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover,
+        ComponentsFromBundle, InsertMode, StaticBundle,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{
@@ -1845,7 +1845,7 @@ impl<'w> EntityWorldMut<'w> {
         let location = self.location();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
-            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
+            BundleInserter::new::<T>(&bundle, self.world, location.archetype_id, change_tick);
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         let (location, after_effect) = unsafe {
             bundle_inserter.insert(
@@ -1968,6 +1968,7 @@ impl<'w> EntityWorldMut<'w> {
         let location = self.location();
         let change_tick = self.world.change_tick();
         let bundle_id = self.world.bundles.init_dynamic_info(
+            "<dynamic bundle>",
             &mut self.world.storages,
             &self.world.components,
             component_ids,
@@ -2003,7 +2004,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[must_use]
     #[track_caller]
-    pub fn take<T: Bundle + BundleFromComponents>(&mut self) -> Option<T> {
+    pub fn take<T: BundleFromComponents>(&mut self) -> Option<T> {
         let location = self.location();
         let entity = self.entity;
 
@@ -2059,12 +2060,15 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub fn remove<T: Bundle>(&mut self) -> &mut Self {
+    pub fn remove<T: StaticBundle>(&mut self) -> &mut Self {
         self.remove_with_caller::<T>(MaybeLocation::caller())
     }
 
     #[inline]
-    pub(crate) fn remove_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
+    pub(crate) fn remove_with_caller<T: StaticBundle>(
+        &mut self,
+        caller: MaybeLocation,
+    ) -> &mut Self {
         let location = self.location();
 
         let Some(mut remover) =
@@ -2096,11 +2100,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
+    pub fn remove_with_requires<T: StaticBundle>(&mut self) -> &mut Self {
         self.remove_with_requires_with_caller::<T>(MaybeLocation::caller())
     }
 
-    pub(crate) fn remove_with_requires_with_caller<T: Bundle>(
+    pub(crate) fn remove_with_requires_with_caller<T: StaticBundle>(
         &mut self,
         caller: MaybeLocation,
     ) -> &mut Self {
@@ -2111,7 +2115,8 @@ impl<'w> EntityWorldMut<'w> {
         let mut registrator = unsafe {
             ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
         };
-        let bundle_id = bundles.register_contributed_bundle_info::<T>(&mut registrator, storages);
+        let bundle_id =
+            bundles.register_static_contributed_bundle_info::<T>(&mut registrator, storages);
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
@@ -2144,12 +2149,15 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub fn retain<T: Bundle>(&mut self) -> &mut Self {
+    pub fn retain<T: StaticBundle>(&mut self) -> &mut Self {
         self.retain_with_caller::<T>(MaybeLocation::caller())
     }
 
     #[inline]
-    pub(crate) fn retain_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
+    pub(crate) fn retain_with_caller<T: StaticBundle>(
+        &mut self,
+        caller: MaybeLocation,
+    ) -> &mut Self {
         let old_location = self.location();
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
@@ -2161,7 +2169,7 @@ impl<'w> EntityWorldMut<'w> {
         let retained_bundle = self
             .world
             .bundles
-            .register_info::<T>(&mut registrator, storages);
+            .register_static_info::<T>(&mut registrator, storages);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_archetype = &mut archetypes[old_location.archetype_id];
@@ -2171,10 +2179,12 @@ impl<'w> EntityWorldMut<'w> {
             .components()
             .filter(|c| !retained_bundle_info.contributed_components().contains(c))
             .collect::<Vec<_>>();
-        let remove_bundle =
-            self.world
-                .bundles
-                .init_dynamic_info(&mut self.world.storages, &registrator, to_remove);
+        let remove_bundle = self.world.bundles.init_dynamic_info(
+            "<dynamic bundle>",
+            &mut self.world.storages,
+            &registrator,
+            to_remove,
+        );
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
@@ -2264,6 +2274,7 @@ impl<'w> EntityWorldMut<'w> {
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_dynamic_info(
+            "<dynamic bundle>",
             &mut self.world.storages,
             components,
             component_ids,
@@ -2309,6 +2320,7 @@ impl<'w> EntityWorldMut<'w> {
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_dynamic_info(
+            "<dynamic bundle>",
             &mut self.world.storages,
             components,
             component_ids.as_slice(),
@@ -2645,14 +2657,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the given system is an exclusive system.
     #[track_caller]
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: Event, B: StaticBundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
-    pub(crate) fn observe_with_caller<E: Event, B: Bundle, M>(
+    pub(crate) fn observe_with_caller<E: Event, B: StaticBundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
         caller: MaybeLocation,
@@ -2779,7 +2791,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the target entity does not exist.
-    pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+    pub fn clone_components<B: StaticBundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
         EntityCloner::build(self.world)
@@ -2802,7 +2814,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
     /// - If the target entity does not exist.
-    pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+    pub fn move_components<B: StaticBundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
         EntityCloner::build(self.world)
@@ -3467,7 +3479,7 @@ impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
     }
 }
 
-impl<'a, B: Bundle> From<&'a EntityRefExcept<'_, B>> for FilteredEntityRef<'a> {
+impl<'a, B: StaticBundle> From<&'a EntityRefExcept<'_, B>> for FilteredEntityRef<'a> {
     fn from(value: &'a EntityRefExcept<'_, B>) -> Self {
         // SAFETY:
         // - The FilteredEntityRef has the same component access as the given EntityRefExcept.
@@ -3815,7 +3827,7 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
     }
 }
 
-impl<'a, B: Bundle> From<&'a EntityMutExcept<'_, B>> for FilteredEntityMut<'a> {
+impl<'a, B: StaticBundle> From<&'a EntityMutExcept<'_, B>> for FilteredEntityMut<'a> {
     fn from(value: &'a EntityMutExcept<'_, B>) -> Self {
         // SAFETY:
         // - The FilteredEntityMut has the same component access as the given EntityMutExcept.
@@ -3889,7 +3901,7 @@ pub enum TryFromFilteredError {
 /// for an explicitly-enumerated set.
 pub struct EntityRefExcept<'w, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     entity: UnsafeEntityCell<'w>,
     phantom: PhantomData<B>,
@@ -3897,7 +3909,7 @@ where
 
 impl<'w, B> EntityRefExcept<'w, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must only have mutable access to the components in `B`.
@@ -4058,7 +4070,7 @@ where
 
 impl<'a, B> From<&'a EntityMutExcept<'_, B>> for EntityRefExcept<'a, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     fn from(entity: &'a EntityMutExcept<'_, B>) -> Self {
         // SAFETY: All accesses that `EntityRefExcept` provides are also
@@ -4067,23 +4079,23 @@ where
     }
 }
 
-impl<B: Bundle> Clone for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> Clone for EntityRefExcept<'_, B> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<B: Bundle> Copy for EntityRefExcept<'_, B> {}
+impl<B: StaticBundle> Copy for EntityRefExcept<'_, B> {}
 
-impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> PartialEq for EntityRefExcept<'_, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
+impl<B: StaticBundle> Eq for EntityRefExcept<'_, B> {}
 
-impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> PartialOrd for EntityRefExcept<'_, B> {
     /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -4091,26 +4103,26 @@ impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> Ord for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> Ord for EntityRefExcept<'_, B> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> Hash for EntityRefExcept<'_, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl<B: Bundle> ContainsEntity for EntityRefExcept<'_, B> {
+impl<B: StaticBundle> ContainsEntity for EntityRefExcept<'_, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, B> {}
+unsafe impl<B: StaticBundle> EntityEquivalent for EntityRefExcept<'_, B> {}
 
 /// Provides mutable access to all components of an entity, with the exception
 /// of an explicit set.
@@ -4122,7 +4134,7 @@ unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, B> {}
 /// [`crate::query::Without`] filter.
 pub struct EntityMutExcept<'w, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     entity: UnsafeEntityCell<'w>,
     phantom: PhantomData<B>,
@@ -4130,7 +4142,7 @@ where
 
 impl<'w, B> EntityMutExcept<'w, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must not have access to any components not in `B`.
@@ -4290,15 +4302,15 @@ where
     }
 }
 
-impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> PartialEq for EntityMutExcept<'_, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
+impl<B: StaticBundle> Eq for EntityMutExcept<'_, B> {}
 
-impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> PartialOrd for EntityMutExcept<'_, B> {
     /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -4306,30 +4318,30 @@ impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> Ord for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> Ord for EntityMutExcept<'_, B> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> Hash for EntityMutExcept<'_, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl<B: Bundle> ContainsEntity for EntityMutExcept<'_, B> {
+impl<B: StaticBundle> ContainsEntity for EntityMutExcept<'_, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> EntityEquivalent for EntityMutExcept<'_, B> {}
+unsafe impl<B: StaticBundle> EntityEquivalent for EntityMutExcept<'_, B> {}
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     let mut found = false;
     B::get_component_ids(components, &mut |maybe_id| {
@@ -4365,7 +4377,7 @@ unsafe fn insert_dynamic_bundle<
         components: I,
     }
 
-    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
+    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> ComponentsFromBundle
         for DynamicInsertBundle<'a, I>
     {
         type Effect = ();

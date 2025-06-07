@@ -15,7 +15,7 @@ use crate::{
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
     ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
@@ -27,12 +27,33 @@ enum BundleFieldKind {
 }
 
 const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
+const BUNDLE_ATTRIBUTE_DYNAMIC: &str = "dynamic";
 const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
+
+    let mut is_dynamic = false;
+    for attr in ast
+        .attrs
+        .iter()
+        .filter(|a| a.path().is_ident(BUNDLE_ATTRIBUTE_NAME))
+    {
+        if let Err(error) = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident(BUNDLE_ATTRIBUTE_DYNAMIC) {
+                is_dynamic = true;
+                Ok(())
+            } else {
+                Err(meta.error(format!(
+                    "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_DYNAMIC}`"
+                )))
+            }
+        }) {
+            return error.into_compile_error().into();
+        }
+    }
 
     let named_fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
         Ok(fields) => fields,
@@ -42,6 +63,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_kind = Vec::with_capacity(named_fields.len());
 
     for field in named_fields {
+        let mut kind = BundleFieldKind::Component;
+
         for attr in field
             .attrs
             .iter()
@@ -49,7 +72,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         {
             if let Err(error) = attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
-                    field_kind.push(BundleFieldKind::Ignore);
+                    kind = BundleFieldKind::Ignore;
                     Ok(())
                 } else {
                     Err(meta.error(format!(
@@ -61,7 +84,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        field_kind.push(BundleFieldKind::Component);
+        field_kind.push(kind);
     }
 
     let field = named_fields
@@ -74,53 +97,26 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
-    let mut field_component_ids = Vec::new();
-    let mut field_get_component_ids = Vec::new();
-    let mut field_get_components = Vec::new();
-    let mut field_from_components = Vec::new();
-    let mut field_required_components = Vec::new();
+    let mut active_field_types = Vec::new();
+    let mut active_field_tokens = Vec::new();
+    let mut inactive_field_tokens = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
         .iter()
         .enumerate()
         .zip(field_kind.iter())
         .zip(field.iter())
     {
+        let field_tokens = match field {
+            Some(field) => field.to_token_stream(),
+            None => Index::from(i).to_token_stream(),
+        };
         match field_kind {
             BundleFieldKind::Component => {
-                field_component_ids.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, &mut *ids);
-                });
-                field_required_components.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);
-                });
-                field_get_component_ids.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
-                });
-                match field {
-                    Some(field) => {
-                        field_get_components.push(quote! {
-                            self.#field.get_components(&mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                    }
-                    None => {
-                        let index = Index::from(i);
-                        field_get_components.push(quote! {
-                            self.#index.get_components(&mut *func);
-                        });
-                        field_from_components.push(quote! {
-                            #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
-                        });
-                    }
-                }
+                active_field_types.push(field_type);
+                active_field_tokens.push(field_tokens);
             }
-
             BundleFieldKind::Ignore => {
-                field_from_components.push(quote! {
-                    #field: ::core::default::Default::default(),
-                });
+                inactive_field_tokens.push(field_tokens);
             }
         }
     }
@@ -128,35 +124,80 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
-    TokenStream::from(quote! {
+    let static_bundle_impl = (!is_dynamic).then(|| quote! {
         // SAFETY:
-        // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
-        // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
-        //   the correct `StorageType` into the callback.
+        // - all the active fields must implement `StaticBundle` for the function bodies to compile, and hence
+        //   this bundle also represents a static set of components;
+        // - `component_ids` and `get_component_ids` delegate to the underlying implementation in the same order
+        //   and hence are coherent;
         #[allow(deprecated)]
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
+        unsafe impl #impl_generics #ecs_path::bundle::StaticBundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
-                #(#field_component_ids)*
+                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::component_ids(components, &mut *ids);)*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
                 ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
             ){
-                #(#field_get_component_ids)*
+                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::get_component_ids(components, &mut *ids);)*
             }
 
             fn register_required_components(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 required_components: &mut #ecs_path::component::RequiredComponents
             ){
-                #(#field_required_components)*
+                #(<#active_field_types as #ecs_path::bundle::StaticBundle>::register_required_components(components, &mut *required_components);)*
             }
         }
+    });
 
+    let bundle_impl = quote! {
+        // SAFETY:
+        // - if all sub-bundles are static then this bundle is static too;
+        // - if all sub-bundles are bounded by some sets then this bundle is bounded by their union;
+        // - `cache_key` ORs together the keys of the sub-bundles in order to compute a combined key; since
+        //   no bits is overlapped and the original keys were associated to unique combinations, this new key
+        //   is also associated with an unique combination;
+        // - `component_ids` calls `ids` for each component type in the bundle, in the exact order that
+        //   `get_components` is called.
+        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
+            fn is_static() -> bool {
+                true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::is_static())*
+            }
+            fn is_bounded() -> bool {
+                true #(&& <#active_field_types as #ecs_path::bundle::Bundle>::is_bounded())*
+            }
+
+            fn cache_key(&self) -> #ecs_path::bundle::BoundedBundleKey {
+                #ecs_path::bundle::BoundedBundleKey::empty()
+                    #(
+                        .merge(<#active_field_types as #ecs_path::bundle::Bundle>::cache_key(&self.#active_field_tokens))
+                    )*
+            }
+
+            fn component_ids(
+                &self,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
+                ids: &mut impl FnMut(#ecs_path::component::ComponentId),
+            ) {
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(&self.#active_field_tokens, components, ids);)*
+            }
+
+            fn register_required_components(
+                &self,
+                components: &mut #ecs_path::component::ComponentsRegistrator,
+                required_components: &mut #ecs_path::component::RequiredComponents,
+            ) {
+                #(<#active_field_types as #ecs_path::bundle::Bundle>::register_required_components(&self.#active_field_tokens, components, required_components);)*
+            }
+        }
+    };
+
+    let bundle_from_components_impl = (!is_dynamic).then(|| quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
         #[allow(deprecated)]
@@ -167,13 +208,16 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
             {
                 Self{
-                    #(#field_from_components)*
+                    #(#active_field_tokens: <#active_field_types as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),)*
+                    #(#inactive_field_tokens: ::core::default::Default::default(),)*
                 }
             }
         }
+    });
 
+    let dynamic_bundle_impl = quote! {
         #[allow(deprecated)]
-        impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
+        impl #impl_generics #ecs_path::bundle::ComponentsFromBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
             #[inline]
@@ -181,9 +225,16 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 self,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                #(#field_get_components)*
+                #(<#active_field_types as #ecs_path::bundle::ComponentsFromBundle>::get_components(self.#active_field_tokens, &mut *func);)*
             }
         }
+    };
+
+    TokenStream::from(quote! {
+        #static_bundle_impl
+        #bundle_impl
+        #bundle_from_components_impl
+        #dynamic_bundle_impl
     })
 }
 
