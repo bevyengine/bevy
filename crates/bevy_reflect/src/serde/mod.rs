@@ -1,4 +1,4 @@
-//! TODO
+//! Serde integration for reflected types.
 
 mod de;
 mod ser;

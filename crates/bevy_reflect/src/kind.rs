@@ -178,26 +178,46 @@ macro_rules! impl_cast_method {
 ///
 /// ["kinds"]: ReflectKind
 pub enum ReflectRef<'a> {
-    /// TODO
+    /// An immutable reference to a [struct-like] type.
+    ///
+    /// [struct-like]: Struct
     Struct(&'a dyn Struct),
-    /// TODO
+    /// An immutable reference to a [tuple-struct-like] type.
+    ///
+    /// [tuple-struct-like]: TupleStruct
     TupleStruct(&'a dyn TupleStruct),
-    /// TODO
+    /// An immutable reference to a [tuple-like] type.
+    ///
+    /// [tuple-like]: Tuple
     Tuple(&'a dyn Tuple),
-    /// TODO
+    /// An immutable reference to a [list-like] type.
+    ///
+    /// [list-like]: List
     List(&'a dyn List),
-    /// TODO
+    /// An immutable reference to an [array-like] type.
+    ///
+    /// [array-like]: Array
     Array(&'a dyn Array),
-    /// TODO
+    /// An immutable reference to a [map-like] type.
+    ///
+    /// [map-like]: Map
     Map(&'a dyn Map),
-    /// TODO
+    /// An immutable reference to a [set-like] type.
+    ///
+    /// [set-like]: Set
     Set(&'a dyn Set),
-    /// TODO
+    /// An immutable reference to an [enum-like] type.
+    ///
+    /// [enum-like]: Enum
     Enum(&'a dyn Enum),
+    /// An immutable reference to a [function-like] type.
+    ///
+    /// [function-like]: Function
     #[cfg(feature = "functions")]
-    /// TODO
     Function(&'a dyn Function),
-    /// TODO
+    /// An immutable refeence to an [opaque] type.
+    ///
+    /// [opaque]: ReflectKind::Opaque
     Opaque(&'a dyn PartialReflect),
 }
 impl_reflect_kind_conversions!(ReflectRef<'_>);
@@ -223,26 +243,46 @@ impl<'a> ReflectRef<'a> {
 ///
 /// ["kinds"]: ReflectKind
 pub enum ReflectMut<'a> {
-    /// TODO
+    /// A mutable reference to a [struct-like] type.
+    ///
+    /// [struct-like]: Struct
     Struct(&'a mut dyn Struct),
-    /// TODO
+    /// A mutable reference to a [tuple-struct-like] type.
+    ///
+    /// [tuple-struct-like]: TupleStruct
     TupleStruct(&'a mut dyn TupleStruct),
-    /// TODO
+    /// A mutable reference to a [tuple-like] type.
+    ///
+    /// [tuple-like]: Tuple
     Tuple(&'a mut dyn Tuple),
-    /// TODO
+    /// A mutable reference to a [list-like] type.
+    ///
+    /// [list-like]: List
     List(&'a mut dyn List),
-    /// TODO
+    /// A mutable reference to an [array-like] type.
+    ///
+    /// [array-like]: Array
     Array(&'a mut dyn Array),
-    /// TODO
+    /// A mutable reference to a [map-like] type.
+    ///
+    /// [map-like]: Map
     Map(&'a mut dyn Map),
-    /// TODO
+    /// A mutable reference to a [set-like] type.
+    ///
+    /// [set-like]: Set
     Set(&'a mut dyn Set),
-    /// TODO
+    /// A mutable reference to an [enum-like] type.
+    ///
+    /// [enum-like]: Enum
     Enum(&'a mut dyn Enum),
     #[cfg(feature = "functions")]
-    /// TODO
+    /// A mutable reference to a [function-like] type.
+    ///
+    /// [function-like]: Function
     Function(&'a mut dyn Function),
-    /// TODO
+    /// A mutable refeence to an [opaque] type.
+    ///
+    /// [opaque]: ReflectKind::Opaque
     Opaque(&'a mut dyn PartialReflect),
 }
 impl_reflect_kind_conversions!(ReflectMut<'_>);
@@ -268,26 +308,46 @@ impl<'a> ReflectMut<'a> {
 ///
 /// ["kinds"]: ReflectKind
 pub enum ReflectOwned {
-    /// TODO
+    /// An owned [struct-like] type.
+    ///
+    /// [struct-like]: Struct
     Struct(Box<dyn Struct>),
-    /// TODO
+    /// An owned [tuple-struct-like] type.
+    ///
+    /// [tuple-struct-like]: TupleStruct
     TupleStruct(Box<dyn TupleStruct>),
-    /// TODO
+    /// An owned [tuple-like] type.
+    ///
+    /// [tuple-like]: Tuple
     Tuple(Box<dyn Tuple>),
-    /// TODO
+    /// An owned [list-like] type.
+    ///
+    /// [list-like]: List
     List(Box<dyn List>),
-    /// TODO
+    /// An owned [array-like] type.
+    ///
+    /// [array-like]: Array
     Array(Box<dyn Array>),
-    /// TODO
+    /// An owned [map-like] type.
+    ///
+    /// [map-like]: Map
     Map(Box<dyn Map>),
-    /// TODO
+    /// An owned [set-like] type.
+    ///
+    /// [set-like]: Set
     Set(Box<dyn Set>),
-    /// TODO
+    /// An owned [enum-like] type.
+    ///
+    /// [enum-like]: Enum
     Enum(Box<dyn Enum>),
+    /// An owned [function-like] type.
+    ///
+    /// [function-like]: Function
     #[cfg(feature = "functions")]
-    /// TODO
     Function(Box<dyn Function>),
-    /// TODO
+    /// An owned [opaque] type.
+    ///
+    /// [opaque]: ReflectKind::Opaque
     Opaque(Box<dyn PartialReflect>),
 }
 impl_reflect_kind_conversions!(ReflectOwned);
