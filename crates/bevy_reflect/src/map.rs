@@ -193,7 +193,7 @@ impl MapInfo {
 }
 
 /// Used to produce an error message when an attempt is made to hash
-/// a [`PartialReflect`](crate::PartialReflect) value that does not support hashing.
+/// a [`PartialReflect`] value that does not support hashing.
 #[macro_export]
 macro_rules! hash_error {
     ( $key:expr ) => {{
