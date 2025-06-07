@@ -12,15 +12,14 @@ use bevy::prelude::*;
 use bevy::ui::ColorStop;
 use std::f32::consts::TAU;
 
-#[derive(Resource, Default)]
-struct CurrentColorSpace(InterpolationColorSpace);
+#[derive(Component)]
+struct CurrentColorSpaceLabel;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<CurrentColorSpace>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (switch_interpolation_color_space, update))
+        .add_systems(Update, update)
         .run();
 }
 
@@ -182,10 +181,96 @@ fn setup(mut commands: Commands) {
                 });
             }
 
-            commands.spawn(Text::new(format!(
-                "{:?}",
-                InterpolationColorSpace::default()
-            )));
+            let button = 
+                commands.spawn((
+                        Button,
+                        Node {
+                            border: UiRect::all(Val::Px(2.0)),
+                            padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        BorderColor::all(Color::WHITE),
+                        BorderRadius::MAX,
+                        BackgroundColor(Color::BLACK), 
+                        children![(
+                            Text::new("next color space"),
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                            TextShadow::default(),
+                        )]
+                )).observe(
+                    |_trigger: Trigger<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+                    *border_query.single_mut().unwrap() = BorderColor::all(RED.into());
+
+
+                })
+                .observe(
+                    |_trigger: Trigger<Pointer<Out>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+                    *border_query.single_mut().unwrap() = BorderColor::all(Color::WHITE);
+                })
+                .observe(
+                        |_trigger: Trigger<Pointer<Click>>,
+                            mut gradients_query: Query<&mut BackgroundGradient>,
+                            mut label_query: Query<
+                            &mut Text,
+                            With<CurrentColorSpaceLabel>,
+                        >| {
+                            let mut current_space = InterpolationColorSpace::default();
+                            for mut gradients in gradients_query.iter_mut() {
+                                for gradient in gradients.0.iter_mut() {
+                                    let space = match gradient {
+                                        Gradient::Linear(linear_gradient) => {
+                                            &mut linear_gradient.color_space
+                                        }
+                                        Gradient::Radial(radial_gradient) => {
+                                            &mut radial_gradient.color_space
+                                        }
+                                        Gradient::Conic(conic_gradient) => {
+                                            &mut conic_gradient.color_space
+                                        }
+                                    };
+                                    *space = match *space {
+                                        InterpolationColorSpace::OkLab => {
+                                            InterpolationColorSpace::OkLch
+                                        }
+                                        InterpolationColorSpace::OkLch => {
+                                            InterpolationColorSpace::OkLchLong
+                                        }
+                                        InterpolationColorSpace::OkLchLong => {
+                                            InterpolationColorSpace::Srgb
+                                        }
+                                        InterpolationColorSpace::Srgb => {
+                                            InterpolationColorSpace::LinearRgb
+                                        }
+                                        InterpolationColorSpace::LinearRgb => {
+                                            InterpolationColorSpace::OkLab
+                                        }
+                                    };
+                                    current_space = *space;
+                                }
+                            }
+                            for mut label in label_query.iter_mut() {
+                                label.0 = format!("{:?}", current_space);
+                            }
+                        }
+                    ).id();
+
+            commands.spawn(
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                }
+            ).with_children(|commands| {
+                commands.spawn((Text::new(format!("{:?}", InterpolationColorSpace::default())), TextFont { font_size: 25., ..default() }, CurrentColorSpaceLabel));
+
+            })
+            .add_child(button);
+                    
         });
 }
 
@@ -198,35 +283,6 @@ fn update(time: Res<Time>, mut query: Query<&mut BackgroundGradient, With<Animat
             if let Gradient::Linear(LinearGradient { angle, .. }) = gradient {
                 *angle += 0.5 * time.delta_secs();
             }
-        }
-    }
-}
-
-fn switch_interpolation_color_space(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut current: ResMut<CurrentColorSpace>,
-    mut gradient_query: Query<&mut BackgroundGradient>,
-    mut label_query: Query<&mut Text>,
-) {
-    if keys.just_pressed(KeyCode::Space) {
-        current.0 = match current.0 {
-            InterpolationColorSpace::OkLab => InterpolationColorSpace::OkLch,
-            InterpolationColorSpace::OkLch => InterpolationColorSpace::OkLchLong,
-            InterpolationColorSpace::OkLchLong => InterpolationColorSpace::Srgb,
-            InterpolationColorSpace::Srgb => InterpolationColorSpace::LinearRgb,
-            InterpolationColorSpace::LinearRgb => InterpolationColorSpace::OkLab,
-        };
-        for mut gradients in gradient_query.iter_mut() {
-            for gradient in gradients.0.iter_mut() {
-                *(match gradient {
-                    Gradient::Linear(linear_gradient) => &mut linear_gradient.color_space,
-                    Gradient::Radial(radial_gradient) => &mut radial_gradient.color_space,
-                    Gradient::Conic(conic_gradient) => &mut conic_gradient.color_space,
-                }) = current.0;
-            }
-        }
-        for mut text in label_query.iter_mut() {
-            text.0 = format!("{:?}", current.0);
         }
     }
 }
