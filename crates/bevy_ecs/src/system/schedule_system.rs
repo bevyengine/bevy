@@ -3,7 +3,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use crate::{
     component::{ComponentId, Tick},
     error::Result,
-    query::{Access, FilteredAccessSet},
+    query::FilteredAccessSet,
     system::{input::SystemIn, BoxedSystem, System, SystemInput},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
@@ -31,16 +31,6 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
 
     fn type_id(&self) -> core::any::TypeId {
         self.0.type_id()
-    }
-
-    #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.0.component_access()
-    }
-
-    #[inline]
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.0.component_access_set()
     }
 
     #[inline]
@@ -93,8 +83,8 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) {
-        self.0.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.0.initialize(world)
     }
 
     #[inline]
@@ -164,14 +154,6 @@ where
         self.system.name()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
-    }
-
     fn is_send(&self) -> bool {
         self.system.is_send()
     }
@@ -213,8 +195,8 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+        self.system.initialize(world)
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {
@@ -273,14 +255,6 @@ where
         self.system.name()
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.system.component_access()
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        self.system.component_access_set()
-    }
-
     fn is_send(&self) -> bool {
         self.system.is_send()
     }
@@ -326,11 +300,11 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) {
-        self.system.initialize(world);
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
+        self.system.initialize(world)
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {

@@ -102,7 +102,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         let mut system_has_conditions_cache = HashMap::<usize, bool>::default();
         let mut is_valid_explicit_sync_point = |system: NodeId| {
             let index = system.index();
-            is_apply_deferred(graph.systems[index].get().unwrap())
+            is_apply_deferred(&graph.systems[index].get().unwrap().system)
                 && !*system_has_conditions_cache
                     .entry(index)
                     .or_insert_with(|| system_has_conditions(graph, system))
@@ -138,7 +138,11 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
             } else if !node_needs_sync {
                 // No previous node has postponed sync points to add so check if the system itself
                 // has deferred params that require a sync point to apply them.
-                node_needs_sync = graph.systems[node.index()].get().unwrap().has_deferred();
+                node_needs_sync = graph.systems[node.index()]
+                    .get()
+                    .unwrap()
+                    .system
+                    .has_deferred();
             }
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
@@ -148,7 +152,11 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
                 let mut edge_needs_sync = node_needs_sync;
                 if node_needs_sync
-                    && !graph.systems[target.index()].get().unwrap().is_exclusive()
+                    && !graph.systems[target.index()]
+                        .get()
+                        .unwrap()
+                        .system
+                        .is_exclusive()
                     && self.no_sync_edges.contains(&(*node, target))
                 {
                     // The node has deferred params to apply, but this edge is ignoring sync points.
@@ -190,7 +198,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     continue;
                 }
 
-                if is_apply_deferred(graph.systems[target.index()].get().unwrap()) {
+                if is_apply_deferred(&graph.systems[target.index()].get().unwrap().system) {
                     // We don't need to insert a sync point since ApplyDeferred is a sync point
                     // already!
                     continue;
