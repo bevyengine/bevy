@@ -6,6 +6,8 @@ use bevy::color::palettes::basic::{BLACK, GREEN};
 use bevy::color::ColorCurve;
 use bevy::math::ops::{cos, sin};
 use bevy::prelude::*;
+use bevy::transform::plugins::TransformSystems;
+use bevy::ui::UiSystems;
 
 const BAR_HEIGHT: f32 = 25.0;
 const BAR_WIDTH: f32 = 160.0;
@@ -28,7 +30,16 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_health, update_health_bar, move_cube))
+        .add_systems(Update, (move_cube, update_health).chain())
+        .add_systems(
+            // Bevy's UI Layout happens before transform propagation,
+            // so we will have to run update_health_bar before both
+            // and do the transform propagation manually.
+            PostUpdate,
+            update_health_bar
+                .before(TransformSystems::Propagate)
+                .before(UiSystems::Layout),
+        )
         .run();
 }
 
@@ -144,11 +155,19 @@ fn update_health_bar(
     mut health_bar_query: Query<(&mut Node, &HealthBar, &mut BackgroundColor)>,
     mut health_bar_root_query: Query<&mut Node, Without<HealthBar>>,
     mut health_bar_text_query: Query<&mut Text, Without<HealthBar>>,
-    target_query: Query<(&GlobalTransform, &Health)>,
-    camera_query: Single<(&Camera, &GlobalTransform)>,
+    target_query: Query<(Entity, &Health)>,
+    camera_query: Single<(Entity, &Camera)>,
+    transform_helper: TransformHelper,
 ) {
-    let camera = camera_query.0;
-    let cam_transform = camera_query.1;
+    let camera_entity = camera_query.0;
+    let camera = camera_query.1;
+
+    // Since the global transform is not propagated at this point (see system ordering comment),
+    // we will calculate the global transform manually:
+    let Ok(camera_transform) = transform_helper.compute_global_transform(camera_entity) else {
+        warn!("Failed computing global transform for camera Entity");
+        return;
+    };
 
     for (mut health_bar_node, health_bar_component, mut bg_color) in health_bar_query.iter_mut() {
         let root_entity = health_bar_component.root_ui_entity;
@@ -158,9 +177,14 @@ fn update_health_bar(
             .unwrap();
         let (target, target_health) = target_query.get(health_bar_component.target).unwrap();
 
-        let target_world_position = target.translation();
+        let Ok(target_world_transform) = transform_helper.compute_global_transform(target) else {
+            warn!("Failed computing global transform for target Entity");
+            return;
+        };
+        let target_world_position = target_world_transform.translation();
+
         let target_viewport_position = camera
-            .world_to_viewport(cam_transform, target_world_position)
+            .world_to_viewport(&camera_transform, target_world_position)
             .unwrap();
 
         root_node.left = Val::Px(target_viewport_position.x - HALF_BAR_WIDTH);
