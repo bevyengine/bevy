@@ -539,6 +539,7 @@ impl Plugin for RemotePlugin {
             .insert_after(Last, RemoteLast);
 
         app.insert_resource(remote_methods)
+            .init_resource::<schemas::SchemaTypesMetadata>()
             .init_resource::<RemoteWatchingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
