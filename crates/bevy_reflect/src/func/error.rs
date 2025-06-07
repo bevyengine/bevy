@@ -27,9 +27,9 @@ pub enum FunctionError {
     /// No overload was found for the given set of arguments.
     #[error("no overload found for arguments with signature `{received:?}`, expected one of `{expected:?}`")]
     NoOverload {
-        /// TODO
+        /// The set of available argument signatures.
         expected: HashSet<ArgumentSignature>,
-        /// TODO
+        /// The received argument signature.
         received: ArgumentSignature,
     },
 }
@@ -54,7 +54,9 @@ pub enum FunctionOverloadError {
     /// An error that occurs when attempting to add a function overload with a duplicate signature.
     #[error("could not add function overload: duplicate found for signature `{0:?}`")]
     DuplicateSignature(ArgumentSignature),
-    /// TODO
+    /// An attempt was made to add an overload with more than [`ArgCount::MAX_COUNT`] arguments.
+    ///
+    /// [`ArgCount::MAX_COUNT`]: crate::func::args::ArgCount
     #[error(
         "argument signature `{:?}` has too many arguments (max {})",
         0,
