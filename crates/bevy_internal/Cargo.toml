@@ -3,7 +3,7 @@ name = "bevy_internal"
 version = "0.16.0-dev"
 edition = "2024"
 description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic_linking' feature"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
@@ -343,6 +343,8 @@ web = [
   "bevy_reflect/web",
   "bevy_tasks/web",
 ]
+
+hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
 [dependencies]
 # bevy (no_std)
