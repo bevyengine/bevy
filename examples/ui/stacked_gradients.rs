@@ -52,6 +52,7 @@ fn setup(mut commands: Commands) {
                             AngularColorStop::auto(YELLOW.with_alpha(0.)),
                             AngularColorStop::auto(YELLOW.with_alpha(0.)),
                         ],
+                        ..Default::default()
                     }
                     .into(),
                     RadialGradient {
@@ -63,6 +64,7 @@ fn setup(mut commands: Commands) {
                             ColorStop::auto(YELLOW.with_alpha(0.1)),
                             ColorStop::auto(YELLOW.with_alpha(0.)),
                         ],
+                        ..Default::default()
                     }
                     .into(),
                     LinearGradient {
@@ -71,6 +73,7 @@ fn setup(mut commands: Commands) {
                             ColorStop::auto(Color::BLACK),
                             ColorStop::auto(Color::BLACK.with_alpha(0.)),
                         ],
+                        ..Default::default()
                     }
                     .into(),
                     LinearGradient {
@@ -79,6 +82,7 @@ fn setup(mut commands: Commands) {
                             ColorStop::auto(Color::BLACK),
                             ColorStop::auto(Color::BLACK.with_alpha(0.)),
                         ],
+                        ..Default::default()
                     }
                     .into(),
                 ]),
