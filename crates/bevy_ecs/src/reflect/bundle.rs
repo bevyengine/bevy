@@ -32,6 +32,8 @@ pub struct ReflectBundle(ReflectBundleFns);
 /// The also [`super::component::ReflectComponentFns`].
 #[derive(Clone)]
 pub struct ReflectBundleFns {
+    /// Function pointer implementing [`ReflectBundle::get_boxed`].
+    pub get_boxed: fn(Box<dyn Reflect>) -> Result<Box<dyn Bundle>, Box<dyn Reflect>>,
     /// Function pointer implementing [`ReflectBundle::insert`].
     pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply`].
@@ -62,6 +64,16 @@ impl ReflectBundleFns {
 }
 
 impl ReflectBundle {
+    /// Downcast a `Box<dyn Reflect>` type to `Box<dyn {trait_ident}>`.
+    ///
+    /// If the type cannot be downcast, this will return `Err(Box<dyn Reflect>)`.
+    pub fn get_boxed(
+        &self,
+        reflect_value: Box<dyn Reflect>,
+    ) -> Result<Box<dyn Bundle>, Box<dyn Reflect>> {
+        (self.0.get_boxed)(reflect_value)
+    }
+
     /// Insert a reflected [`Bundle`] into the entity like [`insert()`](EntityWorldMut::insert).
     pub fn insert(
         &self,
@@ -152,6 +164,9 @@ impl<B: Bundle + StaticBundle + Reflect + TypePath + BundleFromComponents> FromT
 {
     fn from_type() -> Self {
         ReflectBundle(ReflectBundleFns {
+            get_boxed: |reflect_value| {
+                <dyn Reflect>::downcast::<B>(reflect_value).map(|value| value as Box<dyn Bundle>)
+            },
             insert: |entity, reflected_bundle, registry| {
                 let bundle = entity.world_scope(|world| {
                     from_reflect_with_fallback::<B>(reflected_bundle, world, registry)
