@@ -1112,6 +1112,17 @@ pub fn extract_cameras(
     mapper: Extract<Query<&RenderEntity>>,
 ) {
     let primary_window = primary_window.iter().next();
+    type ExtractedCameraComponents = (
+        ExtractedCamera,
+        ExtractedView,
+        RenderVisibleEntities,
+        TemporalJitter,
+        MipBias,
+        RenderLayers,
+        Projection,
+        NoIndirectDrawing,
+        ViewUniformOffset,
+    );
     for (
         main_entity,
         render_entity,
@@ -1131,17 +1142,9 @@ pub fn extract_cameras(
     ) in query.iter()
     {
         if !camera.is_active {
-            commands.entity(render_entity).remove::<(
-                ExtractedCamera,
-                ExtractedView,
-                RenderVisibleEntities,
-                TemporalJitter,
-                MipBias,
-                RenderLayers,
-                Projection,
-                NoIndirectDrawing,
-                ViewUniformOffset,
-            )>();
+            commands
+                .entity(render_entity)
+                .remove::<ExtractedCameraComponents>();
             continue;
         }
 
@@ -1160,6 +1163,9 @@ pub fn extract_cameras(
             camera.physical_target_size(),
         ) {
             if target_size.x == 0 || target_size.y == 0 {
+                commands
+                    .entity(render_entity)
+                    .remove::<ExtractedCameraComponents>();
                 continue;
             }
 
