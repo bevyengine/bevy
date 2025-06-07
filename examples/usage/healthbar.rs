@@ -93,6 +93,10 @@ fn setup(
                 font_size: 14.0,
                 ..default()
             },
+            TextShadow {
+                offset: Vec2::splat(2.0),
+                color: BLACK.into(),
+            },
         ))
         .id();
 
