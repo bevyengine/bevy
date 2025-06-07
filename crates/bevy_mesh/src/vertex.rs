@@ -3,14 +3,17 @@ use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
 use bevy_math::Vec3;
 use bevy_platform::collections::HashSet;
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
 use thiserror::Error;
 use wgpu_types::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect, serde::Serialize, serde::Deserialize)]
+#[reflect(Debug, Clone, Serialize, Deserialize)]
 pub struct MeshVertexAttribute {
     /// The friendly name of the vertex attribute
+    #[serde(skip)]
     pub name: &'static str,
 
     /// The _unique_ id of the vertex attribute. This will also determine sort ordering
@@ -36,7 +39,20 @@ impl MeshVertexAttribute {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Reflect,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[reflect(Debug, Clone, PartialEq, Hash, Serialize, Deserialize)]
 pub struct MeshVertexAttributeId(u64);
 
 impl From<MeshVertexAttribute> for MeshVertexAttributeId {
@@ -132,7 +148,8 @@ impl VertexAttributeDescriptor {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect, serde::Serialize, serde::Deserialize)]
+#[reflect(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct MeshAttributeData {
     pub(crate) attribute: MeshVertexAttribute,
     pub(crate) values: VertexAttributeValues,
@@ -167,7 +184,8 @@ pub fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
 
 /// Contains an array where each entry describes a property of a single vertex.
 /// Matches the [`VertexFormats`](VertexFormat).
-#[derive(Clone, Debug, EnumVariantMeta)]
+#[derive(Clone, Debug, EnumVariantMeta, Reflect, serde::Serialize, serde::Deserialize)]
+#[reflect(Clone, Debug, Serialize, Deserialize)]
 pub enum VertexAttributeValues {
     Float32(Vec<f32>),
     Sint32(Vec<i32>),

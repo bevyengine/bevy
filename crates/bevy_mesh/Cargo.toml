@@ -13,7 +13,9 @@ keywords = ["bevy"]
 bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
+  "wgpu-types",
+] }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.16.0-dev" }
@@ -27,7 +29,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-fea
 # other
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
-wgpu-types = { version = "24", default-features = false }
+wgpu-types = { version = "24", features = ["serde"], default-features = false }
 serde = { version = "1", features = ["derive"] }
 hexasphere = "15.0"
 thiserror = { version = "2", default-features = false }

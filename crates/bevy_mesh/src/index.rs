@@ -69,7 +69,7 @@ pub enum MeshTrianglesError {
 /// An array of indices into the [`VertexAttributeValues`](super::VertexAttributeValues) for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Reflect)]
 #[reflect(Clone)]
 pub enum Indices {
     U16(Vec<u16>),
