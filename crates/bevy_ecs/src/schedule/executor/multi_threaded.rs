@@ -19,6 +19,8 @@ use crate::{
     system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
+#[cfg(feature = "hotpatching")]
+use crate::{event::Events, HotPatched};
 
 use super::__rust_begin_short_backtrace;
 
@@ -443,6 +445,14 @@ impl ExecutorState {
             return;
         }
 
+        #[cfg(feature = "hotpatching")]
+        let should_update_hotpatch = !context
+            .environment
+            .world_cell
+            .get_resource::<Events<HotPatched>>()
+            .map(Events::is_empty)
+            .unwrap_or(true);
+
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);
 
@@ -459,6 +469,11 @@ impl ExecutorState {
                 // SAFETY: Caller assured that these systems are not running.
                 // Therefore, no other reference to this system exists and there is no aliasing.
                 let system = unsafe { &mut *context.environment.systems[system_index].get() };
+
+                #[cfg(feature = "hotpatching")]
+                if should_update_hotpatch {
+                    system.refresh_hotpatch();
+                }
 
                 if !self.can_run(system_index, conditions) {
                     // NOTE: exclusive systems with ambiguities are susceptible to
