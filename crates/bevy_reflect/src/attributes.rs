@@ -1,4 +1,4 @@
-//! Types and functions for creating, manipulating and querying [`CustomAttributes`].
+//! Types and functions for creating, manipulating and querying [`CustomAttribute`]s.
 
 use crate::Reflect;
 use alloc::boxed::Box;
