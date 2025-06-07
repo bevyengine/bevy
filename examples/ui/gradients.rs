@@ -181,8 +181,7 @@ fn setup(mut commands: Commands) {
                 });
             }
 
-            let button = 
-                commands.spawn((
+            let button = commands.spawn((
                         Button,
                         Node {
                             border: UiRect::all(Val::Px(2.0)),
@@ -195,7 +194,7 @@ fn setup(mut commands: Commands) {
                         },
                         BorderColor::all(Color::WHITE),
                         BorderRadius::MAX,
-                        BackgroundColor(Color::BLACK), 
+                        BackgroundColor(Color::BLACK),
                         children![(
                             Text::new("next color space"),
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -270,7 +269,6 @@ fn setup(mut commands: Commands) {
 
             })
             .add_child(button);
-                    
         });
 }
 
