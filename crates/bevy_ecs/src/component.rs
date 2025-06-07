@@ -481,7 +481,7 @@ use thiserror::Error;
 /// ```
 /// # use std::cell::RefCell;
 /// # use bevy_ecs::component::Component;
-/// use bevy_utils::synccell::SyncCell;
+/// use bevy_platform::cell::SyncCell;
 ///
 /// // This will compile.
 /// #[derive(Component)]
@@ -490,7 +490,7 @@ use thiserror::Error;
 /// }
 /// ```
 ///
-/// [`SyncCell`]: bevy_utils::synccell::SyncCell
+/// [`SyncCell`]: bevy_platform::cell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Component`",
@@ -2400,7 +2400,7 @@ impl Components {
     /// * [`World::component_id()`]
     #[inline]
     pub fn valid_component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.get_id(TypeId::of::<T>())
+        self.get_valid_id(TypeId::of::<T>())
     }
 
     /// Type-erased equivalent of [`Components::valid_resource_id()`].
@@ -2431,7 +2431,7 @@ impl Components {
     /// * [`Components::get_resource_id()`]
     #[inline]
     pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<T>())
+        self.get_valid_resource_id(TypeId::of::<T>())
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
