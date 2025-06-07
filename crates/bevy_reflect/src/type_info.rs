@@ -185,7 +185,7 @@ pub enum TypeInfoError {
 /// 3. [`PartialReflect::get_represented_type_info`]
 /// 4. [`TypeRegistry::get_type_info`]
 ///
-/// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
+/// Each returns a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
 /// the simplest. If you have a `dyn Reflect` you can use [`DynamicTyped::reflect_type_info`].
 /// If all you have is a `dyn PartialReflect`, you'll probably want [`PartialReflect::get_represented_type_info`].
