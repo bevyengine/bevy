@@ -14,7 +14,7 @@
 //!
 //! ```json
 //! {
-//!     "method": "bevy/world/components/get",
+//!     "method": world.get_components",
 //!     "id": 0,
 //!     "params": {
 //!         "entity": 4294967298,
@@ -35,7 +35,7 @@
 //!   response.
 //!
 //! * `method` is a string that specifies one of the possible [`BrpRequest`]
-//!   variants: `bevy/world/query`, `bevy/world/components/get`, `bevy/world/components/insert`, etc. It's case-sensitive.
+//!   variants: `world.query`, `world.get_components`, `world.insert_components`, etc. It's case-sensitive.
 //!
 //! * `params` is parameter data specific to the request.
 //!
@@ -99,10 +99,10 @@
 //! ## Built-in methods
 //!
 //! The Bevy Remote Protocol includes a number of built-in methods for accessing and modifying data
-//! in the ECS. Each of these methods uses the `bevy/` prefix, which is a namespace reserved for
+//! in the ECS. Each of these methods uses the `` prefix, which is a namespace reserved for
 //! BRP built-in methods.
 //!
-//! ### `bevy/world/components/get`
+//! ### `world.get_components`
 //!
 //! Retrieve the values of one or more components from an entity.
 //!
@@ -123,7 +123,7 @@
 //!
 //! `result`: A map associating each type name to its value on the requested entity.
 //!
-//! ### `bevy/world/query`
+//! ### `world.query`
 //!
 //! Perform a query over components in the ECS, returning all matching entities and their associated
 //! component values.
@@ -155,7 +155,7 @@
 //!
 //!
 //!
-//! ### `bevy/world/spawn`
+//! ### `world.spawn_entity`
 //!
 //! Create a new entity with the provided components and return the resulting entity ID.
 //!
@@ -165,7 +165,7 @@
 //! `result`:
 //! - `entity`: The ID of the newly spawned entity.
 //!
-//! ### `bevy/world/despawn`
+//! ### `world.despawn_entity`
 //!
 //! Despawn the entity with the given ID.
 //!
@@ -174,7 +174,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `bevy/world/components/remove`
+//! ### `world.remove_components`
 //!
 //! Delete one or more components from an entity.
 //!
@@ -184,7 +184,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `bevy/world/components/insert`
+//! ### `world.insert_components`
 //!
 //! Insert one or more components into an entity.
 //!
@@ -194,7 +194,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `bevy/world/components/mutate`
+//! ### `world.mutate_components`
 //!
 //! Mutate a field in a component.
 //!
@@ -207,7 +207,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `bevy/world/reparent`
+//! ### `world.reparent_entity`
 //!
 //! Assign a new parent to one or more entities.
 //!
@@ -218,7 +218,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `bevy/world/components/list`
+//! ### `world.list_components`
 //!
 //! List all registered components or all components present on an entity.
 //!
@@ -230,7 +230,7 @@
 //!
 //! `result`: An array of fully-qualified type names of components.
 //!
-//! ### `bevy/world/components/get+watch`
+//! ### `world.get_components+watch`
 //!
 //! Watch the values of one or more components from an entity.
 //!
@@ -258,7 +258,7 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
-//! ### `bevy/world/components/list+watch`
+//! ### `world.list_components+watch`
 //!
 //! Watch all components present on an entity.
 //!
@@ -274,7 +274,7 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
-//! ### `bevy/world/resources/get`
+//! ### `world.get_resources`
 //!
 //! Extract the value of a given resource from the world.
 //!
@@ -284,7 +284,7 @@
 //! `result`:
 //! - `value`: The value of the resource in the world.
 //!
-//! ### `bevy/world/resources/insert`
+//! ### `world.insert_resources`
 //!
 //! Insert the given resource into the world with the given value.
 //!
@@ -294,7 +294,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `bevy/world/resources/remove`
+//! ### `world.remove_resources`
 //!
 //! Remove the given resource from the world.
 //!
@@ -303,7 +303,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `bevy/world/resources/mutate`
+//! ### `world.mutate_resources`
 //!
 //! Mutate a field in a resource.
 //!
@@ -315,7 +315,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `bevy/world/resources/list`
+//! ### `world.list_resources`
 //!
 //! List all reflectable registered resource types. This method has no parameters.
 //!
@@ -440,68 +440,68 @@ impl Default for RemotePlugin {
     fn default() -> Self {
         Self::empty()
             .with_method(
-                builtin_methods::BRP_GET_METHOD,
-                builtin_methods::process_remote_get_request,
+                builtin_methods::BRP_GET_COMPONENTS_METHOD,
+                builtin_methods::process_remote_get_components_request,
             )
             .with_method(
                 builtin_methods::BRP_QUERY_METHOD,
                 builtin_methods::process_remote_query_request,
             )
             .with_method(
-                builtin_methods::BRP_SPAWN_METHOD,
-                builtin_methods::process_remote_spawn_request,
+                builtin_methods::BRP_SPAWN_ENTITY_METHOD,
+                builtin_methods::process_remote_spawn_entity_request,
             )
             .with_method(
-                builtin_methods::BRP_INSERT_METHOD,
-                builtin_methods::process_remote_insert_request,
+                builtin_methods::BRP_INSERT_COMPONENTS_METHOD,
+                builtin_methods::process_remote_insert_components_request,
             )
             .with_method(
-                builtin_methods::BRP_REMOVE_METHOD,
-                builtin_methods::process_remote_remove_request,
+                builtin_methods::BRP_REMOVE_COMPONENTS_METHOD,
+                builtin_methods::process_remote_remove_components_request,
             )
             .with_method(
-                builtin_methods::BRP_DESPAWN_METHOD,
-                builtin_methods::process_remote_despawn_request,
+                builtin_methods::BRP_DESPAWN_COMPONENTS_METHOD,
+                builtin_methods::process_remote_despawn_entity_request,
             )
             .with_method(
-                builtin_methods::BRP_REPARENT_METHOD,
-                builtin_methods::process_remote_reparent_request,
+                builtin_methods::BRP_REPARENT_ENTITY_METHOD,
+                builtin_methods::process_remote_reparent_entity_request,
             )
             .with_method(
-                builtin_methods::BRP_LIST_METHOD,
-                builtin_methods::process_remote_list_request,
+                builtin_methods::BRP_LIST_COMPONENTS_METHOD,
+                builtin_methods::process_remote_list_components_request,
             )
             .with_method(
-                builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
-                builtin_methods::process_remote_mutate_component_request,
+                builtin_methods::BRP_MUTATE_COMPONENTS_METHOD,
+                builtin_methods::process_remote_mutate_components_request,
             )
             .with_method(
                 builtin_methods::RPC_DISCOVER_METHOD,
                 builtin_methods::process_remote_list_methods_request,
             )
             .with_watching_method(
-                builtin_methods::BRP_GET_AND_WATCH_METHOD,
-                builtin_methods::process_remote_get_watching_request,
+                builtin_methods::BRP_GET_COMPONENTS_AND_WATCH_METHOD,
+                builtin_methods::process_remote_get_components_watching_request,
             )
             .with_watching_method(
-                builtin_methods::BRP_LIST_AND_WATCH_METHOD,
-                builtin_methods::process_remote_list_watching_request,
+                builtin_methods::BRP_LIST_COMPONENTS_AND_WATCH_METHOD,
+                builtin_methods::process_remote_list_components_watching_request,
             )
             .with_method(
                 builtin_methods::BRP_GET_RESOURCE_METHOD,
-                builtin_methods::process_remote_get_resource_request,
+                builtin_methods::process_remote_get_resources_request,
             )
             .with_method(
                 builtin_methods::BRP_INSERT_RESOURCE_METHOD,
-                builtin_methods::process_remote_insert_resource_request,
+                builtin_methods::process_remote_insert_resources_request,
             )
             .with_method(
                 builtin_methods::BRP_REMOVE_RESOURCE_METHOD,
-                builtin_methods::process_remote_remove_resource_request,
+                builtin_methods::process_remote_remove_resources_request,
             )
             .with_method(
                 builtin_methods::BRP_MUTATE_RESOURCE_METHOD,
-                builtin_methods::process_remote_mutate_resource_request,
+                builtin_methods::process_remote_mutate_resources_request,
             )
             .with_method(
                 builtin_methods::BRP_LIST_RESOURCES_METHOD,
@@ -585,7 +585,7 @@ pub enum RemoteMethodHandler {
     Watching(Box<dyn System<In = In<Option<Value>>, Out = BrpResult<Option<Value>>>>),
 }
 
-/// The [`SystemId`] of a function that implements a remote instant method (`bevy/world/components/get`, `bevy/world/query`, etc.)
+/// The [`SystemId`] of a function that implements a remote instant method (`world.get_components`, `world.query`, etc.)
 ///
 /// The first parameter is the JSON value of the `params`. Typically, an
 /// implementation will deserialize these as the first thing they do.
@@ -594,7 +594,7 @@ pub enum RemoteMethodHandler {
 /// automatically populate the `id` field before sending.
 pub type RemoteInstantMethodSystemId = SystemId<In<Option<Value>>, BrpResult>;
 
-/// The [`SystemId`] of a function that implements a remote watching method (`bevy/world/components/get+watch`, `bevy/world/components/list+watch`, etc.)
+/// The [`SystemId`] of a function that implements a remote watching method (`world.get_components+watch`, `world.list_components+watch`, etc.)
 ///
 /// The first parameter is the JSON value of the `params`. Typically, an
 /// implementation will deserialize these as the first thing they do.
@@ -659,7 +659,7 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 /// ```json
 /// {
 ///     "jsonrpc": "2.0",
-///     "method": "bevy/world/components/get",
+///     "method": "world.get_components",
 ///     "id": 0,
 ///     "params": {
 ///         "entity": 4294967298,
@@ -674,7 +674,7 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 /// ```json
 /// {
 ///    "jsonrpc": "2.0",
-///    "method": "bevy/world/components/list",
+///    "method": "world.list_components",
 ///    "id": 0,
 ///    "params": null
 ///}

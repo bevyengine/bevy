@@ -69,7 +69,7 @@ pub struct ServerObject {
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MethodObject {
-    /// The method name (e.g., "/bevy/world/components/get")
+    /// The method name (e.g., "world.get_components")
     pub name: String,
     /// An optional short summary of the method.
     #[serde(skip_serializing_if = "Option::is_none")]
