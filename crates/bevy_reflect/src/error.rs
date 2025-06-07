@@ -43,7 +43,7 @@ pub enum ReflectCloneError {
         field: FieldId,
         /// Variant this field is part of if the container is an enum, otherwise [`None`].
         variant: Option<Cow<'static, str>>,
-        /// Fully qualified name of the type containing this field.
+        /// Fully qualified path of the type containing this field.
         container_type_path: Cow<'static, str>,
     },
     /// Could not downcast to the expected type.
