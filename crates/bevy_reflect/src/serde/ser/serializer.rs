@@ -234,12 +234,11 @@ impl<P: ReflectSerializerProcessor> Serialize for TypedReflectSerializer<'_, P> 
     where
         S: Serializer,
     {
-        #[cfg(feature = "debug_stack")]
-        {
+        crate::cfg::debug_stack! {
             if let Some(info) = self.value.get_represented_type_info() {
                 TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
             }
-        }
+        };
 
         // First, check if our processor wants to serialize this type
         // This takes priority over any other serialization operations
