@@ -192,7 +192,8 @@ impl MapInfo {
     impl_generic_info_methods!(generics);
 }
 
-/// TODO
+/// Used to produce an error message when an attempt is made to hash
+/// a [`PartialRefect`](crate::PartialReflect) value that does not support hashing.
 #[macro_export]
 macro_rules! hash_error {
     ( $key:expr ) => {{

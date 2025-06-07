@@ -296,16 +296,16 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 
-/// TODO
+/// A field in the current enum variant.
 pub enum VariantField<'a> {
-    /// TODO
+    /// The name and value of a field in a struct variant.
     Struct(&'a str, &'a dyn PartialReflect),
-    /// TODO
+    /// The value of a field in a tuple variant.
     Tuple(&'a dyn PartialReflect),
 }
 
 impl<'a> VariantField<'a> {
-    /// TODO
+    /// Returns the name of a struct variant field, or [`None`] for a tuple variant field.
     pub fn name(&self) -> Option<&'a str> {
         if let Self::Struct(name, ..) = self {
             Some(*name)
@@ -314,7 +314,7 @@ impl<'a> VariantField<'a> {
         }
     }
 
-    /// TODO
+    /// Gets a reference to the value of this field.
     pub fn value(&self) -> &'a dyn PartialReflect {
         match *self {
             Self::Struct(_, value) | Self::Tuple(value) => value,

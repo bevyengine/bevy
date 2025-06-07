@@ -336,7 +336,7 @@ impl Debug for FunctionRegistry {
 /// A synchronized wrapper around a [`FunctionRegistry`].
 #[derive(Clone, Default, Debug)]
 pub struct FunctionRegistryArc {
-    /// TODO
+    /// The wrapped [`FunctionRegistry`].
     pub internal: Arc<RwLock<FunctionRegistry>>,
 }
 
