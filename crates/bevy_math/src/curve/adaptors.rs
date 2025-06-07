@@ -19,6 +19,7 @@ use {
 mod paths {
     pub(super) const THIS_MODULE: &str = "bevy_math::curve::adaptors";
     pub(super) const THIS_CRATE: &str = "bevy_math";
+    pub(super) const THIS_CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 }
 
 #[expect(unused, reason = "imported just for doc links")]
@@ -143,6 +144,10 @@ where
         Some(paths::THIS_CRATE)
     }
 
+    fn crate_version() -> Option<&'static str> {
+        Some(paths::THIS_CRATE_VERSION)
+    }
+
     fn module_path() -> Option<&'static str> {
         Some(paths::THIS_MODULE)
     }
@@ -253,6 +258,10 @@ where
         Some(paths::THIS_CRATE)
     }
 
+    fn crate_version() -> Option<&'static str> {
+        Some(paths::THIS_CRATE_VERSION)
+    }
+
     fn module_path() -> Option<&'static str> {
         Some(paths::THIS_MODULE)
     }
@@ -346,6 +355,10 @@ where
 
     fn crate_name() -> Option<&'static str> {
         Some(paths::THIS_CRATE)
+    }
+
+    fn crate_version() -> Option<&'static str> {
+        Some(paths::THIS_CRATE_VERSION)
     }
 
     fn module_path() -> Option<&'static str> {

@@ -1087,8 +1087,8 @@ pub(crate) enum ReflectTypePath<'a> {
     ///
     /// May have a separate alias path used for the `TypePath` implementation.
     ///
-    /// Module and crate are found with [`module_path!()`](module_path),
-    /// if there is no custom path specified.
+    /// Module is found with [`module_path!()`](module_path), and crate/version info
+    /// provided by cargo via [`env!()`](env) when there is no custom path specified.
     Internal {
         ident: &'a Ident,
         custom_path: Option<Path>,
@@ -1206,7 +1206,7 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
     ///
-    /// For non-customized [internal] paths this is created from [`module_path`].
+    /// For non-customized [internal] paths this is created from `env!("CARGO_PKG_NAME")`.
     ///
     /// For `Option<PhantomData>`, this is `"core"`.
     ///
@@ -1221,10 +1221,31 @@ impl<'a> ReflectTypePath<'a> {
 
         match self {
             Self::Internal { .. } => Some(StringExpr::Borrowed(quote! {
-                ::core::module_path!()
-                    .split(':')
-                    .next()
-                    .unwrap()
+                ::core::option_env!("CARGO_PKG_NAME").unwrap_or("")
+            })),
+            Self::External { .. } => unreachable!(),
+            _ => None,
+        }
+    }
+
+    /// Returns a [`StringExpr`] representing the version of the type's crate.
+    ///
+    /// Returns [`None`] if the type is [primitive] or [anonymous].
+    ///
+    /// For non-customized [internal] paths this is created from `env!("CARGO_PKG_VERSION")`.
+    ///
+    /// [primitive]: ReflectTypePath::Primitive
+    /// [anonymous]: ReflectTypePath::Anonymous
+    /// [internal]: ReflectTypePath::Internal
+    pub fn crate_version(&self) -> Option<StringExpr> {
+        if let Some(path) = self.get_path() {
+            let crate_name = &path.segments.first().unwrap().ident;
+            return Some(StringExpr::from(crate_name));
+        }
+
+        match self {
+            Self::Internal { .. } => Some(StringExpr::Borrowed(quote! {
+                ::core::option_env!("CARGO_PKG_VERSION").unwrap_or("")
             })),
             Self::External { .. } => unreachable!(),
             _ => None,

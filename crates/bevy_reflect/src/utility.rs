@@ -218,6 +218,10 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///     fn crate_name() -> Option<&'static str> {
 ///         Some("my_crate")
 ///     }
+///
+///     fn crate_version() -> Option<&'static str> {
+///         Some("0.0.0")
+///     }
 /// }
 /// ```
 /// [`impl_type_path`]: crate::impl_type_path

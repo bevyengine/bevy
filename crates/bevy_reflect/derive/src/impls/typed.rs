@@ -84,6 +84,7 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
     let type_ident = wrap_in_option(type_path.type_ident().map(StringExpr::into_borrowed));
     let module_path = wrap_in_option(type_path.module_path().map(StringExpr::into_borrowed));
     let crate_name = wrap_in_option(type_path.crate_name().map(StringExpr::into_borrowed));
+    let crate_version = wrap_in_option(type_path.crate_version().map(StringExpr::into_borrowed));
 
     let primitive_assert = if let ReflectTypePath::Primitive(_) = type_path {
         Some(quote! {
@@ -127,6 +128,10 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
 
                 fn crate_name() -> Option<&'static str> {
                     #crate_name
+                }
+
+                fn crate_version() -> Option<&'static str> {
+                    #crate_version
                 }
 
                 fn module_path() -> Option<&'static str> {
