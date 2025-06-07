@@ -7,7 +7,7 @@
 //! - We can also toggle "Turbo Mode" with the `T` key - where the movement and color changes are all faster. This
 //!   is retained between pauses, but not if we exit to the main menu.
 //!
-//! In addition, we want to enable a "tutorial" mode, which will involve it's own state that is toggled in the main menu.
+//! In addition, we want to enable a "tutorial" mode, which will involve its own state that is toggled in the main menu.
 //! This will display instructions about movement and turbo mode when in game and unpaused, and instructions on how to unpause when paused.
 //!
 //! To implement this, we will create 2 root-level states: [`AppState`] and [`TutorialState`].
@@ -184,9 +184,6 @@ fn main() {
         // We only want to run the [`setup_game`] function when we enter the [`AppState::InGame`] state, regardless
         // of whether the game is paused or not.
         .add_systems(OnEnter(InGame), setup_game)
-        // And we only want to run the [`clear_game`] function when we leave the [`AppState::InGame`] state, regardless
-        // of whether we're paused.
-        .enable_state_scoped_entities::<InGame>()
         // We want the color change, toggle_pause and quit_to_menu systems to ignore the paused condition, so we can use the [`InGame`] derived
         // state here as well.
         .add_systems(
@@ -200,15 +197,12 @@ fn main() {
         )
         // We can continue setting things up, following all the same patterns used above and in the `states` example.
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .enable_state_scoped_entities::<IsPaused>()
         .add_systems(OnEnter(TurboMode), setup_turbo_text)
-        .enable_state_scoped_entities::<TurboMode>()
         .add_systems(
             OnEnter(Tutorial::MovementInstructions),
             movement_instructions,
         )
         .add_systems(OnEnter(Tutorial::PauseInstructions), pause_instructions)
-        .enable_state_scoped_entities::<Tutorial>()
         .add_systems(
             Update,
             (

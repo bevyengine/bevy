@@ -1,5 +1,4 @@
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
@@ -27,6 +26,8 @@ where
     F: ExclusiveSystemParamFunction<Marker>,
 {
     func: F,
+    #[cfg(feature = "hotpatching")]
+    current_ptr: subsecond::HotFnPtr,
     param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
@@ -59,6 +60,11 @@ where
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(
+                <F as ExclusiveSystemParamFunction<Marker>>::run,
+            )
+            .ptr_address(),
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
@@ -89,11 +95,6 @@ where
     #[inline]
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
         &self.system_meta.component_access_set
-    }
-
-    #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.system_meta.archetype_component_access
     }
 
     #[inline]
@@ -131,6 +132,20 @@ where
                 self.param_state.as_mut().expect(PARAM_MESSAGE),
                 &self.system_meta,
             );
+
+            #[cfg(feature = "hotpatching")]
+            let out = {
+                let mut hot_fn =
+                    subsecond::HotFn::current(<F as ExclusiveSystemParamFunction<Marker>>::run);
+                // SAFETY:
+                // - pointer used to call is from the current jump table
+                unsafe {
+                    hot_fn
+                        .try_call_with_ptr(self.current_ptr, (&mut self.func, world, input, params))
+                        .expect("Error calling hotpatched system. Run a full rebuild")
+                }
+            };
+            #[cfg(not(feature = "hotpatching"))]
             let out = self.func.run(world, input, params);
 
             world.flush();
@@ -138,6 +153,17 @@ where
 
             out
         })
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        let new = subsecond::HotFn::current(<F as ExclusiveSystemParamFunction<Marker>>::run)
+            .ptr_address();
+        if new != self.current_ptr {
+            log::debug!("system {} hotpatched", self.name());
+        }
+        self.current_ptr = new;
     }
 
     #[inline]
@@ -168,8 +194,6 @@ where
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
-
-    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {

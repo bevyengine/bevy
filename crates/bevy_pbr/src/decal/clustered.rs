@@ -17,7 +17,7 @@
 use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
+use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -34,10 +34,11 @@ use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    load_shader_library,
     render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
-        SamplerBindingType, Shader, ShaderType, TextureSampleType, TextureView,
+        SamplerBindingType, ShaderType, TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
@@ -51,10 +52,6 @@ use bytemuck::{Pod, Zeroable};
 use crate::{
     binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta, LightVisibilityClass,
 };
-
-/// The handle to the `clustered.wgsl` shader.
-pub(crate) const CLUSTERED_DECAL_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("87929002-3509-42f1-8279-2d2765dd145c");
 
 /// The maximum number of decals that can be present in a view.
 ///
@@ -152,12 +149,7 @@ impl Default for DecalsBuffer {
 
 impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            CLUSTERED_DECAL_SHADER_HANDLE,
-            "clustered.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "clustered.wgsl");
 
         app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default())
             .register_type::<ClusteredDecal>();
