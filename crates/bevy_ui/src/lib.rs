@@ -81,7 +81,7 @@ use bevy_transform::TransformSystems;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{update_clipping_system, update_ui_context_system};
+use update::update_ui_context_system;
 
 /// The basic plugin for Bevy UI
 pub struct UiPlugin {
@@ -228,11 +228,9 @@ impl Plugin for UiPlugin {
                 ui_stack_system
                     .in_set(UiSystems::Stack)
                     // These systems don't care about stack index
-                    .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .ambiguous_with(widget::update_viewport_render_target_size)
                     .in_set(AmbiguousWithText),
-                update_clipping_system.after(TransformSystems::Propagate),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
