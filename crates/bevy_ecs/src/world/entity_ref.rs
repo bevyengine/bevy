@@ -3138,7 +3138,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     }
 }
 
-/// A view into a vacant entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
+/// A view into a vacant entry in a [`EntityWorldMut`]. It is part of the [`ComponentEntry`] enum.
 pub struct VacantComponentEntry<'w, 'a, T: Component> {
     entity_world: &'a mut EntityWorldMut<'w>,
     _marker: PhantomData<T>,
