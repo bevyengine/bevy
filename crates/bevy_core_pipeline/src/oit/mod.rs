@@ -1,7 +1,7 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_ecs::{component::*, prelude::*};
+use bevy_ecs::{component::*, component_lifecycle::ComponentHook, prelude::*};
 use bevy_math::UVec2;
 use bevy_platform::collections::HashSet;
 use bevy_platform::time::Instant;

@@ -418,7 +418,7 @@ impl RemovedComponentEvents {
 /// ```
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::system::IntoSystem;
-/// # use bevy_ecs::component_lifecycle::RemovedComponents;
+/// # use bevy_ecs::removal_detection::RemovedComponents;
 /// #
 /// # #[derive(Component)]
 /// # struct MyComponent;
