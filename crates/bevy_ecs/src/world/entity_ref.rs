@@ -3009,14 +3009,14 @@ impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// # use bevy_ecs::{prelude::*, world::ComponentEntry};
     /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
     /// struct Comp(u32);
     ///
     /// # let mut world = World::new();
     /// let mut entity = world.spawn(Comp(5));
     ///
-    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    /// if let ComponentEntry::Occupied(o) = entity.entry::<Comp>() {
     ///     assert_eq!(o.get().0, 5);
     /// }
     /// ```
@@ -3031,14 +3031,14 @@ impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// # use bevy_ecs::{prelude::*, world::ComponentEntry};
     /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
     /// struct Comp(u32);
     ///
     /// # let mut world = World::new();
     /// let mut entity = world.spawn(Comp(5));
     ///
-    /// if let Entry::Occupied(mut o) = entity.entry::<Comp>() {
+    /// if let ComponentEntry::Occupied(mut o) = entity.entry::<Comp>() {
     ///     o.insert(Comp(10));
     /// }
     ///
@@ -3054,14 +3054,14 @@ impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// # use bevy_ecs::{prelude::*, world::ComponentEntry};
     /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
     /// struct Comp(u32);
     ///
     /// # let mut world = World::new();
     /// let mut entity = world.spawn(Comp(5));
     ///
-    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    /// if let ComponentEntry::Occupied(o) = entity.entry::<Comp>() {
     ///     assert_eq!(o.take(), Comp(5));
     /// }
     ///
@@ -3085,7 +3085,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// # Examples
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// # use bevy_ecs::{prelude::*, world::ComponentEntry};
     /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
     /// struct Comp(u32);
     ///
@@ -3118,14 +3118,14 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// # Examples
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// # use bevy_ecs::{prelude::*, world::ComponentEntry};
     /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
     /// struct Comp(u32);
     ///
     /// # let mut world = World::new();
     /// let mut entity = world.spawn(Comp(5));
     ///
-    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    /// if let ComponentEntry::Occupied(o) = entity.entry::<Comp>() {
     ///     o.into_mut().0 += 10;
     /// }
     ///
@@ -3150,14 +3150,14 @@ impl<'w, 'a, T: Component> VacantComponentEntry<'w, 'a, T> {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// # use bevy_ecs::{prelude::*, world::ComponentEntry};
     /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
     /// struct Comp(u32);
     ///
     /// # let mut world = World::new();
     /// let mut entity = world.spawn_empty();
     ///
-    /// if let Entry::Vacant(v) = entity.entry::<Comp>() {
+    /// if let ComponentEntry::Vacant(v) = entity.entry::<Comp>() {
     ///     v.insert(Comp(10));
     /// }
     ///
