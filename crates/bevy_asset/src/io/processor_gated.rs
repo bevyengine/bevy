@@ -7,7 +7,7 @@ use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use async_lock::RwLockReadGuardArc;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tracing::trace;
 
 use super::{AsyncSeekForward, ErasedAssetReader};
