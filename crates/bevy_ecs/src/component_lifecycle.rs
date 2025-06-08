@@ -1,5 +1,8 @@
-//! Internal components used by bevy with a fixed component id.
-//! Constants are used to skip [`TypeId`] lookups in hot paths.
+//! This module also contains several constants for these lifecycle events (like [`OnAdd`]),
+//! which are assigned tointernal components used by bevy with a fixed [`ComponentId`].
+//! Constants are used to skip [`TypeId`](core::any::TypeId) lookups in hot paths.
+use crate::component::ComponentId;
+
 use super::*;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;

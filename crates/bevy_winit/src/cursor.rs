@@ -21,12 +21,13 @@ use bevy_ecs::system::Res;
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
+    component_lifecycle::OnRemove,
     entity::Entity,
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
     system::{Commands, Local, Query},
-    world::{OnRemove, Ref},
+    world::Ref,
 };
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};

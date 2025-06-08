@@ -14,16 +14,14 @@ use crate::{
         Component, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
         RequiredComponents, StorageType, Tick,
     },
+    component_lifecycle::{ON_ADD, ON_INSERT, ON_REMOVE, ON_REPLACE},
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityWorldMut, ON_ADD, ON_INSERT, ON_REMOVE,
-        ON_REPLACE,
-    },
+    world::{unsafe_world_cell::UnsafeWorldCell, EntityWorldMut},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::{HashMap, HashSet};

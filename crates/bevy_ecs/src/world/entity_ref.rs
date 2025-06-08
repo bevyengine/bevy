@@ -9,6 +9,7 @@ use crate::{
         Component, ComponentId, ComponentTicks, Components, ComponentsRegistrator, Mutable,
         StorageType, Tick,
     },
+    component_lifecycle::{ON_DESPAWN, ON_REMOVE, ON_REPLACE},
     entity::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation,
@@ -19,10 +20,7 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     system::IntoObserverSystem,
-    world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World,
-        ON_DESPAWN, ON_REMOVE, ON_REPLACE,
-    },
+    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};

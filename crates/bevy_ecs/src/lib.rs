@@ -34,6 +34,7 @@ pub mod batching;
 pub mod bundle;
 pub mod change_detection;
 pub mod component;
+pub mod component_lifecycle;
 pub mod entity;
 pub mod entity_disabling;
 pub mod error;
@@ -72,6 +73,7 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
         component::Component,
+        component_lifecycle::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace},
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
@@ -96,7 +98,7 @@ pub mod prelude {
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
-            FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
+            FromWorld, World,
         },
     };
 

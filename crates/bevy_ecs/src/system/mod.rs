@@ -409,7 +409,7 @@ mod tests {
         entity::{Entities, Entity},
         error::Result,
         name::Name,
-        prelude::{AnyOf, EntityRef, Trigger},
+        prelude::{AnyOf, EntityRef, OnAdd, Trigger},
         query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
         removal_detection::RemovedComponents,
         resource::Resource,
@@ -421,7 +421,7 @@ mod tests {
             Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
             ResMut, Single, StaticSystemParam, System, SystemState,
         },
-        world::{DeferredWorld, EntityMut, FromWorld, OnAdd, World},
+        world::{DeferredWorld, EntityMut, FromWorld, World},
     };
 
     use super::ScheduleSystem;

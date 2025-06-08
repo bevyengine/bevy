@@ -1,7 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
-mod component_constants;
 mod deferred_world;
 mod entity_fetch;
 mod entity_ref;
@@ -14,13 +13,16 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-use crate::error::{DefaultErrorHandler, ErrorHandler};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
+use crate::{
+    component_lifecycle::{ON_ADD, ON_DESPAWN, ON_INSERT, ON_REMOVE, ON_REPLACE},
+    error::{DefaultErrorHandler, ErrorHandler},
+    prelude::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace},
+};
 pub use bevy_ecs_macros::FromWorld;
-pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
