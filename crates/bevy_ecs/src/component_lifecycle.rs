@@ -12,12 +12,26 @@
 //!
 //! # Types of lifecycle events
 //!
-//! There are five types of lifecycle events:
+//! There are five types of lifecycle events, split into two categories. First, we have lifecycle events that are triggered
+//! when a component is added to an entity:
+//!
 //! - [`OnAdd`]: Triggered when a component is added to an entity that did not already have it.
 //! - [`OnInsert`]: Triggered when a component is added to an entity, regardless of whether it already had it.
+//!
+//! When both events occur, [`OnAdd`] hooks are evaluated before [`OnInsert`].
+//!
+//! Next, we have lifecycle events that are triggered when a component is removed from an entity:
+//!
 //! - [`OnReplace`]: Triggered when a component is added to an entity that already had it, before the value is replaced.
 //! - [`OnRemove`]: Triggered when a component is removed from an entity, before the component is removed.
 //! - [`OnDespawn`]: Triggered for each component on an entity when it is despawned.
+//!
+//! [`OnReplace`] hooks are evaluated before [`OnRemove`], then finally [`OnDespawn`] hooks are evaluated.
+//!
+//! To reliably synchronize data structures using with component lifecycle events,
+//! you can combine [`OnInsert`] and [`OnReplace`] to fully capture any changes to the data.
+//! This is particularly useful in combination with immutable components,
+//! to avoid any lifecycle-bypassing mutations.
 //!
 //! Each lifecycle event is associated with a specific component.
 //! When defining a component hook for a [`Component`] type, that component is used.
