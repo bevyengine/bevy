@@ -104,7 +104,6 @@ define_label!(
     /// enum CombatSystems {
     ///    TargetSelection,
     ///    DamageCalculation,
-    ///    EffectResolution,
     ///    Cleanup,
     /// }
     /// ```
@@ -113,6 +112,41 @@ define_label!(
     /// corresponds to the order in which the systems are run.
     /// Ordering must be explicitly added to ensure that this is the case,
     /// but following this convention will help avoid confusion.
+    ///
+    /// ### Adding systems to system sets
+    ///
+    /// To add systems to a system set, call [`in_set`](crate::prelude::IntoScheduleConfigs::in_set) on the system function
+    /// while adding it to your app or schedule.
+    ///
+    /// Like usual, these methods can be chained with other configuration methods like [`before`]crate::prelude::IntoScheduleConfigs::before),
+    /// or repeated to add systems to multiple sets.
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(SystemSet, Debug, Default, Clone, PartialEq, Eq, Hash)]
+    /// enum CombatSystems {
+    ///    TargetSelection,
+    ///    DamageCalculation,
+    ///    Cleanup,
+    /// }
+    ///
+    /// fn target_selection() {}
+    ///
+    /// fn enemy_damage_calculation() {}
+    ///
+    /// fn player_damage_calculation() {}
+    ///
+    /// let mut schedule = Schedule::new();
+    /// // Configuring the sets to run in order.
+    /// schedule.configure_sets((CombatSystems::TargetSelection, CombatSystems::DamageCalculation, CombatSystems::Cleanup).chain());
+    ///
+    /// // Adding a single system to a set.
+    /// schedule.add_systems(target_selection_system.in_set(CombatSystems::TargetSelection));
+    ///
+    /// // Adding multiple systems to a set.
+    /// schedule.add_systems((player_damage_calculation, enemy_damage_calculation).in_set(CombatSystems::DamageCalculation));
+    /// ```
     #[diagnostic::on_unimplemented(
         note = "consider annotating `{Self}` with `#[derive(SystemSet)]`"
     )]
