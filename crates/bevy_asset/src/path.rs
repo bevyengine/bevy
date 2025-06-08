@@ -263,7 +263,7 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn from_path_buf(path_buf: PathBuf) -> AssetPath<'a> {
         AssetPath {
-            path: CowArc::Owned(path_buf.into()),
+            path: CowArc::Owned(path_buf.as_os_str().to_str().unwrap().into()),
             source: AssetSourceId::Default,
             label: None,
         }
