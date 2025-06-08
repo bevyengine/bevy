@@ -69,7 +69,7 @@ define_label!(
     ///
     /// Systems can belong to any number of system sets, reflecting multiple roles or facets that they might have.
     /// For example, you may want to annotate a system as "consumes input" and "applies forces",
-    /// and ensure that your system are ordered correctly for both of those sets.
+    /// and ensure that your systems are ordered correctly for both of those sets.
     ///
     /// System sets can belong to any number of other system sets,
     /// allowing you to create nested hierarchies of system sets to group systems together.
