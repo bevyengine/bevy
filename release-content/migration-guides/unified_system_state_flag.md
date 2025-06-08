@@ -3,7 +3,7 @@ title: Unified system state flag
 pull_requests: [19506]
 ---
 
-Now the system have a unified `SystemStateFlag` to represent its different states.
+Now the system have a unified `SystemStateFlags` to represent its different states.
 
 If your code previously looked like this:
 
@@ -33,7 +33,7 @@ You should migrate it to:
 impl System for MyCustomSystem{
   // ...
 
-  fn flag(&self) -> SystemStateFlags {
+  fn flags(&self) -> SystemStateFlags {
     // non-send , exclusive , no deferred
     SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
   }
