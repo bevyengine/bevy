@@ -18,7 +18,7 @@ pub use crate::{
     world::command_queue::CommandQueue,
 };
 use crate::{
-    component_lifecycle::{ON_ADD, ON_DESPAWN, ON_INSERT, ON_REMOVE, ON_REPLACE},
+    component_lifecycle::{ComponentHooks, ON_ADD, ON_DESPAWN, ON_INSERT, ON_REMOVE, ON_REPLACE},
     error::{DefaultErrorHandler, ErrorHandler},
     prelude::{OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace},
 };
@@ -41,8 +41,8 @@ use crate::{
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentIds, ComponentInfo,
-        ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
+        Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, ComponentTicks,
+        Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},

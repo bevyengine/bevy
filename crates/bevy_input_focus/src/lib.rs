@@ -369,7 +369,8 @@ mod tests {
 
     use alloc::string::String;
     use bevy_ecs::{
-        component::HookContext, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
+        component_lifecycle::HookContext, observer::Trigger, system::RunSystemOnce,
+        world::DeferredWorld,
     };
     use bevy_input::{
         keyboard::{Key, KeyCode},

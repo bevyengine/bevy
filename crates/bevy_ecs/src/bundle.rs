@@ -2070,7 +2070,8 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 #[cfg(test)]
 mod tests {
     use crate::{
-        archetype::ArchetypeCreated, component::HookContext, prelude::*, world::DeferredWorld,
+        archetype::ArchetypeCreated, component_lifecycle::HookContext, prelude::*,
+        world::DeferredWorld,
     };
     use alloc::vec;
 

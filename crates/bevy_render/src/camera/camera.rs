@@ -22,7 +22,8 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::{Component, HookContext},
+    component::Component,
+    component_lifecycle::HookContext,
     entity::{ContainsEntity, Entity},
     event::EventReader,
     prelude::With,

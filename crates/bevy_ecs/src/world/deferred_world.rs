@@ -3,8 +3,8 @@ use core::ops::Deref;
 use crate::{
     archetype::Archetype,
     change_detection::{MaybeLocation, MutUntyped},
-    component::{ComponentId, HookContext, Mutable},
-    component_lifecycle::{ON_INSERT, ON_REPLACE},
+    component::{ComponentId, Mutable},
+    component_lifecycle::{HookContext, ON_INSERT, ON_REPLACE},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},

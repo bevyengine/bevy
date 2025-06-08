@@ -1,7 +1,6 @@
 use crate::{
-    component::{
-        Component, ComponentCloneBehavior, ComponentHook, HookContext, Mutable, StorageType,
-    },
+    component::{Component, ComponentCloneBehavior, Mutable, StorageType},
+    component_lifecycle::{ComponentHook, HookContext},
     entity::{ComponentCloneCtx, Entity, EntityClonerBuilder, EntityMapper, SourceComponent},
     world::World,
 };

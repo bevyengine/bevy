@@ -11,7 +11,8 @@ pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
 use crate::{
-    component::{Component, HookContext, Mutable},
+    component::{Component, Mutable},
+    component_lifecycle::HookContext,
     entity::{ComponentCloneCtx, Entity, SourceComponent},
     error::{ignore, CommandWithEntity, HandleError},
     world::{DeferredWorld, EntityWorldMut},
