@@ -1,8 +1,10 @@
 use crate::{
     bundle::Bundle,
+    component::Component,
     entity::{hash_set::EntityHashSet, Entity},
     relationship::{
-        Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
+        InsertionOrderedRelationshipSourceCollection, Relationship, RelationshipHookMode,
+        RelationshipSourceCollection, RelationshipTarget,
     },
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
@@ -302,6 +304,88 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Despawns last child entity of this entity if it exists.
+    /// This entity will not be despawned.
+    pub fn despawn_last_related<S>(&mut self) -> &mut Self
+    where
+        S: RelationshipTarget + Component,
+        S::Collection: InsertionOrderedRelationshipSourceCollection,
+    {
+        if let Some(mut relationship) = self.get_mut::<S>() {
+            let collection = relationship.collection_mut_risky();
+
+            if let Some(last_entity) = collection.pop_last() {
+                self.world_scope(|world| {
+                    if let Ok(entity_mut) = world.get_entity_mut(last_entity) {
+                        entity_mut.despawn();
+                    }
+                });
+            }
+        }
+        self
+    }
+
+    /// Despawns first child entity of this entity if it exists.
+    /// This entity will not be despawned.
+    pub fn despawn_first_related<S>(&mut self) -> &mut Self
+    where
+        S: RelationshipTarget + Component,
+        S::Collection: InsertionOrderedRelationshipSourceCollection,
+    {
+        if let Some(mut relationship) = self.get_mut::<S>() {
+            let collection = relationship.collection_mut_risky();
+
+            if let Some(first_entity) = collection.pop_first() {
+                self.world_scope(|world| {
+                    if let Ok(entity_mut) = world.get_entity_mut(first_entity) {
+                        entity_mut.despawn();
+                    }
+                });
+            }
+        }
+        self
+    }
+
+    /// Remove the last related entity via the given [`RelationshipTarget`]
+    pub fn pop_last_related<S, R>(&mut self) -> &mut Self
+    where
+        S: RelationshipTarget + Component,
+        S::Collection: InsertionOrderedRelationshipSourceCollection,
+        R: Component,
+    {
+        if let Some(mut relationship) = self.get_mut::<S>() {
+            let collection = relationship.collection_mut_risky();
+            if let Some(last_entity) = collection.pop_last() {
+                self.world_scope(|world| {
+                    if let Ok(mut entity_mut) = world.get_entity_mut(last_entity) {
+                        entity_mut.remove::<R>();
+                    }
+                });
+            }
+        }
+        self
+    }
+
+    /// Remove the first related entity via the given [`RelationshipTarget`]
+    pub fn pop_first_related<S, R>(&mut self) -> &mut Self
+    where
+        S: RelationshipTarget + Component,
+        S::Collection: InsertionOrderedRelationshipSourceCollection,
+        R: Component,
+    {
+        if let Some(mut relationship) = self.get_mut::<S>() {
+            let collection = relationship.collection_mut_risky();
+            if let Some(first_entity) = collection.pop_first() {
+                self.world_scope(|world| {
+                    if let Ok(mut entity_mut) = world.get_entity_mut(first_entity) {
+                        entity_mut.remove::<R>();
+                    }
+                });
+            }
+        }
+        self
+    }
+
     /// Inserts a component or bundle of components into the entity and all related entities,
     /// traversing the relationship tracked in `S` in a breadth-first manner.
     ///
@@ -412,6 +496,30 @@ impl<'a> EntityCommands<'a> {
         self.add_related::<R>(&[entity])
     }
 
+    /// Remove the last related entity via the given [`RelationshipTarget`]
+    pub fn pop_last_related<S, R>(&mut self) -> &mut Self
+    where
+        S: RelationshipTarget + Component,
+        S::Collection: InsertionOrderedRelationshipSourceCollection,
+        R: Component,
+    {
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.pop_last_related::<S, R>();
+        })
+    }
+
+    /// Remove the first related entity via the given [`RelationshipTarget`]
+    pub fn pop_first_related<S, R>(&mut self) -> &mut Self
+    where
+        S: RelationshipTarget + Component,
+        S::Collection: InsertionOrderedRelationshipSourceCollection,
+        R: Component,
+    {
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.pop_first_related::<S, R>();
+        })
+    }
+
     /// Removes the relation `R` between this entity and the given entities.
     pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let related: Box<[Entity]> = related.into();
@@ -464,6 +572,30 @@ impl<'a> EntityCommands<'a> {
     pub fn despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| {
             entity.despawn_related::<S>();
+        })
+    }
+
+    /// Despawns last child entity of this entity if it exists.
+    /// This entity will not be despawned.
+    pub fn despawn_last_related<S>(&mut self) -> &mut Self
+    where
+        S: RelationshipTarget + Component,
+        S::Collection: InsertionOrderedRelationshipSourceCollection,
+    {
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.despawn_last_related::<S>();
+        })
+    }
+
+    /// Despawns first child entity of this entity if it exists.
+    /// This entity will not be despawned.
+    pub fn despawn_first_related<S>(&mut self) -> &mut Self
+    where
+        S: RelationshipTarget + Component,
+        S::Collection: InsertionOrderedRelationshipSourceCollection,
+    {
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.despawn_first_related::<S>();
         })
     }
 
@@ -634,6 +766,40 @@ mod tests {
         for entity in [a, b, c, d] {
             assert!(!world.entity(entity).contains::<TestComponent>());
         }
+    }
+
+    #[test]
+    fn test_pop_first_and_last_related() {
+        let mut world = World::new();
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(a)).id();
+        let d = world.spawn(ChildOf(a)).id();
+
+        world.entity_mut(a).pop_first_related::<Children, ChildOf>();
+        world.entity_mut(a).pop_last_related::<Children, ChildOf>();
+
+        assert_eq!(world.entity(d).get::<ChildOf>(), None);
+        assert_eq!(world.entity(b).get::<ChildOf>(), None);
+        assert!(world.entity(c).get::<ChildOf>().is_some());
+    }
+
+    #[test]
+    fn test_despawn_first_and_last_related() {
+        let mut world = World::new();
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(a)).id();
+        let d = world.spawn(ChildOf(a)).id();
+
+        world.entity_mut(a).despawn_first_related::<Children>();
+        world.entity_mut(a).despawn_last_related::<Children>();
+
+        assert!(world.get_entity(b).is_err());
+        assert!(world.get_entity(c).is_ok());
+        assert!(world.get_entity(d).is_err());
     }
 
     #[test]
