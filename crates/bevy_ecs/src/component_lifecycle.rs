@@ -38,7 +38,9 @@
 //! This is particularly useful in combination with immutable components,
 //! to avoid any lifecycle-bypassing mutations.
 //!
-//! Each lifecycle event is associated with a specific component.
+//! ## Lifecycle events and component types
+//!
+//! Despite the absence of generics, each lifecycle event is associated with a specific component.
 //! When defining a component hook for a [`Component`] type, that component is used.
 //! When listening to lifecycle events for observers, the `B: Bundle` generic is used.
 //!
