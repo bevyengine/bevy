@@ -38,5 +38,13 @@ impl Plugin for HotPatchPlugin {
                 }
             },
         );
+
+        #[cfg(feature = "reflect_auto_register")]
+        app.add_systems(
+            crate::First,
+            move |registry: bevy_ecs::system::Res<bevy_ecs::reflect::AppTypeRegistry>| {
+                registry.write().register_derived_types();
+            },
+        );
     }
 }
