@@ -507,12 +507,18 @@ impl<'a> AssetPath<'a> {
         }
     }
 
+    /// Returns the file name
+    /// Ex: Returns `"a.json"` for `"a/b/c/a.json"`
+    pub fn file_name(&self) -> Option<String> {
+        self.path().file_name()?.to_str().map(String::from)
+    }
+
     /// Returns the full extension (including multiple '.' values).
     /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
     ///
     /// Also strips out anything following a `?` to handle query parameters in URIs
     pub fn get_full_extension(&self) -> Option<String> {
-        let file_name = self.path().file_name()?.to_str()?;
+        let file_name = self.file_name()?;
         let index = file_name.find('.')?;
         let mut extension = file_name[index + 1..].to_owned();
 
